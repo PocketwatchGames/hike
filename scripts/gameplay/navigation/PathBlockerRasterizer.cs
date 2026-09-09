@@ -73,9 +73,21 @@ public static class PathBlockerRasterizer
 
     private static void RasterizeShape(CollisionShape3D cs, int floorY, List<Vector3I> outCells)
     {
-        Transform3D worldXform = cs.GlobalTransform;
+        RasterizeShape(cs.Shape, cs.GlobalTransform, floorY, outCells);
+    }
+
+    // Shape plus the transform that places it, split from the node so a caller
+    // that has no live scene can still ask. PropColliderCache snapshots a prop
+    // scene's shapes and their composed local transforms once, then places them
+    // per entity — a world being baked has entity DATA and no nodes at all.
+    public static void RasterizeShape(Shape3D shape, Transform3D worldXform, int floorY,
+        List<Vector3I> outCells)
+    {
+        if (shape == null)
+        {
+            return;
+        }
         Vector3 origin = worldXform.Origin;
-        Shape3D shape = cs.Shape;
 
         switch (shape)
         {

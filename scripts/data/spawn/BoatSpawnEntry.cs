@@ -11,6 +11,9 @@ using Godot;
 public partial class BoatSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
+
+    public override PackedScene PaletteScene => scene;
+
     // Ring-scan radius (in voxels) for the nearest water-topped column.
     [Export] public int searchRadius = 48;
 
@@ -52,7 +55,7 @@ public partial class BoatSpawnEntry : SpawnEntryData
                         continue;
                     }
                     var boatPos = new Vector3(bx + 0.5f, surfaceY.Value, bz + 0.5f);
-                    ws.AddEntity(new BoatSimState(boatPos, 0f, scene));
+                    ws.AddEntity(new BoatSimState(boatPos, FacingY(context), scene));
                     return;
                 }
             }

@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-// WHERE EVERY PAINTER PALETTE COMES FROM. One table, and it is the only place a
-// palette is declared.
+// WHERE EVERY AUTHORING PALETTE COMES FROM. One table, and it is the only place
+// a palette is declared. Read by BOTH authoring tools — the world-map painter
+// and the world editor — so a placeable thing appears in both by existing, and
+// neither can offer something the other cannot.
 //
 // Nothing is registered by hand. A palette names the directories it is made of
 // (or the block catalog it filters) and every resource of the right type found
@@ -30,7 +32,28 @@ using Godot;
 // name. Both are MobSpawnEntry, so nothing but the directory can tell them
 // apart — which makes "which folder is it in" the authoring decision, visible
 // in the file browser instead of buried in an array.
-public sealed class WorldMapPaletteSource
+
+// One directory a palette is made of, and what a tool that GROUPS its palette
+// should file that directory's contents under.
+//
+// The section rides here rather than on the entries because it is already the
+// authoring decision the directory makes — `spawn_entries/mobs/` holds mobs by
+// definition — so an `[Export] category` on every entry would be the same fact
+// typed a second time, in a place it can disagree from. A tool with room for
+// one flat list (the painter's option row) ignores it.
+public readonly struct PaletteRoot
+{
+    public readonly string Path;
+    public readonly string Section;
+
+    public PaletteRoot(string path, string section)
+    {
+        Path = path;
+        Section = section;
+    }
+}
+
+public sealed class AuthoringPaletteSource
 {
     // Stable key into WorldMapPalettes. Persisted, so it never changes once a
     // document has been saved with it.
@@ -44,7 +67,7 @@ public sealed class WorldMapPaletteSource
     public Type Type;
 
     // Directories scanned, non-recursively. Null for a catalog-backed palette.
-    public string[] Roots;
+    public PaletteRoot[] Roots;
 
     // Catalog-backed palettes filter the game's block list rather than a
     // directory: a block is authored into BlockCatalog, which is already the
@@ -56,8 +79,8 @@ public sealed class WorldMapPaletteSource
     // ledger; free ones do not.
     public bool Indexed;
 
-    private WorldMapPaletteSource(string id, string label, Type type, bool indexed,
-        string[] roots = null, Func<BlockData, bool> blocks = null)
+    private AuthoringPaletteSource(string id, string label, Type type, bool indexed,
+        PaletteRoot[] roots = null, Func<BlockData, bool> blocks = null)
     {
         Id = id;
         Label = label;
@@ -82,26 +105,26 @@ public sealed class WorldMapPaletteSource
 
     // ADD A PALETTE HERE. Nothing else in the painter needs to know it exists —
     // WorldMapState resolves whatever this table declares.
-    public static readonly WorldMapPaletteSource[] Table =
+    public static readonly AuthoringPaletteSource[] Table =
     {
         new(Zones, "Zones", typeof(ZoneData), indexed: true,
-            roots: new[] { AUTHORING + "zones/" }),
+            roots: new[] { new PaletteRoot(AUTHORING + "zones/", "Zones") }),
 
         new(Regions, "Regions", typeof(RegionData), indexed: true,
-            roots: new[] { SHARED + "regions/" }),
+            roots: new[] { new PaletteRoot(SHARED + "regions/", "Regions") }),
 
         new(GroundSets, "Ground", typeof(GroundSetData), indexed: true,
-            roots: new[] { AUTHORING + "ground_sets/" }),
+            roots: new[] { new PaletteRoot(AUTHORING + "ground_sets/", "Ground") }),
 
         // ONE palette for both prop layers. What a list is FOR — a barrier you
         // cannot pass or one you can break — is which layer it was painted on,
         // not a property of the list, so splitting this in two would only stop
         // a boulder field being used as either.
         new(PropLists, "Props", typeof(PropListData), indexed: true,
-            roots: new[] { AUTHORING + "prop_lists/" }),
+            roots: new[] { new PaletteRoot(AUTHORING + "prop_lists/", "Props") }),
 
         new(MobSets, "Mobs", typeof(SpawnSetData), indexed: true,
-            roots: new[] { AUTHORING + "mob_sets/" }),
+            roots: new[] { new PaletteRoot(AUTHORING + "mob_sets/", "Mobs") }),
 
         // Every block the mesher draws as water, which is the same question
         // Blocks.IsWater asks — so a water type added later is paintable the
@@ -121,21 +144,22 @@ public sealed class WorldMapPaletteSource
         new(Entities, "Entities", typeof(SpawnEntryData), indexed: false,
             roots: new[]
             {
-                AUTHORING + "spawn_entries/",
-                AUTHORING + "spawn_entries/mobs/",
-                SHARED + "spawn_entries/",
-                SHARED + "spawn_entries/npcs/",
+                new PaletteRoot(AUTHORING + "spawn_entries/", "Interactives"),
+                new PaletteRoot(AUTHORING + "spawn_entries/mobs/", "Mobs"),
+                new PaletteRoot(AUTHORING + "spawn_entries/props/", "Props"),
+                new PaletteRoot(SHARED + "spawn_entries/", "Landmarks"),
+                new PaletteRoot(SHARED + "spawn_entries/npcs/", "NPCs"),
             }),
 
         // FREE: a preset is a composite brush stroke. It writes ground, props
         // and zone and is itself never recorded.
         new(Presets, "Presets", typeof(PaintPresetData), indexed: false,
-            roots: new[] { AUTHORING + "presets/" }),
+            roots: new[] { new PaletteRoot(AUTHORING + "presets/", "Presets") }),
     };
 
-    public static WorldMapPaletteSource Find(string id)
+    public static AuthoringPaletteSource Find(string id)
     {
-        foreach (WorldMapPaletteSource source in Table)
+        foreach (AuthoringPaletteSource source in Table)
         {
             if (source.Id == id)
             {
@@ -163,7 +187,28 @@ public sealed class WorldMapPaletteSource
             found.Sort(StringComparer.Ordinal);
             return found.ToArray();
         }
-        return ResourceTypeIndex.In(Type, Roots);
+        var paths = new string[Roots?.Length ?? 0];
+        for (int i = 0; i < paths.Length; i++)
+        {
+            paths[i] = Roots[i].Path;
+        }
+        return ResourceTypeIndex.In(Type, paths);
+    }
+
+    // Which section a discovered path belongs to — the label on the root it was
+    // found in, or "" for a catalog-backed palette. A tool that groups its
+    // palette asks this; one that shows a flat list never does.
+    public string SectionFor(string path)
+    {
+        string dir = path.GetBaseDir() + "/";
+        foreach (PaletteRoot root in Roots ?? Array.Empty<PaletteRoot>())
+        {
+            if (root.Path == dir)
+            {
+                return root.Section;
+            }
+        }
+        return "";
     }
 
     // The palette, resolved to live resources.
@@ -172,10 +217,18 @@ public sealed class WorldMapPaletteSource
     // discovery found that it does not already list. A slot whose file is gone
     // resolves to null and KEEPS ITS INDEX — the columns painted with it are
     // still out there, so collapsing the hole would re-point every slot after
-    // it. A FREE palette ignores the ledger entirely.
+    // it. A FREE palette ignores the ledger entirely — so a tool with no
+    // document open (the world editor) resolves one by passing null.
     public Resource[] Resolve(WorldMapPalettes palettes)
     {
         string[] paths = Discover();
+        if (Indexed && palettes == null)
+        {
+            GD.PushError($"AuthoringPaletteSource: '{Id}' is an indexed palette and needs a "
+                + "document's ledger to fix its slots; resolving it without one would hand back "
+                + "an order nothing has agreed to.");
+            return Array.Empty<Resource>();
+        }
         if (Indexed)
         {
             WorldMapPaletteLedger ledger = palettes.For(Id);
@@ -199,7 +252,7 @@ public sealed class WorldMapPaletteSource
             resolved[i] = ResourceLoader.Exists(paths[i]) ? ResourceLoader.Load<Resource>(paths[i]) : null;
             if (resolved[i] == null)
             {
-                GD.PushWarning($"WorldMapPaletteSource: {Id} slot {i} is missing ({paths[i]}); "
+                GD.PushWarning($"AuthoringPaletteSource: {Id} slot {i} is missing ({paths[i]}); "
                     + "the slot is kept so the columns painted with it do not re-point.");
             }
         }
@@ -211,10 +264,10 @@ public sealed class WorldMapPaletteSource
     // neighbours.
     public static T[] Resolve<T>(string id, WorldMapPalettes palettes) where T : Resource
     {
-        WorldMapPaletteSource source = Find(id);
+        AuthoringPaletteSource source = Find(id);
         if (source == null)
         {
-            GD.PushError($"WorldMapPaletteSource: no palette named '{id}'.");
+            GD.PushError($"AuthoringPaletteSource: no palette named '{id}'.");
             return Array.Empty<T>();
         }
         Resource[] loaded = source.Resolve(palettes);

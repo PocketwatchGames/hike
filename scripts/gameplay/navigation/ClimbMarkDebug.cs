@@ -137,12 +137,12 @@ public static class ClimbMarkDebug
         float need = -Mathf.Cos(data.climbFacingAngle);
         GD.Print($"  facingDot={dot:F3} needs<={need:F3} pass={dot <= need}");
 
-        // A short wall offers a MANTLE, and TryTraversalPress ranks that above a
-        // climb, so a perfectly climbable face can still never be reached by the
-        // Dash press.
+        // A short wall offers a MANTLE, which is a different button — the interact
+        // press, via MantleInteract — so a face reported climbable here is still
+        // reached with Dash whether or not the mantle is also on offer.
         bool canMantle = player.CanMantle();
         GD.Print($"  VERDICT canClimb={player.CanClimb()} canMantle={canMantle}"
-            + (canMantle ? "  <- mantle takes the Dash press; climb is not reached" : ""));
+            + (canMantle ? "  <- the ledge is offered on interact as well" : ""));
     }
 
     // The horizontal faces of a voxel that stand open to air.

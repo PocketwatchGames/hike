@@ -27,7 +27,7 @@ Two layers, two `R8` rasters, one shared palette:
 - `map/props_blocking.png` — collidable. **A no-spawn region** (see below).
 - `map/props_breakable.png` — destructible. Passable by construction.
 - Both store `prop list index + 1`; 0 = unpainted. The palette is
-  `WorldMapPaletteSource.PropLists`, discovered from `prop_lists/`, ledgered in
+  `AuthoringPaletteSource.PropLists`, discovered from `prop_lists/`, ledgered in
   `map/palettes.tres` like every other indexed palette.
 - **No density channel and no spacing.** The raster says only *which list covers
   this column*; everything else is a property of the list.

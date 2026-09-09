@@ -12,7 +12,7 @@ using Godot;
 //   COLLIDABLE   — a wall of the world. Trees, boulders. Nothing gets through.
 //   DESTRUCTIBLE — a wall until it is cleared. Thickets, brambles, crates.
 //
-// Both draw from the SAME palette (WorldMapPaletteSource.PropLists): what a
+// Both draw from the SAME palette (AuthoringPaletteSource.PropLists): what a
 // list is for is which layer it was painted on, not a property of the list, so
 // a boulder field can be either. Where both layers cover one column the
 // collidable one takes it — see WorldMapState.PreviewDestructibleAt.

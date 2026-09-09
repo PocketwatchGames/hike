@@ -15,8 +15,7 @@ public partial class CoiledRopeSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
 
-    // Aimable: the rope pays out in the direction it faces.
-    public override bool UsesFacing => true;
+    public override PackedScene PaletteScene => scene;
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
@@ -24,6 +23,7 @@ public partial class CoiledRopeSpawnEntry : SpawnEntryData
         {
             return;
         }
-        ws.AddEntity(new CoiledRopeSimState(position, context?.FacingY ?? 0f, scene));
+        // The facing is where the rope pays out.
+        ws.AddEntity(new CoiledRopeSimState(position, FacingY(context), scene));
     }
 }

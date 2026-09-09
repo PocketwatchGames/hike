@@ -1,0 +1,34 @@
+character	player	conversation key	goto	language	condition	action	text
+intro_dying_		greeting				kill_speaker;give_lantern	[lang:common]Sanctuary...[/lang] you must find it. My family, they are in the capital. Please, find the [lang:common]Sanctuary[/lang]. For them. [lang:common]Sanctuary.[/lang]
+intro_guard_		greeting					Hello, traveler.
+							You don't see many strangers around here these days.
+			topics				Safe travels out there. Watch the treeline after dark.
+		tell_more	topics				I have nothing more to say.
+		beard	topics				Thanks!
+		trade				open_shop	Let's do it.
+	x	topics	tell_more				Tell me more.
+	x	topics	beard				I like your beard.
+	x	topics	trade				Do you want to trade?
+intro_hermit_		greeting					Hello, traveler. The mold in this valley makes my lungs ache.
+			topics				I long to leave.
+		recruit				recruit_to_party	Yes
+	x	topics	recruit				Then come with me!
+intro_librarian_		greeting				teach_vyeshal	Hello, I’m the librarian.
+intro_mayor_		greeting	topics				Hello, traveler.
+		speak_common	topics				No. Ulga, librarian. (Points southeast)
+		shipwreck	topics				We saw the shipwreck from the coast. There are rarely survivors on these shores. The mist swallows them.
+		village	topics				Praise be the old gods, we still have stores of amber to keep the village lit for a few more seasons. But the mist will take us, that is sure.
+		sanctuary	topics				I’ve heard tell of it. But if it’s out there it’s beyond beast infested lands. No mudman would make the trek. Our lives are measured in amber.
+	x	topics	speak_common	common	language_incomplete		Do you speak the common tongue?
+	x	topics	shipwreck				My ship wrecked off the shore. I need help.
+	x	topics	village				What is this place?
+	x	topics	sanctuary				A man on the shore kept saying “Sanctuary”. Do you know what this is?
+intro_merchant_		greeting					Hello, traveler.
+						open_shop	Can I interest you in some goods?
+intro_innkeeper		greeting					I’m the innkeeper!
+intro_patron1		greeting					Yum?
+intro_patron2		greeting					Yum!
+intro_patron3		greeting					Yum.
+intro_mayor_assistant1		greeting					Hello.
+intro_mayor_assistant2		greeting					Salutations.
+intro_wanderer		greeting					I’ve been to the swamp. It’s hot.

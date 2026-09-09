@@ -149,6 +149,9 @@ public partial class Player : CharacterBody3D
 	// landHard takes its place — a heavier impact deserves dust + a harder hit.
 	[Export] private PackedScene _landFx;
 	[Export] private PackedScene _landHardFx;
+	// Height the body last left the ground at — the yardstick for whether
+	// regaining it counts as a landing. See the land block in _PhysicsProcess.
+	private float _airborneFromY;
 	// High-speed water entry. Picked over the standard splash when inbound
 	// vertical speed at WaterAreaEntered exceeds WaterPlungeSpeedThreshold.
 	[Export] private PackedScene _waterPlungeFx;
@@ -751,12 +754,6 @@ public partial class Player : CharacterBody3D
 		// query against MobSpatialHash, not through MoveAndSlide contacts.
 		CollisionMask = (uint)ECollisionLayer.Blocking;
 
-		// Setting current=true in the .tscn is unreliable when a Camera3D
-		// is also in the tree — Godot picks the camera as listener. Force
-		// the override explicitly so positional audio is heard from the
-		// player's position rather than the (far-away isometric) camera.
-		_audioListener?.MakeCurrent();
-
 		interactArea.AreaEntered += OnInteractAreaEntered;
 		interactArea.AreaExited += OnInteractAreaExited;
 
@@ -802,12 +799,6 @@ public partial class Player : CharacterBody3D
 	// roof-height drop will.
 	const float LandHardSpeedThreshold = 10f;
 
-	// Inbound vertical speed below which no land sound fires at all. Step-up
-	// + step-down + obstacle interactions can cause sub-frame airborne flips
-	// even on flat ground; this floor suppresses the resulting phantom lands.
-	// Real lands (ledge drops, mantle descents) easily clear it — a one-voxel
-	// step down returns at ~4 m/s.
-	const float LandSoftSpeedThreshold = 1.5f;
 	// Slack above the step-down probe's start height, so the floor ray begins
 	// clear of the surface even when the sweep started flush against it.
 	private const float FloorProbeLift = 0.05f;
@@ -840,6 +831,10 @@ public partial class Player : CharacterBody3D
 		}
 		_safeGroundedHistoryWriteIdx = 0;
 		_lastTickPosition = position;
+		// Seated with the rest of the position history: a body placed in mid-air
+		// has left the ground at the height it was placed, and without this its
+		// first landing would measure a fall from y=0 and stay silent.
+		_airborneFromY = position.Y;
 		_stuckCheckDeadlineMs = 0;
 	}
 
@@ -1317,6 +1312,10 @@ public partial class Player : CharacterBody3D
 		}
 		_safeGroundedHistoryWriteIdx = 0;
 		_lastTickPosition = position;
+		// Seated with the rest of the position history: a body placed in mid-air
+		// has left the ground at the height it was placed, and without this its
+		// first landing would measure a fall from y=0 and stay silent.
+		_airborneFromY = position.Y;
 		_stuckCheckDeadlineMs = 0;
 		_inventory = new Inventory(this, data);
 		_inventory.onSlotChanged += OnInventorySlotChanged;
@@ -1447,6 +1446,15 @@ public partial class Player : CharacterBody3D
 	public void SetActive(bool active)
 	{
 		IsActive = active;
+		if (active)
+		{
+			// The listener follows CONTROL, not node spawn order: every party member
+			// carries one, so an inactive member entering the tree (a mid-run recruit
+			// standing at camp) must not claim it. Claimed here rather than authored
+			// `current` in the .tscn — that claims on tree entry, and a Camera3D in
+			// the tree can win it anyway, leaving audio at the far isometric camera.
+			_audioListener?.MakeCurrent();
+		}
 		// Only the controlled member vacuums loot — disable the attract sphere on
 		// inactive members so they don't magnetize pickups while standing idle.
 		if (_pickupAttractArea != null)
@@ -1460,12 +1468,6 @@ public partial class Player : CharacterBody3D
 			UpdateAnimation();
 		}
 	}
-
-	// Claim the positional audio listener for this member. Every Player's _Ready
-	// calls MakeCurrent, so with a multi-member party the last one spawned would
-	// win by default — GameClient calls this on the ACTIVE member after spawn and
-	// on each control switch so audio is always heard from the controlled body.
-	public void MakeAudioListenerCurrent() => _audioListener?.MakeCurrent();
 
 	// Toggle the party-select outline on this member's model: adds/removes the
 	// OutlineMaskLayer bit on its meshes and drives GameCamera's outline
@@ -2156,6 +2158,11 @@ public partial class Player : CharacterBody3D
 			&& IsFlatMoveBlocked(dt) && CanStepUpAhead();
 		if (useStepUp)
 		{
+			// Only now that a lift is actually going to happen — this costs a ray.
+			stepUpLift = ClampStepUpToHeadroom(stepUpLift, dt);
+		}
+		if (useStepUp && stepUpLift > 0f)
+		{
 			using var stepUpResult = MoveAndCollide(Vector3.Up * stepUpLift);
 		}
 
@@ -2297,8 +2304,34 @@ public partial class Player : CharacterBody3D
 				// No collision at all — we walked off a ledge. The
 				// step-down moved us the full stepHeight before stopping,
 				// which is fine; gravity will continue the fall next tick.
-				FallTraceMark("stepdown-nohit");
-				StepDownWalkOff(posBeforeStep);
+				//
+				// ...unless the body is INSIDE geometry, in which case an empty
+				// sweep says nothing about the world — it is the sweep failing to
+				// report from a penetrating pose, which is the very distinction
+				// IsBodyIntersecting exists to draw. The hit path above already
+				// makes it; without it here, a capsule the step-up lift pressed
+				// into a doorway jamb was read as having walked off a ledge and
+				// went airborne with the floor still under it.
+				if (CVars.moveBlockDebug.Value)
+				{
+					LogStepDownOutcome("nohit", stepDownResult, data.stepHeight + maxSlopeDrop);
+				}
+				if (IsBodyIntersecting())
+				{
+					// Keep standing. The vertical sweep is handed back exactly as
+					// a walk-off hands it back — so the lift does not accumulate —
+					// but the horizontal carry stays, which is what it already did
+					// here and is what keeps a doorway from turning sticky. The
+					// dash is left alone too: it has not run out of floor.
+					FallTraceMark("stepdown-wedged");
+					StepDownRestoreY(posBeforeStep);
+					_grounded = true;
+				}
+				else
+				{
+					FallTraceMark("stepdown-nohit");
+					StepDownWalkOff(posBeforeStep);
+				}
 			}
 		}
 		else
@@ -2324,14 +2357,26 @@ public partial class Player : CharacterBody3D
 		UpdateSlideState();
 		UpdateSkating(wasOnFloor, inboundFallSpeed);
 		UpdateSlideLoop((_sliding || _skating || _skidding) && _waterState == EWaterState.None);
-		// Airborne → grounded transition. Speed-gate a hard-land variant so
-		// stepping off small ledges plays the soft sound; only meaningful
-		// drops produce the dust-and-thud landHard. The bottom threshold
-		// suppresses spurious lands from sub-frame physics jitter (e.g.
-		// stepping over rough geometry); only audible drops fire either
-		// variant.
-		if (!wasOnFloor && _grounded && _waterState == EWaterState.None && inboundFallSpeed >= LandSoftSpeedThreshold)
+		// Ground transitions, and the landing one-shot that hangs off them.
+		// Speed-gates a hard-land variant so stepping off small ledges plays the
+		// soft sound and only meaningful drops get the dust-and-thud landHard.
+		if (wasOnFloor && !_grounded)
 		{
+			// Left the ground this tick. posBeforeStep is the stance height,
+			// captured before the step-up lift, so it is where the fall starts
+			// from however far the lift raised us first.
+			_airborneFromY = posBeforeStep.Y;
+		}
+		else if (!wasOnFloor && _grounded && _waterState == EWaterState.None
+			&& _airborneFromY - GlobalPosition.Y >= data.landMinFallHeight)
+		{
+			// Regained it, having actually descended. The test is net DROP, not
+			// inbound speed: the player has no jump, so every real airborne
+			// episode ends lower than it began, while the step-up lift raises the
+			// body and step-down returns it every single tick you brush a doorway
+			// jamb — arriving at the floor with genuine downward speed having
+			// fallen nowhere at all. Speed still picks the variant, which is the
+			// one thing it does answer honestly.
 			bool hardLand = inboundFallSpeed >= LandHardSpeedThreshold;
 			PackedScene landScene = hardLand ? _landHardFx : _landFx;
 			SpawnWorldEffect(landScene);
@@ -2444,13 +2489,21 @@ public partial class Player : CharacterBody3D
 	// Resolve a step-down that found no floor as walking off an edge: keep the
 	// horizontal carry, hand back the vertical sweep, and let gravity own the
 	// rest. Shared by both no-floor outcomes so they cannot drift apart.
-	private void StepDownWalkOff(Vector3 posBeforeStep)
+	// Hands back the vertical sweep and keeps the horizontal carry. Split out so
+	// walking off an edge and holding ground while wedged cannot drift apart on
+	// how they place the body — they differ only in what they conclude from it.
+	private void StepDownRestoreY(Vector3 posBeforeStep)
 	{
 		GlobalPosition = new Vector3(
 			GlobalPosition.X,
 			posBeforeStep.Y,
 			GlobalPosition.Z
 		);
+	}
+
+	private void StepDownWalkOff(Vector3 posBeforeStep)
+	{
+		StepDownRestoreY(posBeforeStep);
 		_grounded = false;
 		// There is no way to ASK to leave the ground, so a dash that has just
 		// run out of floor stops driving the body forward — gravity takes it
@@ -2583,6 +2636,46 @@ public partial class Player : CharacterBody3D
 		using KinematicCollision3D overlap = MoveAndCollide(
 			Vector3.Zero, testOnly: true, safeMargin: 0.001f, recoveryAsCollision: true);
 		return overlap != null;
+	}
+
+	// Trims the step-up lift to the ceiling clearance available ONE TICK AHEAD,
+	// which is the half MoveAndCollide cannot cover: it caps the lift under a
+	// ceiling directly overhead, but a doorway's lintel is ahead of the body, not
+	// above it, at the moment the lift is taken.
+	//
+	// The capsule spans GlobalPosition.Y .. +1.5, so a full stepHeight lift puts
+	// its crown at 2.0 — exactly the height of a 2-voxel opening, with nothing
+	// spare. Taking it at the threshold left the crown inside the lintel as soon
+	// as MoveAndSlide carried the body forward, and a body wedged between lintel
+	// and floor with no margin depenetrates whichever way the solver picks —
+	// sometimes DOWN, dropping the player through the floor. Authoring the
+	// opening 3m tall hid it by giving the lift somewhere to go; this is why 2m
+	// could not work.
+	//
+	// A ray, not a shape sweep: the origin is the air the body is about to move
+	// into (the doorway itself), never the wall beside it, and a lintel spans the
+	// whole opening — so a single crown ray meets it. The player sits on the
+	// Player layer and the query masks Solid, so it cannot self-hit.
+	private float ClampStepUpToHeadroom(float lift, float dt)
+	{
+		Vector3 dir = new(Velocity.X, 0f, Velocity.Z);
+		if (dir.LengthSquared() < 0.0001f
+			|| _movementCollision?.Shape is not CapsuleShape3D capsule)
+		{
+			return lift;
+		}
+		float crown = _movementCollision.Position.Y + capsule.Height * 0.5f;
+		float reach = Mathf.Max(dir.Length() * dt, data.stepProbeReach);
+		Vector3 from = GlobalPosition + dir.Normalized() * reach + Vector3.Up * crown;
+		Vector3 to = from + Vector3.Up * (lift + data.stepUpCeilingClearance);
+		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
+		Godot.Collections.Dictionary hit = GetWorld3D().DirectSpaceState.IntersectRay(query);
+		if (hit.Count == 0)
+		{
+			return lift;
+		}
+		float ceilingY = ((Vector3)hit["position"]).Y;
+		return Mathf.Max(0f, ceilingY - data.stepUpCeilingClearance - from.Y);
 	}
 
 	// Gate for the per-tick step-up lift. The lift itself is blind geometry —

@@ -1,0 +1,6 @@
+[gd_resource type="Resource" script_class="KillSpeakerAction" format=3]
+
+[ext_resource type="Script" uid="uid://py0k71ykmo8a" path="res://scripts/data/conversation/actions/KillSpeakerAction.cs" id="1_act"]
+
+[resource]
+script = ExtResource("1_act")

@@ -1,0 +1,16 @@
+character	player	conversation key	goto	language	condition	action	text
+friendly_villager_		greeting	topics				Hello, traveler.
+							You don't see many strangers around here these days.
+							Safe travels out there. Watch the treeline after dark.
+		tell_more	topics				I have nothing more to say.
+		beard	topics				Thanks!
+		trade				open_shop	Let's do it.
+	x	topics	tell_more				Tell me more.
+	x	topics	beard				I like your beard.
+	x	topics	trade				Do you want to trade?
+wanderer_		greeting	topics				Well met, traveler. I’ve been resting my feet by this fire.
+							I know these roads — the peaks, the wood, the dunes, the mire. Been walking them alone too long, if I’m honest.
+		join				recruit_to_party	Ha — I thought you’d never ask. Aye, I’m with you. I’ll wait at your fire till you’re ready to move.
+		farewell					And to you. I’ll be here a while yet.
+	x	topics	join				Walk them with me, then. Join my party.
+	x	topics	farewell				Safe travels.

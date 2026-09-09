@@ -54,9 +54,9 @@ public partial class EntityPlacement : Resource
 
     [Export] public Vector2I anchorXZ;
 
-    // Which way this entity is aimed. Only an entry whose spawn reads
-    // SpawnContext.FacingY does anything with it (SpawnEntryData.UsesFacing);
-    // the painter neither draws nor sets a facing on the ones that do not.
+    // Which way this entity is aimed. Every entry honours one — it is seated
+    // onto the EntitySimState's RotationY, which every entity carries — so there
+    // is no placement the painter declines to aim.
     [Export] public EEntityFacing facing;
 
     // "Sit on whatever ground is under me" — the value every entity placed on the
@@ -145,15 +145,11 @@ public partial class EntityPlacement : Resource
         {
             return Entry;
         }
-        if (source.Duplicate(false) is not SpawnEntryData copy)
+        SpawnEntryData copy = source.Fork();
+        if (ReferenceEquals(copy, source))
         {
-            GD.PushError($"EntityPlacement: could not fork entry '{source.ResourcePath}' for editing");
             return source;
         }
-        // Cleared explicitly. A duplicate that kept its path would save as an
-        // ext_resource pointing back at the palette file, which silently throws
-        // the fork away on the next load.
-        copy.ResourcePath = "";
         custom = copy;
         return custom;
     }

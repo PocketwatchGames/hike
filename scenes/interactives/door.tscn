@@ -14,6 +14,8 @@
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="11_meshhl"]
 [ext_resource type="Texture2D" uid="uid://74scss48uag0" path="res://assets/textures/interactions/open.png" id="12_open"]
 [ext_resource type="PackedScene" uid="uid://cabgksfyakp0l" path="res://assets/models/doors/SM_Env_Door_01.fbx" id="13_model"]
+[ext_resource type="PackedScene" path="res://scenes/fx/door_open.tscn" id="14_dooropen"]
+[ext_resource type="PackedScene" path="res://scenes/fx/door_close.tscn" id="15_doorclose"]
 
 [sub_resource type="Resource" id="Resource_door_event_open"]
 script = ExtResource("9_event")
@@ -26,23 +28,25 @@ icon = ExtResource("12_open")
 completionEvents = Array[ExtResource("9_event")]([SubResource("Resource_door_event_open")])
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
-size = Vector3(1.32, 2.46, 0.2)
+size = Vector3(1.32, 2.4, 0.2)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
 size = Vector3(1.32, 2.46, 1)
 
-[node name="Door" type="Node3D" unique_id=964775259 node_paths=PackedStringArray("_blockCollider", "_hinge", "_hurtBox", "_hudNode")]
+[node name="Door" type="Node3D" unique_id=964775259 node_paths=PackedStringArray("_blockCollider", "_hinges", "_hurtBox", "_hudNode")]
 script = ExtResource("1_door")
 _blockCollider = NodePath("BlockCollider")
-_hinge = NodePath("DoorVisual/Hinge")
+_hinges = [NodePath("DoorVisual/Hinge")]
 _hurtBox = NodePath("HurtBox")
 _hudNode = NodePath("HUDNode")
+_openFx = ExtResource("14_dooropen")
+_closeFx = ExtResource("15_doorclose")
 _actions = Array[ExtResource("8_action")]([SubResource("Resource_door_action_open")])
 
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=730201462]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=311926449]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.23, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2497902, 0)
 shape = SubResource("BoxShape3D_block")
 
 [node name="InteractiveBox" type="Area3D" parent="." unique_id=2010892134 node_paths=PackedStringArray("_interactiveNode")]

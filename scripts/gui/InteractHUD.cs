@@ -52,15 +52,20 @@ public partial class InteractHUD : Node2D
 	int _modalFocusedIndex = -1;
 	int _interactLevel;
 
-	// This HUD fronts the player's self-action menu (opened with nothing highlighted),
-	// not a world interactive — it has no persistent prompt and auto-opens its modal.
+	// This HUD fronts the player's self-action menu (raised by holding interact with
+	// nothing highlighted), not a world interactive — so it has no default action to
+	// preview, only the hold bar leading to its menu.
 	bool IsSelfMenu => _player != null && ReferenceEquals(_interactive, _player.SelfInteractive);
 
 	// Total entries the options modal would show: this interactive's own actions plus
 	// the always-available self-actions (unless this IS the self menu, which already
-	// lists them). Drives the hold-to-open affordance so a single-action world
-	// interactive still offers the hold path to reach the self-actions.
+	// lists them).
 	int MenuCount() => (_actions?.Count ?? 0) + (IsSelfMenu ? 0 : _player?.SelfActions?.Count ?? 0);
+
+	// Whether holding the button here opens the options menu, which is what the hold
+	// bar advertises. The self menu is nothing BUT that menu; a world interactive
+	// offers it once there is more than one thing to pick.
+	bool HoldOpensMenu() => IsSelfMenu || MenuCount() > 1;
 
 	public IInteractive Interactive => _interactive;
 	public bool ModalOpen => _modalOpen;
@@ -90,14 +95,6 @@ public partial class InteractHUD : Node2D
 		RefreshActions();
 		SetupLevelPips();
 		Update();
-		// The self-action menu has no persistent prompt — it exists only to show the
-		// options list, so pop the modal immediately (deferred so we're in the tree).
-		// Skip when a self-action is already in flight: this HUD instance was respawned
-		// just to show the running action's progress ring, not to reopen the menu.
-		if (IsSelfMenu && _player.CurInteractive == null)
-		{
-			CallDeferred(MethodName.OpenModal);
-		}
 	}
 
 	// Light one pip per level (fixed at spawn — an interactive's level is
@@ -168,10 +165,9 @@ public partial class InteractHUD : Node2D
 	void RefreshActions()
 	{
 		_actions = _interactive.GetActions(_player);
-		bool hasMultiple = !IsSelfMenu && MenuCount() > 1;
 		if (_holdContainer != null)
 		{
-			_holdContainer.Visible = hasMultiple && _player.CurInteractive == null;
+			_holdContainer.Visible = HoldOpensMenu() && _player.CurInteractive == null;
 		}
 		if (_holdTimer != null)
 		{
@@ -211,6 +207,12 @@ public partial class InteractHUD : Node2D
 		{
 			Array<InteractiveAction> menu = _menuActions;
 			return (menu != null && _modalFocusedIndex < menu.Count) ? menu[_modalFocusedIndex] : null;
+		}
+		// The self menu has no default action, so it shows no icon while the hold is
+		// still filling — an icon there would advertise a press that does nothing.
+		if (IsSelfMenu && _player.CurInteractive != _interactive)
+		{
+			return null;
 		}
 		if (_actions == null || _actions.Count == 0)
 		{
@@ -255,10 +257,9 @@ public partial class InteractHUD : Node2D
 		if (!ReferenceEquals(latest, _actions))
 		{
 			_actions = latest;
-			bool hasMultiple = !IsSelfMenu && MenuCount() > 1;
 			if (_holdContainer != null && !_modalOpen)
 			{
-				_holdContainer.Visible = hasMultiple && _player.CurInteractive == null;
+				_holdContainer.Visible = HoldOpensMenu() && _player.CurInteractive == null;
 			}
 		}
 
@@ -278,10 +279,9 @@ public partial class InteractHUD : Node2D
 
 		if (!_modalOpen)
 		{
-			bool hasMultiple = !IsSelfMenu && MenuCount() > 1;
 			if (_holdContainer != null)
 			{
-				_holdContainer.Visible = hasMultiple && _player.CurInteractive == null;
+				_holdContainer.Visible = HoldOpensMenu() && _player.CurInteractive == null;
 			}
 			if (_holdTimer != null)
 			{
@@ -300,8 +300,10 @@ public partial class InteractHUD : Node2D
 	void OnInteractMenuOpenRequested()
 	{
 		// Only respond if we're the HUD for the player's current highlight —
-		// a different interactive's HUD shouldn't open its modal in response.
-		if (_player.HighlightInteractive != _interactive)
+		// a different interactive's HUD shouldn't open its modal in response. The
+		// self menu is the exception by construction: it is raised precisely when
+		// there IS no highlight, so it answers every request it hears.
+		if (!IsSelfMenu && _player.HighlightInteractive != _interactive)
 		{
 			return;
 		}
@@ -410,10 +412,9 @@ public partial class InteractHUD : Node2D
 				child.QueueFree();
 			}
 		}
-		bool hasMultiple = !IsSelfMenu && MenuCount() > 1;
 		if (_holdContainer != null)
 		{
-			_holdContainer.Visible = hasMultiple && _player.CurInteractive == null;
+			_holdContainer.Visible = HoldOpensMenu() && _player.CurInteractive == null;
 		}
 		_player?.CloseInteractMenu();
 		GameClient gc = GameClient.Current;

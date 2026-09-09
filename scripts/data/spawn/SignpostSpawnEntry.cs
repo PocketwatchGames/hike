@@ -16,6 +16,9 @@ using Godot;
 public partial class SignpostSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
+
+    public override PackedScene PaletteScene => scene;
+
     [Export(PropertyHint.MultilineText)] public string text = "";
     [Export] public LanguageData language;
 
@@ -34,6 +37,9 @@ public partial class SignpostSpawnEntry : SpawnEntryData
                 + "containing PoiPlacement), not on the shared palette entry. Not placed.");
             return;
         }
-        ws.AddEntity(new SignpostSimState(position, scene, text, language));
+        ws.AddEntity(new SignpostSimState(position, scene, text, language)
+        {
+            RotationY = FacingY(context),
+        });
     }
 }

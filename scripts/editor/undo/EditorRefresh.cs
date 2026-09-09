@@ -32,6 +32,14 @@ public sealed class EditorRefresh
     {
         if (sim != null)
         {
+            // Mantleable ledges are baked, not derived at mesh time, so an edit
+            // that changes the rock — or moves the props standing on it — has to
+            // redo them BEFORE the re-mesh below reads them back.
+            VoxelBox touched = TouchedBox();
+            if (!touched.IsEmpty)
+            {
+                ClimbLedgeStamper.RestampRegion(sim.WorldState, touched);
+            }
             if (_voxels.Count > 0)
             {
                 sim.UpdateLighting(_voxels);
@@ -49,6 +57,27 @@ public sealed class EditorRefresh
         }
         _voxels.Clear();
         _entityChunks.Clear();
+    }
+
+    // Everything this batch disturbed, as one box: the voxels written, plus the
+    // full extent of any chunk whose entities changed — a prop dropped on a
+    // ledge takes the affordance away without touching a voxel.
+    private VoxelBox TouchedBox()
+    {
+        var min = new Vector3I(int.MaxValue, int.MaxValue, int.MaxValue);
+        var max = new Vector3I(int.MinValue, int.MinValue, int.MinValue);
+        foreach (Vector3I cell in _voxels)
+        {
+            min = min.Min(cell);
+            max = max.Max(cell);
+        }
+        foreach (Vector3I coord in _entityChunks)
+        {
+            Vector3I lo = coord * ChunkState.SIZE;
+            min = min.Min(lo);
+            max = max.Max(lo + Vector3I.One * (ChunkState.SIZE - 1));
+        }
+        return max.X < min.X ? VoxelBox.Empty : new VoxelBox(min, max);
     }
 
     private HashSet<Vector3I> ChunksToRemesh()

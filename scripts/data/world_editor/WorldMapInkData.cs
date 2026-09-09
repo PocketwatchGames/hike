@@ -78,12 +78,12 @@ public partial class WorldMapInkData : Resource
     // the mark in the direction the entity is aimed, in the mark's own colour.
     // One pixel rather than a cell: a facing is a direction, and a cell-wide arm
     // at 45 degrees is a staircase, while a pixel line reads as a line at every
-    // zoom the map is drawn at. Long enough to be followed with the eye across a
-    // village and short enough not to reach a neighbouring mark. 0 turns it off.
-    //
-    // Only marks whose entry reads a facing draw one (SpawnEntryData.UsesFacing),
-    // so a line on the map always means something the bake will honour.
-    [Export(PropertyHint.Range, "0,8,0.5")] public float entityFacingLength = 2.5f;
+    // zoom the map is drawn at. Only long enough to read WHICH WAY off a mark at
+    // a glance — a longer arm is not more legible, it just reaches further into
+    // a neighbouring mark. 0 turns it off. Quarter-metre steps because the
+    // useful values are around one metre, which a half-metre step cannot land
+    // either side of.
+    [Export(PropertyHint.Range, "0,8,0.25")] public float entityFacingLength = 1.25f;
 
     // Wash over a placed subscene's footprint. The alpha is the SELECTED
     // strength; an unselected stamp gets a fraction of it, so which one a drag

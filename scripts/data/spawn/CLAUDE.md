@@ -32,6 +32,20 @@ container is worse than a missing one: it invites tuning that does nothing.
   three (mob, npc, chest) have a sim state that can defer on a condition, so
   widening every signature for it is the worse trade. Nothing clears the field —
   every caller sets it for the row it is about to place.
+- **A facing reaches `Spawn` on the same `SpawnContext`, and EVERY entry honours
+  one.** Every `EntitySimState` carries a `RotationY` that `SeatTransform`
+  applies, so which way a placed entity looks is a property of the PLACEMENT, not
+  a capability an entry type opts into — the entry reads
+  `SpawnEntryData.FacingY(context)` in the line that constructs its state and the
+  painter aims everything without asking. There used to be a `UsesFacing` flag
+  six types overrode, and it was an opt-in list: signposts, forges, knowledge
+  stones and fountains were all un-turnable because nobody had added the two
+  lines, and the painter silently refused to aim them. **`HK009` is the backstop**
+  — a `Spawn` override that builds an `EntitySimState` without mentioning
+  `FacingY` is a build error. Two entries deviate on purpose: mob and npc write
+  `context?.FacingY ?? Roll(rng)` out longhand, because the helper is a call and
+  would consume a draw even when aimed; `StoneRingSpawnEntry` turns the ring's
+  phase and leaves each stone its own random yaw.
 - **An entry stays embedded when it is genuinely one-of-a-kind**: the villagers in
   a house list (`NpcSpawnEntry` — each carries its own conversation, outfit and
   palette), a campfire fixture with authored text. Hoisting a single-use entry

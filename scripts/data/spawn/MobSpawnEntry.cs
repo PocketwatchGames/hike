@@ -9,6 +9,8 @@ public partial class MobSpawnEntry : SpawnEntryData
     // see MobDescriptor.
     [Export] public MobDescriptor descriptor;
 
+    public override Texture2D PaletteIcon => descriptor?.mob?.bestiaryPortrait;
+
     // The descriptors THIS entry may be set to — the biome variants, elites and
     // torchbearers that are all the same creature. One palette entry per family
     // ("goblin"), with the member picked per placement, so selecting it on the
@@ -61,6 +63,8 @@ public partial class MobSpawnEntry : SpawnEntryData
     public override bool RequireLateralClearance => descriptor?.mob?.CanTraverseLand != false;
 
     public override bool IsMobEntry => true;
+
+    public override StringName VariantProperty => PropertyName.descriptor;
 
     // Which descriptor of its family this one is, so an entry covering a whole
     // family still names the individual in the hover readout and the panel title.
@@ -149,15 +153,16 @@ public partial class MobSpawnEntry : SpawnEntryData
         return false;
     }
 
-    // Aimable: a hand-placed one takes the facing instead of a random yaw.
-    public override bool UsesFacing => true;
-
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (descriptor == null)
         {
             return;
         }
+        // Written out rather than through SpawnEntryData.FacingY because the
+        // fallback must stay LAZY: a crowd nobody aimed wants a random yaw each,
+        // and a call would burn a draw on the aimed ones too and shift every roll
+        // behind it.
         float rotationY = context?.FacingY ?? (float)(rng.NextDouble() * Mathf.Pi * 2f);
         // Layer the per-area worldgen level field (and underground bonus) onto the
         // descriptor's authored base level, then hand the final tier to CreateState

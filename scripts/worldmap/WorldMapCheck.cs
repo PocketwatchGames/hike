@@ -518,7 +518,7 @@ public static class WorldMapCheck
     // the columns painted with it are still out there.
     private static void ReportPalettes(System.Text.StringBuilder sb, WorldMapState ctx)
     {
-        foreach (WorldMapPaletteSource source in WorldMapPaletteSource.Table)
+        foreach (AuthoringPaletteSource source in AuthoringPaletteSource.Table)
         {
             if (!source.Indexed)
             {

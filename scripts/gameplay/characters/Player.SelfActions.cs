@@ -7,10 +7,11 @@ using Godot.Collections;
 // _actions, so they share the whole InteractiveAction pipeline: reagent gating +
 // spend (InteractiveAction.reagents → the shared HasReagents/SpendReagents pool
 // path), requirements, timelines, and completion ItemEffects. They differ from world
-// interactions only in trigger surface — reached by HOLDING interact over a
-// highlighted interactive (appended to its option list) or by PRESSING interact with
-// nothing highlighted — and are always non-default: pressing never auto-runs one, it
-// only ever opens the menu.
+// interactions only in trigger surface: they are reached by HOLDING interact and by
+// nothing else — over a highlighted interactive they are appended to its option
+// list, and with nothing highlighted the hold raises them on their own. A TAP never
+// reaches one, even where it has nothing else to do, so the button's meaning does
+// not change with what happens to be in front of the player.
 public partial class Player : CharacterBody3D
 {
 	[Export] private Array<InteractiveAction> _selfActions = new();
@@ -33,14 +34,15 @@ public partial class Player : CharacterBody3D
 	// interaction uses.
 	PlayerSelfInteractive _selfInteractive;
 
-	// True while the player has opened the self-action menu with nothing highlighted
-	// (press-interact-in-open-space). Drives GameClient.UpdateInteractHUD to spawn the
-	// menu-only HUD; cleared when the menu closes.
-	bool _selfMenuRequested;
+	// True from the moment interact is pressed with nothing highlighted until the
+	// press resolves (menu opened, or released early). Drives
+	// GameClient.UpdateInteractHUD to spawn the menu-only HUD, which is what draws
+	// the hold bar; cleared when the hold is abandoned or the menu closes.
+	bool _selfPromptActive;
 
 	public Array<InteractiveAction> SelfActions => _selfActions;
 	public IInteractive SelfInteractive => _selfInteractive;
-	public bool SelfMenuRequested => _selfMenuRequested;
+	public bool SelfPromptActive => _selfPromptActive;
 
 	// True when the runner is driving an interactive action flagged fadeToBlack —
 	// GameClient reads it to fade the screen off the live interact progress.
@@ -52,18 +54,31 @@ public partial class Player : CharacterBody3D
 		_selfInteractive = new PlayerSelfInteractive(this);
 	}
 
-	// Open the self-action menu with no world interactive present (the player pressed
-	// interact in open space). Spawns the menu-only HUD via the interact-changed
-	// refresh; the HUD auto-opens its options modal since a self-action is never a
-	// default press. No-op when there are no self-actions to show.
-	public void RequestSelfMenu()
+	// Raise the self-action prompt with no world interactive present (the player is
+	// holding interact in open space). Spawns the menu-only HUD via the
+	// interact-changed refresh; that HUD shows the hold bar and opens its options
+	// modal when the hold completes. No-op when there are no self-actions to show.
+	public void ShowSelfPrompt()
 	{
-		if (_selfActions == null || _selfActions.Count == 0 || _selfMenuRequested)
+		if (_selfActions == null || _selfActions.Count == 0 || _selfPromptActive)
 		{
 			return;
 		}
-		_selfMenuRequested = true;
+		_selfPromptActive = true;
 		onInteractChanged?.Invoke(_selfInteractive);
+	}
+
+	// Drop it again — the hold was abandoned, or the menu it raised has closed.
+	// Refreshes so GameClient frees the menu-only HUD, unless a self-action just
+	// started and _curInteractive is keeping it alive for its progress ring.
+	public void HideSelfPrompt()
+	{
+		if (!_selfPromptActive)
+		{
+			return;
+		}
+		_selfPromptActive = false;
+		onInteractChanged?.Invoke(_curInteractive);
 	}
 
 	// The interact modal's option list for `target`: the world interactive's actions

@@ -188,12 +188,12 @@ public static class TerrainMath
     public static bool IsSurfaceVoxel(WorldState ws, int wx, int wy, int wz)
     {
         var self = ws.GetBlockWorld(wx, wy, wz);
-        if (!Blocks.IsSolid(self) || self == Blocks.BarrierId)
+        if (!Blocks.HasGeometry(self))
         {
             return false;
         }
         var above = ws.GetBlockWorld(wx, wy + 1, wz);
-        return !Blocks.IsSolid(above) || above == Blocks.BarrierId;
+        return !Blocks.HasGeometry(above);
     }
 
     // Natural terrain — the materials worldgen fills ground with. Excludes
@@ -206,7 +206,7 @@ public static class TerrainMath
     public static bool IsSolidOpaque(WorldState ws, int wx, int wy, int wz)
     {
         var v = ws.GetBlockWorld(wx, wy, wz);
-        return Blocks.IsSolid(v) && v != Blocks.BarrierId;
+        return Blocks.HasGeometry(v);
     }
 
     // Solid voxel with air or water on any of its six sides — the definition of

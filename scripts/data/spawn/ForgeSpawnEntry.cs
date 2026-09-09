@@ -11,6 +11,9 @@ using Godot;
 public partial class ForgeSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
+
+    public override PackedScene PaletteScene => scene;
+
     // Pip range the forge is clamped to (0-4, matching the mob level scale so a
     // forge sits at the same tier as monsters in its zone). Level 0 shows no
     // pips and grants the mildest upgrade; the zone level decides where in this
@@ -38,7 +41,10 @@ public partial class ForgeSpawnEntry : SpawnEntryData
         // Resolve the concrete slot once, at bake time: the authored value if pinned,
         // else derived from position. Downstream reads the resolved ForgeSimState.Slot.
         EUpgradeSlot slot = forgeSlot != EUpgradeSlot.None ? forgeSlot : ForgeOffer.SlotFor(position);
-        ws.AddEntity(new ForgeSimState(position, scene, level, slot));
+        ws.AddEntity(new ForgeSimState(position, scene, level, slot)
+        {
+            RotationY = FacingY(context),
+        });
         ws.ClearDetailVoxelsWithin(position, detailSuppressionRadius);
     }
 }

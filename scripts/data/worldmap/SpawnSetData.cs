@@ -3,7 +3,7 @@ using Godot;
 // A named, reusable set of things to SCATTER over an area by rule — a pine
 // stand, a palm oasis, a wolf pack. Referenced by TerrainKitData as a kit's
 // ambient scatter, and by the painter's MOB palette
-// (WorldMapPaletteSource.MobSets).
+// (AuthoringPaletteSource.MobSets).
 //
 // The painter no longer paints props from one: a painted prop region is placed
 // DIRECTLY from a PropListData, because the reason to paint props is to say

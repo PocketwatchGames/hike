@@ -65,15 +65,6 @@ public partial class EditorHud : CanvasLayer
     [Export] public Button drawRoofModeButton;
     [Export] public Button editRoofModeButton;
 
-    [ExportGroup("Entity Tabs")]
-    // One container per EEditorEntityTab, in enum order.
-    [Export] public Container interactivesTab;
-    [Export] public Container treesTab;
-    [Export] public Container rocksTab;
-    [Export] public Container natureTab;
-    [Export] public Container furnitureTab;
-    [Export] public Container propsTab;
-
     [ExportGroup("Current Tool")]
     [Export] public TextureRect brushImage;
     [Export] public Label brushNameLabel;
@@ -138,6 +129,8 @@ public partial class EditorHud : CanvasLayer
     // meaningful either way.
     private readonly List<EditorToolButton> _voxelButtons = new List<EditorToolButton>();
     private readonly List<EditorToolButton> _entityButtons = new List<EditorToolButton>();
+    // Section name -> the tab built for it this palette build.
+    private readonly Dictionary<string, Container> _entityTabs = new Dictionary<string, Container>();
     private readonly List<EditorToolButton> _roofButtons = new List<EditorToolButton>();
     private EditorBrushEntry[] _voxelEntries = Array.Empty<EditorBrushEntry>();
     private EditorBrushEntry[] _entityEntries = Array.Empty<EditorBrushEntry>();
@@ -366,15 +359,12 @@ public partial class EditorHud : CanvasLayer
             _voxelButtons.Add(AddBrushButton(voxelTab, _voxelEntries[i], voxelGroup, i, index => onVoxelBrushSelected?.Invoke(index)));
         }
 
-        foreach (EEditorEntityTab tab in Enum.GetValues<EEditorEntityTab>())
-        {
-            ClearGrid(ContainerForTab(tab));
-        }
+        BuildEntityTabs();
         _entityButtons.Clear();
         var entityGroup = new ButtonGroup();
         for (int i = 0; i < _entityEntries.Length; i++)
         {
-            Container grid = ContainerForTab(_entityEntries[i].Tab);
+            Container grid = ContainerForSection(_entityEntries[i].Section);
             _entityButtons.Add(AddBrushButton(grid, _entityEntries[i], entityGroup, i, index => onEntityBrushSelected?.Invoke(index)));
         }
 
@@ -395,22 +385,43 @@ public partial class EditorHud : CanvasLayer
         {
             return;
         }
-        _entityEntries[index] = new EditorBrushEntry(_entityEntries[index].Name, icon, _entityEntries[index].Tab);
+        _entityEntries[index] = new EditorBrushEntry(_entityEntries[index].Name, icon, _entityEntries[index].Section);
         _entityButtons[index]?.Bind(_entityEntries[index]);
     }
 
-    private Container ContainerForTab(EEditorEntityTab tab)
+    // One tab per section the palette handed us, in first-seen order — so the
+    // tab strip is a consequence of what is on disk rather than a scene the
+    // author has to keep in step. A TabContainer names its tabs after its
+    // children, so the node name IS the label.
+    private void BuildEntityTabs()
     {
-        return tab switch
+        _entityTabs.Clear();
+        if (entityPalette == null)
         {
-            EEditorEntityTab.Interactives => interactivesTab,
-            EEditorEntityTab.Trees => treesTab,
-            EEditorEntityTab.Rocks => rocksTab,
-            EEditorEntityTab.Nature => natureTab,
-            EEditorEntityTab.Furniture => furnitureTab,
-            EEditorEntityTab.Props => propsTab,
-            _ => null,
-        };
+            return;
+        }
+        foreach (Node child in entityPalette.GetChildren())
+        {
+            child.QueueFree();
+            entityPalette.RemoveChild(child);
+        }
+        foreach (EditorBrushEntry entry in _entityEntries)
+        {
+            string section = string.IsNullOrEmpty(entry.Section) ? "Other" : entry.Section;
+            if (_entityTabs.ContainsKey(section))
+            {
+                continue;
+            }
+            var grid = new HFlowContainer { Name = section };
+            entityPalette.AddChild(grid);
+            _entityTabs[section] = grid;
+        }
+    }
+
+    private Container ContainerForSection(string section)
+    {
+        return _entityTabs.TryGetValue(
+            string.IsNullOrEmpty(section) ? "Other" : section, out Container grid) ? grid : null;
     }
 
     private static void ClearGrid(Container grid)

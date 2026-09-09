@@ -9,6 +9,8 @@ public partial class CactusSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
 
+    public override PackedScene PaletteScene => scene;
+
     // Danger-zone radius mobs avoid while wandering and never spawn inside.
     [Export] public float hazardRadius = CactusSimState.DefaultHazardRadius;
     public override float HazardSpawnRadius => hazardRadius;
@@ -21,6 +23,7 @@ public partial class CactusSpawnEntry : SpawnEntryData
         }
         ws.AddEntity(new CactusSimState(position, scene)
         {
+            RotationY = FacingY(context),
             HazardRadius = hazardRadius,
         });
     }

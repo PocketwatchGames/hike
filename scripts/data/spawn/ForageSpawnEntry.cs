@@ -13,6 +13,8 @@ public partial class ForageSpawnEntry : SpawnEntryData
     // every forageable — the presented item varies per entry, not per scene.
     [Export] public PackedScene scene;
 
+    public override PackedScene PaletteScene => scene;
+
     // The item the spawner presents as a pickup.
     [Export] public ItemData item;
 
@@ -26,6 +28,9 @@ public partial class ForageSpawnEntry : SpawnEntryData
         {
             return;
         }
-        ws.AddEntity(new ForageSpawnerSimState(position, scene, item, regrowDays));
+        ws.AddEntity(new ForageSpawnerSimState(position, scene, item, regrowDays)
+        {
+            RotationY = FacingY(context),
+        });
     }
 }

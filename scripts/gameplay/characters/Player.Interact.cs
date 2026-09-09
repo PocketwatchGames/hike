@@ -126,6 +126,12 @@ public partial class Player : CharacterBody3D
 			_highlightInteractive = null;
 			onHighlightChanged?.Invoke(null);
 		}
+		// Drop any hold in progress with the target it was aimed at. Left running
+		// it reaches the threshold with nothing on screen to answer the open
+		// request, latching InteractMenuOpen with no menu to close it.
+		_interactPressActive = false;
+		InteractHoldProgress = 0f;
+		HideSelfPrompt();
 	}
 
 	public void CloseInteractMenu()
@@ -133,14 +139,10 @@ public partial class Player : CharacterBody3D
 		InteractMenuOpen = false;
 		InteractHoldProgress = 0f;
 		_interactPressActive = false;
-		// If this menu was the no-highlight self-action menu, drop the request and
+		// If this menu was the no-highlight self-action menu, drop the prompt and
 		// refresh so GameClient frees the menu-only HUD (unless a self-action just
 		// started, in which case _curInteractive keeps the HUD alive for its progress).
-		if (_selfMenuRequested)
-		{
-			_selfMenuRequested = false;
-			onInteractChanged?.Invoke(_curInteractive);
-		}
+		HideSelfPrompt();
 	}
 	// HUD progress fill while the runner is driving an interactive action.
 	// Reads directly off the in-flight PlayerAction so the bar reflects what
@@ -226,12 +228,36 @@ public partial class Player : CharacterBody3D
 			_highlightInteractive = closest;
 		}
 
-		// Traversal is NOT offered here as an interactive: mantling and wall
-		// climbing live on the Dash press (TryTraversalPress), so a ledge must not
-		// also occupy the interact slot and shadow a real interactive beside it.
-		// MantleInteract is held inert rather than deleted because it still owns the
-		// prompt's placement and smoothing, so re-offering it is a one-line change.
-		MantleInteract.SetCandidate(false, default, Vector3.Zero, dt);
+		// Nothing real in range — offer the ledge in front, if there is one. A
+		// mantle is an INTERACT (the wall climb it ranks against is the Dash
+		// traversal), so it takes the interact slot, but strictly below world
+		// interactives: standing at a chest on a ledge still opens the chest.
+		if (_highlightInteractive == null)
+		{
+			bool canMantle = TryFindMantle(out MantleProbe.Candidate candidate);
+			// The prompt is placed purely from the player: a fixed offset along
+			// body facing. Nothing in the horizontal position comes from the
+			// candidate, because the candidate's landing is a voxel CENTRE — any
+			// dependence on it makes the prompt step a metre sideways whenever
+			// the target cell changes, which no amount of smoothing hides.
+			// Height is the exception: it has to sit at the ledge, so it is the
+			// one term that steps, and the only one that is eased.
+			Vector3 anchor = Vector3.Zero;
+			if (canMantle)
+			{
+				anchor = GlobalPosition + BodyForward() * data.mantlePromptForwardOffset;
+				anchor.Y = candidate.landing.Y + data.mantlePromptLift;
+			}
+			MantleInteract.SetCandidate(canMantle, candidate, anchor, dt);
+			if (canMantle)
+			{
+				_highlightInteractive = MantleInteract;
+			}
+		}
+		else
+		{
+			MantleInteract.SetCandidate(false, default, Vector3.Zero, dt);
+		}
 
 		if (_highlightInteractive != prevHighlight)
 		{

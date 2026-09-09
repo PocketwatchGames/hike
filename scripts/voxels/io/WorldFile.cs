@@ -220,7 +220,11 @@ public static class WorldFile
     // v53: every entity's common trailing fields gained a uniform Scale float
     //      (after the pool tag), so a placement can vary a prop's size without
     //      a scene per size. The world-map prop fill is what writes it.
-    public const uint VERSION = 53;
+    // v54: chunks carry their baked mantleable ledge lips (ChunkState.ClimbLips).
+    //      The mesher used to re-derive them per build from voxels alone, which
+    //      could not see the props standing on a ledge; the answer is now decided
+    //      once, by the producer, where the entities exist.
+    public const uint VERSION = 54;
 
     public struct IndexEntry
     {

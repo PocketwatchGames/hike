@@ -19,7 +19,7 @@ using Godot;
 [GlobalClass]
 public partial class WorldMapPaletteLedger : Resource
 {
-    // Which palette this is, by the stable id in WorldMapPaletteSource.Table. A
+    // Which palette this is, by the stable id in AuthoringPaletteSource.Table. A
     // string rather than the enum-ish id as an int, because a persisted key must
     // not move when C# is edited.
     [Export] public string palette = "";

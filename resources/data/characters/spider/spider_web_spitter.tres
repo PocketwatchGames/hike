@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="6_buildup"]
 [ext_resource type="Resource" uid="uid://cxe16f481wisr" path="res://resources/data/status_effects/status_webbed.tres" id="7_webbed"]
 [ext_resource type="PackedScene" uid="uid://zrp2q7v02zw0h" path="res://scenes/projectiles/web_glob.tscn" id="8_proj"]
-[ext_resource type="PackedScene" uid="uid://4er2o3uhgst8q" path="res://scenes/fx/web_splat.tscn" id="9_splat"]
+[ext_resource type="PackedScene" uid="uid://ccwykpfpiepxe" path="res://scenes/fx/web_splat.tscn" id="9_splat"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="10_4wxxt"]
 [ext_resource type="PackedScene" uid="uid://f3k3t2bsm1ci" path="res://scenes/fx/web_burst.tscn" id="10_burst"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="11_mdbnn"]

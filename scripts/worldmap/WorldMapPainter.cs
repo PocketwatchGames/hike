@@ -1137,7 +1137,7 @@ public partial class WorldMapPainter : Node3D
     // rebuild over unchanged data has to reproduce a full one exactly.
     private void DrawFacingLine(EntityPlacement placement, Vector2I at, Color mark)
     {
-        if (ink.entityFacingLength <= 0f || placement.Entry is not { UsesFacing: true })
+        if (ink.entityFacingLength <= 0f)
         {
             return;
         }

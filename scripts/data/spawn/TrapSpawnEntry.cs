@@ -14,6 +14,8 @@ public partial class TrapSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
 
+    public override PackedScene PaletteScene => scene;
+
     // Danger-zone radius mobs avoid while wandering and never spawn inside.
     // The spike field is a ~3x3m square (4x4 trigger), so this is larger than
     // the fire traps — a disc of this radius covers the spiked floor. Attack
@@ -31,6 +33,7 @@ public partial class TrapSpawnEntry : SpawnEntryData
         }
         ws.AddEntity(new TrapSimState(position, scene)
         {
+            RotationY = FacingY(context),
             HazardRadius = hazardRadius,
         });
     }

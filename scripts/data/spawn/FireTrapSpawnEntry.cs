@@ -6,6 +6,8 @@ public partial class FireTrapSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
 
+    public override PackedScene PaletteScene => scene;
+
     // Per-instance random phase offset for the fire-column trap's first idle
     // window — keeps neighbouring traps out of lockstep so a swamp full of
     // them feels like the Princess Bride fire swamp rather than a metronome.
@@ -24,6 +26,7 @@ public partial class FireTrapSpawnEntry : SpawnEntryData
             return;
         }
         var fireTrap = new FireTrapSimState(position, scene);
+        fireTrap.RotationY = FacingY(context);
         fireTrap.PhaseOffsetSeconds = (float)(rng.NextDouble() * maxPhaseOffsetSeconds);
         fireTrap.HazardRadius = hazardRadius;
         ws.AddEntity(fireTrap);

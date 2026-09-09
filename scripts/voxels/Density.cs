@@ -17,7 +17,7 @@ public static class Density
 
     public static sbyte TypeDensity(int type)
     {
-        if (!Blocks.IsSolid(type) || type == Blocks.BarrierId)
+        if (!Blocks.HasGeometry(type))
         {
             return OUTSIDE;
         }

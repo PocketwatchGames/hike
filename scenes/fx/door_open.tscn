@@ -1,0 +1,30 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://drm4tp8q3cpyw" path="res://assets/audio/source/interactives/sfx_door_open_01.wav" id="2_o01"]
+[ext_resource type="AudioStream" uid="uid://b04cxqudcxvi7" path="res://assets/audio/source/interactives/sfx_door_open_02.wav" id="2_o02"]
+[ext_resource type="AudioStream" uid="uid://y1s1j3qeirxy" path="res://assets/audio/source/interactives/sfx_door_open_03.wav" id="2_o03"]
+[ext_resource type="AudioStream" uid="uid://bfwsh8u1jsf73" path="res://assets/audio/source/interactives/sfx_door_open_04.wav" id="2_o04"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_dooropen"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 2.0
+streams_count = 4
+stream_0/stream = ExtResource("2_o01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_o02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_o03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_o04")
+stream_3/weight = 1.0
+
+[node name="DoorOpen" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_dooropen")
+unit_size = 6.0
+max_distance = 35.0
+bus = &"World3D"

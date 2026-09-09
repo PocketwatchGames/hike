@@ -33,80 +33,98 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		// Interact, or the self-action menu when there is nothing highlighted.
-		// Traversal is NOT here — climbing and mantling ride the Dash press
-		// (TryTraversalPress), so the two buttons never contend for one affordance.
-		if (Input.IsActionJustPressed("Interact") && !TryInteractPress())
+		// Hanging on a wall or a rope: the press LETS GO, and can mean nothing
+		// else. The highlight is dropped for the whole climb (BeginClimbEntry
+		// clears it, and UpdateHighlightInteractive never runs while Climbing),
+		// so there is nothing up there for the ordinary path to act on.
+		if (Climbing)
 		{
-			// Nothing highlighted: the press opens the self-action menu (Pray, ...).
-			// Never auto-runs — the menu always comes up for a non-default action.
-			RequestSelfMenu();
+			if (Input.IsActionJustPressed("Interact"))
+			{
+				TryReleaseClimb();
+			}
+			return;
+		}
+		if (Input.IsActionJustPressed("Interact"))
+		{
+			BeginInteractPress();
 		}
 		TickInteractHold();
 	}
 
-	// One press of the interact button, world half only. Returns false when
-	// nothing in the world claimed it, which is what raises the self-action menu.
-	bool TryInteractPress()
+	// One press of the interact button. Every press that isn't an abort opens a
+	// HOLD rather than acting — the RELEASE decides (TickInteractHold), because
+	// a tap and a hold mean different things at every target, and with nothing
+	// highlighted a tap must mean nothing at all. That last case is the point:
+	// the self-actions are never a press, so they can never fire by accident in
+	// place of the interaction the player was reaching for.
+	void BeginInteractPress()
 	{
 		if (_curInteractive != null)
 		{
 			CancelInteract();
-			return true;
+			return;
 		}
-		if (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
+		bool hasTarget = _highlightInteractive != null && _highlightInteractive.CanActorInteract(this);
+		// Nothing to run and nothing to open — leave the button alone rather than
+		// filling a hold bar for a menu that would come up empty.
+		if (!hasTarget && (_selfActions == null || _selfActions.Count == 0))
 		{
-			// Count the merged menu (world actions + always-available self-actions):
-			// a tap runs the world DEFAULT, a hold opens the menu where the self-
-			// actions live. With self-actions present the menu is always multi-entry,
-			// so a highlighted interactive always offers the hold-to-menu path.
-			int menuCount = _highlightInteractive.GetActions(this)?.Count ?? 0;
-			menuCount += _selfActions?.Count ?? 0;
-			if (menuCount > 1)
-			{
-				_interactPressActive = true;
-				_interactHoldStartMs = _world?.GameTimeMs ?? 0;
-				InteractHoldProgress = 0f;
-				return true;
-			}
-			if (menuCount == 1 && TryStartInteractiveAction(_highlightInteractive))
-			{
-				_highlightInteractive = null;
-				onHighlightChanged?.Invoke(null);
-			}
-			return true;
+			return;
 		}
-		return false;
+		_interactPressActive = true;
+		_interactHoldStartMs = _world?.GameTimeMs ?? 0;
+		InteractHoldProgress = 0f;
 	}
 
 	void TickInteractHold()
 	{
-		if (_interactPressActive)
+		if (!_interactPressActive)
 		{
-			ulong now = _world?.GameTimeMs ?? 0;
-			ulong elapsed = now > _interactHoldStartMs ? now - _interactHoldStartMs : 0;
-			InteractHoldProgress = Mathf.Clamp(elapsed / ContextButtonHoldMs, 0f, 1f);
-			bool stillHeld = Input.IsActionPressed("Interact");
-			if (!stillHeld)
+			return;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		ulong elapsed = now > _interactHoldStartMs ? now - _interactHoldStartMs : 0;
+		InteractHoldProgress = Mathf.Clamp(elapsed / ContextButtonHoldMs, 0f, 1f);
+
+		bool hasTarget = _highlightInteractive != null && _highlightInteractive.CanActorInteract(this);
+		if (!Input.IsActionPressed("Interact"))
+		{
+			_interactPressActive = false;
+			InteractHoldProgress = 0f;
+			// Tap: run the target's default action — the chest, the rope, or the
+			// ledge in front (MantleInteract). With nothing there the tap does
+			// nothing at all and the self prompt goes away again.
+			if (hasTarget && TryStartInteractiveAction(_highlightInteractive))
 			{
-				_interactPressActive = false;
-				InteractHoldProgress = 0f;
-				// Tap (released before threshold): start the default action.
-				if (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
-				{
-					if (TryStartInteractiveAction(_highlightInteractive))
-					{
-						_highlightInteractive = null;
-						onHighlightChanged?.Invoke(null);
-					}
-				}
+				_highlightInteractive = null;
+				onHighlightChanged?.Invoke(null);
 			}
-			else if (elapsed >= ContextButtonHoldMs)
-			{
-				_interactPressActive = false;
-				InteractMenuOpen = true;
-				onInteractMenuOpenRequested?.Invoke();
-			}
+			HideSelfPrompt();
+			return;
+		}
+
+		// Still held. Settle which prompt this hold is aimed at EVERY tick, not
+		// once at the press: the player can walk up to a chest or away from one
+		// mid-hold, and whichever HUD is on screen when the threshold lands is the
+		// one that has to answer the open request. Fire it at a HUD that was freed
+		// when the highlight changed and InteractMenuOpen latches with nothing left
+		// to close it. With no target the self prompt stands in, which is also what
+		// gives the open-space hold a bar to fill like every other hold in the game.
+		if (hasTarget)
+		{
+			HideSelfPrompt();
+		}
+		else
+		{
+			ShowSelfPrompt();
+		}
+
+		if (elapsed >= ContextButtonHoldMs)
+		{
+			_interactPressActive = false;
+			InteractMenuOpen = true;
+			onInteractMenuOpenRequested?.Invoke();
 		}
 	}
 
@@ -129,6 +147,7 @@ public partial class Player : CharacterBody3D
 		// close it, and gates both buttons for the rest of the session.
 		_interactPressActive = false;
 		InteractHoldProgress = 0f;
+		HideSelfPrompt();
 	}
 
 	static readonly Dictionary<EInventorySlot, string> _weaponActions = new()
@@ -343,8 +362,8 @@ public partial class Player : CharacterBody3D
 
 		// The Dash press, overloaded rather than shared: a wall in front (or a
 		// climb already in progress) consumes it, and only a press with nothing to
-		// climb becomes a dash. Interaction is a button of its own and never
-		// contends here.
+		// climb becomes a dash. The deliberate traversals — mantling a ledge,
+		// taking a rope, letting go — are interacts and never contend here.
 		if (Input.IsActionJustPressed("Dash") && !InteractMenuOpen && !TryTraversalPress())
 		{
 			TryStartDash();

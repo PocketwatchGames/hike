@@ -524,6 +524,52 @@ public class WorldState
         chunk.SetOverlayFaces(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), faces);
     }
 
+    // Every baked ledge lip whose cell lies in [min, max], in WORLD coordinates.
+    // The box is a mesher window rather than a chunk, so this walks the chunks
+    // it spans — a lip one voxel outside a chunk still dresses cells inside it.
+    public void CollectClimbLipsWorld(Vector3I min, Vector3I max, List<ClimbLip> output)
+    {
+        Vector3I loChunk = WorldToChunkCoord(min.X, min.Y, min.Z);
+        Vector3I hiChunk = WorldToChunkCoord(max.X, max.Y, max.Z);
+        for (int cx = loChunk.X; cx <= hiChunk.X; cx++)
+        {
+            for (int cy = loChunk.Y; cy <= hiChunk.Y; cy++)
+            {
+                for (int cz = loChunk.Z; cz <= hiChunk.Z; cz++)
+                {
+                    if (!_chunks.TryGetValue(new Vector3I(cx, cy, cz), out ChunkState chunk)
+                        || chunk.ClimbLips == null)
+                    {
+                        continue;
+                    }
+                    int baseX = cx * ChunkState.SIZE;
+                    int baseY = cy * ChunkState.SIZE;
+                    int baseZ = cz * ChunkState.SIZE;
+                    int before = output.Count;
+                    chunk.CollectClimbLips(output);
+                    // Rebase to world and drop anything the box does not cover
+                    // — a corner chunk contributes at most a handful of its lips.
+                    int keep = before;
+                    for (int i = before; i < output.Count; i++)
+                    {
+                        var world = new Vector3I(
+                            baseX + output[i].Cell.X,
+                            baseY + output[i].Cell.Y,
+                            baseZ + output[i].Cell.Z);
+                        if (world.X < min.X || world.X > max.X
+                            || world.Y < min.Y || world.Y > max.Y
+                            || world.Z < min.Z || world.Z > max.Z)
+                        {
+                            continue;
+                        }
+                        output[keep++] = new ClimbLip(world, output[i].Faces);
+                    }
+                    output.RemoveRange(keep, output.Count - keep);
+                }
+            }
+        }
+    }
+
     public int GetDetailGroupWorld(int wx, int wy, int wz)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
@@ -1452,12 +1498,22 @@ public class WorldState
     // everywhere else, including all runtime spawning.
     public bool TaggingFixtures;
 
+    // When set, every entity filed goes here too. An authoring tool that places
+    // through SpawnEntryData.TrySpawn needs the states back — to select them, to
+    // stamp the voxels they own, to put them in an undo step — and cannot get
+    // them from the call: Spawn returns void because a composite entry
+    // (SpawnGroupData, StoneRingSpawnEntry) files SEVERAL, so there is no one
+    // state to hand back. Set it around the call and clear it after, like
+    // TaggingFixtures above.
+    public List<EntitySimState> RecordingAdds;
+
     public void AddEntity(EntitySimState entity)
     {
         if (TaggingFixtures)
         {
             entity.PlacedAsFixture = true;
         }
+        RecordingAdds?.Add(entity);
         Vector3I coord = Sim.WorldToChunkCoord(entity.WorldPosition);
         if (!_entities.TryGetValue(coord, out List<EntitySimState> entities))
         {

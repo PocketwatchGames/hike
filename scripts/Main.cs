@@ -347,6 +347,10 @@ public partial class Main : Node
 				// before the world hits the cache.
 				FoliageStamper.Stamp(worldState);
 				EntityVoxelStamper.Stamp(worldState);
+				// Where the mantleable ledges are, decided once against the
+				// entities that were just placed. Producer-side only: the load
+				// branches read it back out of the file.
+				ClimbLedgeStamper.Stamp(worldState);
 				LightEngine.Relight(worldState);
 
 				if (cachePath != null)

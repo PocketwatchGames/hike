@@ -308,7 +308,7 @@ mouse_filter = 2
 [node name="EditorGizmo" type="Node" parent="." unique_id=1408225650]
 script = ExtResource("15_gizmo")
 
-[node name="EditorHud" type="CanvasLayer" parent="." unique_id=1379480736 node_paths=PackedStringArray("clipLabel", "coordsLabel", "helpLabel", "documentLabel", "toastLabel", "voxelToolButton", "entityToolButton", "roofToolButton", "voxelPalette", "entityPalette", "roofPalette", "voxelInfoPanel", "voxelTab", "entityDetailsPanel", "placeModeButton", "selectModeButton", "selectionLabel", "snapToGridButton", "snapRotationButton", "roofInfoPanel", "roofTab", "ridgeXButton", "ridgeZButton", "gableFormButton", "hipFormButton", "slopeSlider", "slopeLabel", "brokenSlider", "brokenLabel", "drawRoofModeButton", "editRoofModeButton", "interactivesTab", "treesTab", "rocksTab", "natureTab", "furnitureTab", "propsTab", "brushImage", "brushNameLabel", "paintButton", "eraseButton", "replaceButton", "voxelShapeButton", "floorShapeButton", "wallShapeButton", "fillShapeButton", "roomShapeButton", "windowShapeButton", "doorShapeButton", "plateauSnapButton", "autoEdgesButton", "blockyEdgesButton", "steppedEdgesButton", "smoothEdgesButton", "lightingButton", "timeOfDaySlider", "weatherOption", "interiorClassOption")]
+[node name="EditorHud" type="CanvasLayer" parent="." unique_id=1379480736 node_paths=PackedStringArray("clipLabel", "coordsLabel", "helpLabel", "documentLabel", "toastLabel", "voxelToolButton", "entityToolButton", "roofToolButton", "voxelPalette", "entityPalette", "roofPalette", "voxelInfoPanel", "voxelTab", "entityDetailsPanel", "placeModeButton", "selectModeButton", "selectionLabel", "snapToGridButton", "snapRotationButton", "roofInfoPanel", "roofTab", "ridgeXButton", "ridgeZButton", "gableFormButton", "hipFormButton", "slopeSlider", "slopeLabel", "brokenSlider", "brokenLabel", "drawRoofModeButton", "editRoofModeButton", "brushImage", "brushNameLabel", "paintButton", "eraseButton", "replaceButton", "voxelShapeButton", "floorShapeButton", "wallShapeButton", "fillShapeButton", "roomShapeButton", "windowShapeButton", "doorShapeButton", "plateauSnapButton", "autoEdgesButton", "blockyEdgesButton", "steppedEdgesButton", "smoothEdgesButton", "lightingButton", "timeOfDaySlider", "weatherOption", "interiorClassOption")]
 script = ExtResource("3_hud")
 clipLabel = NodePath("UpperLeft/VBoxContainer/ClipLabel")
 coordsLabel = NodePath("UpperLeft/VBoxContainer/CoordsLabel")
@@ -342,12 +342,6 @@ brokenSlider = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxC
 brokenLabel = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/BrokenLabel")
 drawRoofModeButton = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow/Draw")
 editRoofModeButton = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow/Edit")
-interactivesTab = NodePath("Bottom/EntityPalette/Interactives")
-treesTab = NodePath("Bottom/EntityPalette/Trees")
-rocksTab = NodePath("Bottom/EntityPalette/Rocks")
-natureTab = NodePath("Bottom/EntityPalette/Nature")
-furnitureTab = NodePath("Bottom/EntityPalette/Furniture")
-propsTab = NodePath("Bottom/EntityPalette/Props")
 brushImage = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/HBoxContainer2/Brush Image")
 brushNameLabel = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/HBoxContainer2/Brush Name")
 paintButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Operation/HBoxContainer/Paint")
@@ -419,35 +413,6 @@ visible = false
 layout_mode = 2
 mouse_filter = 0
 current_tab = 0
-
-[node name="Interactives" type="HFlowContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=500863454]
-layout_mode = 2
-metadata/_tab_index = 0
-
-[node name="Trees" type="HFlowContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=2146101377]
-visible = false
-layout_mode = 2
-metadata/_tab_index = 1
-
-[node name="Rocks" type="HFlowContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=935995108]
-visible = false
-layout_mode = 2
-metadata/_tab_index = 2
-
-[node name="Nature" type="HFlowContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=115000544]
-visible = false
-layout_mode = 2
-metadata/_tab_index = 3
-
-[node name="Furniture" type="HFlowContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=1006943044]
-visible = false
-layout_mode = 2
-metadata/_tab_index = 4
-
-[node name="Props" type="HFlowContainer" parent="EditorHud/Bottom/EntityPalette" unique_id=959570311]
-visible = false
-layout_mode = 2
-metadata/_tab_index = 5
 
 [node name="VoxelPalette" type="PanelContainer" parent="EditorHud/Bottom" unique_id=998766744]
 layout_mode = 2

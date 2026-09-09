@@ -1,97 +1,77 @@
 [gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://cjobgs1asa236"]
 
-[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="1_cx5cm"]
-[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="3_bu3mb"]
-[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="4_8cmat"]
-[ext_resource type="Resource" path="res://resources/data/worlds/shared/languages/common.tres" id="4_388hw"]
-[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="4_el041"]
-[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="5_nfd02"]
-[ext_resource type="Script" uid="uid://duec50f7rnqth" path="res://scripts/data/conversation/conditions/SpeaksLanguageCondition.cs" id="5_p3jmn"]
-[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="6_vytpk"]
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="Script_ConversationData"]
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
+[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
+[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/languages/common.tres" id="Lang_common"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/conversation/conditions/language_incomplete.tres" id="Cond_language_incomplete"]
+
+[sub_resource type="Resource" id="Entry_1"]
+script = ExtResource("Script_ConversationEntry")
+branch = &"greeting"
 
 [sub_resource type="Resource" id="Branch_greeting"]
-script = ExtResource("1_cx5cm")
+script = ExtResource("Script_ConversationBranch")
 name = &"greeting"
 lineLocKeys = Array[StringName]([&"intro_mayor_greeting_01"])
-endActions = null
 exitGroup = &"topics"
 isPrimaryGroupEntry = true
 
-[sub_resource type="Resource" id="Branch_TellMore"]
-script = ExtResource("1_cx5cm")
+[sub_resource type="Resource" id="Branch_speak_common"]
+script = ExtResource("Script_ConversationBranch")
 name = &"speak_common"
 lineLocKeys = Array[StringName]([&"intro_mayor_speak_common_01"])
-endActions = Array[Object]([])
-exitGroup = &""
+exitGroup = &"topics"
 
-[sub_resource type="Resource" id="Branch_Beard"]
-script = ExtResource("1_cx5cm")
+[sub_resource type="Resource" id="Branch_shipwreck"]
+script = ExtResource("Script_ConversationBranch")
 name = &"shipwreck"
 lineLocKeys = Array[StringName]([&"intro_mayor_shipwreck_01"])
-endActions = null
 exitGroup = &"topics"
 
-[sub_resource type="Resource" id="Branch_Trade"]
-script = ExtResource("1_cx5cm")
+[sub_resource type="Resource" id="Branch_village"]
+script = ExtResource("Script_ConversationBranch")
 name = &"village"
 lineLocKeys = Array[StringName]([&"intro_mayor_village_01"])
-endActions = []
 exitGroup = &"topics"
 
-[sub_resource type="Resource" id="Resource_lb13h"]
-script = ExtResource("1_cx5cm")
+[sub_resource type="Resource" id="Branch_sanctuary"]
+script = ExtResource("Script_ConversationBranch")
 name = &"sanctuary"
 lineLocKeys = Array[StringName]([&"intro_mayor_sanctuary_01"])
-endActions = Array[Object]([])
 exitGroup = &"topics"
-metadata/_custom_type_script = "uid://ce227yp5q1min"
 
-[sub_resource type="Resource" id="Entry_greeting"]
-script = ExtResource("3_bu3mb")
-branch = &"greeting"
-actions = Array[Object]([])
-
-[sub_resource type="Resource" id="Resp_Beard"]
-script = ExtResource("4_8cmat")
-textLocKey = &"intro_mayor_resp_shipwreck"
-destination = &"shipwreck"
-actions = null
-
-[sub_resource type="Resource" id="Resp_Trade"]
-script = ExtResource("4_8cmat")
-textLocKey = &"intro_mayor_resp_village"
-destination = &"village"
-actions = null
-
-[sub_resource type="Resource" id="Resource_388hw"]
-script = ExtResource("4_8cmat")
-textLocKey = &"intro_mayor_resp_sanctuary"
-destination = &"sanctuary"
-actions = null
-metadata/_custom_type_script = "uid://yrv1dwid3oww"
-
-[sub_resource type="Resource" id="Resource_egxgj"]
-script = ExtResource("5_p3jmn")
-language = ExtResource("4_el041")
-speaks = false
-metadata/_custom_type_script = "uid://duec50f7rnqth"
-
-[sub_resource type="Resource" id="Resource_r8y1f"]
-script = ExtResource("4_8cmat")
-textLocKey = &"intro_mayor_resp_speak_common"
-language = ExtResource("4_388hw")
-condition = SubResource("Resource_egxgj")
+[sub_resource type="Resource" id="Resp_topics_1"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"intro_mayor_topics_speak_common"
+language = ExtResource("Lang_common")
+condition = ExtResource("Cond_language_incomplete")
 destination = &"speak_common"
-actions = null
-metadata/_custom_type_script = "uid://yrv1dwid3oww"
 
-[sub_resource type="Resource" id="Group_Topics"]
-script = ExtResource("5_nfd02")
+[sub_resource type="Resource" id="Resp_topics_2"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"intro_mayor_topics_shipwreck"
+destination = &"shipwreck"
+
+[sub_resource type="Resource" id="Resp_topics_3"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"intro_mayor_topics_village"
+destination = &"village"
+
+[sub_resource type="Resource" id="Resp_topics_4"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"intro_mayor_topics_sanctuary"
+destination = &"sanctuary"
+
+[sub_resource type="Resource" id="Group_topics"]
+script = ExtResource("Script_ConversationResponseGroup")
 name = &"topics"
-responses = [SubResource("Resp_Beard"), SubResource("Resp_Trade"), SubResource("Resource_388hw"), SubResource("Resource_r8y1f")]
+responses = [SubResource("Resp_topics_1"), SubResource("Resp_topics_2"), SubResource("Resp_topics_3"), SubResource("Resp_topics_4")]
 
 [resource]
-script = ExtResource("6_vytpk")
-entryBranches = [SubResource("Entry_greeting")]
-branches = [SubResource("Branch_greeting"), SubResource("Branch_TellMore"), SubResource("Branch_Beard"), SubResource("Branch_Trade"), SubResource("Resource_lb13h")]
-responseGroups = [SubResource("Group_Topics")]
+script = ExtResource("Script_ConversationData")
+entryBranches = [SubResource("Entry_1")]
+branches = [SubResource("Branch_greeting"), SubResource("Branch_speak_common"), SubResource("Branch_shipwreck"), SubResource("Branch_village"), SubResource("Branch_sanctuary")]
+responseGroups = [SubResource("Group_topics")]

@@ -1,0 +1,36 @@
+key	                value
+weapon_name_prefix	%0 %1
+weapon_name_suffix	%0 %1
+status_duration_until	Until %0
+time_of_day_sunrise	sunrise
+time_of_day_noon	noon
+time_of_day_sunset	sunset
+time_of_day_midnight	midnight
+danger_nearby	Danger Nearby
+too_hurt_to_rest	Too Hurt to Rest
+not_enough_health_to_revive	Not Enough Health
+combat_miss	MISS!
+combat_blocked	BLOCKED!
+combat_parried	PARRIED!
+quest_rescue	Rescue %0!
+quest_kunkun_hunt	Kunkun Hunt
+quest_return_to_camp	Return to Camp
+quest_learn_vyeshal	Learn Vyeshal
+quest_learn_song_of_gods	Learn the Song of the Gods
+map_option_world	World Map
+map_option_treasure	Treasure Map %0
+controls_title	Controls
+controls_action	Action
+controls_keyboard	Keyboard / Mouse
+controls_gamepad	Gamepad
+controls_back	Back
+controls_unbound	—
+controls_dash_climb	Dash / Climb
+controls_interact	Interact / Mantle / Let Go
+controls_lantern_heal	Lantern / Heal
+controls_sneak_block_parry	Sneak / Block / Parry
+controls_ranged	Ranged Attack
+controls_melee	Melee Attack
+controls_spell	Cast Spell
+controls_rotate_camera	Rotate Camera
+controls_map	Map

@@ -32,6 +32,7 @@ public static class Blocks
     public static int GroundId { get; private set; }
 
     private static bool[] _solid;
+    private static bool[] _hasGeometry;
     private static bool[] _empty;
     private static bool[] _water;
     private static bool[] _transparent;
@@ -61,6 +62,7 @@ public static class Blocks
     {
         int n = BlockCatalog.MAX_BLOCKS;
         var solid = new bool[n];
+        var hasGeometry = new bool[n];
         var empty = new bool[n];
         var water = new bool[n];
         var transparent = new bool[n];
@@ -108,8 +110,18 @@ public static class Blocks
             empty[id] = !b.solid && b.IsInvisible();
         }
 
+        // A Barrier is solid but produces no surface, so it is the one block
+        // whose two answers differ — see HasGeometry. Resolved off the catalog
+        // rather than BarrierId, which is not assigned until the end of Bind.
+        int barrierId = catalog.GetIdByName("Barrier");
+        for (int id = 0; id < n; id++)
+        {
+            hasGeometry[id] = solid[id] && id != barrierId;
+        }
+
         // Published only now that every table is complete.
         _solid = solid;
+        _hasGeometry = hasGeometry;
         _empty = empty;
         _water = water;
         _transparent = transparent;
@@ -133,8 +145,23 @@ public static class Blocks
         GroundId = catalog.GetIdByName("Grass");
     }
 
-    // Blocks movement, sight and light.
+    // Blocks movement, sight and light. NOT the same question as HasGeometry:
+    // a Barrier answers yes here and no there.
     public static bool IsSolid(int id) => _solid[id];
+
+    // Occupies space PHYSICALLY — produces a drawn surface and the collision
+    // built from it. Ask this, never IsSolid, wherever the question is about
+    // geometry: meshing, density, collision, ledge barriers, "what am I
+    // standing on", "is there a wall in front of me".
+    //
+    // Barrier is the whole reason this exists. It is a shut door's marker: solid
+    // to navigation and to light, but the meshers skip it, so no triangle and no
+    // collider is ever built for one. Code that asked IsSolid here saw ground
+    // that is not there — LedgeBarrierMesher did, and fabricated a phantom
+    // walkable surface on top of every closed door's occluder, ringed by the
+    // invisible wall it emits at a drop. The player, alone in masking the
+    // 1-voxel fall class, then could not walk through their own doorway.
+    public static bool HasGeometry(int id) => _hasGeometry[id];
 
     // "Nothing here" — air or an opening. Use this rather than `== AirId`
     // wherever the question is about EMPTINESS: an Opening is a doorway void and

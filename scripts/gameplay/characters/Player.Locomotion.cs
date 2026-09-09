@@ -615,7 +615,7 @@ public partial class Player : CharacterBody3D
 		return new ClimbProbe.Settings(data.climbReach, data.climbGripHeight);
 	}
 
-	// True when an interact press here would attach to a wall — the prompt layer
+	// True when a Dash press here would attach to a wall — the prompt layer
 	// reads this the same way it reads CanMantle.
 	public bool CanClimb()
 	{
@@ -834,8 +834,8 @@ public partial class Player : CharacterBody3D
 		// Drop any world interactive that was highlighted. UpdateHighlightInteractive
 		// is gated out for the whole climb (the Climbing branch returns before it),
 		// so a prompt left standing here hangs on screen until the climb ends —
-		// and Dash no longer means "interact", so it reads as a button that does
-		// nothing. Mount() clears it for the same reason.
+		// and interact now means "let go", so it reads as a button that does
+		// something else entirely. Mount() clears it for the same reason.
 		ClearInteractive();
 		// Face the wall, which is opposite the outward normal in every entry —
 		// walking into a face, backing over a lip and taking a rope all end up
@@ -1541,22 +1541,17 @@ public partial class Player : CharacterBody3D
 	}
 
 	// Traversal, as an overload on the Dash button rather than a button of its
-	// own. Order is by commitment, most-committed first:
-	//   held wall   — release, since a press while hanging can mean nothing else
-	//   ledge       — the short hop, nearly always what was meant where a mantle
-	//                 and a climb are both offered
-	//   wall ahead  — walk into a face and attach
-	//   lip underfoot — back over the edge onto the face below
-	// The last two cannot both be true (one needs rock ahead, the other air), so
-	// their order is only a tie-break on paper. Returns false when none applied,
+	// own. Dash carries the two entries that are a MOVE — walking into a face and
+	// backing over a lip — and nothing else; the deliberate ones (mantling a
+	// ledge, taking a rope, letting go of either) are interacts. The two entries
+	// here cannot both be true (one needs rock ahead, the other air), so their
+	// order is only a tie-break on paper. Returns false when neither applied,
 	// which is what lets the same press fall through and become an ordinary dash.
 	public bool TryTraversalPress()
 	{
+		// Hanging on a face, the press is swallowed rather than passed on: letting
+		// go is the interact button, and a dash off a wall is not a thing.
 		if (Climbing)
-		{
-			return TryReleaseClimb();
-		}
-		if (TryStartMantle())
 		{
 			return true;
 		}
@@ -1567,10 +1562,11 @@ public partial class Player : CharacterBody3D
 		return TryStartClimbDescent();
 	}
 
-	// Voluntary let-go. Steps off onto anything standable within reach and
-	// otherwise simply drops: a wall the player cannot leave is worse than a fall
-	// they chose, and with no jump this press is the only exit from a face that
-	// leads nowhere.
+	// Voluntary let-go, off the interact button — the same button that took the
+	// hold in the first place, on a rope or on a ledge. Steps off onto anything
+	// standable within reach and otherwise simply drops: a wall the player cannot
+	// leave is worse than a fall they chose, and with no jump this press is the
+	// only exit from a face that leads nowhere.
 	private bool TryReleaseClimb()
 	{
 		bool trace = CVars.climbDebug.Value;
@@ -1624,10 +1620,12 @@ public partial class Player : CharacterBody3D
 		return true;
 	}
 
-	// What a Dash press would traverse to from here, refreshed once per
-	// tick and read by the ClimbHUD. Every branch runs the SAME find the press
+	// What a traversal press would take the player to from here, refreshed once
+	// per tick and read by the ClimbHUD. Every branch runs the SAME find the press
 	// runs, in the same order — a prompt that disagrees with the button is worse
-	// than no prompt — so this is a preview, never a second opinion.
+	// than no prompt — so this is a preview, never a second opinion. The MANTLE is
+	// not previewed here: a ledge is an interact target (MantleInteract), so it
+	// carries the ordinary interact prompt and would otherwise draw two.
 	private ETraversalPreview _traversalPreview;
 	private Vector3 _traversalPromptAnchor;
 	private bool _traversalPromptAnchorValid;
@@ -1658,11 +1656,6 @@ public partial class Player : CharacterBody3D
 		if (Climbing)
 		{
 			preview = PreviewClimbRelease(out targetY);
-		}
-		else if (TryFindMantle(out MantleProbe.Candidate candidate))
-		{
-			preview = candidate.rise >= 0f ? ETraversalPreview.Up : ETraversalPreview.Down;
-			targetY = candidate.landing.Y;
 		}
 		else if (TryFindClimb(out ClimbHold hold))
 		{

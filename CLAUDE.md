@@ -201,6 +201,7 @@ they fail at the compiler instead of depending on a reviewer having read this fi
 | `HK006` | a particle/audio node constructed outside an `Fx` scene |
 | `HK007` | a Godot `Material` constructed at runtime rather than authored |
 | `HK008` | a `Godot.Collections` `.Count` re-read in a loop condition |
+| `HK009` | a spawned `EntitySimState` never seated on the placement's facing |
 
 - **Every rule is an `error`, and `.editorconfig` carries an enumerated BASELINE**
   of the files that already violated one — downgraded to `warning` per file, so
@@ -479,9 +480,13 @@ Runtime configuration variables with an in-game console. Add new CVars as `publi
 
 ### Localization (`scripts/localization/`, `resources/localization/`)
 
-`Loc.Get(Loc.Keys.key)` and `Loc.Format(Loc.Keys.key, args...)` with `%0`/`%1` placeholders. Per-language TSV files (`resources/localization/english.tsv`) with `key\tvalue` columns. `Loc.Keys` enum is auto-generated on build from `english.tsv` via `tools/loc_generator`. Language controlled by `CVars.language`; changing it reloads strings and fires `Loc.OnLanguageChanged`.
+`Loc.Get(Loc.Keys.key)` and `Loc.Format(Loc.Keys.key, args...)` with `%0`/`%1` placeholders. Language controlled by `CVars.language`; changing it reloads strings and fires `Loc.OnLanguageChanged`.
 
-**Adding strings:** add `snake_case` key to `english.tsv`, use `Loc.Get`/`Loc.Format`. Search for unlocalised strings via `.Text =` with `$"..."` or string literals.
+**A language is a FOLDER of TSVs, not one file** — `resources/localization/<language>/`, every `.tsv` under it loaded and merged into one flat key namespace (`key\tvalue` columns, header row skipped). A key repeated across two files is reported at load and at build. Hand-authored strings sit directly in the folder (`english/ui.tsv`); `english/dialogue/<world>.tsv` is GENERATED from that world's conversation sheet and must not be hand-edited.
+
+**Only the files directly in the folder generate the `Loc.Keys` enum.** Conversation text is reached solely by `StringName` from a `ConversationData`, so enumerating it would buy no typo-safety and drown the enum.
+
+**Adding strings:** add a `snake_case` key to `english/ui.tsv`, use `Loc.Get`/`Loc.Format`. Search for unlocalised strings via `.Text =` with `$"..."` or string literals.
 
 **In-world language spans.** Authored text that a character SPEAKS or a sign is
 written in can switch in-world tongue mid-sentence: `[lang:<id>]…[/lang]`, where
@@ -503,10 +508,71 @@ intro_dying_01	[lang:common]Sanctuary[/lang]... you must find it. My family, …
   place and the fragments around it jumble on their own — the anchor is the point.
 - **Spans do not nest**, and the tags work in a `.tres` `Text` field (signpost,
   knowledge stone) exactly as they do in the tsv.
-- Balance, nesting and unknown ids are checked over `english.tsv` at build time by
-  `tools/loc_generator` — a warning, never a build failure, so half-authored text
+- Balance, nesting and unknown ids are checked over every `.tsv` in the language
+  folder — generated dialogue included — at build time by `tools/loc_generator` — a warning, never a build failure, so half-authored text
   never blocks a playtest. Text authored in a `.tres` isn't covered; that only
   errors at display time.
+
+### Conversations — authored in a spreadsheet (`tools/conversation_import`, `scripts/data/conversation/`)
+
+**The source of a conversation is a TSV, not a `.tres`.** One sheet per world at
+`resources/data/worlds/<world>/conversations/conversations.tsv` (export a tab from
+the master spreadsheet over it); `tools/conversation_import` turns it into one
+`<character>_conversation.tres` per character plus
+`resources/localization/english/dialogue/<world>.tsv`. Both outputs are
+GENERATED — never hand-edit a conversation `.tres` in the Godot inspector, the
+next build overwrites it.
+
+Columns: `character  player  conversation key  goto  language  condition  action  text`.
+A row is one NPC turn or one player choice, and the bipartite graph the runtime
+wants falls straight out of it:
+
+| Column | NPC row (player blank) | Player row (player non-blank) |
+|---|---|---|
+| conversation key | `ConversationBranch.name` | the `ConversationResponseGroup` this choice sits in |
+| goto | `branch.exitGroup` — blank ends the conversation | `response.destination` — blank ends it |
+| language | `branch.language` — blank = the speaker's | `response.language` — blank = the branch's |
+| condition | *(none — a branch has no condition slot)* | `response.condition` |
+| action | `branch.endActions` | `response.actions` |
+| text | a paragraph of `branch.lineLocKeys` | `response.textLocKey`; blank = a silent choice |
+
+- **`character` fills down** — type it once, every row under it belongs to that
+  character. Its value is the loc-key prefix and names the output file.
+- **A blank conversation key on an NPC row continues the branch above** — another
+  paragraph.
+- **`goto`, `language` and `action` describe the BRANCH, not the paragraph they
+  sit beside, and may be written on any of its rows.** Both the exit and the end
+  actions take effect after the LAST line, so a multi-paragraph branch reads
+  best with them at the bottom, beside the line they follow. Actions accumulate
+  in row order; `goto` and `language` are one per branch, and a second one is an
+  error naming the row that claimed it rather than a silent overwrite.
+- **`entry` is a reserved conversation key**: the row declares a
+  `ConversationEntry` (`goto` = the branch it opens on, `condition` gates it,
+  `action` = the entry's actions, no text), walked in sheet order. With no `entry`
+  rows the conversation opens on the character's first branch, unconditionally.
+- **`condition` / `action` cells NAME an authored `.tres`**, `;`-separated for
+  several, resolved from `world_authoring/conversation/<kind>/` (a verb with no
+  proper noun in it — `open_shop`, `language_incomplete`), then
+  `worlds/shared/conversation/<kind>/` (the game's own — `teach_vyeshal`,
+  `give_lantern`), then the world's own folder, each shadowing the last. A new
+  gate becomes available to authors by existing, and the same gate is reusable
+  across every NPC — which is the whole reason the cell is a name and not a
+  parsed call.
+- **Loc keys are derived, never typed**: `<character>_<branch>_<NN>` for a
+  paragraph, `<character>_<group>_<goto>` for a choice (`_2`, `_3` appended if one
+  group answers the same branch twice). Rename a branch and its text moves with
+  it.
+- **`isPrimaryGroupEntry` is derived** — the first branch that reaches a group is
+  its canonical introduction, matching the runtime's own implicit fallback.
+- **An error writes nothing at all and fails the build**: a dangling `goto`, a
+  duplicate branch, an unknown language / condition / action. A spreadsheet
+  invites exactly those typos and nothing else guards them. Reachability problems
+  (an orphan group, a branch nothing points at) are warnings — that is a
+  half-finished edit, and it must never block a playtest.
+- **A conversation's uid is preserved across a rewrite** — `placements.tres` and
+  `NpcSpawnEntry` reference it by uid, so the importer carries the existing
+  `[gd_resource uid=...]` over. A brand-new conversation is written without one
+  and Godot assigns it on the next editor scan.
 
 ### Mob AI System (`scripts/gameplay/MobAI.cs`, `scripts/data/behaviors/`, `scripts/gameplay/behaviors/`)
 
@@ -570,9 +636,10 @@ When adding a new off-screen pass: pick the **next free bit**, add a `1u << N` c
 
 ### Build-Time Code Generation (`hike.csproj`)
 
-Two MSBuild targets run before compilation:
+Three MSBuild targets run before compilation:
 - `GenerateVersion` - writes `scripts/VersionGenerated.g.cs` with git hash and build number
-- `GenerateLocKeys` - runs `tools/loc_generator` to generate `scripts/localization/LocKeys.g.cs` from `english.tsv`
+- `ImportConversations` - runs `tools/conversation_import` to turn the authored conversation sheets into `.tres` + dialogue `.tsv`. Ordered **before** `GenerateLocKeys`, which reads the `.tsv` it writes
+- `GenerateLocKeys` - runs `tools/loc_generator` to generate `scripts/localization/LocKeys.g.cs` from `resources/localization/english/`
 
 ### Godot UID Invariants (especially for headless agents)
 
@@ -620,7 +687,7 @@ Run `dotnet run --project tools/validate_uids` to scan for missing `.cs.uid` sid
 - Godot resources (materials, shaders, meshes, etc.) should not be created programmatically at runtime. Instead, create them as `.tres`/`.tscn` files in the Godot editor and wire them into scripts via `[Export]` variables.
 - Static user-defined data belongs in Godot `Resource` subclasses named `[Object]Data` (e.g., `WeaponData`). Dynamic runtime state belongs in classes named `[Object]State` (e.g., `WeaponState`). Never use "Data" to refer to dynamic/mutable properties.
 - **Never hardcode resource paths in C#.** Do not call `GD.Load<T>("res://...")` with a literal path from gameplay or worldgen code. Add an `[Export]` field of the appropriate `Data` type (typically on `WorldGenData`, `SimData`, or the nearest owning `*Data` resource) and wire the `.tres` reference in the editor. The exception is generic infrastructure that genuinely has no upstream owner (e.g. `EntitySerializer` reloading by serialized path); gameplay placement code is never that case.
-- **Avoid hardcoded user-facing strings in C# too.** Sign text, dialogue, item names, conversation prompts, etc. live on a `*Data` resource (or in `english.tsv` for localized UI strings). Reach for a literal only when the string is a stable internal identifier (StringName key, action name, scene path) that is never shown to the player and never authored.
+- **Avoid hardcoded user-facing strings in C# too.** Sign text, dialogue, item names, conversation prompts, etc. live on a `*Data` resource (or in `english/ui.tsv` for localized UI strings). Reach for a literal only when the string is a stable internal identifier (StringName key, action name, scene path) that is never shown to the player and never authored.
 - **Tunable values are `[Export]` properties, not `const`s.** Any number, color, or duration that an author/designer might want to adjust for feel — speeds, radii, fade times, thresholds, intensities, BPMs, dB levels — belongs on an `[Export]` field (with a `PropertyHint.Range` where helpful) so it's editable in the inspector without a recompile. Do NOT bury these in `private const`. Reserve `const` for genuine non-tunables: stable internal identifiers (audio bus names, action/StringName keys, scene paths), array capacities / buffer sizes that the code's correctness depends on, and pure mathematical constants. When extracting a subsystem into its own node class, move its tuning `const`s out as `[Export]`s on that class so each component owns its own inspector-visible tuning. See the `[Export]`-precision note below for sub-0.01 values.
 - **An unset `[Export] StringName` is NULL, not empty.** `StringName` is a class, so a field the `.tres` never assigns arrives as `null` and `name.IsEmpty` throws — the idiom is `name is null || name.IsEmpty`. It bites precisely where a blank is the intended authoring (leave `baseBlockName` unset to mean "the standard one"), and it does not surface as a validation message: it takes down whatever pass dereferenced it. One unset name in one zone resource threw inside `WorldFinish.Finish`, which `BakeBuild` catches and reports only as "Bake failed - see console", so it read as the world-map bake producing no light.
 

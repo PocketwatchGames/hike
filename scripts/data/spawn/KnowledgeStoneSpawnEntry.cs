@@ -10,6 +10,9 @@ using Godot;
 public partial class KnowledgeStoneSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
+
+    public override PackedScene PaletteScene => scene;
+
     [Export] public LanguageData language;
     [Export(PropertyHint.MultilineText)] public string text = "";
     [Export, CompactFlags] public ELanguageComponents components = ELanguageComponents.All;
@@ -26,6 +29,9 @@ public partial class KnowledgeStoneSpawnEntry : SpawnEntryData
         {
             new LanguageTeachable { language = language, components = components },
         };
-        ws.AddEntity(new KnowledgeStoneSimState(position, scene, text, language, concepts));
+        ws.AddEntity(new KnowledgeStoneSimState(position, scene, text, language, concepts)
+        {
+            RotationY = FacingY(context),
+        });
     }
 }

@@ -25,12 +25,15 @@ public static class InputBindings
 
     public static void Apply()
     {
-        // Dash carries traversal as well: one press means climb, mantle or dash,
-        // ranked in Player.ProcessInput. It is the Dash action because dash is
-        // what it does when there is no wall or ledge to take, and it holds the
-        // spacebar and the pad's primary face button.
+        // Dash carries the traversals that are a MOVE — walking into a wall face
+        // and backing over a lip — ranked ahead of the dash in Player.ProcessInput.
+        // It is the Dash action because dash is what it does when there is no wall
+        // to take, and it holds the spacebar and the pad's primary face button.
         SetBindings(Dash, Key.Space, JoyButton.B);
-        // Interact is a button of its own and only interacts.
+        // Interact covers everything DELIBERATE: a world interactive, mantling the
+        // ledge in front, taking a rope, and letting go of whatever is being held.
+        // Those are the same gesture — "act on the thing I walked up to" — so they
+        // share a button rather than splitting by whether the thing is an entity.
         SetBindings(Interact, Key.E, JoyButton.A);
         // Cancel shares the interact button (plus Escape), so backing out of an
         // interactive or a weapon charge is the same button that started it.

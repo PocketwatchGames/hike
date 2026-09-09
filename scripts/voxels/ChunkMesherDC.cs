@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 // Naive Dual Contouring / Surface Nets mesher. Per chunk:
@@ -375,6 +376,7 @@ public static class ChunkMesherDC
         Func<int, int, int, int> getSunlight,
         Func<int, int, int, bool> getSunOpaque,
         Func<int, int, int, bool> chunkExists,
+        Action<Vector3I, Vector3I, List<ClimbLip>> collectClimbLips,
         MeshBuffer buf,
         int chunkWorldX, int chunkWorldY, int chunkWorldZ,
         out bool hasAnyFace,
@@ -846,6 +848,13 @@ public static class ChunkMesherDC
         // voxel puts the crust on the surface you mantle ONTO and the face below
         // it in one go — the straddle a separate mark used to have to construct.
         //
+        // WHERE the lips are is read from the world, not derived here:
+        // ClimbLedgeStamper bakes them (ChunkState.ClimbLips) because whether a
+        // ledge is really climbable depends on the props standing on it, which a
+        // chunk build cannot see. The window reaches one voxel past the chunk on
+        // every side, so a neighbour's lip that dresses cells in this chunk is
+        // collected too.
+        //
         // Injected into the cell arrays, never into WorldState: this is
         // APPEARANCE ONLY. ClimbProbe resolves climbability from the stored
         // overlay, so writing it here cannot make a two-voxel step climbable and
@@ -857,96 +866,75 @@ public static class ChunkMesherDC
         // marked, same reason centerSampling is latched above. See
         // CVars.climbLedgeMarks for what the modes mean.
         int climbMarkMode = CVars.climbLedgeMarks.Value;
-        if (climbMarkMode > 0)
+        if (climbMarkMode > 0 && collectClimbLips != null)
         {
-            for (int vx = USED_LO; vx <= USED_HI; vx++)
+            var lips = new List<ClimbLip>();
+            collectClimbLips(
+                new Vector3I(chunkWorldX + USED_LO, chunkWorldY + USED_LO, chunkWorldZ + USED_LO),
+                new Vector3I(chunkWorldX + USED_HI, chunkWorldY + USED_HI, chunkWorldZ + USED_HI),
+                lips);
+            for (int i = 0; i < lips.Count; i++)
             {
-                for (int vy = USED_LO; vy <= USED_HI; vy++)
+                Vector3I cell = lips[i].Cell;
+                int vx = cell.X - chunkWorldX;
+                int vy = cell.Y - chunkWorldY;
+                int vz = cell.Z - chunkWorldZ;
+                int layer = Blocks.ClimbGrowthLayer(getVoxel(cell.X, cell.Y, cell.Z));
+                if (layer <= 0)
                 {
-                    for (int vz = USED_LO; vz <= USED_HI; vz++)
+                    continue;
+                }
+                // Dress the wall, working DOWN from the lip.
+                //
+                // A quad takes its four cells at c AND c-1 on the two axes
+                // across its face, so which cells a face reads depends on
+                // WHICH WAY it points: a +Z wall reads cz = vz, a -Z wall
+                // reads cz = vz-1. Marking the lip's own cell alone
+                // therefore dresses +X/+Z and misses -X/-Z completely —
+                // the crust appeared on two sides of the world and not the
+                // other two. Writing the 2x2 span on X and Z covers every
+                // facing's cell set.
+                //
+                // The worldgen overlay never hits this because
+                // PickTileAndAmpForCell votes each cell over a
+                // NEIGHBOURHOOD, which smears a stamped voxel outward on
+                // its own. This pass writes cells directly and so has to
+                // reproduce that reach itself.
+                //
+                // Rows, and why marking the LIP row is what hugs the edge.
+                // Coverage interpolates between a quad's corners, so a
+                // quad with the lip row marked and the row below bare
+                // ramps from full AT the edge to nothing a metre down —
+                // a gradient the erode knob can then cut to any sub-voxel
+                // width. Marking the row BELOW instead centres that ramp a
+                // metre under the edge, which is why it read as covering
+                // the whole wall and could not be pulled up.
+                int rows = climbMarkMode >= 2 ? ClimbLedgeMarker.ClimbRiseVoxels : 1;
+                for (int d = 0; d < rows; d++)
+                {
+                    int my = vy - d;
+                    for (int ox = -1; ox <= 0; ox++)
                     {
-                        // Pre-filter off the density field this pass already
-                        // sampled: a lip is solid with its own column open above,
-                        // which is exactly FindClimbLip's first two tests. Two
-                        // array reads instead of two cross-chunk getVoxel
-                        // delegates, and it drops the ~95% of the window that is
-                        // buried solid or open air.
-                        //
-                        // Centre sampling only: there a lattice coord IS a voxel.
-                        // The corner lattice's min-rule describes no single
-                        // voxel, so it pays full price rather than risk dropping
-                        // a real lip. (Barriers read OUTSIDE here despite being
-                        // solid, so they never mark — which is what we want.)
-                        if (centerSampling
-                            && (density[CornerIdx(vx), CornerIdx(vy), CornerIdx(vz)] >= 0
-                                || density[CornerIdx(vx), CornerIdx(vy + 1), CornerIdx(vz)] < 0))
+                        for (int oz = -1; oz <= 0; oz++)
                         {
-                            continue;
-                        }
-                        int layer = Blocks.ClimbGrowthLayer(
-                            getVoxel(chunkWorldX + vx, chunkWorldY + vy, chunkWorldZ + vz));
-                        if (layer <= 0)
-                        {
-                            continue;
-                        }
-                        if (ClimbLedgeMarker.FindClimbLip(getVoxel,
-                            chunkWorldX + vx, chunkWorldY + vy, chunkWorldZ + vz) == 0)
-                        {
-                            continue;
-                        }
-                        // Dress the wall, working DOWN from the lip.
-                        //
-                        // A quad takes its four cells at c AND c-1 on the two axes
-                        // across its face, so which cells a face reads depends on
-                        // WHICH WAY it points: a +Z wall reads cz = vz, a -Z wall
-                        // reads cz = vz-1. Marking the lip's own cell alone
-                        // therefore dresses +X/+Z and misses -X/-Z completely —
-                        // the crust appeared on two sides of the world and not the
-                        // other two. Writing the 2x2 span on X and Z covers every
-                        // facing's cell set.
-                        //
-                        // The worldgen overlay never hits this because
-                        // PickTileAndAmpForCell votes each cell over a
-                        // NEIGHBOURHOOD, which smears a stamped voxel outward on
-                        // its own. This pass writes cells directly and so has to
-                        // reproduce that reach itself.
-                        //
-                        // Rows, and why marking the LIP row is what hugs the edge.
-                        // Coverage interpolates between a quad's corners, so a
-                        // quad with the lip row marked and the row below bare
-                        // ramps from full AT the edge to nothing a metre down —
-                        // a gradient the erode knob can then cut to any sub-voxel
-                        // width. Marking the row BELOW instead centres that ramp a
-                        // metre under the edge, which is why it read as covering
-                        // the whole wall and could not be pulled up.
-                        int rows = climbMarkMode >= 2 ? ClimbLedgeMarker.ClimbRiseVoxels : 1;
-                        for (int d = 0; d < rows; d++)
-                        {
-                            int my = vy - d;
-                            for (int ox = -1; ox <= 0; ox++)
+                            int mx = vx + ox;
+                            int mz = vz + oz;
+                            if (mx < CELL_LO || mx > CELL_HI
+                                || my < CELL_LO || my > CELL_HI
+                                || mz < CELL_LO || mz > CELL_HI)
                             {
-                                for (int oz = -1; oz <= 0; oz++)
-                                {
-                                    int mx = vx + ox;
-                                    int mz = vz + oz;
-                                    if (mx < CELL_LO || mx > CELL_HI
-                                        || my < CELL_LO || my > CELL_HI
-                                        || mz < CELL_LO || mz > CELL_HI)
-                                    {
-                                        continue;
-                                    }
-                                    if (!cellHas[CellIdx(mx), CellIdx(my), CellIdx(mz)])
-                                    {
-                                        continue;
-                                    }
-                                    // Overrides whatever else this cell wears. The
-                                    // affordance outranks decoration: a road tread
-                                    // crossing a lip loses that metre rather than
-                                    // the lip going unmarked.
-                                    cellOverlay[CellIdx(mx), CellIdx(my), CellIdx(mz)] = layer;
-                                    cellSoftOverlay[CellIdx(mx), CellIdx(my), CellIdx(mz)] = layer;
-                                }
+                                continue;
                             }
+                            if (!cellHas[CellIdx(mx), CellIdx(my), CellIdx(mz)])
+                            {
+                                continue;
+                            }
+                            // Overrides whatever else this cell wears. The
+                            // affordance outranks decoration: a road tread
+                            // crossing a lip loses that metre rather than
+                            // the lip going unmarked.
+                            cellOverlay[CellIdx(mx), CellIdx(my), CellIdx(mz)] = layer;
+                            cellSoftOverlay[CellIdx(mx), CellIdx(my), CellIdx(mz)] = layer;
                         }
                     }
                 }
@@ -970,7 +958,7 @@ public static class ChunkMesherDC
             }
             int wx = chunkWorldX + lx, wy = chunkWorldY + ly, wz = chunkWorldZ + lz;
             int v = getVoxel(wx, wy, wz);
-            if (!Blocks.IsSolid(v) || v == Blocks.BarrierId)
+            if (!Blocks.HasGeometry(v))
             {
                 return (false, -1, -1, -1);
             }
@@ -1860,7 +1848,7 @@ public static class ChunkMesherDC
                 for (int dz = -1; dz <= 1; dz++)
                 {
                     int v = getVoxel(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
-                    if (!Blocks.IsSolid(v) || v == Blocks.BarrierId) { continue; }
+                    if (!Blocks.HasGeometry(v)) { continue; }
                     var shape = getShape(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
                     if ((shape & SharpAxes.Y) == 0) { anySoftY = true; }
                     if (dx < lo || dy < lo || dz < lo) { continue; }

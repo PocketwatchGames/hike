@@ -148,6 +148,51 @@ public partial class SpawnEntryData : Resource
         return string.IsNullOrEmpty(file) ? entry.GetType().Name : file;
     }
 
+    // Art already authored for this thing SOMEWHERE ELSE — an item's inventory
+    // sprite, a mob's bestiary portrait — so a palette button matches what the
+    // game shows for the same thing. Null means there is nothing authored and
+    // the button falls back to rendering PaletteScene, then to a name label.
+    //
+    // Deliberately NOT an [Export]: a per-palette icon would be a second place
+    // to author the same picture, and the one that goes stale.
+    public virtual Texture2D PaletteIcon => null;
+
+    // The scene an icon can be RENDERED from when there is no authored art —
+    // the same scene this entry places, so the button shows the actual thing.
+    // Mobs deliberately leave it null: their scenes expect a MobSimState to
+    // drive them, and they have portraits already.
+    public virtual PackedScene PaletteScene => null;
+
+    // A private copy of this entry, for a caller about to set a per-placement
+    // value on it. The shared palette file must never be written to — every
+    // placement of it, and every worldgen spawn list that names it, points at
+    // the one instance.
+    //
+    // The cleared path is the load-bearing half: a duplicate that kept its path
+    // saves as an ext_resource pointing back at the palette file, which throws
+    // the fork away on the next load without a word.
+    public SpawnEntryData Fork()
+    {
+        if (Duplicate(false) is not SpawnEntryData copy)
+        {
+            GD.PushError($"SpawnEntryData: could not fork entry '{ResourcePath}' for editing");
+            return this;
+        }
+        copy.ResourcePath = "";
+        return copy;
+    }
+
+    // Which property decides WHICH MEMBER of this entry's family an individual
+    // is — the goblin's `descriptor`, the prop's library entry, the marker's
+    // pool. Null for an entry that offers only the one thing.
+    //
+    // The counterpart to VariantName below, which reads the answer: this names
+    // the property to WRITE, so a tool with room to show a family as several
+    // buttons can fork the entry and set it without knowing what type it is
+    // looking at. What the property may be set to is already answered — by
+    // ResourceCandidates for a resource-valued one, NameCandidates for a string.
+    public virtual StringName VariantProperty => null;
+
     // Which member of its palette entry this individual is — the biome variant
     // of a goblin, the rig and outfit of a villager — or null for an entry that
     // offers only the one. Overridden by the entry types that carry a
@@ -175,14 +220,23 @@ public partial class SpawnEntryData : Resource
     // (flat patch guarantees lateral air) — useful primarily inside caves.
     public virtual bool RequireLateralClearance => false;
 
-    // True iff this entry's Spawn reads SpawnContext.FacingY — i.e. whether
-    // aiming one is a thing that can change the result. The painter draws a
-    // facing line and answers an aim-drag for these and for nothing else, on the
-    // same rule IsHandPlacedProperty encodes: a control that cannot change the
-    // result is worse than a missing one, because it invites tuning that does
-    // nothing. An entry type that starts honouring a facing overrides this in
-    // the same edit that makes it read the context.
-    public virtual bool UsesFacing => false;
+    // The yaw to seat an entity this entry files at: whatever aimed the
+    // placement, else square-on. EVERY entry honours a facing — every
+    // EntitySimState carries a RotationY and every scene is seated on it — so
+    // there is no capability flag saying which types can be turned, and a new
+    // entry type gets this in the line that constructs its state.
+    //
+    // Not applied by TrySpawn over what Spawn filed, which would be the way to
+    // make it unforgettable: an entry that already picks its own yaw (a stone
+    // ring jittering each stone) would have it overwritten, and the two callers
+    // that reach Spawn directly (SpawnGroupData's scatter rows) would slip the
+    // wrapper anyway. HK009 is the backstop instead.
+    //
+    // A random yaw is NOT expressible here: `context?.FacingY ?? Roll(rng)` is
+    // lazy on the right and this call would not be, so an aimed placement would
+    // still consume a draw and shift every roll behind it. The two entries that
+    // scatter with a random facing (mob, npc) write the ?? themselves.
+    protected static float FacingY(SpawnContext context) => context?.FacingY ?? 0f;
 
     // True iff this entry spawns a mob. Mob entries are kept out of hazard
     // danger zones at spawn time (see TrySpawn). Defaults false; MobSpawnEntry

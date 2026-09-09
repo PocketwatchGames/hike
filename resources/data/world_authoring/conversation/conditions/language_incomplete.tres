@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="SpeaksLanguageCondition" format=3]
+
+[ext_resource type="Script" uid="uid://duec50f7rnqth" path="res://scripts/data/conversation/conditions/SpeaksLanguageCondition.cs" id="1_cond"]
+
+[resource]
+script = ExtResource("1_cond")
+speaks = false

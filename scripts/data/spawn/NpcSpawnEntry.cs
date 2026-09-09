@@ -51,6 +51,9 @@ public partial class NpcSpawnEntry : MobSpawnEntry
     // MobData.mobScene. Passed into MobDescriptor.CreateState so it's fixed at
     // construction and serializes with the mob.
     [Export] public PackedScene scene;
+
+    public override PackedScene PaletteScene => scene;
+
     // Outfit: the modular rig's visible clothing/hair/hat mesh names (gender-
     // matched to Scene), composed with the rig's always-on base meshes at spawn.
     // Empty = the scene's authored default outfit.
@@ -214,16 +217,14 @@ public partial class NpcSpawnEntry : MobSpawnEntry
         return names.ToArray();
     }
 
-    // Aimable: which way a villager standing in a doorway looks is the whole
-    // point of placing that one by hand.
-    public override bool UsesFacing => true;
-
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (descriptor == null)
         {
             return;
         }
+        // Lazy fallback, for MobSpawnEntry's reason. Which way a villager
+        // standing in a doorway looks is the whole point of placing one by hand.
         float rotationY = context?.FacingY ?? (float)(rng.NextDouble() * Mathf.Pi * 2f);
         MobSimState state = descriptor.CreateState(position, rotationY, Rig);
         if (state == null)

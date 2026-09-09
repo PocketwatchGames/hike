@@ -10,12 +10,17 @@ public partial class ClimbableTreeSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
 
+    public override PackedScene PaletteScene => scene;
+
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null)
         {
             return;
         }
-        ws.AddEntity(new ClimbableTreeSimState(position, scene));
+        ws.AddEntity(new ClimbableTreeSimState(position, scene)
+        {
+            RotationY = FacingY(context),
+        });
     }
 }

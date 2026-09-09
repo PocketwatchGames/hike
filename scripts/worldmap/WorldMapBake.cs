@@ -822,6 +822,7 @@ public class WorldMapBake
             var sw = System.Diagnostics.Stopwatch.StartNew();
             FoliageStamper.Stamp(WorldState);
             EntityVoxelStamper.Stamp(WorldState);
+            ClimbLedgeStamper.Stamp(WorldState);
             _bakeStampMs = sw.ElapsedMilliseconds;
             return true;
         }

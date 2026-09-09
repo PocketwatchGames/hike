@@ -1,0 +1,6 @@
+[gd_resource type="Resource" script_class="OpenShopAction" format=3]
+
+[ext_resource type="Script" uid="uid://c83w2iv2epe5p" path="res://scripts/data/conversation/actions/OpenShopAction.cs" id="1_act"]
+
+[resource]
+script = ExtResource("1_act")

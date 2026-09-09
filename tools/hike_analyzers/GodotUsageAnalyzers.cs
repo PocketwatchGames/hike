@@ -277,3 +277,62 @@ public sealed class RuntimeConstructionAnalyzer : DiagnosticAnalyzer
 		}
 	}
 }
+
+// HK009: a SpawnEntryData.Spawn override that builds an EntitySimState without
+// seating it on the placement's facing. Every entity carries a RotationY and the
+// painter aims every placement, so an entry that never reads the facing draws an
+// aim line on the map that the bake then throws away — silently, and only for
+// that one entry type.
+[DiagnosticAnalyzer(LanguageNames.CSharp)]
+public sealed class SpawnEntryFacingAnalyzer : DiagnosticAnalyzer
+{
+	private static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(
+		"HK009",
+		"Spawned entity ignores the placement's facing",
+		"'{0}' is filed without a facing; seat it with RotationY = FacingY(context)",
+		HikeSymbols.Category,
+		DiagnosticSeverity.Warning,
+		isEnabledByDefault: true,
+		description: "CLAUDE.md Subsystems - Spawn Entries: a facing is a property of a PLACEMENT, honoured by every entry, so there is no capability flag saying which types can be turned. Read SpawnEntryData.FacingY(context) (or context.FacingY directly where a random yaw is the unaimed fallback).");
+
+	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
+
+	public override void Initialize(AnalysisContext context)
+	{
+		context.EnableConcurrentExecution();
+		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+		context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.MethodDeclaration);
+	}
+
+	private static void Analyze(SyntaxNodeAnalysisContext context)
+	{
+		var method = (MethodDeclarationSyntax)context.Node;
+		if (method.Identifier.ValueText != "Spawn" || method.Body == null)
+		{
+			return;
+		}
+		var symbol = context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken);
+		if (symbol == null || !HikeSymbols.DerivesFrom(symbol.ContainingType, "SpawnEntryData"))
+		{
+			return;
+		}
+		// Anywhere in the body: the yaw may be handed to a constructor, written
+		// into an initializer, or assigned to a local before it is filed.
+		foreach (SyntaxNode node in method.Body.DescendantNodes())
+		{
+			if (node is SimpleNameSyntax name && name.Identifier.ValueText == "FacingY")
+			{
+				return;
+			}
+		}
+		foreach (ObjectCreationExpressionSyntax creation in method.Body.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
+		{
+			ITypeSymbol created = context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type;
+			if (created != null && HikeSymbols.DerivesFrom(created, "EntitySimState"))
+			{
+				context.ReportDiagnostic(Diagnostic.Create(Rule, creation.GetLocation(), created.Name));
+				return;
+			}
+		}
+	}
+}

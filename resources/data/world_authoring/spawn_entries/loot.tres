@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="LootSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://drxhdnq6x2ttv" path="res://scripts/data/spawn/LootSpawnEntry.cs" id="script"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="desc"]
+[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="i0"]
+
+[sub_resource type="Resource" id="Desc_mushroom_gold"]
+script = ExtResource("desc")
+item = ExtResource("i0")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[resource]
+script = ExtResource("script")
+variants = [SubResource("Desc_mushroom_gold")]

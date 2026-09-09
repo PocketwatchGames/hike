@@ -1,0 +1,6 @@
+[gd_resource type="Resource" script_class="RecruitToPartyAction" format=3]
+
+[ext_resource type="Script" uid="uid://16lwc7o58whm" path="res://scripts/data/conversation/actions/RecruitToPartyAction.cs" id="1_act"]
+
+[resource]
+script = ExtResource("1_act")

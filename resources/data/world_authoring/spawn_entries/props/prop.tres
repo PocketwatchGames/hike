@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="PropSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://qfwty8kuxrwxx" path="res://scripts/data/spawn/PropSpawnEntry.cs" id="script"]
+[ext_resource type="Resource" uid="uid://cnpf73berpwgg" path="res://resources/data/world_authoring/props/prop_library.tres" id="r1"]
+
+[resource]
+script = ExtResource("script")
+library = ExtResource("r1")

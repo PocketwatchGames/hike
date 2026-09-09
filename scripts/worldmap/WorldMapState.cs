@@ -59,7 +59,7 @@ public class WorldMapState
     public WorldMapPlacements Placements;
 
     // What this document can paint, resolved once. Every palette is discovered
-    // from disk (WorldMapPaletteSource.Table) and the slot each resource
+    // from disk (AuthoringPaletteSource.Table) and the slot each resource
     // occupies is fixed by the ledger — which is why these are resolved at
     // construction and then never re-read: an index in a raster must mean the
     // same thing for the whole session, and the bake runs on a snapshot.
@@ -127,15 +127,15 @@ public class WorldMapState
         Paving = data.LoadOrCreatePaving();
         Placements = LoadOrCreatePlacements(data);
         Palettes = LoadOrCreatePalettes(data);
-        Zones = WorldMapPaletteSource.Resolve<ZoneData>(WorldMapPaletteSource.Zones, Palettes);
-        Regions = WorldMapPaletteSource.Resolve<RegionData>(WorldMapPaletteSource.Regions, Palettes);
-        GroundSets = WorldMapPaletteSource.Resolve<GroundSetData>(WorldMapPaletteSource.GroundSets, Palettes);
-        PropLists = WorldMapPaletteSource.Resolve<PropListData>(WorldMapPaletteSource.PropLists, Palettes);
-        MobSets = WorldMapPaletteSource.Resolve<SpawnSetData>(WorldMapPaletteSource.MobSets, Palettes);
-        WaterTypes = WorldMapPaletteSource.Resolve<BlockData>(WorldMapPaletteSource.WaterTypes, Palettes);
-        PavingBlocks = WorldMapPaletteSource.Resolve<BlockData>(WorldMapPaletteSource.PavingBlocks, Palettes);
-        EntityPalette = WorldMapPaletteSource.Resolve<SpawnEntryData>(WorldMapPaletteSource.Entities, Palettes);
-        Presets = WorldMapPaletteSource.Resolve<PaintPresetData>(WorldMapPaletteSource.Presets, Palettes);
+        Zones = AuthoringPaletteSource.Resolve<ZoneData>(AuthoringPaletteSource.Zones, Palettes);
+        Regions = AuthoringPaletteSource.Resolve<RegionData>(AuthoringPaletteSource.Regions, Palettes);
+        GroundSets = AuthoringPaletteSource.Resolve<GroundSetData>(AuthoringPaletteSource.GroundSets, Palettes);
+        PropLists = AuthoringPaletteSource.Resolve<PropListData>(AuthoringPaletteSource.PropLists, Palettes);
+        MobSets = AuthoringPaletteSource.Resolve<SpawnSetData>(AuthoringPaletteSource.MobSets, Palettes);
+        WaterTypes = AuthoringPaletteSource.Resolve<BlockData>(AuthoringPaletteSource.WaterTypes, Palettes);
+        PavingBlocks = AuthoringPaletteSource.Resolve<BlockData>(AuthoringPaletteSource.PavingBlocks, Palettes);
+        EntityPalette = AuthoringPaletteSource.Resolve<SpawnEntryData>(AuthoringPaletteSource.Entities, Palettes);
+        Presets = AuthoringPaletteSource.Resolve<PaintPresetData>(AuthoringPaletteSource.Presets, Palettes);
         Mobs = data.LoadOrCreateMobs();
         Scalars = data.LoadOrCreateScalars();
         Tunnels = data.LoadOrCreateTunnels();

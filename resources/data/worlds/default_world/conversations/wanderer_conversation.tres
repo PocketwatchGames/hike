@@ -1,61 +1,51 @@
 [gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://b2q10suq78qsl"]
 
-[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="1_conv"]
-[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="2_branch"]
-[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="3_entry"]
-[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="4_response"]
-[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="6_respgroup"]
-[ext_resource type="Script" uid="uid://16lwc7o58whm" path="res://scripts/data/conversation/actions/RecruitToPartyAction.cs" id="7_recruit"]
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="Script_ConversationData"]
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
+[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
+[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/conversation/actions/recruit_to_party.tres" id="Act_recruit_to_party"]
+
+[sub_resource type="Resource" id="Entry_1"]
+script = ExtResource("Script_ConversationEntry")
+branch = &"greeting"
 
 [sub_resource type="Resource" id="Branch_greeting"]
-script = ExtResource("2_branch")
+script = ExtResource("Script_ConversationBranch")
 name = &"greeting"
-lineLocKeys = Array[StringName]([&"wanderer_greeting", &"wanderer_intro"])
-endActions = null
+lineLocKeys = Array[StringName]([&"wanderer_greeting_01", &"wanderer_greeting_02"])
 exitGroup = &"topics"
 isPrimaryGroupEntry = true
 
-[sub_resource type="Resource" id="Action_recruit"]
-script = ExtResource("7_recruit")
-
 [sub_resource type="Resource" id="Branch_join"]
-script = ExtResource("2_branch")
+script = ExtResource("Script_ConversationBranch")
 name = &"join"
-lineLocKeys = Array[StringName]([&"wanderer_join"])
-endActions = [SubResource("Action_recruit")]
-exitGroup = null
+lineLocKeys = Array[StringName]([&"wanderer_join_01"])
+endActions = Array[Object]([ExtResource("Act_recruit_to_party")])
 
 [sub_resource type="Resource" id="Branch_farewell"]
-script = ExtResource("2_branch")
+script = ExtResource("Script_ConversationBranch")
 name = &"farewell"
-lineLocKeys = Array[StringName]([&"wanderer_farewell"])
-endActions = null
-exitGroup = null
+lineLocKeys = Array[StringName]([&"wanderer_farewell_01"])
 
-[sub_resource type="Resource" id="Entry_greeting"]
-script = ExtResource("3_entry")
-branch = &"greeting"
-actions = null
-
-[sub_resource type="Resource" id="Resp_join"]
-script = ExtResource("4_response")
-textLocKey = &"wanderer_resp_join"
+[sub_resource type="Resource" id="Resp_topics_1"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"wanderer_topics_join"
 destination = &"join"
-actions = null
 
-[sub_resource type="Resource" id="Resp_leave"]
-script = ExtResource("4_response")
-textLocKey = &"wanderer_resp_leave"
+[sub_resource type="Resource" id="Resp_topics_2"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"wanderer_topics_farewell"
 destination = &"farewell"
-actions = null
 
-[sub_resource type="Resource" id="Group_Topics"]
-script = ExtResource("6_respgroup")
+[sub_resource type="Resource" id="Group_topics"]
+script = ExtResource("Script_ConversationResponseGroup")
 name = &"topics"
-responses = [SubResource("Resp_join"), SubResource("Resp_leave")]
+responses = [SubResource("Resp_topics_1"), SubResource("Resp_topics_2")]
 
 [resource]
-script = ExtResource("1_conv")
-entryBranches = [SubResource("Entry_greeting")]
+script = ExtResource("Script_ConversationData")
+entryBranches = [SubResource("Entry_1")]
 branches = [SubResource("Branch_greeting"), SubResource("Branch_join"), SubResource("Branch_farewell")]
-responseGroups = [SubResource("Group_Topics")]
+responseGroups = [SubResource("Group_topics")]

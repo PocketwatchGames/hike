@@ -452,7 +452,7 @@ public static class MesherProbe
         int Get(int x, int y, int z) => Sample(v, x, y, z);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
             (x, y, z) => Blocks.DefaultShape(Get(x, y, z)),
-            (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true,
+            (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true, null,
             st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
         if (!hasAnyFace) { return; }
 
@@ -532,7 +532,7 @@ public static class MesherProbe
         var st = new MeshBuffer(4);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
             (x, y, z) => Blocks.DefaultShape(Get(x, y, z)),
-            (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => false, (x, y, z) => true,
+            (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => false, (x, y, z) => true, null,
             st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
         if (!hasAnyFace) { GD.Print("[probe] tunnel sun: no faces"); return; }
 
@@ -583,7 +583,7 @@ public static class MesherProbe
         var st = new MeshBuffer(4);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
             (x, y, z) => SharpAxes.Y,
-            (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => false, (x, y, z) => true,
+            (x, y, z) => 0, (x, y, z) => 0, Sun, (x, y, z) => false, (x, y, z) => true, null,
             st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
         if (!hasAnyFace) { GD.Print("[probe] cliff sun: no faces"); return; }
 
@@ -841,7 +841,7 @@ public static class MesherProbe
     {
         var st = new MeshBuffer(4);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), get, shape,
-            terrainId, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true,
+            terrainId, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true, null,
             st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
         if (!hasAnyFace)
         {
@@ -897,7 +897,7 @@ public static class MesherProbe
     {
         var st = new MeshBuffer(4);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), get, shape,
-            (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true,
+            (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT, (x, y, z) => false, (x, y, z) => true, null,
             st, 0, 0, 0, out bool hasAnyFace, out DcCellSurface _);
         if (!hasAnyFace)
         {

@@ -1,0 +1,11 @@
+character	player	conversation key	goto	language	condition	action	text
+hermit_		greeting	topics				Hmph. A face I don’t know.
+							Most folk keep to the village — wiser, maybe. The mud out here keeps its own counsel.
+		who	topics				No one worth a name anymore. I came to the marsh to be forgotten, and it obliged.
+		marsh	topics				Old things. Sunken things. Tread careful where the water goes still.
+		join				recruit_to_party	Hah. Been a long while since anyone asked. ...Aye. Better than rotting in the mud alone. Lead on, then — I’ll make my way to your fire.
+		farewell					Aye. Mind the deep water.
+	x	topics	who				Who are you?
+	x	topics	marsh				What's out here?
+	x	topics	join				Come with me. There’s nothing left for you out here.
+	x	topics	farewell				I'll leave you be.

@@ -7,15 +7,18 @@ public readonly struct EditorBrushEntry
 {
     public readonly string Name;
     public readonly Texture2D Icon;
-    // Which entity palette tab the button belongs in. Ignored by voxel brushes,
-    // which all share one grid.
-    public readonly EEditorEntityTab Tab;
+    // Which entity palette tab the button belongs in, by NAME — the section its
+    // palette root declared (AuthoringPaletteSource.PaletteRoot.Section), or a
+    // prop category. A name rather than an enum because the tab strip is built
+    // from whatever sections turn up, so adding a palette root is a line in one
+    // table and not a scene edit. Ignored by voxel brushes, which share one grid.
+    public readonly string Section;
 
-    public EditorBrushEntry(string name, Texture2D icon, EEditorEntityTab tab = EEditorEntityTab.Interactives)
+    public EditorBrushEntry(string name, Texture2D icon, string section = "")
     {
         Name = name;
         Icon = icon;
-        Tab = tab;
+        Section = section;
     }
 }
 

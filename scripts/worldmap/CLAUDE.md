@@ -257,7 +257,7 @@ match:
 (falloff/flow/noise + `Stamp(center, radius, w, h, apply)` callback); each tool
 supplies its own radius and per-texel write. Add a new tool by implementing the
 two interfaces and appending it to `WorldMapPainter._tools`; if it needs a
-palette, declare it in `WorldMapPaletteSource.Table` (see below) rather than
+palette, declare it in `AuthoringPaletteSource.Table` (see below) rather than
 adding an array to `WorldMapData`.
 
 ## Verifying a change to the painter
@@ -310,7 +310,7 @@ reintroduce:
 
 
 **Nothing is registered by hand. A resource becomes paintable by existing in the
-right directory.** `WorldMapPaletteSource.Table` is the one place a palette is
+right directory.** `AuthoringPaletteSource.Table` is the one place a palette is
 declared — the directories it is scanned from (or the block-catalog filter it
 uses) — and it is the only file to touch when the painter should offer a new
 KIND of thing.

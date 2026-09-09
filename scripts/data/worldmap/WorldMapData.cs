@@ -40,7 +40,7 @@ public partial class WorldMapData : Resource
 
     // NO PALETTE ARRAYS. What a document can paint — its zones, regions, ground
     // sets, prop sets, mob sets, water types, paving blocks, placeable entities
-    // and presets — is DISCOVERED from disk by WorldMapPaletteSource.Table, and
+    // and presets — is DISCOVERED from disk by AuthoringPaletteSource.Table, and
     // the slot each one occupies is recorded in the WorldMapPalettes ledger
     // beside the layer images. Nothing is registered by hand, so a resource
     // becomes paintable by existing in the right directory.

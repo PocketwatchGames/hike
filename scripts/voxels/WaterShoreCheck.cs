@@ -169,7 +169,7 @@ public static class WaterShoreCheck
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
             Shape,
             (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT,
-            (x, y, z) => false, (x, y, z) => true,
+            (x, y, z) => false, (x, y, z) => true, null,
             stTerrain, 0, 0, 0, out bool hasTerrain, out DcCellSurface surface);
         if (hasTerrain)
         {
@@ -354,7 +354,7 @@ public static class WaterShoreCheck
             ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), Get,
                 (x, y, z) => Blocks.DefaultShape(Get(x, y, z)),
                 (x, y, z) => 0, (x, y, z) => 0, (x, y, z) => LightEngine.MAX_LIGHT,
-                (x, y, z) => false, (x, y, z) => true,
+                (x, y, z) => false, (x, y, z) => true, null,
                 bench, 0, 0, 0, out bool _, out DcCellSurface _);
         }
         double dcBuild = (Time.GetTicksUsec() - t1) / (double)REPS / 1000.0;

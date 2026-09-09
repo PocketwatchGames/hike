@@ -5,6 +5,9 @@ using Godot;
 public partial class ChestSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
+
+    public override PackedScene PaletteScene => scene;
+
     // Optional alternate scene chosen 50% of the time when set (e.g. a
     // poison chest variant). Null = always use Scene.
     [Export] public PackedScene altScene;
@@ -26,6 +29,7 @@ public partial class ChestSpawnEntry : SpawnEntryData
             : scene;
         var chest = new ChestSimState(position, chestScene)
         {
+            RotationY = FacingY(context),
             // This chest's own authored loot, plus any zone-unique drops for the
             // zone it spawned in (ZoneGenData.zoneLoot, threaded via SpawnContext)
             // — so a region's signature loot rides every chest without forking the

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="DropLootAction" format=3]
+
+[ext_resource type="Script" uid="uid://bruxndva544k7" path="res://scripts/data/conversation/actions/DropLootAction.cs" id="1_drop"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="2_count"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="3_descriptor"]
+[ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/weapons/lantern.tres" id="4_lantern"]
+
+[sub_resource type="Resource" id="Descriptor_lantern"]
+script = ExtResource("3_descriptor")
+item = ExtResource("4_lantern")
+
+[sub_resource type="Resource" id="Count_lantern"]
+script = ExtResource("2_count")
+descriptor = SubResource("Descriptor_lantern")
+
+[resource]
+script = ExtResource("1_drop")
+loot = Array[ExtResource("2_count")]([SubResource("Count_lantern")])

@@ -130,10 +130,18 @@ public static class LedgeBarrierMesher
         tris.Add(a); tris.Add(bTop); tris.Add(aTop);
     }
 
-    // True when (x,y,z) is a surface a body stands ON: air here, solid beneath.
+    // True when (x,y,z) is a surface a body stands ON: nothing here, geometry
+    // beneath.
+    //
+    // HasGeometry, not IsSolid: a Barrier is solid but the meshers skip it, so
+    // it yields neither triangle nor collider. Read as solid it invented a floor
+    // one voxel above every shut door's occluder, and the contour below then
+    // walled that phantom off from the real air around it — an invisible box
+    // standing in the doorway, which only the player (the sole body masking the
+    // 1-voxel fall class) ever hit.
     private static bool IsSurface(System.Func<int, int, int, int> getVoxel, int x, int y, int z)
     {
-        return !Blocks.IsSolid(getVoxel(x, y, z)) && Blocks.IsSolid(getVoxel(x, y - 1, z));
+        return !Blocks.HasGeometry(getVoxel(x, y, z)) && Blocks.HasGeometry(getVoxel(x, y - 1, z));
     }
 
     // Does the neighbouring column offer footing within a legal step of `y`?
@@ -153,7 +161,11 @@ public static class LedgeBarrierMesher
         // Only has to cover the legal drop plus a voxel of slack; anything
         // deeper is a ledge regardless of how much deeper.
         int probeDepth = maxLegalDropVoxels + 1;
-        if (Blocks.IsSolid(getVoxel(nx, y, nz)))
+        // HasGeometry: the claim being made is that TERRAIN COLLISION already
+        // stops the body, so it has to be collision this asks about. A Barrier
+        // stops nothing, and counting one here suppressed the guard at a real
+        // drop beside a doorway.
+        if (Blocks.HasGeometry(getVoxel(nx, y, nz)))
         {
             return true;
         }

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="WorldMapPalettes" format=3]
 
-[ext_resource type="Script" uid="uid://wu33humapr69m" path="res://scripts/data/worldmap/WorldMapPalettes.cs" id="1_pal"]
-[ext_resource type="Script" uid="uid://mvoemp0l3koin" path="res://scripts/data/worldmap/WorldMapPaletteLedger.cs" id="2_led"]
+[ext_resource type="Script" path="res://scripts/data/worldmap/WorldMapPalettes.cs" id="1_pal"]
+[ext_resource type="Script" path="res://scripts/data/worldmap/WorldMapPaletteLedger.cs" id="2_led"]
 
 [sub_resource type="Resource" id="Resource_3lysr"]
 script = ExtResource("2_led")

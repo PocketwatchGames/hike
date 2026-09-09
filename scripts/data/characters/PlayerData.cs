@@ -39,6 +39,19 @@ public partial class PlayerData : Resource
 	// moveSpeed or the player clips into a blocking prop before the probe sees it.
 	[Export] public float stepProbeHeight = 0.15f;
 	[Export] public float stepProbeReach = 0.25f;
+	// Clearance the step-up lift must leave between the crown of the movement
+	// capsule and any ceiling it is about to pass under. Without it the lift is
+	// free to raise the crown flush against a lintel, and a body wedged with no
+	// margin depenetrates in whichever direction the solver picks -- sometimes
+	// down, through the floor. A 2m voxel doorway is stepHeight plus the 1.5m
+	// capsule exactly, so it is the case with none to spare.
+	[Export(PropertyHint.Range, "0,0.5,0.005")] public float stepUpCeilingClearance = 0.05f;
+	// How far the body must actually DESCEND, in metres, for regaining the floor
+	// to count as a landing. The player has no jump, so every genuine airborne
+	// episode ends lower than it began — which makes net descent the honest
+	// question, and inbound speed a poor stand-in for it. Sits above the noise a
+	// step-down over rough ground produces and well below a one-voxel drop.
+	[Export(PropertyHint.Range, "0,2,0.05")] public float landMinFallHeight = 0.35f;
 	[Export] public float moveSpeed = 7f;
 
 	// --- Standability queries ----------------------------------------------
@@ -115,7 +128,7 @@ public partial class PlayerData : Resource
 	// than a snap.
 	[Export] public float climbEnterDuration = 0.3f;
 	[Export] public float climbExitDuration = 0.25f;
-	// How near a standable surface has to be, vertically, for a Dash press to
+	// How near a standable surface has to be, vertically, for a let-go press to
 	// release onto it. Nothing detaches on its own — this only decides which
 	// landings the press can find.
 	[Export] public float climbStepOffDistance = 0.6f;
@@ -138,7 +151,7 @@ public partial class PlayerData : Resource
 	// is worst — read as empty air.
 	[Export(PropertyHint.Range, "0.2,3,0.05")] public float climbContactDepthSearch = 1.4f;
 	// Stick lean, along the climb axis, needed to say "down" rather than "up"
-	// when a Dash press could mean either. Purely a deadzone — without it stick
+	// when a let-go press could mean either. Purely a deadzone — without it stick
 	// drift decides whether the player tops out or drops off.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float climbReleaseInputDeadzone = 0.3f;
 	// Easing time for turning the body to face the wall. On uneven rock the

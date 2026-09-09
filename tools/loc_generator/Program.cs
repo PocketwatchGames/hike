@@ -8,58 +8,70 @@ class Program
 	static int Main(string[] args)
 	{
 		string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-		string inputPath = Path.Combine(repoRoot, "resources", "localization", "english.tsv");
+		string inputDir = Path.Combine(repoRoot, "resources", "localization", "english");
 		string outputPath = Path.Combine(repoRoot, "scripts", "localization", "LocKeys.g.cs");
 
 		if (args.Length >= 2)
 		{
-			inputPath = args[0];
+			inputDir = args[0];
 			outputPath = args[1];
 		}
 
-		if (!File.Exists(inputPath))
+		if (!Directory.Exists(inputDir))
 		{
-			Console.Error.WriteLine($"Input file not found: {inputPath}");
+			Console.Error.WriteLine($"Input folder not found: {inputDir}");
 			return 1;
 		}
 
-		var keys = new List<string>();
-		int markupWarnings = 0;
-		// FileShare.ReadWrite, not File.ReadAllLines: the tsv is routinely open
-		// in a spreadsheet while strings are being authored, and that holder's
-		// write handle makes the default (FileShare.Read) request fail — which
-		// failed the whole build with an unhandled IOException.
-		var lines = new List<string>();
-		using (var stream = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-		using (var reader = new StreamReader(stream))
-		{
-			string line;
-			while ((line = reader.ReadLine()) != null)
-			{
-				lines.Add(line);
-			}
-		}
-		for (int i = 1; i < lines.Count; i++)
-		{
-			string line = lines[i].Trim();
-			if (string.IsNullOrEmpty(line))
-			{
-				continue;
-			}
+		// Files directly in the language folder are hand-authored and generate
+		// the typed Keys enum. Subfolders (dialogue/, written by
+		// tools/conversation_import) are loaded at runtime and span-checked
+		// here, but stay out of the enum: nothing in code can name a
+		// conversation line, they are only ever reached by StringName from a
+		// ConversationData.
+		var enumFiles = new List<string>(Directory.GetFiles(inputDir, "*.tsv", SearchOption.TopDirectoryOnly));
+		var allFiles = new List<string>(Directory.GetFiles(inputDir, "*.tsv", SearchOption.AllDirectories));
+		enumFiles.Sort(StringComparer.Ordinal);
+		allFiles.Sort(StringComparer.Ordinal);
 
-			int wsIndex = line.IndexOfAny(new[] { ' ', '\t' });
-			string key = wsIndex >= 0 ? line.Substring(0, wsIndex) : line;
-			keys.Add(key);
-			if (wsIndex >= 0)
+		var keys = new List<string>();
+		var seen = new HashSet<string>(StringComparer.Ordinal);
+		int markupWarnings = 0;
+		foreach (string file in allFiles)
+		{
+			bool inEnum = enumFiles.Contains(file);
+			foreach (string raw in ReadLines(file))
 			{
-				ValidateLanguageSpans(key, line.Substring(wsIndex + 1), KnownLanguageIds(inputPath), ref markupWarnings);
+				string line = raw.Trim();
+				if (string.IsNullOrEmpty(line))
+				{
+					continue;
+				}
+
+				int wsIndex = line.IndexOfAny(new[] { ' ', '\t' });
+				string key = wsIndex >= 0 ? line.Substring(0, wsIndex) : line;
+				if (!seen.Add(key))
+				{
+					// The whole language folder is one flat key namespace, so a
+					// repeat means one of the two strings silently wins at runtime.
+					Console.Error.WriteLine($"LocGenerator: duplicate key '{key}' in {Path.GetFileName(file)}.");
+					markupWarnings++;
+				}
+				else if (inEnum)
+				{
+					keys.Add(key);
+				}
+				if (wsIndex >= 0)
+				{
+					ValidateLanguageSpans(key, line.Substring(wsIndex + 1), KnownLanguageIds(inputDir), ref markupWarnings);
+				}
 			}
 		}
 		if (markupWarnings > 0)
 		{
 			// Warn, never fail: half-authored strings must not block a build or
 			// a playtest (same rule as ValidateScriptVars in hike.csproj).
-			Console.Error.WriteLine($"LocGenerator: {markupWarnings} [lang:...] markup warning(s) - see above.");
+			Console.Error.WriteLine($"LocGenerator: {markupWarnings} warning(s) - see above.");
 		}
 
 		using var writer = new StreamWriter(outputPath);
@@ -86,6 +98,29 @@ class Program
 		return 0;
 	}
 
+	// Skips the header row. FileShare.ReadWrite, not File.ReadAllLines: a tsv is
+	// routinely open in a spreadsheet while strings are being authored, and that
+	// holder's write handle makes the default (FileShare.Read) request fail -
+	// which failed the whole build with an unhandled IOException.
+	static List<string> ReadLines(string path)
+	{
+		var lines = new List<string>();
+		using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+		using (var reader = new StreamReader(stream))
+		{
+			string line;
+			while ((line = reader.ReadLine()) != null)
+			{
+				lines.Add(line);
+			}
+		}
+		if (lines.Count > 0)
+		{
+			lines.RemoveAt(0);
+		}
+		return lines;
+	}
+
 	const string TagOpen = "[lang:";
 	const string TagClose = "[/lang]";
 	// Mirrors LanguageText.CommonId - the reserved span id meaning "no
@@ -98,14 +133,14 @@ class Program
 	// and cached; a .tres holding one is identified by its script_class
 	// header, so the ids move with the data and this tool needs no list of
 	// its own.
-	static HashSet<string> KnownLanguageIds(string inputPath)
+	static HashSet<string> KnownLanguageIds(string inputDir)
 	{
 		if (_knownLanguageIds != null)
 		{
 			return _knownLanguageIds;
 		}
 		_knownLanguageIds = new HashSet<string>(StringComparer.Ordinal);
-		string resourcesDir = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(inputPath), ".."));
+		string resourcesDir = Path.GetFullPath(Path.Combine(inputDir, "..", ".."));
 		if (!Directory.Exists(resourcesDir))
 		{
 			return _knownLanguageIds;

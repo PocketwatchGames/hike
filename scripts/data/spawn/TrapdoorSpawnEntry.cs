@@ -21,14 +21,24 @@ public partial class TrapdoorSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
 
+    public override PackedScene PaletteScene => scene;
+
     // Shared key a lever pulls this trapdoor by. Empty = player-operated only.
     [Export] public string linkTag = "";
 
+    // The tags an author may pick from. Advisory, like the lever's — and the
+    // blank an unlinked trapdoor keeps is not in it, because that is the field's
+    // default rather than one of the choices.
+    [Export] public string[] variants = Array.Empty<string>();
+
+    public override StringName VariantProperty => PropertyName.linkTag;
+
+    public override string[] NameCandidates(StringName property)
+        => property == PropertyName.linkTag && variants.Length > 0
+            ? variants : base.NameCandidates(property);
+
     public override string VariantName()
         => string.IsNullOrEmpty(linkTag) ? null : linkTag;
-
-    // Aimable: the hinge side is the facing.
-    public override bool UsesFacing => true;
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
@@ -36,7 +46,8 @@ public partial class TrapdoorSpawnEntry : SpawnEntryData
         {
             return;
         }
-        ws.AddEntity(new TrapdoorSimState(position, context?.FacingY ?? 0f, scene)
+        // The facing is the hinge side.
+        ws.AddEntity(new TrapdoorSimState(position, FacingY(context), scene)
         {
             LinkTag = linkTag ?? "",
         });

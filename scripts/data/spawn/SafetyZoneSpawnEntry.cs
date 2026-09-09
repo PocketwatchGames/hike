@@ -13,12 +13,17 @@ public partial class SafetyZoneSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
 
+    public override PackedScene PaletteScene => scene;
+
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null)
         {
             return;
         }
-        ws.AddEntity(new SafetyZoneSimState(position, scene));
+        ws.AddEntity(new SafetyZoneSimState(position, scene)
+        {
+            RotationY = FacingY(context),
+        });
     }
 }

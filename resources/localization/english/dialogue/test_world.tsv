@@ -1,0 +1,34 @@
+key	value
+intro_dying_greeting_01	[lang:common]Sanctuary...[/lang] you must find it. My family, they are in the capital. Please, find the [lang:common]Sanctuary[/lang]. For them. [lang:common]Sanctuary.[/lang]
+intro_guard_greeting_01	Hello, traveler.
+intro_guard_greeting_02	You don't see many strangers around here these days.
+intro_guard_greeting_03	Safe travels out there. Watch the treeline after dark.
+intro_guard_tell_more_01	I have nothing more to say.
+intro_guard_beard_01	Thanks!
+intro_guard_trade_01	Let's do it.
+intro_guard_topics_tell_more	Tell me more.
+intro_guard_topics_beard	I like your beard.
+intro_guard_topics_trade	Do you want to trade?
+intro_hermit_greeting_01	Hello, traveler. The mold in this valley makes my lungs ache.
+intro_hermit_greeting_02	I long to leave.
+intro_hermit_recruit_01	Yes
+intro_hermit_topics_recruit	Then come with me!
+intro_librarian_greeting_01	Hello, I’m the librarian.
+intro_mayor_greeting_01	Hello, traveler.
+intro_mayor_speak_common_01	No. Ulga, librarian. (Points southeast)
+intro_mayor_shipwreck_01	We saw the shipwreck from the coast. There are rarely survivors on these shores. The mist swallows them.
+intro_mayor_village_01	Praise be the old gods, we still have stores of amber to keep the village lit for a few more seasons. But the mist will take us, that is sure.
+intro_mayor_sanctuary_01	I’ve heard tell of it. But if it’s out there it’s beyond beast infested lands. No mudman would make the trek. Our lives are measured in amber.
+intro_mayor_topics_speak_common	Do you speak the common tongue?
+intro_mayor_topics_shipwreck	My ship wrecked off the shore. I need help.
+intro_mayor_topics_village	What is this place?
+intro_mayor_topics_sanctuary	A man on the shore kept saying “Sanctuary”. Do you know what this is?
+intro_merchant_greeting_01	Hello, traveler.
+intro_merchant_greeting_02	Can I interest you in some goods?
+intro_innkeeper_greeting_01	I’m the innkeeper!
+intro_patron1_greeting_01	Yum?
+intro_patron2_greeting_01	Yum!
+intro_patron3_greeting_01	Yum.
+intro_mayor_assistant1_greeting_01	Hello.
+intro_mayor_assistant2_greeting_01	Salutations.
+intro_wanderer_greeting_01	I’ve been to the swamp. It’s hot.

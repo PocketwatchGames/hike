@@ -512,7 +512,7 @@ public static class WorldFinish
                 {
                     bool inRange = wy <= worldMaxY;
                     int v = inRange ? ws.GetBlockWorld(wx, wy, wz) : Blocks.AirId;
-                    bool wall = inRange && Blocks.IsSolid(v) && v != Blocks.BarrierId;
+                    bool wall = inRange && Blocks.HasGeometry(v);
 
                     for (int f = 0; f < ClimbFaces.Length; f++)
                     {
@@ -1132,7 +1132,7 @@ public static class WorldFinish
                 for (int wy = worldMinY; wy <= worldMaxY; wy++)
                 {
                     var v = ws.GetBlockWorld(wx, wy, wz);
-                    if (!Blocks.IsSolid(v) || v == Blocks.BarrierId)
+                    if (!Blocks.HasGeometry(v))
                     {
                         continue;
                     }

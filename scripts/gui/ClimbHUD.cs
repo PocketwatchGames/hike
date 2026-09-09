@@ -1,7 +1,8 @@
 using Godot;
 
-// Previews the traversal a Dash press would perform — an up arrow over a ledge
-// or wall the player can climb, a down arrow over one they can drop from.
+// Previews the traversal available here — an up arrow over a wall the player can
+// climb, a down arrow over one they can drop from or let go onto. Ledges are not
+// among them: a mantle is an interact and carries the InteractHUD instead.
 // Exactly one of the two is ever visible, because Player.TraversalPreview names
 // a single direction (see ETraversalPreview); the HUD only draws what the press
 // already decided.

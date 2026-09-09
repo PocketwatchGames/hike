@@ -1,63 +1,24 @@
 [gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://ofyxyq8xkkak"]
 
-[ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="1_jijgb"]
-[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="1_ql26v"]
-[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="2_8vr7u"]
-[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="3_844g1"]
-[ext_resource type="Script" uid="uid://5rhnpp2tplumf" path="res://scripts/data/teaching/LanguageTeachable.cs" id="3_briq7"]
-[ext_resource type="Script" uid="uid://9tbw61ms9yw6e" path="res://scripts/data/conversation/actions/TeachAction.cs" id="4_1i6o6"]
-[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="4_jijgb"]
-[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="5_8vr7u"]
-[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="6_briq7"]
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="Script_ConversationData"]
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
+[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
+[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/conversation/actions/teach_vyeshal.tres" id="Act_teach_vyeshal"]
 
-[sub_resource type="Resource" id="Resource_ewn67"]
-script = ExtResource("3_briq7")
-language = ExtResource("2_8vr7u")
-components = 29
-metadata/_custom_type_script = "uid://dpmklcm2q6qb2"
-
-[sub_resource type="Resource" id="Resource_c6bae"]
-script = ExtResource("4_1i6o6")
-concepts = Array[ExtResource("1_jijgb")]([SubResource("Resource_ewn67")])
+[sub_resource type="Resource" id="Entry_1"]
+script = ExtResource("Script_ConversationEntry")
+branch = &"greeting"
 
 [sub_resource type="Resource" id="Branch_greeting"]
-script = ExtResource("1_ql26v")
+script = ExtResource("Script_ConversationBranch")
 name = &"greeting"
 lineLocKeys = Array[StringName]([&"intro_librarian_greeting_01"])
-endActions = Array[Object]([SubResource("Resource_c6bae")])
-exitGroup = &""
-isPrimaryGroupEntry = true
-
-[sub_resource type="Resource" id="Entry_greeting"]
-script = ExtResource("3_844g1")
-branch = &"greeting"
-actions = Array[Object]([])
-
-[sub_resource type="Resource" id="Resp_TellMore"]
-script = ExtResource("4_jijgb")
-textLocKey = &"villager_resp_tell_more"
-destination = &"tell_more"
-actions = null
-
-[sub_resource type="Resource" id="Resp_Beard"]
-script = ExtResource("4_jijgb")
-textLocKey = &"villager_resp_beard"
-destination = &"beard"
-actions = null
-
-[sub_resource type="Resource" id="Resp_Trade"]
-script = ExtResource("4_jijgb")
-textLocKey = &"villager_resp_trade"
-destination = &"trade"
-actions = null
-
-[sub_resource type="Resource" id="Group_Topics"]
-script = ExtResource("5_8vr7u")
-name = &"topics"
-responses = [SubResource("Resp_TellMore"), SubResource("Resp_Beard"), SubResource("Resp_Trade")]
+endActions = Array[Object]([ExtResource("Act_teach_vyeshal")])
 
 [resource]
-script = ExtResource("6_briq7")
-entryBranches = [SubResource("Entry_greeting")]
+script = ExtResource("Script_ConversationData")
+entryBranches = [SubResource("Entry_1")]
 branches = [SubResource("Branch_greeting")]
-responseGroups = [SubResource("Group_Topics")]
+responseGroups = []

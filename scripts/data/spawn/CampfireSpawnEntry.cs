@@ -16,6 +16,8 @@ public partial class CampfireSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
 
+    public override PackedScene PaletteScene => scene;
+
     // Radius (meters) around the campfire where worldgen-painted detail
     // sprites (small grasses, pebbles — see DetailEntry / ChunkDetailScatter)
     // are erased so the authored campfire scene's logs / stones / embers
@@ -42,6 +44,7 @@ public partial class CampfireSpawnEntry : SpawnEntryData
             return;
         }
         var campfire = new CampfireSimState(position, scene);
+        campfire.RotationY = FacingY(context);
         campfire.HazardRadius = hazardRadius;
         ws.AddEntity(campfire);
         ws.ClearDetailVoxelsWithin(position, detailSuppressionRadius);

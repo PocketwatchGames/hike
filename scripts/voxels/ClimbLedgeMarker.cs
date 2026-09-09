@@ -1,7 +1,14 @@
-// Finds the lip of every wall the player can mantle, so the terrain mesher can
-// dress that voxel in the block's climb-growth overlay — the SAME overlay
-// WorldFinish.StampClimbSurfaces paints down a tall climbable cliff. One visual
-// language for both affordances, and no second blend path to keep in sync.
+// THE RULE for where a wall can be mantled: given the voxels (and what stands on
+// them), is this the lip of a two-voxel wall, and from which sides? Called by
+// ClimbLedgeStamper, which bakes the answer into ChunkState.ClimbLips; the
+// mesher then dresses those voxels in the block's climb-growth overlay — the
+// SAME overlay WorldFinish.StampClimbSurfaces paints down a tall climbable
+// cliff. One visual language for both affordances, and no second blend path to
+// keep in sync.
+//
+// It is baked rather than asked at mesh time because the answer is not purely
+// about rock: a prop standing on either side takes the traversal away, and a
+// chunk build cannot see entities. See ClimbLedgeStamper.
 //
 // WHAT grows comes from the rock (BlockData.climbGrowthSurface); this only says
 // where the lip is. The mark is the top voxel of a two-voxel wall, so dressing
@@ -67,7 +74,15 @@ public static class ClimbLedgeMarker
     // Bitmask of the sides from which the voxel at (wx, wy, wz) is the top of a
     // mantleable wall; 0 when it is not a lip at all. World-indexed, like
     // getVoxel itself.
-    public static int FindClimbLip(System.Func<int, int, int, int> getVoxel, int wx, int wy, int wz)
+    //
+    // `isBlocked` reports whether a non-voxel collider — a tree, a fence, a
+    // chest — stands in a world cell. Both sides of the wall are candidate
+    // standing spots, so a prop on either one is a wall the player cannot
+    // actually cross, and the affordance must not advertise it. Null answers
+    // "nothing but rock here", which is what a caller with no entity view
+    // (a subscene, a test) means.
+    public static int FindClimbLip(System.Func<int, int, int, int> getVoxel, int wx, int wy, int wz,
+        System.Func<int, int, int, bool> isBlocked = null)
     {
         if (!Blocks.IsSolid(getVoxel(wx, wy, wz)))
         {
@@ -78,6 +93,16 @@ public static class ClimbLedgeMarker
         // has to be clear AND dry. Cheapest rejection there is — it drops every
         // buried voxel in the window on the first iteration.
         if (!Clear(getVoxel, wx, wz, wy + 1, Headroom))
+        {
+            return 0;
+        }
+
+        // ...and clear of anything standing ON it. A fence along the top of a
+        // wall, or a tree rooted on the shelf above, makes the landing
+        // unreachable — WalkabilityGrid already refuses it at runtime, and
+        // without this the crust says "climb here" at a ledge the game will not
+        // let you climb.
+        if (Occupied(isBlocked, wx, wz, wy + 1, Headroom))
         {
             return 0;
         }
@@ -109,6 +134,14 @@ public static class ClimbLedgeMarker
             {
                 continue;
             }
+            // The low side has to be standable too, and a prop rooted at the
+            // foot of the wall takes it away exactly as one on top does. Tested
+            // per side rather than once: a wall with a tree at one end is still
+            // a real ledge from the other.
+            if (Occupied(isBlocked, nx, nz, landingTop, Headroom))
+            {
+                continue;
+            }
 
             // Reject ramps and staircases. Everything above looks only at the
             // two columns either side of the face, and natural terrain is full
@@ -134,6 +167,26 @@ public static class ClimbLedgeMarker
             mask |= Horizontal[i].bit;
         }
         return mask;
+    }
+
+    // Does a collider stand anywhere in [fromY, fromY + count) of this column?
+    // The voxel twin of Clear, over the same band, for the cover the voxel grid
+    // cannot see.
+    private static bool Occupied(System.Func<int, int, int, bool> isBlocked, int cx, int cz,
+        int fromY, int count)
+    {
+        if (isBlocked == null)
+        {
+            return false;
+        }
+        for (int d = 0; d < count; d++)
+        {
+            if (isBlocked(cx, fromY + d, cz))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Does this column present a surface to stand on whose top face is exactly

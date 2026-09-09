@@ -8,6 +8,9 @@ using Godot;
 public partial class FountainSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
+
+    public override PackedScene PaletteScene => scene;
+
     // Radius (meters) around the fountain where worldgen-painted detail sprites
     // are erased so scattered foliage doesn't share the station's footprint.
     [Export] public float detailSuppressionRadius = 2f;
@@ -20,7 +23,10 @@ public partial class FountainSpawnEntry : SpawnEntryData
         {
             return;
         }
-        ws.AddEntity(new FountainSimState(position, scene));
+        ws.AddEntity(new FountainSimState(position, scene)
+        {
+            RotationY = FacingY(context),
+        });
         ws.ClearDetailVoxelsWithin(position, detailSuppressionRadius);
     }
 }

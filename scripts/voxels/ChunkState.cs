@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 public class ChunkState
@@ -86,6 +87,20 @@ public class ChunkState
     // 4 KB every other channel costs unconditionally would be paid by every
     // chunk to store nothing. Read through GetOverlayFaces, never the field.
     public byte[,,] OverlayFaces;
+
+    // Mantleable ledge lips in this chunk, baked by ClimbLedgeStamper — the
+    // voxels the mesher dresses in climb growth so a two-voxel wall reads as
+    // climbable. SPARSE, not a channel: a world has a few thousand lips against
+    // 28M voxels, so they are stored as a packed list rather than a byte per
+    // cell. Null when the chunk has none, which is most of them.
+    //
+    // Packed as (localIndex << FACE_BITS) | faces — 12 bits of X,Y,Z-major cell
+    // index (16^3 fits exactly) and 4 bits of ClimbLedgeMarker.Dir* mask. Kept
+    // sorted so a lookup can bisect; write through AddClimbLip.
+    public ushort[] ClimbLips;
+
+    private const int FACE_BITS = 4;
+    private const int FACE_MASK = (1 << FACE_BITS) - 1;
 
     // Painted detail-sprite scatter. Stored on the SOLID surface voxel (same
     // location convention as OverlayId) — the scatter pass places sprites on
@@ -431,6 +446,45 @@ public class ChunkState
             OverlayFaces = new byte[SIZE, SIZE, SIZE];
         }
         OverlayFaces[x, y, z] = (byte)faces;
+    }
+
+    // Replace this chunk's baked lips. `lips` is chunk-local; an empty list
+    // clears the channel back to null so an unmarked chunk stores nothing.
+    // Sorted on the way in so CollectClimbLips can stop early and a serialized
+    // chunk round-trips byte-identically whatever order the stamper found them.
+    public void SetClimbLips(List<ClimbLip> lips)
+    {
+        if (lips == null || lips.Count == 0)
+        {
+            ClimbLips = null;
+            return;
+        }
+        var packed = new ushort[lips.Count];
+        for (int i = 0; i < lips.Count; i++)
+        {
+            Vector3I c = lips[i].Cell;
+            int index = (c.X * SIZE + c.Y) * SIZE + c.Z;
+            packed[i] = (ushort)((index << FACE_BITS) | (lips[i].Faces & FACE_MASK));
+        }
+        System.Array.Sort(packed);
+        ClimbLips = packed;
+    }
+
+    // Append this chunk's lips, in chunk-local coordinates.
+    public void CollectClimbLips(List<ClimbLip> output)
+    {
+        if (ClimbLips == null)
+        {
+            return;
+        }
+        for (int i = 0; i < ClimbLips.Length; i++)
+        {
+            int packed = ClimbLips[i];
+            int index = packed >> FACE_BITS;
+            output.Add(new ClimbLip(
+                new Vector3I(index / (SIZE * SIZE), (index / SIZE) % SIZE, index % SIZE),
+                packed & FACE_MASK));
+        }
     }
 
     public int GetDetailGroup(int x, int y, int z)

@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://bmw6derouor6x"]
 
 [ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_fp2xg"]
-[ext_resource type="Script" uid="uid://b2fkvr3ckw30e" path="res://scripts/gameplay/entities/PorousBody.cs" id="2_v20hb"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="2_v20hb"]
 [ext_resource type="Script" uid="uid://cg557k3hk1iey" path="res://scripts/gameplay/WindEmitterSource.cs" id="3_mnqrn"]
 [ext_resource type="PackedScene" uid="uid://bwlfgrn1a2b3c" path="res://scenes/fx/wind_leaf_green.tscn" id="4_cqmlu"]
 [ext_resource type="Shader" uid="uid://fke8klr1sk21" path="res://shaders/tree_cards_lit.gdshader" id="5_woqvc"]

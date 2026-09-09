@@ -650,12 +650,13 @@ public partial class ChunkMesh : Node3D
         Func<int, int, int, int> getSunlight,
         Func<int, int, int, bool> getSunOpaque,
         Func<int, int, int, bool> chunkExists,
+        Action<Vector3I, Vector3I, List<ClimbLip>> collectClimbLips,
         bool buildCollision = true,
         bool buildDetails = true,
         bool outOfLightWindow = false)
     {
         using var _prof = Profiler.Sample("ChunkMesh.Create");
-        ChunkGeometry geo = BuildGeometry(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, getSunOpaque, chunkExists, buildCollision, buildDetails, outOfLightWindow);
+        ChunkGeometry geo = BuildGeometry(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, getSunOpaque, chunkExists, collectClimbLips, buildCollision, buildDetails, outOfLightWindow);
         return Realize(geo);
     }
 
@@ -798,6 +799,7 @@ public partial class ChunkMesh : Node3D
         Func<int, int, int, int> getSunlight,
         Func<int, int, int, bool> getSunOpaque,
         Func<int, int, int, bool> chunkExists,
+        Action<Vector3I, Vector3I, List<ClimbLip>> collectClimbLips,
         bool buildCollision,
         bool buildDetails,
         bool outOfLightWindow)
@@ -834,7 +836,7 @@ public partial class ChunkMesh : Node3D
 
         // Hoisted: the ledge barriers are built further down and must stand on
         // the same surface the terrain mesh just made.
-        ChunkMesherDC.Build(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, getSunOpaque, chunkExists, buf, chunkWorldX, chunkWorldY, chunkWorldZ, out bool hasAnyFace, out DcCellSurface dcSurface);
+        ChunkMesherDC.Build(data, getVoxel, getShape, getTerrainId, getOverlayId, getSunlight, getSunOpaque, chunkExists, collectClimbLips, buf, chunkWorldX, chunkWorldY, chunkWorldZ, out bool hasAnyFace, out DcCellSurface dcSurface);
         geo.Terrain = buf;
         geo.HasTerrain = hasAnyFace;
 

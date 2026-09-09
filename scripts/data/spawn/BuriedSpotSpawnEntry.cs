@@ -12,6 +12,9 @@ public partial class BuriedSpotSpawnEntry : SpawnEntryData
 {
     // Shared buried_spot.tscn (carries the BuriedSpot script + model anchor).
     [Export] public PackedScene scene;
+
+    public override PackedScene PaletteScene => scene;
+
     // Payload + visuals for spots placed by this entry.
     [Export] public BuriedSpotData data;
     // Restrict placement to flat patches (the column and its 8 neighbours share
@@ -28,6 +31,9 @@ public partial class BuriedSpotSpawnEntry : SpawnEntryData
         {
             return;
         }
-        ws.AddEntity(new BuriedSpotSimState(position, scene, data));
+        ws.AddEntity(new BuriedSpotSimState(position, scene, data)
+        {
+            RotationY = FacingY(context),
+        });
     }
 }

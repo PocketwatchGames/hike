@@ -1,0 +1,16 @@
+key	value
+friendly_villager_greeting_01	Hello, traveler.
+friendly_villager_greeting_02	You don't see many strangers around here these days.
+friendly_villager_greeting_03	Safe travels out there. Watch the treeline after dark.
+friendly_villager_tell_more_01	I have nothing more to say.
+friendly_villager_beard_01	Thanks!
+friendly_villager_trade_01	Let's do it.
+friendly_villager_topics_tell_more	Tell me more.
+friendly_villager_topics_beard	I like your beard.
+friendly_villager_topics_trade	Do you want to trade?
+wanderer_greeting_01	Well met, traveler. I’ve been resting my feet by this fire.
+wanderer_greeting_02	I know these roads — the peaks, the wood, the dunes, the mire. Been walking them alone too long, if I’m honest.
+wanderer_join_01	Ha — I thought you’d never ask. Aye, I’m with you. I’ll wait at your fire till you’re ready to move.
+wanderer_farewell_01	And to you. I’ll be here a while yet.
+wanderer_topics_join	Walk them with me, then. Join my party.
+wanderer_topics_farewell	Safe travels.

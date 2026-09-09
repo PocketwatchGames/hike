@@ -27,50 +27,6 @@ public enum EEditorRoofMode
     Edit,
 }
 
-// What an entity brush places. Prop carries a PropLibraryEntry — one brush per
-// library entry, so placing is a choice rather than a roll off a kit's weighted
-// palette. Every other kind stamps a fixed prefab off the EditorBrushPalette.
-public enum EEditorEntityKind
-{
-    PlayerSpawn,
-    Prop,
-    Loot,
-    Chest,
-    Torch,
-    Door,
-    SpikeTrap,
-    DartTrap,
-    ClimbableTree,
-    Campfire,
-    Forge,
-    Well,
-    HealingFountain,
-    ManaFountain,
-    Goblin,
-    KunKun,
-    // Player-operated floor trapdoor (interact to toggle). LinkTag empty.
-    Trapdoor,
-    // Perception-gated drop trap and step-and-it-breaks crumbling floor — both
-    // Trap compositions over a TrapdoorPanel, distinguished only by scene.
-    TrapdoorTrap,
-    CrumblingFloor,
-    // Lever + its linked trapdoor. Like Marker these are expanded per tag from
-    // EditorBrushPalette.linkTags: placing "Lever: gate" and "Trapdoor: gate"
-    // shares the "gate" link so the lever throws that trapdoor.
-    Lever,
-    LinkedTrapdoor,
-    // A tagged position with no body — the subscene spawn point. One brush per
-    // pool name, expanded from EditorBrushPalette.markerTags.
-    Marker,
-    // A tagged position a ROAD should reach — a front door, a square's gate.
-    // One brush per hint name, expanded from EditorBrushPalette.pathHintTags.
-    PathHint,
-    // A coil of rope at the top of a drop. Place it at the lip and turn it with
-    // the gizmo to face out over the edge — that facing is the whole authoring,
-    // it is the direction the rope falls.
-    CoiledRope,
-}
-
 // What a click does while the entity tool is active.
 //   Place  — stamp the palette's selected brush onto the surface under the
 //            cursor (Ctrl still erases what's under it).
@@ -81,41 +37,72 @@ public enum EEditorEntityMode
     Select,
 }
 
-// Sections of the entity palette, in tab order. Purely an authoring grouping —
-// nothing about a placed entity depends on which tab it was picked from. Must
-// stay index-aligned with the GridContainers wired on EditorHud.
-public enum EEditorEntityTab
-{
-    Interactives,
-    Trees,
-    Rocks,
-    // Natural clutter that isn't a tree or a rock (grass, foliage).
-    Nature,
-    Furniture,
-    // Man-made objects that are neither interactive nor furniture.
-    Props,
-}
-
-// One entry in the editor's entity palette.
+// One entry in the editor's entity palette: a spawn entry to place, plus the
+// member of its family this particular button places.
+//
+// A SpawnEntryData rather than a scene, because that is what BOTH authoring
+// tools place and what the bake already knows how to resolve — the same entries
+// the painter offers, spawned through the same TrySpawn. The editor used to
+// carry its own enum of kinds and its own switch constructing sim states, which
+// meant a torch the painter could place was one the editor could not, and three
+// scenes wired twice with UIDs that had already drifted apart.
 public readonly struct EntityBrush
 {
     public readonly string Name;
-    public readonly EEditorEntityKind Kind;
-    public readonly EEditorEntityTab Tab;
-    // Set only for Prop. Carries the scene AND the behavior (PropType) the
-    // placed entity gets, so the editor never has to infer one from the other.
-    public readonly PropLibraryEntry Prop;
-    // Set only for Marker (the variant pool a placed marker joins) and PathHint
-    // (the hint's name within the scene).
-    public readonly string Tag;
 
-    public EntityBrush(string name, EEditorEntityKind kind, EEditorEntityTab tab, PropLibraryEntry prop = null, string tag = "")
+    // The palette entry. Null for the player spawn, which is a coordinate and
+    // not an entity — the first button, exactly as in the painter.
+    public readonly SpawnEntryData Entry;
+
+    // Which tab the button sits in: the section its palette root declared, or
+    // the prop category for a prop variant.
+    public readonly string Section;
+
+    // What this button writes onto Entry's VariantProperty before placing —
+    // which goblin, which prop, which link tag. Nil when the entry offers only
+    // one thing, and the entry is then placed unforked.
+    public readonly Variant Variant;
+    public readonly bool HasVariant;
+
+    public EntityBrush(string name, SpawnEntryData entry, string section)
     {
         Name = name;
-        Kind = kind;
-        Tab = tab;
-        Prop = prop;
-        Tag = tag;
+        Entry = entry;
+        Section = section;
+        Variant = default;
+        HasVariant = false;
+    }
+
+    public EntityBrush(string name, SpawnEntryData entry, string section, Variant variant)
+    {
+        Name = name;
+        Entry = entry;
+        Section = section;
+        Variant = variant;
+        HasVariant = true;
+    }
+
+    public bool IsPlayerSpawn => Entry == null;
+
+    // The entry as this button places it: the shared palette resource when the
+    // button is the whole entry, else a private fork carrying this button's
+    // variant. Forked per placement rather than once per button because the
+    // fork is what a placement will eventually own, and a button handing out one
+    // shared copy would give every placement the same mutable object.
+    public SpawnEntryData Resolve()
+    {
+        if (Entry == null || !HasVariant)
+        {
+            return Entry;
+        }
+        StringName property = Entry.VariantProperty;
+        if (property == null)
+        {
+            return Entry;
+        }
+        SpawnEntryData fork = Entry.Fork();
+        fork.Set(property, Variant);
+        return fork;
     }
 }
 
@@ -370,20 +357,6 @@ public partial class WorldEditor : Node3D
     private const float CLIP_VISUAL_BIAS = 0.05f;
     public const string WORLD_FILE_EXTENSION = "hike";
     public const string SCENE_FILE_EXTENSION = "hikescene";
-
-    // Fixed-prefab entity brushes, in palette order. The scene-palette brushes
-    // (trees, tall grass) aren't here — they're expanded from the world's kits
-    // at Init, one brush per scene, and appended after these.
-    private static readonly EEditorEntityKind[] FixedEntityKinds =
-    {
-        EEditorEntityKind.PlayerSpawn, EEditorEntityKind.Loot, EEditorEntityKind.Chest,
-        EEditorEntityKind.Torch, EEditorEntityKind.Door, EEditorEntityKind.SpikeTrap,
-        EEditorEntityKind.DartTrap, EEditorEntityKind.ClimbableTree, EEditorEntityKind.Campfire, EEditorEntityKind.Forge,
-        EEditorEntityKind.Well, EEditorEntityKind.HealingFountain, EEditorEntityKind.ManaFountain,
-        EEditorEntityKind.Goblin, EEditorEntityKind.KunKun,
-        EEditorEntityKind.Trapdoor, EEditorEntityKind.TrapdoorTrap, EEditorEntityKind.CrumblingFloor,
-        EEditorEntityKind.CoiledRope,
-    };
 
     // Index-aligned with the voxel palette buttons.
     private readonly List<VoxelBrush> _voxelBrushes = new List<VoxelBrush>();
@@ -772,7 +745,7 @@ public partial class WorldEditor : Node3D
         {
             EntityBrush brush = _entityBrushes[i];
             Texture2D icon = AuthoredIconFor(brush);
-            entities[i] = new EditorBrushEntry(brush.Name, icon, brush.Tab);
+            entities[i] = new EditorBrushEntry(brush.Name, icon, brush.Section);
             PackedScene bakeScene = icon == null ? BakeSceneFor(brush) : null;
             if (bakeScene != null)
             {
@@ -840,181 +813,129 @@ public partial class WorldEditor : Node3D
     // for the editor: these are the images the game shows for the same thing
     // elsewhere, so a palette button matches the inventory / bestiary entry.
     // Null means there's nothing authored and the icon has to be rendered.
-    private Texture2D AuthoredIconFor(EntityBrush brush)
-    {
-        return brush.Kind switch
-        {
-            EEditorEntityKind.Prop => brush.Prop?.icon,
-            EEditorEntityKind.Loot => brushPalette?.lootItem?.item?.inventorySprite,
-            EEditorEntityKind.Goblin => brushPalette?.goblinMob?.bestiaryPortrait,
-            EEditorEntityKind.KunKun => brushPalette?.kunKunMob?.bestiaryPortrait,
-            _ => null,
-        };
-    }
+    private static Texture2D AuthoredIconFor(EntityBrush brush)
+        => brush.Entry?.PaletteIcon;
 
     // What the icon baker renders for a brush with no authored art — the same
-    // scene the brush stamps, so the button shows the actual thing placed.
-    // Mobs are deliberately absent: their scenes expect a MobSimState to drive
-    // them, and they have bestiary portraits already. PlayerSpawn has nothing
-    // to render at all (it moves a coordinate) and keeps its name label.
-    private PackedScene BakeSceneFor(EntityBrush brush)
-    {
-        return brush.Kind switch
-        {
-            EEditorEntityKind.Prop => brush.Prop?.scene,
-            EEditorEntityKind.Chest => brushPalette?.chestScene,
-            EEditorEntityKind.Torch => brushPalette?.torchScene,
-            EEditorEntityKind.Door => brushPalette?.doorScene,
-            EEditorEntityKind.SpikeTrap => brushPalette?.spikeTrapScene,
-            EEditorEntityKind.DartTrap => brushPalette?.dartTrapScene,
-            EEditorEntityKind.Trapdoor => brushPalette?.trapdoorScene,
-            EEditorEntityKind.LinkedTrapdoor => brushPalette?.trapdoorScene,
-            EEditorEntityKind.TrapdoorTrap => brushPalette?.trapdoorTrapScene,
-            EEditorEntityKind.CrumblingFloor => brushPalette?.crumblingFloorScene,
-            EEditorEntityKind.Lever => brushPalette?.leverScene,
-            EEditorEntityKind.ClimbableTree => brushPalette?.climbableTreeScene,
-            EEditorEntityKind.Campfire => brushPalette?.campfireScene,
-            EEditorEntityKind.Forge => brushPalette?.forgeScene,
-            EEditorEntityKind.Well => brushPalette?.wellScene,
-            EEditorEntityKind.HealingFountain => brushPalette?.healingFountainScene,
-            EEditorEntityKind.ManaFountain => brushPalette?.manaFountainScene,
-            EEditorEntityKind.Marker => brushPalette?.markerScene,
-            EEditorEntityKind.PathHint => brushPalette?.pathHintScene,
-            _ => null,
-        };
-    }
+    // scene the brush places, so the button shows the actual thing. Null for
+    // anything with nothing to render (the player spawn moves a coordinate;
+    // mob scenes want a MobSimState to drive them) and it keeps a name label.
+    private static PackedScene BakeSceneFor(EntityBrush brush)
+        => brush.Entry?.PaletteScene;
 
-    // Fixed prefabs first, then the prop library. The fixed ones all land in the
-    // Interactives tab: they act rather than decorate (chests, doors, traps,
-    // mobs) or mark the world (the spawn point), and none of them is a prop.
+    // The palette is what is on disk, in the sections the palette table
+    // declares — the same discovery the world-map painter runs, so a spawn
+    // entry authored into one of those directories appears in both tools and in
+    // neither is there a list to remember to append it to.
+    //
+    // The player spawn leads, as it does in the painter: there is exactly one of
+    // it, so placing it MOVES it, and a tool whose whole job is to move one
+    // point does not need a button in the toolbar.
     private void BuildEntityBrushes()
     {
         _entityBrushes.Clear();
-        foreach (EEditorEntityKind kind in FixedEntityKinds)
-        {
-            _entityBrushes.Add(new EntityBrush(kind.ToString(), kind, EEditorEntityTab.Interactives));
-        }
-        AddMarkerBrushes();
-        AddPathHintBrushes();
-        AddLinkedTrapdoorBrushes();
-        AddPropBrushes();
-    }
+        _entityBrushes.Add(new EntityBrush("Player Spawn", null, "Interactives"));
 
-    // One Lever + one linked Trapdoor brush per authored link tag, mirroring
-    // AddMarkerBrushes — placing "Lever: gate" and "Trapdoor: gate" shares the
-    // "gate" link so the lever throws that trapdoor. A new linked pair is a
-    // string in EditorBrushPalette.linkTags, not a code change.
-    private void AddLinkedTrapdoorBrushes()
-    {
-        foreach (string tag in brushPalette?.linkTags ?? System.Array.Empty<string>())
-        {
-            if (string.IsNullOrEmpty(tag))
-            {
-                continue;
-            }
-            if (brushPalette?.leverScene != null)
-            {
-                _entityBrushes.Add(new EntityBrush($"Lever: {tag}", EEditorEntityKind.Lever,
-                    EEditorEntityTab.Interactives, prop: null, tag: tag));
-            }
-            if (brushPalette?.trapdoorScene != null)
-            {
-                _entityBrushes.Add(new EntityBrush($"Trapdoor: {tag}", EEditorEntityKind.LinkedTrapdoor,
-                    EEditorEntityTab.Interactives, prop: null, tag: tag));
-            }
-        }
-    }
-
-    // One brush per authored pool name. Like the prop brushes these are expanded
-    // from the palette rather than fixed in the enum — a new spawn-point pool is
-    // a string in EditorBrushPalette.markerTags, not a code change.
-    private void AddMarkerBrushes()
-    {
-        if (brushPalette?.markerScene == null)
+        AuthoringPaletteSource source = AuthoringPaletteSource.Find(AuthoringPaletteSource.Entities);
+        if (source == null)
         {
             return;
         }
-        foreach (string tag in brushPalette.markerTags ?? System.Array.Empty<string>())
+        foreach (string path in source.Discover())
         {
-            if (string.IsNullOrEmpty(tag))
+            if (ResourceLoader.Load<Resource>(path) is not SpawnEntryData entry)
             {
+                GD.PushWarning($"WorldEditor: entity palette entry '{path}' did not load as a "
+                    + "SpawnEntryData; skipped.");
                 continue;
             }
-            _entityBrushes.Add(new EntityBrush($"Spawn: {tag}", EEditorEntityKind.Marker,
-                EEditorEntityTab.Interactives, prop: null, tag: tag));
+            AddEntryBrushes(entry, source.SectionFor(path));
         }
     }
 
-    // One brush per authored path-hint name, same expansion as the marker
-    // brushes. The tag is both the hint's name inside the scene (a road names
-    // "<placement>.<tag>") and what picks the tread an auto-linked spur gets
-    // (WorldGenData.pathHintProfiles), so "door" and "gate" are different
-    // brushes rather than one brush with a setting.
-    private void AddPathHintBrushes()
+    // One button for an entry that offers one thing, or one per member for an
+    // entry that offers a family — the goblins, the prop library, the link tags
+    // a lever may throw.
+    //
+    // Expanding here rather than in the model is deliberate: which members an
+    // entry has is the entry's business (VariantProperty plus the candidates it
+    // already answers for the property panel), while whether a family is worth
+    // sixty buttons or one row and a dropdown is a question about the tool's
+    // screen. The painter answers it the other way and reads the same data.
+    private void AddEntryBrushes(SpawnEntryData entry, string section)
     {
-        if (brushPalette?.pathHintScene == null)
+        StringName property = entry.VariantProperty;
+        string entryName = SpawnEntryData.PaletteName(entry);
+        if (property == null)
         {
+            _entityBrushes.Add(new EntityBrush(entryName, entry, section));
             return;
         }
-        foreach (string tag in brushPalette.pathHintTags ?? System.Array.Empty<string>())
-        {
-            if (string.IsNullOrEmpty(tag))
-            {
-                continue;
-            }
-            _entityBrushes.Add(new EntityBrush($"Path: {tag}", EEditorEntityKind.PathHint,
-                EEditorEntityTab.Interactives, prop: null, tag: tag));
-        }
-    }
 
-    // One brush per library entry PER CATEGORY FLAG it ticks, in library order —
-    // the tabs do the grouping now, so nothing here has to sort. An entry with
-    // several flags deliberately appears under each of those tabs; one with none
-    // still gets a button, in the Props catch-all, rather than vanishing.
-    private void AddPropBrushes()
-    {
-        PropLibraryEntry[] entries = brushPalette?.propLibrary?.entries;
-        if (entries == null)
+        Resource[] resources = entry.ResourceCandidates(property);
+        if (resources != null && resources.Length > 0)
         {
-            return;
-        }
-        foreach (PropLibraryEntry entry in entries)
-        {
-            if (entry?.scene == null)
+            foreach (Resource candidate in resources)
             {
-                continue;
-            }
-            string name = string.IsNullOrEmpty(entry.displayName)
-                ? entry.scene.ResourcePath.GetFile().GetBaseName()
-                : entry.displayName;
-            bool placed = false;
-            foreach (EPropCategory category in Enum.GetValues<EPropCategory>())
-            {
-                if ((entry.category & category) == 0)
+                if (candidate == null)
                 {
                     continue;
                 }
-                _entityBrushes.Add(new EntityBrush(name, EEditorEntityKind.Prop, TabForCategory(category), entry));
-                placed = true;
+                _entityBrushes.Add(new EntityBrush(
+                    VariantLabel(entry, property, candidate), entry,
+                    SectionForVariant(candidate, section), candidate));
             }
-            if (!placed)
-            {
-                _entityBrushes.Add(new EntityBrush(name, EEditorEntityKind.Prop, EEditorEntityTab.Props, entry));
-            }
+            return;
         }
+
+        string[] names = entry.NameCandidates(property);
+        if (names != null && names.Length > 0)
+        {
+            foreach (string candidate in names)
+            {
+                if (string.IsNullOrEmpty(candidate))
+                {
+                    continue;
+                }
+                _entityBrushes.Add(new EntityBrush(
+                    $"{entryName}: {candidate}", entry, section, candidate));
+            }
+            return;
+        }
+
+        // A variant property with nothing to offer yet — the entry still places,
+        // with whatever it was authored holding.
+        _entityBrushes.Add(new EntityBrush(entryName, entry, section));
     }
 
-    // One authoring category flag to its tab. Other is the man-made catch-all,
-    // which is exactly what the Props tab holds.
-    private static EEditorEntityTab TabForCategory(EPropCategory category)
+    // What a variant button is called: the member's own name, since that is what
+    // an author is picking between. Asked of a fork so the entry answers for the
+    // candidate rather than for whatever it currently holds.
+    private static string VariantLabel(SpawnEntryData entry, StringName property, Resource candidate)
     {
-        return category switch
+        SpawnEntryData probe = entry.Fork();
+        probe.Set(property, candidate);
+        string name = probe.VariantName();
+        return string.IsNullOrEmpty(name) ? SpawnEntryData.PaletteName(entry) : name;
+    }
+
+    // A prop files under its authoring CATEGORY rather than its palette root,
+    // because one entry covers the whole library and "Props" as a single tab is
+    // sixty buttons deep. Everything else keeps the section its directory
+    // declared. An entry ticking several categories appears under each.
+    private static string SectionForVariant(Resource candidate, string section)
+    {
+        if (candidate is not PropLibraryEntry prop)
         {
-            EPropCategory.Tree => EEditorEntityTab.Trees,
-            EPropCategory.Rock => EEditorEntityTab.Rocks,
-            EPropCategory.Foliage => EEditorEntityTab.Nature,
-            EPropCategory.Furniture => EEditorEntityTab.Furniture,
-            _ => EEditorEntityTab.Props,
+            return section;
+        }
+        return prop.category switch
+        {
+            EPropCategory category when (category & EPropCategory.Tree) != 0 => "Trees",
+            EPropCategory category when (category & EPropCategory.Rock) != 0 => "Rocks",
+            EPropCategory category when (category & EPropCategory.Foliage) != 0 => "Nature",
+            EPropCategory category when (category & EPropCategory.Furniture) != 0 => "Furniture",
+            _ => "Props",
         };
     }
 
@@ -2649,7 +2570,8 @@ public partial class WorldEditor : Node3D
         {
             return false;
         }
-        PropLibraryEntry prop = _entityBrushes[_entityTypeIndex].Prop;
+        EntityBrush brush = _entityBrushes[_entityTypeIndex];
+        PropLibraryEntry prop = brush.HasVariant ? brush.Variant.As<PropLibraryEntry>() : null;
         if (prop?.scene == null || PropInstance.GetApertureHeight(prop.scene) <= 0)
         {
             return false;
@@ -3169,7 +3091,7 @@ public partial class WorldEditor : Node3D
         }
         EntityBrush brush = _entityBrushes[_entityTypeIndex];
 
-        if (brush.Kind == EEditorEntityKind.PlayerSpawn)
+        if (brush.IsPlayerSpawn)
         {
             edit?.TouchSpawn();
             _worldState.Spawn = position;
@@ -3177,14 +3099,13 @@ public partial class WorldEditor : Node3D
             return null;
         }
 
-        EntitySimState simState = CreateEntitySimState(brush, position);
+        EntitySimState simState = SpawnFromEntry(brush, position);
         if (simState == null)
         {
             return null;
         }
 
         edit?.TouchEntitiesAt(position);
-        _worldState.AddEntity(simState);
         // Before the spawn: an entity that stamps voxels on spawn (a door) would
         // otherwise write them itself, outside the undo step and without a
         // rebuild.
@@ -3196,6 +3117,84 @@ public partial class WorldEditor : Node3D
         // editor's own entity picking.
         ReloadChunkEntities(Sim.WorldToChunkCoord(position));
         return simState;
+    }
+
+    // Place the brush's entry through the SAME call the painter's bake and every
+    // worldgen scatter pass make, so a chest placed by hand and one rolled by a
+    // spawn list differ in position and nothing else.
+    //
+    // The state comes back off WorldState.RecordingAdds rather than from the
+    // call: Spawn returns void because a composite entry files several, and the
+    // editor needs them to select, to stamp the voxels they own and to put them
+    // in the undo step. The FIRST is what the tool treats as "the thing you
+    // placed" — a group's anchor member — and the rest ride along in the world.
+    private EntitySimState SpawnFromEntry(EntityBrush brush, Vector3 position)
+    {
+        SpawnEntryData entry = brush.Resolve();
+        if (entry == null)
+        {
+            return null;
+        }
+        var placed = new List<EntitySimState>();
+        _worldState.RecordingAdds = placed;
+        try
+        {
+            SpawnContext context = EditorSpawnContext();
+            // The author put the mark exactly here, so the gates that judge an
+            // AUTO-PICKED spot are skipped — flat patch, lateral clearance,
+            // minimum spacing. The same claim the painter makes for a hand
+            // placement, and for the same reason.
+            context.AuthoredPosition = true;
+            entry.TrySpawn(_worldState, position, new Random(), context);
+        }
+        finally
+        {
+            _worldState.RecordingAdds = null;
+        }
+        if (placed.Count == 0)
+        {
+            GD.PushWarning($"WorldEditor: '{brush.Name}' placed nothing at {position} — the entry "
+                + "refused the spot (see any error above it).");
+            return null;
+        }
+        foreach (EntitySimState state in placed)
+        {
+            StampEntityVoxels(null, state);
+        }
+        return placed[0];
+    }
+
+    // What an editor placement resolves against: the world under the cursor and
+    // nothing else. No difficulty layer is installed, which is the defined
+    // "nobody is answering" case — a mob keeps its authored base level and a
+    // forge sits at tier 0. That is honest here: an authored scene has no zone
+    // until something stamps it into a world, and it is the DESTINATION's
+    // context that should decide, not this one.
+    private SpawnContext EditorSpawnContext()
+    {
+        return _editorSpawnContext ??= new SpawnContext
+        {
+            SurfaceYAt = SurfaceYAtWorld,
+        };
+    }
+
+    private SpawnContext _editorSpawnContext;
+
+    // Top of the solid column at (wx, wz), scanned off the live voxels — the
+    // editor has no height field, and after an author has been carving for an
+    // hour the voxels are the only thing that still knows where the ground is.
+    // Only composite entries ask (a group scattering its members); a leaf spawns
+    // at the position it is handed.
+    private int SurfaceYAtWorld(int wx, int wz)
+    {
+        for (int y = _worldState.Max.Y; y >= _worldState.Min.Y; y--)
+        {
+            if (Blocks.IsSolid(_worldState.GetBlockWorld(wx, y, wz)))
+            {
+                return y;
+            }
+        }
+        return _worldState.Min.Y;
     }
 
     // Voxels an entity owns (a window frame's aperture, a door's occluder) are
@@ -3229,134 +3228,6 @@ public partial class WorldEditor : Node3D
             var refresh = new EditorRefresh();
             refresh.AddVoxels(changed);
             refresh.Apply(_world);
-        }
-    }
-
-    // Props place the brush's own library entry — worldgen rolls a kit's
-    // weighted palette, but an author picking a brush has already chosen. Every
-    // other kind stamps a fixed prefab from the EditorBrushPalette, the editor's
-    // standalone library of authorable interactives / mobs, independent of
-    // worldgen's per-zone spawn lists.
-    private EntitySimState CreateEntitySimState(EntityBrush brush, Vector3 position)
-    {
-        switch (brush.Kind)
-        {
-            case EEditorEntityKind.Prop:
-                return new PropSimState(brush.Prop.propType, position, brush.Prop.scene);
-            case EEditorEntityKind.Loot:
-            {
-                ItemDescriptor lootItem = brushPalette?.lootItem;
-                if (lootItem?.item == null) { return null; }
-                var lootSim = new LootSimState(position, lootItem.item);
-                if (lootItem.NeedsComposedState)
-                {
-                    lootSim.Item = lootItem.CreateState();
-                }
-                return lootSim;
-            }
-            case EEditorEntityKind.Chest:
-                return brushPalette?.chestScene != null
-                    ? new ChestSimState(position, brushPalette.chestScene) { LootItems = ChestSpawnEntry.Resolve(brushPalette.chestLoot, new Random()) }
-                    : null;
-            case EEditorEntityKind.Torch:
-                return brushPalette?.torchScene != null
-                    ? new TorchSimState(position, brushPalette.torchScene)
-                    : null;
-            case EEditorEntityKind.Door:
-                return brushPalette?.doorScene != null
-                    ? new DoorSimState(position, 0f, brushPalette.doorScene)
-                    : null;
-            case EEditorEntityKind.ClimbableTree:
-                return brushPalette?.climbableTreeScene != null
-                    ? new ClimbableTreeSimState(position, brushPalette.climbableTreeScene)
-                    : null;
-            case EEditorEntityKind.SpikeTrap:
-                return brushPalette?.spikeTrapScene != null
-                    ? new TrapSimState(position, brushPalette.spikeTrapScene)
-                    : null;
-            case EEditorEntityKind.DartTrap:
-                return brushPalette?.dartTrapScene != null
-                    ? new TrapSimState(position, brushPalette.dartTrapScene)
-                    : null;
-            case EEditorEntityKind.Trapdoor:
-                return brushPalette?.trapdoorScene != null
-                    ? new TrapdoorSimState(position, 0f, brushPalette.trapdoorScene)
-                    : null;
-            case EEditorEntityKind.CoiledRope:
-                return brushPalette?.coiledRopeScene != null
-                    ? new CoiledRopeSimState(position, 0f, brushPalette.coiledRopeScene)
-                    : null;
-            case EEditorEntityKind.LinkedTrapdoor:
-                return brushPalette?.trapdoorScene != null
-                    ? new TrapdoorSimState(position, 0f, brushPalette.trapdoorScene) { LinkTag = brush.Tag }
-                    : null;
-            case EEditorEntityKind.TrapdoorTrap:
-                return brushPalette?.trapdoorTrapScene != null
-                    ? new TrapSimState(position, brushPalette.trapdoorTrapScene) { HazardRadius = TrapSimState.DefaultHazardRadius }
-                    : null;
-            case EEditorEntityKind.CrumblingFloor:
-                return brushPalette?.crumblingFloorScene != null
-                    ? new TrapSimState(position, brushPalette.crumblingFloorScene) { HazardRadius = TrapSimState.DefaultHazardRadius }
-                    : null;
-            case EEditorEntityKind.Lever:
-                return brushPalette?.leverScene != null
-                    ? new LeverSimState(position, 0f, brushPalette.leverScene) { TargetLinkTag = brush.Tag }
-                    : null;
-            case EEditorEntityKind.Campfire:
-                // Always unlit: lighting one douses every other, so a placed
-                // campfire must not steal the world's lit one at load.
-                return brushPalette?.campfireScene != null
-                    ? new CampfireSimState(position, brushPalette.campfireScene) { HazardRadius = CampfireSimState.DefaultHazardRadius }
-                    : null;
-            case EEditorEntityKind.Forge:
-                // Slot/level come from the palette until the tool grows a picker;
-                // None derives a stable slot from the position, as worldgen does.
-                return brushPalette?.forgeScene != null
-                    ? new ForgeSimState(
-                        position,
-                        brushPalette.forgeScene,
-                        brushPalette.forgeLevel,
-                        brushPalette.forgeSlot != EUpgradeSlot.None ? brushPalette.forgeSlot : ForgeOffer.SlotFor(position))
-                    : null;
-            case EEditorEntityKind.Well:
-                return brushPalette?.wellScene != null
-                    ? new WellSimState(position, brushPalette.wellScene)
-                    : null;
-            // Two brushes rather than one plus a picker: which resource a fountain
-            // refills is an [Export] on the scene's Fountain node, so the scene IS
-            // the variant.
-            case EEditorEntityKind.HealingFountain:
-                return brushPalette?.healingFountainScene != null
-                    ? new FountainSimState(position, brushPalette.healingFountainScene)
-                    : null;
-            case EEditorEntityKind.ManaFountain:
-                return brushPalette?.manaFountainScene != null
-                    ? new FountainSimState(position, brushPalette.manaFountainScene)
-                    : null;
-            case EEditorEntityKind.Goblin:
-            {
-                MobData data = brushPalette?.goblinMob;
-                return data?.mobScene != null ? new MobSimState(position, 0f, data.mobScene, data) : null;
-            }
-            case EEditorEntityKind.KunKun:
-            {
-                MobData data = brushPalette?.kunKunMob;
-                return data?.mobScene != null ? new MobSimState(position, 0f, data.mobScene, data) : null;
-            }
-            // The brush IS the pool — one button per tag, so what gets placed is
-            // decided by which marker brush is selected.
-            case EEditorEntityKind.Marker:
-                return brushPalette?.markerScene != null
-                    ? new MarkerSimState(position, brush.Tag, brushPalette.markerScene)
-                    : null;
-            // Likewise one button per hint name — stand it in the doorway (or in
-            // the gap in the square's wall) and worldgen brings a path to it.
-            case EEditorEntityKind.PathHint:
-                return brushPalette?.pathHintScene != null
-                    ? new PathHintSimState(position, brush.Tag, brushPalette.pathHintScene)
-                    : null;
-            default:
-                return null;
         }
     }
 
@@ -3778,6 +3649,11 @@ public partial class WorldEditor : Node3D
         // Main does the same pair when it loads a world; the editor's open path
         // was only doing the second half.
         FoliageStamper.Stamp(ws);
+        // Ledge crust too, for the same reason: it is baked by the producer, and
+        // a stub world has no producer — without this a subscene being authored
+        // shows none of the mantle hints the game will show once it is stamped
+        // into a real world.
+        ClimbLedgeStamper.Stamp(ws);
         // The stub's bake ran on an empty world; redo it now there's geometry.
         LightEngine.Relight(ws);
         // The editor is the only place these are heard while authoring, and
@@ -3845,6 +3721,7 @@ public partial class WorldEditor : Node3D
 
         // Same pairing as the scene path: occluders first, then light.
         FoliageStamper.Stamp(ws);
+        ClimbLedgeStamper.Stamp(ws);
         // Compute initial sunlight so the world isn't pitch black
         LightEngine.Relight(ws);
         // The editor is the only place these are heard while authoring, and

@@ -38,9 +38,14 @@ public partial class StoneRingSpawnEntry : SpawnEntryData
             return;
         }
         int count = Mathf.Max(3, Mathf.RoundToInt(Mathf.Tau * radius / spacing));
+        // A facing turns the RING, not the stones in it: each stone keeps the
+        // random yaw that stops a circle of identical menhirs reading as a
+        // fence, and what an aim can still change is where in the circle they
+        // land — which is the only thing a ring has to aim.
+        float ringPhase = FacingY(context);
         for (int i = 0; i < count; i++)
         {
-            float angle = (float)i / count * Mathf.Tau;
+            float angle = ringPhase + (float)i / count * Mathf.Tau;
             float r = radius + ((float)rng.NextDouble() * 2f - 1f) * radiusJitter;
             int wx = Mathf.FloorToInt(position.X + r * Mathf.Cos(angle));
             int wz = Mathf.FloorToInt(position.Z + r * Mathf.Sin(angle));

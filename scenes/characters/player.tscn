@@ -212,7 +212,6 @@ _digToolHeldScene = ExtResource("61_shovelheld")
 
 [node name="AudioListener3D" type="AudioListener3D" parent="." unique_id=1649569787]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
-current = true
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)

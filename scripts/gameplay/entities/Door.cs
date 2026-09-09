@@ -5,9 +5,14 @@ using Godot;
 public partial class Door : Node3D, IInteractive, IWorldEntity
 {
     [Export] private StaticBody3D _blockCollider;
-    // Pivot placed at the leaf's hinge edge with the door mesh parented under
-    // it; the leaf swings about this node's Y.
-    [Export] private Node3D _hinge;
+    // One pivot per leaf, placed at that leaf's hinge edge with the door mesh
+    // parented under it. A double door hangs its second leaf MIRRORED on X (a
+    // negative-determinant basis) -- that is what puts the hinges and knocker on
+    // the correct side of that leaf, and what makes the shared _openAngleDeg
+    // swing it the opposite way in world space so both leaves open outward. A
+    // 180-degree yaw is not a substitute: it shows the leaf's back face, and
+    // setting rotation would overwrite it outright.
+    [Export] private Godot.Collections.Array<Node3D> _hinges = new();
     [Export(PropertyHint.Range, "0,180,1")] private float _openAngleDeg = 95f;
     [Export] private float _openSeconds = 0.35f;
     // Height in voxels of the doorway column a CLOSED door makes opaque,
@@ -18,6 +23,11 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     [Export(PropertyHint.Range, "1,8,1")] private int _occluderHeight = 2;
     [Export] private HurtBox _hurtBox;
     [Export] private Node3D _hudNode;
+    // Swing cues, spawned at the door on each toggle. Split open/close because
+    // one action drives both directions and only the door knows which way it
+    // just went -- the action's own ItemEvent.fx fires identically either way.
+    [Export] private PackedScene _openFx;
+    [Export] private PackedScene _closeFx;
     // Authored interaction list. Doors are typically instant Open
     // (durationSeconds=0); add a Lockpick entry for locked doors.
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
@@ -28,6 +38,16 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     // stopped, unlike porous interactives (chests, wells).
 
     private bool _open;
+    // Kept so a re-toggle mid-swing retargets instead of stacking a second
+    // tween against the first -- with several leaves that reads as them
+    // drifting out of sync.
+    private Tween _swingTween;
+    // Each leaf's hanging, captured before it first moves, and the swing angle
+    // currently applied on top of it. Both exist because the swing has to be
+    // composed in the LEAF's frame (rest * R_y), which Node3D.Rotation cannot
+    // express -- see ApplySwing.
+    private Basis[] _restBases;
+    private float _swingRadians;
     private DoorSimState _interactiveState;
     private WorldState _worldData;
     private Sim _world;
@@ -63,24 +83,63 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         return _actions != null && _actions.Count > 0 ? _actions : null;
     }
 
+    // Snapshot how each leaf is hung, before anything swings it.
+    private void CaptureRestBases()
+    {
+        if (_restBases != null)
+        {
+            return;
+        }
+        int hingeCount = _hinges != null ? _hinges.Count : 0;
+        _restBases = new Basis[hingeCount];
+        for (int i = 0; i < hingeCount; i++)
+        {
+            _restBases[i] = _hinges[i] != null ? _hinges[i].Basis : Basis.Identity;
+        }
+    }
+
+    // Swing every leaf to `radians` about its OWN hinge axis: rest * R_y, not
+    // R_y * rest. Node3D.Rotation (and so a "rotation:y" tween) can only do the
+    // latter -- it rebuilds the basis as rotation * scale, which resolves a
+    // mirrored leaf's hanging into a scale of (-1,-1,-1) plus a 180-degree X
+    // rotation and then swings it through the world Y axis instead of its own.
+    // The visible symptom is a double door whose leaves open opposite ways, one
+    // of them inward through the wall.
+    private void ApplySwing(float radians)
+    {
+        _swingRadians = radians;
+        var swing = new Basis(Vector3.Up, radians);
+        for (int i = 0; i < _restBases.Length; i++)
+        {
+            Node3D hinge = _hinges[i];
+            if (hinge == null)
+            {
+                continue;
+            }
+            hinge.Basis = _restBases[i] * swing;
+        }
+    }
+
     private void UpdateVisuals(bool animate)
     {
-        if (_hinge == null)
+        CaptureRestBases();
+        if (_restBases.Length == 0)
         {
             return;
         }
         float target = Mathf.DegToRad(_open ? _openAngleDeg : 0f);
-        if (animate)
+        _swingTween?.Kill();
+        _swingTween = null;
+        if (!animate)
         {
-            CreateTween().TweenProperty(_hinge, "rotation:y", target, _openSeconds)
-                .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
+            ApplySwing(target);
+            return;
         }
-        else
-        {
-            Vector3 r = _hinge.Rotation;
-            r.Y = target;
-            _hinge.Rotation = r;
-        }
+        // One tween driving the shared angle, so every leaf stays in step
+        // however many there are, and a re-toggle resumes from the live pose.
+        _swingTween = CreateTween();
+        _swingTween.TweenMethod(Callable.From<float>(ApplySwing), _swingRadians, target, _openSeconds)
+            .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
     }
 
     public void Complete(int actionIndex)
@@ -92,6 +151,12 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         _blockCollider.GetNode<CollisionShape3D>("CollisionShape3D").Disabled = _open;
 
         UpdateVisuals(true);
+
+        PackedScene swingFx = _open ? _openFx : _closeFx;
+        if (swingFx != null)
+        {
+            Fx.Create(swingFx, this, Vector3.Zero);
+        }
 
         // Doorway voxels follow the new state, then relight what they changed.
         // Lighting only — a Barrier has no geometry (Density.TypeDensity skips
@@ -136,7 +201,7 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         for (int i = 0; i < MaxStepUp; i++)
         {
             int v = world.GetBlockWorld(x, y, z);
-            if (!Blocks.IsSolid(v) || v == Blocks.BarrierId)
+            if (!Blocks.HasGeometry(v))
             {
                 break;
             }

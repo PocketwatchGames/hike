@@ -15,6 +15,10 @@ using Godot;
 //                    bits; 0 = all). Optional because it is sparse — see
 //                    ChunkState.OverlayFaces. Written last, after the entity
 //                    list, per the append-only rule below.
+//   climbLips      : ushort count, then that many ushorts — the chunk's baked
+//                    mantleable ledge lips, packed cell index + face mask (see
+//                    ChunkState.ClimbLips). Sparse, so a count of 0 is the
+//                    common case and costs two bytes.
 //   detailGroup    : 4096 bytes (1-based DetailGroups index; 0 = none)
 //   detailStrength : 4096 bytes (0..255 scatter density)
 //   windFactor     : 64 bytes (ENV_SUBGRID_SIZE^3 byte cells, 0 = no wind,
@@ -133,6 +137,16 @@ public static class ChunkSerializer
         {
             WriteChannel(w, chunk.OverlayFaces, OVERLAY_BYTES);
         }
+
+        ushort[] lips = chunk.ClimbLips;
+        w.Write((ushort)(lips?.Length ?? 0));
+        if (lips != null)
+        {
+            for (int i = 0; i < lips.Length; i++)
+            {
+                w.Write(lips[i]);
+            }
+        }
     }
 
     // `pathTable` is the containing file's shared resource-path table when the
@@ -168,6 +182,17 @@ public static class ChunkSerializer
         {
             chunk.OverlayFaces = new byte[ChunkState.SIZE, ChunkState.SIZE, ChunkState.SIZE];
             ReadChannel(r, chunk.OverlayFaces, OVERLAY_BYTES);
+        }
+
+        int lipCount = r.ReadUInt16();
+        if (lipCount > 0)
+        {
+            var lips = new ushort[lipCount];
+            for (int i = 0; i < lipCount; i++)
+            {
+                lips[i] = r.ReadUInt16();
+            }
+            chunk.ClimbLips = lips;
         }
     }
 }

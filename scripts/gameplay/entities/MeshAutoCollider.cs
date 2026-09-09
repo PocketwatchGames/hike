@@ -78,6 +78,16 @@ public partial class MeshAutoCollider : Node3D
         {
             return;
         }
+        EnsureRuntimeColliders();
+    }
+
+    // The unbaked-scene fallback, split out of _Ready so anything that needs a
+    // scene's real collision without running it can ask for it. Touches nothing
+    // outside this subtree, so it works on a detached Instantiate() — which is
+    // how PropColliderCache reads a prop's footprint while baking a world, where
+    // there is no SceneTree and _Ready never fires. Idempotent.
+    public void EnsureRuntimeColliders()
+    {
         if (HasBakedCollider())
         {
             return;
@@ -86,6 +96,10 @@ public partial class MeshAutoCollider : Node3D
         {
             if (descendant is MeshInstance3D mi && mi.Mesh != null)
             {
+                if (mi.HasNode(AutoCollisionPrefix + mi.Name))
+                {
+                    continue;
+                }
                 var body = new PorousBody { Name = AutoCollisionPrefix + mi.Name, steppable = steppable };
                 mi.AddChild(body);
                 body.AddChild(new CollisionShape3D

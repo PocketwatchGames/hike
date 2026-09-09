@@ -1017,7 +1017,7 @@ public partial class ChunkManager : Node3D
             ChunkState data = _worldData.GetChunk(coord);
             Vector3I rel = coord - _lastPlayerChunkCoord;
             bool visualOnly = (rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z) > MAX_LOAD_DISTANCE_SQ;
-            built[i] = ChunkMesh.BuildGeometry(data, _worldData.GetBlockWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, buildCollision: !visualOnly, buildDetails: !visualOnly, outOfLightWindow: visualOnly);
+            built[i] = ChunkMesh.BuildGeometry(data, _worldData.GetBlockWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, _worldData.CollectClimbLipsWorld, buildCollision: !visualOnly, buildDetails: !visualOnly, outOfLightWindow: visualOnly);
         });
         SpawnCostProfile.RecordOther($"fill.ParallelBuild({coords.Count} chunks)", buildStart);
 
@@ -1049,7 +1049,7 @@ public partial class ChunkManager : Node3D
         // MAX_LOAD_DISTANCE this is always false, so normal play is unchanged.
         Vector3I rel = coord - _lastPlayerChunkCoord;
         bool visualOnly = (rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z) > MAX_LOAD_DISTANCE_SQ;
-        ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetBlockWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, buildCollision: !visualOnly, buildDetails: !visualOnly, outOfLightWindow: visualOnly);
+        ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetBlockWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, _worldData.CollectClimbLipsWorld, buildCollision: !visualOnly, buildDetails: !visualOnly, outOfLightWindow: visualOnly);
         AddChild(mesh);
         _loadedChunks[coord] = mesh;
         if (CVars.chunkWaterLog.Value && mesh.HasWater)
@@ -1076,7 +1076,7 @@ public partial class ChunkManager : Node3D
                 continue;
             }
 
-            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetBlockWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds);
+            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetBlockWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, _worldData.CollectClimbLipsWorld);
             // Before QueueFree — the outgoing node's _ExitTree runs at the end
             // of the frame and would otherwise strip the live detail scatter.
             oldMesh.TransferDetailScatterTo(mesh);

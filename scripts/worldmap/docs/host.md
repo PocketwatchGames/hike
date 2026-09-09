@@ -250,21 +250,33 @@ The drag adopts an angle only past `AimDeadZone` (2 m): an angle read off a
 cursor sitting on top of the mark is noise — a metre of hand jitter is a
 180-degree swing — so a click that does not really drag leaves the facing alone.
 Placing leaves the stroke aiming rather than moving because the entity is already
-where it was clicked and there is nothing else for that drag to say; an entry
-with no facing keeps the old meaning and slides, which is the only thing a drag
-can still do for it.
+where it was clicked and there is nothing else for that drag to say.
 
-**Only an entry that READS a facing can be aimed** — `SpawnEntryData.UsesFacing`,
-overridden by the five whose `Spawn` reads `context.FacingY` (`MobSpawnEntry`,
-`NpcSpawnEntry`, `TrapdoorSpawnEntry`, `LeverSpawnEntry`, `CoiledRopeSpawnEntry`)
-and by `SpawnGroupData`, which hands its context to every member. The rest draw
-no facing line, ignore an aim-drag and R/F, and say so in the readout ("this
-entry has no facing"). It is `IsHandPlacedProperty`'s rule applied to a gesture:
-a control that cannot change the result is worse than a missing one, because it
-invites tuning that does nothing. **An entry type that starts honouring a facing
-overrides `UsesFacing` in the same edit that makes it read the context** — every
-`EntitySimState` already carries a `RotationY` that `SeatTransform` applies, so
-that is one line, and the painter picks it up with no change of its own.
+**Every placement can be aimed, and there is no flag saying which.** A facing is
+a property of the PLACEMENT, and every `EntitySimState` carries a `RotationY`
+that `SeatTransform` applies — so an entry honours one by reading
+`SpawnEntryData.FacingY(context)` in the line that constructs its state, and the
+painter draws a facing line on every mark without asking anything of the entry.
+This replaced a `UsesFacing` capability flag that six entry types overrode: it
+was an opt-in list, so a signpost, a forge, a knowledge stone and a fountain all
+sat un-turnable because nobody had added the two lines, and nothing said so.
+
+The three shapes an entry can take, all of them checked by **`HK009`** (a `Spawn`
+override that builds an `EntitySimState` and never mentions `FacingY` is a build
+error):
+
+- **Seat it** — `RotationY = FacingY(context)`. Almost everything.
+- **Random when unaimed** — `context?.FacingY ?? Roll(rng)`, written out rather
+  than routed through the helper, which is a call and so would consume a draw
+  even for an aimed placement and shift every roll behind it. Mobs and NPCs, so a
+  scattered crowd does not all face +Z.
+- **Turn the arrangement, not the pieces** — `StoneRingSpawnEntry` adds the
+  facing to its ring phase and leaves each stone its own random yaw.
+
+It is NOT applied by `TrySpawn` over whatever `Spawn` filed, which would make it
+unforgettable without the analyzer: that would overwrite an entry that picks its
+own yaw, and `SpawnGroupData`'s scatter rows reach `Spawn` directly and would
+slip the wrapper anyway.
 
 The rate and the cluster knobs are structurally out of reach now rather than
 hidden: they live on the ROW that names an entry (`SpawnListRow.squareMetersPerSpawn`,

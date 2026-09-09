@@ -19,7 +19,8 @@ using Godot.Collections;
 // and slightly off their facing, and the press finds nothing. An interact box
 // spanning the whole line answers "am I at the rope" instead of "am I looking
 // exactly at it". The Dash entry still works where it works (walking into the
-// line from below); this is the one that works everywhere.
+// line from below); this is the one that works everywhere. Letting go is the
+// interact button too, so the same button gets you on and off.
 //
 // Its climbing collider sits alone on ECollisionLayer.Climbable, so only the
 // climb queries see it: the player walks straight through a rope, arrows and

@@ -18,6 +18,10 @@ using Godot;
 // dropping a new entity leaves the stroke AIMING it — the natural follow-through
 // of the click that placed it — and shift+drag aims one already on the map.
 //
+// EVERY placement can be aimed. A facing reaches whatever the entry files (see
+// SpawnEntryData.FacingY), so there is no palette entry the gesture does nothing
+// for and nothing here has to ask whether this one is turnable.
+//
 // The PLAYER SPAWN is the first palette entry rather than a tool of its own.
 // There is exactly one of it, so placing it MOVES it — a tool whose whole job is
 // to move a single point does not need a button in the toolbar, and having it
@@ -128,23 +132,10 @@ public class EntityTool : IWorldMapTool
     public EntityPlacement EntityUnder(WorldMapState ctx, Vector2I texel)
         => ctx.EntityAt(texel.X, texel.Y, GrabRadius);
 
-    // A facing is reported only where it does something. An entry that never
-    // reads it says so, rather than showing a number that changes nothing.
     public string LevelText(WorldMapState ctx, WorldMapView view)
     {
-        if (Selected == null)
-        {
-            return "";
-        }
-        return Aimable(Selected)
-            ? $"Selected facing {(int)Selected.facing * 45} deg"
-            : "Selected (this entry has no facing)";
+        return Selected == null ? "" : $"Selected facing {(int)Selected.facing * 45} deg";
     }
-
-    // Can this placement be aimed at all? The entry answers, because whether a
-    // facing reaches the spawned entity is the entry type's business.
-    private static bool Aimable(EntityPlacement placement)
-        => placement?.Entry != null && placement.Entry.UsesFacing;
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
 
@@ -232,9 +223,8 @@ public class EntityTool : IWorldMapTool
                 // The click that drops one leaves the stroke aiming it: the
                 // entity is already where it was clicked, so there is nothing
                 // left for the rest of the drag to say except which way it
-                // looks. An entry with no facing keeps the old meaning and
-                // slides, which is the only thing a drag can still do for it.
-                _aiming = Aimable(Selected);
+                // looks.
+                _aiming = true;
                 return;
             }
         }
@@ -266,10 +256,6 @@ public class EntityTool : IWorldMapTool
     // facing is authored in.
     private void Aim(WorldMapState ctx, Vector2I texel)
     {
-        if (!Aimable(Selected))
-        {
-            return;
-        }
         Vector2I d = ctx.WorldXZ(texel) - Selected.anchorXZ;
         if (d.LengthSquared() < AimDeadZone * AimDeadZone)
         {
@@ -296,7 +282,7 @@ public class EntityTool : IWorldMapTool
     // what the authorable facings are.
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
-        if (!Aimable(Selected))
+        if (Selected == null)
         {
             return;
         }

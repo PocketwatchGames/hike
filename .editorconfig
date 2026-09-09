@@ -111,6 +111,7 @@ dotnet_style_namespace_match_folder = true:suggestion
 # HK006  particle/audio node constructed outside an Fx scene
 # HK007  Godot Material constructed at runtime instead of authored as .tres
 # HK008  Godot.Collections .Count re-read in a loop condition
+# HK009  a spawned EntitySimState never seated on the placement's facing
 #
 # Baseline at time of writing (files, not occurrences):
 #   HK001: 7
@@ -121,6 +122,7 @@ dotnet_style_namespace_match_folder = true:suggestion
 #   HK006: 5
 #   HK007: 6
 #   HK008: 44
+#   HK009: 0
 #
 # HK003 is the expensive one and the only one that loses authored data. The 5
 # baselined files are the same 9 sites `resource_check` reports. Closing them
@@ -139,6 +141,7 @@ dotnet_diagnostic.HK005.severity = error
 dotnet_diagnostic.HK006.severity = error
 dotnet_diagnostic.HK007.severity = error
 dotnet_diagnostic.HK008.severity = error
+dotnet_diagnostic.HK009.severity = error
 
 # --- baseline: pre-existing violations, downgraded per file ---
 

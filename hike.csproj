@@ -55,10 +55,18 @@
     </ItemGroup>
     <WriteLinesToFile File="scripts/VersionGenerated.g.cs" Lines="@(VersionLine)" Overwrite="true" />
   </Target>
+  <!-- The authored conversation sheets are the source for both the
+       ConversationData .tres files and the dialogue text they name, so this
+       runs BEFORE GenerateLocKeys - which reads the .tsv it writes. Errors
+       (a dangling goto, an unknown condition) fail the build on purpose:
+       nothing else guards a spreadsheet typo. -->
+  <Target Name="ImportConversations" BeforeTargets="GenerateLocKeys">
+    <Exec Command="dotnet run --project tools/conversation_import" />
+  </Target>
   <Target Name="GenerateLocKeys" BeforeTargets="CoreCompile"
-          Inputs="resources/localization/english.tsv"
+          Inputs="resources/localization/english/*.tsv"
           Outputs="scripts/localization/LocKeys.g.cs">
-    <Exec Command="dotnet run --project tools/loc_generator -- resources/localization/english.tsv scripts/localization/LocKeys.g.cs" />
+    <Exec Command="dotnet run --project tools/loc_generator -- resources/localization/english scripts/localization/LocKeys.g.cs" />
   </Target>
   <!-- Verifies scripting-variable references at build time so a typo'd or
        unregistered variable name surfaces as a warning during authoring.

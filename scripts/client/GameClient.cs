@@ -147,8 +147,10 @@ public partial class GameClient : Node3D
 	[Export] public ViewportRig viewportRig;
 	[Export] public ShaderMaterial fogMaterial;
 	[Export] public PackedScene interactHudScene;
-	// Climb/mantle prompt for the Dash button. Spawned off Player.TraversalPreview
-	// rather than off a highlight, since a ledge is not an interactive.
+	// Wall-climb prompt for the Dash button, plus the let-go prompt while hanging.
+	// Spawned off Player.TraversalPreview rather than off a highlight, since a wall
+	// face is not an interactive. A LEDGE is one (MantleInteract) and carries the
+	// ordinary InteractHUD instead.
 	[Export] public PackedScene climbHudScene;
 	// Shared world-pickup scene. Every dropped or spawned item materializes
 	// through this one scene with its sprite swapped to the item's
@@ -900,9 +902,6 @@ public partial class GameClient : Node3D
 			_partyPlayers.Add(p);
 			if (active) { _player = p; }
 		}
-		// Every Player._Ready claims the audio listener, so the last member
-		// spawned would otherwise own it — hand it to the controlled member.
-		_player?.MakeAudioListenerCurrent();
 	}
 
 	// Even-spaced position on a ring of `ringCount` members around `anchor`.
@@ -1116,7 +1115,9 @@ public partial class GameClient : Node3D
 		if (active) { SubscribePlayerEvents(p); }
 		sceneViewport.AddChild(p);
 		p.Initialize(_world, member, position, Vector3.Zero);
-		if (!active) { p.SetActive(false); }
+		// Always stated, both ways: SetActive is what claims the audio listener, so
+		// the controlled member has to say so out loud even though IsActive defaults true.
+		p.SetActive(active);
 		return p;
 	}
 
@@ -1186,7 +1187,6 @@ public partial class GameClient : Node3D
 		}
 		SubscribePlayerEvents(target);
 		target.SetActive(true);
-		target.MakeAudioListenerCurrent();
 		_player = target;
 		_world.SetPlayer(target);
 		hud?.RebindPlayer(target);
@@ -2345,13 +2345,14 @@ public partial class GameClient : Node3D
 	void UpdateInteractHUD()
 	{
 		// No interact prompt during the bird's-eye overview shot. Falls back to the
-		// player's self-interactive when the player has pressed interact with nothing
-		// highlighted (SelfMenuRequested) — that spawns the HUD purely so its options
-		// modal can list the always-available self-actions (Pray, ...).
+		// player's self-interactive while they are holding interact with nothing
+		// highlighted (SelfPromptActive) — that spawns the HUD purely to draw the
+		// hold bar and, once the hold completes, the options modal listing the
+		// always-available self-actions (Pray, ...).
 		IInteractive target = (_player?.IsBirdsEye ?? false)
 			? null
 			: _player?.CurInteractive ?? _player?.HighlightInteractive
-				?? (_player != null && _player.SelfMenuRequested ? _player.SelfInteractive : null);
+				?? (_player != null && _player.SelfPromptActive ? _player.SelfInteractive : null);
 		if (_interactHUD != null && _interactHUD.Interactive != target)
 		{
 			_interactHUD.QueueFree();

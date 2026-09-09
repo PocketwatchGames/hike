@@ -3234,7 +3234,7 @@ public sealed class WorldGen
                 for (int wy = worldMaxY; wy >= worldMinY; wy--)
                 {
                     var v = ws.GetBlockWorld(wx, wy, wz);
-                    if (Blocks.IsSolid(v) && v != Blocks.BarrierId)
+                    if (Blocks.HasGeometry(v))
                     {
                         t = wy;
                         break;
@@ -3268,7 +3268,7 @@ public sealed class WorldGen
                 for (int wy = worldMinY; wy < topY; wy++)
                 {
                     var v = ws.GetBlockWorld(wx, wy, wz);
-                    if (!Blocks.IsSolid(v) || v == Blocks.BarrierId)
+                    if (!Blocks.HasGeometry(v))
                     {
                         continue;
                     }
@@ -3352,7 +3352,7 @@ public sealed class WorldGen
                 for (int wy = worldMinY; wy <= waterY; wy++)
                 {
                     var v = ws.GetBlockWorld(wx, wy, wz);
-                    if (!Blocks.IsSolid(v) || v == Blocks.BarrierId)
+                    if (!Blocks.HasGeometry(v))
                     {
                         continue;
                     }
