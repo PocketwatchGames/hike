@@ -39,7 +39,7 @@ weight = 2.0
 [resource]
 script = ExtResource("1_list")
 displayName = "Breakable Rocks"
-mapColor = Color(0.62, 0.66, 0.78, 1)
+mapColor = Color(0.5, 0.5, 0.5, 1)
 scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("e_5")]
 barrierDepthMeters = 3
 interiorDensity = 0.35

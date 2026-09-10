@@ -5,7 +5,19 @@
 [ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
 [ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
-[ext_resource type="Resource" path="res://resources/data/worlds/shared/conversation/actions/teach_vyeshal.tres" id="Act_teach_vyeshal"]
+[ext_resource type="Script" uid="uid://5rhnpp2tplumf" path="res://scripts/data/teaching/LanguageTeachable.cs" id="Script_LanguageTeachable"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="Lang_vyeshal"]
+[ext_resource type="Script" uid="uid://9tbw61ms9yw6e" path="res://scripts/data/conversation/actions/TeachAction.cs" id="Script_TeachAction"]
+[ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="Script_TeachableConcept"]
+
+[sub_resource type="Resource" id="Inline_1"]
+script = ExtResource("Script_LanguageTeachable")
+language = ExtResource("Lang_vyeshal")
+components = 29
+
+[sub_resource type="Resource" id="Inline_2"]
+script = ExtResource("Script_TeachAction")
+concepts = Array[ExtResource("Script_TeachableConcept")]([SubResource("Inline_1")])
 
 [sub_resource type="Resource" id="Entry_1"]
 script = ExtResource("Script_ConversationEntry")
@@ -15,7 +27,7 @@ branch = &"greeting"
 script = ExtResource("Script_ConversationBranch")
 name = &"greeting"
 lineLocKeys = Array[StringName]([&"intro_librarian_greeting_01"])
-endActions = Array[Object]([ExtResource("Act_teach_vyeshal")])
+endActions = Array[Object]([SubResource("Inline_2")])
 
 [resource]
 script = ExtResource("Script_ConversationData")

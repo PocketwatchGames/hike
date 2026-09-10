@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="SpawnSetData" format=3 uid="uid://bo7ej1snf13qx"]
+[gd_resource type="Resource" script_class="SpawnGenData" format=3 uid="uid://bo7ej1snf13qx"]
 
-[ext_resource type="Script" uid="uid://bsgbfzhceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
+[ext_resource type="Script" uid="uid://r3che1ulfmtxq" path="res://scripts/data/worldgen/SpawnGenData.cs" id="1_set"]
 [ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
 [ext_resource type="PackedScene" uid="uid://crock1mod0scn" path="res://scenes/props/rock1.tscn" id="sc_0"]
 [ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="sc_1"]
@@ -38,11 +38,9 @@ scene = ExtResource("sc_5")
 [resource]
 script = ExtResource("1_set")
 displayName = "Snowy Mountain"
-mapColor = Color(0.82, 0.86, 0.92, 1)
 forestNoiseFrequency = 0.05
 forestThreshold = 0.01
 forestDensity = 0.06
 treeScenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("e_5")]
 grassNoiseFrequency = 0.1
 grassThreshold = 0.5
-positionJitter = 0.2

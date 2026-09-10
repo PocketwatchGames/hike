@@ -5,6 +5,11 @@ using Godot;
 // a corpse-to-be scattering what it carried. Authored on the response (or
 // branch) where the handover actually happens.
 //
+// A plain one-item gift does not need an authored .tres at all: a conversation
+// sheet writes `give:<item> [count]` in the action cell and the importer emits
+// one of these. Author a .tres when the gift carries ItemDescriptor mods or a
+// level, or bundles several items as one reusable named concept.
+//
 // The items are the ACTION's, not the mob's: the speaker's species loot is
 // untouched and still drops if it later dies. Requires ctx.speaker to be a Mob
 // — no-op otherwise, since a non-Mob speaker has no eject arc to fire along.

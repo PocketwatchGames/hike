@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="SpawnSetData" format=3 uid="uid://b01hbfnwc3t5w"]
+[gd_resource type="Resource" script_class="SpawnGenData" format=3 uid="uid://b01hbfnwc3t5w"]
 
-[ext_resource type="Script" uid="uid://bsgbfzhceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
+[ext_resource type="Script" uid="uid://r3che1ulfmtxq" path="res://scripts/data/worldgen/SpawnGenData.cs" id="1_set"]
 [ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
 [ext_resource type="PackedScene" uid="uid://d0kbigg6xw7pf" path="res://scenes/props/desert_rocks_big1.tscn" id="sc_0"]
 [ext_resource type="PackedScene" uid="uid://cuqyeyeg5imfv" path="res://scenes/props/desert_rocks_big2.tscn" id="sc_1"]
@@ -53,7 +53,6 @@ weight = 2.0
 [resource]
 script = ExtResource("1_set")
 displayName = "Desert"
-mapColor = Color(0.72, 0.6, 0.3, 1)
 forestNoiseFrequency = 5.0
 forestThreshold = 1.0
 forestDensity = 0.05
@@ -61,4 +60,3 @@ treeScenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubRes
 grassNoiseFrequency = 0.1
 grassThreshold = 0.67
 foliageScenes = [SubResource("e_5"), SubResource("e_6"), SubResource("e_7"), SubResource("e_8")]
-positionJitter = 0.2

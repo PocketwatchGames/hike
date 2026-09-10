@@ -194,13 +194,12 @@ public partial class WorldMapPainter : Node3D
             new ZoneTool(),
             new WindTool(),
             new GroundTool(),
-            new CollidablePropTool(),
-            new DestructiblePropTool(),
-            new MobTool(),
-            new MobLevelTool(),
-            new ClimbTool(),
             new PaveTool(),
+            new PropPaintTool(),
+            new ClimbTool(),
             new SceneTool(),
+            new MobLevelTool(),
+            new MobTool(),
             new EntityTool(),
         };
         _toolIndex = 0;
@@ -1035,13 +1034,7 @@ public partial class WorldMapPainter : Node3D
         // and needs a couple of pixels per metre to read at all.
         if (view.PreviewLayer.HasFlag(ESpawnPreview.Props))
         {
-            // Breakable first, so blocking lands on top where a stroke covered
-            // both — though the two never share a column, since the blocking
-            // layer takes any the pair both cover.
-            DrawPropDots(x0, z0, x1, z1, _ctx.InBreakableRegion,
-                ink.destructiblePropInk, ink.destructiblePropDotFraction);
-            DrawPropDots(x0, z0, x1, z1, _ctx.InBlockingRegion,
-                ink.collidablePropInk, ink.collidablePropDotFraction);
+            DrawPropDots(x0, z0, x1, z1);
         }
         if (view.PreviewLayer.HasFlag(ESpawnPreview.Mobs) && pixelsPerMeter >= 2)
         {
@@ -1342,7 +1335,7 @@ public partial class WorldMapPainter : Node3D
         return h >= hn ? _ctx.ClimbRouteAt(px, pz) : _ctx.ClimbRouteAt(nx, nz);
     }
 
-    private void DrawSpawnDots(int x0, int z0, int x1, int z1, SpawnSetData[] sets,
+    private void DrawSpawnDots(int x0, int z0, int x1, int z1, SpawnScatterData[] sets,
         System.Func<int, int, int> previewAt)
     {
         for (int px = x0; px < x1; px++)
@@ -1360,8 +1353,9 @@ public partial class WorldMapPainter : Node3D
         }
     }
 
-    // One prop layer, drawn as WHAT WAS PAINTED: a dot on every column of the
-    // layer's raster, all the same. Deliberately NOT the resolved fill.
+    // The prop layer, drawn as WHAT WAS PAINTED: a dot on every column of its
+    // raster, in the painted LIST's own colour. Deliberately NOT the resolved
+    // fill.
     //
     // The fill is a product of the bake — which props, where, and which interior
     // it left as clearings — and drawing it live made a stroke come back patchy
@@ -1377,27 +1371,32 @@ public partial class WorldMapPainter : Node3D
     // shows between the marks and a painted region stays a region drawn OVER the
     // map rather than a hole punched in it.
     //
-    // In the LAYER's ink rather than the list's colour: what a region does to
-    // movement is what the map has to say, and which list furnished it is the
-    // palette's answer.
-    private void DrawPropDots(int x0, int z0, int x1, int z1,
-        System.Func<int, int, bool> coversAt, Color layerInk, float dotFraction)
+    // In the LIST's own colour — the same swatch its palette button carries,
+    // authored black for a barrier and mid-grey for one that can be broken
+    // through. Colour is the ONLY thing that varies: the alpha and the size are
+    // global (propDotAlpha / propDotFraction), because how hard a dot covers the
+    // ground under it is a property of the map rather than of any one list.
+    private void DrawPropDots(int x0, int z0, int x1, int z1)
     {
+        PropListData[] lists = _ctx.PropLists;
         for (int px = x0; px < x1; px++)
         {
             for (int pz = z0; pz < z1; pz++)
             {
-                if (coversAt(px, pz))
+                int idx = _ctx.PaintedPropIndexAt(px, pz);
+                if (idx < 0 || idx >= lists.Length)
                 {
-                    DrawSpawnDot(px, pz, layerInk, dotFraction);
+                    continue;
                 }
+                Color c = lists[idx]?.mapColor ?? Colors.White;
+                DrawSpawnDot(px, pz, new Color(c.R, c.G, c.B, ink.propDotAlpha), ink.propDotFraction);
             }
         }
     }
 
-    // A centred square inside the metre cell, at the ink's own alpha — a dot is
-    // read against the ground wash it sits on, and how strongly it covers that
-    // is half of what tells the two prop layers apart.
+    // A centred square inside the metre cell, at the colour's own alpha — a dot
+    // is read against the ground wash it sits on, and how strongly it covers
+    // that is half of what tells a scatter dot from a painted region.
     private void DrawSpawnDot(int px, int pz, Color c, float fraction)
     {
         int size = Mathf.Clamp(Mathf.RoundToInt(pixelsPerMeter * fraction), 1, pixelsPerMeter);
@@ -1526,7 +1525,23 @@ public partial class WorldMapPainter : Node3D
         hud.SetStatus($"{line}  |  {CutawayText()}");
         hud.SetRadius(ActiveTool.Radius, ScreenPerMeter);
 
-        hud.entityInspector?.Show(ActiveTool.SelectedEntity);
+        // One panel, two things a tool can have selected: a hand-placed
+        // entity, whose properties it EDITS, or a scatter set, whose contents it
+        // lists read-only. A placement wins where a tool somehow answers both,
+        // since that is the one that can be typed into.
+        WorldMapEntityInspector inspector = hud.entityInspector;
+        if (inspector != null)
+        {
+            EntityPlacement selected = ActiveTool.SelectedEntity;
+            if (selected != null)
+            {
+                inspector.Show(selected);
+            }
+            else
+            {
+                inspector.ShowScatter(ActiveTool.SelectedScatter(_ctx));
+            }
+        }
 
         // Global bindings first, then whatever the active tool answers to.
         string toolHint = ActiveTool.HintText(_ctx);

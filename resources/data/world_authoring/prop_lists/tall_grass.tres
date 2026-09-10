@@ -26,7 +26,7 @@ scene = ExtResource("sc_3")
 [resource]
 script = ExtResource("1_list")
 displayName = "Bushes"
-mapColor = Color(0.55, 0.72, 0.3, 1)
+mapColor = Color(0, 0, 0, 1)
 scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3")]
 barrierDepthMeters = 3
 interiorHoleChance = 0.0

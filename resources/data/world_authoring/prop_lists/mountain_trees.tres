@@ -59,7 +59,7 @@ scene = ExtResource("sc_8")
 [resource]
 script = ExtResource("1_list")
 displayName = "Mountain Trees"
-mapColor = Color(0.35, 0.45, 0.38, 1)
+mapColor = Color(0, 0, 0, 1)
 scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("e_5"), SubResource("e_6"), SubResource("e_7"), SubResource("e_8")]
 barrierDepthMeters = 3
 interiorHoleChance = 0.5

@@ -123,5 +123,5 @@ scene = ExtResource("sc_b8")
 [resource]
 script = ExtResource("1_list")
 displayName = "Forest Trees"
-mapColor = Color(0.16, 0.45, 0.22, 1)
+mapColor = Color(0, 0, 0, 1)
 scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("e_5"), SubResource("e_6"), SubResource("e_7"), SubResource("e_8"), SubResource("e_9"), SubResource("Resource_wkhyt"), SubResource("Resource_fjj5n"), SubResource("Resource_1kd54"), SubResource("e_bs1"), SubResource("e_bs2"), SubResource("e_bs3"), SubResource("e_bs4"), SubResource("e_b5"), SubResource("e_b6"), SubResource("e_b7"), SubResource("e_b8")]

@@ -116,14 +116,14 @@ public sealed class AuthoringPaletteSource
         new(GroundSets, "Ground", typeof(GroundSetData), indexed: true,
             roots: new[] { new PaletteRoot(AUTHORING + "ground_sets/", "Ground") }),
 
-        // ONE palette for both prop layers. What a list is FOR — a barrier you
-        // cannot pass or one you can break — is which layer it was painted on,
-        // not a property of the list, so splitting this in two would only stop
-        // a boulder field being used as either.
+        // What a painted region is made of. Whether it can be CLEARED is a
+        // property of the scenes in the list — a breakable-rock list is a
+        // barrier until it is broken — so nothing here has to say which kind of
+        // barrier a list makes.
         new(PropLists, "Props", typeof(PropListData), indexed: true,
             roots: new[] { new PaletteRoot(AUTHORING + "prop_lists/", "Props") }),
 
-        new(MobSets, "Mobs", typeof(SpawnSetData), indexed: true,
+        new(MobSets, "Mobs", typeof(SpawnScatterData), indexed: true,
             roots: new[] { new PaletteRoot(AUTHORING + "mob_sets/", "Mobs") }),
 
         // Every block the mesher draws as water, which is the same question

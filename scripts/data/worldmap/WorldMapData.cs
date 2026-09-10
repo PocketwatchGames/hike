@@ -157,14 +157,12 @@ public partial class WorldMapData : Resource
     // chunk inherits from its zone, so a max several times that is what makes
     // painting a gale worth doing.
     [Export(PropertyHint.Range, "0,40,0.5")] public float windPaintMaxSpeed = 20f;
-    // The two prop layers, per column: R = prop list index + 1 (0 = none).
-    // Direct placement — the painted region IS the furniture, so there is no
-    // density channel to go with the index. Two layers rather than one so a
-    // thicket can stand under a stand of trees; which one a list is painted on
-    // is what says whether the region is passable at all or only after it is
-    // cleared.
-    [Export] public string collidablePropImagePath = "";    // .png, R8, per column (prop list + 1)
-    [Export] public string destructiblePropImagePath = "";  // .png, R8, per column (prop list + 1)
+    // The prop layer, per column: R = prop list index + 1 (0 = none). Direct
+    // placement — the painted region IS the furniture, so there is no density
+    // channel to go with the index. One layer, because a painted region is a
+    // BARRIER: what a region does to movement is the whole reason to paint one,
+    // and which list furnishes it says what the barrier is made of.
+    [Export] public string blockingPropImagePath = "";  // .png, R8, per column (prop list + 1)
     [Export] public string groundImagePath = "";       // .png, R8, per column (ground set + 1, 0 = default)
     [Export] public string waterTypeImagePath = "";    // .png, R8, per column (waterTypes index + 1, 0 = the zone's)
     // .png, Rgba8, per column: R = paving block + 1 (0 = none), G/B = the world
@@ -352,14 +350,9 @@ public partial class WorldMapData : Resource
         return LoadOrCreateChunkRgbaImage(windImagePath);
     }
 
-    public Image LoadOrCreateCollidableProps()
+    public Image LoadOrCreateBlockingProps()
     {
-        return LoadOrCreateIndexImage(collidablePropImagePath);
-    }
-
-    public Image LoadOrCreateDestructibleProps()
-    {
-        return LoadOrCreateIndexImage(destructiblePropImagePath);
+        return LoadOrCreateIndexImage(blockingPropImagePath);
     }
 
     // A spawn layer is a per-column RGBA8: R = set index + 1 (0 = none),
@@ -508,14 +501,9 @@ public partial class WorldMapData : Resource
         SavePng(windImagePath, img, "wind");
     }
 
-    public void SaveCollidableProps(Image img)
+    public void SaveBlockingProps(Image img)
     {
-        SavePng(collidablePropImagePath, img, "collidable props");
-    }
-
-    public void SaveDestructibleProps(Image img)
-    {
-        SavePng(destructiblePropImagePath, img, "destructible props");
+        SavePng(blockingPropImagePath, img, "blocking props");
     }
 
     public void SaveTunnels(byte[,,] tunnels)

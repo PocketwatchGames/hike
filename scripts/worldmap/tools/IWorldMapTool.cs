@@ -135,6 +135,12 @@ public interface IWorldMapTool
     // choosing the chest in the palette rather than by clicking every mark.
     SpawnEntryData SelectedEntry(WorldMapState ctx) => null;
 
+    // The scatter set this tool has selected, or null. Drives the same panel
+    // the entity selection does — a set is the other thing a tool can have
+    // "selected" that has contents worth reading — and only the mob tool
+    // answers with anything.
+    SpawnScatterData SelectedScatter(WorldMapState ctx) => null;
+
     // The hand-placed entity under this column, or null. The tool owns the hit
     // test — an entity is a point, so it is a proximity check with the tool's own
     // grab radius — which is what lets the painter grow and name whatever the

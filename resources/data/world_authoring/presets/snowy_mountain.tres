@@ -10,5 +10,5 @@ script = ExtResource("1_p")
 displayName = "Snowy Mountain"
 mapColor = Color(0.82, 0.86, 0.92, 1)
 ground = ExtResource("2_ground")
-collidableProps = ExtResource("3_coll")
+blockingProps = ExtResource("3_coll")
 mobs = ExtResource("5_mobs")

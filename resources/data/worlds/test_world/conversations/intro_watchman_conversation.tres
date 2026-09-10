@@ -1,0 +1,103 @@
+[gd_resource type="Resource" script_class="ConversationData" format=3]
+
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="Script_ConversationData"]
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
+[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
+[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
+[ext_resource type="Script" uid="uid://bt3svar0cond7" path="res://scripts/data/scripting/conditions/ScriptVarCondition.cs" id="Script_ScriptVarCondition"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/languages/common.tres" id="Lang_common"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="Script_ItemDescriptor"]
+[ext_resource type="Resource" uid="uid://csrlvyv1ra003" path="res://resources/data/items/scrolls/scroll_vyeshal_vocab1.tres" id="Item_scroll_vyeshal_vocab1"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="Script_ItemCount"]
+[ext_resource type="Script" uid="uid://bruxndva544k7" path="res://scripts/data/conversation/actions/DropLootAction.cs" id="Script_DropLootAction"]
+[ext_resource type="Script" uid="uid://cs8svar0acta4" path="res://scripts/data/scripting/actions/SetScriptVarAction.cs" id="Script_SetScriptVarAction"]
+
+[sub_resource type="Resource" id="Inline_1"]
+script = ExtResource("Script_ScriptVarCondition")
+variable = &"intro_watchman_customs"
+op = 0
+operand = 0
+
+[sub_resource type="Resource" id="Inline_2"]
+script = ExtResource("Script_ItemDescriptor")
+item = ExtResource("Item_scroll_vyeshal_vocab1")
+
+[sub_resource type="Resource" id="Inline_3"]
+script = ExtResource("Script_ItemCount")
+descriptor = SubResource("Inline_2")
+
+[sub_resource type="Resource" id="Inline_4"]
+script = ExtResource("Script_DropLootAction")
+loot = Array[ExtResource("Script_ItemCount")]([SubResource("Inline_3")])
+
+[sub_resource type="Resource" id="Inline_5"]
+script = ExtResource("Script_SetScriptVarAction")
+variable = &"intro_watchman_customs"
+op = 0
+operand = 1
+
+[sub_resource type="Resource" id="Entry_1"]
+script = ExtResource("Script_ConversationEntry")
+condition = SubResource("Inline_1")
+branch = &"greeting_busy"
+
+[sub_resource type="Resource" id="Entry_2"]
+script = ExtResource("Script_ConversationEntry")
+branch = &"greeting"
+
+[sub_resource type="Resource" id="Branch_greeting"]
+script = ExtResource("Script_ConversationBranch")
+name = &"greeting"
+lineLocKeys = Array[StringName]([&"intro_watchman_greeting_01"])
+exitGroup = &"greeting_response"
+isPrimaryGroupEntry = true
+
+[sub_resource type="Resource" id="Branch_common"]
+script = ExtResource("Script_ConversationBranch")
+name = &"common"
+language = ExtResource("Lang_common")
+lineLocKeys = Array[StringName]([&"intro_watchman_common_01"])
+exitGroup = &"whittlebone"
+isPrimaryGroupEntry = true
+
+[sub_resource type="Resource" id="Branch_customs"]
+script = ExtResource("Script_ConversationBranch")
+name = &"customs"
+language = ExtResource("Lang_common")
+lineLocKeys = Array[StringName]([&"intro_watchman_customs_01"])
+endActions = Array[Object]([SubResource("Inline_4"), SubResource("Inline_5")])
+
+[sub_resource type="Resource" id="Branch_greeting_busy"]
+script = ExtResource("Script_ConversationBranch")
+name = &"greeting_busy"
+language = ExtResource("Lang_common")
+lineLocKeys = Array[StringName]([&"intro_watchman_greeting_busy_01"])
+
+[sub_resource type="Resource" id="Resp_greeting_response_1"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"intro_watchman_greeting_response_common"
+language = ExtResource("Lang_common")
+destination = &"common"
+
+[sub_resource type="Resource" id="Group_greeting_response"]
+script = ExtResource("Script_ConversationResponseGroup")
+name = &"greeting_response"
+responses = [SubResource("Resp_greeting_response_1")]
+
+[sub_resource type="Resource" id="Resp_whittlebone_1"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"intro_watchman_whittlebone_customs"
+language = ExtResource("Lang_common")
+destination = &"customs"
+
+[sub_resource type="Resource" id="Group_whittlebone"]
+script = ExtResource("Script_ConversationResponseGroup")
+name = &"whittlebone"
+responses = [SubResource("Resp_whittlebone_1")]
+
+[resource]
+script = ExtResource("Script_ConversationData")
+entryBranches = [SubResource("Entry_1"), SubResource("Entry_2")]
+branches = [SubResource("Branch_greeting"), SubResource("Branch_common"), SubResource("Branch_customs"), SubResource("Branch_greeting_busy")]
+responseGroups = [SubResource("Group_greeting_response"), SubResource("Group_whittlebone")]

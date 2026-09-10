@@ -1,5 +1,5 @@
 character	player	conversation key	goto	language	condition	action	text
-intro_dying_		greeting				kill_speaker;give_lantern	[lang:common]Sanctuary...[/lang] you must find it. My family, they are in the capital. Please, find the [lang:common]Sanctuary[/lang]. For them. [lang:common]Sanctuary.[/lang]
+intro_dying_		greeting				kill_speaker;give:lantern	[lang:common]Sanctuary...[/lang] you must find it. My family, they are in the capital. Please, find the [lang:common]Sanctuary[/lang]. For them. [lang:common]Sanctuary.[/lang]
 intro_guard_		greeting					Hello, traveler.
 							You don't see many strangers around here these days.
 			topics				Safe travels out there. Watch the treeline after dark.
@@ -13,7 +13,7 @@ intro_hermit_		greeting					Hello, traveler. The mold in this valley makes my lu
 			topics				I long to leave.
 		recruit				recruit_to_party	Yes
 	x	topics	recruit				Then come with me!
-intro_librarian_		greeting				teach_vyeshal	Hello, I’m the librarian.
+intro_librarian_		greeting				teach:language vyeshal grammar,vocabulary1,vocabulary2,vocabulary3	Hello, I’m the librarian.
 intro_mayor_		greeting	topics				Hello, traveler.
 		speak_common	topics				No. Ulga, librarian. (Points southeast)
 		shipwreck	topics				We saw the shipwreck from the coast. There are rarely survivors on these shores. The mist swallows them.
@@ -32,3 +32,11 @@ intro_patron3		greeting					Yum.
 intro_mayor_assistant1		greeting					Hello.
 intro_mayor_assistant2		greeting					Salutations.
 intro_wanderer		greeting					I’ve been to the swamp. It’s hot.
+intro_watchman		entry	greeting_busy		npcvar:customs=true		
+		entry	greeting				
+		greeting	greeting_response				Who goes there?
+	x	greeting_response	common	common			I… I don’t know where I am.
+		common	whittlebone	common			Ah, common tongue. You’ve crossed into dangerous lands. But you can rest here in Whittlebone.
+	x	whittlebone	customs	common			Whittlebone?
+		customs		common		give:scroll_vyeshal_vocab1;npcvar:customs=true	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now. Not many speak common tongue though. You’d do best to learn our customs. Here, take this.
+		greeting_busy		common			I am busy now, commoner. I must watch the sea.

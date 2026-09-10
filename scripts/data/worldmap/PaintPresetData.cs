@@ -24,12 +24,11 @@ public partial class PaintPresetData : Resource
     [Export] public Color mapColor = new Color(0.6f, 0.6f, 0.6f);
 
     [Export] public GroundSetData ground;
-    [Export] public PropListData collidableProps;
-    [Export] public PropListData destructibleProps;
-    [Export] public SpawnSetData mobs;
+    [Export] public PropListData blockingProps;
+    [Export] public SpawnScatterData mobs;
 
     // Density written into the mob layer, a fraction of that set's own authored
-    // rate. The prop layers have no equivalent: their placement is direct, so
+    // rate. The prop layer has no equivalent: its placement is direct, so
     // painting one is not a rate to scale.
     [Export(PropertyHint.Range, "0,1,0.01")] public float mobDensity = 1f;
 

@@ -148,6 +148,19 @@ public partial class SpawnEntryData : Resource
         return string.IsNullOrEmpty(file) ? entry.GetType().Name : file;
     }
 
+    // What to CALL this entry wherever one is named — the panel title, the hover
+    // readout, a set's listing. Its palette name, plus which member of the family
+    // it is when that says something the name does not: a `goblin.tres` holding
+    // thirteen variants reads "goblin: goblin_swamp", while the leaf
+    // `goblin_swamp.tres` a spawn list names reads just "goblin_swamp" rather
+    // than repeating itself.
+    public static string Describe(SpawnEntryData entry)
+    {
+        string name = PaletteName(entry);
+        string variant = entry?.VariantName();
+        return string.IsNullOrEmpty(variant) || variant == name ? name : $"{name}: {variant}";
+    }
+
     // Art already authored for this thing SOMEWHERE ELSE — an item's inventory
     // sprite, a mob's bestiary portrait — so a palette button matches what the
     // game shows for the same thing. Null means there is nothing authored and

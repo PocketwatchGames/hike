@@ -106,7 +106,7 @@ actually there. It lives on `TerrainMath`, given world bounds instead of a
 painter-side reimplementation is how the waterfall shading became two copies
 that drifted.
 
-**A kit's ambient scatter is a shared `SpawnSetData`, not its own list.**
+**A kit's ambient scatter is a shared `SpawnGenData`, not its own list.**
 `TerrainKitData.forest` references one, and `Trees` / `Foliage` /
 `ForestFrequency` / `ForestThreshold` / `ForestDensity` / `TreesPerChunkMin/Max`
 resolve to it, falling back to the kit's inline fields for anything not yet
@@ -114,13 +114,18 @@ migrated. So a pine stand is defined ONCE and used by several kits — the
 duplication that existed while both carried their own copy is exactly how the
 two would drift.
 
-**`SpawnSetData` is the GENERATOR's scatter, and the painter no longer paints
+**`SpawnGenData` is the GENERATOR's scatter, and the painter never touches
 one.** Its noise fields shape a wood by rule, which is what worldgen wants and
 the opposite of what a painted region is for: the painter places from a
-`PropListData` directly, so what a brush covered is what stands there. The two
-resources look alike and are not the same idea — scenery grown by rule versus
-furniture put somewhere on purpose. The mob layer is still a `SpawnSetData`,
-because a mob set is a rate list and nothing else.
+`PropListData` directly, so what a brush covered is what stands there — scenery
+grown by rule versus furniture put somewhere on purpose.
+
+The mob layer paints a **`SpawnScatterData`**, which is a rate list of entities
+and nothing else. It used to be the same type as the generator's scatter, which
+meant every mob set carried tree and grass fields it left empty and every kit
+scatter carried an entities list nothing read. `SpawnGenData.scatter` references
+one, so the two halves of "a pine stand and what lives in it" are still one
+authored idea.
 
 **The zone tool paints `ZoneData` — theme and weather, nothing else.** The
 palette is `WorldMapData.zones`, and `WorldState.Zones` is built from that same
@@ -175,7 +180,7 @@ is to APPEND it to the `KitPaletteData`, which is the one edit that moves nothin
 its kit's `defaultDetail` and a strength ramped off `detailNoise`. They belong to
 the ground layer rather than to props because they are part of what the material
 looks like up close, not something standing on it — which is also why they live
-on `TerrainKitData` and not in a `SpawnSetData`.
+on `TerrainKitData` and not in a `SpawnGenData`.
 
 It is `WorldFinish.StampDetailScatter` itself, not a painter-side copy of its math,
 and like worldgen the bake runs it **LAST — after the scenes, the routes and the

@@ -8,7 +8,7 @@ using Godot;
 // is made of it. It holds the WorldState under construction, the kit-slot
 // binding, and the four-stage bake driver; it RESOLVES nothing about the
 // document itself — what stands at a column is the model's answer
-// (Map.PreviewCollidableAt / Map.PreviewDestructibleAt / Map.PreviewMobAt),
+// (Map.PropOriginAt / Map.PreviewMobAt),
 // which is why the map preview and the bake cannot disagree about it.
 //
 // It does not compile against WorldMapInkData and must not: a display value can
@@ -658,19 +658,15 @@ public class WorldMapBake
         ScatterMobColumn(Map.MobSetAt(px, pz, out float mobDensity), mobDensity, px, pz, pos);
     }
 
-    // Whatever the fill decided stands here. PropType is the wire slot a placed
-    // prop files under, not a behaviour — a scene blocks and breaks by what it
-    // is built out of — so the two painted layers map onto the two slots and a
-    // baked world still says which of them a prop came from.
+    // Whatever the fill decided stands here. Always PropType.Tree: the type is
+    // a wire slot a placed prop files under and not a behaviour — a scene blocks
+    // and breaks by what it is built out of — and everything a painted region
+    // holds is there to stop the player, whatever its size.
     private void ScatterProps(int px, int pz)
     {
-        if (Map.CollidablePropAt(px, pz, out WorldMapState.PaintedProp blocking))
+        if (Map.PropOriginAt(px, pz, out WorldMapState.PaintedProp prop))
         {
-            PlacePaintedProp(blocking, PropType.Tree, px, pz);
-        }
-        if (Map.DestructiblePropAt(px, pz, out WorldMapState.PaintedProp breakable))
-        {
-            PlacePaintedProp(breakable, PropType.Foliage, px, pz);
+            PlacePaintedProp(prop, px, pz);
         }
     }
 
@@ -682,7 +678,7 @@ public class WorldMapBake
     // Scale is the exception, and only because it is one-directional: the
     // footprint was measured at 1 and the prop only ever grows, so it covers at
     // least what was claimed. See PropListData.scaleJitter.
-    private void PlacePaintedProp(WorldMapState.PaintedProp prop, PropType type, int px, int pz)
+    private void PlacePaintedProp(WorldMapState.PaintedProp prop, int px, int pz)
     {
         PackedScene scene = Map.PropLists[prop.List]?.SceneAt(prop.Scene);
         if (scene == null)
@@ -693,7 +689,7 @@ public class WorldMapBake
             Map.Data.WorldMinX + px + 0.5f + prop.Offset.X,
             Map.PropSeatY(px, pz),
             Map.Data.WorldMinZ + pz + 0.5f + prop.Offset.Y);
-        WorldState.AddEntity(new PropSimState(type, pos, scene)
+        WorldState.AddEntity(new PropSimState(PropType.Tree, pos, scene)
         {
             RotationY = prop.Yaw,
             Scale = prop.Scale,
@@ -703,7 +699,7 @@ public class WorldMapBake
     // Mobs: each row's OWN authored rate, then its own Spawn logic. The hash
     // decides placement; the seeded Random only fills in details, so the map
     // preview stays exact.
-    private void ScatterMobColumn(SpawnSetData set, float density, int px, int pz, Vector3 pos)
+    private void ScatterMobColumn(SpawnScatterData set, float density, int px, int pz, Vector3 pos)
     {
         SpawnListRow[] rows = set?.RowsFlat;
         if (rows == null)

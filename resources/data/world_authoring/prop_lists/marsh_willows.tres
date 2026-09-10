@@ -119,5 +119,5 @@ metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
 [resource]
 script = ExtResource("1_list")
 displayName = "Marsh Willows"
-mapColor = Color(0.3, 0.42, 0.2, 1)
+mapColor = Color(0, 0, 0, 1)
 scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("Resource_cdjbq"), SubResource("Resource_e18o1"), SubResource("Resource_03u7h"), SubResource("Resource_dna58"), SubResource("Resource_qw3hk"), SubResource("Resource_dcbyi"), SubResource("Resource_73t7p"), SubResource("Resource_8g84i"), SubResource("Resource_oo46m"), SubResource("Resource_s0wpn"), SubResource("Resource_1c784"), SubResource("Resource_156a6"), SubResource("Resource_3camm"), SubResource("Resource_4vt8n")]

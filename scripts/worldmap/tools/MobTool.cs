@@ -1,10 +1,10 @@
 using Godot;
 
-// Paints which SpawnSetData supplies a column's wildlife, and how much of its
-// authored rate applies there.
+// Paints which SpawnScatterData supplies a column's wildlife, and how much of
+// its authored rate applies there.
 //
-// The same resource type and the same raster shape as the prop brush, on its own
-// layer. Mobs and trees vary independently in a real world — the same pine stand
+// The same raster shape as the prop brush, on its own layer. Mobs and trees vary
+// independently in a real world — the same pine stand
 // runs from a safe valley into wolf country, and the wolves carry on out onto
 // the bare ridge above the treeline — and one set per column means sharing a
 // layer would make painting one erase the other.
@@ -28,7 +28,7 @@ public class MobTool : IWorldMapTool
 
     public string[] Options(WorldMapState ctx)
     {
-        SpawnSetData[] sets = ctx.MobSets;
+        SpawnScatterData[] sets = ctx.MobSets;
         var names = new string[sets.Length];
         for (int i = 0; i < names.Length; i++)
         {
@@ -39,7 +39,7 @@ public class MobTool : IWorldMapTool
 
     public Color[] OptionColors(WorldMapInk ink)
     {
-        SpawnSetData[] sets = ink.Map.MobSets;
+        SpawnScatterData[] sets = ink.Map.MobSets;
         var colors = new Color[sets.Length];
         for (int i = 0; i < colors.Length; i++)
         {
@@ -60,17 +60,23 @@ public class MobTool : IWorldMapTool
 
     public Color CursorColor(WorldMapInk ink)
     {
-        SpawnSetData[] sets = ink.Map.MobSets;
+        SpawnScatterData[] sets = ink.Map.MobSets;
         return SetIndex >= 0 && SetIndex < sets.Length && sets[SetIndex] != null
             ? sets[SetIndex].mapColor
             : Colors.White;
+    }
+
+    public SpawnScatterData SelectedScatter(WorldMapState ctx)
+    {
+        SpawnScatterData[] sets = ctx.MobSets;
+        return SetIndex >= 0 && SetIndex < sets.Length ? sets[SetIndex] : null;
     }
 
     public string HintText(WorldMapState ctx) => "";
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
-        SpawnSetData[] sets = ctx.MobSets;
+        SpawnScatterData[] sets = ctx.MobSets;
         string label = SetIndex >= 0 && SetIndex < sets.Length ? sets[SetIndex]?.Label : null;
         return string.IsNullOrEmpty(label) ? "No mob sets authored" : label;
     }

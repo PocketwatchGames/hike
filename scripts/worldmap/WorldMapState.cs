@@ -42,11 +42,10 @@ public class WorldMapState
     public Image Region;           // R8, per chunk (region index)
     public Image Zone;             // R8, per chunk (zone index)
     public Image Wind;             // Rgba8, per chunk (R = angle, G = strength; G 0 = unpainted)
-    // The two prop layers, per column: R = prop list index + 1 (0 = none).
-    // No density channel — placement is direct and one prop per column, so a
+    // The prop layer, per column: R = prop list index + 1 (0 = none). No
+    // density channel — placement is direct and one prop per column, so a
     // painted column is a furnished column and nothing thins it but CanSpawnAt.
-    public Image CollidableProps;
-    public Image DestructibleProps;
+    public Image BlockingProps;
     public Image Ground;           // R8, per column (ground set + 1; 0 = default ground)
     public Image WaterType;        // R8, per column (waterTypes index + 1; 0 = the zone's)
     // Rgba8, per column: R = paving block + 1 (0 = none), G/B = the world Y it
@@ -120,8 +119,7 @@ public class WorldMapState
         Region = data.LoadOrCreateRegion();
         Zone = data.LoadOrCreateZone();
         Wind = data.LoadOrCreateWind();
-        CollidableProps = data.LoadOrCreateCollidableProps();
-        DestructibleProps = data.LoadOrCreateDestructibleProps();
+        BlockingProps = data.LoadOrCreateBlockingProps();
         Ground = data.LoadOrCreateGround();
         WaterType = data.LoadOrCreateWaterType();
         Paving = data.LoadOrCreatePaving();
@@ -131,7 +129,7 @@ public class WorldMapState
         Regions = AuthoringPaletteSource.Resolve<RegionData>(AuthoringPaletteSource.Regions, Palettes);
         GroundSets = AuthoringPaletteSource.Resolve<GroundSetData>(AuthoringPaletteSource.GroundSets, Palettes);
         PropLists = AuthoringPaletteSource.Resolve<PropListData>(AuthoringPaletteSource.PropLists, Palettes);
-        MobSets = AuthoringPaletteSource.Resolve<SpawnSetData>(AuthoringPaletteSource.MobSets, Palettes);
+        MobSets = AuthoringPaletteSource.Resolve<SpawnScatterData>(AuthoringPaletteSource.MobSets, Palettes);
         WaterTypes = AuthoringPaletteSource.Resolve<BlockData>(AuthoringPaletteSource.WaterTypes, Palettes);
         PavingBlocks = AuthoringPaletteSource.Resolve<BlockData>(AuthoringPaletteSource.PavingBlocks, Palettes);
         EntityPalette = AuthoringPaletteSource.Resolve<SpawnEntryData>(AuthoringPaletteSource.Entities, Palettes);
@@ -543,7 +541,7 @@ public class WorldMapState
     // on is what it means, not which list it is.
     public readonly PropListData[] PropLists;
 
-    public readonly SpawnSetData[] MobSets;
+    public readonly SpawnScatterData[] MobSets;
 
     public int MobLevelCount => Mathf.Max(1, Data.mobLevelCount);
 
@@ -629,8 +627,7 @@ public class WorldMapState
             new RasterLayer(Water, 1),
             new RasterLayer(Ground, 1),
             new RasterLayer(Paving, 1),
-            new RasterLayer(CollidableProps, 1),
-            new RasterLayer(DestructibleProps, 1),
+            new RasterLayer(BlockingProps, 1),
             new RasterLayer(Mobs, 1),
             new RasterLayer(Scalars, 1),
             new RasterLayer(Region, ChunkState.SIZE),
@@ -1301,7 +1298,7 @@ public class WorldMapState
 
     // The painted mob set at a column, or null. The raster stores index+1 so 0
     // can mean "nothing painted here".
-    public SpawnSetData MobSetAt(int px, int pz, out float density)
+    public SpawnScatterData MobSetAt(int px, int pz, out float density)
     {
         Color cell = Mobs.GetPixel(ClampX(px), ClampZ(pz));
         int idx = Mathf.RoundToInt(cell.R * 255f) - 1;
@@ -1335,7 +1332,7 @@ public class WorldMapState
     // barrier with a lane through it is not a barrier — but that is a claim
     // about the rim, which is the only part anyone can reach. (Worldgen's own
     // noise scatter is untouched; that is scenery grown by rule and lives on
-    // SpawnSetData.)
+    // SpawnScatterData.)
     //
     // Each pass is one size class, spaced against ITS OWN class by the props'
     // DRAWN radius, so trees get canopy room while a bush may still stand at a
@@ -1357,13 +1354,9 @@ public class WorldMapState
     // Nothing anywhere uses a running Random: it could not be replayed from a
     // column, and the map preview has to reach the same answer the bake does.
 
-    public PropListData PaintedCollidableAt(int px, int pz) => PaintedPropList(CollidableProps, px, pz);
-
-    public PropListData PaintedDestructibleAt(int px, int pz) => PaintedPropList(DestructibleProps, px, pz);
-
-    private PropListData PaintedPropList(Image layer, int px, int pz)
+    public PropListData PaintedPropAt(int px, int pz)
     {
-        int idx = PaintedPropIndex(layer, px, pz);
+        int idx = PaintedPropIndex(BlockingProps, px, pz);
         return idx >= 0 ? PropLists[idx] : null;
     }
 
@@ -1406,28 +1399,18 @@ public class WorldMapState
     }
 
     // Does a prop STAND in this column (is it a fill origin), and which?
-    public bool CollidablePropAt(int px, int pz, out PaintedProp prop)
-        => PropOriginAt(false, px, pz, out prop);
-
-    public bool DestructiblePropAt(int px, int pz, out PaintedProp prop)
-        => PropOriginAt(true, px, pz, out prop);
-
-    // Is this column INSIDE some prop's collision — i.e. blocked? The map draws
-    // this, because it is the answer painting props is for.
-    public bool CollidableCoversAt(int px, int pz) => PropCoverAt(false, px, pz);
-
-    public bool DestructibleCoversAt(int px, int pz) => PropCoverAt(true, px, pz);
-
-    private bool PropOriginAt(bool destructible, int px, int pz, out PaintedProp prop)
+    public bool PropOriginAt(int px, int pz, out PaintedProp prop)
     {
-        PropFill fill = FillFor(destructible, FloorDiv(px, ChunkState.SIZE), FloorDiv(pz, ChunkState.SIZE));
+        PropFill fill = FillFor(FloorDiv(px, ChunkState.SIZE), FloorDiv(pz, ChunkState.SIZE));
         return fill.Origins.TryGetValue(LocalCell(px, pz), out prop);
     }
 
-    private bool PropCoverAt(bool destructible, int px, int pz)
+    // Is this column INSIDE some prop's collision — i.e. blocked? What the
+    // check counts, because it is the answer painting props is for.
+    public bool PropCoversAt(int px, int pz)
     {
-        PropFill fill = FillFor(destructible, FloorDiv(px, ChunkState.SIZE), FloorDiv(pz, ChunkState.SIZE));
-        return fill.Own[LocalCell(px, pz)];
+        PropFill fill = FillFor(FloorDiv(px, ChunkState.SIZE), FloorDiv(pz, ChunkState.SIZE));
+        return fill.Covered[LocalCell(px, pz)];
     }
 
     private static int LocalCell(int px, int pz)
@@ -1444,40 +1427,33 @@ public class WorldMapState
         // prop, while the other is a bug.
         public readonly bool[] NoFit = new bool[ChunkState.SIZE * ChunkState.SIZE];
 
-        // What the fill may not place into: this layer's own props plus, for the
-        // breakable layer, everything the blocking one already covers.
+        // Every column some placed prop's collision covers — both what the fill
+        // may not place into again and what the check counts as blocked.
         public readonly bool[] Covered = new bool[ChunkState.SIZE * ChunkState.SIZE];
-
-        // What THIS layer's props cover, which is what the map draws and what
-        // the check counts. Kept apart from Covered so a breakable layer under a
-        // wood does not report the wood's coverage as its own.
-        public readonly bool[] Own = new bool[ChunkState.SIZE * ChunkState.SIZE];
     }
 
-    private readonly System.Collections.Generic.Dictionary<(bool, int, int), PropFill> _propFills = new();
+    private readonly System.Collections.Generic.Dictionary<(int, int), PropFill> _propFills = new();
 
     // Locked because the bake runs on a worker thread while the painter keeps
     // drawing on the main one, and both resolve props through here.
     private readonly object _propFillLock = new();
 
-    private PropFill FillFor(bool destructible, int cx, int cz)
+    private PropFill FillFor(int cx, int cz)
     {
-        var key = (destructible, cx, cz);
+        var key = (cx, cz);
         lock (_propFillLock)
         {
             if (_propFills.TryGetValue(key, out PropFill cached))
             {
                 return cached;
             }
-            PropFill fill = BuildFill(destructible, cx, cz);
+            PropFill fill = BuildFill(cx, cz);
             _propFills[key] = fill;
             return fill;
         }
     }
 
-    // Called from FillFor under the lock, and re-enters it for the layer
-    // underneath. Safe: a C# lock is re-entrant and the recursion is one deep,
-    // since the blocking layer never asks for the breakable one.
+    // Called from FillFor under the lock.
     //
     // The fill is SIZE-ORDERED, largest first, and each pass spaces its props
     // against the ones IT placed rather than against everything. That ordering
@@ -1495,11 +1471,10 @@ public class WorldMapState
     //
     // A last pass then seals the edge band, ignoring spacing entirely, because
     // that band is the one place the contract is coverage.
-    private PropFill BuildFill(bool destructible, int cx, int cz)
+    private PropFill BuildFill(int cx, int cz)
     {
         var fill = new PropFill();
-        Image layer = destructible ? DestructibleProps : CollidableProps;
-        uint salt = destructible ? DESTRUCTIBLE_SALT : COLLIDABLE_SALT;
+        Image layer = BlockingProps;
         int size = ChunkState.SIZE;
         int baseX = cx * size;
         int baseZ = cz * size;
@@ -1511,16 +1486,7 @@ public class WorldMapState
             return fill;
         }
 
-        // The breakable layer starts from what the blocking layer already
-        // covers: a bramble inside a tree trunk is the same mistake as two trees
-        // in one column, and blocking wins because it is the one the player
-        // cannot clear.
-        if (destructible)
-        {
-            System.Array.Copy(FillFor(false, cx, cz).Covered, fill.Covered, fill.Covered.Length);
-        }
-
-        var work = new FillWork(this, layer, salt, baseX, baseZ);
+        var work = new FillWork(this, layer, PROP_SALT, baseX, baseZ);
         for (int pass = 0; pass < work.Classes.Count; pass++)
         {
             // Several rounds of the same class, each refused by what the last
@@ -2230,7 +2196,6 @@ public class WorldMapState
                 if (ox >= 0 && ox < Size && oz >= 0 && oz < Size)
                 {
                     fill.Covered[ox * Size + oz] = true;
-                    fill.Own[ox * Size + oz] = true;
                 }
             }
             return true;
@@ -2351,18 +2316,18 @@ public class WorldMapState
     // Nothing in this column's list fits here without reaching outside the
     // painted region — the author's to fix, by painting wider or by adding a
     // smaller prop to the list.
-    public bool CollidableNoFitAt(int px, int pz)
+    public bool PropNoFitAt(int px, int pz)
     {
-        PropFill fill = FillFor(false, FloorDiv(px, ChunkState.SIZE), FloorDiv(pz, ChunkState.SIZE));
+        PropFill fill = FillFor(FloorDiv(px, ChunkState.SIZE), FloorDiv(pz, ChunkState.SIZE));
         return fill.NoFit[LocalCell(px, pz)];
     }
 
     // Public because worldmap_check has to tell a clearing the fill MEANT to
     // leave from a hole in a barrier, which is a bug.
-    public bool CollidableInteriorAt(int px, int pz)
+    public bool PropInteriorAt(int px, int pz)
     {
-        PropListData list = PaintedCollidableAt(px, pz);
-        return list != null && IsPropInterior(CollidableProps, px, pz, list.barrierDepthMeters);
+        PropListData list = PaintedPropAt(px, pz);
+        return list != null && IsPropInterior(BlockingProps, px, pz, list.barrierDepthMeters);
     }
 
     // The chunk's cells ordered by a hash of each — a stable shuffle,
@@ -2468,7 +2433,7 @@ public class WorldMapState
     // the map's mob dots; returns -1 for nothing.
     public int PreviewMobAt(int px, int pz)
     {
-        SpawnSetData set = MobSetAt(px, pz, out float density);
+        SpawnScatterData set = MobSetAt(px, pz, out float density);
         if (set == null || !CanSpawnAt(px, pz))
         {
             return -1;
@@ -2493,7 +2458,7 @@ public class WorldMapState
 
     private static int Mod(int a, int b) => ((a % b) + b) % b;
 
-    private static int IndexOfSet(SpawnSetData[] sets, SpawnSetData set)
+    private static int IndexOfSet(SpawnScatterData[] sets, SpawnScatterData set)
     {
         for (int i = 0; i < sets.Length; i++)
         {
@@ -2546,22 +2511,17 @@ public class WorldMapState
     // the world. The same goes for the gaps between trunks along the edge —
     // whatever fits between them is not somewhere to put an encounter.
     //
-    // The BREAKABLE layer deliberately does not count. It is passable by
-    // construction — that is what makes it breakable, and tall grass is walked
-    // straight through — so treating it the same way would sterilize every
-    // meadow of wildlife.
-    //
     // Runtime ambient spawners need no equivalent: NightMobSpawner and
     // FairySpawner both pick from a reachability flood out of the player
     // (NavigationGoals.CollectReachableStandableCells), and a sealed interior is
     // unreachable once the props are in it — props block the nav grid through
     // PropSimState.GetPathBlockerCells.
     public bool InBlockingRegion(int px, int pz)
-        => PaintedPropIndex(CollidableProps, px, pz) >= 0;
+        => PaintedPropIndex(BlockingProps, px, pz) >= 0;
 
-    // The breakable twin, for the map to draw. NOT a spawn gate — see above.
-    public bool InBreakableRegion(int px, int pz)
-        => PaintedPropIndex(DestructibleProps, px, pz) >= 0;
+    // Which list is painted here, as a palette slot, so the map can ink its dot
+    // in that list's own colour; -1 where nothing is painted.
+    public int PaintedPropIndexAt(int px, int pz) => PaintedPropIndex(BlockingProps, px, pz);
 
     // The same gate MINUS the grade clause, for a prop the author put there by
     // hand. Everything left is "there is no ground here" or "something else owns
@@ -2601,11 +2561,10 @@ public class WorldMapState
             || HeightMap.AxisIsGrade(h, TerrainHeight(px, pz - 1), TerrainHeight(px, pz + 1), step);
     }
 
-    // Independent salts: the two prop layers pick their scene, rotation and
-    // jitter off these, so sharing one would stand the same tree and the same
-    // bush at every column the layers both cover.
-    internal const uint COLLIDABLE_SALT = 0x9E37u;
-    internal const uint DESTRUCTIBLE_SALT = 0x2545u;
+    // Independent salts: props and mobs pick their scene, rotation and jitter
+    // off these, so sharing one would tie a mob's roll to the prop roll in the
+    // same column.
+    internal const uint PROP_SALT = 0x9E37u;
     internal const uint ENTITY_SALT = 0x85EBu;
 
     // Public because worldmap_check asks it of every hand-placed entity: this is
@@ -2655,8 +2614,7 @@ public class WorldMapState
         Data.SaveRegion(Region);
         Data.SaveZone(Zone);
         Data.SaveWind(Wind);
-        Data.SaveCollidableProps(CollidableProps);
-        Data.SaveDestructibleProps(DestructibleProps);
+        Data.SaveBlockingProps(BlockingProps);
         Data.SaveGround(Ground);
         Data.SaveWaterType(WaterType);
         Data.SavePaving(Paving);

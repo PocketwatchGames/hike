@@ -95,7 +95,7 @@ public partial class TerrainKitData : Resource
     //
     // The inline fields below remain as the fallback for kits that have not been
     // migrated, and are what this resolves to when `forest` is null.
-    [Export] public SpawnSetData forest;
+    [Export] public SpawnGenData forest;
 
     public WeightedScene[] Trees => forest != null && forest.treeScenes.Length > 0 ? forest.treeScenes : treeScenes;
 

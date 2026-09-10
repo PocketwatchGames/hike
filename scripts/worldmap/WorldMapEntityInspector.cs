@@ -3,8 +3,12 @@ using Godot;
 using System.Collections.Generic;
 using System.Linq;
 
-// Property editor for the entity tool's selected placement, top-right of the
-// painter.
+// What the active tool has SELECTED, top-right of the painter. Two modes,
+// because two tools have a selection worth reading:
+//
+//   a hand-placed ENTITY  — its properties, editable (the entity tool);
+//   a scatter SET         — what spawns from it and how much, read-only
+//                           (the mob tool).
 //
 // A hand-placed entity's properties ARE its SpawnEntryData's — the text on a
 // signpost, the conditions on a chest — so this REFLECTS the entry rather than
@@ -44,6 +48,9 @@ public partial class WorldMapEntityInspector : PanelContainer
     // or the entry under it, which the first edit forks — actually changes.
     private EntityPlacement _shown;
     private SpawnEntryData _shownEntry;
+    // The set the scatter listing was built for. Mutually exclusive with the
+    // pair above: whichever mode is up, the other's fields are null.
+    private SpawnScatterData _shownScatter;
     // The placement the LIVE WIDGETS edit, which is not always the one being
     // shown: a row can fire its commit while the panel is already switching to
     // another entity (releasing focus destroys the widget). Reading and writing
@@ -94,19 +101,11 @@ public partial class WorldMapEntityInspector : PanelContainer
         SpawnEntryData entry = placement?.Entry;
         if (entry == null)
         {
-            if (_shown != null)
-            {
-                // Before the widgets go, and while _rowsOwner still names who
-                // they belong to.
-                FlushPendingEdit();
-                _shown = null;
-                _shownEntry = null;
-                Clear();
-            }
-            Visible = false;
+            HidePanel();
             return;
         }
         Visible = true;
+        _shownScatter = null;
         if (ReferenceEquals(placement, _shown) && ReferenceEquals(entry, _shownEntry))
         {
             // Same rows, possibly different values — an undo changes what the
@@ -125,6 +124,51 @@ public partial class WorldMapEntityInspector : PanelContainer
         _shown = placement;
         _shownEntry = entry;
         Rebuild();
+    }
+
+    // The scatter set the tool has selected, or null for "nothing selected".
+    // Called every frame, like Show.
+    //
+    // READ-ONLY, and that is not a gap to be filled later: a set is a shared
+    // asset that several documents paint, so editing one HERE would silently
+    // change every world using it — unlike a placement, which the first edit
+    // forks into the document. What the panel is for is answering "how much of
+    // what am I about to paint" without opening the .tres.
+    public void ShowScatter(SpawnScatterData set)
+    {
+        if (set == null)
+        {
+            HidePanel();
+            return;
+        }
+        Visible = true;
+        if (ReferenceEquals(set, _shownScatter))
+        {
+            // Nothing here tracks a live value — the rows are the set's authored
+            // rates, and a set is immutable while the game runs.
+            return;
+        }
+        FlushPendingEdit();
+        _shown = null;
+        _shownEntry = null;
+        _shownScatter = set;
+        RebuildScatter();
+    }
+
+    // Empty the panel and take it off screen, whichever mode was up.
+    private void HidePanel()
+    {
+        if (_shown != null || _shownScatter != null)
+        {
+            // Before the widgets go, and while _rowsOwner still names who they
+            // belong to.
+            FlushPendingEdit();
+            _shown = null;
+            _shownEntry = null;
+            _shownScatter = null;
+            Clear();
+        }
+        Visible = false;
     }
 
     private void Clear()
@@ -167,6 +211,94 @@ public partial class WorldMapEntityInspector : PanelContainer
         // which is what left every flags row reading as all-unchecked whatever
         // the entry held, and made a reselect look like the edit had reverted.
         RefreshRows();
+    }
+
+    // One row per spawn row: what it places, and how many of it a square
+    // kilometre of ELIGIBLE ground gets.
+    //
+    // Per km² and not per m², because the authored unit (square metres between
+    // spawns) is the inverse of what an author wants to know and lands in the
+    // hundreds and thousands where a probability is 0.002. Eligible is the
+    // caveat that cannot be dropped: the rate is rolled per QUALIFYING column,
+    // so water, cliffs, roads and painted barriers are not in the km² — a
+    // region's real count is this times its eligible fraction.
+    //
+    // Rows are listed densest first. The file's own order is authoring order
+    // and says nothing; what an author is checking here is which creature
+    // dominates.
+    private void RebuildScatter()
+    {
+        Clear();
+        if (rows == null || _shownScatter == null)
+        {
+            return;
+        }
+        if (titleLabel != null)
+        {
+            titleLabel.Text = _shownScatter.Label;
+        }
+        List<(string Name, string Rate)> listed = ScatterRows(_shownScatter);
+        if (listed.Count == 0)
+        {
+            AddScatterRow("(empty)", "");
+            return;
+        }
+        foreach ((string name, string rate) in listed)
+        {
+            AddScatterRow(name, rate);
+        }
+    }
+
+    // The listing itself, densest first. Shared with worldmap_check so the
+    // report is of the panel that will actually be built — a second copy of the
+    // arithmetic is how a readout drifts from the thing it reports on.
+    public static List<(string Name, string Rate)> ScatterRows(SpawnScatterData set)
+    {
+        var listed = new List<(string, string)>();
+        foreach (SpawnListRow row in (set?.RowsFlat ?? System.Array.Empty<SpawnListRow>())
+            .Where(r => r?.entry != null)
+            .OrderByDescending(r => PerSquareKm(r.squareMetersPerSpawn)))
+        {
+            float perKm = PerSquareKm(row.squareMetersPerSpawn);
+            listed.Add((SpawnEntryData.Describe(row.entry),
+                // A rate of 0 keeps the row out of the area scan entirely, which
+                // is a different statement from "very few" and reads as one.
+                perKm <= 0f ? "never" : $"{perKm:N0} / km²"));
+        }
+        return listed;
+    }
+
+    // Expected spawns per square kilometre of eligible ground. The roll is
+    // `density / squareMetersPerSpawn` per 1 m² column (WorldMapState.AreaRoll),
+    // so a km² of it is that times a million. Reported at the set's OWN rate:
+    // the brush's density multiplier scales every row equally and is on the HUD
+    // beside it, and folding it in here would make the panel flicker as R/F is
+    // held.
+    private static float PerSquareKm(float squareMetersPerSpawn)
+    {
+        const float SquareMetersPerSquareKm = 1_000_000f;
+        return squareMetersPerSpawn <= 0f ? 0f : SquareMetersPerSquareKm / squareMetersPerSpawn;
+    }
+
+    private void AddScatterRow(string name, string rate)
+    {
+        var row = new HBoxContainer();
+        row.AddChild(new Label
+        {
+            Text = name,
+            CustomMinimumSize = new Vector2(labelWidth, 0f),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        var value = new Label
+        {
+            Text = rate,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        value.AddThemeColorOverride("font_color", readOnlyColor);
+        row.AddChild(value);
+        rows.AddChild(row);
     }
 
     // The properties this entry shows, in the order it wants them. Shared with

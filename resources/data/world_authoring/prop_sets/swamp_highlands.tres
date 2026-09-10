@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="SpawnSetData" format=3 uid="uid://558a5fhxihqs"]
+[gd_resource type="Resource" script_class="SpawnGenData" format=3 uid="uid://558a5fhxihqs"]
 
-[ext_resource type="Script" uid="uid://bsgbfzhceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
+[ext_resource type="Script" uid="uid://r3che1ulfmtxq" path="res://scripts/data/worldgen/SpawnGenData.cs" id="1_set"]
 [ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
 [ext_resource type="PackedScene" uid="uid://bj7f8dy86dj1q" path="res://scenes/props/tree_willow.tscn" id="sc_0"]
 [ext_resource type="PackedScene" uid="uid://ble6ry6xb2qgc" path="res://scenes/props/tree_willow_dead.tscn" id="sc_1"]
@@ -83,11 +83,9 @@ scene = ExtResource("sc_10")
 [resource]
 script = ExtResource("1_set")
 displayName = "Swamp Highlands"
-mapColor = Color(0.34, 0.46, 0.28, 1)
 forestNoiseFrequency = 0.05
 forestThreshold = 0.01
 treeScenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("e_5"), SubResource("e_6"), SubResource("e_7"), SubResource("e_8"), SubResource("e_9"), SubResource("e_10")]
 grassNoiseFrequency = 0.1
 grassThreshold = 0.5
 foliageScenes = [SubResource("e_11"), SubResource("e_12"), SubResource("e_13"), SubResource("e_14")]
-positionJitter = 0.2

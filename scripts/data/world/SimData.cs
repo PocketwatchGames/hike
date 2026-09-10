@@ -44,11 +44,14 @@ public partial class SimData : Resource
     // so its species can appear in the bestiary once spotted.
     [Export] public Array<MobData> mobs = new();
 
-    // Central registry of named scripting variables (quest flags, world
-    // state). Seeded into SimState.ScriptVars at world creation so
-    // ScriptVarCondition / ScriptVarTransition / SetScriptVarAction can branch
-    // conversations and behaviors by name. Null = no variables in this world.
-    [Export] public ScriptVariableRegistry scriptVariables;
+    // Registries of named scripting variables (quest flags, world state), all
+    // seeded into SimState.ScriptVars at world creation so ScriptVarCondition /
+    // ScriptVarTransition / SetScriptVarAction can branch conversations and
+    // behaviors by name. Several because one of them is generated: the
+    // conversation importer writes every `npcvar:` a sheet names into
+    // npc_variables.tres, so an NPC flag costs an author one cell and no .tres.
+    // Ids must be unique across the whole list, not just within one registry.
+    [Export] public Array<ScriptVariableRegistry> scriptVariables = new();
 
     // Status effect applied to every elite mob at spawn, in addition to the
     // signature effect(s) the elite's own descriptor authors (MobDescriptor

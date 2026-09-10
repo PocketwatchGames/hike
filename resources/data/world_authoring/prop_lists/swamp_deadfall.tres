@@ -73,5 +73,5 @@ metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
 [resource]
 script = ExtResource("1_list")
 displayName = "Swamp Deadfall"
-mapColor = Color(0.26, 0.32, 0.18, 1)
+mapColor = Color(0, 0, 0, 1)
 scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("Resource_1n11n"), SubResource("Resource_x30w4"), SubResource("Resource_vgf0t"), SubResource("Resource_2iyf5"), SubResource("Resource_tqydo"), SubResource("Resource_gs038"), SubResource("Resource_gssn0"), SubResource("Resource_fmdrg")]

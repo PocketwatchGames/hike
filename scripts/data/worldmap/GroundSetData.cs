@@ -3,7 +3,7 @@ using Godot;
 // What the ground IS: the four terrain kits a column's voxels are stamped with,
 // picked by where the column sits relative to water.
 //
-// Separate from SpawnSetData on purpose. Ground and the things standing on it
+// Separate from SpawnGenData on purpose. Ground and the things standing on it
 // are independent axes — a pine stand runs across mountain rock and forest soil
 // alike, and a shoreline is shoreline whether or not anything grows on it.
 // Bundling them is what forced a "pine stand" to be re-authored inside every

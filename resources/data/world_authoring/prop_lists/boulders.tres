@@ -21,7 +21,7 @@ scene = ExtResource("sc_2")
 [resource]
 script = ExtResource("1_list")
 displayName = "Boulders"
-mapColor = Color(0.52, 0.5, 0.47, 1)
+mapColor = Color(0, 0, 0, 1)
 scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2")]
 barrierDepthMeters = 3
 interiorHoleChance = 0.5

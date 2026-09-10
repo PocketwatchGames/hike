@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ScriptVariableRegistry" format=3]
+
+[ext_resource type="Script" uid="uid://bn4svar0reg13" path="res://scripts/data/scripting/ScriptVariableRegistry.cs" id="1_registry"]
+[ext_resource type="Script" uid="uid://cq2svar0data8" path="res://scripts/data/scripting/ScriptVariableData.cs" id="2_variable"]
+
+[sub_resource type="Resource" id="Var_1"]
+script = ExtResource("2_variable")
+id = &"intro_watchman_customs"
+type = 0
+description = "Declared by the test_world/intro_watchman conversation sheet."
+
+[resource]
+script = ExtResource("1_registry")
+variables = Array[ExtResource("2_variable")]([SubResource("Var_1")])

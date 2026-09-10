@@ -5,28 +5,25 @@ using Godot;
 // painting props is to say where the player cannot walk, and anything short of
 // one per column leaves lanes through the barrier.
 //
-// Two tools rather than one with a mode, because the two layers answer two
-// different questions about a region and an author picks between them the way
-// they pick between ground and water:
+// ONE layer, and one tool. There used to be a second ("Breakable") over the same
+// palette, and the pair could not state a difference: both filled a region from
+// a PropListData, and whether the region can be cleared is decided by what the
+// scenes in that list are built out of, not by which raster the author painted
+// them on. A list of breakable rocks is a barrier until it is broken and belongs
+// here like any other.
 //
-//   COLLIDABLE   — a wall of the world. Trees, boulders. Nothing gets through.
-//   DESTRUCTIBLE — a wall until it is cleared. Thickets, brambles, crates.
-//
-// Both draw from the SAME palette (AuthoringPaletteSource.PropLists): what a
-// list is for is which layer it was painted on, not a property of the list, so
-// a boulder field can be either. Where both layers cover one column the
-// collidable one takes it — see WorldMapState.PreviewDestructibleAt.
-public abstract class PropPaintTool : IWorldMapTool
+// So a painted region is always a BARRIER, and always a no-spawn region — see
+// WorldMapState.InBlockingRegion. Passable ground cover is scenery rather than a
+// region, and it is what a list's UNDERSTORY tier is for: put the bushes in the
+// list beside the trees and the fill stands them between the trunks.
+public class PropPaintTool : IWorldMapTool
 {
+    public string Name => "Blocking";
+
     public IWorldMapView View { get; } = new PropView();
     public float Radius { get; set; } = 8f;
 
     public int ListIndex = 0;
-
-    public abstract string Name { get; }
-
-    // The layer this tool writes, and the salt its lattice is picked with.
-    protected abstract Image Layer(WorldMapState ctx);
 
     public string[] Options(WorldMapState ctx)
     {
@@ -60,10 +57,9 @@ public abstract class PropPaintTool : IWorldMapTool
         set => ListIndex = Mathf.Max(0, value);
     }
 
-    // The list's own swatch, so the ring says which list is about to go down.
-    // The MAP's dots are inked per layer instead (black for collidable, white
-    // for destructible): which list furnished a region is the palette's answer,
-    // while whether the region stops you is the map's.
+    // The list's own swatch — the same colour its regions are drawn in on the
+    // map, so the ring says what the region you are about to paint will do to
+    // movement.
     public Color CursorColor(WorldMapInk ink)
     {
         PropListData[] lists = ink.Map.PropLists;
@@ -94,8 +90,8 @@ public abstract class PropPaintTool : IWorldMapTool
         {
             return;
         }
-        int idx = Mathf.RoundToInt(Layer(ctx).GetPixel(ctx.ClampX(texel.X), ctx.ClampZ(texel.Y)).R * 255f) - 1;
-        if (idx >= 0 && idx < ctx.PropLists.Length)
+        int idx = ctx.PaintedPropIndexAt(ctx.ClampX(texel.X), ctx.ClampZ(texel.Y));
+        if (idx >= 0)
         {
             ListIndex = idx;
         }
@@ -106,7 +102,7 @@ public abstract class PropPaintTool : IWorldMapTool
         // Hard-edged, like every other index layer: a half-painted list index is
         // not a thinner wood, it is a different list.
         float value = erase ? 0f : Mathf.Clamp(ListIndex + 1, 1, 255) / 255f;
-        Image layer = Layer(ctx);
+        Image layer = ctx.BlockingProps;
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
             layer.SetPixel(px, pz, new Color(value, 0f, 0f, 1f));
@@ -133,20 +129,6 @@ public abstract class PropPaintTool : IWorldMapTool
         PropListData[] lists = ctx.PropLists;
         return ListIndex >= 0 && ListIndex < lists.Length ? lists[ListIndex] : null;
     }
-}
-
-public class CollidablePropTool : PropPaintTool
-{
-    public override string Name => "Blocking";
-
-    protected override Image Layer(WorldMapState ctx) => ctx.CollidableProps;
-}
-
-public class DestructiblePropTool : PropPaintTool
-{
-    public override string Name => "Breakable";
-
-    protected override Image Layer(WorldMapState ctx) => ctx.DestructibleProps;
 }
 
 // Ground type as the base, exactly as the ground view draws it — what a prop

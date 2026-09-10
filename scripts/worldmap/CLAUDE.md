@@ -57,15 +57,18 @@ Layers:
 - **Wind** — `.png` `Rgba8`, per **chunk**: R = compass angle over a full turn,
   G = strength, with **0 reserved for UNPAINTED**. Per chunk because that is the
   granularity the bake seeds `ChunkState`'s wind-velocity subgrid at.
-- **Props — two layers**, `props_blocking.png` / `props_breakable.png`, `.png`
-  `R8`, per column (prop list index + 1; 0 = none), both indexing the ONE
-  `prop_lists` palette. No density channel and no spacing: the bake FILLS a
-  painted region until every column of it is inside some prop's collision,
-  because a painted region is a barrier and anything thinner leaves lanes
-  through it.
+- **Props — one layer**, `props_blocking.png`, `.png` `R8`, per column (prop
+  list index + 1; 0 = none), indexing the `prop_lists` palette. No density
+  channel and no spacing: the bake FILLS a painted region until every column of
+  it is inside some prop's collision, because a painted region is a barrier and
+  anything thinner leaves lanes through it. There used to be a second
+  ("breakable") layer over the same palette; whether a barrier can be CLEARED is
+  decided by what the scenes in the list are built out of, so the two rasters
+  could not state a difference and the pair is now one.
 - **Mobs** — `.png` `Rgba8`, per column (R = set index + 1, G = density
-  multiplier), indexing `mobSets`. Still a rate: a mob set is a `SpawnListData`
-  whose rows carry their own square-metres-per-spawn.
+  multiplier), indexing `mobSets`. Still a rate: a mob set is a
+  `SpawnScatterData` over a `SpawnListData` whose rows carry their own
+  square-metres-per-spawn.
 - **Ground** — `.png` `R8`, per column (ground set + 1; 0 = `defaultGround`).
 - **Paving** — `.png` `Rgba8`, per column: R = paving block + 1 (0 = none),
   G/B = the world Y it is laid at + 1, low byte first, with **0 meaning "on
@@ -137,9 +140,8 @@ checking after any change here: **`WorldMapState` and `WorldMapBake` do not
 name `WorldMapInkData` at all.** A bake pass therefore cannot read a display
 value even by accident.
 
-**Spawn resolution belongs to the MODEL, not to the bake** —
-`PreviewCollidableAt`, `PreviewDestructibleAt`, `PreviewMobAt`, `AreaRoll` and
-the salts. They answer "what does
+**Spawn resolution belongs to the MODEL, not to the bake** — `PropOriginAt`,
+`PropCoversAt`, `PreviewMobAt`, `AreaRoll` and the salts. They answer "what does
 this document say stands at this column", which is a property of the map. The
 bake PLACES what the model resolves and the map preview DRAWS what the model
 resolves, which is exactly why the two cannot disagree; filing the resolution
@@ -216,13 +218,12 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | `RegionTool` | per-chunk region index | `RegionIndex`, named in the option row | region colours, **50% darker under water** |
 | `ZoneTool` | per-chunk zone index | `ZoneIndex`, named in the option row | zone colours, **brightness by elevation** |
 | `WindTool` | per-chunk wind direction + strength (RMB clears back to the zone's) | `Mode` (Stroke / Inward / Outward), `AdjustLevel` = strength in m/s; alt+click samples | hue = compass angle, a sawtooth ramp ALONG the flow, unpainted chunks flat grey |
-| `CollidablePropTool` ("Blocking") | which `PropListData` fills a column, on the collidable layer (RMB clears, alt+click samples) | `ListIndex` | ground colour, the blocked columns washed, a dot per placed prop |
-| `DestructiblePropTool` ("Breakable") | the same, on the destructible layer, skipping whatever the blocking one already covers | `ListIndex` | the same |
-| `MobTool` | which `SpawnSetData` supplies a column's wildlife + density | `SetIndex`, `Density` | ground colour + a dot per mob spawn |
-| `MobLevelTool` | per-column danger level | `Level` | terrain recoloured, one shade per level |
-| `ClimbTool` | climbing route on a column's walls | none | `CutawayElevationView`, routed edges inked magenta — **cuts away** (T/G), so a route can be painted on a passage's walls |
 | `PaveTool` | a block on the floor the map is SHOWING — the surface, or a passage's floor under the cut | `BlockIndex` | `CutawayGroundView` — the ground map, **cutting away** (T/G) once the plane comes down |
+| `PropPaintTool` ("Blocking") | which `PropListData` fills a column (RMB clears, alt+click samples) | `ListIndex` | ground colour, a dot per painted column in that list's own `mapColor` — black for a barrier, mid-grey for a breakable one |
+| `ClimbTool` | climbing route on a column's walls | none | `CutawayElevationView`, routed edges inked magenta — **cuts away** (T/G), so a route can be painted on a passage's walls |
 | `SceneTool` | `.hikescene` stamps — place / select / move / rotate / delete | `SceneIndex`, `Selected` | the ground map (the stamps themselves draw on EVERY view) |
+| `MobLevelTool` | per-column danger level | `Level` | terrain recoloured, one shade per level |
+| `MobTool` | which `SpawnScatterData` supplies a column's wildlife + density; the inspector lists the set's entries at `n / km²` | `SetIndex`, `Density` | ground colour + a dot per mob spawn |
 | `EntityTool` | individual entities, their per-placement properties, and the player spawn | `PaletteIndex`, `Selected` | the ground map (the marks themselves draw on EVERY view that shows props) |
 
 A spawn brush writes only its raster; `RescatterColumns` resolves it during the
@@ -246,7 +247,7 @@ match:
   reaches the world by re-saving the map. Read
   [docs/prop-fill.md](docs/prop-fill.md) before changing any of it; it carries
   the invariants, the measured numbers and the rejected alternatives.
-- **Mobs still run worldgen's own rate math** (`SpawnListData` rows at their
+- **Mobs still run worldgen's own rate math** (`SpawnScatterData` rows at their
   authored area rates), gated by `CanSpawnAt` — which now also refuses any column
   inside a painted BLOCKING region, so nothing is spawned walled in behind a
   barrier. Every decision is a hash of the column rather than a running `Random`,
@@ -331,7 +332,7 @@ Four rules, three of which were real bugs:
 
 - **A palette whose index is painted is a WIRE FORMAT, and its slots live in a
   LEDGER.** `zone.png`, `region.png`, `ground.png`, `props_blocking.png`,
-  `props_breakable.png`, `mobs.png`,
+  `mobs.png`,
   `paving.png` and `water_type.png` all store a slot number, so a slot that moves
   silently re-zones or re-textures every world already baked — with the stored
   bytes still perfectly valid. Discovery therefore only ever APPENDS to

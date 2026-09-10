@@ -104,6 +104,7 @@ public static class WorldMapCheck
             + (spread.Length == 0 ? "none" : spread.ToString()));
 
         ReportEntityLinks(sb, entities);
+        ReportMobSets(sb, ctx);
         ReportPalettes(sb, ctx);
         ReportPaletteEditors(sb, ctx);
 
@@ -187,9 +188,6 @@ public static class WorldMapCheck
         int blockingUncovered = 0;
         int blockingClearings = 0;
         int blockingNoFit = 0;
-        int breakablePainted = 0;
-        int breakableCovered = 0;
-        int breakableStanding = 0;
         int pavedSurface = 0;
         int pavedUnder = 0;
         int pavedStranded = 0;
@@ -229,18 +227,18 @@ public static class WorldMapCheck
                 {
                     spawnable++;
                 }
-                if (ctx.PaintedCollidableAt(px, pz) != null)
+                if (ctx.PaintedPropAt(px, pz) != null)
                 {
                     blockingPainted++;
-                    if (!ctx.CollidableCoversAt(px, pz) && ctx.CanPlacePropAt(px, pz))
+                    if (!ctx.PropCoversAt(px, pz) && ctx.CanPlacePropAt(px, pz))
                     {
                         // A clearing the fill deliberately left behind the
                         // barrier, or a hole in the barrier itself.
-                        if (ctx.CollidableInteriorAt(px, pz))
+                        if (ctx.PropInteriorAt(px, pz))
                         {
                             blockingClearings++;
                         }
-                        else if (ctx.CollidableNoFitAt(px, pz))
+                        else if (ctx.PropNoFitAt(px, pz))
                         {
                             blockingNoFit++;
                         }
@@ -250,25 +248,13 @@ public static class WorldMapCheck
                         }
                     }
                 }
-                if (ctx.CollidableCoversAt(px, pz))
+                if (ctx.PropCoversAt(px, pz))
                 {
                     blockingCovered++;
                 }
-                if (ctx.CollidablePropAt(px, pz, out WorldMapState.PaintedProp _))
+                if (ctx.PropOriginAt(px, pz, out WorldMapState.PaintedProp _))
                 {
                     blockingStanding++;
-                }
-                if (ctx.PaintedDestructibleAt(px, pz) != null)
-                {
-                    breakablePainted++;
-                }
-                if (ctx.DestructibleCoversAt(px, pz))
-                {
-                    breakableCovered++;
-                }
-                if (ctx.DestructiblePropAt(px, pz, out WorldMapState.PaintedProp _))
-                {
-                    breakableStanding++;
                 }
                 if (ctx.PavingAt(px, pz) != null)
                 {
@@ -340,11 +326,10 @@ public static class WorldMapCheck
         // thing this whole model exists to rule out. Clearings are reported
         // beside it because they are the saving: entities not spent on ground
         // behind the barrier.
-        sb.AppendLine($"[worldmap_check] props: blocking {blockingPainted} columns painted, "
+        sb.AppendLine($"[worldmap_check] props: {blockingPainted} columns painted, "
             + $"{blockingCovered} blocked by {blockingStanding} props, "
             + $"{blockingClearings} interior clearings, {blockingNoFit} too tight for the list, "
-            + $"{blockingUncovered} uncovered (must be 0); "
-            + $"breakable {breakablePainted} painted, {breakableCovered} blocked by {breakableStanding} props");
+            + $"{blockingUncovered} uncovered (must be 0)");
 
         sb.AppendLine($"[worldmap_check] paving: {pavedSurface} columns on the surface, "
             + $"{pavedUnder} on a floor under it, {pavedStranded} stranded (no floor at their level)");
@@ -516,6 +501,28 @@ public static class WorldMapCheck
     // zone 4 stopped being the hub does not error, it just bakes a different
     // world. A DEAD slot (its file gone) is reported rather than skipped, since
     // the columns painted with it are still out there.
+    // What each paintable mob set actually spawns, at the rate it is authored
+    // at — the same listing the painter's panel shows for the selected set, off
+    // the same helper. It is the one place a density is legible as a NUMBER
+    // rather than as square metres between spawns.
+    private static void ReportMobSets(System.Text.StringBuilder sb, WorldMapState ctx)
+    {
+        foreach (SpawnScatterData set in ctx.MobSets)
+        {
+            if (set == null)
+            {
+                continue;
+            }
+            List<(string Name, string Rate)> listed =
+                WorldMapEntityInspector.ScatterRows(set);
+            sb.AppendLine($"[worldmap_check] mob set {set.Label}: {listed.Count} entries");
+            foreach ((string name, string rate) in listed)
+            {
+                sb.AppendLine($"[worldmap_check]   {name,-28} {rate}");
+            }
+        }
+    }
+
     private static void ReportPalettes(System.Text.StringBuilder sb, WorldMapState ctx)
     {
         foreach (AuthoringPaletteSource source in AuthoringPaletteSource.Table)

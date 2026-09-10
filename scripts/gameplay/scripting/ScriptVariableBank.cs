@@ -24,32 +24,48 @@ public class ScriptVariableBank
     // reactions / UI can subscribe to refresh when a flag flips.
     public event Action<StringName> OnChanged;
 
-    // Seed defaults from the authored registry and capture the declared set
-    // for type lookups + undeclared-access warnings. Safe with a null
-    // registry (a world authored without any variables) — the bank just
-    // starts empty. Save data loaded afterward overrides these defaults.
-    public void Initialize(ScriptVariableRegistry registry)
+    // Seed defaults from the authored registries and capture the declared set
+    // for type lookups + undeclared-access warnings. Safe with a null list (a
+    // world authored without any variables) — the bank just starts empty. Save
+    // data loaded afterward overrides these defaults. Ids are unique across the
+    // whole list, so a name declared twice is an error even when the two
+    // declarations sit in different registries.
+    public void Initialize(Godot.Collections.Array<ScriptVariableRegistry> registries)
     {
         _values.Clear();
         _declared.Clear();
-        if (registry == null)
+        if (registries == null)
         {
             return;
         }
-        var issues = new List<string>();
-        registry.Validate(issues);
-        foreach (string issue in issues)
+        int count = registries.Count;
+        for (int i = 0; i < count; i++)
         {
-            GD.PushError(issue);
-        }
-        foreach (ScriptVariableData v in registry.variables)
-        {
-            if (v == null || string.IsNullOrEmpty(v.id.ToString()))
+            ScriptVariableRegistry registry = registries[i];
+            if (registry == null)
             {
                 continue;
             }
-            _declared[v.id] = v;
-            _values[v.id] = v.defaultValue;
+            var issues = new List<string>();
+            registry.Validate(issues);
+            foreach (string issue in issues)
+            {
+                GD.PushError(issue);
+            }
+            foreach (ScriptVariableData v in registry.variables)
+            {
+                if (v == null || string.IsNullOrEmpty(v.id.ToString()))
+                {
+                    continue;
+                }
+                if (_declared.ContainsKey(v.id))
+                {
+                    GD.PushError($"ScriptVariableBank: variable '{v.id}' is declared in more than one registry.");
+                    continue;
+                }
+                _declared[v.id] = v;
+                _values[v.id] = v.defaultValue;
+            }
         }
     }
 

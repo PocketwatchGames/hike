@@ -74,8 +74,7 @@ public class PresetTool : IWorldMapTool
             return "No presets authored";
         }
         string layers = (preset.ground != null ? "ground " : "")
-            + (preset.collidableProps != null ? "blocking " : "")
-            + (preset.destructibleProps != null ? "breakable " : "")
+            + (preset.blockingProps != null ? "blocking " : "")
             + (preset.mobs != null ? "mobs" : "");
         return $"{preset.Label}  [{layers.Trim()}]";
     }
@@ -95,8 +94,7 @@ public class PresetTool : IWorldMapTool
         }
 
         int groundValue = IndexOf(ctx.GroundSets, preset.ground);
-        int blockingValue = IndexOf(ctx.PropLists, preset.collidableProps);
-        int breakableValue = IndexOf(ctx.PropLists, preset.destructibleProps);
+        int blockingValue = IndexOf(ctx.PropLists, preset.blockingProps);
         int mobValue = IndexOf(ctx.MobSets, preset.mobs);
 
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
@@ -106,13 +104,9 @@ public class PresetTool : IWorldMapTool
                 float v = erase ? 0f : Mathf.Clamp(groundValue + 1, 1, 255) / 255f;
                 ctx.Ground.SetPixel(px, pz, new Color(v, 0f, 0f, 1f));
             }
-            if (preset.collidableProps != null || erase)
+            if (preset.blockingProps != null || erase)
             {
-                WriteIndex(ctx.CollidableProps, blockingValue, px, pz, erase);
-            }
-            if (preset.destructibleProps != null || erase)
-            {
-                WriteIndex(ctx.DestructibleProps, breakableValue, px, pz, erase);
+                WriteIndex(ctx.BlockingProps, blockingValue, px, pz, erase);
             }
             if (preset.mobs != null || erase)
             {
@@ -121,7 +115,7 @@ public class PresetTool : IWorldMapTool
         });
     }
 
-    // The prop layers are plain index layers and hard-edged, like the ground
+    // The prop layer is a plain index layer and hard-edged, like the ground
     // one: a half-painted list index is not a thinner wood, it is a different
     // list.
     private static void WriteIndex(Image layer, int index, int px, int pz, bool erase)

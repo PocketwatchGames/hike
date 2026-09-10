@@ -1,7 +1,6 @@
 # Painted prop regions: the size-ordered fill
 
-An author paints a REGION on one of two prop layers; the bake furnishes it with
-props. The point of painting props is to say **where the player cannot walk**, so
+An author paints a REGION on the prop layer; the bake furnishes it with props. The point of painting props is to say **where the player cannot walk**, so
 the region's EDGE is sealed — but only its edge. Behind that band nobody can
 reach the ground, so what happens there is a question about how the region looks
 from a camera that can see over it, and nothing more.
@@ -22,11 +21,13 @@ guaranteed, and what was tried and rejected. `../CLAUDE.md` carries the summary.
 | Authored lists | `resources/data/world_authoring/prop_lists/*.tres` (9 today) |
 | Reporting | `scripts/worldmap/WorldMapCheck.cs` — the `props:` line |
 
-Two layers, two `R8` rasters, one shared palette:
+One layer, one `R8` raster, one palette:
 
-- `map/props_blocking.png` — collidable. **A no-spawn region** (see below).
-- `map/props_breakable.png` — destructible. Passable by construction.
-- Both store `prop list index + 1`; 0 = unpainted. The palette is
+- `map/props_blocking.png` — every painted region is a barrier, and **a no-spawn
+  region** (see below). Whether it can be CLEARED is a property of the scenes in
+  the list, not of the raster it was painted on — which is why the second
+  ("breakable") layer is gone: it could state no difference the list did not.
+- It stores `prop list index + 1`; 0 = unpainted. The palette is
   `AuthoringPaletteSource.PropLists`, discovered from `prop_lists/`, ledgered in
   `map/palettes.tres` like every other indexed palette.
 - **No density channel and no spacing.** The raster says only *which list covers
@@ -54,7 +55,7 @@ the first 413 painted columns, measured.
 
 ## The fill
 
-Per CHUNK, seeded by the chunk. `WorldMapState.BuildFill(destructible, cx, cz)`
+Per CHUNK, seeded by the chunk. `WorldMapState.BuildFill(cx, cz)`
 builds a `FillWork` and runs one **spacing pass per size class, largest first**,
 then one **seal pass**.
 
@@ -291,7 +292,6 @@ One gate covers the painted mob layer, spawn entries' own column probe
 - The WHOLE region, not just columns a prop stands in: the interior is sparse
   *because* nobody can reach it, and a mob spawned there is walled in for the
   life of the world.
-- The breakable layer does not count — counting it would sterilize every meadow.
 - Nothing is needed at runtime: `NightMobSpawner` and `FairySpawner` both pick
   from `NavigationGoals.CollectReachableStandableCells`, and props block the nav
   grid through `PropSimState.GetPathBlockerCells`, so a sealed interior is
@@ -321,8 +321,10 @@ answer recomputed, and re-saving the map is the whole workflow.
 
 **The painted raster, not the resolved fill.** One semi-transparent dot per
 painted column, a little smaller than the metre cell so the ground shows between
-the marks: black 0.8 at 0.8 of the cell for blocking, white 0.5 at 0.65 for
-breakable, all on `WorldMapInkData`.
+the marks, in the painted LIST's own `mapColor` — black for a barrier, mid-grey
+for one that can be broken through. The alpha and the size are global
+(`propDotAlpha` / `propDotFraction` on `WorldMapInkData`), so colour is the only
+thing that varies between regions.
 
 Drawing the fill live was tried and reverted twice over. A wash plus a firmer
 mark per prop read as a patchwork of one blob per entity; and drawing coverage at
@@ -340,9 +342,8 @@ the mob layer still holds — see `../CLAUDE.md`'s verification section.
 The `props:` line:
 
 ```
-props: blocking 362 columns painted, 345 blocked by 185 props, 8 interior,
-0 too tight for the list, 0 uncovered (must be 0); breakable 130 painted,
-10 blocked by 7 props
+props: 362 columns painted, 345 blocked by 185 props, 8 interior clearings,
+0 too tight for the list, 0 uncovered (must be 0)
 ```
 
 Where that came from on the test map, at each step of the rewrite:

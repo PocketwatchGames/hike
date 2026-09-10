@@ -33,13 +33,13 @@ maps answers "is this spot already taken". Mob dots stay with the layers that
 paint mobs — they are about encounters, not terrain — and draw last, since two
 dots cannot share a cell and what LIVES somewhere is the more urgent answer.
 
-**Props and mobs are the same machinery twice** — one `SpawnSetData` type, two
-palettes (`propSets`, `mobSets`), two rasters of identical shape, one column
-routine at bake, one dot preview parameterised by `IWorldMapView.PreviewLayer`.
-They need separate LAYERS rather than separate types because a raster holds one
-set per column: sharing a layer would make painting wolves erase the pine stand
-under them. A mob set is simply a set whose tree and foliage slots are empty and
-whose `entities` list carries the mobs.
+**Props and mobs are the same machinery twice** — two palettes
+(`prop_lists`, `mob_sets`), two rasters of identical shape, one column routine
+at bake, one dot preview parameterised by `IWorldMapView.PreviewLayer`. They
+need separate LAYERS because a raster holds one entry per column: sharing one
+would make painting wolves erase the pine stand under them. The TYPES differ
+too, and honestly — a `PropListData` is furniture placed to a coverage contract,
+a `SpawnScatterData` is a rate list of entities.
 
 **A mob set's `entities` is a PAINTER-OWNED list, forked from worldgen's.**
 `mob_sets/*.tres` point at `resources/data/world_authoring/spawn_lists/ambient_*.tres`,
@@ -442,23 +442,27 @@ they fall outside the cell the tool reports, and an AIM moves nothing at all
 while its cursor is metres away from the mark it is turning — `EntityTool`
 answers with the mark's own cell for exactly that reason.
 
-**A prop layer draws WHAT WAS PAINTED** — a dot on every column of its raster,
-all the same: one semi-transparent colour per layer, one size of dot, a little
-smaller than the metre cell so the ground shows between the marks. Not the
-resolved fill, and not a wash plus a mark per prop: both of those answered a
+**The prop layer draws WHAT WAS PAINTED** — a dot on every column of its
+raster, one size, a little smaller than the metre cell so the ground shows
+between the marks. Not the resolved fill, and not a wash plus a mark per prop: both of those answered a
 question about the entities when what the map has to say is "this whole area
 stops you", and the fill in particular made a stroke come back patchy where the
 bake had left an interior clearing. How many props hold a region up is a number,
 and `worldmap_check` is where a number belongs.
 
-**It is inked by LAYER, not by list**
-(`WorldMapInkData.collidablePropInk` / `destructiblePropInk`, with their own dot
-fractions): a wide near-opaque black dot for a blocking prop, a smaller half-
-strength white one for a breakable one. What a painted region does to MOVEMENT is
-the question a map of props has to answer at a glance, and which list furnished
-it is the palette's answer — its button carries the list's own `mapColor`, and
-alt+click samples the list under the cursor. Mob dots keep the set colour: there
-is one mob layer, so the only question left is which creatures.
+**It is inked in the LIST's own `mapColor`**, which is the same swatch the
+palette button carries — and the convention there is what the region does to
+MOVEMENT: **black for a barrier, mid-grey for one that can be broken through**.
+That is what the old per-LAYER ink used to say (black blocking, white breakable),
+and it is the one thing the two layers said that the palette did not; with one
+layer the statement moves onto the list, where it follows from the scenes in it.
+
+**Colour is the only thing that varies.** The alpha and the size are global
+(`WorldMapInkData.propDotAlpha` / `propDotFraction`), because how hard a dot
+covers the ground under it is a property of the map rather than of any one list —
+let both vary and two regions differ in two ways at once, which reads as noise.
+Mob dots keep the set colour for the same reason. alt+click samples the list
+under the cursor.
 
 Two differences from the scatter dots underneath them. They are drawn LAST, over
 the step outlines and the dots — a mark you placed outranks a contour line and a
@@ -515,6 +519,36 @@ the descriptor on a mob. There is no parallel set of per-placement overrides,
 because a `SpawnEntryData` subclass already exports exactly the fields its entity
 type needs; the panel REFLECTS them, so an entry type written tomorrow is
 editable the day it is written.
+
+**The same panel lists a selected SCATTER SET, read-only.** The mob tool
+answers `IWorldMapTool.SelectedScatter`, and the panel then shows one row per
+`SpawnListRow` — what it places and how many of it a square kilometre of eligible
+ground gets, densest first:
+
+```
+Swamp
+  goblin_swamp                2,000 / km²
+  sparrow_swamp               4,000 / km²
+  mushroom_purple             5,000 / km²
+```
+
+Three things about that number. It is **per km² and not per m²**, because the
+authored unit (`squareMetersPerSpawn`, square metres between spawns) is the
+inverse of what an author wants to know and a probability per square metre is
+0.002. It is per km² of **ELIGIBLE** ground — the rate is rolled per qualifying
+column, so water, cliffs, roads and painted barriers are not in the km² and a
+region's real count is this times its eligible fraction. And it is the SET's own
+rate, not the brush's: the density multiplier scales every row equally and is on
+the HUD beside the panel, while folding it in would make the panel flicker as R/F
+is held.
+
+**Read-only is not a gap to fill later.** A set is a shared asset several
+documents paint, so editing one here would silently change every world using it —
+unlike a placement, which the first edit forks into the document. The panel is
+answering "how much of what am I about to paint" without a trip to the `.tres`.
+`worldmap_check` prints the identical listing off the same helper
+(`WorldMapEntityInspector.ScatterRows`), so the report cannot drift from the
+panel.
 
 **A flags property is a compact DROPDOWN**, not a row of checkboxes —
 `MenuButton` + a checkable `PopupMenu`, mirroring the Godot-side

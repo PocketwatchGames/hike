@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="SpawnSetData" format=3 uid="uid://duhbyv7bnv3p7"]
+[gd_resource type="Resource" script_class="SpawnGenData" format=3 uid="uid://duhbyv7bnv3p7"]
 
-[ext_resource type="Script" uid="uid://bsgbfzhceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
+[ext_resource type="Script" uid="uid://r3che1ulfmtxq" path="res://scripts/data/worldgen/SpawnGenData.cs" id="1_set"]
 [ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
 [ext_resource type="PackedScene" uid="uid://be5y8ig1a43n0" path="res://scenes/props/tree_willow_dead_small.tscn" id="sc_0"]
 [ext_resource type="PackedScene" uid="uid://dnfw47fqkhyov" path="res://scenes/props/tree_willow_dead_tiny.tscn" id="sc_1"]
@@ -23,11 +23,9 @@ scene = ExtResource("sc_2")
 [resource]
 script = ExtResource("1_set")
 displayName = "Swamp Mud"
-mapColor = Color(0.26, 0.32, 0.18, 1)
 forestNoiseFrequency = 0.05
 forestThreshold = 0.01
 forestDensity = 0.25
 treeScenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2")]
 grassNoiseFrequency = 0.1
 grassThreshold = 0.5
-positionJitter = 0.2

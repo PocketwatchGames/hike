@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="SpawnSetData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="SpawnScatterData" load_steps=3 format=3]
 
-[ext_resource type="Script" uid="uid://bsgbfzhceipa1" path="res://scripts/data/worldmap/SpawnSetData.cs" id="1_set"]
+[ext_resource type="Script" uid="uid://hl0oi1pwfpm94" path="res://scripts/data/worldmap/SpawnScatterData.cs" id="1_set"]
 [ext_resource type="Resource" uid="uid://b718alcnffxml" path="res://resources/data/world_authoring/spawn_lists/ambient_swamp_mud.tres" id="2_list"]
 
 [resource]

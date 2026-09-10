@@ -79,6 +79,11 @@ class Program
         return 1;
     }
 
+    // Every ScriptVariableData in the declaration root, whether it is a .tres
+    // of its own (the authored ones) or a sub-resource embedded in a registry
+    // (npc_variables.tres, which the conversation importer generates from the
+    // `npcvar:` cells in the sheets). Block-based for that reason: the file
+    // header no longer tells you what is inside.
     static Dictionary<string, VarDecl> ScanDeclarations(string repoRoot, List<string> issues)
     {
         var declared = new Dictionary<string, VarDecl>(StringComparer.Ordinal);
@@ -89,38 +94,78 @@ class Program
         }
         foreach (string file in Directory.EnumerateFiles(root, "*.tres", SearchOption.AllDirectories))
         {
-            string text = File.ReadAllText(file);
-            if (!text.Contains("script_class=\"ScriptVariableData\""))
-            {
-                continue;
-            }
+            string[] lines = File.ReadAllLines(file);
             string rel = Relative(repoRoot, file);
-            string? id = null;
-            int type = TypeBool;
-            foreach (string line in text.Split('\n'))
+            // A declaration embedded in a registry is seeded by construction —
+            // nothing has to list it separately.
+            bool embeddedInRegistry = lines.Length > 0 && lines[0].Contains("script_class=\"ScriptVariableRegistry\"");
+
+            var declScriptIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string line in lines)
             {
+                Match m = ExtResourceRegex.Match(line);
+                if (!m.Success)
+                {
+                    continue;
+                }
+                string? extId = null;
+                string? extPath = null;
+                foreach (Match a in AttrRegex.Matches(m.Groups["attrs"].Value))
+                {
+                    if (a.Groups["key"].Value == "id") { extId = a.Groups["val"].Value; }
+                    else if (a.Groups["key"].Value == "path") { extPath = a.Groups["val"].Value; }
+                }
+                if (extId != null && extPath != null && extPath.EndsWith("ScriptVariableData.cs", StringComparison.Ordinal))
+                {
+                    declScriptIds.Add(extId);
+                }
+            }
+            if (declScriptIds.Count == 0)
+            {
+                continue;
+            }
+
+            string? blockScriptId = null;
+            string? blockId = null;
+            int blockType = TypeBool;
+
+            void Flush()
+            {
+                if (blockScriptId != null && declScriptIds.Contains(blockScriptId))
+                {
+                    if (string.IsNullOrEmpty(blockId))
+                    {
+                        issues.Add($"{rel}(1): warning SCRIPTVAR4: ScriptVariableData has an empty Id.");
+                    }
+                    else if (declared.TryGetValue(blockId, out VarDecl? existing))
+                    {
+                        issues.Add($"{rel}(1): warning SCRIPTVAR5: duplicate variable Id '{blockId}' (also in {existing.File}).");
+                    }
+                    else
+                    {
+                        declared[blockId] = new VarDecl { Type = blockType, File = rel, Registered = embeddedInRegistry };
+                    }
+                }
+                blockScriptId = null;
+                blockId = null;
+                blockType = TypeBool;
+            }
+
+            foreach (string line in lines)
+            {
+                if (line.StartsWith("["))
+                {
+                    Flush();
+                    continue;
+                }
+                Match sm = ScriptRefRegex.Match(line);
+                if (sm.Success) { blockScriptId = sm.Groups["id"].Value; }
                 Match im = IdRegex.Match(line);
-                if (im.Success)
-                {
-                    id = im.Groups["id"].Value;
-                }
+                if (im.Success) { blockId = im.Groups["id"].Value; }
                 Match tm = TypeRegex.Match(line);
-                if (tm.Success)
-                {
-                    type = int.Parse(tm.Groups["n"].Value);
-                }
+                if (tm.Success) { blockType = int.Parse(tm.Groups["n"].Value); }
             }
-            if (string.IsNullOrEmpty(id))
-            {
-                issues.Add($"{rel}(1): warning SCRIPTVAR4: ScriptVariableData has an empty Id.");
-                continue;
-            }
-            if (declared.TryGetValue(id, out VarDecl? existing))
-            {
-                issues.Add($"{rel}(1): warning SCRIPTVAR5: duplicate variable Id '{id}' (also in {existing.File}).");
-                continue;
-            }
-            declared[id] = new VarDecl { Type = type, File = rel };
+            Flush();
         }
         return declared;
     }

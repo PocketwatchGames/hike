@@ -56,7 +56,8 @@ class Program
 
 		var report = new Report();
 		var index = new ResourceIndex(repoRoot);
-		var writer = new TresWriter(index, report);
+		var declarations = new VarDeclarations();
+		var writer = new TresWriter(index, report, declarations);
 		// Path -> contents, staged so a sheet with an error writes nothing at all.
 		var outputs = new Dictionary<string, string>(StringComparer.Ordinal);
 		int characterCount = 0;
@@ -101,6 +102,11 @@ class Program
 			outputs[Path.Combine(repoRoot, "resources", "localization", "english", "dialogue", world + ".tsv")] = strings.ToString();
 		}
 
+		// The npcvars every sheet named, as the one generated registry. Written
+		// unconditionally so SimData's reference to it never dangles.
+		string registryPath = Path.Combine(repoRoot, "resources", "data", "worlds", "shared", "script_variables", "npc_variables.tres");
+		outputs[registryPath] = WriteVariableRegistry(index, declarations, File.Exists(registryPath) ? ResourceIndex.HeaderUid(registryPath) : null);
+
 		if (report.Errors > 0)
 		{
 			Console.Error.WriteLine($"ConversationImport: {report.Errors} error(s) - nothing written.");
@@ -115,7 +121,48 @@ class Program
 				written++;
 			}
 		}
-		Console.WriteLine($"ConversationImport: {characterCount} conversation(s), {written} file(s) updated, {report.Warnings} warning(s).");
+		Console.WriteLine($"ConversationImport: {characterCount} conversation(s), {declarations.Count} npcvar(s), {written} file(s) updated, {report.Warnings} warning(s).");
 		return 0;
+	}
+
+	// The generated half of SimData.scriptVariables: one ScriptVariableData per
+	// npcvar a sheet named, embedded rather than one file each - these have no
+	// authoring surface of their own, the sheet cell is the declaration.
+	static string WriteVariableRegistry(ResourceIndex index, VarDeclarations declarations, string existingUid)
+	{
+		ResRef registryScript = index.Script("ScriptVariableRegistry");
+		ResRef dataScript = index.Script("ScriptVariableData");
+		if (registryScript == null || dataScript == null)
+		{
+			throw new InvalidOperationException("No .cs.uid sidecar for ScriptVariableRegistry / ScriptVariableData - run tools/validate_uids --fix");
+		}
+
+		var file = new StringBuilder();
+		string uidAttribute = existingUid != null ? $" uid=\"{existingUid}\"" : "";
+		file.AppendLine($"[gd_resource type=\"Resource\" script_class=\"ScriptVariableRegistry\" format=3{uidAttribute}]");
+		file.AppendLine();
+		file.AppendLine($"[ext_resource type=\"Script\" uid=\"{registryScript.Uid}\" path=\"{registryScript.ResPath}\" id=\"1_registry\"]");
+		file.AppendLine($"[ext_resource type=\"Script\" uid=\"{dataScript.Uid}\" path=\"{dataScript.ResPath}\" id=\"2_variable\"]");
+		file.AppendLine();
+
+		var ids = new List<string>();
+		int slot = 0;
+		foreach (string id in declarations.Ids)
+		{
+			slot++;
+			string subId = $"Var_{slot}";
+			ids.Add($"SubResource(\"{subId}\")");
+			file.AppendLine($"[sub_resource type=\"Resource\" id=\"{subId}\"]");
+			file.AppendLine($"script = ExtResource(\"2_variable\")");
+			file.AppendLine($"id = &\"{id}\"");
+			file.AppendLine($"type = {(declarations.IsBool(id) ? 0 : 1)}");
+			file.AppendLine($"description = \"Declared by the {declarations.Source(id)} conversation sheet.\"");
+			file.AppendLine();
+		}
+
+		file.AppendLine("[resource]");
+		file.AppendLine("script = ExtResource(\"1_registry\")");
+		file.AppendLine($"variables = Array[ExtResource(\"2_variable\")]([{string.Join(", ", ids)}])");
+		return file.ToString();
 	}
 }

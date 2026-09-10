@@ -6,7 +6,22 @@
 [ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/conversation/actions/kill_speaker.tres" id="Act_kill_speaker"]
-[ext_resource type="Resource" path="res://resources/data/worlds/shared/conversation/actions/give_lantern.tres" id="Act_give_lantern"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="Script_ItemDescriptor"]
+[ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/weapons/lantern.tres" id="Item_lantern"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="Script_ItemCount"]
+[ext_resource type="Script" uid="uid://bruxndva544k7" path="res://scripts/data/conversation/actions/DropLootAction.cs" id="Script_DropLootAction"]
+
+[sub_resource type="Resource" id="Inline_1"]
+script = ExtResource("Script_ItemDescriptor")
+item = ExtResource("Item_lantern")
+
+[sub_resource type="Resource" id="Inline_2"]
+script = ExtResource("Script_ItemCount")
+descriptor = SubResource("Inline_1")
+
+[sub_resource type="Resource" id="Inline_3"]
+script = ExtResource("Script_DropLootAction")
+loot = Array[ExtResource("Script_ItemCount")]([SubResource("Inline_2")])
 
 [sub_resource type="Resource" id="Entry_1"]
 script = ExtResource("Script_ConversationEntry")
@@ -16,7 +31,7 @@ branch = &"greeting"
 script = ExtResource("Script_ConversationBranch")
 name = &"greeting"
 lineLocKeys = Array[StringName]([&"intro_dying_greeting_01"])
-endActions = Array[Object]([ExtResource("Act_kill_speaker"), ExtResource("Act_give_lantern")])
+endActions = Array[Object]([ExtResource("Act_kill_speaker"), SubResource("Inline_3")])
 
 [resource]
 script = ExtResource("Script_ConversationData")

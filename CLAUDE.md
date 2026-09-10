@@ -553,11 +553,55 @@ wants falls straight out of it:
 - **`condition` / `action` cells NAME an authored `.tres`**, `;`-separated for
   several, resolved from `world_authoring/conversation/<kind>/` (a verb with no
   proper noun in it — `open_shop`, `language_incomplete`), then
-  `worlds/shared/conversation/<kind>/` (the game's own — `teach_vyeshal`,
-  `give_lantern`), then the world's own folder, each shadowing the last. A new
+  `worlds/shared/conversation/<kind>/` (the game's own, where a verb names a
+  proper noun of the fiction), then the world's own folder, each shadowing the
+  last. A new
   gate becomes available to authors by existing, and the same gate is reusable
   across every NPC — which is the whole reason the cell is a name and not a
   parsed call.
+- **A quest flag is written INLINE in those cells instead**, because there is
+  nothing reusable to name: its whole content is (variable, op, value).
+  `npcvar:<name>` is the speaking character's own flag, namespaced with their
+  name (`npcvar:customs` on `intro_watchman` is `intro_watchman_customs`) and
+  DECLARED by the sheet — the importer collects every one into the generated
+  `worlds/shared/script_variables/npc_variables.tres`, which sits alongside the
+  hand-authored registry in `SimData.scriptVariables`. `var:<name>` names a
+  globally authored variable instead and must already be declared, so a typo is
+  an import error rather than a gate that is silently always false. A condition
+  cell reads (`npcvar:customs`, `=true`, `!=true`, `=2`, `>=2`, `<2`; a bare
+  name means `=true`); an action cell writes (`=true`, `=false`, `=<int>`,
+  `+=<int>`).
+- **A gift is written inline too**: `give:<item> [count]` in an action cell,
+  spelled exactly like the console's `give` verb and resolving the item the same
+  way — the basename of a `.tres` under `resources/data/items/`. The importer
+  emits the `DropLootAction` and its `ItemCount` / `ItemDescriptor`, so the
+  speaker drops the item at their feet and the player picks it up, which is
+  where a scroll or a potion does its real work. **An authored action `.tres` is
+  still right when the gift is not anonymous** — `ItemDescriptor` mods or a
+  level (a Fragile bomb), or several items that are one named concept reused
+  across NPCs. A plain one-item handover is not that, and should not cost three
+  nested resources to say.
+- **A lesson is written inline too**: `teach:<kind> <name> [components]` in an
+  action cell, where `<kind>` is one of `language`, `recipe`, `spell`, `region`,
+  `item` (reveals its real name) or `bestiary`. The kind picks the namespace, so
+  a name can never be ambiguous and the cell says what it means; the name is the
+  `.tres` basename, except a language, which is its `LanguageData.id` — the same
+  spelling the `language` column and `[lang:]` markup use. Only a language takes
+  the third word, a `,`-separated subset of `grammar,numbers,vocabulary1..3`;
+  leave it off to teach the whole tongue. The importer emits the `TeachAction`
+  and its `TeachableConcept`, one per token. **An authored action `.tres` is
+  still right** when the lesson is a named concept reused across NPCs, grants
+  several things at once, wants `TeachAction.learnEffect`, or teaches one of the
+  two concepts whose payload is authored TEXT rather than a resource reference
+  (`ScriptFlagTeachable.conceptName`, `TreasureMapTeachable.treasureName`).
+- **Teaching is idempotent but reaching it is not** — `TeachableConcept.Teach`
+  returns false on a re-teach, so a repeatable response grants nothing twice.
+  What still needs gating is the FICTION: a tongue taught on an unconditional
+  `greeting` is learned by walking up to whoever speaks it. Put the lesson on a
+  player choice, or gate the entry on an `npcvar:` the same response writes.
+- **`DropLootAction` is not idempotent** — a response the player can pick twice
+  drops twice, so a one-time handover pairs the gift with an `npcvar:` write and
+  gates the ENTRY on it (`intro_watchman`'s `customs` is the worked example).
 - **Loc keys are derived, never typed**: `<character>_<branch>_<NN>` for a
   paragraph, `<character>_<group>_<goto>` for a choice (`_2`, `_3` appended if one
   group answers the same branch twice). Rename a branch and its text moves with

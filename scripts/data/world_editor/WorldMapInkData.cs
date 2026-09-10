@@ -27,27 +27,23 @@ public partial class WorldMapInkData : Resource
         new Color(0.50f, 0.18f, 0.45f),
     };
 
-    // The mark for a column blocked by a painted prop. Inked by LAYER rather
-    // than by which list furnished the region, and identically for every column
-    // of it: the question a map of props has to answer is what the ground DOES
-    // to movement — a dark mass is ground you cannot cross, a pale one is ground
-    // you can cut through — and a mark that varied per prop would say something
-    // about the entities instead of about the area. Which list it came from is
-    // the palette's answer, and the swatch on its button is where that is read.
+    // A painted prop region is marked in ITS OWN LIST'S colour — the same
+    // swatch the palette button carries — and the convention there is what the
+    // region does to MOVEMENT: black for a barrier, mid-grey for one that can be
+    // broken through (see PropListData.mapColor).
     //
-    // ALPHA IS PART OF THE COLOUR, as it is for the step outlines: the mark sits
-    // over ground that has to stay readable under it, and the pair only reads as
-    // one language if their weights are authored together.
-    [Export] public Color collidablePropInk = new Color(0f, 0f, 0f, 0.8f);
-    [Export] public Color destructiblePropInk = new Color(1f, 1f, 1f, 0.5f);
+    // The weight and the size are GLOBAL, here, and deliberately not per list:
+    // every dot sits over ground that has to stay readable under it, so how hard
+    // a mark covers that ground is a property of the map. Let it vary per list
+    // and two regions differ in two ways at once, which reads as noise rather
+    // than as a statement.
+    [Export(PropertyHint.Range, "0.1,1,0.05")] public float propDotAlpha = 0.8f;
 
     // How much of a blocked metre cell the mark fills. Under 1 on purpose: the
     // gap is what keeps the ground visible between the marks, so a painted
     // region reads as an area drawn over the map rather than as a hole cut in
-    // it. The blocking mark is drawn wider as well as darker, because a barrier
-    // is the more urgent of the two answers.
-    [Export(PropertyHint.Range, "0.1,1,0.05")] public float collidablePropDotFraction = 0.8f;
-    [Export(PropertyHint.Range, "0.1,1,0.05")] public float destructiblePropDotFraction = 0.65f;
+    // it.
+    [Export(PropertyHint.Range, "0.1,1,0.05")] public float propDotFraction = 0.8f;
 
     // The mob dot, which keeps the SET's own colour: mobs are told apart by
     // which creatures they are, and there is only one mob layer for them to

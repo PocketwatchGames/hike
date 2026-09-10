@@ -96,9 +96,12 @@ public partial class EntityPlacement : Resource
     // them reads as two different entries.
     public string DisplayName()
     {
+        // Named off the SOURCE palette entry but varied by the live one: a
+        // fork keeps the name of the file it came from, and says which member of
+        // that family this individual is.
         string name = SpawnEntryData.PaletteName(source);
         string variant = Entry?.VariantName();
-        if (!string.IsNullOrEmpty(variant))
+        if (!string.IsNullOrEmpty(variant) && variant != name)
         {
             name = $"{name}: {variant}";
         }

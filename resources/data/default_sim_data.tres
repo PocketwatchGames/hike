@@ -28,6 +28,8 @@
 [ext_resource type="Resource" uid="uid://crbn7q3k2p8wt" path="res://resources/data/status_effects/boons/boon_restore.tres" id="21_boon_restore"]
 [ext_resource type="Resource" uid="uid://dgbn5q3p8wrx2" path="res://resources/data/status_effects/boons/boon_gold.tres" id="22_boon_gold"]
 [ext_resource type="Resource" uid="uid://cscriptvarsreg" path="res://resources/data/worlds/shared/script_variables/script_variables.tres" id="23_scriptvars"]
+[ext_resource type="Script" uid="uid://bn4svar0reg13" path="res://scripts/data/scripting/ScriptVariableRegistry.cs" id="98_scriptvar_script"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/script_variables/npc_variables.tres" id="99_npcvars"]
 [ext_resource type="Resource" uid="uid://diu5w5w5evqxv" path="res://resources/data/characters/spider/spider.tres" id="24_mob_spider"]
 [ext_resource type="Resource" uid="uid://cnn41vlfh87us" path="res://resources/data/characters/sparrow/sparrow.tres" id="25_mob_sparrow"]
 [ext_resource type="Resource" uid="uid://cspmuy1rwr522" path="res://resources/data/characters/dog/dog.tres" id="26_mob_dog"]
@@ -102,7 +104,7 @@ gravity = 50.0
 recipes = Array[ExtResource("3_recipe_script")]([ExtResource("5_recipe_gkk"), ExtResource("6_recipe_gg"), ExtResource("80_gr_drake"), ExtResource("81_gr_spider"), ExtResource("82_gr_sparrow"), ExtResource("83_gr_lurker"), ExtResource("84_st_gob_h"), ExtResource("85_st_gob_e"), ExtResource("86_st_kk_s"), ExtResource("87_st_kk_k"), ExtResource("88_st_spr_k"), ExtResource("89_st_spr_e"), ExtResource("90_st_drk_s"), ExtResource("91_st_drk_f"), ExtResource("92_st_lur_s"), ExtResource("93_st_lur_f"), ExtResource("94_st_spd_s"), ExtResource("95_st_spd_h")])
 spells = Array[ExtResource("70_spell_script")]([ExtResource("71_spell_dog_treat"), ExtResource("73_spell_cure_poison"), ExtResource("74_spell_stamina")])
 mobs = Array[ExtResource("7_mob_script")]([ExtResource("8_mob_goblin"), ExtResource("9_mob_kun_kun"), ExtResource("10_mob_villager"), ExtResource("24_mob_spider"), ExtResource("25_mob_sparrow"), ExtResource("26_mob_dog")])
-scriptVariables = ExtResource("23_scriptvars")
+scriptVariables = Array[ExtResource("98_scriptvar_script")]([ExtResource("23_scriptvars"), ExtResource("99_npcvars")])
 eliteStatusEffect = ExtResource("15_elite_std")
 eliteCrownScene = ExtResource("16_elite_crown")
 eliteLoot = ExtResource("17_elite_loot")

@@ -14,15 +14,12 @@ using Godot;
 // part anyone can reach. Behind it the region is furnished to look right and
 // nothing more, at interiorDensity.
 //
-// Two layers paint from this same palette, and the difference is what the props
-// are for rather than what they are (see PropPaintTool):
-//   COLLIDABLE   — trees, boulders, walls. A wall of the world.
-//   DESTRUCTIBLE — thickets, brambles, crates. A wall until it is cleared.
-// Which list suits which layer is the author's call, so any list can be painted
-// on either — a boulder field is a hard barrier and a bramble a soft one, and
-// nothing about the resource has to know which use it was put to.
+// A painted region is always a BARRIER — trees, boulders, walls, or brambles
+// that stop you until they are broken. Whether one CAN be cleared is a property
+// of the scenes in the list and not of the painting, which is why there is one
+// prop layer and not two (see PropPaintTool).
 //
-// Distinct from SpawnSetData, which is the GENERATOR's ambient scatter (kits
+// Distinct from SpawnGenData, which is the GENERATOR's ambient scatter (kits
 // reference one, and its noise fields are what shape a wood) — that is scenery
 // grown by rule, this is furniture placed by hand.
 [GlobalClass]
@@ -31,11 +28,18 @@ public partial class PropListData : Resource
     // Shown on the painter's palette button and in the HUD.
     [Export] public string displayName = "";
 
-    // The palette button's swatch. NOT the map dot: a dot is inked by which
-    // LAYER it belongs to (collidable or destructible), because what a painted
-    // region does to movement is the question the map has to answer at a
-    // glance, and which list furnishes it is the palette's answer.
-    [Export] public Color mapColor = new Color(0.4f, 0.8f, 0.4f);
+    // The palette button's swatch, AND the ink of every map dot in a region
+    // painted from this list — one colour, so what names a list in the palette
+    // is what picks its regions out on the map.
+    //
+    // It is the only thing that varies: the dot's alpha and its size are global
+    // (WorldMapInkData.propDotAlpha / propDotFraction), so a region can say ONE
+    // thing and it had better be the useful one. The convention is what the
+    // region does to MOVEMENT — BLACK for a barrier that stops you outright,
+    // MID-GREY for one you can break through. Authored rather than branched on a
+    // flag: which of the two a list is follows from the scenes in it, and a
+    // second flag saying so is the "breakable layer" that this replaced.
+    [Export] public Color mapColor = new Color(0f, 0f, 0f);
 
     // Rows, not bare scenes: a row carries which storey this LIST puts the
     // scene in (PropListEntry.tier). Typed as the base so the nine lists
