@@ -473,15 +473,16 @@ covers the ground under it is a property of the map rather than of any one list 
 let both vary and two regions differ in two ways at once, which reads as noise.
 alt+click samples the list under the cursor.
 
-**A mob dot keeps its SET's colour, and the set the tool has SELECTED draws at
-full weight while every other recedes** (`mobDotFraction` at full alpha, against
-`mobDotDimFraction` / `mobDotDimAlpha`). Painting mobs is painting one set, and
-"where is this one" cannot be read off nine colours all at the same weight. The
-others dim rather than the selected one growing, so the map's overall weight
-stays where it was authored; and it is size AND alpha, because dimming alone
-makes a pale set vanish while a dark one still reads. A view that shows mob dots
-under a tool with no set of its own (the danger map) picks nothing out and draws
-every set full.
+**A mob dot is WHITE whatever set it came from, and the set the tool has
+SELECTED draws opaque while every other recedes** (`mobDotFraction` at full
+alpha, against `mobDotDimAlpha`). Painting mobs is painting one set, and "where
+is this one" cannot be read off nine colours all at the same weight — one colour
+at two weights answers it directly, and the sets keep their own `mapColor`
+swatches in the palette row, which is where telling them apart is the question
+being asked. The others dim rather than the selected one growing, so the map's
+overall weight stays where it was authored. A view that shows mob dots under a
+tool with no set of its own (the danger map) picks nothing out and draws every
+set full.
 
 Changing the selection is a WHOLE-MAP repaint, not a pair of marks —
 `RefreshEntityHighlight` tracks the selected set beside the selected entry and

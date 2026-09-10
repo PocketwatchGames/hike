@@ -2,8 +2,8 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Texture2D" uid="uid://b5t33j2cqwfih" path="res://assets/textures/status_effects/strength.png" id="2_icon"]
-[ext_resource type="PackedScene" uid="uid://2mfsrduubjqmf" path="res://scenes/fx/status_battle_cry_start.tscn" id="3_startfx"]
-[ext_resource type="PackedScene" uid="uid://3yw3of6lhcwet" path="res://scenes/fx/status_battle_cry_loop.tscn" id="4_loopfx"]
+[ext_resource type="PackedScene" uid="uid://kkpmyf3c4mb2" path="res://scenes/fx/status_battle_cry_start.tscn" id="3_startfx"]
+[ext_resource type="PackedScene" uid="uid://bw20j1qtiwr3h" path="res://scenes/fx/status_battle_cry_loop.tscn" id="4_loopfx"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 
 [sub_resource type="Resource" id="m_outgoing"]

@@ -3,8 +3,8 @@
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Texture2D" uid="uid://o3u3kejjr03c" path="res://assets/textures/status_effects/candy.png" id="2_icon"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_mod"]
-[ext_resource type="PackedScene" uid="uid://qtfitmofvv3zt" path="res://scenes/fx/status_well_fed_start.tscn" id="4_startfx"]
-[ext_resource type="PackedScene" uid="uid://v4ussz9430lrt" path="res://scenes/fx/status_well_fed_end.tscn" id="5_endfx"]
+[ext_resource type="PackedScene" uid="uid://bdr1he0fm3lyr" path="res://scenes/fx/status_well_fed_start.tscn" id="4_startfx"]
+[ext_resource type="PackedScene" uid="uid://cstguqovay7y0" path="res://scenes/fx/status_well_fed_end.tscn" id="5_endfx"]
 
 [sub_resource type="Resource" id="mod_health"]
 script = ExtResource("3_mod")

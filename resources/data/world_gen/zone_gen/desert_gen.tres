@@ -2,10 +2,10 @@
 
 [ext_resource type="Resource" uid="uid://dsq8h2o3n55es" path="res://resources/data/world_authoring/terrain/desert.tres" id="2_qtgnd"]
 [ext_resource type="Resource" uid="uid://cvb6vwn8y1eav" path="res://resources/data/world_authoring/terrain/cave_sandstone.tres" id="3_nc5be"]
-[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="4_uxbjh"]
+[ext_resource type="Resource" uid="uid://dkql170kxil1" path="res://resources/data/world_authoring/terrain/underwater.tres" id="4_uxbjh"]
 [ext_resource type="Resource" uid="uid://bv7uylxclo2m1" path="res://resources/data/world_authoring/zones/desert.tres" id="5_25es0"]
 [ext_resource type="Resource" uid="uid://dc3pchs6rhlok" path="res://resources/data/world_gen/spawn_lists/surface_entities_desert.tres" id="5_stsr1"]
-[ext_resource type="Resource" uid="uid://emqrvij6sly9m" path="res://resources/data/world_authoring/terrain/shore_sand.tres" id="9_25es0"]
+[ext_resource type="Resource" uid="uid://rcwbgmw8e4iu" path="res://resources/data/world_authoring/terrain/shore_sand.tres" id="9_25es0"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="28_8kxn4"]
 [ext_resource type="Resource" uid="uid://byy2rphgqlred" path="res://resources/data/world_gen/spawn_lists/cave_entities_desert.tres" id="30_cave"]
 [ext_resource type="Resource" uid="uid://ok7jp66gk0al" path="res://resources/data/world_gen/spawn_groups/zone_campfire_fixtures.tres" id="31_fixtures"]
@@ -14,8 +14,9 @@
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="92_health"]
 [ext_resource type="Resource" uid="uid://dqvfmgixf4hns" path="res://resources/data/items/consumables/lantern_oil.tres" id="93_oil"]
 [ext_resource type="Resource" uid="uid://ctesgesob0omv" path="res://resources/data/items/consumables/treasure_map_desert.tres" id="96_map"]
-[ext_resource type="Resource" uid="uid://ikvot05s6se11" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_2.tres" id="97_spot"]
+[ext_resource type="Resource" uid="uid://t2xnwcb2enji" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_2.tres" id="97_spot"]
 [ext_resource type="Script" uid="uid://38wffcrscjmc" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="desert_gen_zoneterrain"]
+[ext_resource type="Resource" uid="uid://b01hbfnwc3t5w" path="res://resources/data/world_gen/foliage_gen/desert.tres" id="F_foliage"]
 [ext_resource type="Resource" uid="uid://csrlgrkkra006" path="res://resources/data/items/scrolls/scroll_grilled_kun_kun.tres" id="sc0"]
 [ext_resource type="Resource" uid="uid://pap3pg64kjlv" path="res://resources/data/items/scrolls/scroll_grilled_goblin.tres" id="sc1"]
 [ext_resource type="Resource" uid="uid://bante0m1vlh6a" path="res://resources/data/items/scrolls/scroll_grilled_drake.tres" id="sc2"]
@@ -24,7 +25,6 @@
 [ext_resource type="Resource" uid="uid://q7jtqpkrub8l" path="res://resources/data/items/scrolls/scroll_stew_kun_kun_damage.tres" id="sc5"]
 [ext_resource type="Resource" uid="uid://dfpa4q2wonauo" path="res://resources/data/items/scrolls/scroll_stew_drake_damage.tres" id="sc6"]
 [ext_resource type="Resource" uid="uid://dgjdiakyoixma" path="res://resources/data/items/scrolls/scroll_stew_spider_health.tres" id="sc7"]
-[ext_resource type="Resource" uid="uid://b01hbfnwc3t5w" path="res://resources/data/world_gen/foliage_gen/desert.tres" id="F_foliage"]
 
 [sub_resource type="Resource" id="Dist0"]
 script = ExtResource("90_countrange")
@@ -83,12 +83,12 @@ metadata/_custom_type_script = "uid://61iu4uosbxjog"
 script = ExtResource("28_8kxn4")
 zone = ExtResource("5_25es0")
 surfaceTerrain = ExtResource("2_qtgnd")
-foliage = ExtResource("F_foliage")
 caveTerrain = ExtResource("3_nc5be")
 submergedTerrain = ExtResource("4_uxbjh")
 shoreTerrain = ExtResource("9_25es0")
 terrain = SubResource("ZoneTerrain_desert_gen")
 grassThreshold = 0.67
+foliage = ExtResource("F_foliage")
 mobLevelMin = 2
 undergroundMobLevelMin = 3
 forgeCount = 2

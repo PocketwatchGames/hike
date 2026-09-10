@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="TerrainData" format=3 uid="uid://plfdm4z98g767"]
+[gd_resource type="Resource" script_class="TerrainData" format=3 uid="uid://dy6quyajjulww"]
 
 [ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://dtyfpjg382mt8" path="res://resources/data/world_authoring/terrain/details/detail_pebbles.tres" id="3_detail"]

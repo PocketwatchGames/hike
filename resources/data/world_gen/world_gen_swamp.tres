@@ -20,21 +20,20 @@
 [ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/voxels/surfaces/surface_dirt_overlay.tres" id="57_dirt"]
 [ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/voxels/surfaces/surface_cobblestone.tres" id="58_cobble"]
 [ext_resource type="Resource" uid="uid://xko125hcxayg" path="res://resources/data/world_authoring/spawn_entries/forge.tres" id="62_forge"]
-[ext_resource type="Resource" uid="uid://9a30yzgrtp5i4" path="res://resources/data/world_authoring/spawn_entries/fountain_health.tres" id="63_fountain"]
-[ext_resource type="Resource" uid="uid://p8myqetzi5fav" path="res://resources/data/world_authoring/spawn_entries/fountain_mana.tres" id="64_mana"]
+[ext_resource type="Resource" uid="uid://ddt2aj3rb35g0" path="res://resources/data/world_authoring/spawn_entries/fountain_health.tres" id="63_fountain"]
+[ext_resource type="Resource" uid="uid://r0id550acv8t" path="res://resources/data/world_authoring/spawn_entries/fountain_mana.tres" id="64_mana"]
 [ext_resource type="Script" uid="uid://bdc40uotdg2kx" path="res://scripts/data/SubscenePlacement.cs" id="70_subplace"]
-[ext_resource type="Script" uid="uid://zdnwz72z5aj9h" path="res://scripts/data/SubsceneVariant.cs" id="71_subvariant"]
+[ext_resource type="Script" uid="uid://b57phvkiq2bpv" path="res://scripts/data/SubsceneVariant.cs" id="71_subvariant"]
 [ext_resource type="Resource" uid="uid://b8gwc5ixwhgy2" path="res://resources/data/worlds/shared/spawn_lists/house_hermit.tres" id="72_hermitlist"]
-[ext_resource type="Resource" uid="uid://0gp05gnacgf64" path="res://resources/data/worlds/shared/spawn_lists/village_square_dog.tres" id="73_squaredog"]
+[ext_resource type="Resource" uid="uid://caasl34qw76nj" path="res://resources/data/worlds/shared/spawn_lists/village_square_dog.tres" id="73_squaredog"]
 [ext_resource type="Resource" uid="uid://d24feonk2oacq" path="res://resources/data/worlds/shared/spawn_lists/village_house01.tres" id="74_house01npcs"]
 [ext_resource type="Resource" uid="uid://8tu6njbq8jor" path="res://resources/data/worlds/shared/spawn_lists/village_house02.tres" id="75_house02npcs"]
 [ext_resource type="Resource" uid="uid://bd5oe1r000pok" path="res://resources/data/worlds/shared/spawn_lists/village_house03.tres" id="76_house03npcs"]
 [ext_resource type="Resource" uid="uid://bkcu75nwykw5p" path="res://resources/data/worlds/shared/spawn_lists/village_house04.tres" id="77_house04npcs"]
 [ext_resource type="Resource" uid="uid://85nfqgpg2o16" path="res://resources/data/world_gen/plateau_terrain.tres" id="90_terrain"]
-[ext_resource type="Resource" uid="uid://5dcnrhj5w66s" path="res://resources/data/worlds/swamp_world/world_start_swamp.tres" id="w_start"]
+[ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/world_finish_data.tres" id="w_finish"]
-
-[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+[ext_resource type="Resource" uid="uid://5dcnrhj5w66s" path="res://resources/data/worlds/swamp_world/world_start_swamp.tres" id="w_start"]
 
 [sub_resource type="Resource" id="Sign_swamp"]
 script = ExtResource("52_sign")
@@ -150,26 +149,6 @@ script = ExtResource("71_subvariant")
 poolTag = "npc"
 content = ExtResource("73_squaredog")
 
-[sub_resource type="Resource" id="Variant_house01_npcs"]
-script = ExtResource("71_subvariant")
-poolTag = "npc"
-content = ExtResource("74_house01npcs")
-
-[sub_resource type="Resource" id="Variant_house02_npcs"]
-script = ExtResource("71_subvariant")
-poolTag = "npc"
-content = ExtResource("75_house02npcs")
-
-[sub_resource type="Resource" id="Variant_house03_npcs"]
-script = ExtResource("71_subvariant")
-poolTag = "npc"
-content = ExtResource("76_house03npcs")
-
-[sub_resource type="Resource" id="Variant_house04_npcs"]
-script = ExtResource("71_subvariant")
-poolTag = "npc"
-content = ExtResource("77_house04npcs")
-
 [sub_resource type="Resource" id="Subscene_town_square"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/world_authoring/subscenes/town_square01.hikescene"
@@ -178,12 +157,22 @@ variants = [SubResource("Variant_square_dog")]
 allowFixtures = true
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
+[sub_resource type="Resource" id="Variant_house01_npcs"]
+script = ExtResource("71_subvariant")
+poolTag = "npc"
+content = ExtResource("74_house01npcs")
+
 [sub_resource type="Resource" id="Subscene_house01"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/world_authoring/subscenes/house01.hikescene"
 anchorXZ = Vector2i(62, 49)
 variants = [SubResource("Variant_house01_npcs")]
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
+
+[sub_resource type="Resource" id="Variant_house02_npcs"]
+script = ExtResource("71_subvariant")
+poolTag = "npc"
+content = ExtResource("75_house02npcs")
 
 [sub_resource type="Resource" id="Subscene_house02"]
 script = ExtResource("70_subplace")
@@ -192,12 +181,22 @@ anchorXZ = Vector2i(62, 82)
 variants = [SubResource("Variant_house02_npcs")]
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
 
+[sub_resource type="Resource" id="Variant_house03_npcs"]
+script = ExtResource("71_subvariant")
+poolTag = "npc"
+content = ExtResource("76_house03npcs")
+
 [sub_resource type="Resource" id="Subscene_house03"]
 script = ExtResource("70_subplace")
 path = "res://resources/data/world_authoring/subscenes/house03.hikescene"
 anchorXZ = Vector2i(43, 63)
 variants = [SubResource("Variant_house03_npcs")]
 metadata/_custom_type_script = "uid://bdc40uotdg2kx"
+
+[sub_resource type="Resource" id="Variant_house04_npcs"]
+script = ExtResource("71_subvariant")
+poolTag = "npc"
+content = ExtResource("77_house04npcs")
 
 [sub_resource type="Resource" id="Subscene_house04"]
 script = ExtResource("70_subplace")
@@ -269,12 +268,12 @@ metadata/_custom_type_script = "uid://gxj29fi3c8jtg"
 
 [resource]
 script = ExtResource("23_7umo2")
+simData = ExtResource("18_8e3k4")
 startContent = ExtResource("w_start")
 finish = ExtResource("w_finish")
-terrain = ExtResource("90_terrain")
-simData = ExtResource("18_8e3k4")
 zones = [SubResource("Placed_swamp"), SubResource("Placed_village"), SubResource("Placed_mud"), SubResource("Placed_highlands")]
 regions = [ExtResource("15_7nyke")]
+terrain = ExtResource("90_terrain")
 playerSpawnPosition = Vector3(72, 0, 72)
 subscenes = [SubResource("Subscene_town_square"), SubResource("Subscene_house01"), SubResource("Subscene_house02"), SubResource("Subscene_house03"), SubResource("Subscene_house04"), SubResource("Subscene_house04_mud")]
 pointsOfInterestPlacements = [SubResource("Poi_swamp"), SubResource("Poi_village"), SubResource("Poi_mud"), SubResource("Poi_highlands")]

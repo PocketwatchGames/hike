@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="5_q3g2c"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_uo8nj"]
-[ext_resource type="PackedScene" uid="uid://ayl02yt25x2nu" path="res://scenes/fx/status_heal_start.tscn" id="6_healfx"]
+[ext_resource type="PackedScene" uid="uid://yl02yt25x2nu" path="res://scenes/fx/status_heal_start.tscn" id="6_healfx"]
 [ext_resource type="Texture2D" uid="uid://dit6x3xeay3qq" path="res://assets/textures/items/BasicLantern.png" id="7_sprite"]
 [ext_resource type="Texture2D" uid="uid://ytounbhlpcqb" path="res://assets/textures/items/BasicLanternActive.png" id="8_sprite_lit"]
 [ext_resource type="PackedScene" uid="uid://wnfsb2rd2l6t" path="res://scenes/fx/torch_douse.tscn" id="9_douse"]

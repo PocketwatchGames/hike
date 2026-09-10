@@ -8,7 +8,7 @@
 [ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/spells/divine_cleanse.tres" id="6_cure"]
 [ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/spells/dog_treat.tres" id="7_treat"]
 [ext_resource type="Resource" uid="uid://cx0idasoppmlu" path="res://resources/data/items/spells/smelling_salts.tres" id="8_salts"]
-[ext_resource type="Resource" uid="uid://4typxmliw5702" path="res://resources/data/worlds/default_world/default_world_script.tres" id="9_script"]
+[ext_resource type="Resource" uid="uid://cr4ms75qyq3pp" path="res://resources/data/worlds/default_world/default_world_script.tres" id="9_script"]
 
 [sub_resource type="Resource" id="Know_cure"]
 script = ExtResource("3_spellteach")

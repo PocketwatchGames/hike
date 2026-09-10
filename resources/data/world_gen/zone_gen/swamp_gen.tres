@@ -3,9 +3,9 @@
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/data/world_authoring/zones/swamp.tres" id="2_region"]
 [ext_resource type="Resource" uid="uid://gpdraqwf22b8" path="res://resources/data/world_authoring/terrain/marsh.tres" id="3_kit_temperate"]
-[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="4_kit_cave"]
-[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="5_kit_underwater"]
-[ext_resource type="Resource" uid="uid://q2e4ot8c2scra" path="res://resources/data/world_authoring/terrain/shore_swamp.tres" id="10_nd86w"]
+[ext_resource type="Resource" uid="uid://bg3737i70mdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="4_kit_cave"]
+[ext_resource type="Resource" uid="uid://dkql170kxil1" path="res://resources/data/world_authoring/terrain/underwater.tres" id="5_kit_underwater"]
+[ext_resource type="Resource" uid="uid://blrncmkcsytp7" path="res://resources/data/world_authoring/terrain/shore_swamp.tres" id="10_nd86w"]
 [ext_resource type="Resource" uid="uid://crwiul27krdig" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp.tres" id="11_surface"]
 [ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_gen/spawn_lists/cave_entities_swamp.tres" id="12_cave"]
 [ext_resource type="Resource" uid="uid://cwvam7wm5c6ql" path="res://resources/data/world_gen/spawn_lists/water_entities_swamp.tres" id="14_water"]
@@ -15,7 +15,11 @@
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="92_health"]
 [ext_resource type="Resource" uid="uid://dqvfmgixf4hns" path="res://resources/data/items/consumables/lantern_oil.tres" id="93_oil"]
 [ext_resource type="Resource" uid="uid://2pu5xrui7a5a" path="res://resources/data/items/consumables/treasure_map_swamp.tres" id="96_map"]
-[ext_resource type="Resource" uid="uid://eyr986zwwj9v9" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_3.tres" id="97_spot"]
+[ext_resource type="Resource" uid="uid://4efn43odde5i" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_3.tres" id="97_spot"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/campfire.tres" id="e_campfire"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab1.tres" id="e_knowledge_stone"]
+[ext_resource type="Resource" uid="uid://wwydvupgfm6a" path="res://resources/data/world_gen/foliage_gen/marsh.tres" id="F_foliage"]
+[ext_resource type="Script" uid="uid://bhy5xnkiybhbv" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
 [ext_resource type="Resource" uid="uid://pap3pg64kjlv" path="res://resources/data/items/scrolls/scroll_grilled_goblin.tres" id="sc0"]
 [ext_resource type="Resource" uid="uid://bvwbp0bcuwn4i" path="res://resources/data/items/scrolls/scroll_grilled_sparrow.tres" id="sc1"]
 [ext_resource type="Resource" uid="uid://chfeekemknve7" path="res://resources/data/items/scrolls/scroll_grilled_lurker.tres" id="sc2"]
@@ -25,12 +29,6 @@
 [ext_resource type="Resource" uid="uid://bn0ddrxc6ktjh" path="res://resources/data/items/scrolls/scroll_stew_lurker_stealth.tres" id="sc6"]
 [ext_resource type="Resource" uid="uid://kogvearm5wi2" path="res://resources/data/items/scrolls/scroll_stew_spider_stealth.tres" id="sc7"]
 [ext_resource type="Script" uid="uid://38wffcrscjmc" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="swamp_gen_zoneterrain"]
-
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/campfire.tres" id="e_campfire"]
-[ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab1.tres" id="e_knowledge_stone"]
-
-[ext_resource type="Script" uid="uid://7e84n3wjhwhdz" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
-[ext_resource type="Resource" uid="uid://wwydvupgfm6a" path="res://resources/data/world_gen/foliage_gen/marsh.tres" id="F_foliage"]
 
 [sub_resource type="Resource" id="Dist0"]
 script = ExtResource("90_countrange")
@@ -70,8 +68,8 @@ item = ExtResource("96_map")
 
 [sub_resource type="Resource" id="Row_campfire"]
 script = ExtResource("grouprow")
-entry = ExtResource("e_campfire")
 placeAtAnchor = true
+entry = ExtResource("e_campfire")
 
 [sub_resource type="Resource" id="Row_knowledge_stone"]
 script = ExtResource("grouprow")
@@ -106,7 +104,6 @@ metadata/_custom_type_script = "uid://61iu4uosbxjog"
 script = ExtResource("1_script")
 zone = ExtResource("2_region")
 surfaceTerrain = ExtResource("3_kit_temperate")
-foliage = ExtResource("F_foliage")
 caveTerrain = ExtResource("4_kit_cave")
 submergedTerrain = ExtResource("5_kit_underwater")
 shoreTerrain = ExtResource("10_nd86w")
@@ -114,6 +111,7 @@ terrain = SubResource("ZoneTerrain_swamp_gen")
 mossSurfaceCoverage = 0.4
 mossCaveCoverage = 0.5
 grassThreshold = 0.5
+foliage = ExtResource("F_foliage")
 mobLevelMax = 1
 undergroundMobLevelMax = 2
 forgeCount = 2

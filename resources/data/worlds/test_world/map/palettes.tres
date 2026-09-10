@@ -18,26 +18,26 @@ script = ExtResource("2_led")
 palette = "terrain_kits"
 slots = PackedStringArray("res://resources/data/world_authoring/terrain_kits/desert.tres", "res://resources/data/world_authoring/terrain_kits/forest.tres", "res://resources/data/world_authoring/terrain_kits/hub.tres", "res://resources/data/world_authoring/terrain_kits/mountain.tres", "res://resources/data/world_authoring/terrain_kits/swamp_fire.tres", "res://resources/data/world_authoring/terrain_kits/swamp.tres", "res://resources/data/world_authoring/terrain_kits/swamp_highlands.tres", "res://resources/data/world_authoring/terrain_kits/swamp_mud.tres", "res://resources/data/world_authoring/terrain_kits/swamp_village.tres", "res://resources/data/world_authoring/terrain_kits/snowy_mountain.tres")
 
-[sub_resource type="Resource" id="Resource_3y7g4"]
+[sub_resource type="Resource" id="Resource_57qnm"]
 script = ExtResource("2_led")
 palette = "spawn_scatters"
 slots = PackedStringArray("res://resources/data/world_authoring/spawn_scatters/desert.tres", "res://resources/data/world_authoring/spawn_scatters/forest.tres", "res://resources/data/world_authoring/spawn_scatters/hub.tres", "res://resources/data/world_authoring/spawn_scatters/mountain.tres", "res://resources/data/world_authoring/spawn_scatters/swamp_fire.tres", "res://resources/data/world_authoring/spawn_scatters/swamp.tres", "res://resources/data/world_authoring/spawn_scatters/swamp_highlands.tres", "res://resources/data/world_authoring/spawn_scatters/swamp_mud.tres", "res://resources/data/world_authoring/spawn_scatters/swamp_village.tres")
 
-[sub_resource type="Resource" id="Resource_ua1it"]
+[sub_resource type="Resource" id="Resource_3y7g4"]
 script = ExtResource("2_led")
 palette = "water_types"
 slots = PackedStringArray("res://resources/data/voxels/blocks/block_water_clear.tres", "res://resources/data/voxels/blocks/block_water_murky.tres", "res://resources/data/voxels/blocks/block_water_scum_green_partial.tres", "res://resources/data/voxels/blocks/block_water_scum_green_full.tres", "res://resources/data/voxels/blocks/block_water_scum_red_partial.tres", "res://resources/data/voxels/blocks/block_water.tres")
 
-[sub_resource type="Resource" id="Resource_gn0jf"]
+[sub_resource type="Resource" id="Resource_ua1it"]
 script = ExtResource("2_led")
 palette = "paving_blocks"
 slots = PackedStringArray("res://resources/data/voxels/blocks/block_road.tres", "res://resources/data/voxels/blocks/block_dirt.tres", "res://resources/data/voxels/blocks/block_rock.tres", "res://resources/data/voxels/blocks/block_sand.tres", "res://resources/data/voxels/blocks/block_cave_limestone.tres", "res://resources/data/voxels/blocks/block_cave_sandstone.tres", "res://resources/data/voxels/blocks/block_cobblestone.tres", "res://resources/data/voxels/blocks/block_desert_ground.tres", "res://resources/data/voxels/blocks/block_forest_soil.tres", "res://resources/data/voxels/blocks/block_grass.tres", "res://resources/data/voxels/blocks/block_marsh_ground.tres", "res://resources/data/voxels/blocks/block_mud.tres", "res://resources/data/voxels/blocks/block_snow.tres", "res://resources/data/voxels/blocks/block_stone.tres")
 
-[sub_resource type="Resource" id="Resource_57j4q"]
+[sub_resource type="Resource" id="Resource_gn0jf"]
 script = ExtResource("2_led")
 palette = "props"
 slots = PackedStringArray("res://resources/data/world_authoring/props/boulders.tres", "res://resources/data/world_authoring/props/desert_rocks.tres", "res://resources/data/world_authoring/props/forest_trees.tres", "res://resources/data/world_authoring/props/marsh_willows.tres", "res://resources/data/world_authoring/props/mountain_trees.tres", "res://resources/data/world_authoring/props/pine_stand.tres", "res://resources/data/world_authoring/props/snowy_mountain_trees.tres", "res://resources/data/world_authoring/props/swamp_deadfall.tres", "res://resources/data/world_authoring/props/tall_grass.tres", "res://resources/data/world_authoring/props/breakable_rocks.tres")
 
 [resource]
 script = ExtResource("1_pal")
-ledgers = [SubResource("Resource_3lysr"), SubResource("Resource_gbhvp"), SubResource("Resource_eahu8"), SubResource("Resource_3y7g4"), SubResource("Resource_ua1it"), SubResource("Resource_gn0jf"), SubResource("Resource_57j4q")]
+ledgers = [SubResource("Resource_3lysr"), SubResource("Resource_gbhvp"), SubResource("Resource_eahu8"), SubResource("Resource_57qnm"), SubResource("Resource_3y7g4"), SubResource("Resource_ua1it"), SubResource("Resource_gn0jf")]

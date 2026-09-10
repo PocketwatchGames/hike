@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="LootData" format=3 uid="uid://chpmfha5lvycx"]
 
-[ext_resource type="Script" uid="uid://3oa4sob21cmwb" path="res://scripts/data/items/LootData.cs" id="2_ythwi"]
+[ext_resource type="Script" uid="uid://bmf1oavb2wilx" path="res://scripts/data/items/LootData.cs" id="2_ythwi"]
 [ext_resource type="Texture2D" uid="uid://bnhpbdnlt5ur0" path="res://assets/textures/items/MushroomPurple.png" id="3_ythwi"]
-[ext_resource type="Resource" uid="uid://45twv92ziyfu6" path="res://resources/data/items/loot/mushroom.tres" id="4_parent"]
+[ext_resource type="Resource" uid="uid://c3ytrvm8kkbkt" path="res://resources/data/items/loot/mushroom.tres" id="4_parent"]
 [ext_resource type="Script" uid="uid://d1q7i43a6fajs" path="res://scripts/data/items/TimedEmergenceData.cs" id="5_emerge"]
 
 [sub_resource type="Resource" id="Resource_emerge"]

@@ -2,10 +2,10 @@
 
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://d2gggtn6xkc7c" path="res://resources/data/world_authoring/zones/mountain.tres" id="2_region"]
-[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="4_kit_cave"]
-[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="5_kit_underwater"]
+[ext_resource type="Resource" uid="uid://bg3737i70mdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="4_kit_cave"]
+[ext_resource type="Resource" uid="uid://dkql170kxil1" path="res://resources/data/world_authoring/terrain/underwater.tres" id="5_kit_underwater"]
 [ext_resource type="Resource" uid="uid://crwit5kc7vxce" path="res://resources/data/world_gen/spawn_lists/surface_entities_mountain.tres" id="5_ycgd3"]
-[ext_resource type="Resource" uid="uid://emqrvij6sly9m" path="res://resources/data/world_authoring/terrain/shore_sand.tres" id="9_w82ce"]
+[ext_resource type="Resource" uid="uid://rcwbgmw8e4iu" path="res://resources/data/world_authoring/terrain/shore_sand.tres" id="9_w82ce"]
 [ext_resource type="Resource" uid="uid://2fxll1oeroha" path="res://resources/data/world_authoring/terrain/mountain.tres" id="11_w82ce"]
 [ext_resource type="Resource" uid="uid://d2hbjjt516pxk" path="res://resources/data/world_gen/spawn_lists/cave_entities_mountain.tres" id="13_cave"]
 [ext_resource type="Resource" uid="uid://ok7jp66gk0al" path="res://resources/data/world_gen/spawn_groups/zone_campfire_fixtures.tres" id="14_fixtures"]
@@ -14,7 +14,8 @@
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="92_health"]
 [ext_resource type="Resource" uid="uid://dqvfmgixf4hns" path="res://resources/data/items/consumables/lantern_oil.tres" id="93_oil"]
 [ext_resource type="Resource" uid="uid://smswabvm3hey" path="res://resources/data/items/consumables/treasure_map_mountain.tres" id="96_map"]
-[ext_resource type="Resource" uid="uid://l2ll3goyyso64" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_1.tres" id="97_spot"]
+[ext_resource type="Resource" uid="uid://hd0caw8a62wt" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_1.tres" id="97_spot"]
+[ext_resource type="Resource" uid="uid://cdgwwdoxj3xkk" path="res://resources/data/world_gen/foliage_gen/mountain.tres" id="F_foliage"]
 [ext_resource type="Script" uid="uid://38wffcrscjmc" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="mountain_gen_zoneterrain"]
 [ext_resource type="Resource" uid="uid://csrlgrkkra006" path="res://resources/data/items/scrolls/scroll_grilled_kun_kun.tres" id="sc0"]
 [ext_resource type="Resource" uid="uid://pap3pg64kjlv" path="res://resources/data/items/scrolls/scroll_grilled_goblin.tres" id="sc1"]
@@ -23,7 +24,6 @@
 [ext_resource type="Resource" uid="uid://cslxq1vlr7qhf" path="res://resources/data/items/scrolls/scroll_stew_kun_kun_perception.tres" id="sc4"]
 [ext_resource type="Resource" uid="uid://dh8n7h0pji8hc" path="res://resources/data/items/scrolls/scroll_stew_sparrow_perception.tres" id="sc5"]
 [ext_resource type="Resource" uid="uid://bydps7ac5slb7" path="res://resources/data/items/scrolls/scroll_stew_drake_fortitude.tres" id="sc6"]
-[ext_resource type="Resource" uid="uid://cdgwwdoxj3xkk" path="res://resources/data/world_gen/foliage_gen/mountain.tres" id="F_foliage"]
 
 [sub_resource type="Resource" id="Dist0"]
 script = ExtResource("90_countrange")
@@ -80,7 +80,6 @@ metadata/_custom_type_script = "uid://61iu4uosbxjog"
 script = ExtResource("1_script")
 zone = ExtResource("2_region")
 surfaceTerrain = ExtResource("11_w82ce")
-foliage = ExtResource("F_foliage")
 caveTerrain = ExtResource("4_kit_cave")
 submergedTerrain = ExtResource("5_kit_underwater")
 shoreTerrain = ExtResource("9_w82ce")
@@ -88,6 +87,7 @@ terrain = SubResource("ZoneTerrain_mountain_gen")
 mossSurfaceCoverage = 0.3
 mossCaveCoverage = 0.3
 grassThreshold = 0.5
+foliage = ExtResource("F_foliage")
 mobLevelMin = 3
 mobLevelMax = 4
 undergroundMobLevelMin = 4

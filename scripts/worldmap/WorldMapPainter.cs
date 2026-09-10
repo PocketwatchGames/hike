@@ -1342,11 +1342,12 @@ public partial class WorldMapPainter : Node3D
         return h >= hn ? _ctx.ClimbRouteAt(px, pz) : _ctx.ClimbRouteAt(nx, nz);
     }
 
-    // One dot per column that will really spawn, in its SET's colour — and the
-    // set the tool has selected draws at full weight while the others recede.
-    // Painting mobs is painting one set, and nine colours at one weight do not
-    // answer "where is this one"; the others dimming rather than the selected
-    // one growing keeps the map's overall weight where it was authored.
+    // One dot per column that will really spawn, WHITE whatever set it came from
+    // — and the set the tool has selected draws opaque while the others recede
+    // to ink.mobDotDimAlpha. Painting mobs is painting one set, and "where is
+    // this one" cannot be read off nine colours at the same weight; one colour
+    // at two weights answers it directly, and the sets keep their own swatches
+    // in the palette row where telling them apart is what is being asked.
     //
     // `picked` is the set being picked out, or null for a view that shows mob
     // dots under a tool with no set of its own — there nothing is being asked
@@ -1363,12 +1364,10 @@ public partial class WorldMapPainter : Node3D
                 {
                     continue;
                 }
-                SpawnScatterData set = sets[setIndex];
-                Color c = set?.mapColor ?? Colors.White;
-                bool full = picked == null || ReferenceEquals(set, picked);
+                bool full = picked == null || ReferenceEquals(sets[setIndex], picked);
                 DrawSpawnDot(px, pz,
-                    new Color(c.R, c.G, c.B, full ? 1f : ink.mobDotDimAlpha),
-                    full ? ink.mobDotFraction : ink.mobDotDimFraction);
+                    new Color(1f, 1f, 1f, full ? 1f : ink.mobDotDimAlpha),
+                    ink.mobDotFraction);
             }
         }
     }

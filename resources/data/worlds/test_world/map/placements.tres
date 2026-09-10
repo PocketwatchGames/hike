@@ -45,7 +45,7 @@
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/npcs/appearances/villager_plain_m.tres" id="A_villager_plain_m"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/npcs/appearances/wanderer_talia.tres" id="A_wanderer_talia"]
 [ext_resource type="Resource" path="res://resources/data/worlds/default_world/conversations/wanderer_conversation.tres" id="C_wanderer_talia"]
-[ext_resource type="Resource" uid="uid://cssvillager01" path="res://resources/data/characters/human/standard_npc.tres" id="D_standard_npc"]
+[ext_resource type="Resource" path="res://resources/data/characters/human/standard_npc.tres" id="D_standard_npc"]
 [ext_resource type="Script" path="res://scripts/data/characters/LoyaltyGift.cs" id="M_4_r"]
 [ext_resource type="Script" path="res://scripts/data/characters/MobInventoryData.cs" id="M_5_r"]
 [ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_vyeshal_grammar.tres" id="M_6_r"]

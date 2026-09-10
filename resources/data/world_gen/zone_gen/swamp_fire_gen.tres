@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://tlfjf7x0adof"]
 
 [ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_gen/spawn_lists/cave_entities_swamp.tres" id="1_1xuj7"]
-[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="2_qsxp7"]
+[ext_resource type="Resource" uid="uid://bg3737i70mdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="2_qsxp7"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="9_sy5th"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="11_dk2qw"]
-[ext_resource type="Resource" uid="uid://q2e4ot8c2scra" path="res://resources/data/world_authoring/terrain/shore_swamp.tres" id="12_vw5yw"]
-[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="13_5miyb"]
+[ext_resource type="Resource" uid="uid://blrncmkcsytp7" path="res://resources/data/world_authoring/terrain/shore_swamp.tres" id="12_vw5yw"]
+[ext_resource type="Resource" uid="uid://dkql170kxil1" path="res://resources/data/world_authoring/terrain/underwater.tres" id="13_5miyb"]
 [ext_resource type="Resource" uid="uid://crwiul27krdig" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp.tres" id="14_08puj"]
 [ext_resource type="Resource" uid="uid://gpdraqwf22b8" path="res://resources/data/world_authoring/terrain/marsh.tres" id="15_e12v7"]
 [ext_resource type="Resource" uid="uid://cwvam7wm5c6ql" path="res://resources/data/world_gen/spawn_lists/water_entities_swamp.tres" id="16_bxt8m"]
@@ -13,19 +13,17 @@
 [ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Resource" uid="uid://ikft0bki0wpe" path="res://resources/data/items/consumables/treasure_map_swamp_fire.tres" id="96_map"]
-[ext_resource type="Resource" uid="uid://l2ll3goyyso64" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_1.tres" id="97_spot"]
+[ext_resource type="Resource" uid="uid://hd0caw8a62wt" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_1.tres" id="97_spot"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/campfire.tres" id="e_campfire"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab1.tres" id="e_knowledge_stone"]
+[ext_resource type="Resource" uid="uid://wwydvupgfm6a" path="res://resources/data/world_gen/foliage_gen/marsh.tres" id="F_foliage"]
+[ext_resource type="Script" uid="uid://bhy5xnkiybhbv" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
 [ext_resource type="Resource" uid="uid://pap3pg64kjlv" path="res://resources/data/items/scrolls/scroll_grilled_goblin.tres" id="rc0"]
 [ext_resource type="Resource" uid="uid://bxkfg2n5ty4ai" path="res://resources/data/items/scrolls/scroll_grilled_spider.tres" id="rc1"]
 [ext_resource type="Resource" uid="uid://dk0h2j6nwppor" path="res://resources/data/items/scrolls/scroll_stew_goblin_stamina.tres" id="rc2"]
 [ext_resource type="Resource" uid="uid://bc3moj7xeffyk" path="res://resources/data/items/scrolls/scroll_stew_goblin_health.tres" id="rc3"]
 [ext_resource type="Resource" uid="uid://dgjdiakyoixma" path="res://resources/data/items/scrolls/scroll_stew_spider_health.tres" id="rc4"]
 [ext_resource type="Script" uid="uid://bngmvmgus5vlm" path="res://scripts/data/worldgen/PlateauZoneTerrainData.cs" id="swamp_fire_gen_zoneterrain"]
-
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/campfire.tres" id="e_campfire"]
-[ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab1.tres" id="e_knowledge_stone"]
-
-[ext_resource type="Script" uid="uid://7e84n3wjhwhdz" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
-[ext_resource type="Resource" uid="uid://wwydvupgfm6a" path="res://resources/data/world_gen/foliage_gen/marsh.tres" id="F_foliage"]
 
 [sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")
@@ -53,8 +51,8 @@ item = ExtResource("rc4")
 
 [sub_resource type="Resource" id="Row_campfire"]
 script = ExtResource("grouprow")
-entry = ExtResource("e_campfire")
 placeAtAnchor = true
+entry = ExtResource("e_campfire")
 
 [sub_resource type="Resource" id="Row_knowledge_stone"]
 script = ExtResource("grouprow")
@@ -68,24 +66,26 @@ metadata/_custom_type_script = "uid://ci23e7ltpsb6o"
 
 [sub_resource type="Resource" id="ZoneTerrain_swamp_fire_gen"]
 script = ExtResource("swamp_fire_gen_zoneterrain")
-elevationRange = 4.0
+tunnelThreshold = 0.0
+caveThreshold = 1.0
+caveNoiseFrequency = 0.04
 pathThreshold = 0.1
 pathBlendBand = 0.05
-tunnelThreshold = 0.0
-caveNoiseFrequency = 0.04
-caveThreshold = 1.0
+elevationRange = 4.0
 metadata/_custom_type_script = "uid://3pbpzzvmrk0vy"
 
 [resource]
 script = ExtResource("11_dk2qw")
-terrain = SubResource("ZoneTerrain_swamp_fire_gen")
 zone = ExtResource("17_1xuj7")
 surfaceTerrain = ExtResource("15_e12v7")
-foliage = ExtResource("F_foliage")
 caveTerrain = ExtResource("2_qsxp7")
 submergedTerrain = ExtResource("13_5miyb")
 shoreTerrain = ExtResource("12_vw5yw")
+terrain = SubResource("ZoneTerrain_swamp_fire_gen")
+mossSurfaceCoverage = 0.15
+mossCaveCoverage = 0.45
 grassThreshold = 0.5
+foliage = ExtResource("F_foliage")
 mobLevelMax = 1
 undergroundMobLevelMax = 2
 forgeCount = 4
@@ -99,5 +99,3 @@ treasureName = "swamp_fire"
 treasureSpot = ExtResource("97_spot")
 fixtures = SubResource("Fixtures_swamp")
 pointsOfInterest = PackedStringArray("swamp_hollow")
-mossSurfaceCoverage = 0.15
-mossCaveCoverage = 0.45

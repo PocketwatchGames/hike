@@ -13,7 +13,7 @@ intro_hermit_		greeting					Hello, traveler. The mold in this valley makes my lu
 			topics				I long to leave.
 		recruit				recruit_to_party	Yes
 	x	topics	recruit				Then come with me!
-intro_librarian_		greeting				teach:language vyeshal grammar,vocabulary1,vocabulary2,vocabulary3	Hello, I’m the librarian.
+intro_librarian_		greeting					Hello, I’m the librarian.
 intro_mayor_		greeting	topics				Hello, traveler.
 		speak_common	topics				No. Ulga, librarian. (Points southeast)
 		shipwreck	topics				We saw the shipwreck from the coast. There are rarely survivors on these shores. The mist swallows them.

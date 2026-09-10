@@ -45,8 +45,8 @@ public partial class WorldMapInkData : Resource
     // it.
     [Export(PropertyHint.Range, "0.1,1,0.05")] public float propDotFraction = 0.8f;
 
-    // The mob dot, which keeps the SET's own colour: sets are told apart by what
-    // lives in them, and there is only one mob layer for them to belong to.
+    // The mob dot, which is WHITE whatever set it came from: which set a column
+    // carries is answered by the selection dimming below, not by a colour.
     [Export(PropertyHint.Range, "0.1,1,0.05")] public float mobDotFraction = 0.55f;
 
     // What a set the tool has NOT selected draws at. Painting mobs is painting
@@ -56,12 +56,7 @@ public partial class WorldMapInkData : Resource
     // it was authored. With no set selected at all (a view that shows mob dots
     // under some other tool) there is nothing to pick out and every set draws
     // full.
-    //
-    // Size AND alpha, because either alone is not enough: dimming a dot to a
-    // fifth of its opacity makes a pale set vanish while a dark one still reads,
-    // and shrinking without dimming just makes a smaller full-strength mark.
-    [Export(PropertyHint.Range, "0.1,1,0.05")] public float mobDotDimFraction = 0.35f;
-    [Export(PropertyHint.Range, "0.05,1,0.05")] public float mobDotDimAlpha = 0.4f;
+    [Export(PropertyHint.Range, "0.05,1,0.05")] public float mobDotDimAlpha = 0.35f;
 
     // A hand-placed entity, and the player spawn. Both are single metres on the
     // map, so they are drawn as flat marks rather than washes.
@@ -179,9 +174,9 @@ public partial class WorldMapInkData : Resource
     // elevation (see IWorldMapView.ColorShowsElevation): on the elevation map it
     // would run a line along every metre of every slope, saying nothing the
     // bands have not already said.
-    [Export] public Color edgeInkSub2m = new Color(0f, 0f, 0f, 0.0902f);
-    [Export] public Color edgeInk2m = new Color(0f, 0f, 0f, 0.5961f);
-    [Export] public Color edgeInkOver2m = new Color(1f, 1f, 1f, 0.8314f);
+    [Export] public Color edgeInkSub2m = new Color(1f, 1f, 1f, 0.35f);
+    [Export] public Color edgeInk2m = new Color(1f, 1f, 1f, 0.5961f);
+    [Export] public Color edgeInkOver2m = new Color(0f, 0f, 0f, 0.8314f);
 
     // The swatch for a danger level, clamped so a colour list shorter than
     // WorldMapData.mobLevelCount still draws instead of throwing.

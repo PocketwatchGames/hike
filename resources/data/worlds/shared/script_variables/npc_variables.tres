@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScriptVariableRegistry" format=3]
+[gd_resource type="Resource" script_class="ScriptVariableRegistry" format=3 uid="uid://dqbghe5jer2j5"]
 
 [ext_resource type="Script" uid="uid://bn4svar0reg13" path="res://scripts/data/scripting/ScriptVariableRegistry.cs" id="1_registry"]
 [ext_resource type="Script" uid="uid://cq2svar0data8" path="res://scripts/data/scripting/ScriptVariableData.cs" id="2_variable"]

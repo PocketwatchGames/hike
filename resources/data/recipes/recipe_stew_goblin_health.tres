@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="1_input"]
 [ext_resource type="Resource" uid="uid://bgbn5p2k4q7wt" path="res://resources/data/items/loot/goblin_meat.tres" id="2_meat"]
-[ext_resource type="Resource" uid="uid://s8l1m34eoh8ca" path="res://resources/data/items/loot/mushroom_red.tres" id="3_mushroom"]
+[ext_resource type="Resource" uid="uid://drykavgefoqa7" path="res://resources/data/items/loot/mushroom_red.tres" id="3_mushroom"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="4_recipe"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="5_effect_script"]
 [ext_resource type="Resource" uid="uid://cpftcky3qs8jd" path="res://resources/data/status_effects/well_fed_health.tres" id="6_status"]

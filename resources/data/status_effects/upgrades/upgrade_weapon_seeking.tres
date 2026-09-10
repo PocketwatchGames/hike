@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_otfcl"]
-[ext_resource type="PackedScene" uid="uid://cv4q99anpy105" path="res://scenes/projectiles/homing_missile_blue.tscn" id="4_missile"]
+[ext_resource type="PackedScene" uid="uid://cv4rbaanpy105" path="res://scenes/projectiles/homing_missile_blue.tscn" id="4_missile"]
 [ext_resource type="PackedScene" uid="uid://c1gf8agnm62bs" path="res://scenes/fx/homing_missile_impact.tscn" id="5_impact"]
 [ext_resource type="PackedScene" uid="uid://betguwy5h6abj" path="res://scenes/fx/homing_missile_expire.tscn" id="6_expire"]
 [ext_resource type="PackedScene" uid="uid://35k2amn0cgis" path="res://scenes/fx/homing_missile_fire.tscn" id="7_fire"]

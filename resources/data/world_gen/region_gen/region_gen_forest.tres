@@ -3,9 +3,8 @@
 [ext_resource type="Script" uid="uid://qm48pd0cotgy" path="res://scripts/data/world/RegionGenData.cs" id="1_rgd"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="2_list"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_vyeshal_vocab3.tres" id="5_stone"]
-[ext_resource type="Resource" uid="uid://22wxp5pnkhxtu" path="res://resources/data/worlds/shared/regions/forest.tres" id="6_region"]
-
-[ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+[ext_resource type="Resource" uid="uid://02ulravl2tji" path="res://resources/data/worlds/shared/regions/forest.tres" id="6_region"]
+[ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 
 [sub_resource type="Resource" id="Row_Stone_forest"]
 script = ExtResource("listrow")

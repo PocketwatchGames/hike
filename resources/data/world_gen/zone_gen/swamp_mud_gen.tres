@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://chlk1f4ns5cwh"]
 
 [ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_gen/spawn_lists/cave_entities_swamp.tres" id="1_4e0co"]
-[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="2_p15ox"]
-[ext_resource type="Resource" uid="uid://q2e4ot8c2scra" path="res://resources/data/world_authoring/terrain/shore_swamp.tres" id="3_0m5rd"]
-[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="4_64pvx"]
+[ext_resource type="Resource" uid="uid://bg3737i70mdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="2_p15ox"]
+[ext_resource type="Resource" uid="uid://blrncmkcsytp7" path="res://resources/data/world_authoring/terrain/shore_swamp.tres" id="3_0m5rd"]
+[ext_resource type="Resource" uid="uid://dkql170kxil1" path="res://resources/data/world_authoring/terrain/underwater.tres" id="4_64pvx"]
 [ext_resource type="Resource" uid="uid://3lnulrnyn5ro" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp_mud.tres" id="5_4e0co"]
 [ext_resource type="Resource" uid="uid://dyxoe4k26a80k" path="res://resources/data/world_authoring/terrain/swamp_mud.tres" id="6_4e0co"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_6p0r5"]
@@ -12,13 +12,13 @@
 [ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Resource" uid="uid://bfcfe26d6bj6a" path="res://resources/data/items/consumables/treasure_map_swamp_mud.tres" id="96_map"]
-[ext_resource type="Resource" uid="uid://eyr986zwwj9v9" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_3.tres" id="97_spot"]
+[ext_resource type="Resource" uid="uid://4efn43odde5i" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_3.tres" id="97_spot"]
+[ext_resource type="Resource" uid="uid://duhbyv7bnv3p7" path="res://resources/data/world_gen/foliage_gen/swamp_mud.tres" id="F_foliage"]
 [ext_resource type="Resource" uid="uid://bante0m1vlh6a" path="res://resources/data/items/scrolls/scroll_grilled_drake.tres" id="rc0"]
 [ext_resource type="Resource" uid="uid://bvwbp0bcuwn4i" path="res://resources/data/items/scrolls/scroll_grilled_sparrow.tres" id="rc1"]
 [ext_resource type="Resource" uid="uid://dfpa4q2wonauo" path="res://resources/data/items/scrolls/scroll_stew_drake_damage.tres" id="rc2"]
 [ext_resource type="Resource" uid="uid://bsnxuawbk5idr" path="res://resources/data/items/scrolls/scroll_stew_sparrow_stamina.tres" id="rc3"]
 [ext_resource type="Script" uid="uid://bngmvmgus5vlm" path="res://scripts/data/worldgen/PlateauZoneTerrainData.cs" id="swamp_mud_gen_zoneterrain"]
-[ext_resource type="Resource" uid="uid://duhbyv7bnv3p7" path="res://resources/data/world_gen/foliage_gen/swamp_mud.tres" id="F_foliage"]
 
 [sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")
@@ -54,12 +54,14 @@ metadata/_custom_type_script = "uid://3pbpzzvmrk0vy"
 script = ExtResource("8_6p0r5")
 zone = ExtResource("9_p15ox")
 surfaceTerrain = ExtResource("6_4e0co")
-foliage = ExtResource("F_foliage")
 caveTerrain = ExtResource("2_p15ox")
 submergedTerrain = ExtResource("4_64pvx")
 shoreTerrain = ExtResource("3_0m5rd")
 terrain = SubResource("ZoneTerrain_swamp_mud_gen")
+mossSurfaceCoverage = 0.2
+mossCaveCoverage = 0.5
 grassThreshold = 0.5
+foliage = ExtResource("F_foliage")
 mobLevelMin = 1
 mobLevelMax = 2
 undergroundMobLevelMin = 2
@@ -75,5 +77,3 @@ treasureName = "swamp_mud"
 treasureSpot = ExtResource("97_spot")
 fixtures = ExtResource("9_hermit")
 pointsOfInterest = PackedStringArray("swamp_mud")
-mossSurfaceCoverage = 0.2
-mossCaveCoverage = 0.5
