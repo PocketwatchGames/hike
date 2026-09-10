@@ -1,9 +1,0 @@
-[gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://dfgqtsu27u73m"]
-
-[ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_m5a2e"]
-[ext_resource type="Resource" uid="uid://dloxi31ilii31" path="res://resources/data/characters/goblin/goblin_forest_torchbearer.tres" id="2_m5a2e"]
-
-[resource]
-script = ExtResource("1_m5a2e")
-species = ExtResource("2_m5a2e")
-metadata/_custom_type_script = "uid://dl3s3rohhmwe8"

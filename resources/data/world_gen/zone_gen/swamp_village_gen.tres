@@ -1,15 +1,15 @@
 [gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://c3262urh41m8s"]
 
-[ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_authoring/spawn_lists/cave_entities_swamp.tres" id="1_5w857"]
-[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/kits/cave_limestone_kit.tres" id="2_gyyab"]
-[ext_resource type="Resource" uid="uid://q2e4ot8c2scra" path="res://resources/data/world_authoring/kits/shore_swamp_kit.tres" id="3_kyxs2"]
-[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/kits/underwater_kit.tres" id="4_65ay8"]
-[ext_resource type="Resource" uid="uid://d4ltgo1wkf3qg" path="res://resources/data/world_authoring/spawn_lists/surface_entities_swamp_village.tres" id="5_5w857"]
-[ext_resource type="Resource" uid="uid://ds1ldsisnfc4e" path="res://resources/data/world_authoring/kits/swamp_village_kit.tres" id="7_gyyab"]
+[ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_gen/spawn_lists/cave_entities_swamp.tres" id="1_5w857"]
+[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="2_gyyab"]
+[ext_resource type="Resource" uid="uid://q2e4ot8c2scra" path="res://resources/data/world_authoring/terrain/shore_swamp.tres" id="3_kyxs2"]
+[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="4_65ay8"]
+[ext_resource type="Resource" uid="uid://d4ltgo1wkf3qg" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp_village.tres" id="5_5w857"]
+[ext_resource type="Resource" uid="uid://ds1ldsisnfc4e" path="res://resources/data/world_authoring/terrain/swamp_village.tres" id="7_gyyab"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_m0lsp"]
-[ext_resource type="Resource" uid="uid://cyjva4b6lpasi" path="res://resources/data/world_authoring/spawn_groups/swamp_village_fixtures.tres" id="9_village"]
+[ext_resource type="Resource" uid="uid://cyjva4b6lpasi" path="res://resources/data/world_gen/spawn_groups/swamp_village_fixtures.tres" id="9_village"]
 [ext_resource type="Resource" uid="uid://c4823dvmhngig" path="res://resources/data/world_authoring/zones/swamp_village.tres" id="10_kyxs2"]
-[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_authoring/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
+[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Resource" uid="uid://b5t2mhf4t5fs2" path="res://resources/data/items/consumables/treasure_map_swamp_village.tres" id="96_map"]
 [ext_resource type="Resource" uid="uid://ikvot05s6se11" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_2.tres" id="97_spot"]
@@ -42,10 +42,10 @@ metadata/_custom_type_script = "uid://3pbpzzvmrk0vy"
 [resource]
 script = ExtResource("8_m0lsp")
 zone = ExtResource("10_kyxs2")
-surfaceKit = ExtResource("7_gyyab")
-caveKit = ExtResource("2_gyyab")
-submergedKit = ExtResource("4_65ay8")
-shoreKit = ExtResource("3_kyxs2")
+surfaceTerrain = ExtResource("7_gyyab")
+caveTerrain = ExtResource("2_gyyab")
+submergedTerrain = ExtResource("4_65ay8")
+shoreTerrain = ExtResource("3_kyxs2")
 terrain = SubResource("ZoneTerrain_swamp_village_gen")
 grassThreshold = 0.5
 mobLevelMax = 0

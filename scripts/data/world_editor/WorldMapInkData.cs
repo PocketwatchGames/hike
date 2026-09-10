@@ -45,10 +45,23 @@ public partial class WorldMapInkData : Resource
     // it.
     [Export(PropertyHint.Range, "0.1,1,0.05")] public float propDotFraction = 0.8f;
 
-    // The mob dot, which keeps the SET's own colour: mobs are told apart by
-    // which creatures they are, and there is only one mob layer for them to
-    // belong to.
+    // The mob dot, which keeps the SET's own colour: sets are told apart by what
+    // lives in them, and there is only one mob layer for them to belong to.
     [Export(PropertyHint.Range, "0.1,1,0.05")] public float mobDotFraction = 0.55f;
+
+    // What a set the tool has NOT selected draws at. Painting mobs is painting
+    // one set, and on a map carrying nine of them "where is this one" cannot be
+    // read off nine colours at the same weight — so the others recede rather
+    // than the selected one shouting, which keeps the map's overall weight where
+    // it was authored. With no set selected at all (a view that shows mob dots
+    // under some other tool) there is nothing to pick out and every set draws
+    // full.
+    //
+    // Size AND alpha, because either alone is not enough: dimming a dot to a
+    // fifth of its opacity makes a pale set vanish while a dark one still reads,
+    // and shrinking without dimming just makes a smaller full-strength mark.
+    [Export(PropertyHint.Range, "0.1,1,0.05")] public float mobDotDimFraction = 0.35f;
+    [Export(PropertyHint.Range, "0.05,1,0.05")] public float mobDotDimAlpha = 0.4f;
 
     // A hand-placed entity, and the player spawn. Both are single metres on the
     // map, so they are drawn as flat marks rather than washes.

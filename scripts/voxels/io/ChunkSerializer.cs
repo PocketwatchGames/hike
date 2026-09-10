@@ -8,7 +8,7 @@ using Godot;
 //   shape    : 4096 bytes (SharpAxes byte per cell — the mesher's sharp-axis tag)
 //   sunlight : 4096 bytes (one byte per cell, value 0-15)
 //   fog      : 4096 bytes (one byte per cell, 0 = clear, 255 = thickest)
-//   TerrainId    : 4096 bytes (environment-kit index per cell)
+//   TerrainId    : 4096 bytes (environment-terrain index per cell)
 //   overlay  : 4096 bytes (authored per-voxel overlay id; 0 = none)
 //   overlayFaces   : 1 byte present-flag, then 4096 bytes ONLY if set (which
 //                    of each voxel's six faces the overlay dresses, EVoxelFace

@@ -27,8 +27,8 @@ public static class Blocks
     public static int BarrierId { get; private set; }
     public static int OpeningId { get; private set; }
     public static int StoneId { get; private set; }
-    // Stand-in natural ground for code with no kit in hand — probe scaffolding
-    // and the fallback when a kit names no block.
+    // Stand-in natural ground for code with no terrain in hand — probe scaffolding
+    // and the fallback when a terrain names no block.
     public static int GroundId { get; private set; }
 
     private static bool[] _solid;

@@ -11,7 +11,7 @@ using Godot;
 public partial class StoneRingSpawnEntry : SpawnEntryData
 {
     // Stone prop scenes; one is chosen at random per stone for variety. Placed
-    // as PropType.Tree — the same path the kit rock scatter uses, so they pick
+    // as PropType.Tree — the same path the terrain rock scatter uses, so they pick
     // up the tree collider's path-blocking footprint.
     [Export] public PackedScene[] scenes = System.Array.Empty<PackedScene>();
 
@@ -25,7 +25,7 @@ public partial class StoneRingSpawnEntry : SpawnEntryData
     [Export] public float radiusJitter = 0f;
 
     // Added to each stone's resolved surface height. Defaults to 1.5 to match
-    // the kit rock scatter: the mesher smooths a flat column's visible top to
+    // the terrain rock scatter: the mesher smooths a flat column's visible top to
     // 0.5 above the voxel-grid top, so +1 would bury the stone's base.
     [Export] public float groundYOffset = 1.5f;
 

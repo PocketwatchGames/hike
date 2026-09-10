@@ -327,7 +327,7 @@ Four rules fall out, each of which was a real bug:
   `coverageAt` — worldgen answers with a zone's `climbCoverage`, the painter with
   its authored route flag. `StampMossPatches` takes `MossCoverageAt` — worldgen
   answers from `ZoneGenData` (moss density is a property of the biome it is
-  generating), the painter from the kits its ground layer paints (there it is a
+  generating), the painter from the terrains its ground layer paints (there it is a
   property of the material the author put down). Do NOT try to force one shared
   source: the painter's zone palette is `ZoneData` and does not correspond to
   `WorldGenData.ZoneGens` at all — 15 entries against 5 in the default world, no
@@ -354,8 +354,33 @@ selected.
 |---|---|---|
 | `worlds/<name>/` | ONE world, whichever producer builds it — its `WorldGenData` **or** its painted `map/`, plus that world's own `WorldStartData` / `WorldScriptData`. (`WorldFinishData` is NOT one of these — the finish passes are tuned once for the game, in `world_authoring/world_finish_data.tres`, and every world points at it.) A painted world links its start content through `WorldMapData.startContent` / `.finish`; the bake records the `WorldStartData`'s path in the `.hike` header and `WorldFileChunkSource` re-resolves it on load | is this world the only thing that wants it? |
 | `worlds/shared/` | the GAME's fiction, used by every world: `npcs/` (conversations, appearances), `party/`, `quests/`, `script_variables/`, `regions/`, `languages/`, `buried/`, and the spawn entries / lists / groups that NAME a character, language or story beat | a proper noun, but not one world's |
-| `world_authoring/` | the reusable authoring kit: `kits/`, `zones/`, `presets/`, `ground_sets/`, `prop_sets/`, `prop_lists/`, `mob_sets/`, `spawn_entries/`, `spawn_lists/`, `spawn_groups/`, `mob_descriptors/`, `subscenes/`, `details/`, `roofs/`, `props/`, `editor/`, and the single shared `world_finish_data.tres` | a type, kit or style — no proper nouns |
-| `world_gen/` | the generator's reusable vocabulary: `ZoneGenData`, `RegionGenData`, `TerrainGenData` | nothing but the generator reads it |
+| `world_authoring/` | the reusable kit the AUTHORING TOOLS offer: `terrain/` (a `TerrainData` per material, plus its `details/`), `terrain_kits/` (the four-material `TerrainKitData` the painter paints per column), `zones/`, `presets/`, `props/` (the `PropListData` a painted region is filled from), `spawn_entries/`, `spawn_scatters/`, `subscenes/`, `buried/`, `editor/`, and the two shared singles `prop_library.tres` and `world_finish_data.tres` | a type, kit or style — no proper nouns — **that the painter or the world editor reads** |
+| `world_gen/` | the generator's reusable vocabulary: `TerrainGenData`, `zone_gen/`, `region_gen/`, `foliage_gen/` (`FoliageGenData` — what grows in a zone), `spawn_groups/`, and the `surface_` / `cave_` / `water_entities_*` lists in `spawn_lists/` | nothing but the generator reads it |
+
+**The `world_authoring` / `world_gen` line is WHO READS IT, not what it is.**
+The two trees hold the same KINDS of thing — `FoliageGenData` and `PropListData`
+are both "a set of scenery to scatter", and a `SpawnScatterData` and a
+`world_gen/spawn_lists/` list are both a list of spawn rows. What separates them
+is whether an authoring tool consumes it: a resource the painter or the editor
+offers, paints or reflects is authoring vocabulary; one only `WorldGen` ever
+reads is the generator's. The painter's lists are not a directory of their own at
+all — a scatter set IS its rows (`SpawnScatterData : SpawnListData`), so the
+whole of what the Mobs brush can paint is the files in `spawn_scatters/`.
+
+The test is what CONSUMES a field, not what points at a file. A `TerrainKitData`
+in `world_authoring/terrain_kits/` bundles the four `TerrainData` a column is
+stamped with, and the painter paints one per column; what GROWS on it is reachable
+from neither, because it is `ZoneGenData.foliage` — generator-only, so it lives in
+`world_gen/`.
+
+**A resource the RUNTIME reads is not authoring vocabulary, even when an authoring
+tool also offers it.** `resources/data/<thing>/` is where those live, beside
+`characters/`, `items/`, `vehicles/` and `waterfalls/`. `roofs/` is the worked
+example: the world editor's roof brush picks a `RoofStyleData`, which would
+suggest `world_authoring/` — but `Roof` and `RoofMeshBuilder` build the mesh from
+it at runtime and a baked `.hike` references it by path, so it is shipped data
+that an editor happens to offer, not vocabulary the editor owns. Being offered by
+a tool is not the test; being read only by one is.
 
 **`ZoneData` is a theme, `RegionData` is a place** — which is why they sit in
 different trees despite looking alike. A zone carries a palette (sky, water
@@ -394,7 +419,7 @@ what a build SHIPS.** Its header stores `res://` paths and re-resolves them on
 load — `SimData`, `StartContentPath`, and every `ZoneData` / `RegionData` — and
 entity payloads reference resources through a table of `res://` paths. A
 `<file>::<id>` sub-resource is fine there as long as `<file>` ships (a
-`MobDescriptor`'s status effect, an NPC appearance's palette); `GD.Load` resolves
+`SpeciesData`'s status effect, an NPC appearance's palette); `GD.Load` resolves
 that form only from the resource cache, which is why `EntitySerializer.LoadRef`
 loads the outer document first.
 
@@ -418,7 +443,7 @@ NOT need anything else under `map/`: the raster layers (`*.png`, `*.exr`,
 
 The first step in the world-authoring chain: a broad-brush, in-game paint program that authors a layered raster *document* and bakes it into a real `WorldState` / `.hike` (the downstream `WorldEditor` does fine per-voxel detail; the game loads the baked `.hike`).
 
-**What the painter can paint is DISCOVERED from disk, never registered.** A zone, ground set, prop set, mob set, preset or placeable entity becomes available by existing in the directory `WorldMapPaletteSource.Table` names for it — that table is the one place a palette is declared. The palettes whose index a raster stores (zone, region, ground, scatter, mobs, paving, water type) keep an append-only slot ledger in `map/palettes.tres` so a newly discovered file can never re-point an already-painted column. See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
+**What the painter can paint is DISCOVERED from disk, never registered.** A zone, terrain kit, prop list, scatter set, preset or placeable entity becomes available by existing in the directory `WorldMapPaletteSource.Table` names for it — that table is the one place a palette is declared. The palettes whose index a raster stores (zone, region, ground, scatter, mobs, paving, water type) keep an append-only slot ledger in `map/palettes.tres` so a newly discovered file can never re-point an already-painted column. See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
 
 ### Blocks — the voxel material model (`scripts/data/world/`)
 
@@ -430,15 +455,15 @@ reach across the whole codebase:
 - **There is no `Blocks.WaterId`, and reintroducing one is a bug.** Water is SEVERAL blocks — `Water` (the standard, turbidity delta 0), `WaterClear`, `WaterMurky` and the scum types, with ice to come — so an equality test against one id silently stops being "is this water" the moment a body is anything but standard: you would not swim in it, boats would ignore it, nav would read a hole, the waterfall finder would skip it. Ask **`Blocks.IsWater(id)`**, which is fed by `render == EBlockRender.Water` and so covers every type including ones added later. **`Blocks.DefaultWaterId` is for WRITES only** — the block to lay down when something fills a column and has no reason to pick a type — and is deliberately named so it cannot be mistaken for a test. The migration off the old symbol was compile-driven (delete it, fix the 66 errors); that is the only safe way to do it again, because every one of those sites still compiles when it is wrong.
 - **`Blocks.IsEmpty(id)` is not `id == AirId`** — an Opening is empty in every sense except the ceiling cutaway's.
 - **`block_check`** (`--headless -- "block_check 1"`, ~3s) validates the catalog and dumps the resolved table — the data twin of `shader_check`.
-- **The kit palette is the `.hike`'s wire format and is APPEND-ONLY.** `TerrainId`
-  is one byte per voxel indexing `WorldState.Kits`; insert, remove or reorder a
+- **The terrain palette is the `.hike`'s wire format and is APPEND-ONLY.** `TerrainId`
+  is one byte per voxel indexing `WorldState.Terrains`; insert, remove or reorder a
   slot and every already-baked world comes back re-textured with its stored bytes
   still perfectly valid. `Main.LoadWorldFromFile` refuses a world whose palette
   moved, naming the slot.
 
 The material model itself — the `BlockSurfaceData`/`BlockData`/`BlockCatalog`
 split, per-fragment face selection, climb growth, the water types and their films,
-and the kit channel — is in
+and the terrain channel — is in
 [scripts/data/world/CLAUDE.md](scripts/data/world/CLAUDE.md), with the atlas half
 in [resources/data/voxels/surfaces/CLAUDE.md](resources/data/voxels/surfaces/CLAUDE.md).
 
@@ -551,7 +576,7 @@ wants falls straight out of it:
   `action` = the entry's actions, no text), walked in sheet order. With no `entry`
   rows the conversation opens on the character's first branch, unconditionally.
 - **`condition` / `action` cells NAME an authored `.tres`**, `;`-separated for
-  several, resolved from `world_authoring/conversation/<kind>/` (a verb with no
+  several, resolved from `dialogue_scripts/<kind>/` (a verb with no
   proper noun in it — `open_shop`, `language_incomplete`), then
   `worlds/shared/conversation/<kind>/` (the game's own, where a verb names a
   proper noun of the fiction), then the world's own folder, each shadowing the
@@ -723,7 +748,7 @@ Run `dotnet run --project tools/validate_uids` to scan for missing `.cs.uid` sid
   - **It is data loss, not just a display bug.** The field reads empty, so the next time the editor saves that resource it writes the file back *without* the reference. You lose authored data to a diff you didn't make, and only in-editor — runtime has no `[Tool]` gate, so the game keeps working and hides it.
   - **It cascades.** Tagging `X` makes `X`'s own typed fields subject to the same rule, so the real cost is the transitive closure (subclasses + everything reachable through `[Export]`s), not one attribute. Measure that closure before starting: it is 5 classes for `ZoneData` but ~90 for `ItemData` and ~174 for `WorldGenData`. A half-applied sweep leaves the bug in place.
 
-  Match the parent: if it's `[Tool]`, everything it can reach is too, and say so in a comment on each so nobody strips it later. `StatusEffectData`'s payloads (`WeaponModData`, `DamageOverTimeData`, …) and the `SkyController`/`ZoneData` ambience graph are `[Tool]` for exactly this reason. Known remaining gaps: `ItemEvent.reagent` / `.concept` / `.minionData`.
+  Match the parent: if it's `[Tool]`, everything it can reach is too, and say so in a comment on each so nobody strips it later. `StatusEffectData`'s payloads (`WeaponModData`, `DamageOverTimeData`, …) and the `SkyController`/`ZoneData` ambience graph are `[Tool]` for exactly this reason. Known remaining gaps: `ItemEvent.reagent` / `.concept` / `.minionSpecies`.
 - No namespaces; all classes are global scope.
 - Event communication uses C# `Action` delegates and Godot `[Signal]` attributes.
 - Factory methods (`Create()`) for instantiating scene-backed objects.

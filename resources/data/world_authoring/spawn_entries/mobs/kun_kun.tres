@@ -1,12 +1,12 @@
 [gd_resource type="Resource" script_class="MobSpawnEntry" format=3]
 
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="1_entry"]
-[ext_resource type="Resource" uid="uid://vhruxhp5hm351" path="res://resources/data/world_authoring/mob_descriptors/kun_kun_forest.tres" id="D_kun_kun_forest"]
-[ext_resource type="Resource" uid="uid://4yxvdep3v6iuw" path="res://resources/data/world_authoring/mob_descriptors/kun_kun_desert.tres" id="D_kun_kun_desert"]
-[ext_resource type="Resource" uid="uid://df5xitbak5phm" path="res://resources/data/world_authoring/mob_descriptors/kun_kun_mountain.tres" id="D_kun_kun_mountain"]
+[ext_resource type="Resource" uid="uid://csskunkun0001" path="res://resources/data/characters/kun_kun/kun_kun_forest.tres" id="D_kun_kun_forest"]
+[ext_resource type="Resource" uid="uid://cewim3v6xj14e" path="res://resources/data/characters/kun_kun/kun_kun_desert.tres" id="D_kun_kun_desert"]
+[ext_resource type="Resource" uid="uid://3ddpdgspavae" path="res://resources/data/characters/kun_kun/kun_kun_mountain.tres" id="D_kun_kun_mountain"]
 
 [resource]
 script = ExtResource("1_entry")
-descriptor = ExtResource("D_kun_kun_forest")
+species = ExtResource("D_kun_kun_forest")
 variants = [ExtResource("D_kun_kun_forest"), ExtResource("D_kun_kun_desert"), ExtResource("D_kun_kun_mountain")]
 metadata/_custom_type_script = "uid://dhkkrl6qof485"

@@ -29,7 +29,7 @@ public static class TerrainMath
     // The waterline AT ONE COLUMN: the global sea, or the inland river / lake
     // surface a terrain approach put there, whichever is higher. Every
     // generation pass that would otherwise compare against SEA_LEVEL directly
-    // goes through this — chunk fill, the shore-kit bands, the dry-land tests
+    // goes through this — chunk fill, the shore-terrain bands, the dry-land tests
     // and road passability — so inland water above sea level is expressible at
     // all. Approaches that make no inland water leave HeightMap.Water null and
     // this collapses back to the constant.
@@ -65,7 +65,7 @@ public static class TerrainMath
 
     // Deterministic per-(wx, wz, salt) hash → [0, 1). Used to make a per-voxel
     // choice without allocating a Random — same coords always produce the same
-    // answer, so kit borders (and any other deterministic per-voxel choice)
+    // answer, so terrain borders (and any other deterministic per-voxel choice)
     // replay identically across runs and across save/load.
     public static float HashFloat01(int wx, int wz, int salt)
     {

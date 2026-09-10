@@ -45,7 +45,7 @@
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/npcs/appearances/villager_plain_m.tres" id="A_villager_plain_m"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/npcs/appearances/wanderer_talia.tres" id="A_wanderer_talia"]
 [ext_resource type="Resource" path="res://resources/data/worlds/default_world/conversations/wanderer_conversation.tres" id="C_wanderer_talia"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/mob_descriptors/standard_npc.tres" id="D_standard_npc"]
+[ext_resource type="Resource" uid="uid://cssvillager01" path="res://resources/data/characters/human/standard_npc.tres" id="D_standard_npc"]
 [ext_resource type="Script" path="res://scripts/data/characters/LoyaltyGift.cs" id="M_4_r"]
 [ext_resource type="Script" path="res://scripts/data/characters/MobInventoryData.cs" id="M_5_r"]
 [ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_vyeshal_grammar.tres" id="M_6_r"]
@@ -579,7 +579,7 @@ language = ExtResource("9_errfs")
 conversation = ExtResource("17_h87o5")
 appearance = ExtResource("A_villager_elder_m")
 idleAnimation = &"idle_old_man"
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_gtttp"]
@@ -594,7 +594,7 @@ language = ExtResource("9_errfs")
 conversation = ExtResource("24_haao1")
 appearance = ExtResource("A_villager_hunter_m")
 idleAnimation = &"idle_neutral"
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_t3wb4"]
@@ -609,7 +609,7 @@ language = ExtResource("9_errfs")
 conversation = ExtResource("26_0s8ee")
 appearance = ExtResource("A_villager_archer_f")
 idleAnimation = &"idle_happy"
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_7x1my"]
@@ -624,7 +624,7 @@ language = ExtResource("9_errfs")
 conversation = ExtResource("28_1qnll")
 appearance = ExtResource("A_villager_plain_m")
 idleAnimation = &"idle_nervous"
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_hnnhv"]
@@ -653,7 +653,7 @@ idleAnimation = &""
 loyaltyGifts = Array[ExtResource("M_4_r")]([SubResource("MerchantGift")])
 inventory = [SubResource("MerchantStock")]
 recruitTemplate = ExtResource("34_haao1")
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_oe36o"]
@@ -668,7 +668,7 @@ language = ExtResource("9_errfs")
 conversation = ExtResource("35_38h8b")
 appearance = ExtResource("M_A_merchant_leather")
 idleAnimation = &"idle_old_man"
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_pkcg1"]
@@ -684,7 +684,7 @@ conversation = ExtResource("C_wanderer_talia")
 appearance = ExtResource("A_wanderer_talia")
 idleAnimation = &"idle_neutral"
 recruitTemplate = ExtResource("R_wanderer_talia")
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 
 [sub_resource type="Resource" id="Resource_0sxfu"]
@@ -729,7 +729,7 @@ conversation = ExtResource("45_haao1")
 appearance = ExtResource("A_hermit")
 appearances = [ExtResource("A_hermit"), ExtResource("M_A_merchant_leather"), ExtResource("A_villager_archer_f"), ExtResource("A_villager_elder_m"), ExtResource("41_vdcb2"), ExtResource("A_villager_hunter_m"), ExtResource("A_villager_plain_m"), ExtResource("A_wanderer_talia")]
 idleAnimation = &"dead"
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
@@ -771,7 +771,7 @@ conversation = ExtResource("45_4xkh0")
 appearance = ExtResource("A_villager_plain_m")
 appearances = [ExtResource("A_hermit"), ExtResource("M_A_merchant_leather"), ExtResource("A_villager_archer_f"), ExtResource("A_villager_elder_m"), ExtResource("41_vdcb2"), ExtResource("A_villager_hunter_m"), ExtResource("A_villager_plain_m"), ExtResource("A_wanderer_talia")]
 idleAnimation = &""
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
@@ -795,7 +795,7 @@ conversation = ExtResource("46_ova6p")
 appearance = ExtResource("A_villager_plain_m")
 appearances = [ExtResource("A_hermit"), ExtResource("M_A_merchant_leather"), ExtResource("A_villager_archer_f"), ExtResource("A_villager_elder_m"), ExtResource("41_vdcb2"), ExtResource("A_villager_hunter_m"), ExtResource("A_villager_plain_m"), ExtResource("A_wanderer_talia")]
 idleAnimation = &""
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
@@ -813,7 +813,7 @@ conversation = ExtResource("47_7c7kn")
 appearance = ExtResource("A_villager_plain_m")
 appearances = [ExtResource("A_hermit"), ExtResource("M_A_merchant_leather"), ExtResource("A_villager_archer_f"), ExtResource("A_villager_elder_m"), ExtResource("41_vdcb2"), ExtResource("A_villager_hunter_m"), ExtResource("A_villager_plain_m"), ExtResource("A_wanderer_talia")]
 idleAnimation = &""
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
@@ -831,7 +831,7 @@ conversation = ExtResource("24_1qnll")
 appearance = ExtResource("A_villager_plain_m")
 appearances = [ExtResource("A_hermit"), ExtResource("M_A_merchant_leather"), ExtResource("A_villager_archer_f"), ExtResource("A_villager_elder_m"), ExtResource("41_vdcb2"), ExtResource("A_villager_hunter_m"), ExtResource("A_villager_plain_m"), ExtResource("A_wanderer_talia")]
 idleAnimation = &""
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
@@ -848,7 +848,7 @@ conversation = ExtResource("49_l8e3m")
 appearance = ExtResource("A_villager_plain_m")
 appearances = [ExtResource("A_hermit"), ExtResource("M_A_merchant_leather"), ExtResource("A_villager_archer_f"), ExtResource("A_villager_elder_m"), ExtResource("41_vdcb2"), ExtResource("A_villager_hunter_m"), ExtResource("A_villager_plain_m"), ExtResource("A_wanderer_talia")]
 idleAnimation = &""
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
@@ -866,7 +866,7 @@ conversation = ExtResource("51_4xkh0")
 appearance = ExtResource("A_villager_archer_f")
 appearances = [ExtResource("A_hermit"), ExtResource("M_A_merchant_leather"), ExtResource("A_villager_archer_f"), ExtResource("A_villager_elder_m"), ExtResource("41_vdcb2"), ExtResource("A_villager_hunter_m"), ExtResource("A_villager_plain_m"), ExtResource("A_wanderer_talia")]
 idleAnimation = &"bowsneakidle"
-descriptor = ExtResource("D_standard_npc")
+species = ExtResource("D_standard_npc")
 initialBehavior = &""
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 

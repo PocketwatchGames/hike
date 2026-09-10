@@ -95,9 +95,9 @@ public sealed class AuthoringPaletteSource
 
     public const string Zones = "zones";
     public const string Regions = "regions";
-    public const string GroundSets = "ground_sets";
-    public const string PropLists = "prop_lists";
-    public const string MobSets = "mob_sets";
+    public const string TerrainKits = "terrain_kits";
+    public const string PropLists = "props";
+    public const string ScatterSets = "spawn_scatters";
     public const string WaterTypes = "water_types";
     public const string PavingBlocks = "paving_blocks";
     public const string Entities = "entities";
@@ -113,18 +113,18 @@ public sealed class AuthoringPaletteSource
         new(Regions, "Regions", typeof(RegionData), indexed: true,
             roots: new[] { new PaletteRoot(SHARED + "regions/", "Regions") }),
 
-        new(GroundSets, "Ground", typeof(GroundSetData), indexed: true,
-            roots: new[] { new PaletteRoot(AUTHORING + "ground_sets/", "Ground") }),
+        new(TerrainKits, "Ground", typeof(TerrainKitData), indexed: true,
+            roots: new[] { new PaletteRoot(AUTHORING + "terrain_kits/", "Ground") }),
 
         // What a painted region is made of. Whether it can be CLEARED is a
         // property of the scenes in the list — a breakable-rock list is a
         // barrier until it is broken — so nothing here has to say which kind of
         // barrier a list makes.
         new(PropLists, "Props", typeof(PropListData), indexed: true,
-            roots: new[] { new PaletteRoot(AUTHORING + "prop_lists/", "Props") }),
+            roots: new[] { new PaletteRoot(AUTHORING + "props/", "Props") }),
 
-        new(MobSets, "Mobs", typeof(SpawnScatterData), indexed: true,
-            roots: new[] { new PaletteRoot(AUTHORING + "mob_sets/", "Mobs") }),
+        new(ScatterSets, "Mobs", typeof(SpawnScatterData), indexed: true,
+            roots: new[] { new PaletteRoot(AUTHORING + "spawn_scatters/", "Mobs") }),
 
         // Every block the mesher draws as water, which is the same question
         // Blocks.IsWater asks — so a water type added later is paintable the

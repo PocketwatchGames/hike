@@ -54,7 +54,7 @@ public static class WorldFinish
         public Func<int, int, int> GroundYAt;
 
         // The generator's zone-weight kernel, for the detail scatter's
-        // dominant-kit pick. Null in a painted world, which assigns kits per
+        // dominant-terrain pick. Null in a painted world, which assigns terrains per
         // column deterministically and has no kernel to take an argmax of.
         public ZoneField Zones;
 
@@ -77,7 +77,7 @@ public static class WorldFinish
         // How mossy each column's ground and cave rock are, 0..1. Null skips the
         // moss pass. Worldgen answers from ZoneGenData through its zone kernel
         // (moss density is a property of the biome it is generating); the map
-        // painter answers from the kits its ground layer paints (there, moss is
+        // painter answers from the terrains its ground layer paints (there, moss is
         // a property of the material the author put down). Null skips the pass.
         public Func<int, int, (float surface, float cave)> MossCoverageAt;
 
@@ -268,19 +268,19 @@ public static class WorldFinish
     private const int CURRENT_STAMP_ABOVE = ChunkState.ENV_VOXELS_PER_CELL;
     private const int CURRENT_STAMP_BELOW = ChunkState.ENV_VOXELS_PER_CELL;
 
-    // Walks every surface voxel and stamps the voxel's kit's DefaultDetail
-    // wherever the appropriate noise field crosses the kit's threshold. Two
+    // Walks every surface voxel and stamps the voxel's terrain's DefaultDetail
+    // wherever the appropriate noise field crosses the terrain's threshold. Two
     // noise fields are kept (Surface vs other) so cave/submerged scatter
     // doesn't visually correlate with the surface scatter directly above;
-    // the kit's Purpose picks which one. Frequency is per-kit: each noise
+    // the terrain's Purpose picks which one. Frequency is per-terrain: each noise
     // object is sampled at base frequency 1, with coords pre-scaled by the
-    // kit's DetailNoiseFrequency, so kits within a single zone read
-    // different noise patterns (sharp transitions where kits change).
+    // terrain's DetailNoiseFrequency, so terrains within a single zone read
+    // different noise patterns (sharp transitions where terrains change).
     //
     // Two knobs, because the painter's bake runs this same pass over a painted
     // world (see WorldMapState.BuildWorld): `skipColumn` names the columns whose
     // surface is a deliberate tread — worldgen's roads, the painter's paving —
-    // and `zones` is null there, since a painted world assigns kits per column
+    // and `zones` is null there, since a painted world assigns terrains per column
     // deterministically and has no zone-weight kernel to take an argmax of.
     // Everything else — the surface walk, the gates, the noise, the strength
     // ramp — is shared rather than reimplemented per caller.
@@ -334,10 +334,10 @@ public static class WorldFinish
                         continue;
                     }
                     // IsSurfaceVoxel accepts water above (it's "non-solid"),
-                    // which suits the kit-tagging passes but would scatter
+                    // which suits the terrain-tagging passes but would scatter
                     // upright sprites at the water surface. Caves and test
-                    // lakes create new water voxels AFTER TagSubmergedKits
-                    // runs — the lake floor still carries SurfaceKit and
+                    // lakes create new water voxels AFTER TagSubmergedTerrains
+                    // runs — the lake floor still carries SurfaceTerrain and
                     // would otherwise spawn grass inside the water. Reject
                     // any surface voxel whose air-above slot is water.
                     if (Blocks.IsWater(ws.GetBlockWorld(wx, wy + 1, wz)))
@@ -347,7 +347,7 @@ public static class WorldFinish
                     // The water mesh also dilates a voxel laterally into the
                     // shore and skins that shell cell's top face at the
                     // waterline, so its ground is submerged even though the
-                    // slot above is air. Shore kits carry real detail (grass on
+                    // slot above is air. Shore terrains carry real detail (grass on
                     // shore_swamp, pebbles on shore_sand), so without this the
                     // waterline row sprouts sprites standing in the water.
                     if (WaterMesher.IsCoveredShell(getVoxel, wx, wy, wz))
@@ -357,7 +357,7 @@ public static class WorldFinish
 
                     // Surface detail follows the DETERMINISTIC dominant zone
                     // (argmax of the smooth zone-weight kernel), NOT this voxel's
-                    // stamped kit. Kit borders are assigned by a per-column random
+                    // stamped terrain. Terrain borders are assigned by a per-column random
                     // hash (PickWeightedZoneFromHash) so the terrain reads as a
                     // jagged organic transition once the shader blends it — but
                     // detail renders each per-column pick as a discrete sprite, so
@@ -367,32 +367,32 @@ public static class WorldFinish
                     // the dominant zone instead snaps its boundary to the blend
                     // midline, so detail tracks the terrain's visual transition
                     // rather than its per-voxel randomness. Cave / submerged
-                    // detail keeps the voxel's own kit (less visible, not the
-                    // reported problem). The chosen kit's DetailNoise* thresholds
+                    // detail keeps the voxel's own terrain (less visible, not the
+                    // reported problem). The chosen terrain's DetailNoise* thresholds
                     // still drive presence/strength below.
                     int voxelTerrainId = ws.GetTerrainIdWorld(wx, wy, wz);
-                    bool isSurface = ws.Kits.IsSurfaceKit(voxelTerrainId);
-                    TerrainKitData kit = isSurface && zones != null
-                        ? (zones.DominantSurfaceKit(wx, wz) ?? ws.Kits.KitAt(voxelTerrainId))
-                        : ws.Kits.KitAt(voxelTerrainId);
-                    if (kit == null || kit.defaultDetail == null)
+                    bool isSurface = ws.Terrains.IsSurfaceTerrain(voxelTerrainId);
+                    TerrainData terrain = isSurface && zones != null
+                        ? (zones.DominantSurfaceTerrain(wx, wz) ?? ws.Terrains.TerrainAt(voxelTerrainId))
+                        : ws.Terrains.TerrainAt(voxelTerrainId);
+                    if (terrain == null || terrain.defaultDetail == null)
                     {
                         continue;
                     }
 
                     FastNoiseLite noise = isSurface ? surfaceNoise : subsurfaceNoise;
-                    float n = noise.GetNoise2D(wx * kit.detailNoiseFrequency, wz * kit.detailNoiseFrequency);
-                    if (n <= kit.detailNoiseThreshold)
+                    float n = noise.GetNoise2D(wx * terrain.detailNoiseFrequency, wz * terrain.detailNoiseFrequency);
+                    if (n <= terrain.detailNoiseThreshold)
                     {
                         continue;
                     }
 
-                    // Map noise (threshold..1) to (strengthMin..255). The kit
+                    // Map noise (threshold..1) to (strengthMin..255). The terrain
                     // owns both the threshold and the floor, so a sandstone-
-                    // cave kit can thin its pebble scatter without affecting
-                    // a sibling kit in the same zone.
-                    float t = (n - kit.detailNoiseThreshold) / Math.Max(0.0001f, 1f - kit.detailNoiseThreshold);
-                    int strengthMin = kit.detailStrengthMin;
+                    // cave terrain can thin its pebble scatter without affecting
+                    // a sibling terrain in the same zone.
+                    float t = (n - terrain.detailNoiseThreshold) / Math.Max(0.0001f, 1f - terrain.detailNoiseThreshold);
+                    int strengthMin = terrain.detailStrengthMin;
                     int strength = strengthMin + (int)(t * (255 - strengthMin));
                     strength = Mathf.Clamp(strength, 0, 255);
                     if (strength <= 0)
@@ -400,7 +400,7 @@ public static class WorldFinish
                         continue;
                     }
 
-                    ws.SetDetailGroupWorld(wx, wy, wz, ws.Kits.DetailSlotOf(kit.defaultDetail));
+                    ws.SetDetailGroupWorld(wx, wy, wz, ws.Terrains.DetailSlotOf(terrain.defaultDetail));
                     ws.SetDetailStrengthWorld(wx, wy, wz, strength);
                 }
             }
@@ -671,7 +671,7 @@ public static class WorldFinish
     // Bucket-fill ground fog. For each zone we compute a "fog level" Y_i
     // by pouring a humidity-scaled volume into the zone's heightmap (sorted
     // floor heights, water-clamped) and finding where it settles. Per voxel
-    // the level blends across zones via the prop/kit kernel; density falls
+    // the level blends across zones via the prop/terrain kernel; density falls
     // off linearly with distance below the level. Only open-to-sky voxels
     // get seeded — caves / tunnels stay fog-free.
     // `groundYAt` is the TERRAIN the fog pools over, not the top of the world:
@@ -1162,7 +1162,7 @@ public static class WorldFinish
                         continue;
                     }
 
-                    bool isCave = ws.Kits.IsCaveKit(ws.GetTerrainIdWorld(wx, wy, wz));
+                    bool isCave = ws.Terrains.IsCaveTerrain(ws.GetTerrainIdWorld(wx, wy, wz));
                     float coverage = isCave ? caveCoverage : surfaceCoverage;
                     if (coverage <= 0f)
                     {

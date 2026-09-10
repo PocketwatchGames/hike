@@ -86,7 +86,7 @@ public partial class MobHUD : Node2D
 		_mob = mob;
 		Visible = true;
 		// Badge the health bar with the mob's marker icon, authored on its
-		// MobDescriptor (MobDescriptor.badge). Fixed at spawn, so resolve the
+		// spawn's EliteData (EliteData.badge). Fixed at spawn, so resolve the
 		// texture + visibility once here rather than per frame; the icon then
 		// tracks the health bar's visibility automatically as a child of it in
 		// the scene.

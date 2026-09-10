@@ -114,7 +114,7 @@ public static class MinimapData
     // winning column.
     //
     // `detailPalette` is the active world's detail palette (the deduplicated
-    // set of DefaultDetail groups across all kits, uploaded via
+    // set of DefaultDetail groups across all terrains, uploaded via
     // ChunkMesh.SetDetailGroups); null is allowed — foliage stays 0 in
     // that case.
     //

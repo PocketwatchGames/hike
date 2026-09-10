@@ -28,7 +28,7 @@ public class MobTool : IWorldMapTool
 
     public string[] Options(WorldMapState ctx)
     {
-        SpawnScatterData[] sets = ctx.MobSets;
+        SpawnScatterData[] sets = ctx.ScatterSets;
         var names = new string[sets.Length];
         for (int i = 0; i < names.Length; i++)
         {
@@ -39,7 +39,7 @@ public class MobTool : IWorldMapTool
 
     public Color[] OptionColors(WorldMapInk ink)
     {
-        SpawnScatterData[] sets = ink.Map.MobSets;
+        SpawnScatterData[] sets = ink.Map.ScatterSets;
         var colors = new Color[sets.Length];
         for (int i = 0; i < colors.Length; i++)
         {
@@ -48,8 +48,8 @@ public class MobTool : IWorldMapTool
         return colors;
     }
 
-    // No 1-9: mob sets are a directory, so the first nine rows are an arbitrary prefix that
-    // moves whenever one is added.
+    // No 1-9: scatter sets are a directory, so the first nine rows are an
+    // arbitrary prefix that moves whenever one is added.
     public bool NumberKeys => false;
 
     public int OptionIndex
@@ -60,7 +60,7 @@ public class MobTool : IWorldMapTool
 
     public Color CursorColor(WorldMapInk ink)
     {
-        SpawnScatterData[] sets = ink.Map.MobSets;
+        SpawnScatterData[] sets = ink.Map.ScatterSets;
         return SetIndex >= 0 && SetIndex < sets.Length && sets[SetIndex] != null
             ? sets[SetIndex].mapColor
             : Colors.White;
@@ -68,7 +68,7 @@ public class MobTool : IWorldMapTool
 
     public SpawnScatterData SelectedScatter(WorldMapState ctx)
     {
-        SpawnScatterData[] sets = ctx.MobSets;
+        SpawnScatterData[] sets = ctx.ScatterSets;
         return SetIndex >= 0 && SetIndex < sets.Length ? sets[SetIndex] : null;
     }
 
@@ -76,9 +76,9 @@ public class MobTool : IWorldMapTool
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
-        SpawnScatterData[] sets = ctx.MobSets;
+        SpawnScatterData[] sets = ctx.ScatterSets;
         string label = SetIndex >= 0 && SetIndex < sets.Length ? sets[SetIndex]?.Label : null;
-        return string.IsNullOrEmpty(label) ? "No mob sets authored" : label;
+        return string.IsNullOrEmpty(label) ? "No scatter sets authored" : label;
     }
 
     public string LevelText(WorldMapState ctx, WorldMapView view) => $"Density {Mathf.RoundToInt(Density * 100f)}%";
@@ -108,7 +108,7 @@ public class MobTool : IWorldMapTool
     public Rect2I? LastPaintRect => null;
     public void Cycle(WorldMapState ctx, int dir)
     {
-        int n = Mathf.Max(1, ctx.MobSets.Length);
+        int n = Mathf.Max(1, ctx.ScatterSets.Length);
         SetIndex = ((SetIndex + dir) % n + n) % n;
     }
 

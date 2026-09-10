@@ -8,7 +8,7 @@ using Godot;
 // water_type.png all do — which makes the slot a file occupies a wire format.
 // A slot that moves silently re-zones or re-textures every world already baked
 // against it, with the stored bytes still perfectly valid. Same rule and same
-// reason as KitPaletteData: APPEND ONLY, and the painter is the only thing that
+// reason as TerrainPaletteData: APPEND ONLY, and the painter is the only thing that
 // writes it.
 //
 // PATHS, not typed [Export] references. A path survives its file being deleted:

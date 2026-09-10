@@ -186,10 +186,6 @@ public static class DebugVerbs
         int count = tokens.Length > 1 && int.TryParse(tokens[1], out int c) ? Mathf.Clamp(c, 1, MaxSpawnCount) : 1;
         int level = tokens.Length > 2 && int.TryParse(tokens[2], out int l) ? Mathf.Max(0, l) : 0;
 
-        // A descriptor is the spawn-facing composition of a species with a level;
-        // building one here is the same thing an authored spawn entry holds, and
-        // it never reaches disk.
-        var descriptor = new MobDescriptor { species = species, level = level };
         WorldState ws = sim.WorldState;
         Vector3 origin = player.GlobalPosition;
 
@@ -201,7 +197,7 @@ public static class DebugVerbs
             // Transient: a debug spawn must not be recorded in WorldState, or it
             // persists into the worldgen cache and re-materializes on every later
             // run of that world.
-            if (sim.SpawnMobTransient(descriptor, ResolveStandable(ws, at), ESpawnConditions.None, level) != null)
+            if (sim.SpawnMobTransient(species, ResolveStandable(ws, at), ESpawnConditions.None, level) != null)
             {
                 spawned++;
             }

@@ -4,7 +4,7 @@ using Godot;
 //
 // A BLOCK, not an overlay, which is where this parts company with worldgen's
 // road pass: that lays a BlockSurfaceData tread as an additive skin over the
-// kit's block, so it blends softly into the terrain but carries no material
+// terrain's block, so it blends softly into the terrain but carries no material
 // properties at all (no footstep sound, no speed multiplier, no dig yield) and
 // occupies the one overlay slot climbing routes and moss also want. A painted
 // road is a deliberate, hand-placed thing, so it gets to BE its material — the
@@ -20,7 +20,7 @@ using Godot;
 // floor with something above it stores an absolute Y, which is the same split
 // EntityPlacement.floorY makes.
 //
-// The rock under a road is still the hillside's, and the kit channel keeps its
+// The rock under a road is still the hillside's, and the terrain channel keeps its
 // own value: it says what the column is made of, which a road laid over it does
 // not change.
 public class PaveTool : IWorldMapTool

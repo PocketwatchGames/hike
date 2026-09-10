@@ -759,7 +759,7 @@ public partial class WorldEditor : Node3D
 
     // One button per catalog block, in catalog order. Air is skipped — the
     // Erase operation writes it — and so is anything the catalog left
-    // unauthored. Painting a block is now the whole story: no kit indirection,
+    // unauthored. Painting a block is now the whole story: no terrain indirection,
     // no separate auto/literal split, and every block in the catalog is
     // reachable rather than just the handful a VoxelType named.
     private void BuildVoxelBrushes()
@@ -3684,7 +3684,7 @@ public partial class WorldEditor : Node3D
         // whatever the process happened to have bound, which worked only because
         // Main had bound the same genData moments earlier.
         var ws = new WorldState(min, max, genData.simData,
-            KitPalette.Build(genData.kitPalette));
+            TerrainPalette.Build(genData.terrainPalette));
 
         // Mirror WorldGen's zone setup so the sky preview has something
         // to blend in the editor. ZoneIndex stays 0 across all chunks

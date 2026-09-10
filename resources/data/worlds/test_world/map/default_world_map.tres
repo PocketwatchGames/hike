@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="WorldMapData" format=3 uid="uid://e8dg4qt8u74x"]
 
 [ext_resource type="Script" uid="uid://q4y8a0jvwr2y" path="res://scripts/data/worldmap/WorldMapData.cs" id="1_wmd"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/ground_sets/mountain_ground.tres" id="dg"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/terrain_kits/mountain.tres" id="dg"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/world_finish_data.tres" id="wm_finish"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/kits/kit_palette.tres" id="wm_kits"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/terrain/terrain_palette.tres" id="wm_kits"]
 [ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="wm_sim"]
 [ext_resource type="Resource" uid="uid://comperp28v2jt" path="res://resources/data/worlds/test_world/world_start_test.tres" id="wm_start"]
 
@@ -11,7 +11,7 @@
 script = ExtResource("1_wmd")
 startContent = ExtResource("wm_start")
 finish = ExtResource("wm_finish")
-kitPalette = ExtResource("wm_kits")
+terrainPalette = ExtResource("wm_kits")
 simData = ExtResource("wm_sim")
 defaultGround = ExtResource("dg")
 sizeChunksX = 36

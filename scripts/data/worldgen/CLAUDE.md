@@ -2,7 +2,7 @@
 
 Covers the authored worldgen resources in this folder and the pluggable terrain
 approaches they select. The algorithms themselves live in
-`scripts/voxels/terrain/`; the approach-agnostic passes (kits, roads, props,
+`scripts/voxels/terrain/`; the approach-agnostic passes (terrains, roads, props,
 spawns, fog, lighting) live in `scripts/voxels/WorldGen.cs`.
 
 For the `.hike` file format and the streaming roadmap, see
@@ -75,7 +75,7 @@ field to `BlendedZoneGen` — that struct deliberately does not grow per approac
 A zone carrying another approach's resource should contribute *defaults*, not
 drop out of the sum, or it silently skews its neighbours' share.
 
-## The kit palette is a WIRE FORMAT (`KitPaletteData`)
+## The terrain palette is a WIRE FORMAT (`TerrainPaletteData`)
 
 `WorldGenData.kitPalette` is the slot table `ChunkState.TerrainId` indexes — one
 byte per voxel, in memory and in every `.hike`. Three rules follow, and none of
@@ -83,21 +83,21 @@ them is a style preference:
 
 - **APPEND ONLY.** Insert, remove or reorder a slot and every world already baked
   comes back re-textured. Nothing about the stored bytes looks wrong when that
-  happens — they stay valid and simply name a different kit. `WorldFile` v47
+  happens — they stay valid and simply name a different terrain. `WorldFile` v47
   records the slot paths (and the detail palette's, which is derived from the
-  kits' `defaultDetail` and can move on its own) and `Main.LoadWorldFromFile`
+  terrains' `defaultDetail` and can move on its own) and `Main.LoadWorldFromFile`
   refuses a world whose palette moved, naming the slot.
 - **It is authored, not derived.** It used to be built by walking `zones` and
-  collecting each zone's four kit slots in declaration order, which made the wire
+  collecting each zone's four terrain slots in declaration order, which made the wire
   format a side effect of zone *placement* — adding a zone re-textured every
-  baked world — and gave no slot at all to a kit no zone referenced, so anything
+  baked world — and gave no slot at all to a terrain no zone referenced, so anything
   naming one silently fell back to slot 0.
-- **It belongs to the world.** `WorldState.Kits` (a `KitPalette`) resolves it to
+- **It belongs to the world.** `WorldState.Terrains` (a `TerrainPalette`) resolves it to
   the flat slot→block / slot→purpose tables the per-voxel loops read. It is not
   process state: two worlds can exist at once (the map painter bakes one on a
   background thread while another is live), and it outlives generation.
 
-`EKitPurpose` stays DERIVED from the zones, because nothing outside worldgen
+`ETerrainPurpose` stays DERIVED from the zones, because nothing outside worldgen
 reads it — it answers "is this voxel the zone's surface ground?" for the scatter
 and overlay passes, and a painted world that places no zones simply has none.
 
@@ -135,10 +135,10 @@ these are the invariants a new approach owes its consumers:
   **Consumers must go through `TerrainMath.WaterYAt(heightMap, wx, wz)`**, which is
   `max(WATER_LEVEL, GetWaterY(...))`. Comparing against `WATER_LEVEL` alone is
   the bug this channel exists to fix: it says a lake floor 8 voxels above sea
-  level is dry land. Chunk fill, the shore-kit bands above and below the
+  level is dry land. Chunk fill, the shore-terrain bands above and below the
   waterline, `IsFlatDryGrassAt` and road passability all read it. Passes that
   test the VOXELS instead (`GetVoxelWorld(...) == VoxelType.Water` — the
-  submerged-kit tagging, water-entity spawns, fog's open-to-sky scan) were
+  submerged-terrain tagging, water-entity spawns, fog's open-to-sky scan) were
   already correct and needed no change.
 - **Waterfalls are NOT a `HeightMap` channel.** A terrain approach reports no
   cascades at all. They are found after the fact by `WaterfallFinder`, off the

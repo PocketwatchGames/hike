@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TerrainData" format=3 uid="uid://2fxll1oeroha"]
+
+[ext_resource type="Resource" uid="uid://bveu2uy5pjcn5" path="res://resources/data/voxels/blocks/block_forest_soil.tres" id="1_dp3f2"]
+[ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://hv046le0b30u" path="res://resources/data/world_authoring/terrain/details/detail_grass.tres" id="3_detail"]
+
+[resource]
+script = ExtResource("1_script")
+purpose = 1
+block = ExtResource("1_dp3f2")
+defaultDetail = ExtResource("3_detail")
+mossCoverage = 0.3
+detailNoiseThreshold = -0.5

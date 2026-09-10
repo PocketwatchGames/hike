@@ -1,25 +1,29 @@
 using Godot;
 
 // A named, paintable set of ENTITIES to scatter over an area by rule — the
-// wildlife, chests, loot and campfires of a place. The world-map painter's mob
-// palette (AuthoringPaletteSource.MobSets) is a directory of these.
+// wildlife, forage, traps and chests of a place. The world-map painter's mob
+// palette (AuthoringPaletteSource.ScatterSets) is a directory of these:
+// `world_authoring/spawn_scatters/`.
 //
-// It exists so "swamp wildlife" is defined ONCE: the same set can be painted
-// anywhere on a map, referenced by a preset, and named by a generator kit's
-// SpawnGenData, which no per-zone inline list could do without replicating
-// itself.
+// It IS a SpawnListData — the rows, the rates and the entries are the base
+// class's — plus the two things a PALETTE needs on top of a list: a name and a
+// colour to tell one set from another at a glance. So anywhere a spawn list is
+// wanted a scatter set will do, including a generator zone pass.
 //
-// The rows do the placing. A SpawnListRow carries its OWN rate
-// (squareMetersPerSpawn) plus the shared entry that knows how to spawn, so this
-// adds only what a PALETTE needs on top of a list: a name and a colour to tell
-// one set from another at a glance.
+// The rows were a SEPARATE file until nothing shared them. The indirection was
+// there so one ambient_swamp.tres could be named by a painted set and by the
+// generator's zone passes at once — and once the generator's own lists moved to
+// world_gen/, every ambient list had exactly one referrer, its own set. Two
+// files per set bought a sharing nobody was doing. What it costs is that two
+// sets wanting identical wildlife author it twice (swamp and swamp_fire today);
+// that is the ordinary price of an embedded list, and forking is what an author
+// wants the moment the two diverge.
 //
-// Split out of the old SpawnSetData, which also carried the generator's tree and
-// grass scatter — two channels no authored file ever used together (every
-// mob_sets/*.tres set only entities, every prop_sets/*.tres only trees and
-// grass). That half is SpawnGenData now.
+// It is NOT a "mob set", which is what the directory used to be called: what a
+// set holds is whatever its rows name, and today that is mushrooms, berry
+// trees, traps and buried spots as much as goblins.
 [GlobalClass]
-public partial class SpawnScatterData : Resource
+public partial class SpawnScatterData : SpawnListData
 {
     // Shown on the painter's palette button and in the map legend.
     [Export] public string displayName = "";
@@ -29,14 +33,10 @@ public partial class SpawnScatterData : Resource
     // told apart at a glance.
     [Export] public Color mapColor = new Color(0.4f, 0.8f, 0.4f);
 
-    // The rows themselves, as a shared list — so one ambient_swamp.tres is named
-    // by this set and by the generator's zone passes rather than authored twice.
-    [Export] public SpawnListData entities;
-
-    // Managed mirror of entities.rows. The map preview asks for these once per
-    // column per rebuild — tens of thousands of reads — and a
-    // Godot.Collections.Array marshals a Variant on every index and on .Count.
-    // Safe to cache without invalidation because *Data is immutable after load.
+    // Managed mirror of rows. The map preview asks for these once per column per
+    // rebuild — tens of thousands of reads — and a Godot.Collections.Array
+    // marshals a Variant on every index and on .Count. Safe to cache without
+    // invalidation because *Data is immutable after load.
     private SpawnListRow[] _rowsFlat;
 
     public SpawnListRow[] RowsFlat
@@ -45,7 +45,7 @@ public partial class SpawnScatterData : Resource
         {
             if (_rowsFlat == null)
             {
-                Godot.Collections.Array<SpawnListRow> src = entities?.rows;
+                Godot.Collections.Array<SpawnListRow> src = rows;
                 int n = src?.Count ?? 0;
                 _rowsFlat = new SpawnListRow[n];
                 for (int i = 0; i < n; i++)

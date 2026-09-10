@@ -1,16 +1,16 @@
 [gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://c2slw3bih2n7x"]
 
-[ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_authoring/spawn_lists/cave_entities_swamp.tres" id="1_4w8xh"]
-[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/kits/cave_limestone_kit.tres" id="2_5sonw"]
-[ext_resource type="Resource" uid="uid://q2e4ot8c2scra" path="res://resources/data/world_authoring/kits/shore_swamp_kit.tres" id="3_q5oop"]
-[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/kits/underwater_kit.tres" id="4_b1dty"]
-[ext_resource type="Resource" uid="uid://ge7gvocm4hnn" path="res://resources/data/world_authoring/spawn_lists/surface_entities_swamp_highlands.tres" id="5_4w8xh"]
-[ext_resource type="Resource" uid="uid://csjvdcg5sawpo" path="res://resources/data/world_authoring/kits/swamp_highlands_kit.tres" id="6_4w8xh"]
+[ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_gen/spawn_lists/cave_entities_swamp.tres" id="1_4w8xh"]
+[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="2_5sonw"]
+[ext_resource type="Resource" uid="uid://q2e4ot8c2scra" path="res://resources/data/world_authoring/terrain/shore_swamp.tres" id="3_q5oop"]
+[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="4_b1dty"]
+[ext_resource type="Resource" uid="uid://ge7gvocm4hnn" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp_highlands.tres" id="5_4w8xh"]
+[ext_resource type="Resource" uid="uid://csjvdcg5sawpo" path="res://resources/data/world_authoring/terrain/swamp_highlands.tres" id="6_4w8xh"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_4e6x3"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="10_grp"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab2.tres" id="12_stone"]
 [ext_resource type="Resource" uid="uid://xbjl27pt7p61" path="res://resources/data/world_authoring/zones/swamp_highlands.tres" id="14_cpg00"]
-[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_authoring/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
+[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Resource" uid="uid://8dvmhkjhd6ma" path="res://resources/data/items/consumables/treasure_map_swamp_highlands.tres" id="96_map"]
 [ext_resource type="Resource" uid="uid://xmew3vh89yk20" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_4.tres" id="97_spot"]
@@ -20,6 +20,7 @@
 [ext_resource type="Script" uid="uid://bngmvmgus5vlm" path="res://scripts/data/worldgen/PlateauZoneTerrainData.cs" id="swamp_highlands_gen_zoneterrain"]
 
 [ext_resource type="Script" uid="uid://7e84n3wjhwhdz" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
+[ext_resource type="Resource" uid="uid://558a5fhxihqs" path="res://resources/data/world_gen/foliage_gen/swamp_highlands.tres" id="F_foliage"]
 
 [sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")
@@ -58,10 +59,11 @@ metadata/_custom_type_script = "uid://3pbpzzvmrk0vy"
 [resource]
 script = ExtResource("8_4e6x3")
 zone = ExtResource("14_cpg00")
-surfaceKit = ExtResource("6_4w8xh")
-caveKit = ExtResource("2_5sonw")
-submergedKit = ExtResource("4_b1dty")
-shoreKit = ExtResource("3_q5oop")
+surfaceTerrain = ExtResource("6_4w8xh")
+foliage = ExtResource("F_foliage")
+caveTerrain = ExtResource("2_5sonw")
+submergedTerrain = ExtResource("4_b1dty")
+shoreTerrain = ExtResource("3_q5oop")
 terrain = SubResource("ZoneTerrain_swamp_highlands_gen")
 grassThreshold = 0.5
 mobLevelMin = 2

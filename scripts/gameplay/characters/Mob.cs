@@ -195,11 +195,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // that have SimData should prefer SimData.LevelPoolMultiplier.
     public static float PoolLevelMultiplier(float scalePerLevel, int level) => level <= 0 ? 1f : Mathf.Pow(scalePerLevel, level);
     public float armor { get => _simState.Armor; set => _simState.Armor = value; }
-    // Elite marker, authored on the spawning MobDescriptor. Drives the crown,
+    // Elite marker, authored on the spawning MobSpawnEntry. Drives the crown,
     // shared elite buff, and crown-trophy loot; the signature effect rides
     // StatusEffects and the HUD icon rides Badge. Immutable after spawn.
     public bool IsElite => _simState?.Elite ?? false;
-    // HUD badge icon authored on the spawning MobDescriptor (null = none), read
+    // HUD badge icon authored on the spawn's EliteData (null = none), read
     // once by MobHUD at init.
     public Texture2D Badge => _simState?.Badge;
 
@@ -887,7 +887,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             SpawnEliteCrown();
         }
 
-        // Per-instance status effects authored on the spawning MobDescriptor
+        // Per-instance status effects authored on the spawning SpeciesData
         // (MobSimState.StatusEffects) — a buff/aura channel independent of the
         // elite signature, applied whether or not the mob is elite. Routed the
         // same way (weapon-mod onto weapons, else onto the body) and re-applied
@@ -957,7 +957,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the head. Shares the mob's
     // render stack via crown_lit.tres, so it silhouettes / X-rays in lockstep —
     // the per-frame discovery push happens in _Process alongside the body's.
-    // The elite's own descriptor (EliteMobDescriptor.crownScene) overrides the
+    // The elite's own signature (EliteData.crownScene) overrides the
     // shared SimData.EliteCrownScene when set, so a signature can carry its own
     // crown. No-op (and no marker) when neither authors a crown scene.
     private void SpawnEliteCrown()

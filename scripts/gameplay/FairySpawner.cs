@@ -19,7 +19,7 @@ using Godot;
 // Spawns are TRANSIENT (Sim.SpawnMobTransient with ESpawnConditions.None — which
 // the off-condition cleanup ignores) — like the night gellies they live only near
 // the player and vanish with their chunk, never persisted. Dormant (no cost) when
-// SimData has no fairySpawnDescriptor.
+// SimData has no fairySpawnSpecies.
 //
 // Each fairy also has a bounded lifetime (SimData.fairyLifetimeDayFraction of a
 // day). Once a fairy outlives it, ReapExpired despawns it — but only while it
@@ -89,7 +89,7 @@ public partial class FairySpawner : Node
         Sim sim = Sim.Current;
         SimData data = sim?.SimData;
         // Dormant unless a fairy is wired up (and its descriptor resolves a species).
-        if (sim == null || data == null || data.fairySpawnDescriptor?.species == null)
+        if (sim == null || data == null || data.fairySpawnSpecies?.mob == null)
         {
             return;
         }
@@ -179,7 +179,7 @@ public partial class FairySpawner : Node
     // next frame).
     private Mob TrySpawnFairy(Sim sim, SimData data, Player player, int level)
     {
-        MobData mob = data.fairySpawnDescriptor.mob;
+        MobData mob = data.fairySpawnSpecies.mob;
         if (mob == null)
         {
             return null;
@@ -194,7 +194,7 @@ public partial class FairySpawner : Node
             return null;
         }
         Vector3 pos = _standable[_rng.RandiRange(0, _standable.Count - 1)];
-        return sim.SpawnMobTransient(data.fairySpawnDescriptor, pos, ESpawnConditions.None, level);
+        return sim.SpawnMobTransient(data.fairySpawnSpecies, pos, ESpawnConditions.None, level);
     }
 
     // Despawn fairies whose lifetime has lapsed, but only while they aren't being
@@ -254,14 +254,14 @@ public partial class FairySpawner : Node
     }
 
     // Count a player kill of a fairy toward the day's kill-stop threshold. Matches by
-    // species against the fairy descriptor; damagedByPlayer gates out non-player deaths.
+    // species against the authored fairy; damagedByPlayer gates out non-player deaths.
     private void OnMobKilled(SpeciesData species, bool damagedByPlayer)
     {
         if (!damagedByPlayer)
         {
             return;
         }
-        SpeciesData fairySpecies = Sim.Current?.SimData?.fairySpawnDescriptor?.species;
+        SpeciesData fairySpecies = Sim.Current?.SimData?.fairySpawnSpecies;
         if (fairySpecies != null && species == fairySpecies)
         {
             _killedToday++;

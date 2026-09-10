@@ -18,7 +18,7 @@ guaranteed, and what was tried and rejected. `../CLAUDE.md` carries the summary.
 | The two tools + their shared view | `scripts/worldmap/tools/PropPaintTool.cs` |
 | Map dots | `scripts/worldmap/WorldMapPainter.cs` (`DrawPropDots`), inks on `WorldMapInkData` |
 | Measured shapes (shared with the minimap) | `scripts/gameplay/minimap/PropFootprint.cs` |
-| Authored lists | `resources/data/world_authoring/prop_lists/*.tres` (9 today) |
+| Authored lists | `resources/data/world_authoring/props/*.tres` (10 today) |
 | Reporting | `scripts/worldmap/WorldMapCheck.cs` — the `props:` line |
 
 One layer, one `R8` raster, one palette:
@@ -28,7 +28,7 @@ One layer, one `R8` raster, one palette:
   the list, not of the raster it was painted on — which is why the second
   ("breakable") layer is gone: it could state no difference the list did not.
 - It stores `prop list index + 1`; 0 = unpainted. The palette is
-  `AuthoringPaletteSource.PropLists`, discovered from `prop_lists/`, ledgered in
+  `AuthoringPaletteSource.PropLists`, discovered from `world_authoring/props/`, ledgered in
   `map/palettes.tres` like every other indexed palette.
 - **No density channel and no spacing.** The raster says only *which list covers
   this column*; everything else is a property of the list.

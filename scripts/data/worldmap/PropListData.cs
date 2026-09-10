@@ -19,7 +19,7 @@ using Godot;
 // of the scenes in the list and not of the painting, which is why there is one
 // prop layer and not two (see PropPaintTool).
 //
-// Distinct from SpawnGenData, which is the GENERATOR's ambient scatter (kits
+// Distinct from FoliageGenData, which is the GENERATOR's ambient scatter (terrains
 // reference one, and its noise fields are what shape a wood) — that is scenery
 // grown by rule, this is furniture placed by hand.
 [GlobalClass]

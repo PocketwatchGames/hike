@@ -1,6 +1,6 @@
 using Godot;
 
-// Paints which GroundSetData a column's voxels are stamped from. Erase clears
+// Paints which TerrainKitData a column's voxels are stamped from. Erase clears
 // back to 0, which means "inherit this column's zone", so a map can be zoned
 // broadly and then have its ground detailed only where it matters.
 public class GroundTool : IWorldMapTool
@@ -18,7 +18,7 @@ public class GroundTool : IWorldMapTool
 
     public string[] Options(WorldMapState ctx)
     {
-        GroundSetData[] sets = ctx.GroundSets;
+        TerrainKitData[] sets = ctx.Terrains;
         var names = new string[sets.Length];
         for (int i = 0; i < names.Length; i++)
         {
@@ -29,7 +29,7 @@ public class GroundTool : IWorldMapTool
 
     public Color[] OptionColors(WorldMapInk ink)
     {
-        GroundSetData[] sets = ink.Map.GroundSets;
+        TerrainKitData[] sets = ink.Map.Terrains;
         var colors = new Color[sets.Length];
         for (int i = 0; i < colors.Length; i++)
         {
@@ -50,7 +50,7 @@ public class GroundTool : IWorldMapTool
 
     public Color CursorColor(WorldMapInk ink)
     {
-        GroundSetData[] sets = ink.Map.GroundSets;
+        TerrainKitData[] sets = ink.Map.Terrains;
         return SetIndex >= 0 && SetIndex < sets.Length && sets[SetIndex] != null
             ? sets[SetIndex].mapColor
             : Colors.White;
@@ -60,7 +60,7 @@ public class GroundTool : IWorldMapTool
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
-        GroundSetData[] sets = ctx.GroundSets;
+        TerrainKitData[] sets = ctx.Terrains;
         string label = SetIndex >= 0 && SetIndex < sets.Length ? sets[SetIndex]?.Label : null;
         return string.IsNullOrEmpty(label) ? "No ground sets authored" : label;
     }
@@ -86,7 +86,7 @@ public class GroundTool : IWorldMapTool
     public Rect2I? LastPaintRect => null;
     public void Cycle(WorldMapState ctx, int dir)
     {
-        int n = Mathf.Max(1, ctx.GroundSets.Length);
+        int n = Mathf.Max(1, ctx.Terrains.Length);
         SetIndex = ((SetIndex + dir) % n + n) % n;
     }
 

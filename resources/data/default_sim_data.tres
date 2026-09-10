@@ -58,13 +58,13 @@
 [ext_resource type="Resource" uid="uid://fp15da45hia6" path="res://resources/data/status_effects/upgrades/upgrade_armor_vigor.tres" id="53_up_vigor"]
 [ext_resource type="Resource" uid="uid://bt81x27m5jlgw" path="res://resources/data/status_effects/upgrades/upgrade_ranged_siphon.tres" id="54_up_siphon"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="55_status_wet"]
-[ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="56_mobdesc_script"]
-[ext_resource type="Resource" uid="uid://66a6mftyd54c" path="res://resources/data/world_authoring/mob_descriptors/slime_cube.tres" id="56_slime_cube"]
-[ext_resource type="Resource" uid="uid://dthjice7pvftr" path="res://resources/data/world_authoring/mob_descriptors/slime_sphere.tres" id="56_slime_sphere"]
+[ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="56_mobdesc_script"]
+[ext_resource type="Resource" uid="uid://cssgellycube1" path="res://resources/data/characters/slime/slime_cube_subspecies.tres" id="56_slime_cube"]
+[ext_resource type="Resource" uid="uid://cssgellysph01" path="res://resources/data/characters/slime/slime_sphere_subspecies.tres" id="56_slime_sphere"]
 [ext_resource type="Resource" uid="uid://diat8vsx8cp1i" path="res://resources/data/status_effects/status_sunburn.tres" id="57_sunburn"]
 [ext_resource type="Resource" uid="uid://jy11bcghauj" path="res://resources/data/status_effects/well_rested.tres" id="57_wellrested"]
 [ext_resource type="PackedScene" uid="uid://cdp51pqxsqfi3" path="res://scenes/fx/well_rested_loop.tscn" id="58_wellrestedfx"]
-[ext_resource type="Resource" uid="uid://cmdfairy00001" path="res://resources/data/world_authoring/mob_descriptors/fairy.tres" id="60_fairy_desc"]
+[ext_resource type="Resource" uid="uid://cssfairy00001" path="res://resources/data/characters/fairy/fairy_subspecies.tres" id="60_fairy_desc"]
 [ext_resource type="Script" uid="uid://byi5eqt4vd0wb" path="res://scripts/data/items/SpellData.cs" id="70_spell_script"]
 [ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/spells/dog_treat.tres" id="71_spell_dog_treat"]
 [ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/spells/divine_cleanse.tres" id="73_spell_cure_poison"]
@@ -144,7 +144,7 @@ nightfallFalloff = 1.0
 rippleWindRef = 30.0
 canopyDensity = 0.35
 nightSpawnMobs = Array[ExtResource("56_mobdesc_script")]([ExtResource("56_slime_cube"), ExtResource("56_slime_sphere")])
-fairySpawnDescriptor = ExtResource("60_fairy_desc")
+fairySpawnSpecies = ExtResource("60_fairy_desc")
 footprintMaterial = ExtResource("1_atie7")
 roofCapMaskMaterial = ExtResource("75_roofcapmask")
 roofShadowCasterMaterial = ExtResource("76_roofshadow")

@@ -18,10 +18,10 @@ public sealed class WorldFileChunkSource : IChunkSource
     public WorldStartData StartContent { get; }
     public ZoneState[] Zones { get; }
 
-    // The kit palette this file was baked against, one resource path per slot.
+    // The terrain palette this file was baked against, one resource path per slot.
     // Main.LoadWorldFromFile checks it against the palette the world is about to
     // be read with — see WorldFile VERSION v46.
-    public string[] KitSlots { get; }
+    public string[] TerrainSlots { get; }
 
     // Detail-palette slots, same contract — DetailGroup bytes index this.
     public string[] DetailSlots { get; }
@@ -57,7 +57,7 @@ public sealed class WorldFileChunkSource : IChunkSource
         StartContent = string.IsNullOrEmpty(header.StartContentPath)
             ? null
             : GD.Load<WorldStartData>(header.StartContentPath);
-        KitSlots = header.KitSlots ?? System.Array.Empty<string>();
+        TerrainSlots = header.TerrainSlots ?? System.Array.Empty<string>();
         DetailSlots = header.DetailSlots ?? System.Array.Empty<string>();
         PointsOfInterest = header.PointsOfInterest ?? new Dictionary<string, Vector3>();
 

@@ -52,7 +52,7 @@ public static class SubsceneStamper
                     int inherited = InheritedTerrainId(groundTerrain, footprintGround, lx, lz);
                     int terrainId = inherited != NO_GROUND ? inherited : sub.TerrainId[lx, ly, lz];
                     ws.SetBlockWorld(wx, wy, wz,
-                        RetexturedBlock(ws.Kits, sub.Voxels[lx, ly, lz], inherited), (SharpAxes)sub.Shape[lx, ly, lz]);
+                        RetexturedBlock(ws.Terrains, sub.Voxels[lx, ly, lz], inherited), (SharpAxes)sub.Shape[lx, ly, lz]);
                     ws.SetTerrainIdWorld(wx, wy, wz, terrainId);
                     ws.SetOverlayIdWorld(wx, wy, wz, sub.OverlayId[lx, ly, lz]);
                     ws.SetDetailGroupWorld(wx, wy, wz, sub.DetailGroup[lx, ly, lz]);
@@ -88,9 +88,9 @@ public static class SubsceneStamper
         }
     }
 
-    // A TerrainId byte is a slot in the kit palette of the world the scene was
+    // A TerrainId byte is a slot in the terrain palette of the world the scene was
     // authored in. Palettes are built per WorldGenData by walking its zones, so
-    // the same kit sits at a different slot in every world and a kit no zone
+    // the same terrain sits at a different slot in every world and a terrain no zone
     // references has no slot at all — an out-of-range slot renders as bare
     // stone, because its shader uniform was never written.
     //
@@ -107,7 +107,7 @@ public static class SubsceneStamper
     // hits; the rest covers columns whose ground sits a step or two lower.
     private const int GROUND_SEARCH_DEPTH = 8;
 
-    // The destination kit under a column, or NO_GROUND when there is nothing to
+    // The destination terrain under a column, or NO_GROUND when there is nothing to
     // inherit from — a stamp into open air, or the editor's blank workspace where
     // the scene IS the world and its own byte is the only index there is.
     private static int InheritedTerrainId(int[,] groundTerrain, int footprintGround, int lx, int lz)
@@ -118,14 +118,14 @@ public static class SubsceneStamper
 
     // The block a stamped voxel actually gets.
     //
-    // Inheriting the kit BYTE is not enough on its own: appearance lives on the
+    // Inheriting the terrain BYTE is not enough on its own: appearance lives on the
     // BLOCK, so a scene authored on forest soil kept its forest soil in a desert
-    // and only an invisible channel changed — the same trap WorldGen.RestampKit
+    // and only an invisible channel changed — the same trap WorldGen.RestampTerrain
     // exists to avoid. So a voxel whose authored block is natural ground is
-    // re-textured to the block the destination kit resolves to.
+    // re-textured to the block the destination terrain resolves to.
     //
-    // What separates the two cases is whether the authored block is SOME kit's
-    // ground (KitPalette.IsKitGround). Kit ground is a biome statement and the
+    // What separates the two cases is whether the authored block is SOME terrain's
+    // ground (TerrainPalette.IsTerrainGround). Terrain ground is a biome statement and the
     // scene has no biome, so it adopts the one it lands in; anything else — a
     // stone wall, a plank floor, cobbles, a dirt path — is a deliberate material
     // that survives unchanged.
@@ -133,13 +133,13 @@ public static class SubsceneStamper
     // NOT BlockData.naturalGround, which answers "may the road pass grade across
     // this?" and is true of Road and Dirt: using it re-textured a town square's
     // paths into whatever grass the destination happened to have.
-    private static byte RetexturedBlock(KitPalette kits, byte authored, int inheritedTerrainId)
+    private static byte RetexturedBlock(TerrainPalette terrains, byte authored, int inheritedTerrainId)
     {
-        if (inheritedTerrainId == NO_GROUND || !kits.IsKitGround(authored))
+        if (inheritedTerrainId == NO_GROUND || !terrains.IsTerrainGround(authored))
         {
             return authored;
         }
-        return (byte)kits.BlockFor(inheritedTerrainId);
+        return (byte)terrains.BlockFor(inheritedTerrainId);
     }
 
     // Per-column TerrainId of the destination ground under the stamp's footprint,
@@ -170,7 +170,7 @@ public static class SubsceneStamper
     }
 
     // What the footprint as a whole is standing on, for the columns that found
-    // nothing — a scene overhanging a ledge or a pond takes the kit the rest of
+    // nothing — a scene overhanging a ledge or a pond takes the terrain the rest of
     // it is sitting on rather than a palette slot nobody chose. NO_GROUND when
     // no column found ground at all.
     private static int MajorityGround(int[,] ground, Vector3I size)

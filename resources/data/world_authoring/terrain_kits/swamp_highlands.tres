@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TerrainKitData" load_steps=6 format=3]
+
+[ext_resource type="Script" uid="uid://be02xpyngh9c8" path="res://scripts/data/worldmap/TerrainKitData.cs" id="1_g"]
+[ext_resource type="Resource" uid="uid://csjvdcg5sawpo" path="res://resources/data/world_authoring/terrain/swamp_highlands.tres" id="k_0"]
+[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="k_1"]
+[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="k_2"]
+[ext_resource type="Resource" uid="uid://q2e4ot8c2scra" path="res://resources/data/world_authoring/terrain/shore_swamp.tres" id="k_3"]
+
+[resource]
+script = ExtResource("1_g")
+displayName = "Swamp Highlands"
+mapColor = Color(0.5, 0.5, 0.5, 1)
+surfaceTerrain = ExtResource("k_0")
+caveTerrain = ExtResource("k_1")
+submergedTerrain = ExtResource("k_2")
+shoreTerrain = ExtResource("k_3")

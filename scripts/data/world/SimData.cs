@@ -54,8 +54,8 @@ public partial class SimData : Resource
     [Export] public Array<ScriptVariableRegistry> scriptVariables = new();
 
     // Status effect applied to every elite mob at spawn, in addition to the
-    // signature effect(s) the elite's own descriptor authors (MobDescriptor
-    // .statusEffects). Authored once here so the shared elite buff — larger
+    // signature effect(s) the elite's own EliteData authors. Authored once here
+    // so the shared elite buff — larger
     // health, etc. — is consistent across all elites rather than copy-pasted into
     // every *_elite.tres. Null = no shared effect.
     [Export] public StatusEffectData eliteStatusEffect;
@@ -1191,11 +1191,11 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0.016,1,0.001")] public float mobColdTickIntervalSeconds = 0.133f;
 
     [ExportGroup("Night Ambient Spawn")]
-    // Composed mobs the NightMobSpawner materializes in dark spots around the
-    // player after dark, one picked at random per spawn. These are TRANSIENT
-    // (not persisted to WorldState) — the live population near the player IS the
+    // Species the NightMobSpawner materializes in dark spots around the player
+    // after dark, one picked at random per spawn. These are TRANSIENT (not
+    // persisted to WorldState) — the live population near the player IS the
     // whole mechanic. Empty = the night spawner stays dormant (no cost).
-    [Export] public Array<MobDescriptor> nightSpawnMobs = new();
+    [Export] public Array<SpeciesData> nightSpawnMobs = new();
 
     // Live night-mob population the spawner drives toward at the peak of night
     // (midnight). Measured against currently-loaded night mobs near the player,
@@ -1286,7 +1286,7 @@ public partial class SimData : Resource
     // the player's location. Spawns are TRANSIENT (Sim.SpawnMobTransient with
     // ESpawnConditions.None), so like the night gellies they live only near the
     // player and are never persisted.
-    [Export] public MobDescriptor fairySpawnDescriptor;
+    [Export] public SpeciesData fairySpawnSpecies;
 
     // The day (sunrise → midnight, WorldState.TimeOfDay01 in [0,1]) is split into
     // this many equal blocks. One spawn is attempted on entering each block EXCEPT

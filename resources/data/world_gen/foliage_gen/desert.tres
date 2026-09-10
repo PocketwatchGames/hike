@@ -1,0 +1,62 @@
+[gd_resource type="Resource" script_class="FoliageGenData" format=3 uid="uid://b01hbfnwc3t5w"]
+
+[ext_resource type="Script" uid="uid://r3che1ulfmtxq" path="res://scripts/data/worldgen/FoliageGenData.cs" id="1_set"]
+[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
+[ext_resource type="PackedScene" uid="uid://d0kbigg6xw7pf" path="res://scenes/props/desert_rocks_big1.tscn" id="sc_0"]
+[ext_resource type="PackedScene" uid="uid://cuqyeyeg5imfv" path="res://scenes/props/desert_rocks_big2.tscn" id="sc_1"]
+[ext_resource type="PackedScene" uid="uid://bxgmlna1my2w" path="res://scenes/props/desert_rocks_big3.tscn" id="sc_2"]
+[ext_resource type="PackedScene" uid="uid://c8iro0h5nif8x" path="res://scenes/props/tree_desert_pine.tscn" id="sc_3"]
+[ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="sc_4"]
+[ext_resource type="PackedScene" uid="uid://ngyyjovwf6to" path="res://scenes/props/bush_01.tscn" id="sc_5"]
+[ext_resource type="PackedScene" uid="uid://c55djo6ltlx45" path="res://scenes/props/bush_02.tscn" id="sc_6"]
+[ext_resource type="PackedScene" uid="uid://xhsasaphibi8" path="res://scenes/props/bush_03.tscn" id="sc_7"]
+[ext_resource type="PackedScene" uid="uid://m8i6fl11f8pg" path="res://scenes/props/bush_04.tscn" id="sc_8"]
+
+[sub_resource type="Resource" id="e_5"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_5")
+
+[sub_resource type="Resource" id="e_6"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_6")
+
+[sub_resource type="Resource" id="e_7"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_7")
+
+[sub_resource type="Resource" id="e_8"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_8")
+
+[sub_resource type="Resource" id="e_0"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_0")
+
+[sub_resource type="Resource" id="e_1"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_1")
+
+[sub_resource type="Resource" id="e_2"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_2")
+
+[sub_resource type="Resource" id="e_3"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_3")
+weight = 2.0
+
+[sub_resource type="Resource" id="e_4"]
+script = ExtResource("2_ws")
+scene = ExtResource("sc_4")
+weight = 2.0
+
+[resource]
+script = ExtResource("1_set")
+displayName = "Desert"
+forestNoiseFrequency = 5.0
+forestThreshold = 1.0
+forestDensity = 0.05
+treeScenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4")]
+grassNoiseFrequency = 0.1
+grassThreshold = 0.67
+foliageScenes = [SubResource("e_5"), SubResource("e_6"), SubResource("e_7"), SubResource("e_8")]

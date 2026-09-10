@@ -1,7 +1,7 @@
 using Godot;
 
 // A PackedScene paired with a relative selection weight, for authoring
-// weighted-random scene palettes (e.g. a TerrainKitData's tree palette).
+// weighted-random scene palettes (e.g. a TerrainData's tree palette).
 // Higher Weight = drawn more often, measured against the other entries in the
 // same list — the values are relative, not probabilities, so a list of
 // {2, 1, 1} picks the first scene half the time. Feed a list of these into a

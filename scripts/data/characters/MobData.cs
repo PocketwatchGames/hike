@@ -261,7 +261,7 @@ public partial class MobData : Resource
     [ExportGroup("Combat")]
     // NOTE: a mob's weapon loadout is NOT a base-template trait — it lives on the
     // per-variant SpeciesData.weapons (so a claw goblin and a torch-bearer are
-    // distinct species sharing this MobData). MobDescriptor.CreateState stamps it
+    // distinct species sharing this MobData). SpeciesData.CreateState stamps it
     // onto MobSimState.Weapons; Mob.Weapons reads it from there. See SpeciesData /
     // BehaviorAttack.
     [Export] public float maxHealth = 100f;
@@ -451,7 +451,7 @@ public partial class MobData : Resource
     // NOTE: the loot drop list is NOT a base-species trait — it's a per-variant
     // concern that lives on SpeciesData.loot (so a forest vs desert kun-kun
     // drops different meat). CreateState stamps it onto MobSimState.Loot;
-    // Mob.EjectLoot reads it from there. See SpeciesData / MobDescriptor.
+    // Mob.EjectLoot reads it from there. See SpeciesData.
 
     // Outward arc speed (m/s) applied to each piece of ejected loot when
     // the mob dies — both authored drops in EjectLoot and any stuck arrows

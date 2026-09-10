@@ -81,7 +81,7 @@ public class WorldMapInk
             return WithWater(paving.minimapColor, px, pz);
         }
         int idx = Map.GroundIndexAt(px, pz);
-        GroundSetData[] sets = Map.GroundSets;
+        TerrainKitData[] sets = Map.Terrains;
         Color c = idx >= 0 && idx < sets.Length && sets[idx] != null ? sets[idx].mapColor : UNPAINTED_GROUND;
         return WithWater(c, px, pz);
     }

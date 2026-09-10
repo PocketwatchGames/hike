@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TerrainData" format=3 uid="uid://cxs634ps8mnal"]
+
+[ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://pw1vud46h9ehu" path="res://resources/data/voxels/blocks/block_snow.tres" id="2_block"]
+
+[resource]
+script = ExtResource("1_script")
+purpose = 1
+block = ExtResource("2_block")
+detailNoiseThreshold = -0.5
+mossCoverage = 0.0
+metadata/_custom_type_script = "uid://dfrx5xho61xt1"

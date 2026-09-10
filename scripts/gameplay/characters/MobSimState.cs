@@ -134,11 +134,11 @@ public class MobSimState : EntitySimState
     public PlayerState RecruitTemplate;
     // Elite mobs are a rarer, tougher variant — 25% larger (Mob applies the
     // scale), crowned, with the shared elite buff and crown-trophy loot. Authored
-    // on the spawning MobDescriptor (a dedicated *_elite.tres), so it persists as
+    // on the spawning MobSpawnEntry (its EliteData), so it persists as
     // a plain flag; the signature effect + HUD badge ride StatusEffects / Badge
     // below.
     public bool Elite;
-    // Difficulty tier, stamped at spawn (MobDescriptor.level plus the worldgen
+    // Difficulty tier, stamped at spawn (MobSpawnEntry.level plus the worldgen
     // level field — see SpawnContext.MobLevel). Each level scales the mob's
     // health, armor, and outgoing damage by SimData.levelScalePerLevel (~1.5x/level,
     // applied by Mob) and shows as Level+1 pips on the HUD. 0 = base. Persisted via
@@ -148,7 +148,7 @@ public class MobSimState : EntitySimState
     // The species variant this mob IS — the bestiary identity (discovery key,
     // see SimState.DiscoveredSpecies) and the source of
     // its recolor / loot / per-variant stat modifiers. Stamped from
-    // MobDescriptor at spawn and persisted via EntitySerializer so the variant
+    // SpeciesData at spawn and persisted via EntitySerializer so the variant
     // identity survives chunk eviction and .hike load. The base MobData (this.
     // MobData) is reachable via Species.mob; they agree when Species is set.
     // Null only for legacy/editor-placed mobs built straight from a bare
@@ -181,10 +181,10 @@ public class MobSimState : EntitySimState
     // persisted (mob meat carries none — matches the chest-loot serialization).
     // Read by Mob.EjectLoot.
     public Godot.Collections.Array<ItemCount> Loot;
-    // HUD badge icon (EliteMobDescriptor.badge, via the descriptor's elite
+    // HUD badge icon (EliteData.badge, via the spawn entry's elite
     // reference), read once by MobHUD. Null = no badge.
     public Texture2D Badge;
-    // Per-elite crown scene override (EliteMobDescriptor.crownScene). Re-instanced
+    // Per-elite crown scene override (EliteData.crownScene). Re-instanced
     // at every spawn by Mob.SpawnEliteCrown. Null = use the shared
     // SimData.EliteCrownScene. Only meaningful when Elite.
     public PackedScene EliteCrownScene;

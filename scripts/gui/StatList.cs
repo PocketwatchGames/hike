@@ -499,7 +499,7 @@ public static class StatList
 	// PlayerStats — the core character-sheet dials a player would compare
 	// across creatures: health, armor (only when the species has any), move
 	// speed, and sight range. Weapon and loot loadouts are spawn-time
-	// composition (MobDescriptor / SpeciesData), not base traits, so they're
+	// composition (SpeciesData), not base traits, so they're
 	// intentionally excluded.
 	public static IEnumerable<(string name, string value)> MobStats(MobData mob)
 	{

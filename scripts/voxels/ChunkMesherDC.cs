@@ -458,12 +458,12 @@ public static class ChunkMesherDC
 
         var cellVert = new Vector3[CELL_DIM, CELL_DIM, CELL_DIM];
         var cellTile = new int[CELL_DIM, CELL_DIM, CELL_DIM];
-        // Per-cell dominant kit id. Same 27-voxel majority vote as the tile
+        // Per-cell dominant terrain id. Same 27-voxel majority vote as the tile
         // pick, but counting TerrainId instead of VoxelType. Triangles carry three
-        // corner kits via CUSTOM1.yzw so the shader can barycentric-blend at
-        // kit boundaries the same way it does for tile boundaries.
+        // corner terrains via CUSTOM1.yzw so the shader can barycentric-blend at
+        // terrain boundaries the same way it does for tile boundaries.
         var cellTerrain = new int[CELL_DIM, CELL_DIM, CELL_DIM];
-        // Per-cell dominant overlay id. Unlike kit/tile, the vote ignores
+        // Per-cell dominant overlay id. Unlike terrain/tile, the vote ignores
         // OverlayId=0 — most buried voxels carry zero, so a naive majority
         // would drown out a single surface voxel stamped with an overlay. The
         // rule is "any non-zero wins, tie-broken by count."
@@ -541,7 +541,7 @@ public static class ChunkMesherDC
                     // Cells outside the emitted range exist only to complete
                     // centre sampling's normal accumulation. They still need
                     // their vertex placed (so sharpMask/anySoftY), but nothing
-                    // reads their tile/kit/overlay — skip that work, which is
+                    // reads their tile/terrain/overlay — skip that work, which is
                     // what the extra rings would otherwise cost.
                     bool needMaterials = x >= USED_LO && x <= USED_HI && y >= USED_LO && y <= USED_HI && z >= USED_LO && z <= USED_HI;
                     PickTileAndAmpForCell(data, x, y, z, getVoxel, getShape, getTerrainId, getOverlayId, centerSampling, needMaterials, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out int TerrainId, out int overlayId, out int softTile, out int softTerrain, out int softOverlay, out float amp, out SharpAxes sharpMask, out bool anySoftY, out float sharpness, out int dominant);
@@ -1734,10 +1734,10 @@ public static class ChunkMesherDC
     //    in [0,1]; shader lerps between the interpolated smooth NORMAL and the
     //    dFdx/dFdy face normal by this value, so hard-material cells read as
     //    flat-shaded and soft terrain stays smooth. .yzw are the triangle's
-    //    three corner kit ids — constant across the tri, same pattern as tiles.
+    //    three corner terrain ids — constant across the tri, same pattern as tiles.
     //  - CUSTOM2 = (overlay_a, overlay_b, overlay_c, concavity). xyz are the
     //    per-corner authored overlay ids; the shader picks the same corner the
-    //    tile/kit pick chose so overlay boundaries inherit the organic edge
+    //    tile/terrain pick chose so overlay boundaries inherit the organic edge
     //    jitter. .w is per-vertex baked concavity (signed voxels; + = dip), read
     //    by the wetness term. Unlike xyz it is genuinely per-vertex, not a flat
     //    triangle constant, so each vertex carries its own overlay color.

@@ -1,10 +1,12 @@
 [gd_resource type="Resource" script_class="MobSpawnEntry" format=3]
 
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="script"]
-[ext_resource type="Resource" uid="uid://d10e1t72d1y0s" path="res://resources/data/world_authoring/mob_descriptors/goblin_forest_elite.tres" id="r1"]
+[ext_resource type="Resource" uid="uid://b36dkwda4evr6" path="res://resources/data/characters/goblin/goblin_forest.tres" id="r1"]
+[ext_resource type="Resource" uid="uid://821ik3r4gly8" path="res://resources/data/characters/elites/elite_fire.tres" id="E_elite_fire"]
 
 [resource]
 script = ExtResource("script")
-descriptor = ExtResource("r1")
+species = ExtResource("r1")
+elite = ExtResource("E_elite_fire")
 initialBehavior = &"Wander"
 initialBehaviorChance = 0.25

@@ -2,15 +2,15 @@
 
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/data/world_authoring/zones/swamp.tres" id="2_region"]
-[ext_resource type="Resource" uid="uid://gpdraqwf22b8" path="res://resources/data/world_authoring/kits/marsh_kit.tres" id="3_kit_temperate"]
-[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/kits/cave_limestone_kit.tres" id="4_kit_cave"]
-[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/kits/underwater_kit.tres" id="5_kit_underwater"]
-[ext_resource type="Resource" uid="uid://q2e4ot8c2scra" path="res://resources/data/world_authoring/kits/shore_swamp_kit.tres" id="10_nd86w"]
-[ext_resource type="Resource" uid="uid://crwiul27krdig" path="res://resources/data/world_authoring/spawn_lists/surface_entities_swamp.tres" id="11_surface"]
-[ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_authoring/spawn_lists/cave_entities_swamp.tres" id="12_cave"]
-[ext_resource type="Resource" uid="uid://cwvam7wm5c6ql" path="res://resources/data/world_authoring/spawn_lists/water_entities_swamp.tres" id="14_water"]
+[ext_resource type="Resource" uid="uid://gpdraqwf22b8" path="res://resources/data/world_authoring/terrain/marsh.tres" id="3_kit_temperate"]
+[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="4_kit_cave"]
+[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="5_kit_underwater"]
+[ext_resource type="Resource" uid="uid://q2e4ot8c2scra" path="res://resources/data/world_authoring/terrain/shore_swamp.tres" id="10_nd86w"]
+[ext_resource type="Resource" uid="uid://crwiul27krdig" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp.tres" id="11_surface"]
+[ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_gen/spawn_lists/cave_entities_swamp.tres" id="12_cave"]
+[ext_resource type="Resource" uid="uid://cwvam7wm5c6ql" path="res://resources/data/world_gen/spawn_lists/water_entities_swamp.tres" id="14_water"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="16_grp"]
-[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_authoring/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
+[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="92_health"]
 [ext_resource type="Resource" uid="uid://dqvfmgixf4hns" path="res://resources/data/items/consumables/lantern_oil.tres" id="93_oil"]
@@ -30,6 +30,7 @@
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab1.tres" id="e_knowledge_stone"]
 
 [ext_resource type="Script" uid="uid://7e84n3wjhwhdz" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
+[ext_resource type="Resource" uid="uid://wwydvupgfm6a" path="res://resources/data/world_gen/foliage_gen/marsh.tres" id="F_foliage"]
 
 [sub_resource type="Resource" id="Dist0"]
 script = ExtResource("90_countrange")
@@ -104,10 +105,11 @@ metadata/_custom_type_script = "uid://61iu4uosbxjog"
 [resource]
 script = ExtResource("1_script")
 zone = ExtResource("2_region")
-surfaceKit = ExtResource("3_kit_temperate")
-caveKit = ExtResource("4_kit_cave")
-submergedKit = ExtResource("5_kit_underwater")
-shoreKit = ExtResource("10_nd86w")
+surfaceTerrain = ExtResource("3_kit_temperate")
+foliage = ExtResource("F_foliage")
+caveTerrain = ExtResource("4_kit_cave")
+submergedTerrain = ExtResource("5_kit_underwater")
+shoreTerrain = ExtResource("10_nd86w")
 terrain = SubResource("ZoneTerrain_swamp_gen")
 mossSurfaceCoverage = 0.4
 mossCaveCoverage = 0.5

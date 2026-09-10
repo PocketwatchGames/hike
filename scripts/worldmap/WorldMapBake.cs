@@ -5,7 +5,7 @@ using Godot;
 // the painter: given the same layers it must produce the same world.
 //
 // Split out of WorldMapState so the model is only the map and this is only what
-// is made of it. It holds the WorldState under construction, the kit-slot
+// is made of it. It holds the WorldState under construction, the terrain-slot
 // binding, and the four-stage bake driver; it RESOLVES nothing about the
 // document itself — what stands at a column is the model's answer
 // (Map.PropOriginAt / Map.PreviewMobAt),
@@ -33,7 +33,7 @@ public class WorldMapBake
     public WorldState BuildWorld(System.Action<float, string> progress = null)
     {
         // The painter itself only reads the layer images, so nothing binds the
-        // flat block/kit tables at launch the way StartGame / StartEditor do.
+        // flat block/terrain tables at launch the way StartGame / StartEditor do.
         // The stamp below reads them per voxel, so bind here — this is the only
         // place in the painter that needs them, and it covers both bake entry
         // points (Ctrl+S and WorldMapData's headless "Bake to .hike" button).
@@ -63,13 +63,13 @@ public class WorldMapBake
         }
 
         Blocks.Bind();
-        var palette = KitPalette.Build(Map.Data.kitPalette);
+        var palette = TerrainPalette.Build(Map.Data.terrainPalette);
 
         var ws = new WorldState(Map.Data.MinChunk, Map.Data.MaxChunk, Map.Data.simData, palette);
         // A placement's forked entry, and anything that entry authors inline,
         // lives in this document - which is a bake input and does not ship.
         ws.AuthoringDocument = Map.Data.placementsPath ?? "";
-        BindZoneKits(palette);
+        BindZoneTerrains(palette);
 
         // Runtime zone table comes from the PAINTED palette, so a chunk's stamped
         // index and WorldState.Zones[index] are the same list by construction.
@@ -182,7 +182,7 @@ public class WorldMapBake
         // Three things differ from a generated world, and each is a fact about a
         // painted one rather than a switch:
         //   - no zone-weight kernel, so the detail scatter takes each voxel's
-        //     own kit (the painter assigns kits per column deterministically);
+        //     own terrain (the painter assigns terrains per column deterministically);
         //   - no river-flow field, so water gets the ambient drift only;
         //   - no sunlight flood, because every consumer of a .hike relights on
         //     open (Main on both load branches, WorldEditor on both its open
@@ -207,7 +207,7 @@ public class WorldMapBake
             PaintedWaterBlockAt = (wx, wz) => Map.PaintedWaterBlockAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ),
             // Moss comes off the painted GROUND, because a painted world has no
             // ZoneGenData to ask (its zone layer paints ZoneData, and the two
-            // palettes do not correspond). A column's surface kit and cave kit
+            // palettes do not correspond). A column's surface terrain and cave terrain
             // are exactly the two coverages the pass wants, so painting a
             // material brings its moss with it — no second brush, and no moss
             // where nothing was painted.
@@ -422,56 +422,56 @@ public class WorldMapBake
 
     // Map every paintable ground set onto palette slots. Runs after
     // WorldGen.BindActivePalettes, which is what builds that palette.
-    private void BindZoneKits(KitPalette kits)
+    private void BindZoneTerrains(TerrainPalette terrains)
     {
-        TerrainKitData[] palette = kits.Kits;
+        TerrainData[] palette = terrains.Terrains;
 
-        GroundSetData[] grounds = Map.GroundSets;
-        _groundKits = new ZoneKits[grounds.Length];
+        TerrainKitData[] grounds = Map.Terrains;
+        _groundTerrains = new ZoneTerrains[grounds.Length];
         for (int i = 0; i < grounds.Length; i++)
         {
-            _groundKits[i] = KitsOf(palette, grounds[i]);
+            _groundTerrains[i] = TerrainsOf(palette, grounds[i]);
         }
-        _defaultKits = KitsOf(palette, Map.Data.defaultGround);
+        _defaultTerrains = TerrainsOf(palette, Map.Data.defaultGround);
     }
 
-    private static ZoneKits KitsOf(TerrainKitData[] palette, GroundSetData g)
+    private static ZoneTerrains TerrainsOf(TerrainData[] palette, TerrainKitData g)
     {
         // Every slot falls back to the surface one: a set that authors no shore
-        // or cave kit should read as its own ground, not as slot 0's.
-        byte surface = SlotOf(palette, g?.surfaceKit);
-        return new ZoneKits
+        // or cave terrain should read as its own ground, not as slot 0's.
+        byte surface = SlotOf(palette, g?.surfaceTerrain);
+        return new ZoneTerrains
         {
             Surface = surface,
-            Shore = g?.shoreKit != null ? SlotOf(palette, g.shoreKit) : surface,
-            Submerged = g?.submergedKit != null ? SlotOf(palette, g.submergedKit) : surface,
-            Cave = g?.caveKit != null ? SlotOf(palette, g.caveKit) : surface,
+            Shore = g?.shoreTerrain != null ? SlotOf(palette, g.shoreTerrain) : surface,
+            Submerged = g?.submergedTerrain != null ? SlotOf(palette, g.submergedTerrain) : surface,
+            Cave = g?.caveTerrain != null ? SlotOf(palette, g.caveTerrain) : surface,
         };
     }
 
-    // A ground set may name a kit the document's authored palette does not
-    // carry — that kit has no slot, and silently falling back to 0 would
+    // A ground set may name a terrain the document's authored palette does not
+    // carry — that terrain has no slot, and silently falling back to 0 would
     // texture it as some other material.
     //
-    // The fix is DATA, never appending the missing kit here: the per-voxel
+    // The fix is DATA, never appending the missing terrain here: the per-voxel
     // TerrainId is an INDEX into this palette, so appending at bake time would
-    // shift every index and mis-texture the whole world. Append the kit to
-    // KitPaletteData instead, which is the one safe edit.
-    private static byte SlotOf(TerrainKitData[] palette, TerrainKitData kit)
+    // shift every index and mis-texture the whole world. Append the terrain to
+    // TerrainPaletteData instead, which is the one safe edit.
+    private static byte SlotOf(TerrainData[] palette, TerrainData terrain)
     {
-        if (kit == null || palette == null)
+        if (terrain == null || palette == null)
         {
             return 0;
         }
         for (int i = 0; i < palette.Length; i++)
         {
-            if (palette[i] == kit)
+            if (palette[i] == terrain)
             {
                 return (byte)i;
             }
         }
-        GD.PushWarning($"WorldMapState: kit '{kit.ResourcePath}' is not in this document's kit "
-            + "palette, so columns using it bake as palette slot 0. APPEND it to the KitPaletteData "
+        GD.PushWarning($"WorldMapState: terrain '{terrain.ResourcePath}' is not in this document's terrain "
+            + "palette, so columns using it bake as palette slot 0. APPEND it to the TerrainPaletteData "
             + "(never insert or reorder), or drop the ground set that names it.");
         return 0;
     }
@@ -504,14 +504,14 @@ public class WorldMapBake
         BlockData paving = Map.PavingAt(px, pz);
         int pavedY = paving != null ? Map.PavedYAt(px, pz) : Map.Data.WorldMinY - 1;
 
-        // Which of the column's zone kits its ground is made of. Painting a zone
+        // Which of the column's zone terrains its ground is made of. Painting a zone
         // changes the material, not just the chunk's runtime behaviour — without
-        // this every painted world came out in whichever kit happened to land in
+        // this every painted world came out in whichever terrain happened to land in
         // palette slot 0.
-        ZoneKits kits = KitsAt(px, pz);
-        byte topKit = wsurf > th
-            ? kits.Submerged
-            : th - ShoreWaterSurface(px, pz) <= Map.Data.shoreBandVoxels ? kits.Shore : kits.Surface;
+        ZoneTerrains terrains = TerrainsAt(px, pz);
+        byte topTerrain = wsurf > th
+            ? terrains.Submerged
+            : th - ShoreWaterSurface(px, pz) <= Map.Data.shoreBandVoxels ? terrains.Shore : terrains.Surface;
 
         // The chunk is resolved once per 16 voxels of column instead of per
         // write. WorldState's world-space setters each hash a Vector3I, and the
@@ -555,21 +555,21 @@ public class WorldMapBake
             else if (wy <= th || edit == WorldMapState.EditAdd)
             {
                 // Added geometry stands above the painted ground, so it takes
-                // the zone's surface kit — or its submerged one where the new
+                // the zone's surface terrain — or its submerged one where the new
                 // voxel sits below a water surface.
-                byte kit = wy > th
-                    ? (wy <= wsurf ? kits.Submerged : kits.Surface)
-                    : th - wy <= Map.Data.surfaceDepthVoxels ? topKit : kits.Cave;
-                chunk.SetTerrainId(lx, ly, lz, kit);
-                desired = WorldState.Kits.BlockFor(kit);
+                byte terrain = wy > th
+                    ? (wy <= wsurf ? terrains.Submerged : terrains.Surface)
+                    : th - wy <= Map.Data.surfaceDepthVoxels ? topTerrain : terrains.Cave;
+                chunk.SetTerrainId(lx, ly, lz, terrain);
+                desired = WorldState.Terrains.BlockFor(terrain);
                 if (wy == pavedY)
                 {
-                    // Paving replaces the kit's block on ONE voxel — the floor
+                    // Paving replaces the terrain's block on ONE voxel — the floor
                     // it was laid on, which is the top of the column for a road
                     // on open ground and the floor of a passage or the ground
                     // under an arch for one laid beneath the cutaway. Paving is
                     // a surface, so the rock under a road is still the
-                    // hillside's, and the kit channel keeps its own value: it is
+                    // hillside's, and the terrain channel keeps its own value: it is
                     // what the column IS made of, which a road laid over it does
                     // not change.
                     desired = paving.blockId;
@@ -614,7 +614,7 @@ public class WorldMapBake
     // reference in both directions anyway: it sanded the floor of a dry basin
     // dug below zero, and it never gave a mountain lake a shore at all. A column
     // with no water anywhere near it comes out far above NoWater's Y and takes
-    // the surface kit, which is the answer it wanted.
+    // the surface terrain, which is the answer it wanted.
     private int ShoreWaterSurface(int px, int pz)
     {
         int best = Map.WaterSurface(px, pz);
@@ -746,26 +746,26 @@ public class WorldMapBake
         };
     }
 
-    // The moss coverage of the kits under a world-space column: the surface kit
-    // for open ground and cliff faces, the cave kit for anything cut into rock.
+    // The moss coverage of the terrains under a world-space column: the surface terrain
+    // for open ground and cliff faces, the cave terrain for anything cut into rock.
     private (float surface, float cave) MossCoverageAtWorld(int wx, int wz)
     {
-        ZoneKits kits = KitsAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ);
-        KitPalette palette = WorldState?.Kits;
+        ZoneTerrains terrains = TerrainsAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ);
+        TerrainPalette palette = WorldState?.Terrains;
         if (palette == null)
         {
             return (0f, 0f);
         }
-        return (palette.KitAt(kits.Surface)?.mossCoverage ?? 0f,
-                palette.KitAt(kits.Cave)?.mossCoverage ?? 0f);
+        return (palette.TerrainAt(terrains.Surface)?.mossCoverage ?? 0f,
+                palette.TerrainAt(terrains.Cave)?.mossCoverage ?? 0f);
     }
 
     // Painted ground, else the document's default. The zone has no say in the
     // material any more — that is the whole point of splitting them.
-    private ZoneKits KitsAt(int px, int pz)
+    private ZoneTerrains TerrainsAt(int px, int pz)
     {
         int g = Map.GroundIndexAt(px, pz);
-        return g >= 0 && _groundKits != null && g < _groundKits.Length ? _groundKits[g] : _defaultKits;
+        return g >= 0 && _groundTerrains != null && g < _groundTerrains.Length ? _groundTerrains[g] : _defaultTerrains;
     }
 
     private int ZoneIndexAt(int px, int pz)
@@ -896,7 +896,7 @@ public class WorldMapBake
         }
     }
 
-    private struct ZoneKits
+    private struct ZoneTerrains
     {
         public byte Surface;
         public byte Shore;
@@ -904,6 +904,6 @@ public class WorldMapBake
         public byte Cave;
     }
 
-    private ZoneKits[] _groundKits;
-    private ZoneKits _defaultKits;
+    private ZoneTerrains[] _groundTerrains;
+    private ZoneTerrains _defaultTerrains;
 }

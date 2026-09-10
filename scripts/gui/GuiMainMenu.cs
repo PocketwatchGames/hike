@@ -323,7 +323,7 @@ public partial class GuiMainMenu : Node
 		}
 		// Reached by a picked .hike row (which carries no template) and by a
 		// direct launch (autostart never opens the selector). A world file still
-		// needs a WorldGenData for the kit/block palette bind, so honour the
+		// needs a WorldGenData for the terrain/block palette bind, so honour the
 		// world_gen_index cvar and otherwise fall back to the menu's default.
 		int forced = CVars.worldGenIndex.Value;
 		if (forced >= 0 && forced < worldOptions.Length)

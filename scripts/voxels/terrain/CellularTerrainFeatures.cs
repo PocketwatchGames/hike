@@ -1213,7 +1213,7 @@ public partial class CellularTerrainGen
     // Inland WATER is a refusal rather than a special case. A deck stamped into
     // Height over a column carrying a river surface leaves Water below Height,
     // which breaks the invariant every consumer of that channel relies on — the
-    // shore-kit bands would sand the deck, the scatter would call it submerged,
+    // shore-terrain bands would sand the deck, the scatter would call it submerged,
     // and roads would refuse to cross it. The SEA is fine and left alone: sea
     // columns carry NoWater, the global waterline covers them, and a bridge over
     // open water between two coastal cells is exactly the shape wanted.

@@ -1,6 +1,6 @@
 // One run of one terrain approach. `WorldGen` builds exactly one of these per
 // generate (from the authored TerrainGenData) and drives it through the three
-// hooks below; everything else in worldgen — kits, roads, props, spawns, fog,
+// hooks below; everything else in worldgen — terrains, roads, props, spawns, fog,
 // lighting — is approach-agnostic and reads only the HeightMap that comes out.
 //
 // The split between this and TerrainGenData follows the project's Data/runtime

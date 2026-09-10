@@ -4,7 +4,7 @@
 // first, then the voxel's flat tile), so a single dictionary on Player/Mob
 // keyed by this enum drives all footstep emission.
 //
-// Decoupled from int and from the kit set on purpose: many blocks map
+// Decoupled from int and from the terrain set on purpose: many blocks map
 // to the same ground category (e.g. DesertTop + DesertSand both -> Sand)
 // and several blocks share Mud or Stone too. New entries should append to
 // the end so existing serialized resources keep their numeric values.

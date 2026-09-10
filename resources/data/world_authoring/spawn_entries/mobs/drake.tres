@@ -1,13 +1,12 @@
 [gd_resource type="Resource" script_class="MobSpawnEntry" format=3]
 
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="1_entry"]
-[ext_resource type="Resource" uid="uid://x2sig1iikbpac" path="res://resources/data/world_authoring/mob_descriptors/drake_mountain.tres" id="D_drake_mountain"]
-[ext_resource type="Resource" uid="uid://eu9wsuznh8alu" path="res://resources/data/world_authoring/mob_descriptors/drake_desert.tres" id="D_drake_desert"]
-[ext_resource type="Resource" uid="uid://f6qpb6wglnatw" path="res://resources/data/world_authoring/mob_descriptors/drake_swamp.tres" id="D_drake_swamp"]
-[ext_resource type="Resource" uid="uid://iqztldulf2112" path="res://resources/data/world_authoring/mob_descriptors/drake_mountain_elite.tres" id="D_drake_mountain_elite"]
+[ext_resource type="Resource" uid="uid://cg0hm6x4ceqgl" path="res://resources/data/characters/drake/drake_mountain.tres" id="D_drake_mountain"]
+[ext_resource type="Resource" uid="uid://b3nk6wh0ms40p" path="res://resources/data/characters/drake/drake_desert.tres" id="D_drake_desert"]
+[ext_resource type="Resource" uid="uid://du1hgf5vapmbh" path="res://resources/data/characters/drake/drake_swamp.tres" id="D_drake_swamp"]
 
 [resource]
 script = ExtResource("1_entry")
-descriptor = ExtResource("D_drake_mountain")
-variants = [ExtResource("D_drake_mountain"), ExtResource("D_drake_desert"), ExtResource("D_drake_swamp"), ExtResource("D_drake_mountain_elite")]
+species = ExtResource("D_drake_mountain")
+variants = [ExtResource("D_drake_mountain"), ExtResource("D_drake_desert"), ExtResource("D_drake_swamp")]
 metadata/_custom_type_script = "uid://dhkkrl6qof485"

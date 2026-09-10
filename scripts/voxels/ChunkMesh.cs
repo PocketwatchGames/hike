@@ -823,7 +823,7 @@ public partial class ChunkMesh : Node3D
         // Terrain (Dual Contouring). Four RgbaFloat CUSTOM channels:
         //   CUSTOM0: (tile_a, tile_b, tile_c, blend_amplitude).
         //   CUSTOM1: (sharpness, kit_a, kit_b, kit_c). .x drives smooth-vs-flat
-        //     shading; .yzw is the triangle's three corner kit ids (constant
+        //     shading; .yzw is the triangle's three corner terrain ids (constant
         //     across the tri so the shader can barycentric-pick, same pattern as
         //     tile ids).
         //   CUSTOM2: (overlay_a, overlay_b, overlay_c, concavity). Per-corner

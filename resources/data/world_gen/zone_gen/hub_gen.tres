@@ -2,18 +2,19 @@
 
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://0s8pv7vuphq0" path="res://resources/data/world_authoring/zones/hub.tres" id="2_zone"]
-[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/kits/cave_limestone_kit.tres" id="4_kit_cave"]
-[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/kits/underwater_kit.tres" id="5_kit_underwater"]
-[ext_resource type="Resource" uid="uid://emqrvij6sly9m" path="res://resources/data/world_authoring/kits/shore_sand_kit.tres" id="6_kit_shore"]
-[ext_resource type="Resource" uid="uid://buowgujm0up6j" path="res://resources/data/world_authoring/kits/hub_kit.tres" id="6_vnuep"]
-[ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_authoring/spawn_lists/cave_entities_default.tres" id="7_cave"]
-[ext_resource type="Resource" uid="uid://bdm2ltl5kau8n" path="res://resources/data/world_authoring/spawn_lists/surface_entities_hub.tres" id="7_surface"]
-[ext_resource type="Resource" uid="uid://c4lym14iaoht2" path="res://resources/data/world_authoring/spawn_groups/hub_fixtures.tres" id="8_fixtures"]
-[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_authoring/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
+[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="4_kit_cave"]
+[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="5_kit_underwater"]
+[ext_resource type="Resource" uid="uid://emqrvij6sly9m" path="res://resources/data/world_authoring/terrain/shore_sand.tres" id="6_kit_shore"]
+[ext_resource type="Resource" uid="uid://buowgujm0up6j" path="res://resources/data/world_authoring/terrain/hub.tres" id="6_vnuep"]
+[ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="7_cave"]
+[ext_resource type="Resource" uid="uid://bdm2ltl5kau8n" path="res://resources/data/world_gen/spawn_lists/surface_entities_hub.tres" id="7_surface"]
+[ext_resource type="Resource" uid="uid://c4lym14iaoht2" path="res://resources/data/world_gen/spawn_groups/hub_fixtures.tres" id="8_fixtures"]
+[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Resource" uid="uid://chvv0wjmu7jh1" path="res://resources/data/items/consumables/treasure_map_hub.tres" id="96_map"]
 [ext_resource type="Resource" uid="uid://wzruon1k89ern" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_crowns.tres" id="97_spot"]
 [ext_resource type="Script" uid="uid://38wffcrscjmc" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="hub_gen_zoneterrain"]
+[ext_resource type="Resource" uid="uid://ifg4vfpafedc" path="res://resources/data/world_gen/foliage_gen/hub.tres" id="F_foliage"]
 
 [sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")
@@ -32,10 +33,11 @@ metadata/_custom_type_script = "uid://61iu4uosbxjog"
 [resource]
 script = ExtResource("1_script")
 zone = ExtResource("2_zone")
-surfaceKit = ExtResource("6_vnuep")
-caveKit = ExtResource("4_kit_cave")
-submergedKit = ExtResource("5_kit_underwater")
-shoreKit = ExtResource("6_kit_shore")
+surfaceTerrain = ExtResource("6_vnuep")
+foliage = ExtResource("F_foliage")
+caveTerrain = ExtResource("4_kit_cave")
+submergedTerrain = ExtResource("5_kit_underwater")
+shoreTerrain = ExtResource("6_kit_shore")
 terrain = SubResource("ZoneTerrain_hub_gen")
 mossSurfaceCoverage = 0.1
 mossCaveCoverage = 0.4

@@ -14,23 +14,19 @@ using Godot;
 // copies it into WorldState.Zones[i].Data, where it drives sky/water tinting
 // and weather blending at runtime.
 //
-// Kits (SurfaceKit, CaveKit, SubmergedKit, ShoreKit) bypass blending —
-// they're typed refs read off the per-voxel kit stamp set during worldgen,
+// Terrains (SurfaceTerrain, CaveTerrain, SubmergedTerrain, ShoreTerrain) bypass blending —
+// they're typed refs read off the per-voxel terrain stamp set during worldgen,
 // so picking between palettes by fractional weight isn't meaningful. The
-// global kit palette uploaded to the shader is built by deduplicating
-// these refs across all zones — two zones that share the same gen kit
+// global terrain palette uploaded to the shader is built by deduplicating
+// these refs across all zones — two zones that share the same gen terrain
 // cost one palette slot, not two.
 //
-// These slots reference TerrainKitData (the worldgen-side bundle), not
-// TerrainData directly. The runtime visual entry is reached via
-// `kit.Terrain`; tunings used only by worldgen (DefaultDetail, DetailNoise*,
-// ForestNoise*/Threshold/Density, TreeScenes/TallGrassScenes/
-// TreesPerChunkMin/Max) live on the kit. Sibling kits inside a single zone
-// can scatter/forest at different densities and pull from different
-// palettes — e.g. a shore strip with its own seashell scatter, zero trees,
-// and palms while the inland kit keeps dense grass, pines, and a higher
-// tree count. Density transitions are sharp at kit boundaries (each voxel
-// reads its own kit slot) instead of kernel-blended.
+// These slots reference TerrainData — what the ground is MADE OF (its block,
+// its detail sprites, its moss). What GROWS on it is this zone's own `foliage`
+// (below), not the terrain's: a terrain is shared across zones, and marsh is the
+// surface of both the swamp and the burning swamp. Detail-sprite density still
+// transitions sharply at terrain boundaries (each voxel reads its own terrain slot)
+// instead of kernel-blended.
 //
 // Mob / loot / chest / trap / campfire / berry-tree authoring lives in the
 // SurfaceEntities / CaveEntities / ShoreEntities / WaterEntities lists.
@@ -44,29 +40,29 @@ public partial class ZoneGenData : Resource
 {
     [Export] public ZoneData zone;
 
-    // Gen kit stamped on surface terrain inside this zone (above sea level,
+    // Gen terrain stamped on surface terrain inside this zone (above sea level,
     // not inside caves). Drives the AUTO terrain shader's flat/wall tile
-    // pick and the kit-controlled footstep + scatter behaviour. Null falls
-    // back to the no-kit (palette index 0) appearance, which is a debug
+    // pick and the terrain-controlled footstep + scatter behaviour. Null falls
+    // back to the no-terrain (palette index 0) appearance, which is a debug
     // state — author one for any zone you want to render correctly.
-    [Export] public TerrainKitData surfaceKit;
+    [Export] public TerrainData surfaceTerrain;
 
-    // Gen kit stamped on solid voxels exposed to cave interior air. Lets a
+    // Gen terrain stamped on solid voxels exposed to cave interior air. Lets a
     // forest's caves use limestone while a desert's caves use sandstone.
-    // Authored independently of SurfaceKit because the cave shell often
+    // Authored independently of SurfaceTerrain because the cave shell often
     // wants a different ground category (Stone/Sand) and detail group.
-    [Export] public TerrainKitData caveKit;
+    [Export] public TerrainData caveTerrain;
 
-    // Gen kit stamped on submerged seabed (solid voxels at or below water
+    // Gen terrain stamped on submerged seabed (solid voxels at or below water
     // level whose neighborhood touches water). Typically a shared
     // `kit_underwater` across zones, but can be specialized per zone.
-    [Export] public TerrainKitData submergedKit;
+    [Export] public TerrainData submergedTerrain;
 
-    // Gen kit stamped on shore terrain — surface voxels that fall inside
+    // Gen terrain stamped on shore terrain — surface voxels that fall inside
     // the narrow band straddling water level (above water within
     // [ShoreElevationMin, ShoreElevationMax] meters and submerged within
     // [ShoreSubmergedElevationMin, ShoreSubmergedElevationMax] meters).
-    [Export] public TerrainKitData shoreKit;
+    [Export] public TerrainData shoreTerrain;
 
     // This zone's terrain tuning, as a subclass matching the approach the world
     // runs (OrganicZoneTerrainData, PlateauZoneTerrainData, ...). Holding it in
@@ -76,7 +72,7 @@ public partial class ZoneGenData : Resource
     [Export] public ZoneTerrainData terrain;
 
     // Per-column random elevation range (in meters) used to pick where
-    // ShoreKit is stamped. Shore band above water level is a random value
+    // ShoreTerrain is stamped. Shore band above water level is a random value
     // in [ShoreElevationMin, ShoreElevationMax]; shore band below water is
     // a random value in [ShoreSubmergedElevationMin,
     // ShoreSubmergedElevationMax]. Defaults yield a thin beach lip just
@@ -101,7 +97,7 @@ public partial class ZoneGenData : Resource
     // in metres (Chebyshev). The elevation band alone is NOT enough: it is a
     // contour line, so without this every lowland plain sitting a metre above sea
     // level turned to sand however far inland it was. The submerged pass has
-    // always insisted on real adjacent water (WorldGenData.submergedKitRadius);
+    // always insisted on real adjacent water (WorldGenData.submergedTerrainRadius);
     // this is the same rule for the half above the waterline.
     [Export(PropertyHint.Range, "1,16,1")] public int shoreWaterDistance = 3;
 
@@ -114,6 +110,27 @@ public partial class ZoneGenData : Resource
     [Export] public float shoreSubmergedElevationMax = -1f;
 
     [Export] public float grassThreshold = 0.3f;
+
+    // What GROWS on this zone's SURFACE ground — trees and ground cover, plus the
+    // noise that shapes a wood out of them. Null means nothing grows here, which
+    // is what a village zone wants.
+    //
+    // Per ZONE rather than per terrain because it is a property of the biome being
+    // generated, not of the material underfoot — the same split moss already has
+    // (mossSurfaceCoverage here answers for worldgen, TerrainData.mossCoverage
+    // for the painter). A SHARED asset, so a pine stand is defined once and named
+    // by every zone that wants one.
+    //
+    // WHETHER anything grows on a given column is a separate question, answered
+    // by the stamped terrain's ETerrainPurpose: only a Surface terrain grows foliage, so the
+    // shore band, the cave shell and the seabed stay bare without this having to
+    // know they exist. WHICH zone's foliage a column gets uses the same jagged
+    // per-column pick the terrain stamp itself used (ZoneField.PickTerrainZone), so woods
+    // interleave at a zone border exactly as the ground does.
+    //
+    // Only WorldGen reads it. The painter fills a painted region from a
+    // PropListData instead, which is why the resource lives in world_gen/.
+    [Export] public FoliageGenData foliage;
 
     // Monster difficulty band for this zone. WorldGen samples a low-frequency
     // world-space noise field per spawn and lerps between these two across it, so

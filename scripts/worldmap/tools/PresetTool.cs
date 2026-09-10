@@ -42,7 +42,7 @@ public class PresetTool : IWorldMapTool
         var colors = new Color[sets.Length];
         for (int i = 0; i < colors.Length; i++)
         {
-            colors[i] = sets[i]?.mapColor ?? Colors.White;
+            colors[i] = sets[i]?.SwatchColor ?? Colors.White;
         }
         return colors;
     }
@@ -60,11 +60,11 @@ public class PresetTool : IWorldMapTool
     public Color CursorColor(WorldMapInk ink)
     {
         PaintPresetData preset = Active(ink.Map);
-        return preset?.mapColor ?? Colors.White;
+        return preset?.SwatchColor ?? Colors.White;
     }
 
     public string HintText(WorldMapState ctx)
-        => "Writes ground, props and mobs together; repaint any after. Zone is its own tool";
+        => "Writes ground and mobs together; repaint either after. Props and zone are their own tools";
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
@@ -74,7 +74,6 @@ public class PresetTool : IWorldMapTool
             return "No presets authored";
         }
         string layers = (preset.ground != null ? "ground " : "")
-            + (preset.blockingProps != null ? "blocking " : "")
             + (preset.mobs != null ? "mobs" : "");
         return $"{preset.Label}  [{layers.Trim()}]";
     }
@@ -93,9 +92,8 @@ public class PresetTool : IWorldMapTool
             return;
         }
 
-        int groundValue = IndexOf(ctx.GroundSets, preset.ground);
-        int blockingValue = IndexOf(ctx.PropLists, preset.blockingProps);
-        int mobValue = IndexOf(ctx.MobSets, preset.mobs);
+        int groundValue = IndexOf(ctx.Terrains, preset.ground);
+        int mobValue = IndexOf(ctx.ScatterSets, preset.mobs);
 
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
@@ -104,20 +102,19 @@ public class PresetTool : IWorldMapTool
                 float v = erase ? 0f : Mathf.Clamp(groundValue + 1, 1, 255) / 255f;
                 ctx.Ground.SetPixel(px, pz, new Color(v, 0f, 0f, 1f));
             }
-            if (preset.blockingProps != null || erase)
-            {
-                WriteIndex(ctx.BlockingProps, blockingValue, px, pz, erase);
-            }
             if (preset.mobs != null || erase)
             {
-                WriteSpawn(ctx.Mobs, mobValue, preset.mobDensity, weight, px, pz, erase);
+                // At the set's OWN authored rate. A per-preset multiplier existed
+                // and no preset ever set it: the mob brush already carries a
+                // density on R/F, which is where scaling one down belongs — you
+                // decide it while looking at the dots, not once per biome.
+                WriteSpawn(ctx.Mobs, mobValue, 1f, weight, px, pz, erase);
             }
         });
     }
 
-    // The prop layer is a plain index layer and hard-edged, like the ground
-    // one: a half-painted list index is not a thinner wood, it is a different
-    // list.
+    // The ground layer is a plain index layer and hard-edged: a half-painted set
+    // index is not a thinner ground, it is a different set.
     private static void WriteIndex(Image layer, int index, int px, int pz, bool erase)
     {
         float value = erase ? 0f : Mathf.Clamp(index + 1, 1, 255) / 255f;

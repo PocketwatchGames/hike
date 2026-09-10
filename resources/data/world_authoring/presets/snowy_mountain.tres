@@ -1,14 +1,11 @@
-[gd_resource type="Resource" script_class="PaintPresetData" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="PaintPresetData" load_steps=4 format=3]
 
 [ext_resource type="Script" uid="uid://0ss3utn513x2b" path="res://scripts/data/worldmap/PaintPresetData.cs" id="1_p"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/ground_sets/snowy_mountain_ground.tres" id="2_ground"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/mob_sets/mountain.tres" id="5_mobs"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/prop_lists/snowy_mountain_trees.tres" id="3_coll"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/terrain_kits/snowy_mountain.tres" id="2_ground"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_scatters/mountain.tres" id="5_mobs"]
 
 [resource]
 script = ExtResource("1_p")
 displayName = "Snowy Mountain"
-mapColor = Color(0.82, 0.86, 0.92, 1)
 ground = ExtResource("2_ground")
-blockingProps = ExtResource("3_coll")
 mobs = ExtResource("5_mobs")

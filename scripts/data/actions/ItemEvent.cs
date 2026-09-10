@@ -234,13 +234,13 @@ public partial class ItemEvent : Resource
 	// entry and one slow status-stacking entry.
 	[Export] public Array<AreaIntervalSpec> areaIntervals = new();
 
-	// SummonMinion field. The composed minion to summon at the actor's aim point
-	// (positional aim cursor when active, else the actor position). A descriptor
-	// (not a bare MobData) so the minion carries its weapon loadout — weapons are
-	// spawn composition on MobDescriptor, not a species trait. The minion spawns
-	// on the player team, follows the player, and self-drains via the drain status
-	// authored on its MobData. See ItemEventHandlers.DoSummonMinion.
-	[Export] public MobDescriptor minionData;
+	// SummonMinion field. The minion to summon at the actor's aim point
+	// (positional aim cursor when active, else the actor position). A SpeciesData
+	// (not a bare MobData) so the minion carries its weapon loadout and recolor.
+	// The minion spawns on the player team, follows the player, and self-drains
+	// via the drain status authored on its MobData. See
+	// ItemEventHandlers.DoSummonMinion.
+	[Export] public SpeciesData minionSpecies;
 
 	// Dig fields. The dig is centered on the player's positional aim cursor
 	// when one is active, else a point `digReach` meters in front of the
@@ -466,7 +466,7 @@ public partial class ItemEvent : Resource
 				or nameof(digNothingEffect)
 				or nameof(digCommonEffect)
 				or nameof(digTreasureEffect) => EItemEventType.Dig,
-			nameof(minionData) => EItemEventType.SummonMinion,
+			nameof(minionSpecies) => EItemEventType.SummonMinion,
 			_ => 0,
 		};
 	}

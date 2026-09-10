@@ -1283,7 +1283,7 @@ public static class ItemEventHandlers
 		instance.GlobalPosition = position;
 	}
 
-	// Summons ev.minionData at the actor's aim point (positional cursor when
+	// Summons ev.minionSpecies at the actor's aim point (positional cursor when
 	// active, else the actor position) and hands it to the summoning weapon,
 	// which owns the minion's lifetime — recycling the oldest past its cap and
 	// destroying all of them when the weapon is unequipped/removed. The minion
@@ -1293,7 +1293,7 @@ public static class ItemEventHandlers
 	// WeaponState in hand.
 	public static void DoSummonMinion(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
-		if (ev.minionData == null || actor is not Player)
+		if (ev.minionSpecies == null || actor is not Player)
 		{
 			return;
 		}
@@ -1306,7 +1306,7 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		Mob minion = sim.SpawnMob(ev.minionData, ResolveAimPoint(actor));
+		Mob minion = sim.SpawnMob(ev.minionSpecies, ResolveAimPoint(actor));
 		if (minion != null)
 		{
 			weapon.AddMinion(minion);

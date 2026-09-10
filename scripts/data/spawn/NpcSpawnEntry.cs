@@ -6,10 +6,9 @@ using Godot.Collections;
 // THAT individual rather than its species — a branching Conversation, a spoken
 // Language, merchant Inventory, LoyaltyGifts (rewards) and taste rules. Kept as
 // its own entry type (not folded into MobSpawnEntry) so standard mobs aren't
-// cluttered with NPC-only fields, and kept off the shared
-// MobDescriptor/SpeciesData so those stay reusable species templates — every
-// placement is its own entity with its own dialogue and stock. See MobSimState's
-// LoyaltyGifts / Inventory rationale.
+// cluttered with NPC-only fields, and kept off the shared SpeciesData so that
+// stays a reusable species template — every placement is its own entity with its
+// own dialogue and stock. See MobSimState's LoyaltyGifts / Inventory rationale.
 //
 // **An NPC always spawns chunk-streamed and untamed.** Becoming a companion is a
 // RUNTIME transition and owns both halves of itself: Mob.Tame flips
@@ -41,14 +40,14 @@ public partial class NpcSpawnEntry : MobSpawnEntry
     [Export] public NpcAppearanceData appearance;
 
     // The appearances THIS entry may be given, the way MobSpawnEntry.variants
-    // constrains a descriptor: one npc palette entry, with the villager picked
+    // constrains a species: one npc palette entry, with the villager picked
     // per placement, so selecting it highlights every NPC on the map. Empty
     // leaves the row offering every authored appearance.
     [Export] public NpcAppearanceData[] appearances = System.Array.Empty<NpcAppearanceData>();
 
     // Rig/gender override: the model scene instanced for THIS individual (e.g. a
-    // male vs female villager package). Null = the descriptor's base
-    // MobData.mobScene. Passed into MobDescriptor.CreateState so it's fixed at
+    // male vs female villager package). Null = the species' base
+    // MobData.mobScene. Passed into SpeciesData.CreateState so it's fixed at
     // construction and serializes with the mob.
     [Export] public PackedScene scene;
 
@@ -98,7 +97,7 @@ public partial class NpcSpawnEntry : MobSpawnEntry
 
     // Which villager of its family this one is. The appearance is what a hand
     // placement varies, so it names the individual; a worldgen entry authored
-    // before appearances existed falls back to its descriptor.
+    // before appearances existed falls back to its species.
     public override string VariantName()
     {
         if (appearance != null && !string.IsNullOrEmpty(appearance.ResourcePath))
@@ -120,20 +119,23 @@ public partial class NpcSpawnEntry : MobSpawnEntry
 
     public override StringName[] PropertyOrder => Order;
 
-    // Three rows an NPC does not want, each for its own reason:
+    // Four rows an NPC does not want, each for its own reason:
     //
-    // `descriptor` — the two humanoid descriptors resolve to the SAME MobData
-    // and differ only in a bestiary displayName, so picking one changes nothing
-    // an author can see. Which individual this is was already decided by the
+    // `species` — the two humanoid species resolve to the SAME MobData and
+    // differ only in a bestiary displayName, so picking one changes nothing an
+    // author can see. Which individual this is was already decided by the
     // appearance and the conversation.
-    // `levelOverride` — a difficulty tier for a villager standing in a doorway
-    // is meaningless; the field belongs to the fighting mobs it was added for.
+    // `elite` — a villager wearing a crown and a lightning aura is not a thing
+    // the fiction has; elites are the fighting mobs the field was added for.
+    // `level` — a difficulty tier for a villager standing in a doorway is
+    // meaningless, for the same reason.
     // `initialBehavior` — an NPC runs its conversation and its idle pose, not a
     // combat brain's entry state.
     public override bool ShowsProperty(StringName name)
     {
-        return name != PropertyName.descriptor
-            && name != PropertyName.levelOverride
+        return name != PropertyName.species
+            && name != PropertyName.elite
+            && name != PropertyName.level
             && name != PropertyName.initialBehavior
             && base.ShowsProperty(name);
     }
@@ -165,7 +167,7 @@ public partial class NpcSpawnEntry : MobSpawnEntry
         {
             return base.NameCandidates(property);
         }
-        PackedScene rig = Rig ?? descriptor?.mob?.mobScene;
+        PackedScene rig = Rig ?? species?.mob?.mobScene;
         SceneState state = rig?.GetState();
         if (state == null)
         {
@@ -219,14 +221,14 @@ public partial class NpcSpawnEntry : MobSpawnEntry
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (descriptor == null)
+        if (species == null)
         {
             return;
         }
         // Lazy fallback, for MobSpawnEntry's reason. Which way a villager
         // standing in a doorway looks is the whole point of placing one by hand.
         float rotationY = context?.FacingY ?? (float)(rng.NextDouble() * Mathf.Pi * 2f);
-        MobSimState state = descriptor.CreateState(position, rotationY, Rig);
+        MobSimState state = species.CreateState(position, rotationY, sceneOverride: Rig);
         if (state == null)
         {
             return;

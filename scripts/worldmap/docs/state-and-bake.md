@@ -106,15 +106,18 @@ actually there. It lives on `TerrainMath`, given world bounds instead of a
 painter-side reimplementation is how the waterfall shading became two copies
 that drifted.
 
-**A kit's ambient scatter is a shared `SpawnGenData`, not its own list.**
-`TerrainKitData.forest` references one, and `Trees` / `Foliage` /
-`ForestFrequency` / `ForestThreshold` / `ForestDensity` / `TreesPerChunkMin/Max`
-resolve to it, falling back to the kit's inline fields for anything not yet
-migrated. So a pine stand is defined ONCE and used by several kits — the
-duplication that existed while both carried their own copy is exactly how the
-two would drift.
+**What grows on a kit is a shared `FoliageGenData`, not its own list.**
+`TerrainData.foliage` references one; null means nothing grows there, which is
+the right answer for the cave, shore and underwater terrains. So a pine stand is
+defined ONCE and used by several terrains.
 
-**`SpawnGenData` is the GENERATOR's scatter, and the painter never touches
+The kit used to carry an inline copy of the same fields UNDER the reference, as a
+fallback for terrains not yet migrated — and the accessor preferred the reference
+whenever there was one, so on every migrated kit the inline copy was dead. Six
+terrains had an authored `forestDensity` that did nothing. Nothing read the fallback
+anywhere, which is what made deleting it a no-op rather than a migration.
+
+**`FoliageGenData` is the GENERATOR's scatter, and the painter never touches
 one.** Its noise fields shape a wood by rule, which is what worldgen wants and
 the opposite of what a painted region is for: the painter places from a
 `PropListData` directly, so what a brush covered is what stands there — scenery
@@ -123,15 +126,13 @@ grown by rule versus furniture put somewhere on purpose.
 The mob layer paints a **`SpawnScatterData`**, which is a rate list of entities
 and nothing else. It used to be the same type as the generator's scatter, which
 meant every mob set carried tree and grass fields it left empty and every kit
-scatter carried an entities list nothing read. `SpawnGenData.scatter` references
-one, so the two halves of "a pine stand and what lives in it" are still one
-authored idea.
+scatter carried an entities list nothing read.
 
 **The zone tool paints `ZoneData` — theme and weather, nothing else.** The
 palette is `WorldMapData.zones`, and `WorldState.Zones` is built from that same
 list, so a chunk's stamped index and the runtime zone table cannot drift apart.
 
-It briefly painted `ZoneGenData` instead, for its kits and spawn lists. Once
+It briefly painted `ZoneGenData` instead, for its terrains and spawn lists. Once
 ground became its own layer and props their own palette, the only thing left in
 that resource for a painter was one dereference to `.zone` — everything else it
 bundles is either a separate painted layer now or meaningless here, because
@@ -170,17 +171,17 @@ so the authored range lives in one place. It feeds the baked velocity only —
 `WeatherData.windSpeed` is still what the weather simulation blends per zone, so
 painting a gale changes what the grass and the motes do, not the forecast.
 
-**A ground set may only name kits the document's `kitPalette` carries.** The
+**A ground set may only name terrains the document's `kitPalette` carries.** The
 per-voxel `TerrainId` is an index into that palette — so a kit with no slot bakes
 as slot 0, and appending it at bake time would shift every index instead. The fix
-is to APPEND it to the `KitPaletteData`, which is the one edit that moves nothing;
+is to APPEND it to the `TerrainPaletteData`, which is the one edit that moves nothing;
 `SlotOf` warns by name when this happens.
 
 **Detail sprites come from the ground too.** Every surface voxel is stamped with
 its kit's `defaultDetail` and a strength ramped off `detailNoise`. They belong to
 the ground layer rather than to props because they are part of what the material
 looks like up close, not something standing on it — which is also why they live
-on `TerrainKitData` and not in a `SpawnGenData`.
+on `TerrainData` and not in a `FoliageGenData`.
 
 It is `WorldFinish.StampDetailScatter` itself, not a painter-side copy of its math,
 and like worldgen the bake runs it **LAST — after the scenes, the routes and the
@@ -190,11 +191,11 @@ stamp landed: the building's footprint and the terrain it re-textured to the
 local kit came out bald, which is the same failure worldgen's ordering comment
 records. The pass takes two knobs so both callers can share it — `skipColumn`
 (worldgen's road tread, the painter's paving, both bare by construction) and
-`zones`, null here because a painted world assigns kits per column
+`zones`, null here because a painted world assigns terrains per column
 deterministically and has no zone-weight kernel to take an argmax of.
 
 **The zone under a column chooses its material.** Each solid voxel is written
-with the palette slot of one of that zone's kits — submerged where water stands
+with the palette slot of one of that zone's terrains — submerged where water stands
 over it, shore within `shoreBandVoxels` of the waterline, surface above that, and
 the cave kit below the top `surfaceDepthVoxels` so a tunnel bored through a
 hillside has rock walls instead of a cross-section of grass. Before this the bake

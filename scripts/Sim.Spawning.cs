@@ -228,17 +228,17 @@ public partial class Sim
         return pickup;
     }
 
-    // Spawn a mob from a MobDescriptor at `position` right now and return the live
-    // Mob node — the on-demand analog of the chunk-streaming drain path, used for
+    // Spawn a mob of `species` at `position` right now and return the live Mob
+    // node — the on-demand analog of the chunk-streaming drain path, used for
     // player summons (the summoner weapon). The sim state is registered in
     // WorldState so the mob is bookkept and persisted like any other; the node
     // is created synchronously via Mob.Create (which parents it + runs _Ready),
     // then registered into the chunk's active-entity list. Caller is expected
     // to be standing in a loaded chunk (a summon lands within aim range), so
-    // the target chunk is resident. Returns null if the descriptor has no scene.
-    public Mob SpawnMob(MobDescriptor descriptor, Vector3 position)
+    // the target chunk is resident. Returns null if the species has no scene.
+    public Mob SpawnMob(SpeciesData species, Vector3 position)
     {
-        MobSimState simState = descriptor?.CreateState(position, 0f, levelScalePerLevel: SimData?.levelScalePerLevel ?? 1.5f);
+        MobSimState simState = species?.CreateState(position, 0f, levelScalePerLevel: SimData?.levelScalePerLevel ?? 1.5f);
         if (simState == null)
         {
             return null;
@@ -263,19 +263,15 @@ public partial class Sim
     // so these mobs vanish with their chunk on eviction and never accumulate or
     // re-materialize the way a worldgen-placed mob does. `conditions` is stamped
     // onto the sim state so the off-condition cleanup can fade them when their
-    // window ends (Night mobs at dawn). `level` raises the mob's difficulty tier
-    // (~1.5x/level health/armor/damage) but never below the descriptor's authored
-    // floor, so an ambient spawner can scale toughness (e.g. by time of night).
-    // Spawns only onto an already-resident entity chunk (whose active-entity list
-    // frees the node on eviction); returns null if the descriptor has no scene or
-    // that chunk isn't loaded — callers pass a position they've already confirmed
-    // has resident ground.
-    public Mob SpawnMobTransient(MobDescriptor descriptor, Vector3 position, ESpawnConditions conditions, int level = 0)
+    // window ends (Night mobs at dawn). `level` is the mob's difficulty tier
+    // (~1.5x/level health/armor/damage), so an ambient spawner can scale toughness
+    // (e.g. by time of night). Spawns only onto an already-resident entity chunk
+    // (whose active-entity list frees the node on eviction); returns null if the
+    // species has no scene or that chunk isn't loaded — callers pass a position
+    // they've already confirmed has resident ground.
+    public Mob SpawnMobTransient(SpeciesData species, Vector3 position, ESpawnConditions conditions, int level = 0)
     {
-        // Raise the descriptor's authored floor to the ambient spawner's tier (never
-        // lower it); the resolved level scales the mob's vitals at construction.
-        int spawnLevel = descriptor != null ? Mathf.Max(descriptor.level, level) : 0;
-        MobSimState simState = descriptor?.CreateState(position, 0f, levelOverride: spawnLevel, levelScalePerLevel: SimData?.levelScalePerLevel ?? 1.5f);
+        MobSimState simState = species?.CreateState(position, 0f, level: Mathf.Max(0, level), levelScalePerLevel: SimData?.levelScalePerLevel ?? 1.5f);
         if (simState == null)
         {
             return null;

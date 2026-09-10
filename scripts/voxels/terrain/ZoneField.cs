@@ -58,21 +58,21 @@ public sealed class ZoneField
     // specific zone's bounds directly rather than through the kernel.
     public readonly ZoneBoundsContext Bounds;
 
-    // Soft scalar fades (elevation, density) use this reach; kit-identity
-    // stamps use the tighter one so out-of-biome kit bleed stays near the seam.
+    // Soft scalar fades (elevation, density) use this reach; terrain-identity
+    // stamps use the tighter one so out-of-biome terrain bleed stays near the seam.
     // KitBlendRadius must stay >= 1.0 or corner voxels get zero weight and
-    // PickKitZone falls back to a chunk-aligned hard seam, the exact thing the
+    // PickTerrainZone falls back to a chunk-aligned hard seam, the exact thing the
     // kernel exists to avoid.
     private readonly float _blendRadius;
-    private readonly float _kitBlendRadius;
+    private readonly float _terrainBlendRadius;
 
     public readonly ZoneGenData[] Gens;
 
     public int Count => Gens != null ? Gens.Length : 0;
 
-    // Per-voxel salt for the kit-border hash. Distinct from any other hash salt
-    // so kit borders don't correlate with future per-voxel decisions.
-    private const int KIT_HASH_SALT = 0x4B495454; // "KITT"
+    // Per-voxel salt for the terrain-border hash. Distinct from any other hash salt
+    // so terrain borders don't correlate with future per-voxel decisions.
+    private const int TERRAIN_HASH_SALT = 0x4B495454; // "KITT"
 
     public ZoneField(WorldGenData genData, ZoneBoundsContext bounds)
     {
@@ -80,7 +80,7 @@ public sealed class ZoneField
         _placed = genData?.zones;
         Bounds = bounds;
         _blendRadius = genData?.finish?.zoneGenBlendRadius ?? 2.0f;
-        _kitBlendRadius = genData?.kitBlendRadius ?? 2.0f;
+        _terrainBlendRadius = genData?.kitBlendRadius ?? 2.0f;
     }
 
     // The single zone a CHUNK belongs to — highest-priority authored bounds
@@ -294,7 +294,7 @@ public sealed class ZoneField
     }
 
     // Same weighted pick as PickWeighted but driven by a precomputed [0, 1)
-    // sample. For deterministic per-voxel kit assignment we want jagged zone
+    // sample. For deterministic per-voxel terrain assignment we want jagged zone
     // borders that follow the kernel weights — a hash of the voxel's column
     // gives a stable noisy boundary instead of the chunk-aligned orthogonal seam
     // `chunk.ZoneIndex` would give.
@@ -320,24 +320,24 @@ public sealed class ZoneField
         return n - 1;
     }
 
-    // Pick a zone for a kit stamp at a column. Falls back to the chunk's
+    // Pick a zone for a terrain stamp at a column. Falls back to the chunk's
     // ZoneIndex when the kernel produces no positive weight (off-world, edge
-    // cases) so we always end up with a stamped kit.
-    public int PickKitZone(int wx, int wz, int fallbackZoneIndex)
+    // cases) so we always end up with a stamped terrain.
+    public int PickTerrainZone(int wx, int wz, int fallbackZoneIndex)
     {
         int idx = PickWeightedFromHash(wx, wz,
-            TerrainMath.HashFloat01(wx, wz, KIT_HASH_SALT), _kitBlendRadius);
+            TerrainMath.HashFloat01(wx, wz, TERRAIN_HASH_SALT), _terrainBlendRadius);
         return idx >= 0 ? idx : fallbackZoneIndex;
     }
 
-    // The surface kit of the highest-weight zone at a column, or null. Uses the
-    // tight kit reach, since it answers a kit-identity question.
-    public TerrainKitData DominantSurfaceKit(int wx, int wz)
+    // The surface terrain of the highest-weight zone at a column, or null. Uses the
+    // tight terrain reach, since it answers a terrain-identity question.
+    public TerrainData DominantSurfaceTerrain(int wx, int wz)
     {
         int n = Count;
         if (n == 0) { return null; }
         Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        Weights(wx, wz, n, weights, _kitBlendRadius);
+        Weights(wx, wz, n, weights, _terrainBlendRadius);
         int best = -1;
         float bestW = 0f;
         for (int i = 0; i < n; i++)
@@ -348,6 +348,6 @@ public sealed class ZoneField
                 best = i;
             }
         }
-        return best >= 0 ? Gens[best]?.surfaceKit : null;
+        return best >= 0 ? Gens[best]?.surfaceTerrain : null;
     }
 }

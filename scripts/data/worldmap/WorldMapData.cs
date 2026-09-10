@@ -35,7 +35,7 @@ public partial class WorldMapData : Resource
     // thing that used to be borrowed from a terrain approach.
     [Export] public WorldStartData startContent;
     [Export] public WorldFinishData finish;
-    [Export] public KitPaletteData kitPalette;
+    [Export] public TerrainPaletteData terrainPalette;
     [Export] public SimData simData;
 
     // NO PALETTE ARRAYS. What a document can paint — its zones, regions, ground
@@ -90,10 +90,10 @@ public partial class WorldMapData : Resource
     // the PROCEDURAL pass and has no say over a wall someone drew a route on.
     [Export(PropertyHint.Range, "2,32,1")] public int climbRouteMinWallVoxels = 3;
 
-    // Ground for columns with none painted. Replaces "inherit the zone's kits",
-    // which only worked while zones still carried kits — and which quietly tied
+    // Ground for columns with none painted. Replaces "inherit the zone's terrains",
+    // which only worked while zones still carried terrains — and which quietly tied
     // the two layers together.
-    [Export] public GroundSetData defaultGround;
+    [Export] public TerrainKitData defaultGround;
 
 
     // World extent (XZ footprint + vertical chunk range). Per-column images are
@@ -120,12 +120,12 @@ public partial class WorldMapData : Resource
     [Export(PropertyHint.Range, "-512,0,1")] public float minElevationVoxels = -16f;
     [Export(PropertyHint.Range, "1,512,1")] public float maxElevationVoxels = 64f;
 
-    // How the painted terrain picks a zone kit. A column at or within
+    // How the painted terrain picks a zone terrain. A column at or within
     // shoreBandVoxels above THE WATER BESIDE IT is shore; anything the water
     // stands over is submerged; the rest is surface. Measured from the water
     // rather than from seaLevel, so a drained basin below zero is not sand and a
     // mountain lake gets a beach. Below the top surfaceDepthVoxels
-    // the column switches to the zone's cave kit, so a tunnel bored through a
+    // the column switches to the zone's cave terrain, so a tunnel bored through a
     // hillside has rock walls rather than a cross-section of grass.
     [Export(PropertyHint.Range, "0,16,1")] public int shoreBandVoxels = 2;
     [Export(PropertyHint.Range, "1,16,1")] public int surfaceDepthVoxels = 2;

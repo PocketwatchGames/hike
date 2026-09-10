@@ -4,7 +4,7 @@
 **What a thing is and how a list uses it are separate resources.** A
 `SpawnEntryData` (`MobSpawnEntry`, `ForageSpawnEntry`, `ChestSpawnEntry`, …) is a
 SHARED asset in `resources/data/world_authoring/spawn_entries/` holding only what is true of the
-thing wherever it appears — its descriptor or item, its scene, its placement
+thing wherever it appears — its species or item, its scene, its placement
 gates. A **row** names one of those and adds what THIS container says about it,
 so a zone's entity list reads as a list of named files with a number each:
 

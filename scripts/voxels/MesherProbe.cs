@@ -685,8 +685,8 @@ public static class MesherProbe
     // Where does a MATERIAL boundary land relative to the voxel boundary it was
     // authored at? Flat ground, TerrainId 1 for x<8 and 2 for x>=8, so geometry
     // is identical everywhere and only the material channel moves. The rendered
-    // transition sits midway between the last vertex carrying kit 1 and the
-    // first carrying kit 2, so those two X values bracket the seam.
+    // transition sits midway between the last vertex carrying terrain 1 and the
+    // first carrying terrain 2, so those two X values bracket the seam.
     public static void MaterialRegistration()
     {
         GD.Print($"[matreg] === voxel_center_sampling = {CVars.voxelCenterSampling.Value} ===");
@@ -694,7 +694,7 @@ public static class MesherProbe
         // would drop them from the flat-surface filters below.
         float rough = CVars.voxelEdgeRoughness.Value;
         CVars.voxelEdgeRoughness.Value = 0f;
-        FlatKitSplit();
+        FlatTerrainSplit();
         FlatTileSplit();
         WallOnGround();
         BuildingCrossSection();
@@ -715,7 +715,7 @@ public static class MesherProbe
         }
         int Get(int x, int y, int z) => Sample(v, x, y, z);
         var verts = BuildIds(Get, (x, y, z) => Blocks.DefaultShape(Get(x, y, z)), (x, y, z) => 1,
-            out int[] tiles, out int[] kits, out Vector3[] norms);
+            out int[] tiles, out int[] terrains, out Vector3[] norms);
         int stoneTile = Blocks.StoneId;
         var byX = new SortedDictionary<float, SortedSet<string>>();
         for (int i = 0; i < verts.Length; i++)
@@ -730,7 +730,7 @@ public static class MesherProbe
         GD.Print($"[matreg] flat tile split (authored seam at x=8.0) vertexX:tile = {string.Join(" ", parts)}");
     }
 
-    private static void FlatKitSplit()
+    private static void FlatTerrainSplit()
     {
         var v = new int[N, N, N];
         for (int x = 0; x < N; x++)
@@ -742,18 +742,18 @@ public static class MesherProbe
         }
         int Get(int x, int y, int z) => Sample(v, x, y, z);
         var verts = BuildIds(Get, (x, y, z) => SharpAxes.Y, (x, y, z) => x < 8 ? 1 : 2,
-            out int[] tiles, out int[] kits, out Vector3[] norms);
+            out int[] tiles, out int[] terrains, out Vector3[] norms);
         var byX = new SortedDictionary<float, SortedSet<int>>();
         for (int i = 0; i < verts.Length; i++)
         {
             if (norms[i].Y < 0.9f || Mathf.Abs(verts[i].Y - 8f) > 0.01f || verts[i].Z < 4f || verts[i].Z > 12f) { continue; }
             float x = Mathf.Round(verts[i].X * 100f) / 100f;
             if (!byX.TryGetValue(x, out var set)) { set = new SortedSet<int>(); byX[x] = set; }
-            set.Add(kits[i]);
+            set.Add(terrains[i]);
         }
         var parts = new List<string>();
         foreach (var kv in byX) { parts.Add($"{kv.Key:F1}:{string.Join("/", kv.Value)}"); }
-        GD.Print($"[matreg] flat kit split (authored seam at x=8.0) vertexX:kit = {string.Join(" ", parts)}");
+        GD.Print($"[matreg] flat terrain split (authored seam at x=8.0) vertexX:terrain = {string.Join(" ", parts)}");
     }
 
     // A hard block sitting ON soft ground — the stone-wall-in-grass case. The
@@ -775,7 +775,7 @@ public static class MesherProbe
         }
         int Get(int x, int y, int z) => Sample(v, x, y, z);
         var verts = BuildIds(Get, (x, y, z) => Blocks.DefaultShape(Get(x, y, z)), (x, y, z) => 1,
-            out int[] tiles, out int[] kits, out Vector3[] norms);
+            out int[] tiles, out int[] terrains, out Vector3[] norms);
         int stoneTile = Blocks.StoneId;
         var byX = new SortedDictionary<float, SortedSet<string>>();
         for (int i = 0; i < verts.Length; i++)
@@ -791,7 +791,7 @@ public static class MesherProbe
     }
 
     // The reported artefact: a stone building on grass. Ground is Terrain
-    // (kit 1) everywhere; the building's floor is Stone and its walls are Stone
+    // (terrain 1) everywhere; the building's floor is Stone and its walls are Stone
     // columns at x=4 and x=12. Prints the top-surface tile per vertex X so the
     // -X and +X seams can be compared against each other.
     private static void BuildingCrossSection()
@@ -815,7 +815,7 @@ public static class MesherProbe
         }
         int Get(int x, int y, int z) => Sample(v, x, y, z);
         var verts = BuildIds(Get, (x, y, z) => Blocks.DefaultShape(Get(x, y, z)), (x, y, z) => 1,
-            out int[] tiles, out int[] kits, out Vector3[] norms);
+            out int[] tiles, out int[] terrains, out Vector3[] norms);
         int stoneTile = Blocks.StoneId;
         var byX = new SortedDictionary<float, SortedSet<string>>();
         for (int i = 0; i < verts.Length; i++)
@@ -831,13 +831,13 @@ public static class MesherProbe
         GD.Print($"[matreg] building floor x=[4..12] walls at x=4,12 — vertexX:tile = {string.Join(" ", parts)}");
     }
 
-    // Build + return each vertex's OWN tile/kit id, decoded from the flat
+    // Build + return each vertex's OWN tile/terrain id, decoded from the flat
     // per-triangle id triple (CUSTOM0.xyz / CUSTOM1.yzw) via the vertex's
     // barycentric selector in COLOR.rgb.
     private static Vector3[] BuildIds(Func<int, int, int, int> get,
         Func<int, int, int, SharpAxes> shape,
         Func<int, int, int, int> terrainId,
-        out int[] tiles, out int[] kits, out Vector3[] norms)
+        out int[] tiles, out int[] terrains, out Vector3[] norms)
     {
         var st = new MeshBuffer(4);
         ChunkMesherDC.Build(new ChunkState(Vector3I.Zero), get, shape,
@@ -846,7 +846,7 @@ public static class MesherProbe
         if (!hasAnyFace)
         {
             tiles = Array.Empty<int>();
-            kits = Array.Empty<int>();
+            terrains = Array.Empty<int>();
             norms = Array.Empty<Vector3>();
             return Array.Empty<Vector3>();
         }
@@ -857,12 +857,12 @@ public static class MesherProbe
         float[] c0 = arrays[(int)Godot.Mesh.ArrayType.Custom0].AsFloat32Array();
         float[] c1 = arrays[(int)Godot.Mesh.ArrayType.Custom1].AsFloat32Array();
         tiles = new int[verts.Length];
-        kits = new int[verts.Length];
+        terrains = new int[verts.Length];
         for (int i = 0; i < verts.Length; i++)
         {
             int sel = colors[i].R > 0.5f ? 0 : (colors[i].G > 0.5f ? 1 : 2);
             tiles[i] = Mathf.RoundToInt(c0[i * 4 + sel]);
-            kits[i] = Mathf.RoundToInt(c1[i * 4 + 1 + sel]);
+            terrains[i] = Mathf.RoundToInt(c1[i * 4 + 1 + sel]);
         }
         return verts;
     }

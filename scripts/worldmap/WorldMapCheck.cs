@@ -104,7 +104,7 @@ public static class WorldMapCheck
             + (spread.Length == 0 ? "none" : spread.ToString()));
 
         ReportEntityLinks(sb, entities);
-        ReportMobSets(sb, ctx);
+        ReportScatterSets(sb, ctx);
         ReportPalettes(sb, ctx);
         ReportPaletteEditors(sb, ctx);
 
@@ -501,13 +501,13 @@ public static class WorldMapCheck
     // zone 4 stopped being the hub does not error, it just bakes a different
     // world. A DEAD slot (its file gone) is reported rather than skipped, since
     // the columns painted with it are still out there.
-    // What each paintable mob set actually spawns, at the rate it is authored
+    // What each paintable scatter set actually spawns, at the rate it is authored
     // at — the same listing the painter's panel shows for the selected set, off
     // the same helper. It is the one place a density is legible as a NUMBER
     // rather than as square metres between spawns.
-    private static void ReportMobSets(System.Text.StringBuilder sb, WorldMapState ctx)
+    private static void ReportScatterSets(System.Text.StringBuilder sb, WorldMapState ctx)
     {
-        foreach (SpawnScatterData set in ctx.MobSets)
+        foreach (SpawnScatterData set in ctx.ScatterSets)
         {
             if (set == null)
             {
@@ -515,7 +515,7 @@ public static class WorldMapCheck
             }
             List<(string Name, string Rate)> listed =
                 WorldMapEntityInspector.ScatterRows(set);
-            sb.AppendLine($"[worldmap_check] mob set {set.Label}: {listed.Count} entries");
+            sb.AppendLine($"[worldmap_check] scatter set {set.Label}: {listed.Count} entries");
             foreach ((string name, string rate) in listed)
             {
                 sb.AppendLine($"[worldmap_check]   {name,-28} {rate}");

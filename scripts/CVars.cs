@@ -105,7 +105,7 @@
     });
 
     // Bitmask of worldgen entity categories to SKIP. Useful for iterating on
-    // terrain shape, kit colors, or fog without the visual clutter — set the
+    // terrain shape, terrain colors, or fog without the visual clutter — set the
     // bits for the category you want gone:
     //   1  = details      (painted detail-sprite scatter — grass blades etc.)
     //   2  = props        (trees + tall grass)

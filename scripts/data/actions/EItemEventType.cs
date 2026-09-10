@@ -83,7 +83,7 @@ public enum EItemEventType
 	// punch a screenspace flash (a spell, a flashbang). For effect SCENES
 	// (particle bursts, sounds) drop a ScreenFlashEmitter node in instead.
 	ScreenFlash = 1 << 18,
-	// Summons a minion mob (ev.minionData) on the player's team at the actor's
+	// Summons a minion mob (ev.minionSpecies) on the player's team at the actor's
 	// aim point (or position when no aim cursor is active). The minion follows
 	// the player and self-drains via its MobData's authored drain status. The
 	// summoning weapon (WeaponState) tracks its minions and recycles the oldest

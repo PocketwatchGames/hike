@@ -14,11 +14,11 @@ public partial class WorldGenData : Resource
     [Export] public WorldStartData startContent;
     [Export] public WorldFinishData finish;
 
-    // This world's kit palette — the slot table ChunkState.TerrainId indexes.
-    // Authored, and APPEND-ONLY: see KitPaletteData. It used to be derived by
-    // walking `zones` and collecting each zone's four kit slots, which made the
+    // This world's terrain palette — the slot table ChunkState.TerrainId indexes.
+    // Authored, and APPEND-ONLY: see TerrainPaletteData. It used to be derived by
+    // walking `zones` and collecting each zone's four terrain slots, which made the
     // .hike's wire format a side effect of zone placement.
-    [Export] public KitPaletteData kitPalette;
+    [Export] public TerrainPaletteData terrainPalette;
 
     // Per-zone placement list. Each PlacedZone pairs a reusable ZoneGenData
     // template with the ZoneBounds describing where it goes in THIS world; the
@@ -30,7 +30,7 @@ public partial class WorldGenData : Resource
     [Export] public PlacedZone[] zones = System.Array.Empty<PlacedZone>();
 
     // The ZoneGenData templates of `Zones`, index-aligned, cached. The per-zone
-    // worldgen passes (elevation/threshold blending, kit borders, prop palettes)
+    // worldgen passes (elevation/threshold blending, terrain borders, prop palettes)
     // consume this — placement lives on the PlacedZone wrapper, the worldgen
     // scalars on the template. Rebuilt whenever the count changes (a reload
     // replaces the array, so identity check on length suffices for gen-time use).
@@ -148,13 +148,13 @@ public partial class WorldGenData : Resource
     [ExportGroup("Scatter Noise")]
     [Export] public float grassNoiseFrequency = 0.1f;
     [Export] public int grassNoiseOctaves = 2;
-    // Forest noise base frequency stays 1 (per-kit frequency is applied at
+    // Forest noise base frequency stays 1 (per-terrain frequency is applied at
     // sample time by scaling input coords); only the octave count is shared.
     [Export] public int forestNoiseOctaves = 2;
 
     [ExportGroup("Zone Blending")]
-    // Per-voxel kit-stamp blend radius (in chunks). Must stay >= 1.0 or corner
-    // voxels fall back to a chunk-aligned hard seam. See WorldGen.PickKitZone.
+    // Per-voxel terrain-stamp blend radius (in chunks). Must stay >= 1.0 or corner
+    // voxels fall back to a chunk-aligned hard seam. See WorldGen.PickTerrainZone.
     [Export] public float kitBlendRadius = 2.0f;
 
     [ExportGroup("Climbable Cliffs")]
@@ -185,10 +185,10 @@ public partial class WorldGenData : Resource
     // dirt; around 0.35 gives scattered patches, 0.6 gives rare ones.
     [Export(PropertyHint.Range, "0,1,0.001")] public float dirtPatchThreshold = 0.45f;
 
-    [ExportGroup("Submerged Kit")]
-    // Chebyshev radius for the water-adjacency search in TagSubmergedKits.
-    // Must be >= 2 (see WorldGen.TagSubmergedKits).
-    [Export] public int submergedKitRadius = 2;
+    [ExportGroup("Submerged Terrain")]
+    // Chebyshev radius for the water-adjacency search in TagSubmergedTerrains.
+    // Must be >= 2 (see WorldGen.TagSubmergedTerrains).
+    [Export] public int submergedTerrainRadius = 2;
 
     [ExportGroup("Props")]
     // XZ jitter (in voxels) applied to scattered tall-grass foliage.

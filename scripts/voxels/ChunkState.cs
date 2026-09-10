@@ -57,8 +57,8 @@ public class ChunkState
     public readonly byte[,,] Shape;
 
     // Per-voxel terrain id. Index into the active world's terrain palette
-    // (derived from the kit palette built by deduplicating each zone's
-    // SurfaceKit/CaveKit/SubmergedKit refs and uploaded globally via
+    // (derived from the terrain palette built by deduplicating each zone's
+    // SurfaceTerrain/CaveTerrain/SubmergedTerrain refs and uploaded globally via
     // ChunkMesh.SetTerrains). Orthogonal to int: a voxel tagged
     // VoxelType.Terrain with TerrainId=2 means "AUTO land that reads from
     // palette slot 2's terrain." Per-voxel (not per-column) so caves beneath

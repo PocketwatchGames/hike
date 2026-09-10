@@ -6,7 +6,7 @@
 [ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/languages/common.tres" id="Lang_common"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/conversation/conditions/language_incomplete.tres" id="Cond_language_incomplete"]
+[ext_resource type="Resource" path="res://resources/data/dialogue_scripts/conditions/language_incomplete.tres" id="Cond_language_incomplete"]
 
 [sub_resource type="Resource" id="Entry_1"]
 script = ExtResource("Script_ConversationEntry")

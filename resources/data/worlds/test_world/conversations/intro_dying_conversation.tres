@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
 [ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/conversation/actions/kill_speaker.tres" id="Act_kill_speaker"]
+[ext_resource type="Resource" path="res://resources/data/dialogue_scripts/actions/kill_speaker.tres" id="Act_kill_speaker"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="Script_ItemDescriptor"]
 [ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/weapons/lantern.tres" id="Item_lantern"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="Script_ItemCount"]

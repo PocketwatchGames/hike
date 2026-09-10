@@ -257,6 +257,9 @@ public partial class WorldMapPainter : Node3D
     private EntityPlacement _hoverEntity;
     private EntityPlacement _markedSelection;
     private SpawnEntryData _markedEntry;
+    // The scatter set the tool is picking out, for the same reason: its dots
+    // draw full while every other set's recede, so changing it repaints the map.
+    private SpawnScatterData _markedScatter;
 
     // What the MAP IS SHOWING at a column, not the raw height field. Under a
     // cutaway the two differ by a whole mountain, and a readout that reports the
@@ -343,13 +346,16 @@ public partial class WorldMapPainter : Node3D
             UpdateHud();
         }
         SpawnEntryData entry = ActiveTool.SelectedEntry(_ctx);
-        if (!ReferenceEquals(entry, _markedEntry))
+        SpawnScatterData scatter = ActiveTool.SelectedScatter(_ctx);
+        if (!ReferenceEquals(entry, _markedEntry) || !ReferenceEquals(scatter, _markedScatter))
         {
-            // Every placement of an entry is inked as a match, so this one is a
-            // whole-map answer rather than a pair of marks. Deferred and
+            // Every placement of an entry is inked as a match, and every column
+            // of a scatter set is dotted at its own weight, so both are
+            // whole-map answers rather than a pair of marks. Deferred and
             // coalesced like every other full rebuild, so holding Q/E through the
             // palette costs one repaint per frame.
             _markedEntry = entry;
+            _markedScatter = scatter;
             RebuildFull();
         }
     }
@@ -380,6 +386,7 @@ public partial class WorldMapPainter : Node3D
         hud.SetActiveOption(ActiveTool.OptionIndex);
         _markedSelection = ActiveTool.SelectedEntity;
         _markedEntry = ActiveTool.SelectedEntry(_ctx);
+        _markedScatter = ActiveTool.SelectedScatter(_ctx);
         RebuildFull();
         UpdateHud();
     }
@@ -1038,7 +1045,7 @@ public partial class WorldMapPainter : Node3D
         }
         if (view.PreviewLayer.HasFlag(ESpawnPreview.Mobs) && pixelsPerMeter >= 2)
         {
-            DrawSpawnDots(x0, z0, x1, z1, _ctx.MobSets, _ctx.PreviewMobAt);
+            DrawSpawnDots(x0, z0, x1, z1, _ctx.ScatterSets, _ctx.PreviewMobAt, _markedScatter);
         }
 
         // Fourth pass: the hand-placed entities and the player spawn, on every
@@ -1335,8 +1342,17 @@ public partial class WorldMapPainter : Node3D
         return h >= hn ? _ctx.ClimbRouteAt(px, pz) : _ctx.ClimbRouteAt(nx, nz);
     }
 
+    // One dot per column that will really spawn, in its SET's colour — and the
+    // set the tool has selected draws at full weight while the others recede.
+    // Painting mobs is painting one set, and nine colours at one weight do not
+    // answer "where is this one"; the others dimming rather than the selected
+    // one growing keeps the map's overall weight where it was authored.
+    //
+    // `picked` is the set being picked out, or null for a view that shows mob
+    // dots under a tool with no set of its own — there nothing is being asked
+    // about, so everything draws full.
     private void DrawSpawnDots(int x0, int z0, int x1, int z1, SpawnScatterData[] sets,
-        System.Func<int, int, int> previewAt)
+        System.Func<int, int, int> previewAt, SpawnScatterData picked)
     {
         for (int px = x0; px < x1; px++)
         {
@@ -1347,8 +1363,12 @@ public partial class WorldMapPainter : Node3D
                 {
                     continue;
                 }
-                Color c = sets[setIndex]?.mapColor ?? Colors.White;
-                DrawSpawnDot(px, pz, new Color(c.R, c.G, c.B, 1f), ink.mobDotFraction);
+                SpawnScatterData set = sets[setIndex];
+                Color c = set?.mapColor ?? Colors.White;
+                bool full = picked == null || ReferenceEquals(set, picked);
+                DrawSpawnDot(px, pz,
+                    new Color(c.R, c.G, c.B, full ? 1f : ink.mobDotDimAlpha),
+                    full ? ink.mobDotFraction : ink.mobDotDimFraction);
             }
         }
     }

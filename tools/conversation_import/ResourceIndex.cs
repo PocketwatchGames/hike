@@ -133,7 +133,7 @@ class ResourceIndex
 		if (!cache.TryGetValue(world, out Dictionary<string, ResRef> table))
 		{
 			table = new Dictionary<string, ResRef>(StringComparer.OrdinalIgnoreCase);
-			IndexFolder(Path.Combine(_repoRoot, "resources", "data", "world_authoring", "conversation", kind), table);
+			IndexFolder(Path.Combine(_repoRoot, "resources", "data", "dialogue_scripts", kind), table);
 			IndexFolder(Path.Combine(_repoRoot, "resources", "data", "worlds", "shared", "conversation", kind), table);
 			IndexFolder(Path.Combine(_repoRoot, "resources", "data", "worlds", world, "conversations", kind), table);
 			cache[world] = table;

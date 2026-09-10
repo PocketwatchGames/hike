@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://bvswblqkqx1yl" path="res://scripts/editor/EditorBrushPalette.cs" id="1_palette"]
 [ext_resource type="Resource" uid="uid://b1ee1ch87plrm" path="res://resources/data/weather/weather_clear.tres" id="15_weather_clear"]
-[ext_resource type="Resource" uid="uid://dg6i16eia6jvl" path="res://resources/data/world_authoring/roofs/roof_library.tres" id="16_rooflibrary"]
+[ext_resource type="Resource" uid="uid://dg6i16eia6jvl" path="res://resources/data/roofs/roof_library.tres" id="16_rooflibrary"]
 [ext_resource type="Resource" path="res://resources/data/weather/weather_temperate.tres" id="16_weather_temperate"]
 [ext_resource type="Resource" path="res://resources/data/weather/weather_overcast.tres" id="17_weather_overcast"]
 [ext_resource type="Resource" uid="uid://bxayswrs05weq" path="res://resources/data/weather/weather_snow_light.tres" id="18_weather_snow_light"]

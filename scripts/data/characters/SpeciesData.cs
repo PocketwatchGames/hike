@@ -1,20 +1,23 @@
 using Godot;
 
-// A reusable species variant: a base MobData paired with the per-variant
-// recolor, intrinsic status effects, and loot that define one species (a swamp
-// goblin vs a desert goblin). Factored out of MobDescriptor so the SAME variant
-// is authored once and shared by every descriptor that uses it — e.g. one
-// goblin_swamp SpeciesData feeds both the plain and the elite swamp-goblin
-// descriptor instead of duplicating the mob+palette+venom triple in each.
+// A species: a base MobData paired with the per-variant recolor, intrinsic
+// status effects, weapons and loot that define one creature (a swamp goblin vs
+// a desert goblin). This is what a spawn source names, and CreateState builds
+// the runtime MobSimState from it.
 //
-// This is the unit of bestiary identity: a runtime mob IS-A species
+// It is the unit of bestiary identity: a runtime mob IS-A species
 // (MobSimState.Species), and discovery / kill-leveling key on it (see
 // SimState.DiscoveredSpecies). The base MobData (reached via `mob`) is the
 // shared template AND the bestiary "page" that groups a type's species; this
-// SpeciesData is one "row" on that page. A MobDescriptor HAS-A SpeciesData plus
-// its own elite override (the species-side analog of EliteMobDescriptor). A
-// pure loadout variant (a claw goblin vs a torch-bearing one) is its own
-// SpeciesData, since weapons are a species trait — and thus its own bestiary row.
+// SpeciesData is one "row" on that page. A pure loadout variant (a claw goblin
+// vs a torch-bearing one) is its own SpeciesData, since weapons are a species
+// trait — and thus its own bestiary row.
+//
+// **Being elite is NOT a species trait** — it is a property of one spawn, so it
+// rides on the spawn source (MobSpawnEntry.elite) and is passed into CreateState
+// rather than authored here. That keeps an elite goblin the same bestiary row,
+// discovery and kill-quest target as a plain one, and spares every elite a
+// forked copy of the seven fields below.
 [GlobalClass]
 public partial class SpeciesData : Resource
 {
@@ -58,8 +61,8 @@ public partial class SpeciesData : Resource
     // (NOT a base trait on MobData). Each WeaponData carries its own action
     // timeline, damage / continuous profiles, in-hand held model, and AI
     // engagement tuning (range / cooldown / ally gate / priority), exactly like a
-    // player weapon. MobDescriptor.CreateState stamps this onto
-    // MobSimState.Weapons; BehaviorAttack fires the highest-priority weapon whose
+    // player weapon. CreateState stamps this onto MobSimState.Weapons;
+    // BehaviorAttack fires the highest-priority weapon whose
     // gates pass and the in-hand prop is the primary weapon's held model. Because
     // weapons are a species trait, a loadout variant (a claw goblin vs a
     // torch-bearing one) is authored as its own SpeciesData — a distinct bestiary
@@ -70,7 +73,74 @@ public partial class SpeciesData : Resource
     // here so each zone variant sets its own spoils — all kun-kun variants drop
     // the shared kun_kun_meat, all goblins goblin_meat, etc.).
     // Each entry spawns `count` Loot instances of its descriptor, fired outward
-    // on the same upward arc chests use. MobDescriptor.CreateState stamps this
-    // onto MobSimState.Loot (read by Mob.EjectLoot); empty = no drops.
+    // on the same upward arc chests use. CreateState stamps this onto
+    // MobSimState.Loot (read by Mob.EjectLoot); empty = no drops.
     [Export] public Godot.Collections.Array<ItemCount> loot = new();
+
+    // Build the runtime sim state for a mob of this species at the given
+    // transform. Returns null when the species has no usable MobData or scene.
+    //
+    // `elite` is the spawn's elite signature (null = an ordinary mob): it stamps
+    // the crown / badge onto the state and composes its signature effects on top
+    // of this species' intrinsic ones. `sceneOverride` swaps the rig per
+    // individual (a male vs female villager) without forking the species — see
+    // NpcSpawnEntry.Scene; null falls back to MobData.mobScene. The scene is
+    // fixed at construction (EntitySimState.Scene is readonly) and serializes
+    // with the mob, so an overridden rig survives chunk eviction and save/load.
+    //
+    // `level` is the mob's difficulty tier, resolved by the caller (an authored
+    // floor plus the per-area worldgen field — see SpawnContext.MobLevel). It
+    // reaches the MobSimState constructor so vitals are scaled to it at creation,
+    // before the state is ever serialized, rather than patched afterward. (The
+    // constructor forces non-dangerous mobs back to level 0.)
+    public MobSimState CreateState(Vector3 worldPosition, float rotationY, EliteData elite = null,
+        PackedScene sceneOverride = null, int level = 0, float levelScalePerLevel = 1.5f)
+    {
+        PackedScene scene = sceneOverride ?? mob?.mobScene;
+        if (mob == null || scene == null)
+        {
+            return null;
+        }
+        var state = new MobSimState(worldPosition, rotationY, scene, mob, level, levelScalePerLevel);
+        // The species is the mob's bestiary identity (discovery / kill-leveling
+        // key) as well as the source of its recolor / loot / stat modifiers.
+        state.Species = this;
+        state.Palette = palette;
+        if (weapons != null && weapons.Count > 0)
+        {
+            state.Weapons = weapons;
+        }
+        if (loot != null && loot.Count > 0)
+        {
+            state.Loot = loot;
+        }
+        // Compose this species' intrinsic status effects with the elite
+        // signature's (if any) into one list so both apply at spawn.
+        var effects = new Godot.Collections.Array<StatusEffectData>();
+        if (statusEffects != null)
+        {
+            foreach (StatusEffectData effect in statusEffects)
+            {
+                effects.Add(effect);
+            }
+        }
+        if (elite != null)
+        {
+            state.Elite = true;
+            state.Badge = elite.badge;
+            state.EliteCrownScene = elite.crownScene;
+            if (elite.statusEffects != null)
+            {
+                foreach (StatusEffectData effect in elite.statusEffects)
+                {
+                    effects.Add(effect);
+                }
+            }
+        }
+        if (effects.Count > 0)
+        {
+            state.StatusEffects = effects;
+        }
+        return state;
+    }
 }

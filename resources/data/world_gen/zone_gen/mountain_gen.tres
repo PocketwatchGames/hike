@@ -2,14 +2,14 @@
 
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://d2gggtn6xkc7c" path="res://resources/data/world_authoring/zones/mountain.tres" id="2_region"]
-[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/kits/cave_limestone_kit.tres" id="4_kit_cave"]
-[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/kits/underwater_kit.tres" id="5_kit_underwater"]
-[ext_resource type="Resource" uid="uid://crwit5kc7vxce" path="res://resources/data/world_authoring/spawn_lists/surface_entities_mountain.tres" id="5_ycgd3"]
-[ext_resource type="Resource" uid="uid://emqrvij6sly9m" path="res://resources/data/world_authoring/kits/shore_sand_kit.tres" id="9_w82ce"]
-[ext_resource type="Resource" uid="uid://2fxll1oeroha" path="res://resources/data/world_authoring/kits/mountain_kit.tres" id="11_w82ce"]
-[ext_resource type="Resource" uid="uid://d2hbjjt516pxk" path="res://resources/data/world_authoring/spawn_lists/cave_entities_mountain.tres" id="13_cave"]
-[ext_resource type="Resource" uid="uid://ok7jp66gk0al" path="res://resources/data/world_authoring/spawn_groups/zone_campfire_fixtures.tres" id="14_fixtures"]
-[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_authoring/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
+[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="4_kit_cave"]
+[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="5_kit_underwater"]
+[ext_resource type="Resource" uid="uid://crwit5kc7vxce" path="res://resources/data/world_gen/spawn_lists/surface_entities_mountain.tres" id="5_ycgd3"]
+[ext_resource type="Resource" uid="uid://emqrvij6sly9m" path="res://resources/data/world_authoring/terrain/shore_sand.tres" id="9_w82ce"]
+[ext_resource type="Resource" uid="uid://2fxll1oeroha" path="res://resources/data/world_authoring/terrain/mountain.tres" id="11_w82ce"]
+[ext_resource type="Resource" uid="uid://d2hbjjt516pxk" path="res://resources/data/world_gen/spawn_lists/cave_entities_mountain.tres" id="13_cave"]
+[ext_resource type="Resource" uid="uid://ok7jp66gk0al" path="res://resources/data/world_gen/spawn_groups/zone_campfire_fixtures.tres" id="14_fixtures"]
+[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="92_health"]
 [ext_resource type="Resource" uid="uid://dqvfmgixf4hns" path="res://resources/data/items/consumables/lantern_oil.tres" id="93_oil"]
@@ -23,6 +23,7 @@
 [ext_resource type="Resource" uid="uid://cslxq1vlr7qhf" path="res://resources/data/items/scrolls/scroll_stew_kun_kun_perception.tres" id="sc4"]
 [ext_resource type="Resource" uid="uid://dh8n7h0pji8hc" path="res://resources/data/items/scrolls/scroll_stew_sparrow_perception.tres" id="sc5"]
 [ext_resource type="Resource" uid="uid://bydps7ac5slb7" path="res://resources/data/items/scrolls/scroll_stew_drake_fortitude.tres" id="sc6"]
+[ext_resource type="Resource" uid="uid://cdgwwdoxj3xkk" path="res://resources/data/world_gen/foliage_gen/mountain.tres" id="F_foliage"]
 
 [sub_resource type="Resource" id="Dist0"]
 script = ExtResource("90_countrange")
@@ -78,10 +79,11 @@ metadata/_custom_type_script = "uid://61iu4uosbxjog"
 [resource]
 script = ExtResource("1_script")
 zone = ExtResource("2_region")
-surfaceKit = ExtResource("11_w82ce")
-caveKit = ExtResource("4_kit_cave")
-submergedKit = ExtResource("5_kit_underwater")
-shoreKit = ExtResource("9_w82ce")
+surfaceTerrain = ExtResource("11_w82ce")
+foliage = ExtResource("F_foliage")
+caveTerrain = ExtResource("4_kit_cave")
+submergedTerrain = ExtResource("5_kit_underwater")
+shoreTerrain = ExtResource("9_w82ce")
 terrain = SubResource("ZoneTerrain_mountain_gen")
 mossSurfaceCoverage = 0.3
 mossCaveCoverage = 0.3

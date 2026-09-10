@@ -192,13 +192,13 @@ public static class WorldFile
     //      so reordering the palette (which was itself derived from the zone
     //      list, and therefore moved whenever a zone was added) silently
     //      re-textured every world already baked. The bytes stay valid, they
-    //      just mean a different kit, which is exactly the failure a version
+    //      just mean a different terrain, which is exactly the failure a version
     //      number cannot catch. Main.LoadWorldFromFile compares and refuses.
     //      Slots APPENDED after the bake are fine and deliberately accepted.
     // v47: the DETAIL palette's slots are recorded the same way. DetailGroup
-    //      bytes index it 1-based, and it is derived from the kits'
-    //      defaultDetail — so repointing one kit's detail moves that table
-    //      without moving the kit palette, which the v46 check would pass.
+    //      bytes index it 1-based, and it is derived from the terrains'
+    //      defaultDetail — so repointing one terrain's detail moves that table
+    //      without moving the terrain palette, which the v46 check would pass.
     // v49: named points of interest. Worldgen resolves them from authored zone
     //      data and nothing recomputes them on load, so every POI was lost
     //      through a .hike or worldgen-cache round trip — which is every run
@@ -224,7 +224,13 @@ public static class WorldFile
     //      The mesher used to re-derive them per build from voxels alone, which
     //      could not see the props standing on a ledge; the answer is now decided
     //      once, by the producer, where the entities exist.
-    public const uint VERSION = 54;
+    // v55: MobDescriptor is gone — a spawn source names a SpeciesData directly
+    //      and carries the elite signature itself (MobSpawnEntry.species /
+    //      .elite). No payload changed, but a placement's forked spawn entry is
+    //      stored BY VALUE with its property NAMES (see EntitySerializer
+    //      .WriteInline), and `descriptor` / `levelOverride` are no longer among
+    //      them. The descriptor .tres a stored path ref pointed at are deleted too.
+    public const uint VERSION = 55;
 
     public struct IndexEntry
     {
@@ -260,12 +266,12 @@ public static class WorldFile
         public RegionEntry[] Regions;
         // Named points of interest baked with the world — see VERSION v49.
         public Dictionary<string, Vector3> PointsOfInterest;
-        // Resource path per kit-palette slot, in slot order — what every
+        // Resource path per terrain-palette slot, in slot order — what every
         // TerrainId byte in this file indexes. See VERSION v46.
-        public string[] KitSlots;
+        public string[] TerrainSlots;
         // The same for the detail palette, which DetailGroup bytes index
-        // 1-based. Recorded separately because it is derived from the kits'
-        // defaultDetail and so can move without the kit palette moving.
+        // 1-based. Recorded separately because it is derived from the terrains'
+        // defaultDetail and so can move without the terrain palette moving.
         public string[] DetailSlots;
         // Shared by every entity list in the file. Chunk reads must pass it to
         // ChunkSerializer.Read or their path indices resolve against nothing.
@@ -347,12 +353,12 @@ public static class WorldFile
         // A path to the resource that AUTHORS them, not the values: knowledge is
         // authored as embedded sub-resources, which have no path of their own.
         w.Write(worldState.StartContentPath ?? "");
-        KitPalette palette = worldState.Kits ?? KitPalette.Empty;
-        string[] kitSlots = palette.SlotNames();
-        w.Write((uint)kitSlots.Length);
-        for (int i = 0; i < kitSlots.Length; i++)
+        TerrainPalette palette = worldState.Terrains ?? TerrainPalette.Empty;
+        string[] terrainSlots = palette.SlotNames();
+        w.Write((uint)terrainSlots.Length);
+        for (int i = 0; i < terrainSlots.Length; i++)
         {
-            w.Write(kitSlots[i]);
+            w.Write(terrainSlots[i]);
         }
         string[] detailSlots = palette.DetailSlotNames();
         w.Write((uint)detailSlots.Length);
@@ -442,11 +448,11 @@ public static class WorldFile
             SimDataPath = r.ReadString(),
             StartContentPath = r.ReadString(),
         };
-        uint kitSlotCount = r.ReadUInt32();
-        header.KitSlots = new string[kitSlotCount];
-        for (uint i = 0; i < kitSlotCount; i++)
+        uint terrainSlotCount = r.ReadUInt32();
+        header.TerrainSlots = new string[terrainSlotCount];
+        for (uint i = 0; i < terrainSlotCount; i++)
         {
-            header.KitSlots[i] = r.ReadString();
+            header.TerrainSlots[i] = r.ReadString();
         }
         uint detailSlotCount = r.ReadUInt32();
         header.DetailSlots = new string[detailSlotCount];

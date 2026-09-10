@@ -10,7 +10,7 @@ using Godot;
 [GlobalClass]
 public partial class SummonPetEffect : ItemEffect
 {
-	[Export] public MobDescriptor pet;
+	[Export] public SpeciesData pet;
 
 	public override void Apply(IActionActor actor, in ActionContext context)
 	{

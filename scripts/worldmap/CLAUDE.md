@@ -58,7 +58,7 @@ Layers:
   G = strength, with **0 reserved for UNPAINTED**. Per chunk because that is the
   granularity the bake seeds `ChunkState`'s wind-velocity subgrid at.
 - **Props — one layer**, `props_blocking.png`, `.png` `R8`, per column (prop
-  list index + 1; 0 = none), indexing the `prop_lists` palette. No density
+  list index + 1; 0 = none), indexing the `props` palette. No density
   channel and no spacing: the bake FILLS a painted region until every column of
   it is inside some prop's collision, because a painted region is a barrier and
   anything thinner leaves lanes through it. There used to be a second
@@ -69,7 +69,7 @@ Layers:
   multiplier), indexing `mobSets`. Still a rate: a mob set is a
   `SpawnScatterData` over a `SpawnListData` whose rows carry their own
   square-metres-per-spawn.
-- **Ground** — `.png` `R8`, per column (ground set + 1; 0 = `defaultGround`).
+- **Ground** — `.png` `R8`, per column (terrain kit + 1; 0 = `defaultGround`).
 - **Paving** — `.png` `Rgba8`, per column: R = paving block + 1 (0 = none),
   G/B = the world Y it is laid at + 1, low byte first, with **0 meaning "on
   whatever surface is under it"**. Two channels because a document may span more
@@ -102,7 +102,7 @@ generator's authoring asset for values with nothing to do with generating:
 The generator holds its own references to the same four types. That is the point:
 neither side reaches through the other. Leaving the document pointing at a
 `WorldGenData` "for the rest" meant two independently-editable pointers at one
-file with nothing checking they agreed — and only the kit palette had a backstop
+file with nothing checking they agreed — and only the terrain palette had a backstop
 (the `.hike` records its slots and `Main.LoadWorldFromFile` refuses a mismatch).
 A divergent `simData` would have been silent.
 
@@ -133,7 +133,7 @@ display value become a dependency of a headless check.
 |---|---|---|
 | `WorldMapState` | the document — layer images, placements, tunnels, load/save/mutate, and every query derived from them | the layers |
 | `WorldMapInk` | how it is DRAWN | the only `WorldMapInkData` in the painter |
-| `WorldMapBake` | how it becomes a `WorldState` / `.hike` | the `WorldState` under construction, the kit-slot binding, the four-stage driver |
+| `WorldMapBake` | how it becomes a `WorldState` / `.hike` | the `WorldState` under construction, the terrain-slot binding, the four-stage driver |
 
 The boundary is enforced by what each file compiles against, and it is worth
 checking after any change here: **`WorldMapState` and `WorldMapBake` do not
@@ -223,7 +223,7 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | `ClimbTool` | climbing route on a column's walls | none | `CutawayElevationView`, routed edges inked magenta — **cuts away** (T/G), so a route can be painted on a passage's walls |
 | `SceneTool` | `.hikescene` stamps — place / select / move / rotate / delete | `SceneIndex`, `Selected` | the ground map (the stamps themselves draw on EVERY view) |
 | `MobLevelTool` | per-column danger level | `Level` | terrain recoloured, one shade per level |
-| `MobTool` | which `SpawnScatterData` supplies a column's wildlife + density; the inspector lists the set's entries at `n / km²` | `SetIndex`, `Density` | ground colour + a dot per mob spawn |
+| `MobTool` | which `SpawnScatterData` supplies a column's wildlife + density; the inspector lists the set's entries at `n / km²` | `SetIndex`, `Density` | ground colour + a dot per mob spawn, the SELECTED set full weight and the rest dimmed |
 | `EntityTool` | individual entities, their per-placement properties, and the player spawn | `PaletteIndex`, `Selected` | the ground map (the marks themselves draw on EVERY view that shows props) |
 
 A spawn brush writes only its raster; `RescatterColumns` resolves it during the
@@ -320,9 +320,9 @@ KIND of thing.
 |---|---|
 | Zones | `world_authoring/zones/` |
 | Regions | `worlds/shared/regions/` |
-| Ground | `world_authoring/ground_sets/` |
-| Props (both layers) | `world_authoring/prop_lists/` |
-| Mobs | `world_authoring/mob_sets/` |
+| Ground | `world_authoring/terrain_kits/` |
+| Props | `world_authoring/props/` |
+| Mobs | `world_authoring/spawn_scatters/` |
 | Presets | `world_authoring/presets/` |
 | Entities | `world_authoring/spawn_entries/` + `.../mobs/`, `worlds/shared/spawn_entries/` + `.../npcs/` |
 | Water | the block catalog, every block whose `render` is `Water` |
@@ -338,7 +338,7 @@ Four rules, three of which were real bugs:
   bytes still perfectly valid. Discovery therefore only ever APPENDS to
   `WorldMapPalettes` (`map/palettes.tres`, beside the layer images), never
   reorders, and a slot whose file is gone keeps its index as a named dead slot.
-  Same rule and same reason as `KitPaletteData`.
+  Same rule and same reason as `TerrainPaletteData`.
 - **A FREE palette has no ledger at all.** Nothing stores an index for entities
   (an `EntityPlacement` holds its entry by reference) or presets (a composite
   brush stroke that is never written down), so those are simply what is on disk
@@ -361,12 +361,12 @@ stopped being the hub does not error, it bakes a different world.
 ## Known gaps
 
 
-- ~~A ground set may only name kits some `genData` zone names.~~ **Fixed.** The
-  kit palette is authored (`WorldMapData.kitPalette`, a `KitPaletteData`) rather
-  than derived from the zone list, so a ground set may name any kit the palette
+- ~~A terrain kit may only name terrains some `genData` zone names.~~ **Fixed.** The
+  terrain palette is authored (`WorldMapData.kitPalette`, a `TerrainPaletteData`) rather
+  than derived from the zone list, so a terrain kit may name any terrain the palette
   carries whether a zone places it or not. `swamp_highlands`, `swamp_mud` and
   `swamp_village` were APPENDED to it — appending is the one safe edit, since it
-  moves no existing slot and therefore re-textures nothing already baked. A kit
+  moves no existing slot and therefore re-textures nothing already baked. A terrain
   still absent from the palette bakes as slot 0 and `SlotOf` warns by name; the
   fix for that is to append it, never to add a zone for it.
 - **Subscene stamps fill no marker pools.** Worldgen pulls `MarkerSimState`s out

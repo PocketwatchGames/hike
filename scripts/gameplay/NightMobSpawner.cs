@@ -246,8 +246,8 @@ public partial class NightMobSpawner : Node
             int idx = PickWeightedCandidate();
             Vector3 pos = _candidates[idx].Pos;
             _candidates.RemoveAtSwap(idx); // place without replacement so two don't stack on one cell
-            MobDescriptor descriptor = data.nightSpawnMobs[_rng.RandiRange(0, data.nightSpawnMobs.Count - 1)];
-            if (sim.SpawnMobTransient(descriptor, pos, ESpawnConditions.Night, level) != null)
+            SpeciesData species = data.nightSpawnMobs[_rng.RandiRange(0, data.nightSpawnMobs.Count - 1)];
+            if (sim.SpawnMobTransient(species, pos, ESpawnConditions.Night, level) != null)
             {
                 spawned++;
             }
@@ -344,9 +344,9 @@ public partial class NightMobSpawner : Node
         {
             return false;
         }
-        foreach (MobDescriptor descriptor in data.nightSpawnMobs)
+        foreach (SpeciesData nightSpecies in data.nightSpawnMobs)
         {
-            if (descriptor?.species == species)
+            if (nightSpecies == species)
             {
                 return true;
             }

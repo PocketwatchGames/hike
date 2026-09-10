@@ -4,41 +4,36 @@ using Godot;
 [GlobalClass]
 public partial class MobSpawnEntry : SpawnEntryData
 {
-    // The composed mob to spawn — base species + per-instance overrides
-    // (palette, elite kind). Replaces the bare MobData this entry used to hold;
-    // see MobDescriptor.
-    [Export] public MobDescriptor descriptor;
+    // The creature this entry spawns. See SpeciesData.
+    [Export] public SpeciesData species;
 
-    public override Texture2D PaletteIcon => descriptor?.mob?.bestiaryPortrait;
+    public override Texture2D PaletteIcon => species?.mob?.bestiaryPortrait;
 
-    // The descriptors THIS entry may be set to — the biome variants, elites and
-    // torchbearers that are all the same creature. One palette entry per family
-    // ("goblin"), with the member picked per placement, so selecting it on the
-    // map highlights every goblin rather than one biome's.
+    // The elite signature this spawn wears, or null for an ordinary mob. It
+    // lives HERE rather than on the species because being elite is a property of
+    // one spawn, not of a creature: an elite goblin is the same bestiary row,
+    // discovery and kill-quest target as a plain one, and pairing the field with
+    // `species` spares the species x loadout x elite crossproduct a file each.
+    // See EliteData.
+    [Export] public EliteData elite;
+
+    // The species THIS entry may be set to — the biome and loadout variants that
+    // are all the same creature. One palette entry per family ("goblin"), with
+    // the member picked per placement, so selecting it on the map highlights
+    // every goblin rather than one biome's.
     //
-    // Authored rather than derived: grouping by SpeciesData is per-BIOME (the
-    // plain, elite and torchbearer swamp goblins share one species, but the
-    // forest goblin does not), and a filename prefix would make a naming rule
-    // load-bearing with nothing enforcing it. It also lets the author decide
+    // Authored rather than derived: a filename prefix would make a naming rule
+    // load-bearing with nothing enforcing it, and this lets the author decide
     // where a family's edges are — whether a cube and a sphere slime are one.
     //
     // Empty leaves the entry a single-variant one, which is what every worldgen
-    // spawn list is: those name a descriptor outright and never offer a choice.
-    [Export] public MobDescriptor[] variants = System.Array.Empty<MobDescriptor>();
+    // spawn list is: those name a species outright and never offer a choice.
+    [Export] public SpeciesData[] variants = System.Array.Empty<SpeciesData>();
 
-    // Difficulty tier for THIS placement, overriding the descriptor's authored
-    // base. Negative = use the descriptor's.
-    //
-    // It has to live here rather than being edited through the descriptor: the
-    // descriptor is SHARED (every placement of a variant, and worldgen's own
-    // spawns, point at one .tres) and EntityPlacement's fork is shallow, so
-    // editing `descriptor.level` through the panel would retune every one of
-    // them at once.
-    //
-    // Semantics match the field it replaces — a FLOOR, not a final answer. The
-    // painted difficulty layer still adds on top via SpawnContext.MobLevel, so
-    // this raises a mob above its area rather than pinning it.
-    [Export(PropertyHint.Range, "-1,4,1")] public int levelOverride = -1;
+    // Difficulty tier floor for THIS placement — a FLOOR, not a final answer.
+    // The painted difficulty layer adds on top via SpawnContext.MobLevel, so
+    // this raises a mob above its area rather than pinning it. 0 = base.
+    [Export(PropertyHint.Range, "0,4,1")] public int level = 0;
 
     // Optional override for the brain's idleBehavior (e.g. "Wander"). Empty
     // means use the brain default. Combined with InitialBehaviorChance for
@@ -52,7 +47,7 @@ public partial class MobSpawnEntry : SpawnEntryData
     // edges into the cliff face below. Water-bound mobs are exempt — they spawn
     // in the water column, where the dry-ground flatness test is meaningless
     // (and would reject every submerged cell).
-    public override bool RequireFlatTerrain => descriptor?.mob?.CanTraverseLand != false;
+    public override bool RequireFlatTerrain => species?.mob?.CanTraverseLand != false;
 
     // Cave pockets pre-validate only the spawn column itself, so a wall-
     // adjacent column passes — and a mob whose hitbox is wider than the
@@ -60,23 +55,23 @@ public partial class MobSpawnEntry : SpawnEntryData
     // wall. Forcing all 4 lateral neighbors air gives mobs a corridor
     // they can settle into. Water-bound mobs are exempt — their lateral
     // neighbors are water, not air, so this check would always reject them.
-    public override bool RequireLateralClearance => descriptor?.mob?.CanTraverseLand != false;
+    public override bool RequireLateralClearance => species?.mob?.CanTraverseLand != false;
 
     public override bool IsMobEntry => true;
 
-    public override StringName VariantProperty => PropertyName.descriptor;
+    public override StringName VariantProperty => PropertyName.species;
 
-    // Which descriptor of its family this one is, so an entry covering a whole
+    // Which species of its family this one is, so an entry covering a whole
     // family still names the individual in the hover readout and the panel title.
     public override string VariantName()
-        => descriptor != null ? descriptor.ResourcePath.GetFile().GetBaseName() : null;
+        => species != null ? species.ResourcePath.GetFile().GetBaseName() : null;
 
-    // Constrained to the family, which is what makes the descriptor row safe to
+    // Constrained to the family, which is what makes the species row safe to
     // show: a goblin entry offers only goblins, so a fork can never become a
     // spider while still being named — and highlighted — as a goblin.
     public override Resource[] ResourceCandidates(StringName property)
     {
-        if (property != PropertyName.descriptor || variants == null || variants.Length == 0)
+        if (property != PropertyName.species || variants == null || variants.Length == 0)
         {
             return base.ResourceCandidates(property);
         }
@@ -92,7 +87,7 @@ public partial class MobSpawnEntry : SpawnEntryData
         {
             return base.NameCandidates(property);
         }
-        Godot.Collections.Array<BehaviorNode> nodes = descriptor?.mob?.brain?.behaviors;
+        Godot.Collections.Array<BehaviorNode> nodes = species?.mob?.brain?.behaviors;
         if (nodes == null)
         {
             return null;
@@ -123,7 +118,7 @@ public partial class MobSpawnEntry : SpawnEntryData
     // entity nodes exist yet, and overlap is handled by MinSpacing).
     public override bool IsSpawnPositionWalkable(WorldState ws, Vector3 position)
     {
-        MobData data = descriptor?.mob;
+        MobData data = species?.mob;
         if (data == null)
         {
             // No profile to test against — defer to the other gates.
@@ -155,7 +150,7 @@ public partial class MobSpawnEntry : SpawnEntryData
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (descriptor == null)
+        if (species == null)
         {
             return;
         }
@@ -164,16 +159,16 @@ public partial class MobSpawnEntry : SpawnEntryData
         // and a call would burn a draw on the aimed ones too and shift every roll
         // behind it.
         float rotationY = context?.FacingY ?? (float)(rng.NextDouble() * Mathf.Pi * 2f);
-        // Layer the per-area worldgen level field (and underground bonus) onto the
-        // descriptor's authored base level, then hand the final tier to CreateState
-        // so the mob's vitals are scaled to it at construction (before this state is
-        // baked into the .hike). The constructor forces non-dangerous mobs to 0, so
+        // Layer the per-area worldgen level field (and underground bonus) onto this
+        // placement's authored floor, then hand the final tier to CreateState so the
+        // mob's vitals are scaled to it at construction (before this state is baked
+        // into the .hike). The constructor forces non-dangerous mobs to 0, so
         // computing a tier here for prey / villagers is harmless.
-        int baseLevel = levelOverride >= 0 ? levelOverride : descriptor.level;
-        int level = context != null
-            ? context.MobLevel(position, baseLevel)
-            : Math.Max(0, baseLevel);
-        MobSimState state = descriptor.CreateState(position, rotationY, levelOverride: level, levelScalePerLevel: ws.SimData?.levelScalePerLevel ?? 1.5f);
+        int spawnLevel = context != null
+            ? context.MobLevel(position, level)
+            : Math.Max(0, level);
+        MobSimState state = species.CreateState(position, rotationY, elite,
+            level: spawnLevel, levelScalePerLevel: ws.SimData?.levelScalePerLevel ?? 1.5f);
         if (state == null)
         {
             return;

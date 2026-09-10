@@ -348,12 +348,12 @@ class TresWriter
 
 	static string ConditionFolders(string world)
 	{
-		return $"resources/data/world_authoring/conversation/conditions/, resources/data/worlds/shared/conversation/conditions/ or resources/data/worlds/{world}/conversations/conditions/";
+		return $"resources/data/dialogue_scripts/conditions/, resources/data/worlds/shared/conversation/conditions/ or resources/data/worlds/{world}/conversations/conditions/";
 	}
 
 	static string ActionFolders(string world)
 	{
-		return $"resources/data/world_authoring/conversation/actions/, resources/data/worlds/shared/conversation/actions/ or resources/data/worlds/{world}/conversations/actions/";
+		return $"resources/data/dialogue_scripts/actions/, resources/data/worlds/shared/conversation/actions/ or resources/data/worlds/{world}/conversations/actions/";
 	}
 
 	string ScriptId(string className)

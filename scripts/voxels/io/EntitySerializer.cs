@@ -482,18 +482,18 @@ public static class EntitySerializer
                 // following).
                 w.Write(mob.Tamed);
                 w.Write(mob.StayCommanded);
-                // Per-instance overrides: palette recolor (MobDescriptor) + spawn
+                // Per-instance overrides: palette recolor (SpeciesData) + spawn
                 // weapon loadout (MobSpawnEntry). Resource refs, may be null —
                 // persisted so a reloaded variant keeps its look and equipment.
                 WriteResource(w, mob.Palette);
                 WriteWeaponList(w, mob.Weapons);
-                // Per-instance descriptor status effects (MobDescriptor) — a
+                // Per-instance species status effects (SpeciesData) — a
                 // buff/aura channel applied regardless of Elite. Resource-ref
                 // list, may be empty.
                 WriteStatusEffectList(w, mob.StatusEffects);
-                // HUD badge icon (MobDescriptor.badge), resource ref, may be null.
+                // HUD badge icon (EliteData.badge), resource ref, may be null.
                 WriteResource(w, mob.Badge);
-                // Per-elite crown scene override (EliteMobDescriptor.crownScene),
+                // Per-elite crown scene override (EliteData.crownScene),
                 // scene ref, may be null (then SimData.EliteCrownScene is used).
                 WriteScene(w, mob.EliteCrownScene);
                 // Death loot (MobSimState.Loot), stamped from SpeciesData.loot
@@ -535,7 +535,7 @@ public static class EntitySerializer
                 // .recruitTemplate): a standalone PlayerState .tres, resource
                 // ref, may be null. Appended last so older world files still parse.
                 WriteResource(w, mob.RecruitTemplate);
-                // Difficulty tier (MobDescriptor.level + worldgen level field).
+                // Difficulty tier (MobSpawnEntry.level + worldgen level field).
                 // Scales health/armor/damage by the per-level curve, so it must
                 // persist or a reloaded mob would revert to base stats. Appended last so older
                 // world files still parse.
@@ -1475,7 +1475,7 @@ public static class EntitySerializer
         return resource;
     }
 
-    // A resource embedded in another document (a MobDescriptor's StatusEffectData,
+    // A resource embedded in another document (a SpeciesData's StatusEffectData,
     // an NPC appearance's MobPalette) has a "<file>::<id>" path, and GD.Load only
     // resolves that form from the resource cache. Loading the outer document
     // first registers its sub-resources, so the second load hits the cache.

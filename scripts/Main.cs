@@ -77,7 +77,7 @@ public partial class Main : Node
 			// Generate reads the flat block tables (Blocks.IsSolid and friends)
 			// from its very first pass, and this path reaches it long before the
 			// game-start binds below. Missing them, the dump died in
-			// TagSubmergedKits on a null table rather than on anything to do with
+			// TagSubmergedTerrains on a null table rather than on anything to do with
 			// terrain. ChunkMesh.SetTerrains is deliberately NOT called here — it
 			// touches RenderingServer and generation has no use for it.
 			Blocks.Bind();
@@ -223,14 +223,14 @@ public partial class Main : Node
 	{
 		// Upload the active world's terrain + detail palettes to the terrain
 		// shader / scatter system before any chunk mesh is built. Disk-loaded
-		// worlds share the same kit registry as WorldGen.
+		// worlds share the same terrain registry as WorldGen.
 		//
-		// The kit palette is the deduplicated set of all SurfaceKit / CaveKit /
-		// SubmergedKit / ShoreKit refs across the zones (TerrainKitData[]); the
+		// The terrain palette is the deduplicated set of all SurfaceTerrain / CaveTerrain /
+		// SubmergedTerrain / ShoreTerrain refs across the zones (TerrainData[]); the
 		// runtime terrain palette uploaded to ChunkMesh is derived parallel to
-		// it (same indices, terrain-per-slot pulled off `TerrainKitData.Terrain`).
+		// it (same indices, block-per-slot pulled off `TerrainData.block`).
 		// The detail palette is the deduplicated set of DefaultDetail groups
-		// carried by the kits. Two zones that share a kit cost one palette
+		// carried by the terrains. Two zones that share a terrain cost one palette
 		// slot, not two.
 		var phaseSw = Stopwatch.StartNew();
 
@@ -240,19 +240,19 @@ public partial class Main : Node
 		// builds the water material — so no material ever binds an unready
 		// (invalid) texture. See WaterRipples.
 		await WaterRipples.EnsureReady(this);
-		// This world's kit palette, resolved ONCE here and handed to whatever
+		// This world's terrain palette, resolved ONCE here and handed to whatever
 		// builds the world — the generator, the cache loader, or the .hike
-		// loader. It is world state (WorldState.Kits), not process state; the
+		// loader. It is world state (WorldState.Terrains), not process state; the
 		// only piece of it that has to become process state is the detail-group
 		// table below, because there is a single terrain material.
 		//
 		// ChunkMesh.SetTerrains touches RenderingServer (SetShaderParameter), so
 		// it must run on the main thread. Building the palette is pure C# and
 		// could move off-thread later if it ever gets expensive.
-		KitPalette kitPalette = KitPalette.Build(worldGenData?.kitPalette);
+		TerrainPalette terrainPalette = TerrainPalette.Build(worldGenData?.terrainPalette);
 		Blocks.Bind();
 		ChunkMesh.SetTerrains();
-		ChunkMesh.SetDetailGroups(kitPalette.DetailGroups);
+		ChunkMesh.SetDetailGroups(terrainPalette.DetailGroups);
 		GD.Print($"[Load] Loading assets: {phaseSw.ElapsedMilliseconds}ms");
 		phaseSw.Restart();
 
@@ -303,7 +303,7 @@ public partial class Main : Node
 		{
 			if (loadingFromFile)
 			{
-				worldState = await RunOffThread(() => LoadWorldFromFile(worldFilePath, kitPalette));
+				worldState = await RunOffThread(() => LoadWorldFromFile(worldFilePath, terrainPalette));
 				playerPosition = worldState.Spawn;
 			}
 			else if (cacheHit)
@@ -315,7 +315,7 @@ public partial class Main : Node
 				try
 				{
 					string loadPath = cachePath;
-					worldState = await RunOffThread(() => LoadWorldFromFile(loadPath, kitPalette));
+					worldState = await RunOffThread(() => LoadWorldFromFile(loadPath, terrainPalette));
 					playerPosition = worldState.Spawn;
 				}
 				catch (Exception e)
@@ -534,10 +534,10 @@ public partial class Main : Node
 		return false;
 	}
 
-	// `kits` is the palette the caller intends this world to be read with. NULL
+	// `terrains` is the palette the caller intends this world to be read with. NULL
 	// means "not building a playable world" (the subscene converter, which only
 	// reads block ids) and skips the check below.
-	public static WorldState LoadWorldFromFile(string path, KitPalette kits = null)
+	public static WorldState LoadWorldFromFile(string path, TerrainPalette terrains = null)
 	{
 		var openSw = Stopwatch.StartNew();
 		var source = new WorldFileChunkSource(path);
@@ -545,33 +545,33 @@ public partial class Main : Node
 		// Every TerrainId byte in this file is an index into the palette it was
 		// BAKED with. Nothing stops that palette from having moved since, and
 		// nothing about the stored bytes would look wrong if it had — they would
-		// simply mean a different kit, and the world would come back re-textured
+		// simply mean a different terrain, and the world would come back re-textured
 		// with no error anywhere. So the file records its slot names and we
 		// refuse a world whose palette no longer matches, naming the slot.
-		if (kits != null)
+		if (terrains != null)
 		{
-			int bad = kits.FirstMismatch(source.KitSlots);
+			int bad = terrains.FirstMismatch(source.TerrainSlots);
 			if (bad >= 0)
 			{
-				string was = bad < source.KitSlots.Length ? source.KitSlots[bad] : "<past the end>";
-				string now = bad < kits.Kits.Length ? kits.Kits[bad]?.ResourcePath ?? "<null>" : "<missing>";
+				string was = bad < source.TerrainSlots.Length ? source.TerrainSlots[bad] : "<past the end>";
+				string now = bad < terrains.Terrains.Length ? terrains.Terrains[bad]?.ResourcePath ?? "<null>" : "<missing>";
 				throw new InvalidDataException(
-					$"'{path}' was baked against a different kit palette: slot {bad} was '{was}' and is "
+					$"'{path}' was baked against a different terrain palette: slot {bad} was '{was}' and is "
 					+ $"now '{now}'. Every TerrainId in the file indexes that table, so the world would "
-					+ "load re-textured. The palette is APPEND-ONLY (KitPaletteData) — restore the slot, "
+					+ "load re-textured. The palette is APPEND-ONLY (TerrainPaletteData) — restore the slot, "
 					+ "or re-bake the world.");
 			}
-			int badDetail = kits.FirstDetailMismatch(source.DetailSlots);
+			int badDetail = terrains.FirstDetailMismatch(source.DetailSlots);
 			if (badDetail >= 0)
 			{
 				throw new InvalidDataException(
 					$"'{path}' was baked against a different DETAIL palette at slot {badDetail}. That "
-					+ "palette is derived from the kits' defaultDetail, so repointing one moves it "
-					+ "without moving the kit palette; every DetailGroup byte in the file indexes it. "
+					+ "palette is derived from the terrains' defaultDetail, so repointing one moves it "
+					+ "without moving the terrain palette; every DetailGroup byte in the file indexes it. "
 					+ "Restore the detail group, or re-bake the world.");
 			}
 		}
-		var worldState = new WorldState(source.Min, source.Max, source.SimData, kits);
+		var worldState = new WorldState(source.Min, source.Max, source.SimData, terrains);
 		worldState.Spawn = source.Spawn;
 		worldState.Zones = source.Zones;
 		worldState.Regions = source.Regions;
@@ -630,10 +630,10 @@ public partial class Main : Node
 
 		// Same palette bind StartGame does. The editor needs it too: int
 		// .Terrain carries no fixed tile (the shader resolves one per voxel from
-		// terrain_tiles), and the Tree / TallGrass brushes read the kit palette
+		// terrain_tiles), and the Tree / TallGrass brushes read the terrain palette
 		// under the cursor. Without this the editor renders and paints against
 		// whatever a previous session happened to leave bound.
-		KitPalette editorPalette = KitPalette.Build(worldGenData?.kitPalette);
+		TerrainPalette editorPalette = TerrainPalette.Build(worldGenData?.terrainPalette);
 		Blocks.Bind();
 		ChunkMesh.SetTerrains();
 		ChunkMesh.SetDetailGroups(editorPalette.DetailGroups);

@@ -206,9 +206,45 @@ public static class SpawnCheck
         da.ListDirEnd();
     }
 
+    // Cheap pre-filter so the sweep opens ~800 files but LOADS only the spawn
+    // lists among them: a .tres names its class on its first line.
+    //
+    // The set of names is read off the TYPE GRAPH rather than written here as a
+    // literal. It was `Contains("script_class=\"SpawnListData\"")`, and the day
+    // SpawnScatterData subclassed SpawnListData every scatter set silently left
+    // the dump — 60 rows that stopped being checked with nothing to say so,
+    // which is precisely the failure mode this whole file exists to catch.
+    private static HashSet<string> _listClasses;
+
     private static bool DeclaresSpawnList(string path)
     {
+        _listClasses ??= SpawnListClassNames();
         using FileAccess fa = FileAccess.Open(path, FileAccess.ModeFlags.Read);
-        return fa != null && fa.GetLine().Contains("script_class=\"SpawnListData\"");
+        if (fa == null)
+        {
+            return false;
+        }
+        string header = fa.GetLine();
+        int at = header.IndexOf("script_class=\"", StringComparison.Ordinal);
+        if (at < 0)
+        {
+            return false;
+        }
+        at += "script_class=\"".Length;
+        int end = header.IndexOf('"', at);
+        return end > at && _listClasses.Contains(header.Substring(at, end - at));
+    }
+
+    private static HashSet<string> SpawnListClassNames()
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Type t in typeof(SpawnListData).Assembly.GetTypes())
+        {
+            if (typeof(SpawnListData).IsAssignableFrom(t))
+            {
+                names.Add(t.Name);
+            }
+        }
+        return names;
     }
 }

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="MobData" format=3 uid="uid://dcttugk5y85t4"]
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_mobdata"]
-[ext_resource type="Resource" uid="uid://1cq5ykh52tde" path="res://resources/data/characters/creatures/creature_hostile_brain.tres" id="2_brain"]
+[ext_resource type="Resource" uid="uid://1cq5ykh52tde" path="res://resources/data/characters/brains/creature_hostile_brain.tres" id="2_brain"]
 [ext_resource type="Texture2D" uid="uid://rd8lhukcw0hw" path="res://assets/textures/portraits/slime_sphere.png" id="3_cb7ji"]
 [ext_resource type="PackedScene" uid="uid://cij68e4w5vg7o" path="res://scenes/characters/slime_sphere.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]

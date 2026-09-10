@@ -34,17 +34,27 @@ paint mobs — they are about encounters, not terrain — and draw last, since t
 dots cannot share a cell and what LIVES somewhere is the more urgent answer.
 
 **Props and mobs are the same machinery twice** — two palettes
-(`prop_lists`, `mob_sets`), two rasters of identical shape, one column routine
+(`props`, `spawn_scatters`), two rasters of identical shape, one column routine
 at bake, one dot preview parameterised by `IWorldMapView.PreviewLayer`. They
 need separate LAYERS because a raster holds one entry per column: sharing one
 would make painting wolves erase the pine stand under them. The TYPES differ
 too, and honestly — a `PropListData` is furniture placed to a coverage contract,
 a `SpawnScatterData` is a rate list of entities.
 
-**A mob set's `entities` is a PAINTER-OWNED list, forked from worldgen's.**
-`mob_sets/*.tres` point at `resources/data/world_authoring/spawn_lists/ambient_*.tres`,
-not at the `surface_entities_*.tres` that `zone_gen/*.tres` uses, even though the
-ambient lists were filtered out of exactly those files. The split is by how a
+**A scatter set's `entities` is a PAINTER-OWNED list, forked from worldgen's.**
+A scatter set CARRIES its rows (`SpawnScatterData : SpawnListData`); they are
+not a second file. They were, so that one `ambient_swamp.tres` could be named by
+a painted set and by a generator zone pass at once — and once the generator's own
+lists moved to `world_gen/spawn_lists/`, every ambient list had exactly one
+referrer, its own set. Two files per set bought a sharing nobody was doing. The
+price is that two sets wanting identical wildlife author it twice (swamp and
+swamp_fire), which is what forking one of them would cost anyway the moment they
+diverge.
+
+The rows themselves stay FORKED from worldgen's rather than shared with them: a
+scatter set's wildlife is not the `world_gen/spawn_lists/surface_entities_*.tres`
+that `zone_gen/*.tres` uses, even though it was filtered out of exactly those
+files. The split is by how a
 thing wants to be placed: a brush places by AREA, which suits what you want many
 of and do not care about the exact spot of — mobs, forage, traps, berry trees,
 cacti. A well, a climbable tree, a chest or a goblin camp is a landmark, and the
@@ -199,7 +209,7 @@ cannot be given stock from the painter.** Place an `npc` and author its
 `inventory` in the resource, or add the list editor.
 
 They remain **copies** of the NPCs embedded in worldgen's house spawn lists
-(`world_authoring/spawn_lists/hub_house01`, `house_hermit`, `hub_house02`,
+(`worlds/shared/spawn_lists/hub_house01`, `house_hermit`, `hub_house02`,
 `village_house01`-`04`), not references to them — the same fork convention the
 mob sets follow, so retuning a village cannot silently move what the map paints
 or the reverse. The hermit and Talia carry a `recruitTemplate` and are
@@ -461,8 +471,22 @@ layer the statement moves onto the list, where it follows from the scenes in it.
 (`WorldMapInkData.propDotAlpha` / `propDotFraction`), because how hard a dot
 covers the ground under it is a property of the map rather than of any one list —
 let both vary and two regions differ in two ways at once, which reads as noise.
-Mob dots keep the set colour for the same reason. alt+click samples the list
-under the cursor.
+alt+click samples the list under the cursor.
+
+**A mob dot keeps its SET's colour, and the set the tool has SELECTED draws at
+full weight while every other recedes** (`mobDotFraction` at full alpha, against
+`mobDotDimFraction` / `mobDotDimAlpha`). Painting mobs is painting one set, and
+"where is this one" cannot be read off nine colours all at the same weight. The
+others dim rather than the selected one growing, so the map's overall weight
+stays where it was authored; and it is size AND alpha, because dimming alone
+makes a pale set vanish while a dark one still reads. A view that shows mob dots
+under a tool with no set of its own (the danger map) picks nothing out and draws
+every set full.
+
+Changing the selection is a WHOLE-MAP repaint, not a pair of marks —
+`RefreshEntityHighlight` tracks the selected set beside the selected entry and
+defers one `RebuildFull`, so holding Q/E through the palette costs one repaint
+per frame rather than one per set.
 
 Two differences from the scatter dots underneath them. They are drawn LAST, over
 the step outlines and the dots — a mark you placed outranks a contour line and a
@@ -789,7 +813,7 @@ Reimplementing that painter-side is exactly how the waterfall shading became two
 copies that drifted. A marked column's whole exposed face is dressed, so a route
 is currently a plain vertical column of climbable surface.
 
-**Moss comes off the GROUND layer, not the zone layer.** `TerrainKitData.mossCoverage`
+**Moss comes off the GROUND layer, not the zone layer.** `TerrainData.mossCoverage`
 says how much of that material's exposed rock and ground wears the moss overlay,
 and the bake answers `WorldFinish`'s per-column question with the column's
 surface kit and cave kit — exactly the two coverages the pass wants. So painting

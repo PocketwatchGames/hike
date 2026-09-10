@@ -270,7 +270,7 @@ public partial class Sim : Node3D
 
         // Ambient daytime spawner: puts a few fairies near the player at points
         // across the day, in zones flagged for them. Dormant when SimData has no
-        // fairySpawnDescriptor wired up.
+        // fairySpawnSpecies wired up.
         _fairySpawner = new FairySpawner();
         _fairySpawner.Name = "FairySpawner";
         AddChild(_fairySpawner);

@@ -8,7 +8,7 @@ using Godot;
 // kept — the WorldState is materialized on demand at bake/save time.
 //
 // The elevation + water images REPLACE WorldGen's noise height/water; the rest
-// of WorldGen's per-column logic (ramps, shore, kit blending) is out of scope,
+// of WorldGen's per-column logic (ramps, shore, terrain blending) is out of scope,
 // so this is a clean focused stamp rather than a fork of the 3100-line WorldGen.
 // One layer image plus how many painted texels each of its pixels covers.
 public readonly struct RasterLayer
@@ -105,8 +105,8 @@ public class WorldMapState
 
     public int NoWater => Data.WorldMinY - 1;
 
-    // Palette slots for one zone's kits, resolved once per bake. The per-voxel
-    // TerrainId is an index into WorldGen's active kit palette, so this is the
+    // Palette slots for one zone's terrains, resolved once per bake. The per-voxel
+    // TerrainId is an index into WorldGen's active terrain palette, so this is the
     // translation from "which zone is this chunk" to "which slot does its ground
     // use".
     public WorldMapState(WorldMapData data)
@@ -127,9 +127,9 @@ public class WorldMapState
         Palettes = LoadOrCreatePalettes(data);
         Zones = AuthoringPaletteSource.Resolve<ZoneData>(AuthoringPaletteSource.Zones, Palettes);
         Regions = AuthoringPaletteSource.Resolve<RegionData>(AuthoringPaletteSource.Regions, Palettes);
-        GroundSets = AuthoringPaletteSource.Resolve<GroundSetData>(AuthoringPaletteSource.GroundSets, Palettes);
+        Terrains = AuthoringPaletteSource.Resolve<TerrainKitData>(AuthoringPaletteSource.TerrainKits, Palettes);
         PropLists = AuthoringPaletteSource.Resolve<PropListData>(AuthoringPaletteSource.PropLists, Palettes);
-        MobSets = AuthoringPaletteSource.Resolve<SpawnScatterData>(AuthoringPaletteSource.MobSets, Palettes);
+        ScatterSets = AuthoringPaletteSource.Resolve<SpawnScatterData>(AuthoringPaletteSource.ScatterSets, Palettes);
         WaterTypes = AuthoringPaletteSource.Resolve<BlockData>(AuthoringPaletteSource.WaterTypes, Palettes);
         PavingBlocks = AuthoringPaletteSource.Resolve<BlockData>(AuthoringPaletteSource.PavingBlocks, Palettes);
         EntityPalette = AuthoringPaletteSource.Resolve<SpawnEntryData>(AuthoringPaletteSource.Entities, Palettes);
@@ -541,7 +541,7 @@ public class WorldMapState
     // on is what it means, not which list it is.
     public readonly PropListData[] PropLists;
 
-    public readonly SpawnScatterData[] MobSets;
+    public readonly SpawnScatterData[] ScatterSets;
 
     public int MobLevelCount => Mathf.Max(1, Data.mobLevelCount);
 
@@ -603,12 +603,12 @@ public class WorldMapState
             Mathf.FloorToInt(pos.Z) - Data.WorldMinZ));
     }
 
-    public readonly GroundSetData[] GroundSets;
+    public readonly TerrainKitData[] Terrains;
 
     public readonly PaintPresetData[] Presets;
 
     // Ground unpainted anywhere: deliberately a flat neutral rather than a guess
-    // at the zone's kits, so it is obvious at a glance which ground you have
+    // at the zone's terrains, so it is obvious at a glance which ground you have
     // actually authored and which is still inherited.
     public readonly BlockData[] PavingBlocks;
 
@@ -1146,7 +1146,7 @@ public class WorldMapState
     // since its G/B are zero.
     public const int PavedOnSurface = int.MinValue;
 
-    // Painted paving index, or -1 where the column keeps its kit's own block.
+    // Painted paving index, or -1 where the column keeps its terrain's own block.
     public int PavingIndexAt(int px, int pz)
     {
         return PavingIndexOf(Paving.GetPixel(ClampX(px), ClampZ(pz)));
@@ -1266,7 +1266,7 @@ public class WorldMapState
         return ly <= 0 ? PavedOnSurface : Data.WorldMinY + ly - 1;
     }
 
-    // Painted ground index, or -1 where the column inherits its zone's kits.
+    // Painted ground index, or -1 where the column inherits its zone's terrains.
     // Which authored water type this column was painted with, or -1 for none —
     // in which case the column keeps whatever its ZONE authors, which is what
     // every document did before the layer existed.
@@ -1293,7 +1293,7 @@ public class WorldMapState
     public int GroundIndexAt(int px, int pz)
     {
         int idx = Mathf.RoundToInt(Ground.GetPixel(ClampX(px), ClampZ(pz)).R * 255f) - 1;
-        return idx >= 0 && idx < GroundSets.Length ? idx : -1;
+        return idx >= 0 && idx < Terrains.Length ? idx : -1;
     }
 
     // The painted mob set at a column, or null. The raster stores index+1 so 0
@@ -1303,7 +1303,7 @@ public class WorldMapState
         Color cell = Mobs.GetPixel(ClampX(px), ClampZ(pz));
         int idx = Mathf.RoundToInt(cell.R * 255f) - 1;
         density = cell.G;
-        return idx >= 0 && idx < MobSets.Length && density > 0f ? MobSets[idx] : null;
+        return idx >= 0 && idx < ScatterSets.Length && density > 0f ? ScatterSets[idx] : null;
     }
 
     // The one place a spawn decision is made, so the map PREVIEW and the BAKE
@@ -2448,7 +2448,7 @@ public class WorldMapState
             if (rows[i] != null
                 && AreaRoll(Hash(px, pz, ENTITY_SALT + (uint)i), rows[i].squareMetersPerSpawn, density))
             {
-                return IndexOfSet(MobSets, set);
+                return IndexOfSet(ScatterSets, set);
             }
         }
         return -1;
