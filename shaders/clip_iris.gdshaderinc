@@ -28,6 +28,10 @@ global uniform float clip_iris_edge;
 // what keeps every exposed face a horizontal section at one height, so the black
 // interior of solid still reads as poche and a building stays legible in iso.
 global uniform float clip_iris_target;
+// The MAIN camera, so every pass — the cap mask, the reflections, the fog march —
+// casts the same rays however it renders. See clip_iris_ray_anchor.
+global uniform vec3 clip_iris_eye;
+global uniform bool clip_iris_perspective;
 
 // Borrowed from the FOLIAGE cutaway so the two read as one effect. Shared rather
 // than copied: they are the same shape by intent, and two numbers would drift.
@@ -40,6 +44,20 @@ global uniform vec2 foliage_player_fade_aspect;
 bool clip_iris_active()
 {
 	return clip_iris_enabled && clip_iris_radius > 0.0;
+}
+
+// Where the main camera's view ray through this point crosses the iris plane. Every
+// point on one ray maps to the same anchor. At the shipping -40° ortho pitch the two
+// cut planes are ~1.2 m apart along a ray, which moved the noisy boundary by more
+// than its whole dithered edge.
+vec3 clip_iris_ray_anchor(vec3 world_pos)
+{
+	vec3 dir = clip_iris_perspective ? world_pos - clip_iris_eye : cross(clip_iris_right, clip_iris_up);
+	if (abs(dir.y) < 1e-4)
+	{
+		return world_pos;
+	}
+	return world_pos + dir * ((clip_iris_target - world_pos.y) / dir.y);
 }
 
 // Distance from the iris centre, compared against clip_iris_radius — the SHAPE,
@@ -55,14 +73,21 @@ bool clip_iris_active()
 // frame to frame and the boundary sweeps through it as the player walks, rather than
 // crawling with the camera. Being the same field means both effects wobble in step
 // where they meet.
+//
+// Evaluated at the RAY ANCHOR, never at the point itself. The boundary has to be one
+// answer per PIXEL: a wall fragment, the mask behind it and the two cap planes all
+// sit at different depths along the same view ray, and each deciding the boundary at
+// its own depth left pixels at the edge where the wall was stippled away but neither
+// cap claimed the hole — the ground beyond showed through.
 float clip_iris_shape_distance(vec3 world_pos)
 {
-	vec3 delta = world_pos - clip_iris_center;
+	vec3 anchor = clip_iris_ray_anchor(world_pos);
+	vec3 delta = anchor - clip_iris_center;
 	vec2 screen = vec2(dot(delta, clip_iris_right), dot(delta, clip_iris_up));
 	float dist = length(screen / max(foliage_player_fade_aspect, vec2(1e-3)));
-	float n = sin(world_pos.x * 1.3 + world_pos.z * 0.7) * 0.3
-	        + sin(world_pos.x * 0.5 - world_pos.z * 1.7) * 0.2
-	        + sin(world_pos.x * 2.1 + world_pos.y * 1.1 + world_pos.z * 0.4) * 0.15;
+	float n = sin(anchor.x * 1.3 + anchor.z * 0.7) * 0.3
+	        + sin(anchor.x * 0.5 - anchor.z * 1.7) * 0.2
+	        + sin(anchor.x * 2.1 + anchor.y * 1.1 + anchor.z * 0.4) * 0.15;
 	return dist + n;
 }
 

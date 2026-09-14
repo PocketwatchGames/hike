@@ -209,6 +209,9 @@ public class ClipIris
     // debug draw so all three describe the same disk.
     public Vector3 ScreenRight { get; private set; } = Vector3.Right;
     public Vector3 ScreenUp { get; private set; } = Vector3.Up;
+    // The camera the disk's rays are cast from — see RayAnchor.
+    public Vector3 Eye { get; private set; }
+    public bool Perspective { get; private set; }
     public Vector3 IrisCenter => _irisCenter;
 
     // Voxel index of the lowest air at or above the player's feet — the level
@@ -234,6 +237,9 @@ public class ClipIris
     public System.ReadOnlySpan<HiddenRay> PlayerHiddenRays => _hiddenRays;
     // Standing in, or right beside, a doorway or window — see ResolveAtOpening.
     public bool AtOpening { get; private set; }
+    // A settled ceiling cut is up and nothing the ring can see is hidden beneath
+    // it, so an opening alone has nothing left for the disk to reveal.
+    public bool BaseRevealsAll { get; private set; }
     // Live ring reach, and how many samples were usable. A high blocked/opening
     // count means the numbers beside it came from a handful of samples.
     public float ProbeRange { get; private set; }
@@ -291,6 +297,7 @@ public class ClipIris
         BaseClipY = NO_CEILING;
         PlayerHiddenAmount = 0f;
         AtOpening = false;
+        BaseRevealsAll = false;
         VotingCount = 0;
         OccludedCount = 0;
         HiddenCount = 0;
@@ -304,6 +311,8 @@ public class ClipIris
 
         ScreenRight = camera.GlobalBasis.X.Normalized();
         ScreenUp = camera.GlobalBasis.Y.Normalized();
+        Eye = camera.GlobalPosition;
+        Perspective = camera.Projection == Camera3D.ProjectionType.Perspective;
         _space = camera.GetWorld3D()?.DirectSpaceState;
         _clipCutAboveY = camera.ClipCutAboveY;
         _irisCenter = playerPosition;
@@ -531,7 +540,18 @@ public class ClipIris
         // same failure the reach's clamp guards against. PlayerOccluded is the
         // unraised hidden-ladder verdict, the codebase's own measure of "is the
         // player behind something", so it is the one asked here.
-        bool wantsOpen = PlayerOccluded || AtOpening;
+        //
+        // An opening only counts while there is something left to reveal. Inside a
+        // room whose ceiling the base has already cut, the disk's plane sits a metre
+        // BELOW the base (IRIS_UNDERCUT), so it is never retired as redundant — every
+        // door and window then carved a second, lower ring into the walls of a room
+        // that was already fully open. The occlusion ring is the right witness: its
+        // rays already see through the base cut, so no occluded sample under a settled
+        // ceiling cut means the base is showing everything the player can see. A
+        // taller room through the doorway still has its roof, still hides its samples,
+        // and still opens the disk.
+        BaseRevealsAll = camera.IsIndoorMode && camera.ClipSettled && OccludedCount == 0;
+        bool wantsOpen = PlayerOccluded || (AtOpening && !BaseRevealsAll);
         // Temporal hysteresis: once open, the disk stays open for IrisHoldSeconds
         // after the condition drops, so the quantised hidden-ladder ticking across
         // zero at a wall edge cannot flip the gate back and forth. Release-only —
@@ -557,7 +577,7 @@ public class ClipIris
         // Standing in or beside a doorway or window opens it wider than the small
         // floor. MAX rather than an override: if the player is ALSO hidden and the
         // ring wants a wider disk than this, that is the better answer and it wins.
-        if (AtOpening)
+        if (AtOpening && open)
         {
             target = Mathf.Max(target, Mathf.Clamp(OpeningRadius, RadiusMin, RadiusMax));
         }
@@ -1136,14 +1156,26 @@ public class ClipIris
     // vanishes on one side of the line and not the other.
     private bool InsideIris(Vector3 worldPosition)
     {
-        Vector3 delta = worldPosition - _irisCenter;
+        Vector3 anchor = RayAnchor(worldPosition);
+        Vector3 delta = anchor - _irisCenter;
         var screen = new Vector2(
             delta.Dot(ScreenRight) / Mathf.Max(ShapeAspect.X, 1e-3f),
             delta.Dot(ScreenUp) / Mathf.Max(ShapeAspect.Y, 1e-3f));
-        float noise = Mathf.Sin(worldPosition.X * 1.3f + worldPosition.Z * 0.7f) * 0.3f
-            + Mathf.Sin(worldPosition.X * 0.5f - worldPosition.Z * 1.7f) * 0.2f
-            + Mathf.Sin(worldPosition.X * 2.1f + worldPosition.Y * 1.1f + worldPosition.Z * 0.4f) * 0.15f;
+        float noise = Mathf.Sin(anchor.X * 1.3f + anchor.Z * 0.7f) * 0.3f
+            + Mathf.Sin(anchor.X * 0.5f - anchor.Z * 1.7f) * 0.2f
+            + Mathf.Sin(anchor.X * 2.1f + anchor.Y * 1.1f + anchor.Z * 0.4f) * 0.15f;
         return screen.Length() + noise <= IrisRadius;
+    }
+
+    // Twin of clip_iris_ray_anchor.
+    private Vector3 RayAnchor(Vector3 worldPosition)
+    {
+        Vector3 dir = Perspective ? worldPosition - Eye : ScreenRight.Cross(ScreenUp);
+        if (Mathf.Abs(dir.Y) < 1e-4f || float.IsInfinity(IrisClipY))
+        {
+            return worldPosition;
+        }
+        return worldPosition + dir * ((IrisClipY - worldPosition.Y) / dir.Y);
     }
 
     private void EnsureBuffers()
@@ -1188,6 +1220,6 @@ public class ClipIris
             + $"baseClip={baseText} cutAbove={cutText} iris={IrisClipY:0.0} "
             + $"radius={IrisRadius:0.0} range={ProbeRange:0.0} "
             + $"hidden={PlayerHiddenAmount:0.00} occluded={OccludedCount}/{_probeCount} "
-            + $"hidden={HiddenCount} voting={VotingCount} atOpening={AtOpening}";
+            + $"hidden={HiddenCount} voting={VotingCount} atOpening={AtOpening} baseRevealsAll={BaseRevealsAll}";
     }
 }

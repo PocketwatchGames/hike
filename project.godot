@@ -379,6 +379,14 @@ clip_iris_target={
 "type": "float",
 "value": 1e+20
 }
+clip_iris_eye={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+clip_iris_perspective={
+"type": "bool",
+"value": false
+}
 debug_solid={
 "type": "vec3",
 "value": Vector3(0, 0, 0)

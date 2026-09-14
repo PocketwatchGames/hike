@@ -1538,6 +1538,8 @@ public partial class GameClient : Node3D
 			RenderingServer.GlobalShaderParameterSet("clip_iris_up", _clipIris.ScreenUp);
 			RenderingServer.GlobalShaderParameterSet("clip_iris_edge", clipIrisEdgeSoftness);
 			RenderingServer.GlobalShaderParameterSet("clip_iris_target", _clipIris.IrisClipY);
+			RenderingServer.GlobalShaderParameterSet("clip_iris_eye", _clipIris.Eye);
+			RenderingServer.GlobalShaderParameterSet("clip_iris_perspective", _clipIris.Perspective);
 		}
 		camera.UpdateIrisCap(iris, _clipIris.IrisClipY, _clipIris.IrisCenter);
 
