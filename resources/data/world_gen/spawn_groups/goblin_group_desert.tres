@@ -1,21 +1,23 @@
 [gd_resource type="Resource" script_class="SpawnGroupData" format=3 uid="uid://ndilv758jxnj"]
 
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="10_x87yb"]
-[ext_resource type="Resource" uid="uid://bw6x3su3im3b2" path="res://resources/data/world_authoring/spawn_entries/chest_camp_potions.tres" id="e_chest_camp_potions"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_desert_torchbearer_camp.tres" id="e_goblin_desert_torchbearer_camp"]
+[ext_resource type="Resource" uid="uid://bw6x3su3im3b2" path="res://resources/data/world_gen/spawn_entries/chest_camp_potions.tres" id="e_chest_camp_potions"]
+[ext_resource type="Resource" uid="uid://cr2bd3vkna7xs" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_desert_torchbearer.tres" id="e_goblin_desert_torchbearer"]
 [ext_resource type="Script" uid="uid://bhy5xnkiybhbv" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
 
 [sub_resource type="Resource" id="Row_goblin_desert_torchbearer_camp"]
 script = ExtResource("grouprow")
 countMin = 2
 countMax = 3
-entry = ExtResource("e_goblin_desert_torchbearer_camp")
+entry = ExtResource("e_goblin_desert_torchbearer")
 spawnConditions = 2
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_chest_camp_potions"]
 script = ExtResource("grouprow")
 entry = ExtResource("e_chest_camp_potions")
 spawnConditions = 2
+initialBehavior = null
 
 [resource]
 script = ExtResource("10_x87yb")

@@ -1,21 +1,23 @@
 [gd_resource type="Resource" script_class="SpawnGroupData" format=3 uid="uid://cyrniev8emry"]
 
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="8_klnhq"]
-[ext_resource type="Resource" uid="uid://d0mvjjk1xtiyd" path="res://resources/data/world_authoring/spawn_entries/chest_camp_mushrooms_gold.tres" id="e_chest_camp_mushrooms_gold"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_swamp_torchbearer_camp.tres" id="e_goblin_swamp_torchbearer_camp"]
+[ext_resource type="Resource" uid="uid://d0mvjjk1xtiyd" path="res://resources/data/world_gen/spawn_entries/chest_camp_mushrooms_gold.tres" id="e_chest_camp_mushrooms_gold"]
+[ext_resource type="Resource" uid="uid://dy76g6ru7ip3r" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_swamp_torchbearer.tres" id="e_goblin_swamp_torchbearer"]
 [ext_resource type="Script" uid="uid://bhy5xnkiybhbv" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
 
 [sub_resource type="Resource" id="Row_goblin_swamp_torchbearer_camp"]
 script = ExtResource("grouprow")
 countMin = 2
 countMax = 3
-entry = ExtResource("e_goblin_swamp_torchbearer_camp")
+entry = ExtResource("e_goblin_swamp_torchbearer")
 spawnConditions = 2
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_chest_camp_mushrooms_gold"]
 script = ExtResource("grouprow")
 entry = ExtResource("e_chest_camp_mushrooms_gold")
 spawnConditions = 2
+initialBehavior = null
 
 [resource]
 script = ExtResource("8_klnhq")

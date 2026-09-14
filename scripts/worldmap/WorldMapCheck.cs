@@ -104,9 +104,11 @@ public static class WorldMapCheck
             + (spread.Length == 0 ? "none" : spread.ToString()));
 
         ReportEntityLinks(sb, entities);
+        ReportNames(sb, entities, ctx.Data.World);
         ReportScatterSets(sb, ctx);
         ReportPalettes(sb, ctx);
         ReportPaletteEditors(sb, ctx);
+        ReportDuplicateFamilies(sb, ctx);
 
         // The fork the property panel makes must come back as the SAME entry
         // type. If Duplicate ever returns a bare Resource the panel silently
@@ -584,7 +586,7 @@ public static class WorldMapCheck
                 WorldMapEntityInspector.EPropertyEditor kind =
                     WorldMapEntityInspector.EditorFor(entry, name,
                         (Variant.Type)(long)property["type"],
-                        (PropertyHint)(long)property["hint"],
+                        (PropertyHint)(long)property["hint"], ctx.Data.World,
                         out System.Type resourceType, out string[] names,
                         out Resource[] resources);
                 if (kind == WorldMapEntityInspector.EPropertyEditor.ResourcePick)
@@ -594,11 +596,20 @@ public static class WorldMapCheck
                     // conversation in the project" from "this entry's 13 goblins".
                     picks.Add(resources != null
                         ? $"{name}({resources.Length} offered)"
-                        : $"{name}({ResourceTypeIndex.Candidates(resourceType).Length})");
+                        : $"{name}({ResourceTypeIndex.Candidates(resourceType, ctx.Data.World).Length})");
                 }
                 else if (kind == WorldMapEntityInspector.EPropertyEditor.NamePick)
                 {
                     picks.Add($"{name}({names.Length})");
+                }
+                else if (kind == WorldMapEntityInspector.EPropertyEditor.List)
+                {
+                    // The element's own fields, classified the way the panel
+                    // will build them, so a list whose item picker found no
+                    // items reports that rather than just "list".
+                    editable.Add(WorldMapEntityInspector.ListPicksFiles(resourceType, ctx.Data.World)
+                        ? $"{name}[pick {resourceType.Name}]"
+                        : $"{name}[{resourceType.Name}: {DescribeElement(resourceType, ctx.Data.World)}]");
                 }
                 else if (kind == WorldMapEntityInspector.EPropertyEditor.ReadOnly)
                 {
@@ -616,6 +627,214 @@ public static class WorldMapCheck
 
     private static string Join(List<string> items)
         => items.Count == 0 ? "none" : string.Join(", ", items);
+
+    private static string DescribeElement(System.Type element, string world)
+    {
+        var fields = new List<string>();
+        foreach (Godot.Collections.Dictionary property in WorldMapEntityInspector.ElementProperties(element))
+        {
+            var name = new StringName(property["name"].AsString());
+            WorldMapEntityInspector.EPropertyEditor kind = WorldMapEntityInspector.ElementEditorFor(
+                element, name, (Variant.Type)(long)property["type"], (PropertyHint)(long)property["hint"],
+                world, out System.Type resourceType);
+            fields.Add(kind switch
+            {
+                WorldMapEntityInspector.EPropertyEditor.ResourcePick =>
+                    $"{name}({ResourceTypeIndex.Candidates(resourceType, world).Length})",
+                WorldMapEntityInspector.EPropertyEditor.ReadOnly => $"{name}(read-only)",
+                _ => name.ToString(),
+            });
+        }
+        return string.Join(" ", fields);
+    }
+
+    // Palette rows that are really ONE family: two entries of the same type
+    // that differ only in what a placement can set for itself. Each is a file an
+    // author scrolls past to reach the one they want, and the fix is to keep one
+    // and set the rest per placement — which is how three buried spots, six
+    // knowledge stones and four loot chests came to be palette rows. Decided
+    // from the data, so it catches the next one the day it is added.
+    //
+    // What a placement cannot set is what defines a family: the identity rows
+    // (a scene, a variants list) and whatever the entry hides. Only those are
+    // compared — minus the scatter-only knobs (minSpacing), which a placement
+    // never reads and so cannot tell two rows apart for one.
+    private static void ReportDuplicateFamilies(System.Text.StringBuilder sb, WorldMapState ctx)
+    {
+        var byKey = new Dictionary<string, List<SpawnEntryData>>();
+        foreach (SpawnEntryData entry in ctx.EntityPalette)
+        {
+            if (entry == null)
+            {
+                continue;
+            }
+            var key = new System.Text.StringBuilder(entry.GetType().Name);
+            foreach (Godot.Collections.Dictionary property in entry.GetPropertyList())
+            {
+                var usage = (PropertyUsageFlags)(long)property["usage"];
+                var name = new StringName(property["name"].AsString());
+                if ((usage & PropertyUsageFlags.ScriptVariable) == 0 || entry.ShowsProperty(name)
+                    || !SpawnEntryData.IsHandPlacedProperty(name))
+                {
+                    continue;
+                }
+                key.Append('|').Append(name).Append('=').Append(Fingerprint(entry.Get(name)));
+            }
+            string k = key.ToString();
+            if (!byKey.TryGetValue(k, out List<SpawnEntryData> group))
+            {
+                byKey[k] = group = new List<SpawnEntryData>();
+            }
+            group.Add(entry);
+        }
+        int found = 0;
+        foreach (List<SpawnEntryData> group in byKey.Values)
+        {
+            if (group.Count < 2)
+            {
+                continue;
+            }
+            found++;
+            sb.AppendLine($"[worldmap_check] WARN one family, {group.Count} palette rows: "
+                + string.Join(", ", group.ConvertAll(SpawnEntryData.PaletteName))
+                + " — they differ only in what a placement sets for itself; keep one");
+        }
+        if (found == 0)
+        {
+            sb.AppendLine("[worldmap_check] palette families: no duplicates");
+        }
+    }
+
+    // A value as the family comparison sees it: a file by its path, a list by
+    // its elements, and anything else by its text. By value rather than by
+    // reference, because two palette files naming the same scene hold two
+    // references to one resource and must compare equal.
+    private static string Fingerprint(Variant value)
+    {
+        switch (value.VariantType)
+        {
+            case Variant.Type.Object:
+                var resource = value.As<Resource>();
+                return resource == null ? "null"
+                    : !string.IsNullOrEmpty(resource.ResourcePath) ? resource.ResourcePath
+                    : $"<{resource.GetType().Name}>";
+            case Variant.Type.Array:
+                var parts = new List<string>();
+                foreach (Variant item in value.AsGodotArray())
+                {
+                    parts.Add(Fingerprint(item));
+                }
+                return $"[{string.Join(",", parts)}]";
+            default:
+                return value.ToString();
+        }
+    }
+
+    // Named placements — every point of interest a painted world has, and every
+    // treasure a map can chart. A name is typed twice (on the placement and on
+    // whatever refers to it), so this is the only place a mismatch shows before
+    // someone stands in the world: the bake keeps the FIRST of two equal names,
+    // and a map naming a treasure nobody buried charts nothing.
+    //
+    // Treasures are listed with the map items that chart them, found by loading
+    // every ConsumableData / ScrollData — few, and only here. A map reached some
+    // other way (a knowledge stone's TreasureMapTeachable) is not seen.
+    private static void ReportNames(System.Text.StringBuilder sb, EntityPlacement[] entities, string world)
+    {
+        var byName = new SortedDictionary<string, List<EntityPlacement>>(System.StringComparer.Ordinal);
+        int emptySpots = 0;
+        foreach (EntityPlacement placement in entities)
+        {
+            if (placement?.Entry is BuriedSpotSpawnEntry spot && spot.item == null && spot.payload == null)
+            {
+                emptySpots++;
+            }
+            string name = placement?.Name;
+            if (name == null)
+            {
+                continue;
+            }
+            if (!byName.TryGetValue(name, out List<EntityPlacement> named))
+            {
+                named = new List<EntityPlacement>();
+                byName[name] = named;
+            }
+            named.Add(placement);
+        }
+        if (byName.Count > 0)
+        {
+            Dictionary<string, List<string>> maps = TreasureMapsByName(world);
+            var listed = new List<string>();
+            var treasures = new List<string>();
+            foreach (KeyValuePair<string, List<EntityPlacement>> pair in byName)
+            {
+                EntityPlacement first = pair.Value[0];
+                listed.Add($"{pair.Key} = {first.Label()}");
+                if (first.Entry is BuriedSpotSpawnEntry)
+                {
+                    treasures.Add(maps.TryGetValue(pair.Key, out List<string> items)
+                        ? $"{pair.Key} <- {string.Join(", ", items)}"
+                        : $"{pair.Key} <- no map charts it");
+                }
+                if (pair.Value.Count > 1)
+                {
+                    sb.AppendLine($"[worldmap_check] ERROR: {pair.Value.Count} entities are named "
+                        + $"'{pair.Key}' — only the first becomes a point of interest or a treasure");
+                }
+            }
+            sb.AppendLine($"[worldmap_check] named: {Join(listed)}");
+            if (treasures.Count > 0)
+            {
+                sb.AppendLine($"[worldmap_check] treasures: {Join(treasures)}");
+            }
+        }
+        if (emptySpots > 0)
+        {
+            sb.AppendLine($"[worldmap_check] ERROR: {emptySpots} buried spot(s) have nothing buried and "
+                + "will NOT spawn — select each and pick an item or a payload");
+        }
+    }
+
+    // Treasure name -> the map items this document's world may hand out that chart it.
+    private static Dictionary<string, List<string>> TreasureMapsByName(string world)
+    {
+        var maps = new Dictionary<string, List<string>>();
+        void Add(string treasure, string path)
+        {
+            if (string.IsNullOrEmpty(treasure))
+            {
+                return;
+            }
+            if (!maps.TryGetValue(treasure, out List<string> items))
+            {
+                items = new List<string>();
+                maps[treasure] = items;
+            }
+            items.Add(path.GetFile().GetBaseName());
+        }
+        foreach (string path in ResourceTypeIndex.Candidates(typeof(ConsumableData), world))
+        {
+            if (ResourceLoader.Load<ConsumableData>(path) is not { } item || item.effects == null)
+            {
+                continue;
+            }
+            foreach (ItemEffect effect in item.effects)
+            {
+                if (effect is RevealTreasureMapEffect reveal)
+                {
+                    Add(reveal.treasureName, path);
+                }
+            }
+        }
+        foreach (string path in ResourceTypeIndex.Candidates(typeof(ScrollData), world))
+        {
+            if (ResourceLoader.Load<ScrollData>(path)?.concept is TreasureMapTeachable map)
+            {
+                Add(map.treasureName, path);
+            }
+        }
+        return maps;
+    }
 
     // Lever-to-trapdoor wiring, which is authored as a word typed twice and so
     // fails exactly the way an untyped identifier always does: silently. A lever

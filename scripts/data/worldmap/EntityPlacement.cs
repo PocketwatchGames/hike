@@ -73,6 +73,16 @@ public partial class EntityPlacement : Resource
     // moves under them.
     [Export] public int floorY = OnTheGround;
 
+    // What the author calls this one, or empty. A name makes the placement a
+    // place the rest of the game can refer to: the bake registers it as a point
+    // of interest (`tp <name>`), and hands it to the spawn, where a buried spot
+    // becomes the treasure a map of that name points at. On the PLACEMENT, not
+    // the entry, so naming a chest does not fork it off its palette file.
+    [Export] public string name = "";
+
+    // The name as the bake uses it — trimmed, or null when there is none.
+    public string Name => string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+
     // What this placement actually spawns: its own copy once it has one, else
     // the shared palette entry. Every reader wants this; only the palette
     // MEMBERSHIP questions read `source`.
@@ -89,23 +99,29 @@ public partial class EntityPlacement : Resource
     public bool IsFrom(SpawnEntryData paletteEntry)
         => source != null && paletteEntry != null && source == paletteEntry;
 
-    // What to call this placement in the authoring UI: the palette entry it came
-    // from, plus the variant this individual is, plus a mark when it carries its
-    // own copy. One answer, because the tool row, the hover readout and the
-    // property panel all name the same thing and a name that differs between
-    // them reads as two different entries.
+    // What to call this placement in the authoring UI: its own name if it has
+    // one, the palette entry it came from, plus the variant this individual is,
+    // plus a mark when it carries its own copy. One answer, because the tool row,
+    // the hover readout and the property panel all name the same thing and a
+    // name that differs between them reads as two different entries.
     public string DisplayName()
     {
-        // Named off the SOURCE palette entry but varied by the live one: a
-        // fork keeps the name of the file it came from, and says which member of
-        // that family this individual is.
-        string name = SpawnEntryData.PaletteName(source);
+        return Name != null ? $"{Name} ({Label()})" : Label();
+    }
+
+    // What this placement IS, without its name: named off the SOURCE palette
+    // entry but varied by the live one — a fork keeps the name of the file it
+    // came from, and says which member of that family this individual is. Never
+    // off the fork's own path, which after a reload is placements.tres::<id>.
+    public string Label()
+    {
+        string label = SpawnEntryData.PaletteName(source);
         string variant = Entry?.VariantName();
-        if (!string.IsNullOrEmpty(variant) && variant != name)
+        if (!string.IsNullOrEmpty(variant) && variant != label)
         {
-            name = $"{name}: {variant}";
+            label = $"{label}: {variant}";
         }
-        return IsCustomized ? $"{name} *" : name;
+        return IsCustomized ? $"{label} *" : label;
     }
 
     // Radians about +Y — what the bake hands the spawn as SpawnContext.FacingY.

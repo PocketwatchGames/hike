@@ -702,7 +702,10 @@ public static class EntitySerializer
                 w.Write((byte)Tag.BuriedSpot);
                 WriteVec3(w, buried.WorldPosition);
                 WriteScene(w, buried.Scene);
-                WriteResource(w, buried.Data);
+                WriteResource(w, buried.Style);
+                WriteResource(w, buried.Item);
+                w.Write(buried.Count);
+                WriteResource(w, buried.Payload);
                 w.Write(buried.Excavated);
                 w.Write(buried.TreasureName ?? "");
                 break;
@@ -1170,11 +1173,14 @@ public static class EntitySerializer
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
-                var data = ReadResource<BuriedSpotData>(r);
-                bool excavated = r.ReadBoolean();
-                var buried = new BuriedSpotSimState(pos, scene, data);
-                buried.Excavated = excavated;
-                buried.TreasureName = r.ReadString();
+                var buried = new BuriedSpotSimState(pos, scene, ReadResource<BuriedSpotStyleData>(r))
+                {
+                    Item = ReadResource<ItemData>(r),
+                    Count = r.ReadInt32(),
+                    Payload = ReadResource<SpawnEntryData>(r),
+                    Excavated = r.ReadBoolean(),
+                    TreasureName = r.ReadString(),
+                };
                 return buried;
             }
             case Tag.Tent:

@@ -1,10 +1,9 @@
-[gd_resource type="Resource" script_class="MobSpawnEntry" format=3]
+[gd_resource type="Resource" script_class="MobSpawnEntry" format=3 uid="uid://dmtd4q8381jcf"]
 
-[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="script"]
 [ext_resource type="Resource" uid="uid://cssgoblin0001" path="res://resources/data/characters/goblin/goblin_mountain.tres" id="r1"]
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="script"]
 
 [resource]
 script = ExtResource("script")
 species = ExtResource("r1")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+initialBehavior = null

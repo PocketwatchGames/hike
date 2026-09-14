@@ -46,28 +46,36 @@ public partial class Player : CharacterBody3D
 	// Throttle for the per-tick `mantle_debug` trace.
 	private ulong _mantleLogLastMs;
 
-	// The ledge in front, surfaced through the ordinary interact path so it gets
-	// tap-vs-hold, the prompt, and an authored icon for free.
-	private MantleInteractive _mantleInteract;
-	public MantleInteractive MantleInteract => _mantleInteract ??= new MantleInteractive(this);
+	// The traversal available from where the player stands — a ledge to mantle,
+	// a wall face to take hold of, a lip to back over — surfaced through the
+	// ordinary interact path so it gets tap-vs-hold, the prompt, and an authored
+	// icon for free.
+	private TraversalInteractive _traversalInteract;
+	public TraversalInteractive TraversalInteract => _traversalInteract ??= new TraversalInteractive(this);
 
-	// Set when the interact action's completion event fires. The mantle starts
-	// on the NEXT tick rather than inside Complete(): the runner is still
-	// tearing the action down at that point, so TryFindMantle would see
+	// Set when the interact action's completion event fires. The traversal
+	// starts on the NEXT tick rather than inside Complete(): the runner is still
+	// tearing the action down at that point, so every find below would see
 	// _runner.IsBusy and refuse.
-	private bool _mantlePending;
+	private bool _traversalPending;
 
-	public void OnMantleInteractComplete()
+	public void OnTraversalInteractComplete()
 	{
-		_mantlePending = true;
+		_traversalPending = true;
 	}
 
-	// Consume a pending mantle once the runner has finished. Re-queries rather
-	// than trusting the candidate captured at press time, so a player who moved
-	// during the action gets the ledge in front of them now, or none.
-	private void TickPendingMantle()
+	// Consume a pending traversal once the runner has finished. Re-queries
+	// rather than trusting what was found at press time, so a player who moved
+	// during the action gets whatever is in front of them now, or nothing.
+	//
+	// The order is the ranking, and TryFindTraversal must ask in the same one:
+	// a ledge wins over a wall face where both are offered (the short hop is
+	// almost always what was meant, and a climb from the same spot stays
+	// available once the player is standing on top of it), and the lip underfoot
+	// comes last so it cannot steal a short drop a mantle reads better as.
+	private void TickPendingTraversal()
 	{
-		if (!_mantlePending)
+		if (!_traversalPending)
 		{
 			return;
 		}
@@ -75,14 +83,49 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		_mantlePending = false;
-		// A ledge wins over a wall face where both are offered: the short hop is
-		// almost always what was meant, and a climb from the same spot stays
-		// available once the player is standing on top of it.
-		if (!TryStartMantle())
+		_traversalPending = false;
+		if (!TryStartMantle() && !TryStartClimb())
 		{
-			TryStartClimb();
+			TryStartClimbDescent();
 		}
+	}
+
+	// What an interact press would traverse from here, and how high it would
+	// leave the player. Asks the same questions TickPendingTraversal asks, in
+	// the same order — a prompt that disagrees with the button is worse than no
+	// prompt — so this is a preview, never a second opinion.
+	public bool TryFindTraversal(out bool descending, out float targetY)
+	{
+		descending = false;
+		targetY = 0f;
+		if (data == null)
+		{
+			return false;
+		}
+		if (TryFindMantle(out MantleProbe.Candidate candidate))
+		{
+			descending = candidate.rise < 0f;
+			targetY = candidate.landing.Y;
+			return true;
+		}
+		if (TryFindClimb(out ClimbHold hold))
+		{
+			// Where the hold puts the body decides the arrow. Against rock a
+			// climb starts level, so the prompt hangs at the grip and reads as
+			// "up this face"; taking a rope from the ledge it is tied to LOWERS
+			// the player off it, and an Up arrow there promises the opposite of
+			// what the press does.
+			descending = hold.Landing.Y < GlobalPosition.Y - ClimbEntryDescentThreshold;
+			targetY = descending ? hold.Landing.Y : GlobalPosition.Y + data.climbGripHeight;
+			return true;
+		}
+		if (TryFindClimbDescent(out ClimbProbe.Attachment _, out float feetY))
+		{
+			descending = true;
+			targetY = feetY;
+			return true;
+		}
+		return false;
 	}
 
 	public bool Mantling => _mantleEndMs != 0;
@@ -147,8 +190,9 @@ public partial class Player : CharacterBody3D
 		return new ClimbHold(normal, landing, surface, "interact");
 	}
 
-	// True when an interact press here would mantle rather than do nothing —
-	// the prompt layer reads this to show a climb hint.
+	// True when an interact press here would mantle rather than do nothing.
+	// Diagnostics only — the prompt asks TryFindTraversal, which ranks this
+	// against the other traversals instead of reading it alone.
 	public bool CanMantle()
 	{
 		return TryFindMantle(out MantleProbe.Candidate _);
@@ -615,8 +659,8 @@ public partial class Player : CharacterBody3D
 		return new ClimbProbe.Settings(data.climbReach, data.climbGripHeight);
 	}
 
-	// True when a Dash press here would attach to a wall — the prompt layer
-	// reads this the same way it reads CanMantle.
+	// True when an interact press here would attach to a wall. Diagnostics
+	// only, the same way CanMantle is.
 	public bool CanClimb()
 	{
 		return TryFindClimb(out ClimbHold _);
@@ -729,9 +773,10 @@ public partial class Player : CharacterBody3D
 	// inverse approach to TryStartClimb — there the wall is ahead and the player
 	// walks into it, here the wall is underfoot and the drop is ahead.
 	//
-	// Runs LAST in TryTraversalPress, which is what keeps it from stealing short
-	// drops: a ledge inside the mantle band is a hop down and reads better as
-	// one, so mantle claims it first and only a wall too tall to hop reaches here.
+	// Runs LAST in TickPendingTraversal, which is what keeps it from stealing
+	// short drops: a ledge inside the mantle band is a hop down and reads better
+	// as one, so mantle claims it first and only a wall too tall to hop reaches
+	// here.
 	private bool TryStartClimbDescent()
 	{
 		if (!TryFindClimbDescent(out ClimbProbe.Attachment attachment, out float feetY))
@@ -1540,28 +1585,6 @@ public partial class Player : CharacterBody3D
 		FaceAlong(landing - _climbFrom);
 	}
 
-	// Traversal, as an overload on the Dash button rather than a button of its
-	// own. Dash carries the two entries that are a MOVE — walking into a face and
-	// backing over a lip — and nothing else; the deliberate ones (mantling a
-	// ledge, taking a rope, letting go of either) are interacts. The two entries
-	// here cannot both be true (one needs rock ahead, the other air), so their
-	// order is only a tie-break on paper. Returns false when neither applied,
-	// which is what lets the same press fall through and become an ordinary dash.
-	public bool TryTraversalPress()
-	{
-		// Hanging on a face, the press is swallowed rather than passed on: letting
-		// go is the interact button, and a dash off a wall is not a thing.
-		if (Climbing)
-		{
-			return true;
-		}
-		if (TryStartClimb())
-		{
-			return true;
-		}
-		return TryStartClimbDescent();
-	}
-
 	// Voluntary let-go, off the interact button — the same button that took the
 	// hold in the first place, on a rope or on a ledge. Steps off onto anything
 	// standable within reach and otherwise simply drops: a wall the player cannot
@@ -1620,64 +1643,48 @@ public partial class Player : CharacterBody3D
 		return true;
 	}
 
-	// What a traversal press would take the player to from here, refreshed once
-	// per tick and read by the ClimbHUD. Every branch runs the SAME find the press
-	// runs, in the same order — a prompt that disagrees with the button is worse
-	// than no prompt — so this is a preview, never a second opinion. The MANTLE is
-	// not previewed here: a ledge is an interact target (MantleInteract), so it
-	// carries the ordinary interact prompt and would otherwise draw two.
-	private ETraversalPreview _traversalPreview;
-	private Vector3 _traversalPromptAnchor;
-	private bool _traversalPromptAnchorValid;
+	// What letting go would do from where the player hangs, refreshed once per
+	// tick and read by the ClimbHUD. Only that: every traversal the player can
+	// START is an interact target (TraversalInteract) and carries the ordinary
+	// interact prompt, so previewing one here would draw two. A release has no
+	// target to hang a prompt on — it is a modal meaning of the button while on
+	// a wall — which is why this one stayed.
+	private ETraversalPreview _climbReleasePreview;
+	private Vector3 _climbReleasePromptAnchor;
+	private bool _climbReleasePromptAnchorValid;
 
-	public ETraversalPreview TraversalPreview => _traversalPreview;
+	public ETraversalPreview ClimbReleasePreview => _climbReleasePreview;
 
-	// Where the prompt is drawn. Meaningless while TraversalPreview is None.
-	public Vector3 TraversalPromptPosition => _traversalPromptAnchor;
+	// Where the prompt is drawn. Meaningless while ClimbReleasePreview is None.
+	public Vector3 ClimbReleasePromptPosition => _climbReleasePromptAnchor;
 
 	// Called ahead of every early return in _PhysicsProcess, so riding a boat or
 	// being carried through a traversal clears the prompt instead of freezing the
 	// last one on screen.
-	private void UpdateTraversalPreview(float dt)
+	private void UpdateClimbReleasePreview(float dt)
 	{
 		ETraversalPreview preview = ETraversalPreview.None;
 		// Nobody is looking at an inactive party member's affordances, and the
 		// probes below are not free.
 		if (!IsActive)
 		{
-			_traversalPreview = preview;
-			_traversalPromptAnchorValid = false;
+			_climbReleasePreview = preview;
+			_climbReleasePromptAnchorValid = false;
 			return;
 		}
 		// Height of what the press would put the player on; the prompt floats
-		// mantlePromptLift above it.
+		// traversalPromptLift above it.
 		float targetY = 0f;
 
 		if (Climbing)
 		{
 			preview = PreviewClimbRelease(out targetY);
 		}
-		else if (TryFindClimb(out ClimbHold hold))
-		{
-			// Where the hold puts the body decides the arrow. Against rock a
-			// climb starts level, so the prompt hangs at the grip and reads as
-			// "up this face"; taking a rope from the ledge it is tied to LOWERS
-			// the player off it, and an Up arrow there promises the opposite of
-			// what the press does.
-			bool descends = hold.Landing.Y < GlobalPosition.Y - ClimbEntryDescentThreshold;
-			preview = descends ? ETraversalPreview.Down : ETraversalPreview.Up;
-			targetY = descends ? hold.Landing.Y : GlobalPosition.Y + data.climbGripHeight;
-		}
-		else if (TryFindClimbDescent(out ClimbProbe.Attachment _, out float feetY))
-		{
-			preview = ETraversalPreview.Down;
-			targetY = feetY;
-		}
 
-		_traversalPreview = preview;
+		_climbReleasePreview = preview;
 		if (preview == ETraversalPreview.None)
 		{
-			_traversalPromptAnchorValid = false;
+			_climbReleasePromptAnchorValid = false;
 			return;
 		}
 
@@ -1685,19 +1692,19 @@ public partial class Player : CharacterBody3D
 		// not from the target, whose XZ is a voxel centre and would step a metre
 		// sideways as the target cell changes. Height has to sit at the target, so
 		// it is the one term that steps, and the only one eased.
-		Vector3 target = GlobalPosition + BodyForward() * data.mantlePromptForwardOffset;
-		target.Y = targetY + data.mantlePromptLift;
-		if (!_traversalPromptAnchorValid)
+		Vector3 target = GlobalPosition + BodyForward() * data.traversalPromptForwardOffset;
+		target.Y = targetY + data.traversalPromptLift;
+		if (!_climbReleasePromptAnchorValid)
 		{
-			_traversalPromptAnchor = target;
-			_traversalPromptAnchorValid = true;
+			_climbReleasePromptAnchor = target;
+			_climbReleasePromptAnchorValid = true;
 			return;
 		}
-		_traversalPromptAnchor.X = target.X;
-		_traversalPromptAnchor.Z = target.Z;
-		float tau = data.mantlePromptSmoothTime;
+		_climbReleasePromptAnchor.X = target.X;
+		_climbReleasePromptAnchor.Z = target.Z;
+		float tau = data.traversalPromptSmoothTime;
 		float k = tau > 0f ? 1f - Mathf.Exp(-dt / tau) : 1f;
-		_traversalPromptAnchor.Y = Mathf.Lerp(_traversalPromptAnchor.Y, target.Y, k);
+		_climbReleasePromptAnchor.Y = Mathf.Lerp(_climbReleasePromptAnchor.Y, target.Y, k);
 	}
 
 	// On a wall the press is a release, so the preview answers the question

@@ -5,7 +5,6 @@
 [ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
 [ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
-[ext_resource type="Resource" path="res://resources/data/dialogue_scripts/actions/open_shop.tres" id="Act_open_shop"]
 
 [sub_resource type="Resource" id="Entry_1"]
 script = ExtResource("Script_ConversationEntry")
@@ -14,50 +13,27 @@ branch = &"greeting"
 [sub_resource type="Resource" id="Branch_greeting"]
 script = ExtResource("Script_ConversationBranch")
 name = &"greeting"
-lineLocKeys = Array[StringName]([&"intro_guard_greeting_01", &"intro_guard_greeting_02", &"intro_guard_greeting_03"])
-exitGroup = &"topics"
+lineLocKeys = Array[StringName]([&"intro_guard_greeting_01"])
+exitGroup = &"real"
 isPrimaryGroupEntry = true
 
-[sub_resource type="Resource" id="Branch_tell_more"]
+[sub_resource type="Resource" id="Branch_help"]
 script = ExtResource("Script_ConversationBranch")
-name = &"tell_more"
-lineLocKeys = Array[StringName]([&"intro_guard_tell_more_01"])
-exitGroup = &"topics"
+name = &"help"
+lineLocKeys = Array[StringName]([&"intro_guard_help_01"])
 
-[sub_resource type="Resource" id="Branch_beard"]
-script = ExtResource("Script_ConversationBranch")
-name = &"beard"
-lineLocKeys = Array[StringName]([&"intro_guard_beard_01"])
-exitGroup = &"topics"
-
-[sub_resource type="Resource" id="Branch_trade"]
-script = ExtResource("Script_ConversationBranch")
-name = &"trade"
-lineLocKeys = Array[StringName]([&"intro_guard_trade_01"])
-endActions = Array[Object]([ExtResource("Act_open_shop")])
-
-[sub_resource type="Resource" id="Resp_topics_1"]
+[sub_resource type="Resource" id="Resp_real_1"]
 script = ExtResource("Script_ConversationResponse")
-textLocKey = &"intro_guard_topics_tell_more"
-destination = &"tell_more"
+textLocKey = &"intro_guard_real_help"
+destination = &"help"
 
-[sub_resource type="Resource" id="Resp_topics_2"]
-script = ExtResource("Script_ConversationResponse")
-textLocKey = &"intro_guard_topics_beard"
-destination = &"beard"
-
-[sub_resource type="Resource" id="Resp_topics_3"]
-script = ExtResource("Script_ConversationResponse")
-textLocKey = &"intro_guard_topics_trade"
-destination = &"trade"
-
-[sub_resource type="Resource" id="Group_topics"]
+[sub_resource type="Resource" id="Group_real"]
 script = ExtResource("Script_ConversationResponseGroup")
-name = &"topics"
-responses = [SubResource("Resp_topics_1"), SubResource("Resp_topics_2"), SubResource("Resp_topics_3")]
+name = &"real"
+responses = [SubResource("Resp_real_1")]
 
 [resource]
 script = ExtResource("Script_ConversationData")
 entryBranches = [SubResource("Entry_1")]
-branches = [SubResource("Branch_greeting"), SubResource("Branch_tell_more"), SubResource("Branch_beard"), SubResource("Branch_trade")]
-responseGroups = [SubResource("Group_topics")]
+branches = [SubResource("Branch_greeting"), SubResource("Branch_help")]
+responseGroups = [SubResource("Group_real")]

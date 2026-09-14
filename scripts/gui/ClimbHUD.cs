@@ -1,14 +1,14 @@
 using Godot;
 
-// Previews the traversal available here — an up arrow over a wall the player can
-// climb, a down arrow over one they can drop from or let go onto. Ledges are not
-// among them: a mantle is an interact and carries the InteractHUD instead.
-// Exactly one of the two is ever visible, because Player.TraversalPreview names
-// a single direction (see ETraversalPreview); the HUD only draws what the press
-// already decided.
+// Previews what letting go of a wall or a rope would do — an up arrow when the
+// press tops out over the lip, a down arrow when it steps off the face. Only
+// that: every traversal the player can START is an interact target and carries
+// the InteractHUD instead. Exactly one of the two icons is ever visible, because
+// Player.ClimbReleasePreview names a single direction (see ETraversalPreview); the
+// HUD only draws what the press already decided.
 //
 // Placed like the InteractHUD: a Node2D under worldHUD, moved each frame to the
-// projection of a world anchor (Player.TraversalPromptPosition, which the player
+// projection of a world anchor (Player.ClimbReleasePromptPosition, which the player
 // smooths). Distinct from it in every other way — no actions, no hold bar, no
 // options modal, nothing to interact WITH.
 //
@@ -58,13 +58,13 @@ public partial class ClimbHUD : Node2D
 
 	void Update()
 	{
-		ETraversalPreview preview = _player.TraversalPreview;
+		ETraversalPreview preview = _player.ClimbReleasePreview;
 		// Hidden rather than freed while a fullscreen HUD (merchant, conversation,
 		// cooking, ...) holds input: the affordance is still there, the player just
 		// isn't in the world to take it. GameClient frees us when it actually goes
 		// away.
 		GameClient gc = GameClient.Current;
-		Vector3 worldPosition = _player.TraversalPromptPosition;
+		Vector3 worldPosition = _player.ClimbReleasePromptPosition;
 		if (preview == ETraversalPreview.None
 			|| (gc != null && gc.InputSuppressed)
 			|| _camera.IsPositionBehind(worldPosition))

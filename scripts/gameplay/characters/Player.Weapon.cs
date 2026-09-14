@@ -95,8 +95,8 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		}
 		// A traversal owns position for its span (both branches return early in
 		// _PhysicsProcess), so a dash started here would spend stamina and cooldown
-		// and move nobody. A fresh press can't reach this — TryTraversalPress claims
-		// it first — but a dash banked before the wall and fired by _queuedDash can.
+		// and move nobody. Dash and traversal are different buttons now, so this
+		// catches a dash banked before the wall and fired by _queuedDash.
 		if (Climbing || Mantling)
 		{
 			return;

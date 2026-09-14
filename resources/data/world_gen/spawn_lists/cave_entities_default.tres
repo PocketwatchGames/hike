@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://c6gsht63fk45a"]
 
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
-[ext_resource type="Resource" uid="uid://c7pkj388842sx" path="res://resources/data/world_authoring/spawn_entries/chest_cave_potion.tres" id="e_chest_cave_potion"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_mountain_torchbearer.tres" id="e_goblin_mountain_torchbearer"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_mountain_torchbearer_elite.tres" id="e_goblin_mountain_torchbearer_elite"]
+[ext_resource type="Resource" uid="uid://c7pkj388842sx" path="res://resources/data/world_gen/spawn_entries/chest_cave_potion.tres" id="e_chest_cave_potion"]
+[ext_resource type="Resource" uid="uid://crg1xjljs6jk3" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_mountain_torchbearer.tres" id="e_goblin_mountain_torchbearer"]
+[ext_resource type="Resource" uid="uid://rbqgmwj5ymgl" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_mountain_torchbearer_elite.tres" id="e_goblin_mountain_torchbearer_elite"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_blue.tres" id="e_mushroom_blue"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/spike_trap.tres" id="e_spike_trap"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/torch.tres" id="e_torch"]
@@ -13,31 +13,39 @@
 script = ExtResource("listrow")
 squareMetersPerSpawn = 400.0
 entry = ExtResource("e_goblin_mountain_torchbearer")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_goblin_mountain_torchbearer_elite"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 2000.0
 entry = ExtResource("e_goblin_mountain_torchbearer_elite")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_mushroom_blue"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 200.0
 entry = ExtResource("e_mushroom_blue")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_chest_cave_potion"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 500.0
 entry = ExtResource("e_chest_cave_potion")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_torch"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 400.0
 entry = ExtResource("e_torch")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_spike_trap"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 400.0
 entry = ExtResource("e_spike_trap")
+initialBehavior = null
 
 [resource]
 script = ExtResource("1_list")

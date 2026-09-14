@@ -245,6 +245,7 @@ public partial class WorldMapPainter : Node3D
                 _history.Commit();
                 UpdateHud();
             };
+            hud.entityInspector.World = data.World;
         }
         SelectTool(0);
     }
@@ -260,6 +261,7 @@ public partial class WorldMapPainter : Node3D
     // The scatter set the tool is picking out, for the same reason: its dots
     // draw full while every other set's recede, so changing it repaints the map.
     private SpawnScatterData _markedScatter;
+    private PropListData _markedPropList;
 
     // What the MAP IS SHOWING at a column, not the raw height field. Under a
     // cutaway the two differ by a whole mountain, and a readout that reports the
@@ -347,7 +349,9 @@ public partial class WorldMapPainter : Node3D
         }
         SpawnEntryData entry = ActiveTool.SelectedEntry(_ctx);
         SpawnScatterData scatter = ActiveTool.SelectedScatter(_ctx);
-        if (!ReferenceEquals(entry, _markedEntry) || !ReferenceEquals(scatter, _markedScatter))
+        PropListData propList = ActiveTool.SelectedPropList(_ctx);
+        if (!ReferenceEquals(entry, _markedEntry) || !ReferenceEquals(scatter, _markedScatter)
+            || !ReferenceEquals(propList, _markedPropList))
         {
             // Every placement of an entry is inked as a match, and every column
             // of a scatter set is dotted at its own weight, so both are
@@ -356,6 +360,7 @@ public partial class WorldMapPainter : Node3D
             // palette costs one repaint per frame.
             _markedEntry = entry;
             _markedScatter = scatter;
+            _markedPropList = propList;
             RebuildFull();
         }
     }
@@ -387,6 +392,7 @@ public partial class WorldMapPainter : Node3D
         _markedSelection = ActiveTool.SelectedEntity;
         _markedEntry = ActiveTool.SelectedEntry(_ctx);
         _markedScatter = ActiveTool.SelectedScatter(_ctx);
+        _markedPropList = ActiveTool.SelectedPropList(_ctx);
         RebuildFull();
         UpdateHud();
     }
@@ -1041,7 +1047,7 @@ public partial class WorldMapPainter : Node3D
         // and needs a couple of pixels per metre to read at all.
         if (view.PreviewLayer.HasFlag(ESpawnPreview.Props))
         {
-            DrawPropDots(x0, z0, x1, z1);
+            DrawPropDots(x0, z0, x1, z1, _markedPropList);
         }
         if (view.PreviewLayer.HasFlag(ESpawnPreview.Mobs) && pixelsPerMeter >= 2)
         {
@@ -1395,7 +1401,13 @@ public partial class WorldMapPainter : Node3D
     // through. Colour is the ONLY thing that varies: the alpha and the size are
     // global (propDotAlpha / propDotFraction), because how hard a dot covers the
     // ground under it is a property of the map rather than of any one list.
-    private void DrawPropDots(int x0, int z0, int x1, int z1)
+    //
+    // `picked` is the list being picked out, or null for a view that shows prop
+    // dots under a tool with no list of its own — there nothing is being asked,
+    // so every region draws full. The others recede on ALPHA rather than losing
+    // their colour, so "which list is this" and "what does it do to movement"
+    // are both still legible while one of them is being answered.
+    private void DrawPropDots(int x0, int z0, int x1, int z1, PropListData picked)
     {
         PropListData[] lists = _ctx.PropLists;
         for (int px = x0; px < x1; px++)
@@ -1408,7 +1420,10 @@ public partial class WorldMapPainter : Node3D
                     continue;
                 }
                 Color c = lists[idx]?.mapColor ?? Colors.White;
-                DrawSpawnDot(px, pz, new Color(c.R, c.G, c.B, ink.propDotAlpha), ink.propDotFraction);
+                bool full = picked == null || ReferenceEquals(lists[idx], picked);
+                DrawSpawnDot(px, pz,
+                    new Color(c.R, c.G, c.B, full ? ink.propDotAlpha : ink.propDotDimAlpha),
+                    ink.propDotFraction);
             }
         }
     }

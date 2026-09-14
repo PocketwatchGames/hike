@@ -10,16 +10,19 @@
 script = ExtResource("listrow")
 squareMetersPerSpawn = 350.0
 entry = ExtResource("e_mushroom_red")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_green"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 350.0
 entry = ExtResource("e_mushroom_green")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_gold"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 400.0
 entry = ExtResource("e_mushroom_gold")
+initialBehavior = null
 
 [resource]
 script = ExtResource("13_ygg5g")

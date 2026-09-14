@@ -42,10 +42,8 @@ public partial class PropListData : Resource
     [Export] public Color mapColor = new Color(0f, 0f, 0f);
 
     // Rows, not bare scenes: a row carries which storey this LIST puts the
-    // scene in (PropListEntry.tier). Typed as the base so the nine lists
-    // authored before the tier existed still load; a plain WeightedScene reads
-    // as EPropTier.Auto.
-    [Export] public WeightedScene[] scenes = System.Array.Empty<WeightedScene>();
+    // scene in (PropListEntry.tier), which is not a property of the .tscn.
+    [Export] public PropListEntry[] scenes = System.Array.Empty<PropListEntry>();
 
     // --- The interior of a region ------------------------------------------
     //
@@ -315,13 +313,13 @@ public partial class PropListData : Resource
         var kept = new System.Collections.Generic.List<PackedScene>();
         var weights = new System.Collections.Generic.List<float>();
         var tiers = new System.Collections.Generic.List<EPropTier>();
-        foreach (WeightedScene entry in scenes ?? System.Array.Empty<WeightedScene>())
+        foreach (PropListEntry entry in scenes ?? System.Array.Empty<PropListEntry>())
         {
             if (entry?.scene != null && entry.weight > 0f)
             {
                 kept.Add(entry.scene);
                 weights.Add(entry.weight);
-                tiers.Add((entry as PropListEntry)?.tier ?? EPropTier.Auto);
+                tiers.Add(entry.tier);
                 _totalWeight += entry.weight;
             }
         }
@@ -359,7 +357,7 @@ public partial class PropListData : Resource
         {
             ResourceLoader.Load<Resource>(ResourcePath, cacheMode: ResourceLoader.CacheMode.Replace);
         }
-        foreach (WeightedScene entry in scenes ?? System.Array.Empty<WeightedScene>())
+        foreach (PropListEntry entry in scenes ?? System.Array.Empty<PropListEntry>())
         {
             string path = entry?.scene?.ResourcePath;
             if (!string.IsNullOrEmpty(path))

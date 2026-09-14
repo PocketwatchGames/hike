@@ -45,6 +45,15 @@ public partial class WorldMapInkData : Resource
     // it.
     [Export(PropertyHint.Range, "0.1,1,0.05")] public float propDotFraction = 0.8f;
 
+    // What a painted region the tool has NOT selected draws at. The dim is on
+    // ALPHA and never on colour, because a prop dot's colour is already spoken
+    // for: it says what the region does to movement (see PropListData.mapColor).
+    // So the two readings stack rather than compete — a barrier stays black and
+    // a breakable one stays grey, and the list being painted is the one drawn at
+    // full weight. With no list selected (a view that shows prop dots under some
+    // other tool) nothing is being asked and every region draws full.
+    [Export(PropertyHint.Range, "0.05,1,0.05")] public float propDotDimAlpha = 0.3f;
+
     // The mob dot, which is WHITE whatever set it came from: which set a column
     // carries is answered by the selection dimming below, not by a colour.
     [Export(PropertyHint.Range, "0.1,1,0.05")] public float mobDotFraction = 0.55f;

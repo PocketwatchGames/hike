@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="KnowledgeStoneSpawnEntry" format=3 uid="uid://c53yx05jv1l81"]
+
+[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="1_entry"]
+[ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_entry")
+scene = ExtResource("2_scene")

@@ -1,10 +1,16 @@
 using Godot;
 using Godot.Collections;
 
-// Fronts "climb this ledge" as an ordinary interactive, so the traversal goes
-// through the same path every chest and NPC uses: tap-to-run-the-default,
-// hold-for-the-option-menu, a prompt drawn at the target, an authored icon and
-// label.
+// Fronts "traverse this" as an ordinary interactive, so every self-traversal the
+// player can start from where they stand — mantling a ledge up or down, taking
+// hold of a climbable wall face, backing over a lip onto one — goes through the
+// same path every chest and NPC uses: tap-to-run-the-default, hold-for-the-
+// option-menu, a prompt drawn at the target, an authored icon and label.
+//
+// One interactive for all of them, not one each: only ever one is offered (the
+// player resolves them in a fixed order — see TryFindTraversal), and two
+// competing for the highlight slot would be two ways to answer a question that
+// has one answer.
 //
 // Modelled on PlayerSelfInteractive — not a world entity, no InteractiveBox,
 // never found by proximity. The Player offers it as the highlight when nothing
@@ -13,14 +19,17 @@ using Godot.Collections;
 //
 // Not a Node3D, deliberately: there is nothing here to outline. GameClient casts
 // the highlight to Node3D for the selection outline and gets null, which is the
-// correct result for a ledge.
-public sealed class MantleInteractive : IInteractive
+// correct result for a ledge or a cliff face.
+public sealed class TraversalInteractive : IInteractive
 {
 	private readonly Player _player;
-	private MantleProbe.Candidate _candidate;
 	private bool _available;
+	// Whether the traversal on offer goes DOWN, which is all the prompt needs
+	// from it: the action carries the arrow and the label, and the player
+	// re-resolves the traversal itself when the action completes.
+	private bool _descending;
 
-	// Where the prompt is drawn, smoothed. The candidate's landing point is a
+	// Where the prompt is drawn, smoothed. A traversal's landing point is a
 	// voxel CENTRE, so anchoring to it directly makes the prompt jump a metre
 	// sideways every time the player crosses a cell boundary while walking along
 	// a ledge. The player supplies a target derived from their own continuous
@@ -35,7 +44,7 @@ public sealed class MantleInteractive : IInteractive
 	private Array<InteractiveAction> _ascendActions;
 	private Array<InteractiveAction> _descendActions;
 
-	public MantleInteractive(Player player)
+	public TraversalInteractive(Player player)
 	{
 		_player = player;
 	}
@@ -44,10 +53,10 @@ public sealed class MantleInteractive : IInteractive
 	// where the prompt wants to be this tick; it is eased toward rather than
 	// taken outright, except on the frame the prompt appears — easing in from
 	// wherever the last ledge was would fly it across the world.
-	public void SetCandidate(bool available, in MantleProbe.Candidate candidate, Vector3 anchorTarget, float dt)
+	public void SetTarget(bool available, bool descending, Vector3 anchorTarget, float dt)
 	{
 		_available = available;
-		_candidate = candidate;
+		_descending = descending;
 		if (!available)
 		{
 			_anchorValid = false;
@@ -65,15 +74,12 @@ public sealed class MantleInteractive : IInteractive
 		// term that steps in whole voxels, so it is the only one eased.
 		_anchor.X = anchorTarget.X;
 		_anchor.Z = anchorTarget.Z;
-		float tau = _player.data?.mantlePromptSmoothTime ?? 0f;
+		float tau = _player.data?.traversalPromptSmoothTime ?? 0f;
 		float k = tau > 0f ? 1f - Mathf.Exp(-dt / tau) : 1f;
 		_anchor.Y = Mathf.Lerp(_anchor.Y, anchorTarget.Y, k);
 	}
 
-	public MantleProbe.Candidate Candidate => _candidate;
-	private bool Descending => _candidate.rise < 0f;
-
-	// Over the ledge we would end up on — up top when climbing, down below when
+	// Over what we would end up on — up top when climbing, down below when
 	// dropping — so the prompt reads as "go there", not "you are here".
 	public Vector3 hudPosition => _anchor;
 
@@ -84,11 +90,11 @@ public sealed class MantleInteractive : IInteractive
 	public bool ShouldShowXray() => false;
 
 	// The runner fires this from the action's OpenInteractive completion event.
-	// Starting the mantle directly from here would race the runner's own
+	// Starting the traversal directly from here would race the runner's own
 	// teardown, so the player defers it by a tick.
 	public void Complete(int actionIndex)
 	{
-		_player.OnMantleInteractComplete();
+		_player.OnTraversalInteractComplete();
 	}
 
 	public Array<InteractiveAction> GetActions(Player player)
@@ -98,12 +104,12 @@ public sealed class MantleInteractive : IInteractive
 		{
 			return null;
 		}
-		if (Descending)
+		if (_descending)
 		{
-			_descendActions ??= Wrap(data.mantleDownAction);
+			_descendActions ??= Wrap(data.traversalDownAction);
 			return _descendActions;
 		}
-		_ascendActions ??= Wrap(data.mantleUpAction);
+		_ascendActions ??= Wrap(data.traversalUpAction);
 		return _ascendActions;
 	}
 

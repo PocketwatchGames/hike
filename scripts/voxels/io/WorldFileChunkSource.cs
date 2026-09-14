@@ -30,6 +30,10 @@ public sealed class WorldFileChunkSource : IChunkSource
     // Named points of interest baked into the file. Main.LoadWorldFromFile
     // copies these into WorldState — nothing recomputes them after worldgen.
     public Dictionary<string, Vector3> PointsOfInterest { get; }
+
+    // Named buried treasures still in the ground, the same way — what a
+    // treasure map resolves its name against.
+    public Dictionary<string, Vector3> TreasureSpots { get; }
     // Non-chunked always-resident entity states (the player's companion), read
     // from the world file's global section. Main.LoadWorldFromFile files these
     // into WorldState.PersistentEntities rather than a per-chunk bucket.
@@ -60,6 +64,7 @@ public sealed class WorldFileChunkSource : IChunkSource
         TerrainSlots = header.TerrainSlots ?? System.Array.Empty<string>();
         DetailSlots = header.DetailSlots ?? System.Array.Empty<string>();
         PointsOfInterest = header.PointsOfInterest ?? new Dictionary<string, Vector3>();
+        TreasureSpots = header.TreasureSpots ?? new Dictionary<string, Vector3>();
 
         Zones = new ZoneState[header.Zones.Length];
         for (int i = 0; i < header.Zones.Length; i++)

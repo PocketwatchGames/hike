@@ -222,15 +222,19 @@ public static class DebugVerbs
             return;
         }
 
+        // Named the way this world's authors name them: its own items and the
+        // unscoped ones, never another world's (WorldScope).
+        Dictionary<string, string> items =
+            DebugContentIndex.ItemsIn(WorldScope.Of(sim.WorldState?.StartContentPath));
         string[] tokens = Tokenize(arg);
         if (tokens.Length == 0 || tokens[0] == ListToken)
         {
             GD.Print("give: usage `give <item> [count]`. Known: "
-                + string.Join(", ", DebugContentIndex.Names(DebugContentIndex.Items)));
+                + string.Join(", ", DebugContentIndex.Names(items)));
             return;
         }
 
-        ItemData data = DebugContentIndex.Resolve<ItemData>(DebugContentIndex.Items, tokens[0], out string error);
+        ItemData data = DebugContentIndex.Resolve<ItemData>(items, tokens[0], out string error);
         if (data == null)
         {
             GD.PrintErr($"give: {error}. `give ?` lists the known items.");

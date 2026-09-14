@@ -45,6 +45,7 @@ metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 [sub_resource type="Resource" id="Row_signpost"]
 script = ExtResource("listrow")
 entry = SubResource("Sign_swamp")
+initialBehavior = null
 
 [sub_resource type="Resource" id="SignList_swamp"]
 script = ExtResource("51_spawnlist")
@@ -67,6 +68,7 @@ metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 [sub_resource type="Resource" id="Row_Sign_village"]
 script = ExtResource("listrow")
 entry = SubResource("Sign_village")
+initialBehavior = null
 
 [sub_resource type="Resource" id="SignList_village"]
 script = ExtResource("51_spawnlist")
@@ -89,6 +91,7 @@ metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 [sub_resource type="Resource" id="Row_Sign_mud"]
 script = ExtResource("listrow")
 entry = SubResource("Sign_mud")
+initialBehavior = null
 
 [sub_resource type="Resource" id="SignList_mud"]
 script = ExtResource("51_spawnlist")
@@ -111,6 +114,7 @@ metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 [sub_resource type="Resource" id="Row_Sign_highlands"]
 script = ExtResource("listrow")
 entry = SubResource("Sign_highlands")
+initialBehavior = null
 
 [sub_resource type="Resource" id="SignList_highlands"]
 script = ExtResource("51_spawnlist")

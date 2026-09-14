@@ -62,7 +62,9 @@ public static class SubsceneFile
     //     a slot can hold a resource's value (see WorldFile v51). v8 and earlier
     //     still read — their tables are bare path strings and their weapon,
     //     status-effect and item-state lists spell their references out.
-    public const uint VERSION = 10;
+    // v11: the BuriedSpot payload carries its contents (see WorldFile v56). No
+    //      earlier subscene holds a buried spot, so there is nothing to gate.
+    public const uint VERSION = 11;
 
     // Bytes before the directory block: magic + version + size + anchor +
     // channelMask + dirLength. ReadDirectory seeks past exactly this much.

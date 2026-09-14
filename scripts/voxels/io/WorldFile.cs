@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -24,6 +25,8 @@ using Godot;
 //     regions     : regionCount entries
 //       dataPath        : length-prefixed string (RegionData resource path;
 //                         empty string for border slots)
+//     pois, treasures : two name -> position tables, each a uint32 count then
+//                       (length-prefixed name, Vector3) per entry, name order
 //     persistentEntities : EntitySerializer entity list (non-chunked globals —
 //                          the player's companion)
 //     chunkCount   : uint32
@@ -230,7 +233,13 @@ public static class WorldFile
     //      stored BY VALUE with its property NAMES (see EntitySerializer
     //      .WriteInline), and `descriptor` / `levelOverride` are no longer among
     //      them. The descriptor .tres a stored path ref pointed at are deleted too.
-    public const uint VERSION = 55;
+    // v56: named buried treasures (WorldState.TreasureSpots) ride in the header
+    //      beside the POIs. They were re-registered by each BuriedSpot as it
+    //      streamed in, so a treasure map for anywhere out of streaming range
+    //      charted nothing — and was used up doing it. The BuriedSpot payload
+    //      also carries its contents (item, count, payload entry) and names a
+    //      BuriedSpotStyleData where it named a BuriedSpotData.
+    public const uint VERSION = 56;
 
     public struct IndexEntry
     {
@@ -266,6 +275,8 @@ public static class WorldFile
         public RegionEntry[] Regions;
         // Named points of interest baked with the world — see VERSION v49.
         public Dictionary<string, Vector3> PointsOfInterest;
+        // Named buried treasures still in the ground — see VERSION v56.
+        public Dictionary<string, Vector3> TreasureSpots;
         // Resource path per terrain-palette slot, in slot order — what every
         // TerrainId byte in this file indexes. See VERSION v46.
         public string[] TerrainSlots;
@@ -382,15 +393,8 @@ public static class WorldFile
         {
             w.Write(regions[i].Data != null ? regions[i].Data.ResourcePath : "");
         }
-        Dictionary<string, Vector3> pois = worldState.PointsOfInterest;
-        w.Write((uint)pois.Count);
-        foreach (KeyValuePair<string, Vector3> poi in pois)
-        {
-            w.Write(poi.Key);
-            w.Write(poi.Value.X);
-            w.Write(poi.Value.Y);
-            w.Write(poi.Value.Z);
-        }
+        WriteNamedPositions(w, worldState.PointsOfInterest);
+        WriteNamedPositions(w, worldState.TreasureSpots);
         // One resource-path table for every entity list in the file — chunk
         // lists and the persistent list alike. Must precede both.
         EntitySerializer.WriteTable(w, pathTable);
@@ -477,13 +481,8 @@ public static class WorldFile
         {
             header.Regions[i] = new RegionEntry { DataPath = r.ReadString() };
         }
-        uint poiCount = r.ReadUInt32();
-        header.PointsOfInterest = new Dictionary<string, Vector3>((int)poiCount);
-        for (uint i = 0; i < poiCount; i++)
-        {
-            string poiName = r.ReadString();
-            header.PointsOfInterest[poiName] = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
-        }
+        header.PointsOfInterest = ReadNamedPositions(r);
+        header.TreasureSpots = ReadNamedPositions(r);
         header.PathTable = EntitySerializer.ReadTable(r);
         header.PersistentEntities = EntitySerializer.ReadList(r, header.PathTable);
         header.ChunkCount = r.ReadUInt32();
@@ -513,5 +512,34 @@ public static class WorldFile
         int y = r.ReadInt32();
         int z = r.ReadInt32();
         return new Vector3I(x, y, z);
+    }
+
+    // A name -> position table (POIs, treasures). Written in name order so an
+    // unchanged world bakes to identical bytes whatever order it was built in.
+    private static void WriteNamedPositions(BinaryWriter w, Dictionary<string, Vector3> table)
+    {
+        var names = new List<string>(table.Keys);
+        names.Sort(StringComparer.Ordinal);
+        w.Write((uint)names.Count);
+        foreach (string name in names)
+        {
+            Vector3 p = table[name];
+            w.Write(name);
+            w.Write(p.X);
+            w.Write(p.Y);
+            w.Write(p.Z);
+        }
+    }
+
+    private static Dictionary<string, Vector3> ReadNamedPositions(BinaryReader r)
+    {
+        uint count = r.ReadUInt32();
+        var table = new Dictionary<string, Vector3>((int)count);
+        for (uint i = 0; i < count; i++)
+        {
+            string name = r.ReadString();
+            table[name] = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
+        }
+        return table;
     }
 }

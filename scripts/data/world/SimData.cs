@@ -300,6 +300,15 @@ public partial class SimData : Resource
     //         ~80% of any text, missing a soft tax for jumbled order.
     [Export(PropertyHint.Range, "0,1,0.01")] public float languageGrammarWeight = 0.2f;
 
+    // Comprehension a player must clear before a ConversationResponse is
+    // offered at all. The stable per-response roll is drawn from [this, 1)
+    // instead of [0, 1), so nothing shows until BOTH the branch and the
+    // response itself are understood this well; the spread above the floor is
+    // what staggers options into the menu as more is learned. 0 restores the
+    // old behavior, where a response whose loc key happened to hash low was
+    // offered while its own line still read as gibberish.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float conversationVisibilityFloor = 0.5f;
+
     [Export] public float visibleTime = 0.25f;
     // World-wide threshold for "fully visible to perception". Light readings
     // at the target's sample point are clamped to [0, this] then divided

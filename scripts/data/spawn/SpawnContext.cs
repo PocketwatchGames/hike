@@ -86,15 +86,20 @@ public sealed class SpawnContext
         return ForgeLevelOverride != null ? ForgeLevelOverride(position) : 0;
     }
 
-    // The conditions the SpawnRow being placed asked for, stamped on
-    // immediately before each spawn. It rides the context because Spawn is
-    // overridden by ~20 entry types and only three of them (mob, npc, chest)
-    // have a sim state that can defer on a condition — widening every signature
-    // for a value three of them read is the worse trade.
+    // The conditions the SpawnRow being placed asked for. It rides the context
+    // because Spawn is overridden by ~20 entry types and only three of them (mob,
+    // npc, chest) have a sim state that can defer on a condition — widening
+    // every signature for a value three of them read is the worse trade.
     //
-    // Never cleared between rows: every caller sets it for the row it is about
-    // to place, so a stale value cannot outlive its row.
+    // Scoped to the row's spawn (SpawnRow stamps it and restores it), so an
+    // entity placed with no row at all — a hand placement — sees None.
     public ESpawnConditions SpawnConditions;
+
+    // The SpawnRow's population rule for which behaviour its mobs start in, and
+    // what fraction of them do (SpawnRow.initialBehavior). Scoped like
+    // SpawnConditions; empty outside a row.
+    public StringName InitialBehavior;
+    public float InitialBehaviorChance = 1f;
 
     // True when the position was hand-authored (a subscene marker, or a mark in
     // the world-map painter) rather than sampled off a column. It turns OFF the
@@ -114,6 +119,13 @@ public sealed class SpawnContext
     // pointed. Null — every scan pass — leaves each entry rolling its own.
     // Honored by the mob entries; other types face as they always did.
     public float? FacingY;
+
+    // The name the author gave the thing being placed — a named painter
+    // placement, a zone's treasure. Null for everything anonymous, which is
+    // every scan pass. An entry with a use for a name reads it (a buried spot
+    // registers itself as a treasure a map can point at); the rest ignore it.
+    // Set and cleared around one spawn, like FacingY.
+    public string AuthoredName;
 
     // Pick a position within `radius` of `anchor` that satisfies all the
     // entry's placement gates: column validity (IsValidColumn), flat

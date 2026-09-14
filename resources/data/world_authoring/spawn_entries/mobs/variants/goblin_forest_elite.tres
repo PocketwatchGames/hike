@@ -1,12 +1,11 @@
-[gd_resource type="Resource" script_class="MobSpawnEntry" format=3]
+[gd_resource type="Resource" script_class="MobSpawnEntry" format=3 uid="uid://buxj3mnoph6fj"]
 
-[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="script"]
-[ext_resource type="Resource" uid="uid://b36dkwda4evr6" path="res://resources/data/characters/goblin/goblin_forest.tres" id="r1"]
 [ext_resource type="Resource" uid="uid://821ik3r4gly8" path="res://resources/data/characters/elites/elite_fire.tres" id="E_elite_fire"]
+[ext_resource type="Resource" uid="uid://b36dkwda4evr6" path="res://resources/data/characters/goblin/goblin_forest.tres" id="r1"]
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="script"]
 
 [resource]
 script = ExtResource("script")
 species = ExtResource("r1")
 elite = ExtResource("E_elite_fire")
-initialBehavior = &"Wander"
-initialBehaviorChance = 0.25
+initialBehavior = null

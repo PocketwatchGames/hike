@@ -70,10 +70,12 @@ item = ExtResource("96_map")
 script = ExtResource("grouprow")
 placeAtAnchor = true
 entry = ExtResource("e_campfire")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_knowledge_stone"]
 script = ExtResource("grouprow")
 entry = ExtResource("e_knowledge_stone")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Fixtures_swamp"]
 script = ExtResource("16_grp")

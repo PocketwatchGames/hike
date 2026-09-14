@@ -4,14 +4,14 @@
 [ext_resource type="Resource" uid="uid://bptefqcxldi3l" path="res://resources/data/world_gen/spawn_groups/goblin_group_forest.tres" id="10_av785"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/berry_tree.tres" id="e_berry_tree"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/climbable_tree.tres" id="e_climbable_tree"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_forest.tres" id="e_goblin_forest"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_forest_elite.tres" id="e_goblin_forest_elite"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/kun_kun_forest.tres" id="e_kun_kun_forest"]
+[ext_resource type="Resource" uid="uid://es8noshldion" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_forest.tres" id="e_goblin_forest"]
+[ext_resource type="Resource" uid="uid://buxj3mnoph6fj" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_forest_elite.tres" id="e_goblin_forest_elite"]
+[ext_resource type="Resource" uid="uid://o3ff37xu2itl" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/kun_kun_forest.tres" id="e_kun_kun_forest"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_green.tres" id="e_mushroom_green"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_red.tres" id="e_mushroom_red"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_white.tres" id="e_mushroom_white"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/sparrow_forest.tres" id="e_sparrow_forest"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/spider_forest.tres" id="e_spider_forest"]
+[ext_resource type="Resource" uid="uid://bd06s81tpqdqu" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/spider_forest.tres" id="e_spider_forest"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/well.tres" id="e_well"]
 [ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 
@@ -19,62 +19,78 @@
 script = ExtResource("listrow")
 squareMetersPerSpawn = 1000.0
 entry = ExtResource("e_goblin_forest")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_goblin_forest_elite"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 6667.0
 entry = ExtResource("e_goblin_forest_elite")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_kun_kun_forest"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 200.0
 entry = ExtResource("e_kun_kun_forest")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.33
 
 [sub_resource type="Resource" id="Row_mushroom_green"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 300.0
 entry = ExtResource("e_mushroom_green")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_red"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 300.0
 entry = ExtResource("e_mushroom_red")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_white"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 300.0
 entry = ExtResource("e_mushroom_white")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_goblin_group_forest"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 1000.0
 entry = ExtResource("10_av785")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_berry_tree"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 300.0
 entry = ExtResource("e_berry_tree")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_well"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 2000.0
 entry = ExtResource("e_well")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_sparrow_forest"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 100.0
 entry = ExtResource("e_sparrow_forest")
 spawnConditions = 9
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_climbable_tree"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 800.0
 entry = ExtResource("e_climbable_tree")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_spider_forest"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 800.0
 entry = ExtResource("e_spider_forest")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [resource]
 script = ExtResource("1_list")

@@ -579,6 +579,10 @@ public partial class Main : Node
 		{
 			worldState.PointsOfInterest[poi.Key] = poi.Value;
 		}
+		foreach (KeyValuePair<string, Vector3> treasure in source.TreasureSpots)
+		{
+			worldState.TreasureSpots[treasure.Key] = treasure.Value;
+		}
 		// This world's own quests, party and starting knowledge. Without it the
 		// run took all three from whichever WorldGenData the menu had selected —
 		// another world's content, and for a hand-painted world usually no

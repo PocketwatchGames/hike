@@ -1,7 +1,6 @@
 [gd_resource type="Resource" script_class="PropListData" format=3 uid="uid://bh17llh3mktyf"]
 
 [ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
-[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
 [ext_resource type="Script" uid="uid://mcl599wl0ordv" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
 [ext_resource type="PackedScene" uid="uid://dahcrnl7vm3km" path="res://scenes/props/rock4.tscn" id="12_rx8im"]
 [ext_resource type="PackedScene" uid="uid://beodxq0b470rt" path="res://scenes/props/rock5.tscn" id="13_tq8oo"]
@@ -26,17 +25,17 @@
 [ext_resource type="PackedScene" uid="uid://m8i6fl11f8pg" path="res://scenes/props/bush_04.tscn" id="sc_bs4"]
 
 [sub_resource type="Resource" id="e_0"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_0")
 weight = 3.0
 
 [sub_resource type="Resource" id="e_1"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_1")
 weight = 2.0
 
 [sub_resource type="Resource" id="e_2"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_2")
 weight = 2.0
 
@@ -47,77 +46,77 @@ weight = 2.0
 tier = 3
 
 [sub_resource type="Resource" id="e_4"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_4")
 weight = 2.0
 
 [sub_resource type="Resource" id="e_5"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_5")
 
 [sub_resource type="Resource" id="e_6"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_6")
 
 [sub_resource type="Resource" id="e_7"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_7")
 
 [sub_resource type="Resource" id="e_8"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_8")
 
 [sub_resource type="Resource" id="e_9"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_9")
 
 [sub_resource type="Resource" id="Resource_wkhyt"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("12_rx8im")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_fjj5n"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("13_tq8oo")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_1kd54"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("14_bxjrd")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="e_bs1"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_bs1")
 
 [sub_resource type="Resource" id="e_bs2"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_bs2")
 
 [sub_resource type="Resource" id="e_bs3"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_bs3")
 
 [sub_resource type="Resource" id="e_bs4"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_bs4")
 
 [sub_resource type="Resource" id="e_b5"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_b5")
 weight = 2.0
 
 [sub_resource type="Resource" id="e_b6"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_b6")
 weight = 2.0
 
 [sub_resource type="Resource" id="e_b7"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_b7")
 
 [sub_resource type="Resource" id="e_b8"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_b8")
 
 [resource]

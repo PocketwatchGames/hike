@@ -2,9 +2,9 @@ using Godot;
 
 // Runtime node for a buried-item spot. Renders the optional surface hint (or
 // dirt mound once dug) under a model anchor and exposes Dig(), called by
-// Sim.TryDig when the player's shovel reaches it. Digging rolls and spawns
-// the spot's payload through the normal worldgen spawn path (reused verbatim),
-// fires the dig effect, and swaps the visual to the dirt mound. Unlike Chest /
+// Sim.TryDig when the player's shovel reaches it. Digging sprays the buried
+// item out, spawns any buried entity through the normal spawn path (reused
+// verbatim), fires the dig effect, and swaps the visual to the dirt mound. Unlike Chest /
 // Loot this is not an IInteractive: there is no walk-up prompt because a
 // no-hint treasure spot is invisible — the shovel consumable drives the dig
 // and locates spots by proximity.
@@ -19,9 +19,9 @@ public partial class BuriedSpot : Node3D, IWorldEntity
     private Sim _world;
     private Node _visual;
 
-    public BuriedSpotData Data => _state?.Data;
+    public BuriedSpotStyleData Style => _state?.Style;
     public bool Excavated => _state != null && _state.Excavated;
-    public EDigResult ResultClass => Data != null ? Data.resultClass : EDigResult.Common;
+    public EDigResult ResultClass => Style != null ? Style.resultClass : EDigResult.Common;
 
     public void OnSpawned(Sim sim) { }
 
@@ -33,12 +33,6 @@ public partial class BuriedSpot : Node3D, IWorldEntity
         instance._world = sim;
         sim.AddChild(instance);
         instance.UpdateVisual();
-        // Re-register the treasure anchor so a map can point to it by name. Skip a
-        // dug spot — its treasure is gone and a map must never target an empty hole.
-        if (!string.IsNullOrEmpty(state.TreasureName) && !state.Excavated && sim.WorldState != null)
-        {
-            sim.WorldState.TreasureSpots[state.TreasureName] = state.WorldPosition;
-        }
         return instance;
     }
 
@@ -53,7 +47,7 @@ public partial class BuriedSpot : Node3D, IWorldEntity
             _visual.QueueFree();
             _visual = null;
         }
-        PackedScene scene = _state.Excavated ? Data.dirtPileScene : Data.surfaceHintScene;
+        PackedScene scene = _state.Excavated ? Style.dirtPileScene : Style.surfaceHintScene;
         if (scene != null)
         {
             _visual = scene.Instantiate();
@@ -73,20 +67,22 @@ public partial class BuriedSpot : Node3D, IWorldEntity
         // Roll + spawn the payload at this spot, materialized into the live
         // scene immediately (the player is standing here). SpawnEntryImmediate
         // forwards `digger` so a dug-up mob emerges and aggros.
-        if (Data.payload != null)
+        if (_state.Payload != null)
         {
-            _world.SpawnEntryImmediate(Data.payload, GlobalPosition, digger);
+            _world.SpawnEntryImmediate(_state.Payload, GlobalPosition, digger);
         }
 
-        // Pop authored loot out of the hole exactly like a chest ejects contents.
-        if (Data.loot != null && Data.loot.Length > 0)
+        // Pop the buried item out of the hole exactly like a chest ejects contents.
+        if (_state.Item != null)
         {
-            _world.EjectLootPile(Data.loot, GlobalPosition + Vector3.Up);
+            ItemState stack = _state.Item.CreateState();
+            stack.SetCount(_state.Count);
+            _world.EjectLoot(stack, GlobalPosition + Vector3.Up);
         }
 
-        if (Data.digEffect != null)
+        if (Style.digEffect != null)
         {
-            Fx.Create(Data.digEffect, GetParent(), GlobalPosition);
+            Fx.Create(Style.digEffect, GetParent(), GlobalPosition);
         }
 
         _state.Excavated = true;

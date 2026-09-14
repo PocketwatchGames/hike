@@ -89,13 +89,12 @@ public class WorldState
     // POIs after a disk load.
     public readonly Dictionary<string, Vector3> PointsOfInterest = new();
 
-    // Buried-treasure locations by name — the anchors a treasure map points to.
-    // Placed by WorldGen.PlaceZoneTreasures and, crucially, RE-REGISTERED by each
-    // BuriedSpot as it streams in (BuriedSpot.Create), so this survives the
-    // worldgen cache / .hike reload without its own file section: the name rides
-    // on the persisted BuriedSpotSimState. An excavated spot does not register,
-    // and digging removes its entry, so a map never points at an emptied hole.
-    // Runtime cache, not serialized here.
+    // Buried treasures still in the ground, by name — what a treasure map points
+    // to. Filled by BuriedSpotSpawnEntry for any spot placed under a name (a
+    // zone's treasureName, a named painter placement) and baked into the .hike
+    // header (WorldFile v56), so a map can chart a treasure anywhere in the
+    // world, not just one whose chunk has streamed in. Digging removes the
+    // entry, so a map is never charted to an emptied hole.
     public readonly Dictionary<string, Vector3> TreasureSpots = new();
 
     // Default spawn point baked into the world. Set by the loader (from the
@@ -360,10 +359,8 @@ public class WorldState
     // conversation. Returns true only on a NEW chart, so callers gate their
     // "you got something" fx on it.
     //
-    // Answers false when the name isn't in TreasureSpots, which covers both
-    // "already dug up" and "that chunk hasn't streamed in yet" — the registry
-    // is a runtime cache filled by BuriedSpot.Create, not world data, so a
-    // treasure far from the player is simply unknown.
+    // Answers false when the name isn't in TreasureSpots — already dug up, or
+    // never buried in this world.
     public bool RevealTreasureMap(string treasureName)
     {
         if (string.IsNullOrEmpty(treasureName) || SimState == null)

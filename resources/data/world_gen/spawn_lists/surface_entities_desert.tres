@@ -4,13 +4,13 @@
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="8_88i6m"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/cactus.tres" id="e_cactus"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/drake_desert.tres" id="e_drake_desert"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_desert.tres" id="e_goblin_desert"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_desert_elite.tres" id="e_goblin_desert_elite"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/kun_kun_desert.tres" id="e_kun_kun_desert"]
+[ext_resource type="Resource" uid="uid://b14bjvdgd0r3h" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_desert.tres" id="e_goblin_desert"]
+[ext_resource type="Resource" uid="uid://ve3xasncxbo1" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_desert_elite.tres" id="e_goblin_desert_elite"]
+[ext_resource type="Resource" uid="uid://bc6u818sl1sl4" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/kun_kun_desert.tres" id="e_kun_kun_desert"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_gold.tres" id="e_mushroom_gold"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_orange.tres" id="e_mushroom_orange"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_red.tres" id="e_mushroom_red"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/spider_desert.tres" id="e_spider_desert"]
+[ext_resource type="Resource" uid="uid://c44my6q0osrw6" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/spider_desert.tres" id="e_spider_desert"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/spike_trap.tres" id="e_spike_trap"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/well.tres" id="e_well"]
 [ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
@@ -19,62 +19,78 @@
 script = ExtResource("listrow")
 squareMetersPerSpawn = 1000.0
 entry = ExtResource("e_goblin_desert")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_goblin_desert_elite"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 6667.0
 entry = ExtResource("e_goblin_desert_elite")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_kun_kun_desert"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 200.0
 entry = ExtResource("e_kun_kun_desert")
 spawnConditions = 2
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.8
 
 [sub_resource type="Resource" id="Row_goblin_group_desert"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 1000.0
 entry = ExtResource("5_lnvkt")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_well"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 2000.0
 entry = ExtResource("e_well")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_spike_trap"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 600.0
 entry = ExtResource("e_spike_trap")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_cactus"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 700.0
 entry = ExtResource("e_cactus")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_spider_desert"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 800.0
 entry = ExtResource("e_spider_desert")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_drake_desert"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 800.0
 entry = ExtResource("e_drake_desert")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_orange"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 350.0
 entry = ExtResource("e_mushroom_orange")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_gold"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 350.0
 entry = ExtResource("e_mushroom_gold")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_red"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 350.0
 entry = ExtResource("e_mushroom_red")
+initialBehavior = null
 
 [resource]
 script = ExtResource("8_88i6m")

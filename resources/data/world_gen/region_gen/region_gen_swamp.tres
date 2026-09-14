@@ -9,6 +9,7 @@
 [sub_resource type="Resource" id="Row_Stone_swamp"]
 script = ExtResource("listrow")
 entry = ExtResource("5_stone")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Fixtures_swamp"]
 script = ExtResource("2_list")

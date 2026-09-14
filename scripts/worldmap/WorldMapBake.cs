@@ -285,12 +285,26 @@ public class WorldMapBake
             // you aimed at would silently never spawn. It is the same claim
             // WorldGen makes for an entry it drops on an authored subscene
             // marker.
+            //
+            // The name rides the same way, for the entry that has a use for one
+            // (a buried spot becomes that treasure).
+            string name = placement.Name;
             SpawnContext context = SpawnContextForBake();
             context.FacingY = placement.FacingRadians;
             context.AuthoredPosition = true;
+            context.AuthoredName = name;
             placement.Entry.TrySpawn(WorldState, pos, new System.Random((int)seed), context);
             context.FacingY = null;
             context.AuthoredPosition = false;
+            context.AuthoredName = null;
+
+            // A named placement is a named PLACE, whether or not its entity
+            // passed the spawn gates — `tp` to it is exactly how you find out.
+            if (name != null && !WorldState.PointsOfInterest.TryAdd(name, pos))
+            {
+                GD.PushError($"[bake] two entities are named '{name}' — the one at "
+                    + $"{placement.anchorXZ} is not a point of interest");
+            }
         }
     }
 

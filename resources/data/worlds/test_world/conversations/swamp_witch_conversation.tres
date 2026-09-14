@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="ConversationData" format=3]
+
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="Script_ConversationData"]
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
+[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
+[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
+[ext_resource type="Resource" path="res://resources/data/dialogue_scripts/actions/open_shop.tres" id="Act_open_shop"]
+
+[sub_resource type="Resource" id="Entry_1"]
+script = ExtResource("Script_ConversationEntry")
+branch = &"greeting"
+
+[sub_resource type="Resource" id="Branch_greeting"]
+script = ExtResource("Script_ConversationBranch")
+name = &"greeting"
+lineLocKeys = Array[StringName]([&"swamp_witch_greeting_01", &"swamp_witch_greeting_02"])
+exitGroup = &"shop"
+isPrimaryGroupEntry = true
+
+[sub_resource type="Resource" id="Resp_shop_1"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"swamp_witch_shop_end"
+actions = Array[Object]([ExtResource("Act_open_shop")])
+
+[sub_resource type="Resource" id="Group_shop"]
+script = ExtResource("Script_ConversationResponseGroup")
+name = &"shop"
+responses = [SubResource("Resp_shop_1")]
+
+[resource]
+script = ExtResource("Script_ConversationData")
+entryBranches = [SubResource("Entry_1")]
+branches = [SubResource("Branch_greeting")]
+responseGroups = [SubResource("Group_shop")]

@@ -12,12 +12,23 @@ class ResRef
 	public string ResPath;
 	public string Uid;
 	public string Name;
+	// The world this file belongs to (it sits under worlds/<name>/), or null for
+	// one every world may name - see ResourceIndex.Pick.
+	public string World;
+
+	const string WorldsRoot = "res://resources/data/worlds/";
 
 	public ResRef(string resPath, string uid, string name)
 	{
 		ResPath = resPath;
 		Uid = uid;
 		Name = name;
+		if (resPath.StartsWith(WorldsRoot, StringComparison.Ordinal))
+		{
+			int end = resPath.IndexOf('/', WorldsRoot.Length);
+			string world = end < 0 ? null : resPath.Substring(WorldsRoot.Length, end - WorldsRoot.Length);
+			World = world == "shared" ? null : world;
+		}
 	}
 }
 
@@ -25,6 +36,12 @@ class ResRef
 // languages, and the authored condition / action resources a sheet cell can
 // name. All of it is read off disk rather than listed here, so a new condition
 // becomes available to authors by existing.
+//
+// Every by-name table is WORLD-SCOPED, the same rule the game's pickers and the
+// console's `give` apply (scripts/authoring/WorldScope.cs): a file under
+// worlds/<name>/ may be named only by <name>'s sheet, and shadows an unscoped
+// file of the same name there. So a table keeps every file carrying a name, and
+// the lookup picks.
 class ResourceIndex
 {
 	readonly string _repoRoot;
@@ -32,24 +49,24 @@ class ResourceIndex
 	// Script class name -> its .cs.uid sidecar value.
 	readonly Dictionary<string, ResRef> _scripts = new Dictionary<string, ResRef>(StringComparer.Ordinal);
 	// LanguageData.id (and displayName) -> the .tres holding it.
-	readonly Dictionary<string, ResRef> _languages = new Dictionary<string, ResRef>(StringComparer.OrdinalIgnoreCase);
+	readonly Dictionary<string, List<ResRef>> _languages = new Dictionary<string, List<ResRef>>(StringComparer.OrdinalIgnoreCase);
 	// Basename -> the .tres, per script_class, for the inline `teach:` action
 	// cell. Keyed by basename rather than by any id inside the file because that
 	// is what an author reads off the folder - a language is the exception, and
 	// keeps its id because ids are what the [lang:] markup and the sheet's
 	// language column already use.
-	readonly Dictionary<string, Dictionary<string, ResRef>> _byScriptClass = new Dictionary<string, Dictionary<string, ResRef>>(StringComparer.Ordinal);
+	readonly Dictionary<string, Dictionary<string, List<ResRef>>> _byScriptClass = new Dictionary<string, Dictionary<string, List<ResRef>>>(StringComparer.Ordinal);
 	// Every ScriptVariableData.id authored under worlds/shared/script_variables/,
 	// so a `var:` cell naming one that does not exist is an error at import
 	// rather than a gate that is silently always false at runtime. The npcvars
 	// the sheets declare themselves are NOT in here - they are generated.
 	readonly HashSet<string> _authoredVariables = new HashSet<string>(StringComparer.Ordinal);
-	// Item basename -> the .tres, for the inline `give:` action cell. Scanned
-	// the same way the console's `give` verb scans, so the two name items
-	// identically; basenames are unique across the tree, so an exact match is
-	// unambiguous (no substring convenience here - a build-time reference should
-	// say what it means).
-	readonly Dictionary<string, ResRef> _items = new Dictionary<string, ResRef>(StringComparer.OrdinalIgnoreCase);
+	// Item basename -> the .tres, for the inline `give:` / `teach:item` cells.
+	// Scanned from the same roots the console's `give` verb scans (items/ and
+	// every worlds/<name>/items/), so the two name items identically. Exact
+	// match only - no substring convenience here, a build-time reference should
+	// say what it means.
+	readonly Dictionary<string, List<ResRef>> _items = new Dictionary<string, List<ResRef>>(StringComparer.OrdinalIgnoreCase);
 	// Per world: file stem -> the .tres. Conditions and actions are separate
 	// namespaces so a gate and a side effect may share a name.
 	readonly Dictionary<string, Dictionary<string, ResRef>> _conditions = new Dictionary<string, Dictionary<string, ResRef>>(StringComparer.Ordinal);
@@ -64,9 +81,9 @@ class ResourceIndex
 		IndexItems();
 	}
 
-	public ResRef Item(string basename)
+	public ResRef Item(string world, string basename)
 	{
-		return _items.TryGetValue(basename, out ResRef r) ? r : null;
+		return Pick(_items, world, basename);
 	}
 
 	public bool IsAuthoredVariable(string id)
@@ -79,38 +96,70 @@ class ResourceIndex
 		return _scripts.TryGetValue(className, out ResRef r) ? r : null;
 	}
 
-	public ResRef Language(string name)
+	public ResRef Language(string world, string name)
 	{
-		return _languages.TryGetValue(name, out ResRef r) ? r : null;
+		return Pick(_languages, world, name);
 	}
 
-	public ResRef Recipe(string basename)
+	public ResRef Recipe(string world, string basename)
 	{
-		return ByScriptClass("RecipeData", basename);
+		return ByScriptClass("RecipeData", world, basename);
 	}
 
-	public ResRef Spell(string basename)
+	public ResRef Spell(string world, string basename)
 	{
-		return ByScriptClass("SpellData", basename);
+		return ByScriptClass("SpellData", world, basename);
 	}
 
-	public ResRef Region(string basename)
+	public ResRef Region(string world, string basename)
 	{
-		return ByScriptClass("RegionData", basename);
+		return ByScriptClass("RegionData", world, basename);
 	}
 
-	public ResRef Species(string basename)
+	public ResRef Species(string world, string basename)
 	{
-		return ByScriptClass("SpeciesData", basename);
+		return ByScriptClass("SpeciesData", world, basename);
 	}
 
-	ResRef ByScriptClass(string scriptClass, string basename)
+	ResRef ByScriptClass(string scriptClass, string world, string basename)
 	{
-		if (!_byScriptClass.TryGetValue(scriptClass, out Dictionary<string, ResRef> table))
+		return _byScriptClass.TryGetValue(scriptClass, out Dictionary<string, List<ResRef>> table)
+			? Pick(table, world, basename)
+			: null;
+	}
+
+	// The file `world`'s sheet means by `name`: that world's own if it has one,
+	// else an unscoped one. Another world's file is never offered, and among
+	// equals the first indexed wins.
+	static ResRef Pick(Dictionary<string, List<ResRef>> table, string world, string name)
+	{
+		if (name == null || !table.TryGetValue(name, out List<ResRef> carriers))
 		{
 			return null;
 		}
-		return table.TryGetValue(basename, out ResRef r) ? r : null;
+		ResRef unscoped = null;
+		foreach (ResRef r in carriers)
+		{
+			if (r.World != null && r.World == world)
+			{
+				return r;
+			}
+			if (r.World == null && unscoped == null)
+			{
+				unscoped = r;
+			}
+		}
+		return unscoped;
+	}
+
+	static void Add(Dictionary<string, List<ResRef>> table, string name, ResRef reference)
+	{
+		if (!table.TryGetValue(name, out List<ResRef> carriers))
+		{
+			carriers = new List<ResRef>();
+			table[name] = carriers;
+		}
+		carriers.Add(reference);
 	}
 
 	public ResRef Condition(string world, string name)
@@ -213,19 +262,13 @@ class ResourceIndex
 				{
 					continue;
 				}
-				if (!_byScriptClass.TryGetValue(scriptClass, out Dictionary<string, ResRef> table))
+				if (!_byScriptClass.TryGetValue(scriptClass, out Dictionary<string, List<ResRef>> table))
 				{
-					table = new Dictionary<string, ResRef>(StringComparer.OrdinalIgnoreCase);
+					table = new Dictionary<string, List<ResRef>>(StringComparer.OrdinalIgnoreCase);
 					_byScriptClass[scriptClass] = table;
 				}
 				string name = Path.GetFileNameWithoutExtension(path);
-				// First one wins, matching the item index; there are no duplicate
-				// basenames within a class today and a new one shadows rather
-				// than throwing.
-				if (!table.ContainsKey(name))
-				{
-					table[name] = new ResRef(ResPath(path), HeaderUid(path), name);
-				}
+				Add(table, name, new ResRef(ResPath(path), HeaderUid(path), name));
 				break;
 			}
 		}
@@ -246,30 +289,41 @@ class ResourceIndex
 		Match id = Regex.Match(text, "^id = &\"([^\"]*)\"", RegexOptions.Multiline);
 		if (id.Success && id.Groups[1].Value.Length > 0)
 		{
-			_languages[id.Groups[1].Value] = reference;
+			Add(_languages, id.Groups[1].Value, reference);
 		}
+		// The display name is a fallback spelling, so it never shadows an id.
 		Match display = Regex.Match(text, "^displayName = &?\"([^\"]*)\"", RegexOptions.Multiline);
 		if (display.Success && display.Groups[1].Value.Length > 0 && !_languages.ContainsKey(display.Groups[1].Value))
 		{
-			_languages[display.Groups[1].Value] = reference;
+			Add(_languages, display.Groups[1].Value, reference);
 		}
 	}
 
+	// items/, then every world's own items/ folder (worlds/shared/items/ among
+	// them) - which world may name each is Pick's business.
 	void IndexItems()
 	{
-		string dir = Path.Combine(_repoRoot, "resources", "data", "items");
-		if (!Directory.Exists(dir))
+		var roots = new List<string> { Path.Combine(_repoRoot, "resources", "data", "items") };
+		string worldsDir = Path.Combine(_repoRoot, "resources", "data", "worlds");
+		if (Directory.Exists(worldsDir))
 		{
-			return;
-		}
-		foreach (string path in Directory.EnumerateFiles(dir, "*.tres", SearchOption.AllDirectories))
-		{
-			string name = Path.GetFileNameWithoutExtension(path);
-			// First one wins, matching DebugContentIndex; there are no duplicate
-			// item basenames today and a new one would shadow rather than throw.
-			if (!_items.ContainsKey(name))
+			var worlds = new List<string>(Directory.GetDirectories(worldsDir));
+			worlds.Sort(StringComparer.Ordinal);
+			foreach (string world in worlds)
 			{
-				_items[name] = new ResRef(ResPath(path), HeaderUid(path), name);
+				roots.Add(Path.Combine(world, "items"));
+			}
+		}
+		foreach (string dir in roots)
+		{
+			if (!Directory.Exists(dir))
+			{
+				continue;
+			}
+			foreach (string path in Directory.EnumerateFiles(dir, "*.tres", SearchOption.AllDirectories))
+			{
+				string name = Path.GetFileNameWithoutExtension(path);
+				Add(_items, name, new ResRef(ResPath(path), HeaderUid(path), name));
 			}
 		}
 	}

@@ -100,6 +100,23 @@ static class ConversationSheet
 			return rows;
 		}
 
+		// A spreadsheet's save dialog switches the delimiter with one click, and then
+		// every column reads as missing - name the real cause instead.
+		if (lines[0].IndexOf('\t') < 0)
+		{
+			string format = "not tab-separated";
+			if (lines[0].IndexOf(',') >= 0)
+			{
+				format = "comma-separated";
+			}
+			else if (lines[0].IndexOf(';') >= 0)
+			{
+				format = "semicolon-separated";
+			}
+			report.Error(path, 1, $"the sheet was saved {format} - re-save it tab-separated (LibreOffice: File > Save As > Text CSV, tick 'Edit filter settings', Field delimiter {{Tab}})");
+			return rows;
+		}
+
 		var columns = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 		string[] header = lines[0].Split('\t');
 		for (int i = 0; i < header.Length; i++)

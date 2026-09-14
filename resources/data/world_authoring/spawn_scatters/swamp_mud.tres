@@ -1,65 +1,54 @@
 [gd_resource type="Resource" script_class="SpawnScatterData" format=3 uid="uid://dxoj817462sxc"]
 
 [ext_resource type="Script" uid="uid://dqlswysnuirjd" path="res://scripts/data/worldmap/SpawnScatterData.cs" id="13_s5msw"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/drake_swamp.tres" id="e_drake_swamp"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/fire_trap.tres" id="e_fire_trap"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_swamp.tres" id="e_goblin_swamp"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_swamp_elite.tres" id="e_goblin_swamp_elite"]
+[ext_resource type="Resource" uid="uid://d1tr4270i64sw" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_swamp.tres" id="e_goblin_swamp"]
+[ext_resource type="Resource" uid="uid://dmn04bx0aoir2" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_swamp_elite.tres" id="e_goblin_swamp_elite"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_blue.tres" id="e_mushroom_blue"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_green.tres" id="e_mushroom_green"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_orange.tres" id="e_mushroom_orange"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_purple.tres" id="e_mushroom_purple"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/sparrow_swamp.tres" id="e_sparrow_swamp"]
 [ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 
 [sub_resource type="Resource" id="Row_goblin_swamp"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 500.0
 entry = ExtResource("e_goblin_swamp")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_goblin_swamp_elite"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 1429.0
 entry = ExtResource("e_goblin_swamp_elite")
-
-[sub_resource type="Resource" id="Row_sparrow_swamp"]
-script = ExtResource("listrow")
-squareMetersPerSpawn = 250.0
-entry = ExtResource("e_sparrow_swamp")
-spawnConditions = 9
-
-[sub_resource type="Resource" id="Row_drake_swamp"]
-script = ExtResource("listrow")
-squareMetersPerSpawn = 600.0
-entry = ExtResource("e_drake_swamp")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_mushroom_blue"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 200.0
 entry = ExtResource("e_mushroom_blue")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_purple"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 200.0
 entry = ExtResource("e_mushroom_purple")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_orange"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 250.0
 entry = ExtResource("e_mushroom_orange")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_green"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 300.0
 entry = ExtResource("e_mushroom_green")
-
-[sub_resource type="Resource" id="Row_fire_trap"]
-script = ExtResource("listrow")
-squareMetersPerSpawn = 250.0
-entry = ExtResource("e_fire_trap")
+initialBehavior = null
 
 [resource]
 script = ExtResource("13_s5msw")
 displayName = "Swamp Mud"
 mapColor = Color(0.45, 0.6, 0.35, 1)
-rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_swamp"), SubResource("Row_goblin_swamp_elite"), SubResource("Row_sparrow_swamp"), SubResource("Row_drake_swamp"), SubResource("Row_mushroom_blue"), SubResource("Row_mushroom_purple"), SubResource("Row_mushroom_orange"), SubResource("Row_mushroom_green"), SubResource("Row_fire_trap")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_swamp"), SubResource("Row_goblin_swamp_elite"), SubResource("Row_mushroom_blue"), SubResource("Row_mushroom_purple"), SubResource("Row_mushroom_orange"), SubResource("Row_mushroom_green")])

@@ -79,9 +79,25 @@ it, and moving files between directories filters nothing.
 
 **A palette entry is a FAMILY, and the member is picked per placement.** One
 `goblin` row covering all 13 goblin descriptors, one `npc` row covering every
-villager rig and outfit — because the question the palette answers is "what am I
-placing", and "which biome's goblin" is a property of the one you placed. The
-list is 26 entries where it was 54.
+villager rig and outfit, one `buried_spot` whatever is buried, one
+`knowledge_stone` whatever it teaches, one `chest` whatever it holds — because
+the question the palette answers is "what am I placing", and "which biome's
+goblin" or "which song verse" is a property of the one you placed.
+
+**The complete versions the generator names are not palette rows.** A zone's
+`treasureSpot`, a region's stone and a cave list's potion chest need a complete
+entry to point at, because they have no placement to fork. They live where the
+palette does not scan: `worlds/shared/spawn_entries/` (a stone or treasure names
+a language or a story beat — the palette's `SHARED` root is only `npcs/`),
+`world_gen/spawn_entries/` (loot chests only the generator's lists name), and
+non-scanned subfolders such as `forage/` (the carrot patch a scatter set names).
+
+**`worldmap_check` catches a family that has grown a second row**: two entity
+palette entries of one type that differ only in what a placement can set for
+itself (everything but the identity rows and the hidden ones, minus the
+scatter-only `minSpacing`) are reported as `WARN one family`. That is how six
+buried spots, seven knowledge stones and four chests had become palette rows,
+and the check reports each of those groups when they are put back.
 
 That is also what makes the map's highlight useful: selecting `npc` lights up
 **every** NPC in the world, not one villager type. It needed no separate
@@ -179,10 +195,9 @@ questions because they mean different things: the value cannot reach a hand
 placement (`IsHandPlacedProperty`), or it is implicit in the entry that was
 chosen (`IsIdentityProperty`). What is deliberately still shown is the third
 case: a property that WOULD vary per placement and simply has no editor yet — a
-chest's `lootItems`, an NPC's `inventory` / `loyaltyGifts` / `itemPreferences`,
-all of which want list editing. Those are marked `no editor yet` rather than
-hidden, because a dimmed row otherwise reads as "this cannot change" when the
-truth is "not here, not yet".
+list of strings or scenes, an embedded sub-resource nothing lists. Those are
+marked `no editor yet` rather than hidden, because a dimmed row otherwise reads
+as "this cannot change" when the truth is "not here, not yet".
 
 `spawn_entries/mobs/` is 11 family entries covering all 33 `MobDescriptor`s
 (biome variants, elites and torchbearers included) — it was 33 one-field
@@ -199,14 +214,11 @@ copy-on-write fork makes each placement its own individual. There is ONE row —
 they replace; the conversation, language, idle pose and recruit template each one
 used are picked per placement, which is what let eight files become one.
 
-**The leather merchant is a PLACEMENT, not a palette row.** Its `inventory` and
-`loyaltyGifts` are arrays that no placement editor can author yet, which is an
-argument for keeping the merchant that exists — it lives in `placements.tres` as
-a fork carrying its own stock — and not an argument for a second palette entry,
-which would have been a workaround for the missing list editor sitting
-permanently in the list. The cost is real and worth knowing: **a NEW merchant
-cannot be given stock from the painter.** Place an `npc` and author its
-`inventory` in the resource, or add the list editor.
+**The leather merchant is a PLACEMENT, not a palette row.** It lives in
+`placements.tres` as a fork carrying its own stock, and a new merchant is made
+the same way: place an `npc` and give it an `inventory` and `loyaltyGifts` in the
+panel's list editor (below). A second palette entry would only ever have been a
+workaround for that editor not existing.
 
 They remain **copies** of the NPCs embedded in worldgen's house spawn lists
 (`worlds/shared/spawn_lists/hub_house01`, `house_hermit`, `hub_house02`,
@@ -223,7 +235,7 @@ that cannot change the result invites tuning that does nothing.
 |---|---|
 | `squareMetersPerSpawn`, `placeAtAnchor`, `clusterCountMin/Max` | container-edge rules — the area roll and `SpawnGroupData`'s scatter. A hand-placed entity is one entity at one spot by construction. **These are no longer on an entry at all**: they moved to `SpawnListRow` / `SpawnGroupRow`, and a placement has no row, so there is nothing left to hide. |
 | `minSpacing` | a rejection radius is how densely a PASS may sprinkle something. Authored in 4 files project-wide, all scatter lists or worldgen fixtures, never a palette entry. Now skipped for an authored position. |
-| `initialBehaviorChance` | a POPULATION fraction ("a quarter of spawned goblins start in Wander"), authored in 50+ scatter entries and no palette one. It has nothing to be a fraction of for one placement, so an authored position always takes the behaviour it names. |
+| `initialBehaviorChance` (moved) | a POPULATION fraction ("a quarter of spawned goblins start in Wander"). It is on `SpawnRow` now, beside the behaviour it rolls for: that pair on a shared entry is what made four `goblin_*_torchbearer_camp` files necessary, identical to the plain torchbearers except that a camp's should not wander. The entry keeps `initialBehavior` alone, as what ONE individual starts in — set on a placement's fork, never on a shared file. |
 | `tamed`, `persistent` (deleted) | the starter-companion pair. Becoming a companion is a RUNTIME transition owning both halves — `Mob.Tame` flips `MobSimState.Tamed` at `MobData.tameLoyalty` and `Sim.PromoteCompanionToPersistent` moves the mob into the persistent store at that same moment. Nothing authored either flag. |
 
 The last row is the one worth not undoing: a spawn-time shortcut is a second way
@@ -295,8 +307,8 @@ bare `SpawnEntryData` with no row at all. An entry dropped into a spawn list by
 mistake is still inert, for the same reason as before — its row would default to
 `squareMetersPerSpawn = 0`, and `RollAreaChance` returns false at 0.
 
-`SpawnEntryData.IsHandPlacedProperty` therefore only has two names left to hide,
-`minSpacing` and `initialBehaviorChance`. The rule it encodes is unchanged: a
+`SpawnEntryData.IsHandPlacedProperty` therefore only has one name left to hide,
+`minSpacing`. The rule it encodes is unchanged: a
 control that cannot change the result is worse than a missing one, because it
 invites tuning that does nothing. Which fields the path reads is the entry
 class's business, so the answer lives there rather than in the UI.
@@ -538,6 +550,40 @@ spawns through exactly the `TrySpawn` path a scattered one does. A placement
 references its entry DIRECTLY rather than by palette index, so reordering the
 palette cannot silently turn every chest in the world into a goblin.
 
+**A placement can be NAMED** — the `name` row at the top of the panel, which
+writes `EntityPlacement.name` and never forks the entry, so naming a chest leaves
+it tracking its palette file. A name is what makes a placement something the rest
+of the game can refer to, and the bake does two things with it:
+
+- **It becomes a point of interest** at the entity's seat, whether or not the
+  entity passed its spawn gates — so `tp <name>` reaches it, and a painted world
+  has POIs at all. The first of two equal names wins; the bake errors on the
+  second and `worldmap_check` lists every name.
+- **It reaches the spawn on `SpawnContext.AuthoredName`**, set and cleared per
+  entity like the facing. An entry with a use for a name reads it; today that is
+  `BuriedSpotSpawnEntry`, where a named spot is a TREASURE — registered in
+  `WorldState.TreasureSpots`, baked into the `.hike` header (v56), and what a
+  treasure map's `treasureName` points at. `worldmap_check` lists each named
+  spot with the map items that chart it.
+
+**What a buried spot holds is picked on the placement.** `buried_spot` is the
+palette row, with nothing in it: pick its `item` (and `count`), or a `payload`
+entry for a buried chest or ambush, and its `style` — `treasure` (no tell, a
+mound when dug) or `carrot_patch`. What is buried lives on the entry, not the
+style, because it is the part that varies per spot; a spot with nothing buried is
+refused at bake, and `worldmap_check` counts them.
+
+**A knowledge stone is the same shape.** `knowledge_stone` carries only its
+scene; the placement picks the `language`, the `components` it teaches and the
+inscription `text`, and the hover names it by what it teaches
+(`knowledge_stone: vyeshal Vocabulary2`). A stone with no language teaches
+nothing and is refused at bake, as a signpost with no text is — the language is
+a proper noun, so the shared entry carries no default for it.
+
+**A chest's loot is a list on the placement**: `chest` (and `poison_chest`, a
+different scene and so a different family) hold nothing, and the panel's list
+editor adds `ItemCountRange` rows to the placement's own copy.
+
 **A placed entity's properties ARE its entry's**, edited in the panel top-right
 (`WorldMapEntityInspector`) — the text on a signpost, the conditions on a chest,
 the descriptor on a mob. There is no parallel set of per-placement overrides,
@@ -587,6 +633,12 @@ alias item toggles several primaries at once with an ambiguous checked state of
 its own. That last rule is what the checkbox version was missing: the knowledge
 stone's `ELanguageComponents` has `All = Grammar | Numbers | Vocabulary1 |
 Vocabulary2`, and it drew as a checkbox that flipped four bits.
+
+**It must not be FLAT**, which is a `MenuButton`'s default: flat, it draws as
+bare text beside the property name, identical to a read-only value, and the
+knowledge stone's `components` was taken for one — settable all along, and
+nobody could tell. It is framed and carries the `OptionButton` theme's arrow, so
+it reads as the same kind of control as the enum and resource rows around it.
 
 **The panel is pushed on selection CHANGE, not per frame.** It rides `UpdateHud`,
 and a click on the map reaches neither on its own — so a selection made by
@@ -677,7 +729,10 @@ else enforces — a pose could reasonably be called `sit`.
 **The resource candidates are SCANNED, not authored.** `ResourceTypeIndex` walks
 `resources/` once per session and groups every `.tres` by the C# class it
 carries, so a conversation written today is pickable today — the same argument
-that discovers `.hikescene` stamps on disk rather than through a palette. Two
+that discovers `.hikescene` stamps on disk rather than through a palette. The
+list is WORLD-SCOPED: the panel offers the open document's own
+`worlds/<name>/` files plus the unscoped ones, never another world's (see
+`WorldScope` and "A world's own files" in the root CLAUDE.md). Two
 things it is careful about, both of which would show up as a picker quietly
 offering an incomplete list (the worst failure one has, since it reads as "there
 are none authored"):
@@ -697,9 +752,31 @@ The field's type comes from **reflection on the entry's C# type**, not from the
 property hint: these are C# fields, so reflection is the exact answer while a
 hint string is the editor's rendering of one.
 
-**Two things stay read-only**, and neither is an oversight. **Arrays** (an
-outfit, a merchant's stock, loyalty gifts) want list editing rather than one
-pick. **`PackedScene`** is a rig choice rather than data — an NPC's `scene` has
+**A list of resources gets a list editor** — a chest's `lootItems`, an NPC's
+`inventory`, `loyaltyGifts` and `itemPreferences`. One block per element, with
+that element's own fields through the same row editors a property gets (an
+`ItemCountRange` is an item picker and two numbers), plus add and remove. It is
+generic over the element type, found by reflection on the entry's field (a C#
+array or a `Godot.Collections.Array<T>`), so a list added to an entry tomorrow is
+editable the day it is added. Two rules make it safe:
+
+- **Every write replaces the whole list, and an edited element is CLONED.** A
+  fork is shallow, so until the first list edit the placement's copy holds the
+  palette file's own list and elements; setting a field in place would retune
+  every chest still tracking the palette. It is also what undo needs:
+  `PlacementsAspect` compares a fork's fields as text, where a list prints its
+  elements' instance ids, so a mutated element would be an edit undo cannot see.
+- **An element is a PICK when the project has files of its type, and a record
+  otherwise** — the same rule a single resource row follows. None of today's
+  element types has a standalone file, so all four lists edit records inline and
+  those save into `placements.tres` as the placement's own sub-resources.
+
+A list inside an element (none exist) stays read-only, and adding or removing an
+element rebuilds the panel, deferred past the button's own signal.
+
+**What stays read-only**, and neither is an oversight: a list of strings or
+scenes (an outfit, a stone ring's scenes) is not a list of records, and a
+**`PackedScene`** is a rig choice rather than data — an NPC's `scene` has
 to gender-match its `outfit`, and offering every scene in the project invites a
 mismatch the panel cannot check. A value the scan cannot name (an embedded
 `MobPalette` sub-resource) is offered as its own disabled `(embedded)` row, so

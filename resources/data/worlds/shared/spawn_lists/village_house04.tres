@@ -46,6 +46,7 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 [sub_resource type="Resource" id="Row_Villager_5"]
 script = ExtResource("listrow")
 entry = SubResource("Villager_5")
+initialBehavior = null
 
 [resource]
 script = ExtResource("2_list")

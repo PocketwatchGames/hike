@@ -2,7 +2,8 @@ using System;
 
 // An item gift parsed out of a sheet's action cell: `give:<item> [count]`,
 // spelled exactly the way the console's `give` verb is, and resolving the item
-// the same way — by the basename of a .tres under resources/data/items/.
+// the same way — by the basename of a .tres under resources/data/items/, or
+// under this world's own worlds/<world>/items/.
 //
 // The importer emits a DropLootAction of its own for it, so a one-item handover
 // needs no authored .tres. That was the whole cost of the old give_lantern /
@@ -30,7 +31,7 @@ static class GiveCell
 		return token.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase);
 	}
 
-	public static GiveRef Parse(string token, ResourceIndex index, SheetRow row, Report report)
+	public static GiveRef Parse(string token, ResourceIndex index, string world, SheetRow row, Report report)
 	{
 		string body = token.Substring(Prefix.Length).Trim();
 		if (body.Length == 0)
@@ -52,10 +53,10 @@ static class GiveCell
 			return null;
 		}
 
-		ResRef item = index.Item(parts[0]);
+		ResRef item = index.Item(world, parts[0]);
 		if (item == null)
 		{
-			report.Error(row, $"unknown item '{parts[0]}' - no .tres by that basename under resources/data/items/ (the same names `give ?` lists in the console)");
+			report.Error(row, $"unknown item '{parts[0]}' - no .tres by that basename under resources/data/items/ or worlds/{world}/items/ (the same names `give ?` lists in the console)");
 			return null;
 		}
 		return new GiveRef { Item = item, Count = count };

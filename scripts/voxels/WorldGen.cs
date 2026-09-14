@@ -926,9 +926,9 @@ public sealed class WorldGen
     // campfire. The forge scene is authored once on genData.forge; no-op when
     // that is unset.
     // Place each zone's one buried treasure (song scroll or crowns) at a flat
-    // column inside the zone, stamping its authored treasureName onto the spot so
-    // a treasure map can point to it by name (BuriedSpot re-registers the anchor
-    // into WorldState.TreasureSpots on stream-in). The treasure exists in the
+    // column inside the zone, under its authored treasureName so a treasure map
+    // can point to it (the entry registers it in WorldState.TreasureSpots, the
+    // same way a named painter placement does). The treasure exists in the
     // world independently — the player can dig it up with or without the map.
     private void PlaceZoneTreasures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
@@ -949,8 +949,7 @@ public sealed class WorldGen
             string name = zg?.treasureName;
             // Each name is world-unique; first zone to claim it wins (guards a
             // WorldGenData that lists the same template zone twice).
-            if (spot?.scene == null || spot.data == null || string.IsNullOrEmpty(name)
-                || ws.TreasureSpots.ContainsKey(name))
+            if (spot == null || string.IsNullOrEmpty(name) || ws.TreasureSpots.ContainsKey(name))
             {
                 continue;
             }
@@ -967,9 +966,9 @@ public sealed class WorldGen
             }
             int sy = heightMap.GetSurface(rx, rz);
             var anchor = new Vector3(rx + 0.5f, sy + 1f, rz + 0.5f);
-            var state = new BuriedSpotSimState(anchor, spot.scene, spot.data) { TreasureName = name };
-            ws.AddEntity(state);
-            ws.TreasureSpots[name] = anchor;
+            // Spawn, not TrySpawn: the column above was already rolled flat
+            // and inside the zone, which is all the gates would ask.
+            spot.Spawn(ws, anchor, rng, new SpawnContext { AuthoredName = name });
         }
     }
 

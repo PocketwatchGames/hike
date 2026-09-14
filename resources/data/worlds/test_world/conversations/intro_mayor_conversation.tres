@@ -22,6 +22,7 @@ isPrimaryGroupEntry = true
 [sub_resource type="Resource" id="Branch_speak_common"]
 script = ExtResource("Script_ConversationBranch")
 name = &"speak_common"
+language = ExtResource("Lang_common")
 lineLocKeys = Array[StringName]([&"intro_mayor_speak_common_01"])
 exitGroup = &"topics"
 

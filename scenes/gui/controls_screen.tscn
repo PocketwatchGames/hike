@@ -6,7 +6,7 @@
 
 [sub_resource type="Resource" id="Resource_bind_dash"]
 script = ExtResource("3_binding")
-labelKey = &"controls_dash_climb"
+labelKey = &"controls_dash"
 keyboardActions = PackedStringArray("Dash")
 gamepadActions = PackedStringArray("Dash")
 

@@ -2,13 +2,13 @@
 
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
 [ext_resource type="Resource" uid="uid://dwp88tyqewry" path="res://resources/data/world_gen/spawn_groups/goblin_group_mountain.tres" id="8_campfire_group"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/buried_spot.tres" id="e_buried_spot"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/buried_carrot.tres" id="e_buried_carrot"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/climbable_tree.tres" id="e_climbable_tree"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/drake_mountain.tres" id="e_drake_mountain"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/drake_mountain_elite.tres" id="e_drake_mountain_elite"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_mountain.tres" id="e_goblin_mountain"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_mountain_elite.tres" id="e_goblin_mountain_elite"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/kun_kun_mountain.tres" id="e_kun_kun_mountain"]
+[ext_resource type="Resource" uid="uid://dmtd4q8381jcf" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_mountain.tres" id="e_goblin_mountain"]
+[ext_resource type="Resource" uid="uid://cbd2h85j0khnw" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_mountain_elite.tres" id="e_goblin_mountain_elite"]
+[ext_resource type="Resource" uid="uid://p57k5ipwikfm" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/kun_kun_mountain.tres" id="e_kun_kun_mountain"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_black.tres" id="e_mushroom_black"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_blue.tres" id="e_mushroom_blue"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_gold.tres" id="e_mushroom_gold"]
@@ -22,74 +22,91 @@ script = ExtResource("listrow")
 squareMetersPerSpawn = 200.0
 entry = ExtResource("e_goblin_mountain")
 spawnConditions = 2
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_goblin_mountain_elite"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 1333.0
 entry = ExtResource("e_goblin_mountain_elite")
 spawnConditions = 2
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_kun_kun_mountain"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 200.0
 entry = ExtResource("e_kun_kun_mountain")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.33
 
 [sub_resource type="Resource" id="Row_drake_mountain"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 600.0
 entry = ExtResource("e_drake_mountain")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_drake_mountain_elite"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 2500.0
 entry = ExtResource("e_drake_mountain_elite")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_blue"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 300.0
 entry = ExtResource("e_mushroom_blue")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_white"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 300.0
 entry = ExtResource("e_mushroom_white")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_black"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 300.0
 entry = ExtResource("e_mushroom_black")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_gold"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 300.0
 entry = ExtResource("e_mushroom_gold")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_goblin_group_mountain"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 1000.0
 entry = ExtResource("8_campfire_group")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_well"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 2000.0
 entry = ExtResource("e_well")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_sparrow_mountain"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 100.0
 entry = ExtResource("e_sparrow_mountain")
 spawnConditions = 9
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_climbable_tree"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 1000.0
 entry = ExtResource("e_climbable_tree")
+initialBehavior = null
 
-[sub_resource type="Resource" id="Row_buried_spot"]
+[sub_resource type="Resource" id="Row_buried_carrot"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 200.0
-entry = ExtResource("e_buried_spot")
+entry = ExtResource("e_buried_carrot")
+initialBehavior = null
 
 [resource]
 script = ExtResource("1_list")
-rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_mountain"), SubResource("Row_goblin_mountain_elite"), SubResource("Row_kun_kun_mountain"), SubResource("Row_drake_mountain"), SubResource("Row_drake_mountain_elite"), SubResource("Row_mushroom_blue"), SubResource("Row_mushroom_white"), SubResource("Row_mushroom_black"), SubResource("Row_mushroom_gold"), SubResource("Row_goblin_group_mountain"), SubResource("Row_well"), SubResource("Row_sparrow_mountain"), SubResource("Row_climbable_tree"), SubResource("Row_buried_spot")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_mountain"), SubResource("Row_goblin_mountain_elite"), SubResource("Row_kun_kun_mountain"), SubResource("Row_drake_mountain"), SubResource("Row_drake_mountain_elite"), SubResource("Row_mushroom_blue"), SubResource("Row_mushroom_white"), SubResource("Row_mushroom_black"), SubResource("Row_mushroom_gold"), SubResource("Row_goblin_group_mountain"), SubResource("Row_well"), SubResource("Row_sparrow_mountain"), SubResource("Row_climbable_tree"), SubResource("Row_buried_carrot")])

@@ -1,7 +1,6 @@
 [gd_resource type="Resource" script_class="PropListData" format=3 uid="uid://4ngxd5msdy0r"]
 
 [ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
-[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
 [ext_resource type="Script" uid="uid://mcl599wl0ordv" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
 [ext_resource type="PackedScene" uid="uid://ngyyjovwf6to" path="res://scenes/props/bush_01.tscn" id="7_82eiw"]
 [ext_resource type="PackedScene" uid="uid://c55djo6ltlx45" path="res://scenes/props/bush_02.tscn" id="8_ba78t"]
@@ -24,20 +23,20 @@
 [ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="sc_4"]
 
 [sub_resource type="Resource" id="e_0"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_0")
 
 [sub_resource type="Resource" id="e_1"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_1")
 
 [sub_resource type="Resource" id="e_2"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_2")
 weight = 2.0
 
 [sub_resource type="Resource" id="e_3"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_3")
 weight = 2.0
 
@@ -47,74 +46,74 @@ scene = ExtResource("sc_4")
 tier = 3
 
 [sub_resource type="Resource" id="Resource_cdjbq"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("7_82eiw")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_e18o1"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("8_ba78t")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_03u7h"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("9_ph1fs")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_dna58"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("10_qw48e")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_qw3hk"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("11_denx5")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_dcbyi"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("12_0sl6f")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_73t7p"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("13_65wwk")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_8g84i"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("14_kc2hr")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_oo46m"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("15_65wwk")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_s0wpn"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("16_kc2hr")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_1c784"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("17_cdjbq")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_156a6"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("18_e18o1")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_3camm"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("19_03u7h")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [sub_resource type="Resource" id="Resource_4vt8n"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("20_dna58")
-metadata/_custom_type_script = "uid://ds8co0dgtl6yb"
+metadata/_custom_type_script = "uid://mcl599wl0ordv"
 
 [resource]
 script = ExtResource("1_list")

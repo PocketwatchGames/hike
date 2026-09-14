@@ -93,8 +93,8 @@ public partial class Player : CharacterBody3D
 			_interactPressActive = false;
 			InteractHoldProgress = 0f;
 			// Tap: run the target's default action — the chest, the rope, or the
-			// ledge in front (MantleInteract). With nothing there the tap does
-			// nothing at all and the self prompt goes away again.
+			// traversal in front (TraversalInteract). With nothing there the tap
+			// does nothing at all and the self prompt goes away again.
 			if (hasTarget && TryStartInteractiveAction(_highlightInteractive))
 			{
 				_highlightInteractive = null;
@@ -360,11 +360,11 @@ public partial class Player : CharacterBody3D
 			ReleaseUseLantern();
 		}
 
-		// The Dash press, overloaded rather than shared: a wall in front (or a
-		// climb already in progress) consumes it, and only a press with nothing to
-		// climb becomes a dash. The deliberate traversals — mantling a ledge,
-		// taking a rope, letting go — are interacts and never contend here.
-		if (Input.IsActionJustPressed("Dash") && !InteractMenuOpen && !TryTraversalPress())
+		// Dash is only ever a dash. Every traversal — mantling a ledge, taking
+		// hold of a wall or a rope, backing over a lip, letting go of any of
+		// them — is an interact, so nothing contends for this press. TryStartDash
+		// still refuses while a traversal owns the body.
+		if (Input.IsActionJustPressed("Dash") && !InteractMenuOpen)
 		{
 			TryStartDash();
 		}

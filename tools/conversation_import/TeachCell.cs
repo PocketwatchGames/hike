@@ -63,7 +63,7 @@ static class TeachCell
 		return token.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase);
 	}
 
-	public static TeachRef Parse(string token, ResourceIndex index, SheetRow row, Report report)
+	public static TeachRef Parse(string token, ResourceIndex index, string world, SheetRow row, Report report)
 	{
 		string body = token.Substring(Prefix.Length).Trim();
 		string[] parts = body.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
@@ -89,42 +89,42 @@ static class TeachCell
 				reference.Teachable = "LanguageTeachable";
 				reference.Property = "language";
 				reference.Prefix = "Lang";
-				reference.Target = index.Language(name);
+				reference.Target = index.Language(world, name);
 				where = "no LanguageData under resources/ declares that id";
 				break;
 			case "recipe":
 				reference.Teachable = "RecipeTeachable";
 				reference.Property = "recipe";
 				reference.Prefix = "Recipe";
-				reference.Target = index.Recipe(name);
+				reference.Target = index.Recipe(world, name);
 				where = "no RecipeData .tres has that basename";
 				break;
 			case "spell":
 				reference.Teachable = "SpellTeachable";
 				reference.Property = "spell";
 				reference.Prefix = "Spell";
-				reference.Target = index.Spell(name);
+				reference.Target = index.Spell(world, name);
 				where = "no SpellData .tres has that basename";
 				break;
 			case "region":
 				reference.Teachable = "RegionTeachable";
 				reference.Property = "region";
 				reference.Prefix = "Region";
-				reference.Target = index.Region(name);
+				reference.Target = index.Region(world, name);
 				where = "no RegionData .tres has that basename";
 				break;
 			case "item":
 				reference.Teachable = "ItemTeachable";
 				reference.Property = "item";
 				reference.Prefix = "Item";
-				reference.Target = index.Item(name);
-				where = "no .tres by that basename under resources/data/items/ (the same names `give ?` lists in the console)";
+				reference.Target = index.Item(world, name);
+				where = $"no .tres by that basename under resources/data/items/ or worlds/{world}/items/ (the same names `give ?` lists in the console)";
 				break;
 			case "bestiary":
 				reference.Teachable = "MobTeachable";
 				reference.Property = "species";
 				reference.Prefix = "Species";
-				reference.Target = index.Species(name);
+				reference.Target = index.Species(world, name);
 				where = "no SpeciesData .tres has that basename";
 				break;
 			default:

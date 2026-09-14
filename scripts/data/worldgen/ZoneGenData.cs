@@ -216,9 +216,9 @@ public partial class ZoneGenData : Resource
     [Export] public string treasureName = "";
 
     // The buried treasure placed once inside this zone by WorldGen.PlaceZoneTreasures
-    // (a BuriedSpotSpawnEntry supplying the shared buried_spot scene + the payload
-    // BuriedSpotData — the song scroll or crowns). Its location is stamped into
-    // WorldState.TreasureSpots under treasureName. Null = no treasure this zone.
+    // (a BuriedSpotSpawnEntry naming what is buried — the song scroll or crowns).
+    // Its location is registered in WorldState.TreasureSpots under treasureName.
+    // Null = no treasure this zone.
     [Export] public BuriedSpotSpawnEntry treasureSpot;
 
     // One-off landmark cluster placed ONCE per zone at the zone's anchor

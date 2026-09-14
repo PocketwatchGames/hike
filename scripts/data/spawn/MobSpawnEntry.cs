@@ -35,13 +35,12 @@ public partial class MobSpawnEntry : SpawnEntryData
     // this raises a mob above its area rather than pinning it. 0 = base.
     [Export(PropertyHint.Range, "0,4,1")] public int level = 0;
 
-    // Optional override for the brain's idleBehavior (e.g. "Wander"). Empty
-    // means use the brain default. Combined with InitialBehaviorChance for
-    // probabilistic overrides — set InitialBehaviorChance=0.25 to make a
-    // quarter of spawned goblins start in Wander instead of the brain's
-    // default Idle.
+    // The behaviour THIS individual starts in instead of its brain's idle (e.g.
+    // "Wander"), always. Set on a placement's own copy; a shared entry leaves it
+    // empty, because how many of a creature wander is a population rule and
+    // belongs to the row that places them (SpawnRow.initialBehavior). Empty
+    // defers to that row, then to the brain.
     [Export] public StringName initialBehavior;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float initialBehaviorChance = 1f;
 
     // Mobs require flat terrain to keep physics from knocking them off step
     // edges into the cliff face below. Water-bound mobs are exempt — they spawn
@@ -174,16 +173,36 @@ public partial class MobSpawnEntry : SpawnEntryData
             return;
         }
         state.SpawnConditions = context?.SpawnConditions ?? ESpawnConditions.None;
-        // The chance is a POPULATION fraction ("a quarter of spawned goblins
-        // start in Wander"), so it has nothing to be a fraction of when someone
-        // placed this one by hand — an authored placement always takes the
-        // behaviour it names.
-        if (initialBehavior != null && (string)initialBehavior != ""
-            && (context?.AuthoredPosition == true
-                || rng.NextDouble() < initialBehaviorChance))
+        StringName behavior = InitialBehaviorFor(rng, context);
+        if (behavior != null)
         {
-            state.InitialBehavior = initialBehavior;
+            state.InitialBehavior = behavior;
         }
         ws.AddEntity(state);
+    }
+
+    // Which behaviour a spawn of this entry starts in, or null for the brain's
+    // own. The individual's (this entry's field) wins outright; otherwise the
+    // row's population rule rolls its fraction. The fraction has nothing to be a
+    // fraction of at an authored position, so there the row's behaviour is
+    // taken as named.
+    //
+    // The draw happens only when a row names a behaviour and the position was
+    // not authored — exactly when it did while the rule sat on the entry, so no
+    // roll behind it moved.
+    protected StringName InitialBehaviorFor(Random rng, SpawnContext context)
+    {
+        if (initialBehavior is not null && !initialBehavior.IsEmpty)
+        {
+            return initialBehavior;
+        }
+        StringName rowBehavior = context?.InitialBehavior;
+        if (rowBehavior is null || rowBehavior.IsEmpty)
+        {
+            return null;
+        }
+        return context.AuthoredPosition || rng.NextDouble() < context.InitialBehaviorChance
+            ? rowBehavior
+            : null;
     }
 }

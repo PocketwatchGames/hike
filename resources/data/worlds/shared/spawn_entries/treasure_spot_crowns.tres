@@ -2,10 +2,12 @@
 
 [ext_resource type="Script" uid="uid://cruw4anaypwt" path="res://scripts/data/spawn/BuriedSpotSpawnEntry.cs" id="1_entry"]
 [ext_resource type="PackedScene" uid="uid://b8rq2dnk7vxce" path="res://scenes/interactives/buried_spot.tscn" id="2_scene"]
-[ext_resource type="Resource" uid="uid://b63n8861fjxfn" path="res://resources/data/world_authoring/buried/buried_crowns.tres" id="3_data"]
+[ext_resource type="Resource" uid="uid://qhms7wphy46n" path="res://resources/data/items/loot/crown.tres" id="3_item"]
+[ext_resource type="Resource" uid="uid://b63n8861fjxfn" path="res://resources/data/buried/treasure.tres" id="4_style"]
 
 [resource]
 script = ExtResource("1_entry")
 scene = ExtResource("2_scene")
-data = ExtResource("3_data")
-requireFlat = true
+item = ExtResource("3_item")
+count = 3
+style = ExtResource("4_style")

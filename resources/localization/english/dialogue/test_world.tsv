@@ -1,40 +1,52 @@
 key	value
 intro_dying_greeting_01	[lang:common]Sanctuary...[/lang] you must find it. My family, they are in the capital. Please, find the [lang:common]Sanctuary[/lang]. For them. [lang:common]Sanctuary.[/lang]
-intro_guard_greeting_01	Hello, traveler.
-intro_guard_greeting_02	You don't see many strangers around here these days.
-intro_guard_greeting_03	Safe travels out there. Watch the treeline after dark.
-intro_guard_tell_more_01	I have nothing more to say.
-intro_guard_beard_01	Thanks!
-intro_guard_trade_01	Let's do it.
-intro_guard_topics_tell_more	Tell me more.
-intro_guard_topics_beard	I like your beard.
-intro_guard_topics_trade	Do you want to trade?
+intro_guard_greeting_01	Are you� real?
+intro_guard_real_help	Yes. I was told you were injured. Can I help?
+intro_guard_help_01	I nearly lost my leg to a night drake. Unless you have unseen powers, I doubt you can help.
 intro_hermit_greeting_01	Hello, traveler. The mold in this valley makes my lungs ache.
 intro_hermit_greeting_02	I long to leave.
 intro_hermit_recruit_01	Yes
 intro_hermit_topics_recruit	Then come with me!
-intro_librarian_greeting_01	Hello, I’m the librarian.
+intro_librarian_greeting_01	Ah, come in, come in!
+intro_librarian_language_common	Do you speak the common tongue?
+intro_librarian_common_01	Yes, a bit, a bit. But you won�t get far in Whittlebone without speaking Vyeshal.
+intro_librarian_whittlebone_about	Can you tell me about this place?
+intro_librarian_about_01	Our seaside hamlet is sinking� into the mud to the south, or the mist to the east. We haven�t many seasons left. The inn, the seer, the watchfolk, all will be swallowed.
+intro_librarian_topics_inn	The inn?
+intro_librarian_topics_seer	Who is this Seer?
+intro_librarian_topics_watchfolk	Tell me about the watchfolk.
+intro_librarian_topics_mud	This town is sinking into� the mud?
+intro_librarian_inn_01	We have an inn, you�ll smell it surely. The stew is as fermented as the spirits.
+intro_librarian_seer_01	We were once famous for our Seer � he still serves us, as we do him.
+intro_librarian_watchfolk_01	You must have met Talia if you climbed up from the shore. Her counterpart Jacksaw is at rest. He was injured by a night drake.
+intro_librarian_mud_01	Yes� it is the fault of governance by a clairvoyant. All visions of doom and no civic planning.
+intro_librarian_mud_02	Tragic� the old city center sank, taking with it our primordial inheritance.
+intro_librarian_city_treasure	The old city?
+intro_librarian_treasure_01	Yes yes. I have some old maps here that could help you if you plan to go that way.
 intro_mayor_greeting_01	Hello, traveler.
-intro_mayor_speak_common_01	No. Ulga, librarian. (Points southeast)
+intro_mayor_speak_common_01	No. Ulga.
 intro_mayor_shipwreck_01	We saw the shipwreck from the coast. There are rarely survivors on these shores. The mist swallows them.
 intro_mayor_village_01	Praise be the old gods, we still have stores of amber to keep the village lit for a few more seasons. But the mist will take us, that is sure.
-intro_mayor_sanctuary_01	I’ve heard tell of it. But if it’s out there it’s beyond beast infested lands. No mudman would make the trek. Our lives are measured in amber.
+intro_mayor_sanctuary_01	I�ve heard tell of it. But if it�s out there it�s beyond beast infested lands. No mudman would make the trek. Our lives are measured in amber.
 intro_mayor_topics_speak_common	Do you speak the common tongue?
 intro_mayor_topics_shipwreck	My ship wrecked off the shore. I need help.
 intro_mayor_topics_village	What is this place?
-intro_mayor_topics_sanctuary	A man on the shore kept saying “Sanctuary”. Do you know what this is?
+intro_mayor_topics_sanctuary	A man on the shore kept saying �Sanctuary�. Do you know what this is?
 intro_merchant_greeting_01	Hello, traveler.
 intro_merchant_greeting_02	Can I interest you in some goods?
-intro_innkeeper_greeting_01	I’m the innkeeper!
-intro_patron1_greeting_01	Yum?
-intro_patron2_greeting_01	Yum!
-intro_patron3_greeting_01	Yum.
+intro_innkeeper_greeting_01	I�m the innkeeper!
+intro_patron1_greeting_01	Have you tried the stew? Each bite has 2 perfect golden mushrooms.
+intro_patron2_greeting_01	Mmm I can�t get enough of this stew. The 1 portion of succulent sparrow meat is my favorite part.
+intro_patron3_greeting_01	I hear the innkeeper cooks the stew for 6 hours.
 intro_mayor_assistant1_greeting_01	Hello.
 intro_mayor_assistant2_greeting_01	Salutations.
-intro_wanderer_greeting_01	I’ve been to the swamp. It’s hot.
+intro_wanderer_greeting_01	I�ve been to the swamp. It�s hot.
 intro_watchman_greeting_01	Who goes there?
-intro_watchman_greeting_response_common	I… I don’t know where I am.
-intro_watchman_common_01	Ah, common tongue. You’ve crossed into dangerous lands. But you can rest here in Whittlebone.
+intro_watchman_greeting_response_common	I� I don�t know where I am.
+intro_watchman_common_01	Ah, common tongue. You�ve crossed into dangerous lands. But you can rest here in Whittlebone.
 intro_watchman_whittlebone_customs	Whittlebone?
-intro_watchman_customs_01	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now. Not many speak common tongue though. You’d do best to learn our customs. Here, take this.
+intro_watchman_customs_01	Yes. The Mist will make this place uninhabitable soon. But it�s safe for now. Not many speak common tongue though. You�d do best to learn our customs. Here, take this.
 intro_watchman_greeting_busy_01	I am busy now, commoner. I must watch the sea.
+swamp_witch_greeting_01	Oooh what�s this come crawlin outta the mud I see?
+swamp_witch_greeting_02	Come a little closer tadpole! Do ya have anything shiny?
+swamp_witch_shop_end	Shall we trade?

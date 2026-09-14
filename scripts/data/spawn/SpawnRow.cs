@@ -35,17 +35,33 @@ public partial class SpawnRow : Resource
     // it is one goblin either way.
     [Export, CompactFlags] public ESpawnConditions spawnConditions;
 
-    // Run the entry's placement gates and spawn it, with this row's conditions
-    // in force. The conditions ride the context because Spawn is overridden by
-    // ~20 entry types and only three of them care — see SpawnContext.
+    // The behaviour this row's mobs start in instead of their brain's idle, and
+    // the FRACTION of them that do ("a quarter of these goblins start in
+    // Wander"). A population rule, so it is the container's to state: a goblin
+    // wandering the surface and the same goblin keeping to its camp are one
+    // goblin. On the entry it cost a second file per creature that should stay
+    // put. Read by the mob and npc entries; empty = the brain's default.
+    [Export] public StringName initialBehavior;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float initialBehaviorChance = 1f;
+
+    // Run the entry's placement gates and spawn it, with this row's statements
+    // in force. They ride the context because Spawn is overridden by ~20 entry
+    // types and only the mob, npc and chest ones care — see SpawnContext.
     public bool TrySpawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (entry == null)
         {
             return false;
         }
-        Apply(context);
-        return entry.TrySpawn(ws, position, rng, context);
+        Stamp previous = Apply(context);
+        try
+        {
+            return entry.TrySpawn(ws, position, rng, context);
+        }
+        finally
+        {
+            previous.Restore(context);
+        }
     }
 
     // Spawn without the gates — for callers that have already validated the
@@ -56,18 +72,59 @@ public partial class SpawnRow : Resource
         {
             return;
         }
-        Apply(context);
-        entry.Spawn(ws, position, rng, context);
+        Stamp previous = Apply(context);
+        try
+        {
+            entry.Spawn(ws, position, rng, context);
+        }
+        finally
+        {
+            previous.Restore(context);
+        }
     }
 
-    // Stamp this row's conditions onto the context the entry will read. Set
-    // immediately before each spawn and never cleared: every caller sets it for
-    // the row it is about to place, so a stale value cannot outlive its row.
-    private void Apply(SpawnContext context)
+    // What the context said before this row stamped it, put back once the row's
+    // spawn is done. Scoped rather than left behind because a context outlives
+    // its rows: the painter's bake places its hand-placed entities on the same
+    // context the scatter pass used, and they inherited whichever row happened to
+    // run last — its day/night gate, and its behaviour, which an authored
+    // position takes unconditionally. Nesting falls out: a group's rows stamp
+    // over the list row that named the group and restore it on the way out.
+    private readonly struct Stamp
     {
-        if (context != null)
+        private readonly ESpawnConditions _conditions;
+        private readonly StringName _behavior;
+        private readonly float _chance;
+
+        public Stamp(SpawnContext context)
         {
-            context.SpawnConditions = spawnConditions;
+            _conditions = context.SpawnConditions;
+            _behavior = context.InitialBehavior;
+            _chance = context.InitialBehaviorChance;
         }
+
+        public void Restore(SpawnContext context)
+        {
+            if (context == null)
+            {
+                return;
+            }
+            context.SpawnConditions = _conditions;
+            context.InitialBehavior = _behavior;
+            context.InitialBehaviorChance = _chance;
+        }
+    }
+
+    private Stamp Apply(SpawnContext context)
+    {
+        if (context == null)
+        {
+            return default;
+        }
+        var previous = new Stamp(context);
+        context.SpawnConditions = spawnConditions;
+        context.InitialBehavior = initialBehavior;
+        context.InitialBehaviorChance = initialBehaviorChance;
+        return previous;
     }
 }

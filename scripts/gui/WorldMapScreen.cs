@@ -107,6 +107,8 @@ public partial class WorldMapScreen : Control
 	[Export(PropertyHint.Range, "16,200,1")] public float treasureMapViewRadiusMeters = 48f;
 	// Icon drawn at the dig spot (map center) on a treasure map. Null = a drawn red X.
 	[Export] public Texture2D treasureXIcon;
+	// Glyph beside the selector. The focused OptionButton opens on ui_accept.
+	[Export] public ButtonHint selectMapButtonHint;
 
 	// World-sampling spin (radians) that puts game-north (−X,−Z) at the top of
 	// the map. +X is screen-right and +Z screen-down in the shader's unrotated
@@ -175,6 +177,7 @@ public partial class WorldMapScreen : Control
 		// This modal is Tab/controller-navigated with no mouse-driven focus, so the
 		// selector is unreachable unless we hand it focus when the tab is shown.
 		VisibilityChanged += OnVisibilityChanged;
+		selectMapButtonHint?.SetHint("ui_accept", string.Empty);
 		if (overviewRect != null && overviewViewport != null)
 		{
 			overviewRect.Texture = overviewViewport.GetTexture();

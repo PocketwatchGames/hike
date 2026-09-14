@@ -174,10 +174,6 @@ public partial class Sim
         {
             return;
         }
-        var rng = new Random();
-        const float Speed = 5f;
-        float horizontal = Speed * Mathf.Cos(Mathf.Pi / 4f);
-        float vertical = Speed * Mathf.Sin(Mathf.Pi / 4f);
         for (int i = 0; i < items.Length; i++)
         {
             ItemCount entry = items[i];
@@ -187,10 +183,23 @@ public partial class Sim
             }
             ItemState stack = entry.descriptor.CreateState();
             stack.SetCount(entry.count);
-            float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
-            Vector3 impulse = new Vector3(horizontal * Mathf.Cos(angle), vertical, horizontal * Mathf.Sin(angle));
-            DropItem(stack, origin, impulse);
+            EjectLoot(stack, origin);
         }
+    }
+
+    // One stack, popped out on its own random heading.
+    public void EjectLoot(ItemState stack, Vector3 origin)
+    {
+        if (stack == null)
+        {
+            return;
+        }
+        const float Speed = 5f;
+        float horizontal = Speed * Mathf.Cos(Mathf.Pi / 4f);
+        float vertical = Speed * Mathf.Sin(Mathf.Pi / 4f);
+        float angle = (float)(Random.Shared.NextDouble() * Mathf.Pi * 2f);
+        Vector3 impulse = new Vector3(horizontal * Mathf.Cos(angle), vertical, horizontal * Mathf.Sin(angle));
+        DropItem(stack, origin, impulse);
     }
 
     // Spawn a pickup carrying a specific ItemState (player-dropped item path).

@@ -1,7 +1,6 @@
 [gd_resource type="Resource" script_class="PropListData" load_steps=14 format=3]
 
 [ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
-[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="2_ws"]
 [ext_resource type="Script" uid="uid://mcl599wl0ordv" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
 [ext_resource type="PackedScene" uid="uid://c5naet571u441" path="res://scenes/props/tree_pine_snowy.tscn" id="sc_0"]
 [ext_resource type="PackedScene" uid="uid://ph318bmhf00n" path="res://scenes/props/tree_pine_dead_snowy.tscn" id="sc_1"]
@@ -23,19 +22,19 @@ weight = 2.0
 tier = 3
 
 [sub_resource type="Resource" id="e_2"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_2")
 
 [sub_resource type="Resource" id="e_3"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_3")
 
 [sub_resource type="Resource" id="e_4"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_4")
 
 [sub_resource type="Resource" id="e_5"]
-script = ExtResource("2_ws")
+script = ExtResource("2_row")
 scene = ExtResource("sc_5")
 
 [resource]

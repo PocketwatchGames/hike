@@ -55,6 +55,7 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 [sub_resource type="Resource" id="Row_Hermit"]
 script = ExtResource("listrow")
 entry = SubResource("Hermit")
+initialBehavior = null
 
 [resource]
 script = ExtResource("2_list")

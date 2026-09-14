@@ -147,10 +147,10 @@ public partial class GameClient : Node3D
 	[Export] public ViewportRig viewportRig;
 	[Export] public ShaderMaterial fogMaterial;
 	[Export] public PackedScene interactHudScene;
-	// Wall-climb prompt for the Dash button, plus the let-go prompt while hanging.
-	// Spawned off Player.TraversalPreview rather than off a highlight, since a wall
-	// face is not an interactive. A LEDGE is one (MantleInteract) and carries the
-	// ordinary InteractHUD instead.
+	// The let-go prompt while hanging on a wall or a rope. Spawned off
+	// Player.ClimbReleasePreview rather than off a highlight, since a release has
+	// nothing to interact WITH. Every traversal the player can start is an
+	// interactive (TraversalInteract) and carries the ordinary InteractHUD.
 	[Export] public PackedScene climbHudScene;
 	// Shared world-pickup scene. Every dropped or spawned item materializes
 	// through this one scene with its sprite swapped to the item's
@@ -2368,14 +2368,15 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	// Spawn / free the climb prompt from the player's traversal preview. Driven
-	// per-frame rather than from a change signal: the preview is a per-tick probe
-	// of the terrain in front, not a state the player pushes.
+	// Spawn / free the let-go prompt from the player's climb-release preview.
+	// Driven per-frame rather than from a change signal: the preview is a
+	// per-tick probe of what is under and over the hanging body, not a state the
+	// player pushes.
 	void UpdateClimbHUD()
 	{
 		// No prompt during the bird's-eye overview shot, matching the interact one.
 		bool wanted = _player != null && !_player.IsBirdsEye
-			&& _player.TraversalPreview != ETraversalPreview.None;
+			&& _player.ClimbReleasePreview != ETraversalPreview.None;
 		if (_climbHUD != null && (!wanted || _climbHUD.Player != _player))
 		{
 			_climbHUD.QueueFree();

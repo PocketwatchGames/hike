@@ -1670,9 +1670,9 @@ public partial class Player : CharacterBody3D
 		}
 
 		// Ahead of every early return below — riding, mantling and climbing all
-		// own the tick, and the climb prompt has to keep updating (and clear
+		// own the tick, and the let-go prompt has to keep updating (and clear
 		// itself) through them rather than freeze on the last thing it offered.
-		UpdateTraversalPreview(dt);
+		UpdateClimbReleasePreview(dt);
 
 		// Inactive party members skip the entire controlled-player tick and just
 		// stand where placed (settle under gravity + idle pose). None of the
@@ -1694,9 +1694,9 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
-		// An interact action that resolved to "climb the ledge" starts here, once
-		// the runner that ran it has finished.
-		TickPendingMantle();
+		// An interact action that resolved to a traversal — a ledge, a wall face,
+		// a lip — starts here, once the runner that ran it has finished.
+		TickPendingTraversal();
 		TickPendingClimbSurface();
 
 		// Mantling a short ledge: the traversal owns position for its duration,

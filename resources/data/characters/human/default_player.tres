@@ -58,5 +58,5 @@ outfits = Dictionary[StringName, ExtResource("10_outfit_script")]({
 &"mage": ExtResource("11_outfit_mage"),
 &"swordsman": ExtResource("15_outfit_swordsman")
 })
-mantleUpAction = ExtResource("30_mantle_up")
-mantleDownAction = ExtResource("31_mantle_down")
+traversalUpAction = ExtResource("30_mantle_up")
+traversalDownAction = ExtResource("31_mantle_down")

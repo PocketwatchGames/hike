@@ -7,6 +7,7 @@
 [sub_resource type="Resource" id="Row_Stone_mud"]
 script = ExtResource("grouprow")
 entry = ExtResource("11_stone")
+initialBehavior = null
 
 [resource]
 script = ExtResource("2_group")

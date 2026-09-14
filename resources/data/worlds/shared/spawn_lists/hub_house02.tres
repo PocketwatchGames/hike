@@ -53,6 +53,7 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 [sub_resource type="Resource" id="Row_Npc_recruit"]
 script = ExtResource("listrow")
 entry = SubResource("Npc_recruit")
+initialBehavior = null
 
 [resource]
 script = ExtResource("2_list")

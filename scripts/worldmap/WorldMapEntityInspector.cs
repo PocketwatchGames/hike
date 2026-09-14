@@ -23,10 +23,15 @@ using System.Linq;
 // with its own dialogue rather than a copy of a species template, so authoring a
 // palette file per villager is the wrong shape.
 //
-// What stays a read-only row: ARRAYS (an outfit, a stock list, loyalty gifts),
-// which need list editing rather than a single pick, and PackedScene, which is a
-// rig choice rather than data. The row is there rather than hidden so the panel
-// never implies the entry holds less than it does.
+// A LIST of resources — a chest's loot, a merchant's stock, an NPC's gifts — is
+// edited too: one block per element with the element's own fields, plus add and
+// remove. That is what lets one `chest` palette row stand for every chest, with
+// what it holds picked per placement.
+//
+// What stays a read-only row: a list of strings or scenes (an outfit, a stone
+// ring's scenes) and a PackedScene, which is a rig choice rather than data. The
+// row is there rather than hidden so the panel never implies the entry holds
+// less than it does.
 [GlobalClass]
 public partial class WorldMapEntityInspector : PanelContainer
 {
@@ -37,11 +42,19 @@ public partial class WorldMapEntityInspector : PanelContainer
     // Height of the box a multiline string gets.
     [Export] public int multilineHeight = 72;
     [Export] public Color readOnlyColor = new Color(0.75f, 0.75f, 0.8f, 0.6f);
+    // How far a list's elements sit in from its name, and each element's fields
+    // in from its header.
+    [Export] public int listIndent = 12;
 
     // Bracket one property change as one undo step. The painter owns the
     // history; this owns the widgets.
     public System.Action BeforeEdit;
     public System.Action AfterEdit;
+
+    // The world the open document authors (WorldMapData.World). A resource row
+    // offers that world's own files and the unscoped ones — never another
+    // world's (see WorldScope).
+    public string World;
 
     // What the rows were built for. Rebuilding every frame would destroy the
     // widget being typed into, so the panel rebuilds only when the selection —
@@ -200,6 +213,7 @@ public partial class WorldMapEntityInspector : PanelContainer
         {
             titleLabel.Text = _shown.DisplayName();
         }
+        AddNameRow();
         foreach (Godot.Collections.Dictionary property in OrderedProperties(_shownEntry))
         {
             var name = new StringName(property["name"].AsString());
@@ -351,6 +365,22 @@ public partial class WorldMapEntityInspector : PanelContainer
 
     private void AddRow(StringName name, Variant.Type type, PropertyHint hint, string hintString)
     {
+        EPropertyEditor kind = EditorFor(_shownEntry, name, type, hint, World, out Type resourceType,
+            out string[] names, out Resource[] resources);
+        if (kind == EPropertyEditor.List)
+        {
+            // A list takes the panel's whole width under its name: each element
+            // is a block of rows of its own, and squeezed into the value column
+            // those rows would have a label column a third the width of this one.
+            var block = new VBoxContainer();
+            block.AddChild(new Label { Text = name.ToString() });
+            var indent = new MarginContainer();
+            indent.AddThemeConstantOverride("margin_left", listIndent);
+            indent.AddChild(BuildList(name, resourceType));
+            block.AddChild(indent);
+            rows.AddChild(block);
+            return;
+        }
         var row = new HBoxContainer();
         row.AddChild(new Label
         {
@@ -358,7 +388,8 @@ public partial class WorldMapEntityInspector : PanelContainer
             CustomMinimumSize = new Vector2(labelWidth, 0f),
             VerticalAlignment = VerticalAlignment.Center,
         });
-        Control editor = BuildEditor(name, type, hint, hintString);
+        Control editor = BuildEditor(PropertyBinding(name), kind, type, hint, hintString,
+            resourceType, names, resources);
         editor.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         row.AddChild(editor);
         rows.AddChild(row);
@@ -379,6 +410,7 @@ public partial class WorldMapEntityInspector : PanelContainer
         Number,
         ResourcePick,
         NamePick,
+        List,
         ReadOnly,
     }
 
@@ -386,15 +418,33 @@ public partial class WorldMapEntityInspector : PanelContainer
     // ENTRY rather than its type because a name list depends on what this entry
     // NAMES — its descriptor's brain, its rig's animation library — not on the
     // class. `resourceType` and `names` belong to their own kinds and are null
-    // for every other.
+    // for every other; for a List, `resourceType` is the element type.
     public static EPropertyEditor EditorFor(SpawnEntryData entry, StringName name,
-        Variant.Type type, PropertyHint hint, out Type resourceType, out string[] names,
+        Variant.Type type, PropertyHint hint, string world, out Type resourceType, out string[] names,
+        out Resource[] resources)
+    {
+        return Classify(entry?.GetType(), entry, name, type, hint, world,
+            out resourceType, out names, out resources);
+    }
+
+    // The same question for one field of a list ELEMENT — a loot row's item or
+    // count. Nothing constrains it (an element names no family), and a list
+    // inside an element stays read-only: a list of lists is not a thing a
+    // placement needs and not a thing this narrow panel can show.
+    public static EPropertyEditor ElementEditorFor(Type element, StringName name,
+        Variant.Type type, PropertyHint hint, string world, out Type resourceType)
+    {
+        return Classify(element, null, name, type, hint, world,
+            out resourceType, out _, out _);
+    }
+
+    private static EPropertyEditor Classify(Type owner, SpawnEntryData entry, StringName name,
+        Variant.Type type, PropertyHint hint, string world, out Type resourceType, out string[] names,
         out Resource[] resources)
     {
         resourceType = null;
         names = null;
         resources = null;
-        Type owner = entry?.GetType();
         switch (type)
         {
             case Variant.Type.String or Variant.Type.StringName:
@@ -436,49 +486,81 @@ public partial class WorldMapEntityInspector : PanelContainer
                 // project is a sub-resource with no file to pick, and an empty
                 // dropdown over one reads as "this field is unset".
                 if (resourceType != null
-                    && ResourceTypeIndex.Candidates(resourceType).Length > 0)
+                    && ResourceTypeIndex.Candidates(resourceType, world).Length > 0)
                 {
                     return EPropertyEditor.ResourcePick;
                 }
                 resourceType = null;
                 return EPropertyEditor.ReadOnly;
+            case Variant.Type.Array when entry != null:
+                resourceType = ListElementType(owner, name);
+                return resourceType != null ? EPropertyEditor.List : EPropertyEditor.ReadOnly;
             default:
                 return EPropertyEditor.ReadOnly;
         }
     }
 
-    private Control BuildEditor(StringName name, Variant.Type type, PropertyHint hint, string hintString)
+    private Control BuildEditor(Binding binding, EPropertyEditor kind, Variant.Type type,
+        PropertyHint hint, string hintString, Type resourceType, string[] names, Resource[] resources)
     {
-        switch (EditorFor(_shownEntry, name, type, hint, out Type resourceType,
-            out string[] names, out Resource[] resources))
+        switch (kind)
         {
             case EPropertyEditor.Multiline:
-                return BuildMultiline(name);
+                return BuildMultiline(binding);
             case EPropertyEditor.Text:
-                return BuildLine(name);
+                return BuildLine(binding);
             case EPropertyEditor.Check:
-                return BuildCheck(name);
+                return BuildCheck(binding);
             case EPropertyEditor.Enum:
-                return BuildEnum(name, hintString);
+                return BuildEnum(binding, hintString);
             case EPropertyEditor.Flags:
-                return BuildFlags(name, hintString);
+                return BuildFlags(binding, hintString);
             case EPropertyEditor.Number:
-                return BuildNumber(name, type == Variant.Type.Int, hint, hintString);
+                return BuildNumber(binding, type == Variant.Type.Int, hint, hintString);
             case EPropertyEditor.ResourcePick:
-                return BuildResourcePicker(name, resourceType, resources);
+                return BuildResourcePicker(binding, resourceType, resources);
             case EPropertyEditor.NamePick:
-                return BuildNamePicker(name, names);
+                return BuildNamePicker(binding, names);
             default:
-                return BuildReadOnly(name);
+                return BuildReadOnly(binding);
         }
     }
 
-    // Reading and writing always go through the placement, never through a
-    // captured entry reference: the first edit REPLACES the entry with a fork and
-    // every row must follow it there.
-    private Variant Read(StringName name)
+    // Where one editor reads its value and where a new one goes. A property row
+    // binds to a field of the placement's entry; a list row binds to one field
+    // of one element. `Write` is handed the entry the placement OWNS — the edit
+    // paths fork it first — so no binding can reach the shared palette file.
+    private readonly struct Binding
     {
-        return _rowsOwner?.Entry != null ? _rowsOwner.Entry.Get(name) : default;
+        public readonly Func<Variant> Read;
+        public readonly Action<SpawnEntryData, Variant> Write;
+
+        public Binding(Func<Variant> read, Action<SpawnEntryData, Variant> write)
+        {
+            Read = read;
+            Write = write;
+        }
+    }
+
+    // Reading goes through the placement, never through a captured entry
+    // reference: the first edit REPLACES the entry with a fork and every row
+    // must follow it there.
+    private Binding PropertyBinding(StringName name)
+    {
+        return new Binding(
+            () => _rowsOwner?.Entry != null ? _rowsOwner.Entry.Get(name) : default,
+            (target, value) => target.Set(name, value));
+    }
+
+    // The placement's own copy of its entry, forking it on the first edit.
+    private SpawnEntryData OwnEntry()
+    {
+        SpawnEntryData target = _rowsOwner.EditableEntry();
+        if (ReferenceEquals(_rowsOwner, _shown))
+        {
+            _shownEntry = target;
+        }
+        return target;
     }
 
     // Text applies as it is TYPED, not on Enter or on leaving the field. The
@@ -490,10 +572,9 @@ public partial class WorldMapEntityInspector : PanelContainer
     // The undo step is what the old commit-on-leave was really protecting, and it
     // is kept by BRACKETING instead: the first keystroke opens one step and
     // leaving the field closes it, so a typed sentence is still one undo.
-    private void ApplyLive(StringName name, Variant value)
+    private void ApplyLive(Binding binding, Variant value)
     {
-        SpawnEntryData current = _rowsOwner?.Entry;
-        if (current == null || current.Get(name).ToString() == value.ToString())
+        if (_rowsOwner?.Entry == null || binding.Read().ToString() == value.ToString())
         {
             return;
         }
@@ -504,18 +585,12 @@ public partial class WorldMapEntityInspector : PanelContainer
             BeforeEdit?.Invoke();
             _typing = true;
         }
-        SpawnEntryData target = _rowsOwner.EditableEntry();
-        if (ReferenceEquals(_rowsOwner, _shown))
-        {
-            _shownEntry = target;
-        }
-        target.Set(name, value);
+        binding.Write(OwnEntry(), value);
     }
 
-    private void Commit(StringName name, Variant value)
+    private void Commit(Binding binding, Variant value)
     {
-        SpawnEntryData current = _rowsOwner?.Entry;
-        if (current == null)
+        if (_rowsOwner?.Entry == null)
         {
             return;
         }
@@ -525,75 +600,129 @@ public partial class WorldMapEntityInspector : PanelContainer
         // the palette, and it would cost an undo slot. Compared as TEXT because
         // Variant does not compare by value here — the undo aspect pays for the
         // same thing.
-        if (current.Get(name).ToString() == value.ToString())
+        if (binding.Read().ToString() == value.ToString())
         {
             return;
         }
         BeforeEdit?.Invoke();
-        SpawnEntryData target = _rowsOwner.EditableEntry();
-        if (ReferenceEquals(_rowsOwner, _shown))
-        {
-            _shownEntry = target;
-        }
-        target.Set(name, value);
+        binding.Write(OwnEntry(), value);
         AfterEdit?.Invoke();
     }
 
-    private Control BuildLine(StringName name)
+    // A change that is not a value — adding or removing a list element — as one
+    // undo step on the placement's own copy.
+    private void Mutate(Action<SpawnEntryData> change)
+    {
+        if (_rowsOwner?.Entry == null)
+        {
+            return;
+        }
+        BeforeEdit?.Invoke();
+        change(OwnEntry());
+        AfterEdit?.Invoke();
+    }
+
+    // The PLACEMENT's name, first because it is not the entry's: it writes to
+    // the placement itself, so naming a chest does not fork it off the palette.
+    // Typed like any other text row — live, one undo step per run of typing.
+    private void AddNameRow()
+    {
+        var edit = new LineEdit { PlaceholderText = "unnamed" };
+        edit.TextChanged += _ => ApplyName(edit.Text);
+        edit.TextSubmitted += _ => EndTyping();
+        edit.FocusExited += () =>
+        {
+            ApplyName(edit.Text);
+            EndTyping();
+        };
+        _refreshers.Add(() =>
+        {
+            if (!edit.HasFocus())
+            {
+                edit.Text = _rowsOwner?.name ?? "";
+            }
+        });
+        var row = new HBoxContainer();
+        row.AddChild(new Label
+        {
+            Text = EntityPlacement.PropertyName.name.ToString(),
+            CustomMinimumSize = new Vector2(labelWidth, 0f),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        edit.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.AddChild(edit);
+        rows.AddChild(row);
+    }
+
+    private void ApplyName(string text)
+    {
+        if (_rowsOwner == null || (_rowsOwner.name ?? "") == text)
+        {
+            return;
+        }
+        if (!_typing)
+        {
+            BeforeEdit?.Invoke();
+            _typing = true;
+        }
+        _rowsOwner.name = text;
+    }
+
+    private Control BuildLine(Binding binding)
     {
         var edit = new LineEdit();
-        edit.TextChanged += _ => ApplyLive(name, edit.Text);
+        edit.TextChanged += _ => ApplyLive(binding, edit.Text);
         // Enter ENDS the undo step rather than committing the value — the value
         // is already in. Leaving the field applies once more first, since a paste
         // or an undo inside the box can move the text without a keystroke.
         edit.TextSubmitted += _ => EndTyping();
         edit.FocusExited += () =>
         {
-            ApplyLive(name, edit.Text);
+            ApplyLive(binding, edit.Text);
             EndTyping();
         };
         _refreshers.Add(() =>
         {
             if (!edit.HasFocus())
             {
-                edit.Text = Read(name).AsString();
+                edit.Text = binding.Read().AsString();
             }
         });
         return edit;
     }
 
-    private Control BuildMultiline(StringName name)
+    private Control BuildMultiline(Binding binding)
     {
         var edit = new TextEdit
         {
             CustomMinimumSize = new Vector2(0f, multilineHeight),
             WrapMode = TextEdit.LineWrappingMode.Boundary,
         };
-        edit.TextChanged += () => ApplyLive(name, edit.Text);
+        edit.TextChanged += () => ApplyLive(binding, edit.Text);
         edit.FocusExited += () =>
         {
-            ApplyLive(name, edit.Text);
+            ApplyLive(binding, edit.Text);
             EndTyping();
         };
         _refreshers.Add(() =>
         {
             if (!edit.HasFocus())
             {
-                edit.Text = Read(name).AsString();
+                edit.Text = binding.Read().AsString();
             }
         });
         return edit;
     }
 
-    private Control BuildCheck(StringName name)
+    private Control BuildCheck(Binding binding)
     {
         var check = new CheckBox();
-        check.Toggled += on => Commit(name, on);
-        _refreshers.Add(() => check.SetPressedNoSignal(Read(name).AsBool()));
+        check.Toggled += on => Commit(binding, on);
+        _refreshers.Add(() => check.SetPressedNoSignal(binding.Read().AsBool()));
         return check;
     }
 
-    private Control BuildNumber(StringName name, bool integer, PropertyHint hint, string hintString)
+    private Control BuildNumber(Binding binding, bool integer, PropertyHint hint, string hintString)
     {
         var spin = new SpinBox
         {
@@ -620,28 +749,28 @@ public partial class WorldMapEntityInspector : PanelContainer
                 spin.Step = step;
             }
         }
-        spin.ValueChanged += v => Commit(name, integer ? Variant.From((int)v) : Variant.From((float)v));
+        spin.ValueChanged += v => Commit(binding, integer ? Variant.From((int)v) : Variant.From((float)v));
         _refreshers.Add(() =>
         {
             if (!spin.GetLineEdit().HasFocus())
             {
-                spin.SetValueNoSignal(integer ? Read(name).AsInt32() : Read(name).AsSingle());
+                spin.SetValueNoSignal(integer ? binding.Read().AsInt32() : binding.Read().AsSingle());
             }
         });
         return spin;
     }
 
-    private Control BuildEnum(StringName name, string hintString)
+    private Control BuildEnum(Binding binding, string hintString)
     {
         var option = new OptionButton();
         foreach ((string label, int value) in ParseHintItems(hintString, flags: false))
         {
             option.AddItem(label, value);
         }
-        option.ItemSelected += index => Commit(name, option.GetItemId((int)index));
+        option.ItemSelected += index => Commit(binding, option.GetItemId((int)index));
         _refreshers.Add(() =>
         {
-            int current = Read(name).AsInt32();
+            int current = binding.Read().AsInt32();
             for (int i = 0; i < option.ItemCount; i++)
             {
                 if (option.GetItemId(i) == current)
@@ -666,7 +795,7 @@ public partial class WorldMapEntityInspector : PanelContainer
     // clear" is a normal thing to want from a chest), so checkboxes are honest,
     // but they cost a row as wide as the flag count on every entry that has any
     // — and the panel is a narrow strip beside the map.
-    private Control BuildFlags(StringName name, string hintString)
+    private Control BuildFlags(Binding binding, string hintString)
     {
         var button = new MenuButton
         {
@@ -675,7 +804,17 @@ public partial class WorldMapEntityInspector : PanelContainer
             // Bare keys belong to the painter, exactly as on the tool buttons.
             FocusMode = Control.FocusModeEnum.None,
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            // A MenuButton is FLAT by default, which draws it as bare text — beside
+            // a property name that reads as a read-only value, and authors took the
+            // knowledge stone's components for one. Framed, with the enum
+            // dropdown's own arrow, it looks like the control it is.
+            Flat = false,
+            IconAlignment = HorizontalAlignment.Right,
         };
+        // The default theme's arrow now, and again once the button can see the
+        // panel's theme, so it is whatever the OptionButton rows beside it draw.
+        button.Icon = button.GetThemeIcon("arrow", "OptionButton");
+        button.ThemeChanged += () => button.Icon = button.GetThemeIcon("arrow", "OptionButton");
         PopupMenu menu = button.GetPopup();
         // The value is a set, so the menu stays open while several are toggled.
         menu.HideOnCheckableItemSelection = false;
@@ -698,13 +837,13 @@ public partial class WorldMapEntityInspector : PanelContainer
         // depends on menu order.
         menu.IdPressed += id =>
         {
-            int mask = Read(name).AsInt32();
+            int mask = binding.Read().AsInt32();
             var bit = (int)id;
-            Commit(name, (mask & bit) == bit ? mask & ~bit : mask | bit);
+            Commit(binding, (mask & bit) == bit ? mask & ~bit : mask | bit);
         };
         _refreshers.Add(() =>
         {
-            int mask = Read(name).AsInt32();
+            int mask = binding.Read().AsInt32();
             string text = "";
             for (int i = 0; i < bits.Count; i++)
             {
@@ -762,8 +901,8 @@ public partial class WorldMapEntityInspector : PanelContainer
     // Two exclusions, both deliberate. A PackedScene is a rig choice rather than
     // data — an NPC's `scene` has to gender-match its `outfit`, so offering every
     // scene in the project as a free pick invites a mismatch the panel cannot
-    // check. Arrays never reach here (they are Variant.Type.Array) and want list
-    // editing, not one pick.
+    // check. Arrays never reach here (they are Variant.Type.Array) and are
+    // classified as lists instead.
     private static Type ResourceFieldType(Type owner, StringName name)
     {
         if (owner == null)
@@ -789,7 +928,7 @@ public partial class WorldMapEntityInspector : PanelContainer
     // field's type, found by SCANNING rather than from a palette: a conversation
     // is authored as a file, and a registration step in a second resource is one
     // that gets forgotten.
-    private Control BuildResourcePicker(StringName name, Type type, Resource[] constrained = null)
+    private Control BuildResourcePicker(Binding binding, Type type, Resource[] constrained = null)
     {
         var option = new OptionButton { ClipText = true };
         // A constrained candidate is already loaded; a scanned one is loaded
@@ -797,7 +936,7 @@ public partial class WorldMapEntityInspector : PanelContainer
         // conversation in the project.
         string[] paths = constrained != null
             ? System.Array.ConvertAll(constrained, r => r?.ResourcePath ?? "")
-            : ResourceTypeIndex.Candidates(type);
+            : ResourceTypeIndex.Candidates(type, World);
         // Index 0 is "none", so a field can always be cleared — an NPC with no
         // conversation is a real thing to author (Talk does nothing).
         option.AddItem("—", 0);
@@ -829,7 +968,7 @@ public partial class WorldMapEntityInspector : PanelContainer
             {
                 return;
             }
-            Commit(name, id == 0
+            Commit(binding, id == 0
                 ? default
                 : Variant.From(constrained != null
                     ? constrained[id - 1]
@@ -837,7 +976,7 @@ public partial class WorldMapEntityInspector : PanelContainer
         };
         _refreshers.Add(() =>
         {
-            var current = Read(name).As<Resource>();
+            var current = binding.Read().As<Resource>();
             int want = 0;
             if (current != null)
             {
@@ -873,7 +1012,7 @@ public partial class WorldMapEntityInspector : PanelContainer
     // when the candidates do not contain it, so a value authored against another
     // rig — or before a brain was retuned — is not silently rewritten by merely
     // selecting the placement. It is marked so the author can see it is adrift.
-    private Control BuildNamePicker(StringName name, string[] candidates)
+    private Control BuildNamePicker(Binding binding, string[] candidates)
     {
         var option = new OptionButton { ClipText = true };
         // Index 0 clears the field, which for both of these means "the species
@@ -894,11 +1033,11 @@ public partial class WorldMapEntityInspector : PanelContainer
             {
                 return;
             }
-            Commit(name, id == 0 ? "" : candidates[id - 1]);
+            Commit(binding, id == 0 ? "" : candidates[id - 1]);
         };
         _refreshers.Add(() =>
         {
-            string current = Read(name).AsString();
+            string current = binding.Read().AsString();
             int want = 0;
             if (!string.IsNullOrEmpty(current))
             {
@@ -920,19 +1059,301 @@ public partial class WorldMapEntityInspector : PanelContainer
         return option;
     }
 
-    // What is left read-only after the identity rows are hidden is exactly the
-    // set that WOULD vary per placement and has no editor yet — a chest's loot,
-    // an NPC's stock / gifts / taste rules, all of which need list editing. It
-    // is marked rather than merely dimmed, because a dimmed row reads as "this
-    // cannot change" when the truth is "not here, not yet".
+    // What is left read-only after the identity rows are hidden is the set that
+    // WOULD vary per placement and has no editor yet — a list of strings or
+    // scenes, an embedded sub-resource nothing lists. It is marked rather than
+    // merely dimmed, because a dimmed row reads as "this cannot change" when the
+    // truth is "not here, not yet".
     private const string NO_EDITOR = "  ·  no editor yet";
 
-    private Control BuildReadOnly(StringName name)
+    private Control BuildReadOnly(Binding binding)
     {
         var label = new Label { VerticalAlignment = VerticalAlignment.Center };
         label.AddThemeColorOverride("font_color", readOnlyColor);
-        _refreshers.Add(() => label.Text = Summarize(Read(name)) + NO_EDITOR);
+        _refreshers.Add(() => label.Text = Summarize(binding.Read()) + NO_EDITOR);
         return label;
+    }
+
+    // ---- Lists ---------------------------------------------------------------
+
+    // The element type of an exported list the panel can edit — a C# array or a
+    // Godot typed array of some Resource — or null. PackedScene is excluded for
+    // ResourceFieldType's reason, and a string list is not a list of records.
+    public static Type ListElementType(Type owner, StringName name)
+    {
+        Type type = owner?.GetField(name.ToString())?.FieldType;
+        if (type == null)
+        {
+            return null;
+        }
+        Type element = type.IsArray
+            ? type.GetElementType()
+            : type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Godot.Collections.Array<>)
+                ? type.GetGenericArguments()[0]
+                : null;
+        if (element == null || !typeof(Resource).IsAssignableFrom(element)
+            || typeof(PackedScene).IsAssignableFrom(element))
+        {
+            return null;
+        }
+        return element;
+    }
+
+    // Is a list's element a PICK of an authored file, or a record edited in
+    // place? The same rule a single resource row follows: offer files when the
+    // project has some of that type, and otherwise the element is the data.
+    public static bool ListPicksFiles(Type element, string world)
+        => ResourceTypeIndex.Candidates(element, world).Length > 0;
+
+    // The list as it stands, copied out. Read off the C# field rather than
+    // through Get, which would marshal a Godot array per call for a value that
+    // is already managed.
+    private static List<Resource> ReadList(SpawnEntryData entry, StringName name)
+    {
+        var items = new List<Resource>();
+        if (entry?.GetType().GetField(name.ToString())?.GetValue(entry) is System.Collections.IEnumerable list)
+        {
+            foreach (object item in list)
+            {
+                items.Add(item as Resource);
+            }
+        }
+        return items;
+    }
+
+    // Always a NEW collection, never the one the entry holds: a fork is shallow,
+    // so that one may still be the palette file's, and the undo snapshot is
+    // holding the old one to put back.
+    private static void WriteList(SpawnEntryData entry, StringName name, List<Resource> items)
+    {
+        System.Reflection.FieldInfo field = entry.GetType().GetField(name.ToString());
+        Type element = ListElementType(entry.GetType(), name);
+        if (field == null || element == null)
+        {
+            return;
+        }
+        if (field.FieldType.IsArray)
+        {
+            System.Array array = System.Array.CreateInstance(element, items.Count);
+            for (int i = 0; i < items.Count; i++)
+            {
+                array.SetValue(items[i], i);
+            }
+            field.SetValue(entry, array);
+            return;
+        }
+        object list = Activator.CreateInstance(field.FieldType);
+        System.Reflection.MethodInfo add = field.FieldType.GetMethod("Add", new[] { element });
+        foreach (Resource item in items)
+        {
+            add.Invoke(list, new object[] { item });
+        }
+        field.SetValue(entry, list);
+    }
+
+    // The fields an element of this type shows, off a throwaway instance —
+    // there may be no element yet to ask. Cached per type: an element's exports
+    // are fixed by its class.
+    private static readonly Dictionary<Type, List<Godot.Collections.Dictionary>> _elementProperties = new();
+
+    public static List<Godot.Collections.Dictionary> ElementProperties(Type element)
+    {
+        if (_elementProperties.TryGetValue(element, out List<Godot.Collections.Dictionary> cached))
+        {
+            return cached;
+        }
+        var shown = new List<Godot.Collections.Dictionary>();
+        if (Activator.CreateInstance(element) is Resource probe)
+        {
+            foreach (Godot.Collections.Dictionary property in probe.GetPropertyList())
+            {
+                if (((PropertyUsageFlags)(long)property["usage"] & PropertyUsageFlags.ScriptVariable) != 0)
+                {
+                    shown.Add(property);
+                }
+            }
+        }
+        _elementProperties[element] = shown;
+        return shown;
+    }
+
+    private Control BuildList(StringName name, Type element)
+    {
+        var box = new VBoxContainer();
+        bool picks = ListPicksFiles(element, World);
+        int built = ReadList(_rowsOwner?.Entry, name).Count;
+        for (int i = 0; i < built; i++)
+        {
+            box.AddChild(picks ? BuildListPick(name, element, i) : BuildListRecord(name, element, i));
+        }
+        var add = new Button
+        {
+            Text = "+ add",
+            // Bare keys belong to the painter, exactly as on the tool buttons.
+            FocusMode = Control.FocusModeEnum.None,
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
+        };
+        add.Pressed += () => Mutate(target =>
+        {
+            List<Resource> items = ReadList(target, name);
+            // A picked element starts empty and is chosen in its own row; a
+            // record starts at its type's defaults (one of nothing, for loot).
+            items.Add(picks ? null : (Resource)Activator.CreateInstance(element));
+            WriteList(target, name, items);
+        });
+        box.AddChild(add);
+        // An add, a remove, or an undo of either changes how many blocks there
+        // should be, which a refresh cannot do — the rows are rebuilt instead.
+        _refreshers.Add(() =>
+        {
+            if (ReadList(_rowsOwner?.Entry, name).Count != built)
+            {
+                RebuildDeferred();
+            }
+        });
+        return box;
+    }
+
+    // One element that is a record: a header with its position and a remove
+    // button, then its own fields through the same editors a property gets.
+    private Control BuildListRecord(StringName list, Type element, int index)
+    {
+        var block = new VBoxContainer();
+        block.AddChild(ListHeader(list, index, new Label
+        {
+            Text = $"#{index + 1}",
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        }));
+        var fields = new VBoxContainer();
+        foreach (Godot.Collections.Dictionary property in ElementProperties(element))
+        {
+            var field = new StringName(property["name"].AsString());
+            var type = (Variant.Type)(long)property["type"];
+            var hint = (PropertyHint)(long)property["hint"];
+            EPropertyEditor kind = ElementEditorFor(element, field, type, hint, World, out Type resourceType);
+            var row = new HBoxContainer();
+            row.AddChild(new Label
+            {
+                Text = field.ToString(),
+                CustomMinimumSize = new Vector2(labelWidth - listIndent, 0f),
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+            Control editor = BuildEditor(ElementBinding(list, element, index, field), kind, type, hint,
+                property["hint_string"].AsString(), resourceType, null, null);
+            editor.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            row.AddChild(editor);
+            fields.AddChild(row);
+        }
+        var indent = new MarginContainer();
+        indent.AddThemeConstantOverride("margin_left", listIndent);
+        indent.AddChild(fields);
+        block.AddChild(indent);
+        return block;
+    }
+
+    // One element that is a pick of an authored file: the picker and its remove
+    // button on one line.
+    private Control BuildListPick(StringName list, Type element, int index)
+    {
+        Control picker = BuildResourcePicker(PickBinding(list, index), element);
+        picker.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        return ListHeader(list, index, picker);
+    }
+
+    private HBoxContainer ListHeader(StringName list, int index, Control lead)
+    {
+        var header = new HBoxContainer();
+        header.AddChild(lead);
+        var remove = new Button
+        {
+            Text = "×",
+            TooltipText = "Remove",
+            FocusMode = Control.FocusModeEnum.None,
+        };
+        remove.Pressed += () => Mutate(target =>
+        {
+            List<Resource> items = ReadList(target, list);
+            if (index < items.Count)
+            {
+                items.RemoveAt(index);
+                WriteList(target, list, items);
+            }
+        });
+        header.AddChild(remove);
+        return header;
+    }
+
+    // One field of one record. A write CLONES the element rather than setting
+    // the field on it: the element may be the palette file's own (a fork is
+    // shallow), and the undo snapshot compares elements by identity — mutated in
+    // place, an edit would be invisible to undo and would retune every chest
+    // still tracking the palette.
+    private Binding ElementBinding(StringName list, Type element, int index, StringName field)
+    {
+        return new Binding(
+            () =>
+            {
+                List<Resource> items = ReadList(_rowsOwner?.Entry, list);
+                return index < items.Count && items[index] != null ? items[index].Get(field) : default;
+            },
+            (target, value) =>
+            {
+                List<Resource> items = ReadList(target, list);
+                if (index >= items.Count)
+                {
+                    return;
+                }
+                Resource copy = items[index]?.Duplicate() as Resource
+                    ?? (Resource)Activator.CreateInstance(element);
+                copy.Set(field, value);
+                items[index] = copy;
+                WriteList(target, list, items);
+            });
+    }
+
+    // The element itself, for a list of picks.
+    private Binding PickBinding(StringName list, int index)
+    {
+        return new Binding(
+            () =>
+            {
+                List<Resource> items = ReadList(_rowsOwner?.Entry, list);
+                return index < items.Count && items[index] != null ? Variant.From(items[index]) : default;
+            },
+            (target, value) =>
+            {
+                List<Resource> items = ReadList(target, list);
+                if (index < items.Count)
+                {
+                    items[index] = value.As<Resource>();
+                    WriteList(target, list, items);
+                }
+            });
+    }
+
+    // Rebuild the rows once, after the current signal has finished — a list's
+    // own add button is what triggers it, and freeing a button inside its own
+    // Pressed is asking for trouble.
+    private bool _rebuildQueued;
+
+    private void RebuildDeferred()
+    {
+        if (_rebuildQueued)
+        {
+            return;
+        }
+        _rebuildQueued = true;
+        Callable.From(() =>
+        {
+            _rebuildQueued = false;
+            if (_shown?.Entry == null)
+            {
+                return;
+            }
+            FlushPendingEdit();
+            _shownEntry = _shown.Entry;
+            Rebuild();
+        }).CallDeferred();
     }
 
     // Enough to recognise what is in a field the panel cannot edit.

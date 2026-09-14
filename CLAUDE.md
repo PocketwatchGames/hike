@@ -352,10 +352,10 @@ selected.
 
 | Tree | Holds | Test |
 |---|---|---|
-| `worlds/<name>/` | ONE world, whichever producer builds it — its `WorldGenData` **or** its painted `map/`, plus that world's own `WorldStartData` / `WorldScriptData`. (`WorldFinishData` is NOT one of these — the finish passes are tuned once for the game, in `world_authoring/world_finish_data.tres`, and every world points at it.) A painted world links its start content through `WorldMapData.startContent` / `.finish`; the bake records the `WorldStartData`'s path in the `.hike` header and `WorldFileChunkSource` re-resolves it on load | is this world the only thing that wants it? |
-| `worlds/shared/` | the GAME's fiction, used by every world: `npcs/` (conversations, appearances), `party/`, `quests/`, `script_variables/`, `regions/`, `languages/`, `buried/`, and the spawn entries / lists / groups that NAME a character, language or story beat | a proper noun, but not one world's |
-| `world_authoring/` | the reusable kit the AUTHORING TOOLS offer: `terrain/` (a `TerrainData` per material, plus its `details/`), `terrain_kits/` (the four-material `TerrainKitData` the painter paints per column), `zones/`, `presets/`, `props/` (the `PropListData` a painted region is filled from), `spawn_entries/`, `spawn_scatters/`, `subscenes/`, `buried/`, `editor/`, and the two shared singles `prop_library.tres` and `world_finish_data.tres` | a type, kit or style — no proper nouns — **that the painter or the world editor reads** |
-| `world_gen/` | the generator's reusable vocabulary: `TerrainGenData`, `zone_gen/`, `region_gen/`, `foliage_gen/` (`FoliageGenData` — what grows in a zone), `spawn_groups/`, and the `surface_` / `cave_` / `water_entities_*` lists in `spawn_lists/` | nothing but the generator reads it |
+| `worlds/<name>/` | ONE world, whichever producer builds it — its `WorldGenData` **or** its painted `map/`, plus that world's own `WorldStartData` / `WorldScriptData` and `items/` (an item only this world hands out — `map_city_center`). (`WorldFinishData` is NOT one of these — the finish passes are tuned once for the game, in `world_authoring/world_finish_data.tres`, and every world points at it.) A painted world links its start content through `WorldMapData.startContent` / `.finish`; the bake records the `WorldStartData`'s path in the `.hike` header and `WorldFileChunkSource` re-resolves it on load | is this world the only thing that wants it? |
+| `worlds/shared/` | the GAME's fiction, used by every world: `npcs/` (conversations, appearances), `party/`, `quests/`, `script_variables/`, `regions/`, `languages/`, and the spawn entries / lists / groups that NAME a character, language or story beat | a proper noun, but not one world's |
+| `world_authoring/` | the reusable kit the AUTHORING TOOLS offer: `terrain/` (a `TerrainData` per material, plus its `details/`), `terrain_kits/` (the four-material `TerrainKitData` the painter paints per column), `zones/`, `presets/`, `props/` (the `PropListData` a painted region is filled from), `spawn_entries/`, `spawn_scatters/`, `subscenes/`, `editor/`, and the two shared singles `prop_library.tres` and `world_finish_data.tres` | a type, kit or style — no proper nouns — **that the painter or the world editor reads** |
+| `world_gen/` | the generator's reusable vocabulary: `TerrainGenData`, `zone_gen/`, `region_gen/`, `foliage_gen/` (`FoliageGenData` — what grows in a zone), `spawn_groups/`, the `surface_` / `cave_` / `water_entities_*` lists in `spawn_lists/`, and `spawn_entries/` (complete leaves only those lists name — the loot chests; the painter places a `chest` and fills it per placement) | nothing but the generator reads it |
 
 **The `world_authoring` / `world_gen` line is WHO READS IT, not what it is.**
 The two trees hold the same KINDS of thing — `FoliageGenData` and `PropListData`
@@ -375,12 +375,30 @@ from neither, because it is `ZoneGenData.foliage` — generator-only, so it live
 
 **A resource the RUNTIME reads is not authoring vocabulary, even when an authoring
 tool also offers it.** `resources/data/<thing>/` is where those live, beside
-`characters/`, `items/`, `vehicles/` and `waterfalls/`. `roofs/` is the worked
+`characters/`, `items/`, `vehicles/`, `waterfalls/` and `buried/` (the
+`BuriedSpotStyleData` a painter placement picks). `roofs/` is the worked
 example: the world editor's roof brush picks a `RoofStyleData`, which would
 suggest `world_authoring/` — but `Roof` and `RoofMeshBuilder` build the mesh from
 it at runtime and a baked `.hike` references it by path, so it is shipped data
 that an editor happens to offer, not vocabulary the editor owns. Being offered by
 a tool is not the test; being read only by one is.
+
+**A world's own files are offered only in that world.** Anything under
+`worlds/<name>/` belongs to `<name>`; `worlds/shared/` and every tree outside
+`worlds/` belong to no world. Every by-name lookup applies that one rule
+(`WorldScope`): the painter's property-panel pickers (keyed off the document's
+own path), `worldmap_check`, the console's `give` (keyed off the running
+world's `StartContentPath`), and the conversation importer's `give:` / `teach:`
+/ language cells (keyed off the sheet's folder — a separate program, so it
+restates the rule in `ResourceIndex.Pick`). A world's own file shadows an
+unscoped one of the same name, another world's is never offered, and a context
+with no world is offered only the unscoped ones. Visibility only — a scoped
+file still loads by path from anywhere.
+
+The test for putting something there is the same "is this world the only thing
+that wants it?", applied to what REFERENCES it: the zone treasure maps stay in
+`items/` because the reusable `zone_gen/` generators hand them out, and a
+generator reaching into one world's folder is the backwards dependency.
 
 **`ZoneData` is a theme, `RegionData` is a place** — which is why they sit in
 different trees despite looking alike. A zone carries a palette (sky, water
@@ -598,7 +616,8 @@ wants falls straight out of it:
   `+=<int>`).
 - **A gift is written inline too**: `give:<item> [count]` in an action cell,
   spelled exactly like the console's `give` verb and resolving the item the same
-  way — the basename of a `.tres` under `resources/data/items/`. The importer
+  way — the basename of a `.tres` under `resources/data/items/`, or under the
+  sheet's own `worlds/<world>/items/` (see "A world's own files" below). The importer
   emits the `DropLootAction` and its `ItemCount` / `ItemDescriptor`, so the
   speaker drops the item at their feet and the player picks it up, which is
   where a scroll or a potion does its real work. **An authored action `.tres` is

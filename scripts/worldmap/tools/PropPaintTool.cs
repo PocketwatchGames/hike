@@ -124,6 +124,10 @@ public class PropPaintTool : IWorldMapTool
     {
     }
 
+    // The list whose regions are picked out on the map — the one about to be
+    // painted, so cycling the palette walks the map's regions one list at a time.
+    public PropListData SelectedPropList(WorldMapState ctx) => Active(ctx);
+
     private PropListData Active(WorldMapState ctx)
     {
         PropListData[] lists = ctx.PropLists;

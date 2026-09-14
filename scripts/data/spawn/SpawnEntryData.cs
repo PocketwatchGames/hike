@@ -29,15 +29,13 @@ public partial class SpawnEntryData : Resource
     // lives here rather than in the UI.
     //
     // The scatter-only knobs a placement cannot use — rate, cluster count,
-    // anchor pinning — are no longer on an entry at all; they are SpawnRow's,
-    // and a hand placement has no row. What is left is minSpacing, which
-    // TrySpawn skips for an authored position (the author put the mark exactly
-    // there), and initialBehaviorChance, a POPULATION fraction with nothing to
-    // be a fraction of when someone placed this one individually.
+    // anchor pinning, which fraction of a population wanders — are not on an
+    // entry at all; they are SpawnRow's, and a hand placement has no row. What
+    // is left is minSpacing, which TrySpawn skips for an authored position (the
+    // author put the mark exactly there).
     public static bool IsHandPlacedProperty(StringName name)
     {
-        return name != PropertyName.minSpacing
-            && name != "initialBehaviorChance";
+        return name != PropertyName.minSpacing;
     }
 
     // Does this property decide WHICH PALETTE ENTRY this is, rather than which

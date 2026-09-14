@@ -40,6 +40,7 @@ item = ExtResource("rc2")
 [sub_resource type="Resource" id="Row_Stone_highlands"]
 script = ExtResource("grouprow")
 entry = ExtResource("12_stone")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Fixtures_highlands"]
 script = ExtResource("10_grp")

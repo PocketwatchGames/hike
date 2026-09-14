@@ -324,7 +324,7 @@ KIND of thing.
 | Props | `world_authoring/props/` |
 | Mobs | `world_authoring/spawn_scatters/` |
 | Presets | `world_authoring/presets/` |
-| Entities | `world_authoring/spawn_entries/` + `.../mobs/`, `worlds/shared/spawn_entries/` + `.../npcs/` |
+| Entities | `world_authoring/spawn_entries/` + `.../mobs/` + `.../props/`, `worlds/shared/spawn_entries/npcs/` — one row per FAMILY; what a buried spot holds, what a stone teaches, what a chest contains is set on the placement (see [docs/host.md](docs/host.md)) |
 | Water | the block catalog, every block whose `render` is `Water` |
 | Paving | the block catalog, every solid block with a top surface |
 
@@ -377,7 +377,8 @@ stopped being the hub does not error, it bakes a different world.
   the loss is the variants, not the stray entities.
 - **Path hints register no POIs in a painted world**, and there is no road pass
   for them to be endpoints of — paving is a hand-painted material here, not a
-  routed, graded corridor.
+  routed, graded corridor. A painted world's POIs are its NAMED entity
+  placements (see [docs/host.md](docs/host.md)).
 - ~~The bake leaves fog, `EnvTag`, `Interiorness` and the water-current subgrid
   blank.~~ **Fixed.** All four are derived channels the `.hike` serializes and
   nothing recomputes on load, and the bake simply never ran the passes. Both

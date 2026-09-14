@@ -135,6 +135,12 @@ public interface IWorldMapTool
     // choosing the chest in the palette rather than by clicking every mark.
     SpawnEntryData SelectedEntry(WorldMapState ctx) => null;
 
+    // The prop list this tool would paint next, or null. Painted regions of
+    // that list draw full while the rest recede, which is how "where did I put
+    // this one" is answered on a map carrying a directory of them; only the
+    // blocking tool answers with anything.
+    PropListData SelectedPropList(WorldMapState ctx) => null;
+
     // The scatter set this tool has selected, or null. Drives the same panel
     // the entity selection does — a set is the other thing a tool can have
     // "selected" that has contents worth reading — and only the mob tool

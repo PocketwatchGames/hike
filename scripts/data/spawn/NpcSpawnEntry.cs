@@ -239,15 +239,10 @@ public partial class NpcSpawnEntry : MobSpawnEntry
         if (recolor != null) { state.Palette = recolor; }
         if (worn != null && worn.Length > 0) { state.Outfit = worn; }
         if (idleAnimation != null && (string)idleAnimation != "") { state.IdleAnimation = idleAnimation; }
-        // The chance is a POPULATION fraction ("a quarter of spawned goblins
-        // start in Wander"), so it has nothing to be a fraction of when someone
-        // placed this one by hand — an authored placement always takes the
-        // behaviour it names.
-        if (initialBehavior != null && (string)initialBehavior != ""
-            && (context?.AuthoredPosition == true
-                || rng.NextDouble() < initialBehaviorChance))
+        StringName behavior = InitialBehaviorFor(rng, context);
+        if (behavior != null)
         {
-            state.InitialBehavior = initialBehavior;
+            state.InitialBehavior = behavior;
         }
         if (language != null) { state.Language = language; }
         if (conversation != null) { state.Conversation = conversation; }

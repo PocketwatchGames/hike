@@ -228,35 +228,35 @@ public partial class Player : CharacterBody3D
 			_highlightInteractive = closest;
 		}
 
-		// Nothing real in range — offer the ledge in front, if there is one. A
-		// mantle is an INTERACT (the wall climb it ranks against is the Dash
-		// traversal), so it takes the interact slot, but strictly below world
-		// interactives: standing at a chest on a ledge still opens the chest.
+		// Nothing real in range — offer the traversal in front, if there is one.
+		// Every traversal the player can start is an INTERACT, so they take the
+		// interact slot, but strictly below world interactives: standing at a
+		// chest on a ledge still opens the chest.
 		if (_highlightInteractive == null)
 		{
-			bool canMantle = TryFindMantle(out MantleProbe.Candidate candidate);
+			bool canTraverse = TryFindTraversal(out bool descending, out float targetY);
 			// The prompt is placed purely from the player: a fixed offset along
 			// body facing. Nothing in the horizontal position comes from the
-			// candidate, because the candidate's landing is a voxel CENTRE — any
-			// dependence on it makes the prompt step a metre sideways whenever
-			// the target cell changes, which no amount of smoothing hides.
-			// Height is the exception: it has to sit at the ledge, so it is the
-			// one term that steps, and the only one that is eased.
+			// traversal, because its landing is a voxel CENTRE — any dependence
+			// on it makes the prompt step a metre sideways whenever the target
+			// cell changes, which no amount of smoothing hides. Height is the
+			// exception: it has to sit at the ledge, so it is the one term that
+			// steps, and the only one that is eased.
 			Vector3 anchor = Vector3.Zero;
-			if (canMantle)
+			if (canTraverse)
 			{
-				anchor = GlobalPosition + BodyForward() * data.mantlePromptForwardOffset;
-				anchor.Y = candidate.landing.Y + data.mantlePromptLift;
+				anchor = GlobalPosition + BodyForward() * data.traversalPromptForwardOffset;
+				anchor.Y = targetY + data.traversalPromptLift;
 			}
-			MantleInteract.SetCandidate(canMantle, candidate, anchor, dt);
-			if (canMantle)
+			TraversalInteract.SetTarget(canTraverse, descending, anchor, dt);
+			if (canTraverse)
 			{
-				_highlightInteractive = MantleInteract;
+				_highlightInteractive = TraversalInteract;
 			}
 		}
 		else
 		{
-			MantleInteract.SetCandidate(false, default, Vector3.Zero, dt);
+			TraversalInteract.SetTarget(false, false, Vector3.Zero, dt);
 		}
 
 		if (_highlightInteractive != prevHighlight)

@@ -138,7 +138,7 @@ public static class ClimbMarkDebug
         GD.Print($"  facingDot={dot:F3} needs<={need:F3} pass={dot <= need}");
 
         // A short wall offers a MANTLE, which is a different button — the interact
-        // press, via MantleInteract — so a face reported climbable here is still
+        // press, via TraversalInteract — so a face reported climbable here is still
         // reached with Dash whether or not the mantle is also on offer.
         bool canMantle = player.CanMantle();
         GD.Print($"  VERDICT canClimb={player.CanClimb()} canMantle={canMantle}"

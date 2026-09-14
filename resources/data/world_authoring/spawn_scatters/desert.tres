@@ -17,16 +17,22 @@
 script = ExtResource("listrow")
 squareMetersPerSpawn = 1000.0
 entry = ExtResource("e_goblin_desert")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_goblin_desert_elite"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 6667.0
 entry = ExtResource("e_goblin_desert_elite")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_kun_kun_desert"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 200.0
 entry = ExtResource("e_kun_kun_desert")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.8
 spawnConditions = 2
 
 [sub_resource type="Resource" id="Row_spike_trap"]
@@ -43,6 +49,8 @@ entry = ExtResource("e_cactus")
 script = ExtResource("listrow")
 squareMetersPerSpawn = 800.0
 entry = ExtResource("e_spider_desert")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_drake_desert"]
 script = ExtResource("listrow")

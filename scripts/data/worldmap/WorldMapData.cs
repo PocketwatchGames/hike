@@ -181,6 +181,11 @@ public partial class WorldMapData : Resource
     // Where BakeToWorldFile writes the packed world (res:// path).
     [Export] public string outputWorldPath = "";
 
+    // The world this document authors — the worlds/<name>/ it sits in — which
+    // decides what the painter's pickers offer (WorldScope). Null for a
+    // document outside worlds/.
+    public string World => WorldScope.Of(ResourcePath);
+
     public Vector3I MinChunk => new Vector3I(-sizeChunksX / 2, floorChunkY, -sizeChunksZ / 2);
     public Vector3I MaxChunk => new Vector3I(MinChunk.X + sizeChunksX - 1, ceilChunkY, MinChunk.Z + sizeChunksZ - 1);
 

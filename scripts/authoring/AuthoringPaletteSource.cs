@@ -141,13 +141,19 @@ public sealed class AuthoringPaletteSource
 
         // FREE: EntityPlacement holds its entry by reference, so this list may
         // be reordered by a rename with no consequence at all.
+        //
+        // One row per FAMILY — a buried spot, a knowledge stone, a chest — with
+        // what this one holds picked on the placement. The top of
+        // worlds/shared/spawn_entries/ is deliberately not a root: every file
+        // there is a complete stone or treasure the generator names, and a
+        // proper noun (a language, a song verse) belongs on a placement, not on
+        // a palette row.
         new(Entities, "Entities", typeof(SpawnEntryData), indexed: false,
             roots: new[]
             {
                 new PaletteRoot(AUTHORING + "spawn_entries/", "Interactives"),
                 new PaletteRoot(AUTHORING + "spawn_entries/mobs/", "Mobs"),
                 new PaletteRoot(AUTHORING + "spawn_entries/props/", "Props"),
-                new PaletteRoot(SHARED + "spawn_entries/", "Landmarks"),
                 new PaletteRoot(SHARED + "spawn_entries/npcs/", "NPCs"),
             }),
 

@@ -86,30 +86,31 @@ public partial class PlayerData : Resource
 	// Seconds to carry the player over the ledge. Sim-clock, so it slows with
 	// slow-mo like any other timed world action.
 	[Export] public float mantleDuration = 0.45f;
-	// The interact entries surfaced when a ledge is in front — one per
-	// direction, so each carries its own arrow icon and label. Their
-	// completionEvents must include OpenInteractive; that is what starts the
-	// traversal. Leaving either unassigned simply stops that direction being
-	// offered.
-	[Export] public InteractiveAction mantleUpAction;
-	[Export] public InteractiveAction mantleDownAction;
+	// The interact entries surfaced when a traversal is available — a ledge to
+	// mantle, a wall face to take hold of, a lip to back over. One per
+	// DIRECTION rather than per traversal, so each carries its own arrow icon
+	// and label and the three read as one affordance. Their completionEvents
+	// must include OpenInteractive; that is what starts the traversal. Leaving
+	// either unassigned simply stops that direction being offered.
+	[Export] public InteractiveAction traversalUpAction;
+	[Export] public InteractiveAction traversalDownAction;
 	// Widest angle between the player's facing and the ledge that still offers a
 	// climb (radians; the inspector shows degrees). Stops a ledge being offered
 	// while running past it — the player has to be looking at the thing they
 	// would climb, not merely standing near it.
 	[Export(PropertyHint.Range, "0,180,1,radians_as_degrees")]
 	public float mantleFacingAngle = Mathf.Pi / 3f;
-	// Where the climb prompt sits: this far from the player ALONG the climb
-	// direction. Its position orthogonal to that direction is simply the
-	// player's, which is what keeps the prompt gliding sideways along a ledge
-	// instead of snapping between voxel centres as they walk.
-	[Export] public float mantlePromptForwardOffset = 0.9f;
+	// Where the traversal prompt sits: this far from the player ALONG their
+	// facing. Its position orthogonal to that direction is simply the player's,
+	// which is what keeps the prompt gliding sideways along a ledge instead of
+	// snapping between voxel centres as they walk.
+	[Export] public float traversalPromptForwardOffset = 0.9f;
 	// Height above the landing surface, so the prompt floats over the ledge
 	// rather than sitting in the ground the player is about to stand on.
-	[Export] public float mantlePromptLift = 1f;
+	[Export] public float traversalPromptLift = 1f;
 	// Smoothing time for the prompt. Covers the one discontinuity the offset
 	// above cannot: the landing HEIGHT still changes in whole voxels.
-	[Export] public float mantlePromptSmoothTime = 0.08f;
+	[Export] public float traversalPromptSmoothTime = 0.08f;
 
 	// --- Surface climbing ---------------------------------------------------
 	// How far in front to look for a climbable wall face. Same constraint as

@@ -29,8 +29,9 @@ motionFreezeGravity = false
 
 [sub_resource type="Resource" id="Resource_event_bite"]
 script = ExtResource("4_event")
-time = 350
+time = 200
 type = 1
+meleeDuration = 0.2
 impactEnvironmentEffect = ExtResource("7_solidfx")
 impactHealthEffect = ExtResource("6_hitfx")
 impactArmorEffect = ExtResource("7_solidfx")

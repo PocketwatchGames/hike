@@ -26,10 +26,11 @@ motionDuration = 0.22
 
 [sub_resource type="Resource" id="Resource_event_strike"]
 script = ExtResource("4_event")
-time = 420
+time = 300
 type = 1
 range = 3.0
 farWidth = 2.5
+meleeDuration = 0.2
 impactEnvironmentEffect = ExtResource("7_solidfx")
 impactHealthEffect = ExtResource("6_hitfx")
 impactArmorEffect = ExtResource("7_solidfx")

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="SpawnScatterData" format=3]
 
 [ext_resource type="Script" uid="uid://hl0oi1pwfpm94" path="res://scripts/data/worldmap/SpawnScatterData.cs" id="1_list"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/buried_spot.tres" id="e_buried_spot"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/buried_carrot.tres" id="e_buried_carrot"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/drake_mountain.tres" id="e_drake_mountain"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/drake_mountain_elite.tres" id="e_drake_mountain_elite"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_mountain.tres" id="e_goblin_mountain"]
@@ -18,18 +18,24 @@
 script = ExtResource("listrow")
 squareMetersPerSpawn = 200.0
 entry = ExtResource("e_goblin_mountain")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 spawnConditions = 2
 
 [sub_resource type="Resource" id="Row_goblin_mountain_elite"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 1333.0
 entry = ExtResource("e_goblin_mountain_elite")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.25
 spawnConditions = 2
 
 [sub_resource type="Resource" id="Row_kun_kun_mountain"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 200.0
 entry = ExtResource("e_kun_kun_mountain")
+initialBehavior = &"Wander"
+initialBehaviorChance = 0.33
 
 [sub_resource type="Resource" id="Row_drake_mountain"]
 script = ExtResource("listrow")
@@ -67,13 +73,13 @@ squareMetersPerSpawn = 100.0
 entry = ExtResource("e_sparrow_mountain")
 spawnConditions = 9
 
-[sub_resource type="Resource" id="Row_buried_spot"]
+[sub_resource type="Resource" id="Row_buried_carrot"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 200.0
-entry = ExtResource("e_buried_spot")
+entry = ExtResource("e_buried_carrot")
 
 [resource]
 script = ExtResource("1_list")
 displayName = "Mountain"
 mapColor = Color(0.7, 0.4, 0.55, 1)
-rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_mountain"), SubResource("Row_goblin_mountain_elite"), SubResource("Row_kun_kun_mountain"), SubResource("Row_drake_mountain"), SubResource("Row_drake_mountain_elite"), SubResource("Row_mushroom_blue"), SubResource("Row_mushroom_white"), SubResource("Row_mushroom_black"), SubResource("Row_mushroom_gold"), SubResource("Row_sparrow_mountain"), SubResource("Row_buried_spot")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_mountain"), SubResource("Row_goblin_mountain_elite"), SubResource("Row_kun_kun_mountain"), SubResource("Row_drake_mountain"), SubResource("Row_drake_mountain_elite"), SubResource("Row_mushroom_blue"), SubResource("Row_mushroom_white"), SubResource("Row_mushroom_black"), SubResource("Row_mushroom_gold"), SubResource("Row_sparrow_mountain"), SubResource("Row_buried_carrot")])

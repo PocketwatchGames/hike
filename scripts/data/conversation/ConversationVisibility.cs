@@ -18,6 +18,12 @@ using Godot;
 // response's textLocKey so a given response has a stable threshold; as the
 // player learns more language components, both factors climb and
 // previously-hidden options pop into the menu.
+//
+// That roll is drawn from [SimData.conversationVisibilityFloor, 1), not
+// [0, 1) — a floor on the whole mechanism. Without it a response whose key
+// hashed low was offered at almost any comprehension, which reads as a bug
+// rather than as a lucky guess, and is most obvious in a one-response group
+// where the lottery looks like an on/off switch.
 public static class ConversationVisibility
 {
     // Aggregate comprehension across every line in `branch.lineLocKeys`
@@ -93,7 +99,7 @@ public static class ConversationVisibility
     // is the pre-computed branch score from ComputeBranchComprehension;
     // pass 1f to skip the branch factor entirely. `grammarWeight` comes
     // from SimData.LanguageGrammarWeight.
-    public static ResponseVisibilityResult Compute(ConversationResponse response, ConversationContext ctx, LanguageData branchLanguage, float branchComprehension, float grammarWeight)
+    public static ResponseVisibilityResult Compute(ConversationResponse response, ConversationContext ctx, LanguageData branchLanguage, float branchComprehension, float grammarWeight, float visibilityFloor)
     {
         if (response == null)
         {
@@ -140,9 +146,12 @@ public static class ConversationVisibility
         // same threshold across the run, so a response that's hidden at
         // a given combined score stays hidden until the player learns
         // enough to push the score past it.
+        // Drawn from [visibilityFloor, 1), so the floor is the comprehension
+        // every response demands and the spread above it is what staggers them
+        // into the menu. A response is never offered on a low hash alone.
         int seed = TextScrambler.StableSeed(key.ToString());
         System.Random rng = new System.Random(seed);
-        float roll = (float)rng.NextDouble();
+        float roll = visibilityFloor + (1f - visibilityFloor) * (float)rng.NextDouble();
         return new(true, roll < combined, combined, roll);
     }
 }

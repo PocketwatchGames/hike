@@ -151,7 +151,7 @@ class TresWriter
 		{
 			return;
 		}
-		ResRef language = _index.Language(name);
+		ResRef language = _index.Language(character.World, name);
 		if (language == null)
 		{
 			_report.Error(row, $"unknown language '{name}' - no LanguageData under resources/ declares it");
@@ -240,7 +240,7 @@ class TresWriter
 		{
 			if (GiveCell.IsGiveToken(name))
 			{
-				GiveRef gift = GiveCell.Parse(name, _index, row, _report);
+				GiveRef gift = GiveCell.Parse(name, _index, character.World, row, _report);
 				if (gift != null)
 				{
 					ids.Add($"SubResource(\"{AppendGift(gift)}\")");
@@ -249,7 +249,7 @@ class TresWriter
 			}
 			if (TeachCell.IsTeachToken(name))
 			{
-				TeachRef lesson = TeachCell.Parse(name, _index, row, _report);
+				TeachRef lesson = TeachCell.Parse(name, _index, character.World, row, _report);
 				if (lesson != null)
 				{
 					ids.Add($"SubResource(\"{AppendLesson(lesson)}\")");

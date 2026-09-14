@@ -29,7 +29,7 @@ public static partial class Loc
 		controls_gamepad,
 		controls_back,
 		controls_unbound,
-		controls_dash_climb,
+		controls_dash,
 		controls_interact,
 		controls_lantern_heal,
 		controls_sneak_block_parry,

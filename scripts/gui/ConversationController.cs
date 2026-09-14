@@ -207,6 +207,7 @@ public partial class ConversationController : Control
 		// Look up the language tuning once. Falls back to a sensible default
 		// if SimData is unavailable (e.g. very early bootstrap or tests).
 		float grammarWeight = _ctx.sim?.SimData?.languageGrammarWeight ?? 0.2f;
+		float visibilityFloor = _ctx.sim?.SimData?.conversationVisibilityFloor ?? 0.5f;
 		// Pre-compute the branch score once; Compute mins it with each
 		// response's own score so the bottleneck axis caps visibility.
 		float branchComp = primary != null
@@ -221,7 +222,7 @@ public partial class ConversationController : Control
 				continue;
 			}
 			ConversationVisibility.ResponseVisibilityResult vis =
-				ConversationVisibility.Compute(r, _ctx, lang, branchComp, grammarWeight);
+				ConversationVisibility.Compute(r, _ctx, lang, branchComp, grammarWeight, visibilityFloor);
 			// Condition-gated responses stay hidden even in debug — the
 			// debug toggle is for the language-comprehension gate only.
 			if (!vis.ConditionPassed)

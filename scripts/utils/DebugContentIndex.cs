@@ -21,13 +21,65 @@ public static class DebugContentIndex
         "res://resources/data/characters",
         "res://resources/data/worlds/shared/npcs",
     };
+    // Items live in items/ and in each world's own worlds/<name>/items/.
     private const string ItemRoot = "res://resources/data/items";
+    private const string WorldsRoot = "res://resources/data/worlds";
+    private const string WorldItemsDir = "items";
 
     private static Dictionary<string, string> _species;
-    private static Dictionary<string, string> _items;
+    private static List<(string Name, string Path)> _itemFiles;
+    private static readonly Dictionary<string, Dictionary<string, string>> _itemsByWorld = new();
 
     public static Dictionary<string, string> Species => _species ??= Scan(SpeciesRoots);
-    public static Dictionary<string, string> Items => _items ??= Scan(ItemRoot);
+
+    // The items a game in `world` may name (WorldScope): that world's own, then
+    // every unscoped one. A world's own item shadows an unscoped one of the same
+    // name, and another world's are not listed at all.
+    public static Dictionary<string, string> ItemsIn(string world)
+    {
+        string key = world ?? "";
+        if (_itemsByWorld.TryGetValue(key, out Dictionary<string, string> cached))
+        {
+            return cached;
+        }
+        _itemFiles ??= ScanItemFiles();
+        var map = new Dictionary<string, string>();
+        foreach ((string name, string path) in _itemFiles)
+        {
+            if (world != null && WorldScope.Of(path) == world)
+            {
+                map[name] = path;
+            }
+        }
+        foreach ((string name, string path) in _itemFiles)
+        {
+            if (WorldScope.Of(path) == null)
+            {
+                map.TryAdd(name, path);
+            }
+        }
+        _itemsByWorld[key] = map;
+        return map;
+    }
+
+    private static List<(string Name, string Path)> ScanItemFiles()
+    {
+        var files = new List<(string, string)>();
+        ScanInto(ItemRoot, files);
+        using DirAccess worlds = DirAccess.Open(WorldsRoot);
+        if (worlds != null)
+        {
+            foreach (string world in worlds.GetDirectories())
+            {
+                string dir = $"{WorldsRoot}/{world}/{WorldItemsDir}";
+                if (DirAccess.DirExistsAbsolute(dir))
+                {
+                    ScanInto(dir, files);
+                }
+            }
+        }
+        return files;
+    }
 
     // Resolve a name against one index and load it as T. Accepts an exact
     // basename or a unique substring; returns null with a filled-in `error` for
@@ -88,15 +140,22 @@ public static class DebugContentIndex
 
     private static Dictionary<string, string> Scan(params string[] roots)
     {
-        var map = new Dictionary<string, string>();
+        var files = new List<(string Name, string Path)>();
         foreach (string root in roots)
         {
-            ScanInto(root, map);
+            ScanInto(root, files);
+        }
+        var map = new Dictionary<string, string>();
+        foreach ((string name, string path) in files)
+        {
+            // First one wins; a duplicate basename across two folders is
+            // reachable by its unique-substring path form instead.
+            map.TryAdd(name, path);
         }
         return map;
     }
 
-    private static void ScanInto(string dir, Dictionary<string, string> map)
+    private static void ScanInto(string dir, List<(string Name, string Path)> files)
     {
         using DirAccess da = DirAccess.Open(dir);
         if (da == null)
@@ -114,7 +173,7 @@ public static class DebugContentIndex
             }
             if (da.CurrentIsDir())
             {
-                ScanInto($"{dir}/{entry}", map);
+                ScanInto($"{dir}/{entry}", files);
                 continue;
             }
             // An exported build serves resources as `<file>.tres.remap`; an
@@ -125,9 +184,7 @@ public static class DebugContentIndex
                 continue;
             }
             string name = file.Substring(0, file.Length - ".tres".Length).ToLowerInvariant();
-            // First one wins; a duplicate basename across two folders is
-            // reachable by its unique-substring path form instead.
-            map.TryAdd(name, $"{dir}/{file}");
+            files.Add((name, $"{dir}/{file}"));
         }
         da.ListDirEnd();
     }

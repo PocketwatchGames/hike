@@ -14,11 +14,13 @@ metadata/_custom_type_script = "uid://kfffp8mrtgin"
 [sub_resource type="Resource" id="Row_Boat_home"]
 script = ExtResource("grouprow")
 entry = SubResource("Boat_home")
+initialBehavior = null
 
 [sub_resource type="Resource" id="Row_safety_zone"]
 script = ExtResource("grouprow")
 placeAtAnchor = true
 entry = ExtResource("e_safety_zone")
+initialBehavior = null
 
 [resource]
 script = ExtResource("2_group")

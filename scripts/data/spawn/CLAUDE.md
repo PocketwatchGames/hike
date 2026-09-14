@@ -10,7 +10,7 @@ so a zone's entity list reads as a list of named files with a number each:
 
 | Row type | Container | Adds |
 |---|---|---|
-| `SpawnRow` (base) | — | `entry`, `spawnConditions` |
+| `SpawnRow` (base) | — | `entry`, `spawnConditions`, `initialBehavior` + `initialBehaviorChance` |
 | `SpawnListRow` | `SpawnListData.rows` | `squareMetersPerSpawn` (per-column area rate) |
 | `SpawnGroupRow` | `SpawnGroupData.rows` | `countMin`/`countMax`, `placeAtAnchor` |
 
@@ -27,11 +27,22 @@ container is worse than a missing one: it invites tuning that does nothing.
   had to embed its own copy of every entry and one well was re-authored in three
   files. `spawnConditions` is on the shared base because it is the one question
   BOTH containers ask.
-- **`spawnConditions` reaches `Spawn` on the `SpawnContext`**, stamped by the row
-  immediately before each spawn. `Spawn` is overridden by ~20 entry types and only
-  three (mob, npc, chest) have a sim state that can defer on a condition, so
-  widening every signature for it is the worse trade. Nothing clears the field —
-  every caller sets it for the row it is about to place.
+- **A population rule is a per-container value too**: which behaviour a row's
+  mobs start in and what fraction of them do (`initialBehavior` /
+  `initialBehaviorChance`, "a quarter of these goblins wander"). On the entry, the
+  pair forced four `goblin_*_torchbearer_camp` files that were the plain
+  torchbearers minus a wander. `MobSpawnEntry.initialBehavior` survives only as
+  what ONE individual starts in — set on a painter placement's fork, never on a
+  shared file — and wins outright when set.
+- **The row's statements reach `Spawn` on the `SpawnContext`**, stamped by the row
+  immediately before each spawn and RESTORED after it (`SpawnRow.Stamp`).
+  `Spawn` is overridden by ~20 entry types and only three (mob, npc, chest) read
+  any of it, so widening every signature is the worse trade. Scoped rather than
+  left behind because a context outlives its rows: the painter's bake places its
+  hand-placed entities on the context its scatter pass used, and they inherited
+  whichever row ran last — its day/night gate, and a behaviour an authored
+  position takes unconditionally. A group's rows nest inside the list row that
+  named the group and restore it on the way out.
 - **A facing reaches `Spawn` on the same `SpawnContext`, and EVERY entry honours
   one.** Every `EntitySimState` carries a `RotationY` that `SeatTransform`
   applies, so which way a placed entity looks is a property of the PLACEMENT, not

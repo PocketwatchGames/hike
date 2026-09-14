@@ -41,15 +41,31 @@ public static class ResourceTypeIndex
 
     private static Dictionary<Type, List<string>> _byType;
 
-    // Every .tres whose resource is `type` or a subclass of it, sorted by name.
-    public static string[] Candidates(Type type)
+    // Every .tres whose resource is `type` or a subclass of it that a context
+    // working in `world` is offered (see WorldScope — another world's own files
+    // are left out), sorted by name.
+    public static string[] Candidates(Type type, string world)
     {
+        var found = new List<string>();
+        foreach (string path in AllOf(type))
+        {
+            if (WorldScope.Offers(world, path))
+            {
+                found.Add(path);
+            }
+        }
+        return found.ToArray();
+    }
+
+    // Every .tres of `type` or a subclass, whatever world it belongs to.
+    private static List<string> AllOf(Type type)
+    {
+        var found = new List<string>();
         if (type == null)
         {
-            return Array.Empty<string>();
+            return found;
         }
         Build();
-        var found = new List<string>();
         foreach ((Type carried, List<string> paths) in _byType)
         {
             if (type.IsAssignableFrom(carried))
@@ -58,7 +74,7 @@ public static class ResourceTypeIndex
             }
         }
         found.Sort();
-        return found.ToArray();
+        return found;
     }
 
     // Every .tres of `type` sitting DIRECTLY in one of `roots` — no
@@ -76,7 +92,9 @@ public static class ResourceTypeIndex
             return Array.Empty<string>();
         }
         var found = new List<string>();
-        foreach (string path in Candidates(type))
+        // Unscoped: the roots name exactly where to look, and a caller naming a
+        // world's own directory means it.
+        foreach (string path in AllOf(type))
         {
             string dir = path.GetBaseDir();
             foreach (string root in roots)
