@@ -61,7 +61,6 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 [resource]
 script = ExtResource("1_mob")
 displayName = &"Drake"
-visionRange = 22.0
 visionDotPower = 2.0
 dangerous = true
 maxHealth = 280.0
