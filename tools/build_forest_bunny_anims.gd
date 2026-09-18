@@ -6,12 +6,12 @@ extends SceneTree
 # forest_bunny_anims.res, renamed to the canonical EAnimation slot names the
 # kun-kun MobData authors (idle / run / die / dead / hitstun / ...). The
 # ModelAnimator on kun_kun.tscn plays clips by those slot names, exactly like
-# the player's swordsman_anims.res.
+# the player's human_anims.res.
 #
 # The source anim FBX are build-inputs only (not committed — the baked .res is
-# self-contained, mirroring the swordsman pipeline). To regenerate, re-copy
+# self-contained, mirroring the player pipeline). To regenerate, re-copy
 # them from the external AssetDump into
-# assets/models/characters/forest_bunny/anims/ (see paths in MAP), then run:
+# asset_src/models/characters/forest_bunny/anims/ (see paths in MAP), then run:
 #   Godot --path . --headless -s res://tools/build_forest_bunny_anims.gd
 #
 # The Forest Bunny lacks swim / burrow / fall / dizzy / jump clips, so those
@@ -20,7 +20,8 @@ extends SceneTree
 # All clips share the bunny's 5-bone Skeleton3D track paths, so they retarget
 # onto the base mesh when played by an AnimationPlayer rooted at the FBX root.
 
-const ANIMS := "res://assets/models/characters/forest_bunny/anims/"
+# Relative to asset_src/.
+const ANIMS := "models/characters/forest_bunny/anims/"
 const OUT := "res://assets/models/characters/forest_bunny/forest_bunny_anims.res"
 
 # slot_name -> [fbx_relpath, loop]. "run" uses the in-place hop (physics drives
@@ -53,10 +54,15 @@ func _find(n, cls):
 			return r
 	return null
 
+# asset_src/ is .gdignored, so the FBX is parsed (FbxClipSource) rather than load()ed.
+# Loaded by path: a headless -s run never registers C# global class names.
+func _parse_player(f: String) -> AnimationPlayer:
+	var scene = load("res://scripts/data/FbxClipSource.cs").new().ParseScene(ANIMS + f, false)
+	return _find(scene, "AnimationPlayer") if scene else null
+
 func _clip(players: Dictionary, f: String) -> Animation:
 	if not players.has(f):
-		var inst = (load(ANIMS + f) as PackedScene).instantiate()
-		players[f] = _find(inst, "AnimationPlayer")
+		players[f] = _parse_player(f)
 	var ap: AnimationPlayer = players[f]
 	if ap == null or not ap.has_animation("Take 001"):
 		return null

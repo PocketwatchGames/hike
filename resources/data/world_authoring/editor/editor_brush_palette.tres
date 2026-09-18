@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="EditorBrushPalette" format=3 uid="uid://ds68oe11qlnae"]
 
 [ext_resource type="Script" uid="uid://bvswblqkqx1yl" path="res://scripts/editor/EditorBrushPalette.cs" id="1_palette"]
+[ext_resource type="CompressedTexture2DArray" uid="uid://b0vox3ltile0a" path="res://assets/textures/terrain/voxel_tiles.png" id="2_tile_atlas"]
 [ext_resource type="Resource" uid="uid://b1ee1ch87plrm" path="res://resources/data/weather/weather_clear.tres" id="15_weather_clear"]
 [ext_resource type="Resource" uid="uid://dg6i16eia6jvl" path="res://resources/data/roofs/roof_library.tres" id="16_rooflibrary"]
 [ext_resource type="Resource" path="res://resources/data/weather/weather_temperate.tres" id="16_weather_temperate"]
@@ -11,7 +12,7 @@
 
 [resource]
 script = ExtResource("1_palette")
-atlasManifestPath = "res://resources/data/voxels/surfaces/voxel_atlas_manifest.tres"
+tileAtlas = ExtResource("2_tile_atlas")
 roofLibrary = ExtResource("16_rooflibrary")
 weatherPresets = [ExtResource("16_weather_temperate"), ExtResource("15_weather_clear"), ExtResource("17_weather_overcast"), ExtResource("18_weather_snow_light"), ExtResource("19_weather_snow_heavy"), ExtResource("20_weather_snow_blizzard")]
 metadata/_custom_type_script = "uid://bvswblqkqx1yl"

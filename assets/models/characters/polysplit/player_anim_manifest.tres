@@ -373,6 +373,7 @@ name = "climb_down"
 resource_name = "climb_idle"
 script = ExtResource("2_clip")
 name = "climb_idle"
+keepConstantTracks = true
 
 [resource]
 script = ExtResource("1_panim")

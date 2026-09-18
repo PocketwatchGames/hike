@@ -15,13 +15,13 @@ func _init():
 	e.background_color = Color(0.3,0.4,0.5); e.ambient_light_color = Color(1,1,1); e.ambient_light_energy = 1.0
 	env.environment = e; root.add_child(env)
 
-	# Villager: BasicHero_M + model_lit + Hunter allowlist + swordsman idle
+	# Villager: BasicHero_M + model_lit + Hunter allowlist + human idle
 	var v = (load("res://assets/models/characters/polysplit/BasicHero_M.fbx") as PackedScene).instantiate()
 	v.position = Vector3(-0.7, 0, 0)
 	var allow = ["M_Head","M_eyes0","M_eyebrows0","M_mouth0","M_hair_2b","M_Hunter_Top","M_Hunter_Bottom","M_Hunter_FeltedHat"]
 	var mat = load("res://resources/materials/model_lit.tres")
 	_apply(v, allow, mat)
-	var vap := AnimationPlayer.new(); vap.add_animation_library("", load("res://assets/models/characters/polysplit/swordsman_anims.res"))
+	var vap := AnimationPlayer.new(); vap.add_animation_library("", load("res://assets/models/characters/polysplit/human_anims.res"))
 	v.add_child(vap); root.add_child(v); vap.play("idle")
 
 	# Sparrow: birdy + birdy_lit + idle, scale 0.12

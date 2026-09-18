@@ -40,16 +40,21 @@ public sealed class WorldFileChunkSource : IChunkSource
     public List<EntitySimState> PersistentEntities { get; }
 
     private readonly Dictionary<Vector3I, WorldFile.IndexEntry> _index;
-    private readonly FileStream _stream;
+    private readonly Stream _stream;
     private readonly object _lock = new();
     // File-wide resource-path table from the header; every chunk's entity list
     // resolves its path indices against it.
     private readonly EntitySerializer.ReadPathTable _pathTable;
 
+    // The header and index are thousands of tiny reads; unbuffered, each one is a
+    // native FileAccess call.
+    private const int READ_BUFFER_BYTES = 1 << 16;
+
     public WorldFileChunkSource(string path)
     {
-        string osPath = ProjectSettings.GlobalizePath(path);
-        _stream = File.Open(osPath, FileMode.Open, System.IO.FileAccess.Read, FileShare.Read);
+        // Godot's FileAccess, not System.IO: in an exported build a res:// world
+        // lives inside the .pck and has no OS path.
+        _stream = new BufferedStream(new GodotFileReadStream(path), READ_BUFFER_BYTES);
         var r = new BinaryReader(_stream, Encoding.UTF8, leaveOpen: true);
 
         WorldFile.Header header = WorldFile.ReadHeader(r);
@@ -112,7 +117,7 @@ public sealed class WorldFileChunkSource : IChunkSource
             return false;
         }
 
-        // FileStream.Seek + Read is not thread-safe; serialize for safety so a
+        // Stream.Seek + Read is not thread-safe; serialize for safety so a
         // future async loader can share the source without surprises.
         lock (_lock)
         {
@@ -139,5 +144,74 @@ public sealed class WorldFileChunkSource : IChunkSource
     public void Dispose()
     {
         _stream?.Dispose();
+    }
+
+    // Read-only, seekable Stream over a Godot FileAccess.
+    private sealed class GodotFileReadStream : Stream
+    {
+        private readonly Godot.FileAccess _file;
+
+        public GodotFileReadStream(string path)
+        {
+            _file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read);
+            if (_file == null)
+            {
+                throw new IOException($"could not open '{path}' ({Godot.FileAccess.GetOpenError()})");
+            }
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => true;
+        public override bool CanWrite => false;
+        public override long Length => (long)_file.GetLength();
+
+        public override long Position
+        {
+            get => (long)_file.GetPosition();
+            set => _file.Seek((ulong)value);
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            byte[] bytes = _file.GetBuffer(count);
+            System.Array.Copy(bytes, 0, buffer, offset, bytes.Length);
+            return bytes.Length;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            long target = origin switch
+            {
+                SeekOrigin.Current => Position + offset,
+                SeekOrigin.End => Length + offset,
+                _ => offset,
+            };
+            Position = target;
+            return target;
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override void SetLength(long value)
+        {
+            throw new System.NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new System.NotSupportedException();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _file.Close();
+                _file.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 }

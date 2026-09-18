@@ -109,7 +109,7 @@ public static class WorldFinish
     //                consumers, and the seed interiorness floods from.
     //   classify   — cover to space class, per env cell.
     //   wind       — from interiorness and the cell's space class.
-    //   fog        — humidity poured over the ground; open-to-sky air only.
+    //   fog        — humidity-deep layer over local low ground; open-to-sky air only.
     //   currents   — ambient drift, then river flow over the columns carrying it.
     //   waterfalls — cascades in the finished water, as entities.
     //
@@ -668,17 +668,19 @@ public static class WorldFinish
         }
     }
 
-    // Bucket-fill ground fog. For each zone we compute a "fog level" Y_i
-    // by pouring a humidity-scaled volume into the zone's heightmap (sorted
-    // floor heights, water-clamped) and finding where it settles. Per voxel
-    // the level blends across zones via the prop/terrain kernel; density falls
-    // off linearly with distance below the level. Only open-to-sky voxels
-    // get seeded — caves / tunnels stay fog-free.
+    // Ground fog pools over LOCAL low ground. Each chunk records its lowest
+    // floor (ground, or the water surface over it); each chunk then takes the
+    // lowest of those within fogPoolRadiusChunks, lightly box-blurred, and each
+    // column bilinearly samples that between chunk centres. The fog top sits
+    // humidity * fogDepthPerHumidity above it, humidity blended across zones by
+    // the usual kernel — so a valley fills and a hill standing above the depth
+    // stays clear. Local on purpose: one level per zone let a zone painted in
+    // several patches pour all its fog into the lowest one.
+    // Only open-to-sky air is seeded — caves / tunnels stay fog-free.
     // `groundYAt` is the TERRAIN the fog pools over, not the top of the world:
-    // a stamped building must not raise the fog ceiling over the village it
-    // stands in. Zone identity comes off the finished chunks rather than the
-    // generator's zone placement, so a painted world — whose chunks carry the
-    // painted index — fogs by the same rule.
+    // a stamped building must not raise the floor of the village it stands in.
+    // Zone identity comes off the finished chunks, so a painted world fogs by
+    // the same rule.
     public static void GenerateFog(WorldState ws, WorldFinishData finish,
         Func<int, int, int> groundYAt)
     {
@@ -694,55 +696,42 @@ public static class WorldFinish
         int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
         int worldMinZ = ws.Min.Z * ChunkState.SIZE;
         int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int sizeCX = ws.Max.X - ws.Min.X + 1;
+        int sizeCZ = ws.Max.Z - ws.Min.Z + 1;
 
-        // Step 1 — gather each zone's column floor heights, water-clamped.
-        // Floors below TerrainMath.SEA_LEVEL get pinned there: water surface IS the
-        // bucket bottom over submerged columns (we don't fog underwater).
-        var zoneGrid = new ChunkZoneGrid(ws);
-        var zoneFloors = new List<int>[zoneCount];
+        float[] zoneDepth = new float[zoneCount];
         for (int i = 0; i < zoneCount; i++)
         {
-            zoneFloors[i] = new List<int>();
+            WeatherData weather = ws.Zones[i].Data?.weather;
+            zoneDepth[i] = weather != null ? weather.humidity * finish.fogDepthPerHumidity : 0f;
         }
+
+        // Step 1 — lowest floor per chunk. Water counts as floor (we don't fog
+        // underwater), read off the voxels because a painted lake sits wherever
+        // it was painted, not at the generator's sea level.
+        float[] chunkFloor = new float[sizeCX * sizeCZ];
+        Array.Fill(chunkFloor, float.PositiveInfinity);
         for (int wx = worldMinX; wx <= worldMaxX; wx++)
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
             {
-                // Clamped: a chunk stamped against a longer zone table (a world
-                // re-baked after a zone was removed) would otherwise index off
-                // the end of the bucket array and take the whole bake down.
-                int zoneIdx = Math.Min(zoneGrid.At(wx >> CHUNK_SHIFT, wz >> CHUNK_SHIFT), zoneCount - 1);
-                int h = groundYAt(wx, wz);
-                zoneFloors[zoneIdx].Add(Math.Max(h, TerrainMath.SEA_LEVEL));
+                int floor = groundYAt(wx, wz);
+                while (floor < worldMaxY && Blocks.IsWater(ws.GetBlockWorld(wx, floor + 1, wz)))
+                {
+                    floor++;
+                }
+                int ci = ((wx >> CHUNK_SHIFT) - ws.Min.X) * sizeCZ + ((wz >> CHUNK_SHIFT) - ws.Min.Z);
+                chunkFloor[ci] = Math.Min(chunkFloor[ci], floor);
             }
         }
 
-        // Step 2 — solve bucket-fill per zone. Humidity * volume-per-column
-        // gives the total fog volume to pour; SolveBucketFill returns the
-        // resulting level Y. Floors are sorted in place (cheap; we only walk
-        // the list once after this).
-        float[] fogLevelY = new float[zoneCount];
-        for (int i = 0; i < zoneCount; i++)
-        {
-            List<int> floors = zoneFloors[i];
-            if (floors.Count == 0)
-            {
-                fogLevelY[i] = float.NegativeInfinity;
-                continue;
-            }
-            floors.Sort();
-            float humidity = 0f;
-            WeatherData weather = ws.Zones[i].Data?.weather;
-            if (weather != null)
-            {
-                humidity = weather.humidity;
-            }
-            float desiredVolume = humidity * finish.fogVolumePerHumidity * floors.Count;
-            fogLevelY[i] = SolveBucketFill(floors, desiredVolume);
-        }
+        // Step 2 — pool over neighbours, then soften the steps that leaves.
+        float[] fogFloor = MinFilterChunks(chunkFloor, sizeCX, sizeCZ, finish.fogPoolRadiusChunks);
+        fogFloor = BoxBlurChunks(fogFloor, sizeCX, sizeCZ, finish.fogFloorBlurRadiusChunks);
 
-        // Step 3 — stamp fog density per voxel under the kernel-blended level.
+        // Step 3 — stamp fog density per voxel under the column's level.
         long fogged = 0;
+        var zoneGrid = new ChunkZoneGrid(ws);
         Span<float> weights = zoneCount <= 32
             ? stackalloc float[zoneCount]
             : new float[zoneCount];
@@ -751,9 +740,20 @@ public static class WorldFinish
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
             {
-                // Highest non-air voxel: air above it is open-to-sky; air at
-                // or below is enclosed (cave / tunnel / under-overhang) and
-                // stays fog-free.
+                zoneGrid.Weights(wx, wz, zoneCount, weights, finish.zoneGenBlendRadius);
+                float depth = 0f;
+                for (int i = 0; i < zoneCount; i++)
+                {
+                    depth += weights[i] * zoneDepth[i];
+                }
+                if (depth <= 0f) { continue; }
+
+                float level = SampleChunkGrid(fogFloor, sizeCX, sizeCZ, wx - worldMinX, wz - worldMinZ) + depth;
+                int ceilingY = (int)Math.Floor(level);
+
+                // Highest non-air voxel (water included): air above it is
+                // open-to-sky; air at or below is enclosed (cave / tunnel /
+                // under-overhang) and stays fog-free.
                 int highestNonAir = worldMinY - 1;
                 for (int wy = worldMaxY; wy >= worldMinY; wy--)
                 {
@@ -763,35 +763,10 @@ public static class WorldFinish
                         break;
                     }
                 }
-                int fogStartY = Math.Max(highestNonAir + 1, TerrainMath.SEA_LEVEL + 1);
-                if (fogStartY > worldMaxY) { continue; }
 
-                // Per-column blended fog level. Skip when no neighbouring
-                // zone offers a level — empty kernel.
-                zoneGrid.Weights(wx, wz, zoneCount, weights, finish.zoneGenBlendRadius);
-                float blendedLevel = 0f;
-                float wSum = 0f;
-                for (int i = 0; i < zoneCount; i++)
+                for (int wy = highestNonAir + 1; wy <= ceilingY && wy <= worldMaxY; wy++)
                 {
-                    if (weights[i] <= 0f) { continue; }
-                    if (float.IsNegativeInfinity(fogLevelY[i])) { continue; }
-                    blendedLevel += weights[i] * fogLevelY[i];
-                    wSum += weights[i];
-                }
-                if (wSum < 1e-6f) { continue; }
-                blendedLevel /= wSum;
-
-                int ceilingY = (int)Math.Floor(blendedLevel);
-                if (ceilingY < fogStartY) { continue; }
-
-                for (int wy = fogStartY; wy <= ceilingY && wy <= worldMaxY; wy++)
-                {
-                    if (ws.GetBlockWorld(wx, wy, wz) != Blocks.AirId)
-                    {
-                        continue;
-                    }
-                    float depth = blendedLevel - wy;
-                    int density = (int)Mathf.Clamp(depth * finish.fogDensityPerVoxel, 0f, FOG_MAX_DENSITY);
+                    int density = (int)Mathf.Clamp((level - wy) * finish.fogDensityPerVoxel, 0f, FOG_MAX_DENSITY);
                     if (density > 0)
                     {
                         ws.SetFogWorld(wx, wy, wz, density);
@@ -803,38 +778,78 @@ public static class WorldFinish
         GD.Print($"[WorldFinish] fog: {fogged} voxels seeded across {zoneCount} zone(s)");
     }
 
-    // Bucket-fill: given column floor heights sorted ascending and a desired
-    // total volume V (in voxel-units of integrated air below the level), find
-    // Y such that sum_c max(0, Y - floors[c]) = V. Volume vs Y is non-decreasing
-    // piecewise-linear; we walk segments [floors[k], floors[k+1]] (slope k+1
-    // since k+1 columns sit below Y in that segment) and solve linearly in
-    // the segment that contains the target volume.
-    private static float SolveBucketFill(List<int> sortedFloors, float desiredVolume)
+    // Square-window minimum over a chunk-XZ grid (index ix * sizeZ + iz),
+    // separable. Infinity marks a chunk with no floor and never wins.
+    private static float[] MinFilterChunks(float[] src, int sizeX, int sizeZ, int radius)
     {
-        int n = sortedFloors.Count;
-        if (n == 0)
+        if (radius <= 0) { return src; }
+        float[] tmp = new float[src.Length];
+        float[] dst = new float[src.Length];
+        for (int ix = 0; ix < sizeX; ix++)
         {
-            return 0f;
-        }
-        if (desiredVolume <= 0f)
-        {
-            return sortedFloors[0];
-        }
-        float v = 0f;
-        for (int k = 0; k < n - 1; k++)
-        {
-            int slope = k + 1;
-            int dh = sortedFloors[k + 1] - sortedFloors[k];
-            if (dh <= 0) { continue; }
-            float segVol = (float)slope * dh;
-            if (v + segVol >= desiredVolume)
+            for (int iz = 0; iz < sizeZ; iz++)
             {
-                return sortedFloors[k] + (desiredVolume - v) / slope;
+                float m = float.PositiveInfinity;
+                for (int d = Math.Max(0, iz - radius); d <= Math.Min(sizeZ - 1, iz + radius); d++)
+                {
+                    m = Math.Min(m, src[ix * sizeZ + d]);
+                }
+                tmp[ix * sizeZ + iz] = m;
             }
-            v += segVol;
         }
-        // All floors submerged in the bucket — slope is n above floors[n-1].
-        return sortedFloors[n - 1] + (desiredVolume - v) / n;
+        for (int ix = 0; ix < sizeX; ix++)
+        {
+            for (int iz = 0; iz < sizeZ; iz++)
+            {
+                float m = float.PositiveInfinity;
+                for (int d = Math.Max(0, ix - radius); d <= Math.Min(sizeX - 1, ix + radius); d++)
+                {
+                    m = Math.Min(m, tmp[d * sizeZ + iz]);
+                }
+                dst[ix * sizeZ + iz] = m;
+            }
+        }
+        return dst;
+    }
+
+    // Square box blur over a chunk-XZ grid, window clipped at the world edge.
+    private static float[] BoxBlurChunks(float[] src, int sizeX, int sizeZ, int radius)
+    {
+        if (radius <= 0) { return src; }
+        float[] dst = new float[src.Length];
+        for (int ix = 0; ix < sizeX; ix++)
+        {
+            for (int iz = 0; iz < sizeZ; iz++)
+            {
+                float sum = 0f;
+                int n = 0;
+                for (int dx = Math.Max(0, ix - radius); dx <= Math.Min(sizeX - 1, ix + radius); dx++)
+                {
+                    for (int dz = Math.Max(0, iz - radius); dz <= Math.Min(sizeZ - 1, iz + radius); dz++)
+                    {
+                        sum += src[dx * sizeZ + dz];
+                        n++;
+                    }
+                }
+                dst[ix * sizeZ + iz] = sum / n;
+            }
+        }
+        return dst;
+    }
+
+    // Bilinear sample of a chunk-XZ grid, each chunk's value at its centre;
+    // lx/lz are column offsets from the world's min corner.
+    private static float SampleChunkGrid(float[] grid, int sizeX, int sizeZ, int lx, int lz)
+    {
+        float fx = Math.Clamp((lx + 0.5f) / ChunkState.SIZE - 0.5f, 0f, sizeX - 1);
+        float fz = Math.Clamp((lz + 0.5f) / ChunkState.SIZE - 0.5f, 0f, sizeZ - 1);
+        int x0 = (int)fx;
+        int z0 = (int)fz;
+        int x1 = Math.Min(x0 + 1, sizeX - 1);
+        int z1 = Math.Min(z0 + 1, sizeZ - 1);
+        float a = Mathf.Lerp(grid[x0 * sizeZ + z0], grid[x1 * sizeZ + z0], fx - x0);
+        float b = Mathf.Lerp(grid[x0 * sizeZ + z1], grid[x1 * sizeZ + z1], fx - x0);
+        return Mathf.Lerp(a, b, fz - z0);
     }
 
     // The BACKGROUND drift, everywhere: per-cell current perpendicular to the

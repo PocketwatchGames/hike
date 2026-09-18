@@ -722,22 +722,17 @@ public partial class WorldEditor : Node3D
         RenderingServer.GlobalShaderParameterSet("eye_adapt_knee", flatViewKnee);
     }
 
-    // The atlas manifest is loaded here and nowhere else — see EditorBrushIcons
-    // for why it must stay off the game's normal load path.
     private void BuildToolPalette()
     {
-        VoxelAtlasManifest manifest = EditorBrushIcons.LoadManifest(brushPalette?.atlasManifestPath);
+        var voxelIcons = new EditorBrushIcons(brushPalette?.tileAtlas);
 
         BuildVoxelBrushes();
         var voxels = new EditorBrushEntry[_voxelBrushes.Count];
         for (int i = 0; i < _voxelBrushes.Count; i++)
         {
             VoxelBrush brush = _voxelBrushes[i];
-            voxels[i] = new EditorBrushEntry(
-                brush.Name,
-                EditorBrushIcons.ForBlock(brush.Block, manifest));
+            voxels[i] = new EditorBrushEntry(brush.Name, voxelIcons.ForBlock(brush.Block));
         }
-
         BuildEntityBrushes();
         var entities = new EditorBrushEntry[_entityBrushes.Count];
         var bakeRequests = new List<IconBakeRequest>();

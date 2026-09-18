@@ -25,6 +25,10 @@ public partial class GuiMainMenu : Node
 	// filtered by the class its header names, since the layer files, the brush
 	// and the placements list share the directory and the extension.
 	[Export] public string[] worldMapSearchDirs = { "res://resources/data/worlds/test_world/map/" };
+	// An exported build's New Game list is every .hike under here, searched
+	// recursively, and nothing else. What ships is decided by the export preset's
+	// include filter, so that filter is the one list of playable worlds.
+	[Export(PropertyHint.Dir)] public string shippedWorldRoot = "res://resources/data/worlds/";
 	// Save target for a brand-new document; uniquified (scene_2.hikescene, ...)
 	// when the file already exists so a new one never clobbers an old one. The
 	// extension is also what tells the editor which kind it's opening.
@@ -196,6 +200,20 @@ public partial class GuiMainMenu : Node
 		}
 		worldList.Clear();
 		_documentPaths.Clear();
+		if (OS.HasFeature("template"))
+		{
+			AddDocumentsIn(shippedWorldRoot, WorldEditor.WORLD_FILE_EXTENSION, null, recursive: true);
+			if (worldList.ItemCount > 0)
+			{
+				worldList.Select(0);
+			}
+			else
+			{
+				GD.PrintErr($"GuiMainMenu: no .{WorldEditor.WORLD_FILE_EXTENSION} under '{shippedWorldRoot}' in this build — "
+					+ "add each shipped world to the export preset's non-resource include filter.");
+			}
+			return;
+		}
 		for (int i = 0; i < worldOptions.Length; i++)
 		{
 			_documentPaths.Add(null);   // a template generates; it has no file
@@ -265,43 +283,52 @@ public partial class GuiMainMenu : Node
 	{
 		foreach (string dir in searchDirs)
 		{
-			if (string.IsNullOrEmpty(dir))
+			AddDocumentsIn(dir, extension, scriptClass, recursive: false);
+		}
+	}
+
+	// DirAccess / FileAccess rather than System.IO: an exported build's res:// is
+	// inside the .pck, which only Godot's file API can see.
+	private void AddDocumentsIn(string dir, string extension, string scriptClass, bool recursive)
+	{
+		if (string.IsNullOrEmpty(dir) || !DirAccess.DirExistsAbsolute(dir))
+		{
+			return;
+		}
+		foreach (string fileName in DirAccess.GetFilesAt(dir))
+		{
+			if (!fileName.GetExtension().Equals(extension, StringComparison.OrdinalIgnoreCase))
 			{
 				continue;
 			}
-			string osDir = ProjectSettings.GlobalizePath(dir);
-			if (!System.IO.Directory.Exists(osDir))
+			// PathJoin, not manual concat: trimming slashes off a bare "user://"
+			// leaves "user:", which is a bogus path.
+			string path = dir.PathJoin(fileName);
+			if (scriptClass != null && !IsResourceOfClass(path, scriptClass))
 			{
 				continue;
 			}
-			foreach (string osPath in System.IO.Directory.GetFiles(osDir, $"*.{extension}"))
+			worldList.AddItem(fileName);
+			_documentPaths.Add(path);
+		}
+		if (recursive)
+		{
+			foreach (string subDir in DirAccess.GetDirectoriesAt(dir))
 			{
-				if (scriptClass != null && !IsResourceOfClass(osPath, scriptClass))
-				{
-					continue;
-				}
-				string fileName = System.IO.Path.GetFileName(osPath);
-				worldList.AddItem(fileName);
-				// PathJoin, not manual concat: trimming slashes off a bare
-				// "user://" leaves "user:", which globalizes to a bogus path.
-				_documentPaths.Add(dir.PathJoin(fileName));
+				AddDocumentsIn(dir.PathJoin(subDir), extension, scriptClass, recursive: true);
 			}
 		}
 	}
 
-	private static bool IsResourceOfClass(string osPath, string scriptClass)
+	private static bool IsResourceOfClass(string path, string scriptClass)
 	{
-		try
+		using Godot.FileAccess file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read);
+		if (file == null)
 		{
-			using var reader = new System.IO.StreamReader(osPath);
-			string header = reader.ReadLine();
-			return header != null && header.Contains($"script_class=\"{scriptClass}\"");
-		}
-		catch (System.Exception e)
-		{
-			GD.PrintErr($"GuiMainMenu: could not read '{osPath}': {e.Message}");
+			GD.PrintErr($"GuiMainMenu: could not read '{path}' ({Godot.FileAccess.GetOpenError()})");
 			return false;
 		}
+		return file.GetLine().Contains($"script_class=\"{scriptClass}\"");
 	}
 
 	private int SelectedIndex()
@@ -316,8 +343,11 @@ public partial class GuiMainMenu : Node
 
 	private WorldGenData SelectedWorldGen()
 	{
+		// Template rows lead the list, so a row with no document is worldOptions at
+		// the same index. An exported build lists no templates at all.
 		int index = SelectedIndex();
-		if (_mode == SelectorMode.NewGame && index >= 0 && index < worldOptions.Length)
+		if (_mode == SelectorMode.NewGame && index >= 0 && index < worldOptions.Length
+			&& index < _documentPaths.Count && _documentPaths[index] == null)
 		{
 			return worldOptions[index];
 		}

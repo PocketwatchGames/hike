@@ -14,7 +14,7 @@ All of these are **browse/source-only**, outside this repo, and not committed. S
 ## Workflow
 
 1. Search/preview the library for what's needed (textures `.png`/`.tga`/`.psd`/`.webp`, models `.fbx`/`.gltf`, audio `.wav`/`.ogg`). Ignore Unity-only files — `.meta`, `.prefab`, `.mat`, `.asset`, `.unity` are useless to Godot.
-2. Copy only the chosen source file(s) into the appropriate `res://` subfolder (`assets/textures/...`, `scenes/props/`, etc.). These are **committed**, not gitignored — the game and teammates need them.
+2. Copy only the chosen source file(s) into the appropriate `res://` subfolder (`assets/textures/...`, `scenes/props/`, etc.). These are **committed**, not gitignored — the game and teammates need them. A file that only FEEDS a bake — an atlas source map, an animation FBX merged into a `*_anims.res` — goes under `asset_src/` instead (see "Bake Sources" in CLAUDE.md).
 3. Wire them up following the repo conventions (`.import` sidecars, `.tscn`/`.tres`, and the Godot UID Invariants in CLAUDE.md).
 
 ## Search by the material's ROLE, not by the name in the request
@@ -42,8 +42,8 @@ can trim, slice and retime, but not reverse or de-root. Bake it as its own FBX w
 `tools/derive_anim_clips.py` (Blender, headless) and let the `PlayerAnimManifest` merge it
 like any other clip, rather than reversing, freezing or cancelling motion at runtime. The
 three climb clips are derived from one source this way; the recipe and its two gotchas (a
-held pose needs `animation/remove_immutable_tracks=false`; root motion sits on the armature
-OBJECT, not a bone) are in `assets/models/characters/polysplit/anims/README.md`.
+held pose needs `keepConstantTracks` on its manifest row; root motion sits on the armature
+OBJECT, not a bone) are in `asset_src/models/characters/polysplit/anims/README.md`.
 
 ## Wiring a Synty FBX model (material override + scale)
 

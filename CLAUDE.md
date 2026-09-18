@@ -246,6 +246,15 @@ cp -r <main-repo>/.godot/shader_cache/ <worktree>/.godot/shader_cache/
 
 New textures, models, animations, and sounds are sourced from browse-only external libraries on this machine (Unity AssetDump + first-party Pocketwatch projects), copied into `res://` per-file, and wired to repo conventions. **When adding an asset, read [docs/asset-sourcing.md](docs/asset-sourcing.md)** for the source locations, the copy-don't-bulk-import rule, and the Synty FBX wiring recipe (material override + scale).
 
+## Bake Sources (`asset_src/`)
+
+**A file that exists only to be baked into something the game loads lives in `asset_src/`, never under `assets/`** — the terrain atlas's source maps (→ `voxel_tiles*.png`), the character animation FBXs (→ `*_anims.res`), editor originals like `.xcf`. The folder carries a `.gdignore`, so the rule holds by construction: Godot never imports or exports it, and nothing can reference it by `res://` path or uid. No export filter is involved, which matters because the editor rewrites `export_presets.cfg` from memory.
+
+- **A bake tool names a source by a path relative to `asset_src/`** (`AssetSource.GlobalPath`) and reads the raw file: `VoxelAtlasManifest` via `Image.LoadFromFile`, the animation builders through `FbxClipSource`, which parses the FBX at the importer's 30 fps, trims, and drops a constant track only when it sits at REST. Do not use `GenerateScene`'s own `removeImmutableTracks`: it drops every constant track, and a constant pose away from rest (the sparrow's folded wings) is what holds those bones — it cost up to 49° on birdy. A rebuilt library is not byte- or track-count-identical to an importer-built one (the importer also thinned keys lossily); judge a change by sampled POSE against the previous library, not by track counts. A `Texture2D` / `PackedScene` reference into it cannot exist — that is the point.
+- **Mirror the output's path** — `asset_src/models/characters/goblin/anims/` feeds `assets/models/characters/goblin/goblin_anims.res` — so a source and what it bakes into are found together.
+- **Godot does not watch `asset_src/`**, so editing a source never triggers an auto-rebuild. Rebuild explicitly.
+- **`asset_src/models/characters/*/anims/` is gitignored** (the FBXs exist only on a machine that has the packs); the terrain maps are committed.
+
 ## Architecture
 
 The runtime node/scene skeleton (`Main` → `GameClient` → `Sim` → `ChunkManager`) — where things live and connect. See Subsystems for per-feature detail.

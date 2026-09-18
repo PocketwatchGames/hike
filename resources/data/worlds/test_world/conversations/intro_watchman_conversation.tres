@@ -61,12 +61,20 @@ lineLocKeys = Array[StringName]([&"intro_watchman_common_01"])
 exitGroup = &"whittlebone"
 isPrimaryGroupEntry = true
 
+[sub_resource type="Resource" id="Branch_sanctuary"]
+script = ExtResource("Script_ConversationBranch")
+name = &"sanctuary"
+language = ExtResource("Lang_common")
+lineLocKeys = Array[StringName]([&"intro_watchman_sanctuary_01"])
+exitGroup = &"whittlebone"
+
 [sub_resource type="Resource" id="Branch_customs"]
 script = ExtResource("Script_ConversationBranch")
 name = &"customs"
 language = ExtResource("Lang_common")
 lineLocKeys = Array[StringName]([&"intro_watchman_customs_01"])
 endActions = Array[Object]([SubResource("Inline_4"), SubResource("Inline_5")])
+exitGroup = &"whittlebone"
 
 [sub_resource type="Resource" id="Branch_greeting_busy"]
 script = ExtResource("Script_ConversationBranch")
@@ -87,6 +95,12 @@ responses = [SubResource("Resp_greeting_response_1")]
 
 [sub_resource type="Resource" id="Resp_whittlebone_1"]
 script = ExtResource("Script_ConversationResponse")
+textLocKey = &"intro_watchman_whittlebone_sanctuary"
+language = ExtResource("Lang_common")
+destination = &"sanctuary"
+
+[sub_resource type="Resource" id="Resp_whittlebone_2"]
+script = ExtResource("Script_ConversationResponse")
 textLocKey = &"intro_watchman_whittlebone_customs"
 language = ExtResource("Lang_common")
 destination = &"customs"
@@ -94,10 +108,10 @@ destination = &"customs"
 [sub_resource type="Resource" id="Group_whittlebone"]
 script = ExtResource("Script_ConversationResponseGroup")
 name = &"whittlebone"
-responses = [SubResource("Resp_whittlebone_1")]
+responses = [SubResource("Resp_whittlebone_1"), SubResource("Resp_whittlebone_2")]
 
 [resource]
 script = ExtResource("Script_ConversationData")
 entryBranches = [SubResource("Entry_1"), SubResource("Entry_2")]
-branches = [SubResource("Branch_greeting"), SubResource("Branch_common"), SubResource("Branch_customs"), SubResource("Branch_greeting_busy")]
+branches = [SubResource("Branch_greeting"), SubResource("Branch_common"), SubResource("Branch_sanctuary"), SubResource("Branch_customs"), SubResource("Branch_greeting_busy")]
 responseGroups = [SubResource("Group_greeting_response"), SubResource("Group_whittlebone")]

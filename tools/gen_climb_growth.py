@@ -28,7 +28,7 @@ misread.
 Re-run after changing a source or knob, then rebuild the atlas:
     python tools/gen_climb_growth.py
     Godot ... --headless -- "atlas_rebuild 1"
-Source art is read-only; only assets/textures/terrain/Climb_* is written.
+Source art is read-only; only asset_src/textures/terrain/Climb_* is written.
 """
 import os
 
@@ -124,7 +124,7 @@ def smoothstep(e0, e1, x):
 _written = {}
 
 for folder, prefix, color_src, normal_src, growth_hue, rock_base in TILES:
-    out = os.path.join(REPO, "assets", "textures", "terrain", folder)
+    out = os.path.join(REPO, "asset_src", "textures", "terrain", folder)
     os.makedirs(out, exist_ok=True)
 
     color = load(SRC + color_src)
@@ -155,7 +155,7 @@ for folder, prefix, color_src, normal_src, growth_hue, rock_base in TILES:
     detail = stretch(lum - blur)
 
     # Composite growth over the zone's wall rock.
-    rock_pat = os.path.join(REPO, "assets", "textures", "terrain", ROCK_BASES[rock_base])
+    rock_pat = os.path.join(REPO, "asset_src", "textures", "terrain", ROCK_BASES[rock_base])
     rock_col = load(rock_pat % "basecolor")
     rock_nrm = load(rock_pat % "normal")
     rock_h = np.asarray(Image.open(rock_pat % "height").convert("L")

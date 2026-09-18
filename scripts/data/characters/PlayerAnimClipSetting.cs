@@ -19,10 +19,17 @@ public partial class PlayerAnimClipSetting : Resource
     [Export(PropertyHint.Range, "0.1,4,0.05,or_greater")]
     public float speed = 1f;
 
+    // Keep a track whose value never changes even when it sits at the rest pose.
+    // Off, the bake drops those as the scene importer does (FbxClipSource). A
+    // HELD pose (climb_idle) is nothing but constant tracks, and without the
+    // at-rest ones it re-poses only some bones and leaves the rest of the body in
+    // whatever pose the previous clip left behind.
+    [Export] public bool keepConstantTracks;
+
     // Per-clip animation events re-baked onto the clip every rebuild (Call
     // Method Track keys — footsteps, hit frames, sound/vfx cues). Authored here
     // (or captured from the library via PlayerAnimManifest.CaptureEventsFromLibrary)
-    // so they survive a source-FBX re-import that would otherwise wipe them. See
-    // PlayerAnimEvent.
+    // so they survive the rebuild's fresh parse of the source FBX, which would
+    // otherwise wipe them. See PlayerAnimEvent.
     [Export] public PlayerAnimEvent[] events = System.Array.Empty<PlayerAnimEvent>();
 }

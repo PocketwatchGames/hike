@@ -4,23 +4,25 @@
 [ext_resource type="Resource" uid="uid://bbr2g5iqvgi7r" path="res://resources/data/status_effects/status_cold.tres" id="4_cold"]
 [ext_resource type="Resource" uid="uid://bgra13f0vo0vi" path="res://resources/data/status_effects/status_hot.tres" id="5_hot"]
 [ext_resource type="Resource" uid="uid://b5x8h2qkvr3wm" path="res://resources/data/actions/dash_action.tres" id="6_dash"]
-[ext_resource type="Resource" uid="uid://dofncd682i14n" path="res://resources/data/actions/mantle_up_action.tres" id="30_mantle_up"]
-[ext_resource type="Resource" uid="uid://dwk6aa74jfi6k" path="res://resources/data/actions/mantle_down_action.tres" id="31_mantle_down"]
 [ext_resource type="Resource" uid="uid://ct4ntwjta4pai" path="res://resources/data/characters/human/anim_sets/unarmed.tres" id="7_unarmed"]
 [ext_resource type="Resource" uid="uid://b8nf3qkxr7m2p" path="res://resources/data/items/weapons/fists.tres" id="8_fists"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="10_outfit_script"]
-[ext_resource type="Resource" uid="uid://r8q6lyg1ba7lb" path="res://resources/data/characters/human/outfits/mage.tres" id="11_outfit_mage"]
-[ext_resource type="Resource" uid="uid://jwv6setkz46hu" path="res://resources/data/characters/human/outfits/fighter.tres" id="12_outfit_fighter"]
-[ext_resource type="Resource" uid="uid://qm2juskki06ym" path="res://resources/data/characters/human/outfits/hunter.tres" id="13_outfit_hunter"]
-[ext_resource type="Resource" uid="uid://l74ciotykmykd" path="res://resources/data/characters/human/outfits/knight.tres" id="14_outfit_knight"]
-[ext_resource type="Resource" uid="uid://ad0mn4nja8uy4" path="res://resources/data/characters/human/outfits/swordsman.tres" id="15_outfit_swordsman"]
-[ext_resource type="Resource" uid="uid://y935d55jia7hm" path="res://resources/data/characters/human/outfits/archer.tres" id="16_outfit_archer"]
+[ext_resource type="Resource" uid="uid://cr4o8qr01hpj8" path="res://resources/data/characters/human/outfits/mage.tres" id="11_outfit_mage"]
+[ext_resource type="Resource" uid="uid://b63gmay2vqfyc" path="res://resources/data/characters/human/outfits/fighter.tres" id="12_outfit_fighter"]
+[ext_resource type="Resource" uid="uid://6f2ikvj87oxk" path="res://resources/data/characters/human/outfits/hunter.tres" id="13_outfit_hunter"]
+[ext_resource type="Resource" uid="uid://mvpqi27u1da2" path="res://resources/data/characters/human/outfits/knight.tres" id="14_outfit_knight"]
+[ext_resource type="Resource" uid="uid://d0mn4nja8uy4" path="res://resources/data/characters/human/outfits/swordsman.tres" id="15_outfit_swordsman"]
+[ext_resource type="Resource" uid="uid://b3nwttm032xw1" path="res://resources/data/characters/human/outfits/archer.tres" id="16_outfit_archer"]
+[ext_resource type="Resource" uid="uid://dofncd682i14n" path="res://resources/data/actions/mantle_up_action.tres" id="30_mantle_up"]
+[ext_resource type="Resource" uid="uid://dwk6aa74jfi6k" path="res://resources/data/actions/mantle_down_action.tres" id="31_mantle_down"]
 
 [resource]
 script = ExtResource("1_mknwc")
 baseAnims = ExtResource("7_unarmed")
 stepHeight = 1.1
 moveSpeed = 6.5
+traversalUpAction = ExtResource("30_mantle_up")
+traversalDownAction = ExtResource("31_mantle_down")
 downhillSpeedBonus = 0.25
 uphillSpeedPenalty = 0.5
 skidGroundAcceleration = 20.0
@@ -58,5 +60,3 @@ outfits = Dictionary[StringName, ExtResource("10_outfit_script")]({
 &"mage": ExtResource("11_outfit_mage"),
 &"swordsman": ExtResource("15_outfit_swordsman")
 })
-traversalUpAction = ExtResource("30_mantle_up")
-traversalDownAction = ExtResource("31_mantle_down")

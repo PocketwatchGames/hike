@@ -22,8 +22,10 @@ from PIL import Image
 
 SLOT = 256  # atlas slot size (px). Source art (1024/2048/4096) is downscaled to this.
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
-MANIFEST = os.path.join(ROOT, "resources", "data", "surfaces", "voxel_atlas_manifest.tres")
+MANIFEST = os.path.join(ROOT, "resources", "data", "voxels", "surfaces", "voxel_atlas_manifest.tres")
 VOXEL_DIR = os.path.join(ROOT, "assets", "textures", "terrain")
+# Layer maps are paths relative to this (AssetSource on the C# side).
+SOURCE_DIR = os.path.join(ROOT, "asset_src")
 
 # Flat tangent-space normal (points straight out: 0.5,0.5,1.0 encoded) and zero
 # height, used for slots with a null normal/height (e.g. the water placeholder).
@@ -71,13 +73,15 @@ def _parse_manifest(path):
     for m in re.finditer(r'\[ext_resource\b[^\]]*\bpath="([^"]+)"[^\]]*\bid="([^"]+)"\]', text):
         ext[m.group(2)] = m.group(1)
 
-    # sub_resource id -> {surface/color/normal/height ext-id}
+    # sub_resource id -> {surface: ("ext", ext-id), color/normal/height: ("src", asset_src path)}
     subs = {}
     for m in re.finditer(r'\[sub_resource type="Resource" id="([^"]+)"\]\n(.*?)(?=\n\[|\Z)', text, re.S):
         body = m.group(2)
         fields = {}
         for fm in re.finditer(r'(\w+) = ExtResource\("([^"]+)"\)', body):
-            fields[fm.group(1)] = fm.group(2)
+            fields[fm.group(1)] = ("ext", fm.group(2))
+        for fm in re.finditer(r'(\w+) = "([^"]*)"', body):
+            fields[fm.group(1)] = ("src", fm.group(2))
         subs[m.group(1)] = fields
 
     # The layers array is an unordered set; typed (Array[T]([...])) or plain ([...]).
@@ -92,8 +96,12 @@ def _parse_manifest(path):
         fields = subs[sid]
 
         def resolve(key):
-            ext_id = fields.get(key)
-            return _res_to_path(ext[ext_id]) if ext_id else None
+            kind, value = fields.get(key, (None, None))
+            if kind == "ext":
+                return _res_to_path(ext[value])
+            if kind == "src" and value:
+                return os.path.join(SOURCE_DIR, *value.split("/"))
+            return None
 
         surface = resolve("surface")
         if surface is None:

@@ -9,11 +9,11 @@ extends SceneTree
 # slot names, exactly like the forest bunny and player pipelines.
 #
 # The source anim FBX are build-inputs only (not committed — the baked .res is
-# self-contained, and assets/models/characters/*/anims/ is gitignored). To
+# self-contained, and asset_src/models/characters/*/anims/ is gitignored). To
 # regenerate, re-copy them from the external AssetDump
 # ("HEROIC FANTASY CREATURES FULL PACK VOL 1/Must Have Fantasy Villains Pack/
 # Goblin/FBX Files/Goblin@<clip>SwordShield.FBX") into
-# assets/models/characters/goblin/anims/ (see MAP), then run:
+# asset_src/models/characters/goblin/anims/ (see MAP), then run:
 #   Godot --path . --headless -s res://tools/build_goblin_anims.gd
 #
 # The Goblin has no swim / fall / dizzy clips, so those slots fall back to the
@@ -22,7 +22,8 @@ extends SceneTree
 # 53-bone Skeleton3D track paths, so they retarget onto the base mesh when
 # played by an AnimationPlayer rooted at the FBX root.
 
-const ANIMS := "res://assets/models/characters/goblin/anims/"
+# Relative to asset_src/.
+const ANIMS := "models/characters/goblin/anims/"
 const OUT := "res://assets/models/characters/goblin/goblin_anims.res"
 
 # slot_name -> [fbx_relpath, loop]. "run"/"swim" use the in-place clips (physics
@@ -52,10 +53,15 @@ func _find(n, cls):
 			return r
 	return null
 
+# asset_src/ is .gdignored, so the FBX is parsed (FbxClipSource) rather than load()ed.
+# Loaded by path: a headless -s run never registers C# global class names.
+func _parse_player(f: String) -> AnimationPlayer:
+	var scene = load("res://scripts/data/FbxClipSource.cs").new().ParseScene(ANIMS + f, false)
+	return _find(scene, "AnimationPlayer") if scene else null
+
 func _clip(players: Dictionary, f: String) -> Animation:
 	if not players.has(f):
-		var inst = (load(ANIMS + f) as PackedScene).instantiate()
-		players[f] = _find(inst, "AnimationPlayer")
+		players[f] = _parse_player(f)
 	var ap: AnimationPlayer = players[f]
 	if ap == null or not ap.has_animation("Take 001"):
 		return null

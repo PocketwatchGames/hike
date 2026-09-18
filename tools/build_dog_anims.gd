@@ -10,7 +10,7 @@ extends SceneTree
 #
 # The source anim FBX are build-inputs only (gitignored, not committed — the
 # baked .res is self-contained). To regenerate, re-copy them from the external
-# AssetDump "Fantasy Wolf" pack into assets/models/characters/dog/anims/ (see
+# AssetDump "Fantasy Wolf" pack into asset_src/models/characters/dog/anims/ (see
 # MAP for the expected filenames), then run:
 #   Godot --path . --headless -s res://tools/build_dog_anims.gd
 #
@@ -19,7 +19,8 @@ extends SceneTree
 # All clips share the wolf's 36-bone Skeleton3D track paths, so they retarget
 # onto the base mesh when played by an AnimationPlayer rooted at the FBX root.
 
-const ANIMS := "res://assets/models/characters/dog/anims/"
+# Relative to asset_src/.
+const ANIMS := "models/characters/dog/anims/"
 const OUT := "res://assets/models/characters/dog/dog_anims.res"
 
 # slot_name -> [fbx_relpath, loop]. "run" uses the in-place Run clip (physics
@@ -46,10 +47,15 @@ func _find(n, cls):
 			return r
 	return null
 
+# asset_src/ is .gdignored, so the FBX is parsed (FbxClipSource) rather than load()ed.
+# Loaded by path: a headless -s run never registers C# global class names.
+func _parse_player(f: String) -> AnimationPlayer:
+	var scene = load("res://scripts/data/FbxClipSource.cs").new().ParseScene(ANIMS + f, false)
+	return _find(scene, "AnimationPlayer") if scene else null
+
 func _clip(players: Dictionary, f: String) -> Animation:
 	if not players.has(f):
-		var inst = (load(ANIMS + f) as PackedScene).instantiate()
-		players[f] = _find(inst, "AnimationPlayer")
+		players[f] = _parse_player(f)
 	var ap = players[f]
 	if ap == null or not ap.has_animation("Take 001"):
 		return null

@@ -371,8 +371,8 @@ public partial class PlayerData : Resource
 	// Continuous movement noise the player emits. Mapped piecewise: 0 at
 	// rest, sneakDecibels at sneakSpeed, runDecibels at moveSpeed. Mobs
 	// sample this in their mob-perceives-player tick.
-	[Export] public float sneakDecibels = 1f;
-	[Export] public float runDecibels = 6f;
+	[Export] public float sneakDecibels = 0.25f;
+	[Export] public float runDecibels = 0.5f;
 	// Scent trail authoring. The player drops timestamped breadcrumbs that
 	// advect with wind (per-crumb, voxel-collided) and decay linearly toward
 	// zero strength. Lifetime is implicit: lifetime = strength / decayRate,

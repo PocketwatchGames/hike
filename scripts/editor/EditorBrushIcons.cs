@@ -1,36 +1,25 @@
+using System.Collections.Generic;
 using Godot;
 
-// Resolves a block brush's palette icon to the SOURCE tile art behind its top
-// surface, via the authoring-only VoxelAtlasManifest.
-//
-// The manifest and its heavy source PBR maps are deliberately NOT referenced by
-// anything the running game loads — hence LoadManifest taking a path and being
-// called only when the world editor opens. Do not turn that path into a typed
-// [Export] resource reference: editor.tscn is an ext_resource of main.tscn, so a
-// direct ref would pull the manifest and every source texture into memory at
-// game startup, shipped build included.
-public static class EditorBrushIcons
+// Resolves a block brush's palette icon to the tile the game draws for its top
+// surface: that surface's layer of the baked voxel_tiles.png atlas.
+public sealed class EditorBrushIcons
 {
-    public static VoxelAtlasManifest LoadManifest(string path)
+    private readonly TextureLayered _atlas;
+    private readonly Dictionary<int, Texture2D> _byLayer = new();
+
+    public EditorBrushIcons(TextureLayered atlas)
     {
-        if (string.IsNullOrEmpty(path))
-        {
-            return null;
-        }
-        var manifest = ResourceLoader.Load<VoxelAtlasManifest>(path);
-        if (manifest == null)
-        {
-            GD.PushWarning($"EditorBrushIcons: could not load atlas manifest '{path}'; voxel brushes will show name labels instead of tiles.");
-        }
-        return manifest;
+        _atlas = atlas;
     }
 
-    // Null when the block draws nothing (Barrier is invisible collision, Opening
-    // an invisible doorway/window marker) or the manifest isn't loaded — callers
-    // fall back to the button's name label.
-    public static Texture2D ForBlock(BlockData block, VoxelAtlasManifest manifest)
+    // Null when the block draws nothing from the atlas (Barrier is invisible
+    // collision, Opening an invisible marker, water is drawn by voxel_water over a
+    // blank row) or the layer can't be read back on the CPU (no atlas, or the
+    // dummy renderer) — callers fall back to the button's name label.
+    public Texture2D ForBlock(BlockData block)
     {
-        if (manifest?.layers == null || block == null || block.IsInvisible())
+        if (_atlas == null || block == null || block.IsInvisible() || block.render == EBlockRender.Water)
         {
             return null;
         }
@@ -40,10 +29,22 @@ public static class EditorBrushIcons
             return null;
         }
         int layer = top.atlasBaseIndex;
-        if (layer < 0 || layer >= manifest.layers.Length)
+        if (layer < 0 || layer >= _atlas.GetLayers())
         {
             return null;
         }
-        return manifest.layers[layer]?.color;
+        if (_byLayer.TryGetValue(layer, out Texture2D icon))
+        {
+            return icon;
+        }
+        Image image = _atlas.GetLayerData(layer);
+        // The imported atlas is VRAM-compressed; an ImageTexture needs it decoded.
+        if (image != null && image.IsCompressed() && image.Decompress() != Error.Ok)
+        {
+            image = null;
+        }
+        icon = image != null ? ImageTexture.CreateFromImage(image) : null;
+        _byLayer[layer] = icon;
+        return icon;
     }
 }

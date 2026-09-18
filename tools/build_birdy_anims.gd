@@ -15,14 +15,15 @@ extends SceneTree
 # The sparrow flies, so its "ground" locomotion slots map to flight clips:
 # idle -> hover (Air Idle), run/swim -> Fly Forward, etc. The source anim FBX
 # are build-inputs only; the baked .res is self-contained (mirrors the bunny /
-# swordsman pipeline). To regenerate, re-copy the FBX from the external
-# AssetDump into assets/models/characters/birdy/anims/ (see paths in MAP), then:
+# player pipeline). To regenerate, re-copy the FBX from the external
+# AssetDump into asset_src/models/characters/birdy/anims/ (see paths in MAP), then:
 #   Godot --path . --headless -s res://tools/build_birdy_anims.gd
 #
 # All clips share the Birdy "Skeleton3D" track paths, so they retarget onto the
 # base mesh when played by an AnimationPlayer rooted at the FBX root.
 
-const ANIMS := "res://assets/models/characters/birdy/anims/"
+# Relative to asset_src/.
+const ANIMS := "models/characters/birdy/anims/"
 const OUT := "res://assets/models/characters/birdy/birdy_anims.res"
 
 # slot_name -> [fbx_relpath, loop]. The sparrow reads best when it FLAPS while
@@ -55,11 +56,16 @@ func _find(n, cls):
 			return r
 	return null
 
+# asset_src/ is .gdignored, so the FBX is parsed (FbxClipSource) rather than load()ed.
+# Loaded by path: a headless -s run never registers C# global class names.
+func _parse_player(f: String) -> AnimationPlayer:
+	var scene = load("res://scripts/data/FbxClipSource.cs").new().ParseScene(ANIMS + f, false)
+	return _find(scene, "AnimationPlayer") if scene else null
+
 # Return the lone source clip from an anim FBX, whatever its authored name.
 func _clip(players: Dictionary, f: String) -> Animation:
 	if not players.has(f):
-		var inst = (load(ANIMS + f) as PackedScene).instantiate()
-		players[f] = _find(inst, "AnimationPlayer")
+		players[f] = _parse_player(f)
 	var ap: AnimationPlayer = players[f]
 	if ap == null:
 		return null

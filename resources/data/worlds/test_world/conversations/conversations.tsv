@@ -46,8 +46,10 @@ intro_watchman		entry	greeting_busy		npcvar:customs=true
 		greeting	greeting_response				Who goes there?
 	x	greeting_response	common	common			I… I don’t know where I am.
 		common	whittlebone	common			Ah, common tongue. You’ve crossed into dangerous lands. But you can rest here in Whittlebone.
+	x	whittlebone	sanctuary	common			A man on the shore kept saying “Sanctuary”. Do you know what this is?
 	x	whittlebone	customs	common			Whittlebone?
-		customs		common		give:scroll_vyeshal_vocab_1_2;npcvar:customs=true	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now. Not many speak common tongue though. You’d do best to learn our customs. Here, take this.
+		sanctuary	whittlebone	common			The ramblings of a dying man? No. But you could ask Ulga, the crone in the broken house to the south.
+		customs	whittlebone	common		give:scroll_vyeshal_vocab_1_2;npcvar:customs=true	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now. Not many speak common tongue though. You’d do best to learn our customs. Here, take this.
 		greeting_busy		common			I am busy now, commoner. I must watch the sea.
 swamp_witch		greeting	shop				Oooh what’s this come crawlin outta the mud I see?
 							Come a little closer tadpole! Do ya have anything shiny?

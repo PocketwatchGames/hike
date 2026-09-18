@@ -3926,7 +3926,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Generous spatial bound (the precise per-receiver gate is below);
             // MaxListenerHearingRange caps how far any receiver's hearing reaches.
             _yellReceivers.Clear();
-            _world.MobSpatialHash.QueryRadius(GlobalPosition, decibels * MaxListenerHearingRange, _yellReceivers, exclude: this);
+            _world.MobSpatialHash.QueryRadius(GlobalPosition, MaxListenerHearingRange, _yellReceivers, exclude: this);
             ETeam yellerTeam = mobData.team;
             foreach (Mob mob in _yellReceivers)
             {

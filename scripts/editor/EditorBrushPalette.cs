@@ -18,10 +18,9 @@ using Godot;
 [GlobalClass]
 public partial class EditorBrushPalette : Resource
 {
-	// Source of the voxel brush-button icons. A PATH, not a resource reference,
-	// on purpose — see EditorBrushIcons: a typed [Export] would drag the
-	// manifest and every source PBR map into memory whenever main.tscn loads.
-	[Export(PropertyHint.File, "*.tres")] public string atlasManifestPath;
+	// The baked terrain atlas the voxel brush-button icons are cut from, so an
+	// icon is the tile the game actually draws.
+	[Export] public TextureLayered tileAtlas;
 
 	// Surfaces the Roofs tool skins its generated geometry with. A roof has no
 	// scene to stamp — the shape comes from the drag — so this is a list of

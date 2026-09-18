@@ -3,7 +3,9 @@ extends EditorPlugin
 
 # Editor convenience wrapper around VoxelAtlasManifest (the C# resource that owns
 # the actual stitch). Adds "Project > Tools > Rebuild Voxel Atlas" and auto-
-# rebuilds whenever a source terrain map changes on disk.
+# rebuilds on a filesystem scan that finds a source map newer than the atlas.
+# The sources live in the .gdignored asset_src/, which the editor does not
+# watch, so editing one does not itself trigger that scan — use the menu item.
 #
 # The layer list / stitch logic lives ONLY on
 # res://resources/data/voxels/surfaces/voxel_atlas_manifest.tres now — this plugin just

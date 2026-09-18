@@ -68,7 +68,7 @@ above the ground.
 **The bake ends on `WorldFinish.Finish`, the same list worldgen ends on.** That
 one call runs every channel a finished world derives from its own voxels — the
 grade shapes, the detail scatter, the roof/sky/classify air pipeline, the fog
-bucket-fill, the wind seeding, the water currents and the cascades — so a
+pooled fog, the wind seeding, the water currents and the cascades — so a
 channel added there reaches a painted world the day it is added.
 
 It used to be four hand-picked calls into `WorldGen`, and the cost was silent:

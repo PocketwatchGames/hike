@@ -3,8 +3,8 @@
 // Single editor-visible source of truth for the voxel terrain atlas mapping:
 // which source PBR texture set is baked into each layer of voxel_tiles.png /
 // voxel_tiles_nrm_height.png. Open voxel_atlas_manifest.tres in the inspector to
-// see every surface's color/normal/height (with thumbnails), and press "Rebuild
-// Atlas" to re-stitch the two strips.
+// see every surface's color/normal/height source path, and press "Rebuild Atlas"
+// to re-stitch the two strips.
 //
 // Each layer bakes into the row named by its own surface's AtlasBaseIndex, so
 // the Layers array is an unordered set — reorder or insert entries freely. A row
@@ -14,7 +14,9 @@
 //
 // This resource is authoring-only and is NOT referenced by the running game —
 // ChunkMesh loads the baked voxel_tiles.png Texture2DArray, never this manifest
-// or the heavy source maps it points at. The headless mirror
+// or the heavy source maps it points at. Those live in asset_src/ (AssetSource),
+// which Godot does not import or watch — so editing a source map does not trigger
+// the stitcher plugin's auto-rebuild; press Rebuild Atlas. The headless mirror
 // tools/stitch_voxel_atlas.py parses THIS .tres, so the Python/CI path and the
 // editor button share one layer list.
 //
@@ -67,9 +69,9 @@ public partial class VoxelAtlasManifest : Resource
             AtlasLayer layer = rows[i];
             // No layer claims this row, or the surface that does authors no art
             // (Water: voxel_water draws it and never samples the atlas).
-            if (layer == null || layer.color == null)
+            if (layer == null || string.IsNullOrEmpty(layer.color))
             {
-                if (layer != null && (layer.normal != null || layer.height != null))
+                if (layer != null && (!string.IsNullOrEmpty(layer.normal) || !string.IsNullOrEmpty(layer.height)))
                 {
                     GD.PushWarning($"VoxelAtlasManifest: row {i} ('{LayerName(layer)}') has a Normal/Height but no Color; baking the whole row blank.");
                 }
@@ -80,13 +82,31 @@ public partial class VoxelAtlasManifest : Resource
             Image color = LoadSlot(layer.color, Image.Format.Rgb8);
             if (color == null)
             {
-                GD.PushError($"VoxelAtlasManifest: row {i} ('{LayerName(layer)}') failed to load its Color texture.");
+                GD.PushError($"VoxelAtlasManifest: row {i} ('{LayerName(layer)}') failed to load its Color map '{layer.color}'.");
                 return;
             }
             colorStrip.BlitRect(color, new Rect2I(0, 0, Slot, Slot), new Vector2I(0, i * Slot));
 
-            Image nrm = layer.normal != null ? LoadSlot(layer.normal, Image.Format.Rgb8) : null;
-            Image hgt = layer.height != null ? LoadSlot(layer.height, Image.Format.L8) : null;
+            Image nrm = null;
+            if (!string.IsNullOrEmpty(layer.normal))
+            {
+                nrm = LoadSlot(layer.normal, Image.Format.Rgb8);
+                if (nrm == null)
+                {
+                    GD.PushError($"VoxelAtlasManifest: row {i} ('{LayerName(layer)}') failed to load its Normal map '{layer.normal}'.");
+                    return;
+                }
+            }
+            Image hgt = null;
+            if (!string.IsNullOrEmpty(layer.height))
+            {
+                hgt = LoadSlot(layer.height, Image.Format.L8);
+                if (hgt == null)
+                {
+                    GD.PushError($"VoxelAtlasManifest: row {i} ('{LayerName(layer)}') failed to load its Height map '{layer.height}'.");
+                    return;
+                }
+            }
             for (int y = 0; y < Slot; y++)
             {
                 for (int x = 0; x < Slot; x++)
@@ -166,13 +186,13 @@ public partial class VoxelAtlasManifest : Resource
             {
                 continue;
             }
-            foreach (Texture2D tex in new[] { layer.color, layer.normal, layer.height })
+            foreach (string source in new[] { layer.color, layer.normal, layer.height })
             {
-                if (tex == null || string.IsNullOrEmpty(tex.ResourcePath))
+                if (string.IsNullOrEmpty(source))
                 {
                     continue;
                 }
-                ulong srcMtime = FileAccess.GetModifiedTime(tex.ResourcePath);
+                ulong srcMtime = FileAccess.GetModifiedTime(AssetSource.GlobalPath(source));
                 if (srcMtime != 0 && srcMtime > atlasMtime)
                 {
                     return true;
@@ -182,15 +202,15 @@ public partial class VoxelAtlasManifest : Resource
         return false;
     }
 
-    // Loads the ORIGINAL source file (not the VRAM-compressed import) so the
-    // bake is free of block-compression artifacts, resized to one slot.
-    private static Image LoadSlot(Texture2D tex, Image.Format format)
+    // Loads the source file and resizes it to one slot.
+    private static Image LoadSlot(string source, Image.Format format)
     {
-        if (tex == null || string.IsNullOrEmpty(tex.ResourcePath))
+        string path = AssetSource.GlobalPath(source);
+        if (!System.IO.File.Exists(path))
         {
             return null;
         }
-        Image img = Image.LoadFromFile(ProjectSettings.GlobalizePath(tex.ResourcePath));
+        Image img = Image.LoadFromFile(path);
         if (img == null)
         {
             return null;

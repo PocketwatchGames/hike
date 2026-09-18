@@ -93,7 +93,7 @@ public partial class MobData : Resource
     // `decibels * hearingRange`. State transitions (triggered / discovered)
     // are gated on active visual contact, so a hearing-only spike raises
     // perception but won't cross the threshold without sight.
-    [Export] public float hearingRange = 5f;
+    [Export] public float hearingRange = 15f;
     [Export] public float hearingRangePower = 0.5f;
     // Hearing-reach multiplier toward the player applied ONLY while the player
     // is in water (wading or swimming). An aquatic predator shares the water
@@ -366,8 +366,8 @@ public partial class MobData : Resource
     // Listeners (player + other mobs) check `decibels * hearingRange >
     // distance` to hear, and add a hearing contribution to their perception
     // delta when they do.
-    [Export] public float sneakDecibels = 1f;
-    [Export] public float runDecibels = 4f;
+    [Export] public float sneakDecibels = 0.25f;
+    [Export] public float runDecibels = 0.5f;
     // Loudness of this mob's voice — every discrete vocalization (bark / growl /
     // snarl / yell) carries this many decibels, in the same currency as movement
     // noise (audible distance = voiceDecibels * listener.hearingRange, wind/fog
@@ -375,7 +375,7 @@ public partial class MobData : Resource
     // shareable without each authoring a volume: a bark raises the player's
     // awareness of this mob, and a Yell additionally reaches other mobs to summon
     // a directed investigation. 0 = vocalizations are silent to perception.
-    [Export] public float voiceDecibels = 3f;
+    [Export] public float voiceDecibels = 1f;
 
     [ExportGroup("AI")]
     // Optional per-species override for the brain's idleBehavior — the behavior the

@@ -107,12 +107,20 @@ public partial class WorldFinishData : Resource
     // degree ramp and a two-voxel step is a wall.
     [Export(PropertyHint.Range, "1,8,1")] public int maxGradeStep = 1;
 
-    // Density gradient inside the bucket: density(wy) = (ceiling - wy) *
+    // Density gradient under the fog top: density(wy) = (level - wy) *
     // FogDensityPerVoxel, clamped to [0, 255].
     [Export] public float fogDensityPerVoxel = 80f;
 
-    // Per-column "bucket capacity" at humidity = 1, in voxel-depth units.
-    [Export] public float fogVolumePerHumidity = 6f;
+    // Fog depth above the local floor at humidity = 1, in voxels.
+    [Export] public float fogDepthPerHumidity = 6f;
+
+    // How far (in chunks) a column looks for the low ground its fog pools over.
+    // Ground more than the fog depth above the lowest floor in reach stays clear.
+    [Export(PropertyHint.Range, "0,8,1")] public int fogPoolRadiusChunks = 2;
+
+    // Box blur (in chunks) over the pooled floor, so the fog top slopes gently
+    // where it steps between pools.
+    [Export(PropertyHint.Range, "0,4,1")] public int fogFloorBlurRadiusChunks = 1;
 
     // Per-column smoothstep blend radius (in chunks) for the worldgen scalar
     // fades (elevation, density). See WorldGen.GetZoneGenWeights.

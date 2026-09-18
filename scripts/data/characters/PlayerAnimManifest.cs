@@ -23,8 +23,8 @@ using System.Collections.Generic;
 // from the clip name, Speed 1) so every animation shows up as an editable row
 // after a rebuild.
 //
-// EVENTS SURVIVE RE-IMPORT: the rebuild replaces each clip wholesale with a
-// fresh duplicate of the source FBX animation, so any method tracks / events
+// EVENTS SURVIVE A REBUILD: the rebuild replaces each clip wholesale with a
+// fresh parse of the source FBX animation, so any method tracks / events
 // added directly in the AnimationPlayer dock are LOST on the next rebuild (this
 // is how the footstep cues were silently wiped once). Authoring events on the
 // Clips rows here — the text .tres, not the binary .res — makes them durable:
@@ -46,11 +46,15 @@ using System.Collections.Generic;
 [GlobalClass]
 public partial class PlayerAnimManifest : Resource
 {
-    // Folder scanned for *.fbx animation sources. MUST be kept separate from the
-    // character rig FBXs (BasicHero_F/M, HeroPoses) so those aren't swept in as
-    // bogus clips.
-    [Export(PropertyHint.Dir)]
-    public string sourceFolder = "res://assets/models/characters/polysplit/anims";
+    // Folder scanned for *.fbx animation sources, relative to asset_src/ (see
+    // AssetSource) — Godot never imports them; RebuildLibrary parses each one.
+    [Export(PropertyHint.GlobalDir)]
+    public string sourceFolder
+    {
+        get => _sourceFolder;
+        set => _sourceFolder = AssetSource.Relativize(value);
+    }
+    private string _sourceFolder = "models/characters/polysplit/anims";
 
     // The combined library written/merged into. The player.tscn AnimationPlayer
     // loads this as its default ("") library, so clip names must be bare
@@ -98,10 +102,11 @@ public partial class PlayerAnimManifest : Resource
     // by an FBX are preserved; newly-found clips get a default row appended.
     public void RebuildLibrary()
     {
-        using DirAccess dir = DirAccess.Open(sourceFolder);
+        string sourceDir = AssetSource.GlobalPath(sourceFolder);
+        using DirAccess dir = DirAccess.Open(sourceDir);
         if (dir == null)
         {
-            GD.PushError($"PlayerAnimManifest: cannot open source folder '{sourceFolder}' (error {DirAccess.GetOpenError()}).");
+            GD.PushError($"PlayerAnimManifest: cannot open source folder '{sourceDir}' (error {DirAccess.GetOpenError()}).");
             return;
         }
 
@@ -138,15 +143,13 @@ public partial class PlayerAnimManifest : Resource
             }
 
             string clip = file.GetBaseName().ToLower();
-            string path = sourceFolder.PathJoin(file);
-            PackedScene scene = ResourceLoader.Load<PackedScene>(path);
-            if (scene == null)
+            byName.TryGetValue(clip, out PlayerAnimClipSetting setting);
+            Node inst = FbxClipSource.Parse(sourceFolder.PathJoin(file), setting?.keepConstantTracks ?? false);
+            if (inst == null)
             {
-                GD.PushWarning($"PlayerAnimManifest: '{file}' is not an imported scene yet — skipped.");
                 continue;
             }
 
-            Node inst = scene.Instantiate();
             AnimationPlayer ap = FindAnimationPlayer(inst);
             string[] names = ap?.GetAnimationList() ?? System.Array.Empty<string>();
             if (names.Length == 0)
@@ -160,7 +163,7 @@ public partial class PlayerAnimManifest : Resource
                 GD.PushWarning($"PlayerAnimManifest: '{file}' has {names.Length} clips; using the first ('{names[0]}') for '{clip}'.");
             }
 
-            if (!byName.TryGetValue(clip, out PlayerAnimClipSetting setting))
+            if (setting == null)
             {
                 setting = new PlayerAnimClipSetting
                 {
@@ -173,7 +176,7 @@ public partial class PlayerAnimManifest : Resource
                 appended.Add(setting);
             }
 
-            // Duplicate so the embedded copy is independent of the imported FBX.
+            // Duplicate so the embedded copy outlives the parsed scene.
             Animation anim = (Animation)ap.GetAnimation(names[0]).Duplicate(true);
             anim.LoopMode = setting.loop ? Animation.LoopModeEnum.Linear : Animation.LoopModeEnum.None;
             ApplyClipSpeed(anim, setting.speed, clip);
@@ -194,7 +197,7 @@ public partial class PlayerAnimManifest : Resource
 
         if (merged.Count == 0)
         {
-            GD.PushWarning($"PlayerAnimManifest: no .fbx clips found in '{sourceFolder}'. Nothing written.");
+            GD.PushWarning($"PlayerAnimManifest: no .fbx clips found in '{sourceDir}'. Nothing written.");
             return;
         }
 
