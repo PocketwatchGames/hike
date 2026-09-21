@@ -361,24 +361,6 @@ public class KnowledgeStoneSimState : EntitySimState
     }
 }
 
-public class WellSimState : EntitySimState
-{
-    public WellSimState(Vector3 worldPosition, PackedScene scene)
-        : base(worldPosition, scene)
-    {
-    }
-
-    public override Node3D CreateEntity(Sim sim)
-    {
-        return Well.Create(sim, this);
-    }
-
-    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
-    {
-        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
-    }
-}
-
 // Rest tent. No persistent per-instance state — interacting runs a one-shot
 // time-skip on the GameClient (see Tent), nothing on the tent changes.
 public class TentSimState : EntitySimState
@@ -475,15 +457,22 @@ public class ForgeSimState : RegrowSimState
     }
 }
 
-// Fountain (daily refill station — health or lantern fuel; the variant is
-// carried by the scene, see Fountain.EFountainKind). Like the Forge it re-arms
-// once per in-world day; no level or minted items — just the inherited RegrowDay
-// deadline (stamped to DayNumber + 1 on use).
+// Anything the player drinks from (see Fountain). The drink's effects, cooldown
+// and enabling flag are the placement's; RegrowDay is the only runtime state.
 public class FountainSimState : RegrowSimState
 {
-    public FountainSimState(Vector3 worldPosition, PackedScene scene)
+    public ItemEffect[] Effects;
+    // 0 = usable any number of times.
+    public int CooldownDays;
+    // Blank = always enabled.
+    public StringName EnabledVariable;
+
+    public FountainSimState(Vector3 worldPosition, PackedScene scene, ItemEffect[] effects, int cooldownDays, StringName enabledVariable)
         : base(worldPosition, scene)
     {
+        Effects = effects ?? System.Array.Empty<ItemEffect>();
+        CooldownDays = cooldownDays;
+        EnabledVariable = enabledVariable;
     }
 
     public override Node3D CreateEntity(Sim sim)

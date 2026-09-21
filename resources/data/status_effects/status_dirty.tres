@@ -2,11 +2,12 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Texture2D" uid="uid://idxjyig5rcky" path="res://assets/textures/status_effects/dots.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 
 [sub_resource type="Resource" id="m_scent"]
 script = ExtResource("m_script")
-stat = 131072
+stat = 7
 value = 3.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
@@ -19,5 +20,5 @@ maxStack = 1
 buildupBehavior = 1
 armThreshold = 0.99
 removesOnApply = []
-modifiers = Array[ExtResource("m_script")]([SubResource("m_scent")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_scent")])
 conditionalModifiers = []

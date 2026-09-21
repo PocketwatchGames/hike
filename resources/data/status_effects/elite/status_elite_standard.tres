@@ -2,30 +2,31 @@
 
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="1_g20gd"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="4_ruwv5"]
+[ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
 
 [sub_resource type="Resource" id="Resource_ki1mv"]
 script = ExtResource("1_g20gd")
-stat = 67108864
+stat = 16
 value = 250.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="Resource_g20gd"]
 script = ExtResource("1_g20gd")
-stat = 134217728
+stat = 17
 value = 100.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="Resource_lqeo4"]
 script = ExtResource("1_g20gd")
-stat = 2048
+stat = 1
 value = 2.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="Resource_bgspn"]
-script = ExtResource("1_g20gd")
-stat = 8
+script = ExtResource("tagmod_1")
+tag = 8
 value = 0.25
-metadata/_custom_type_script = "uid://bovyciaikopwb"
+metadata/_custom_type_script = "uid://11t1a8dvp0j6n"
 
 [resource]
 script = ExtResource("4_ruwv5")

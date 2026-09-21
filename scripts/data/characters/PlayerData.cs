@@ -446,11 +446,11 @@ public partial class PlayerData : Resource
 	// thresholds, etc.). 1.0 (or no entry) is neutral for multiplicative
 	// stats; 0 is neutral for additive stats. Vulnerabilities author
 	// multiplier > 1.
-	[Export] public Godot.Collections.Array<StatModifier> modifiers;
+	[Export] public Godot.Collections.Array<Modifier> modifiers;
 	// Managed read-mirror of `modifiers` — see MobData.ModifiersFlat.
 	// Player.ComposeStat folds this several times per physics tick.
-	private StatModifier[] _modifiersFlat;
-	public StatModifier[] ModifiersFlat => _modifiersFlat ??= StatModifierUtil.Flatten(modifiers);
+	private ModifierSet _modifiersFlat;
+	public ModifierSet ModifiersFlat => _modifiersFlat ??= ModifierSet.From(modifiers);
 
 	// Maximum angle (radians) between the mob's facing direction and the
 	// player→mob vector at hit time for the attack to count as a backstab.

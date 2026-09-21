@@ -7,7 +7,7 @@
 
 [sub_resource type="Resource" id="mod_nightvision"]
 script = ExtResource("3_mod")
-stat = 33554432
+stat = 15
 value = 1.85
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 

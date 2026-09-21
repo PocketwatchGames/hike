@@ -893,7 +893,7 @@ public partial class Hud : Control
 			// discoveries appear immediately), matching its fog-of-war.
 			// circleMaskFraction 0.5 matches the map shader's mask_radius so icons
 			// clip to the round minimap; the world map (square) passes 0.
-			_markerOverlay = MapMarkerOverlay.Create(gameClient, _unknownMarkerIcon, _markerIconSize, includeProvisional: true, circleMaskFraction: 0.5f);
+			_markerOverlay = MapMarkerOverlay.Create(gameClient, _unknownMarkerIcon, _markerIconSize, fadeWithChartReveal: false, circleMaskFraction: 0.5f);
 			_minimapTexture.AddChild(_markerOverlay);
 		}
 		_markerOverlay.SetFraming(new Vector2(pos.X, pos.Z), viewRadius);

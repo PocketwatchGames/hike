@@ -6,6 +6,14 @@ using Godot;
 // this state stays so the entity can be re-materialized later with its current
 // values intact. Mover-type entities (Mob, Loot) are expected to write their
 // current position back into WorldPosition before being freed.
+// A live entity node that keeps state on itself and writes it back into its
+// EntitySimState only when it leaves the tree (a mover's position). A save is
+// taken with nodes still live, so Sim.FlushLiveEntities calls this first.
+public interface ISyncsSimState
+{
+    void SyncToSimState();
+}
+
 public abstract class EntitySimState
 {
     // Mutable so movers can sync their current position back before unload.

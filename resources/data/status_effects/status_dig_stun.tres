@@ -4,17 +4,18 @@
 [ext_resource type="Texture2D" uid="uid://bepywys0dc8fq" path="res://assets/textures/status_effects/dizzy.png" id="1_yp3he"]
 [ext_resource type="PackedScene" uid="uid://b5tnkjqsx1prw" path="res://scenes/fx/dizzy_begin.tscn" id="2_startfx"]
 [ext_resource type="PackedScene" uid="uid://duw0p7jxqkb0v" path="res://scenes/fx/dizzy_loop.tscn" id="3_loopfx"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 
 [sub_resource type="Resource" id="m_movespeed"]
 script = ExtResource("m_script")
-stat = 4096
+stat = 2
 value = 0.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="m_animspeed"]
 script = ExtResource("m_script")
-stat = 8192
+stat = 3
 value = 0.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
@@ -30,7 +31,7 @@ applyTrigger = 1
 startFx = ExtResource("2_startfx")
 loopFx = ExtResource("3_loopfx")
 removesOnApply = []
-modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_animspeed")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_movespeed"), SubResource("m_animspeed")])
 conditionalModifiers = []
 incapacitates = true
 loopAnimOverride = 10

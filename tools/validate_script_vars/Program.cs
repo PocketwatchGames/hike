@@ -5,7 +5,8 @@ using System.Text.RegularExpressions;
 
 // Headless validator for the scripting-variable bank. Checks that every
 // authored reference (ScriptVarCondition / ScriptVarTransition /
-// SetScriptVarAction) names a variable that actually exists in
+// SetScriptVarAction, and the Bool flags QuestData.completedVariable /
+// CauldronSpawnEntry.enabledVariable) names a variable that actually exists in
 // resources/data/worlds/shared/script_variables/, that ordering comparisons are only used
 // on Int variables, and that every declared variable is registered in a
 // ScriptVariableRegistry (so it gets seeded at runtime). Emits findings in
@@ -27,6 +28,11 @@ class Program
         "ScriptVarTransition.cs",
         "SetScriptVarAction.cs",
     };
+
+    // Fields naming a Bool flag by name, on any script — the names are distinctive
+    // enough not to need a per-script table (QuestData has several subclasses).
+    // Blank is legitimate on both: no record / always enabled.
+    static readonly Regex FlagFieldRegex = new(@"^\s*(?<field>completedVariable|enabledVariable)\s*=\s*&?""(?<id>[^""]*)""", RegexOptions.Compiled);
 
     const int TypeBool = 0;
 
@@ -265,6 +271,14 @@ class Program
                 }
             }
         }
+        for (int i = 0; i < lines.Length; i++)
+        {
+            Match fm = FlagFieldRegex.Match(lines[i]);
+            if (fm.Success && fm.Groups["id"].Value.Length > 0)
+            {
+                ValidateFlagRef(rel, i + 1, fm.Groups["field"].Value, fm.Groups["id"].Value, declared, issues);
+            }
+        }
         if (refScriptIds.Count == 0)
         {
             return;
@@ -322,6 +336,19 @@ class Program
         if (decl.Type == TypeBool && OrderingOps.Contains(op))
         {
             issues.Add($"{rel}({line}): warning SCRIPTVAR2: ordering comparison used on Bool variable '{variable}' — only Equal/NotEqual/IsTrue/IsFalse apply to a flag.");
+        }
+    }
+
+    static void ValidateFlagRef(string rel, int line, string field, string variable, Dictionary<string, VarDecl> declared, List<string> issues)
+    {
+        if (!declared.TryGetValue(variable, out VarDecl? decl))
+        {
+            issues.Add($"{rel}({line}): warning SCRIPTVAR1: {field} references undeclared scripting variable '{variable}' (add a ScriptVariableData under {VarDeclRoot}/).");
+            return;
+        }
+        if (decl.Type != TypeBool)
+        {
+            issues.Add($"{rel}({line}): warning SCRIPTVAR6: {field} names Int variable '{variable}' — it is read and written as a Bool flag.");
         }
     }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Godot;
 
 // Everything the player carries: the singular equip slots (helmet / armor /
@@ -803,6 +804,68 @@ public class Inventory
 	// is the array length (backpackCapacity), NOT the non-null occupancy —
 	// use BackpackCount for that.
 	public IReadOnlyList<ItemState> Backpack => _backpack;
+
+	// The equip slots a save carries, in wire order. The attuned spell is not one:
+	// a sunrise clears it (GameClient.OnNewDayRefreshNodes).
+	private static readonly EInventorySlot[] SavedSlots =
+	{
+		EInventorySlot.Helmet, EInventorySlot.Armor, EInventorySlot.WeaponMelee,
+		EInventorySlot.WeaponRanged, EInventorySlot.Lantern,
+	};
+
+	// Inside a shared EntitySerializer table (SaveGame). The backpack is written
+	// slot by slot, gaps included, so the player's layout survives.
+	public void Serialize(BinaryWriter w)
+	{
+		foreach (EInventorySlot slot in SavedSlots)
+		{
+			EntitySerializer.WriteItem(w, GetEquipped(slot));
+		}
+		w.Write(_backpack.Length);
+		for (int i = 0; i < _backpack.Length; i++)
+		{
+			EntitySerializer.WriteItem(w, _backpack[i]);
+		}
+	}
+
+	// Replaces everything carried with what the save holds. An item that no
+	// longer fits (the backpack shrank) is dropped with a warning.
+	public void Restore(BinaryReader r)
+	{
+		foreach (EInventorySlot slot in SavedSlots)
+		{
+			ItemState item = EntitySerializer.ReadItem(r);
+			SetSlot(slot, item);
+			NotifySlot(slot);
+		}
+		Array.Clear(_backpack);
+		int saved = r.ReadInt32();
+		var overflow = new List<ItemState>();
+		for (int i = 0; i < saved; i++)
+		{
+			ItemState item = EntitySerializer.ReadItem(r);
+			if (item == null)
+			{
+				continue;
+			}
+			if (i < _backpack.Length)
+			{
+				_backpack[i] = item;
+			}
+			else
+			{
+				overflow.Add(item);
+			}
+		}
+		foreach (ItemState item in overflow)
+		{
+			if (!AppendToBackpack(item))
+			{
+				GD.PushWarning($"Inventory: no backpack room for saved '{item.data?.ResourcePath}' — dropping it.");
+			}
+		}
+		onChanged?.Invoke();
+	}
 
 	private void SetSlot(EInventorySlot slot, ItemState item)
 	{

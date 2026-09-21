@@ -3,35 +3,43 @@
 [ext_resource type="Texture2D" uid="uid://bihqgais5fhrf" path="res://assets/textures/items/BonesteelArmor.png" id="1_sprite"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+[ext_resource type="Script" uid="uid://11t1a8dvp0j6n" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
+[ext_resource type="Script" uid="uid://ouzgtnkbomf4q" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 
 [sub_resource type="Resource" id="m_pen"]
-script = ExtResource("m_script")
-stat = 16
+script = ExtResource("tagmod_1")
+tag = 16
 value = 0.4
-metadata/_custom_type_script = "uid://bovyciaikopwb"
+metadata/_custom_type_script = "uid://11t1a8dvp0j6n"
 
 [sub_resource type="Resource" id="m_speed"]
 script = ExtResource("m_script")
-stat = 4096
+stat = 2
 value = 0.8
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="m_fire"]
-script = ExtResource("m_script")
-stat = 2
+script = ExtResource("tagmod_1")
+tag = 2
 value = 0.7
-metadata/_custom_type_script = "uid://bovyciaikopwb"
+metadata/_custom_type_script = "uid://11t1a8dvp0j6n"
 
 [sub_resource type="Resource" id="m_stamina"]
 script = ExtResource("m_script")
-stat = 2097152
+stat = 11
 value = -2.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_burning"]
+script = ExtResource("tagmod_1")
+tag = 4096
+value = 0.7
+metadata/_custom_type_script = "uid://11t1a8dvp0j6n"
 
 [resource]
 script = ExtResource("2_armor")
 maxArmor = 300.0
-modifiers = Array[ExtResource("m_script")]([SubResource("m_pen"), SubResource("m_speed"), SubResource("m_fire"), SubResource("m_stamina")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_pen"), SubResource("m_speed"), SubResource("m_fire"), SubResource("m_burning"), SubResource("m_stamina")])
 outfit = &"knight"
 displayName = &"Plate Armor"
 description = "A full harness of shaped steel — the best protection coin can buy, if you can bear the weight."

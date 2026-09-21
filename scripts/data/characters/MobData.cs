@@ -273,29 +273,28 @@ public partial class MobData : Resource
     // rather than proportionally slower. 0 = armor never recharges.
     [Export] public float armorRechargeTime = 10f;
     [Export] public float armorRecoverTime = 30f;
-    // Inherent stat modifiers. Composed with active StatusEffectData.
-    // modifiers when the actor queries any stat. Damage / armor penetration / blunt /
-    // knockback / buildup scaling all key on hit tags via this list;
-    // vulnerabilities author multiplier > 1. Kun-kun's Dizzy vulnerability
-    // is { Dizzy, 3 } here — any buildup feeding a Dizzy-tagged effect
-    // lands triple.
-    [Export] public Godot.Collections.Array<StatModifier> modifiers;
+    // Inherent modifiers, composed with active StatusEffectData.modifiers.
+    // StatModifiers set stats; TagModifiers scale hits by tag and buildup by
+    // status family. Vulnerabilities author multiplier > 1 — kun-kun's is a
+    // { Dizzy, 3 } TagModifier, so any buildup feeding a Dizzy effect lands
+    // triple.
+    [Export] public Godot.Collections.Array<Modifier> modifiers;
     // Managed read-mirror of `modifiers` for per-tick callers (ComposeStat /
-    // ComposeMaskMul run on every mob every physics tick). Indexing the Godot
+    // ComposeTagMul run on every mob every physics tick). Indexing the Godot
     // array marshals a Variant per element; this doesn't. Built once on first
     // access and never invalidated — MobData is authored data, immutable after
     // load. In-editor inspector edits go to `modifiers`, which is what the
     // editor reads; only runtime gameplay reads this.
-    private StatModifier[] _modifiersFlat;
-    public StatModifier[] ModifiersFlat => _modifiersFlat ??= StatModifierUtil.Flatten(modifiers);
+    private ModifierSet _modifiersFlat;
+    public ModifierSet ModifiersFlat => _modifiersFlat ??= ModifierSet.From(modifiers);
     // Per-species Dizzy resistance — a base trait every mob tunes, like
     // maxHealth / maxArmor (which are likewise direct fields with EStat
     // counterparts for situational deltas). The Dizzy buildup meter fills to
     // 1.0 to land the effect; this is the buildup multiple required to get
     // there — 1 is stock, 2 means "needs twice the buildup" (resistant), 0.5
-    // means "half the buildup" (easily dizzied). Folded into ComposeMaskMul as
-    // an inverse contribution scalar, so it composes with any situational
-    // { Dizzy, x } StatModifier (kun-kun's { Dizzy, 3 } vulnerability still
+    // means "half the buildup" (easily dizzied). Folded into Mob.ComposeBuildupResistance
+    // as an inverse contribution scalar, so it composes with any situational
+    // { Dizzy, x } TagModifier (kun-kun's { Dizzy, 3 } vulnerability still
     // stacks on top). Leave at 1 for no per-species adjustment.
     [Export(PropertyHint.Range, "0.1,10,0.1,or_greater")] public float dizzyResistance = 1f;
     // Whether this species can sidestep incoming projectiles (the Attack->Dodge

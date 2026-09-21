@@ -1,5 +1,6 @@
 using Godot;
 using Godot.Collections;
+using System.IO;
 
 // One party member — the complete "soul" of a playable character: identity +
 // appearance picks, the character-sheet stat block, the starting loadout, and
@@ -54,7 +55,7 @@ public partial class PlayerState : Resource
 	//   strength         — scales melee-swing damage only (ranged/thrown unaffected).
 	//   perception       — sharpens the player's own senses (Vision + Hearing).
 	//   stealth          — quiets the player's emissions (Noise + Scent); higher = stealthier.
-	//   fortitude        — resists incoming combat status buildup (via EStat.FortitudeResistance); higher = more resistant.
+	//   fortitude        — resists incoming combat status buildup (folds into EStat.FortitudeResistance); higher = more resistant.
 	[Export] public float health = 1f;
 	// Innate max-armor pool granted by the class. Summed with any equipped
 	// armor in Player.RecalculateMaxArmor.
@@ -68,23 +69,23 @@ public partial class PlayerState : Resource
 	// Passive stat modifications, folded into every stat compose alongside
 	// PlayerData, equipped-armor, and status-effect modifiers (see
 	// ArmorData.modifiers for authoring examples).
-	[Export] public Array<StatModifier> modifiers;
+	[Export] public Array<Modifier> modifiers;
 	// Managed read-mirror of `modifiers` — see MobData.ModifiersFlat. Unlike the
 	// *Data mirrors this one re-checks the source reference, because PlayerState
 	// is runtime state: nothing reassigns `modifiers` today, but a future class
 	// change or respec plausibly would, and a silently stale stat table is a
 	// nasty failure. Reassigning the array is handled; mutating it in place is
 	// not — clear _modifiersFlat if you ever add/remove entries live.
-	private StatModifier[] _modifiersFlat;
-	private Array<StatModifier> _modifiersFlatFrom;
-	public StatModifier[] ModifiersFlat
+	private ModifierSet _modifiersFlat;
+	private Array<Modifier> _modifiersFlatFrom;
+	public ModifierSet ModifiersFlat
 	{
 		get
 		{
 			if (!ReferenceEquals(modifiers, _modifiersFlatFrom) || _modifiersFlat == null)
 			{
 				_modifiersFlatFrom = modifiers;
-				_modifiersFlat = StatModifierUtil.Flatten(modifiers);
+				_modifiersFlat = ModifierSet.From(modifiers);
 			}
 			return _modifiersFlat;
 		}
@@ -155,4 +156,61 @@ public partial class PlayerState : Resource
 	// node) and the campfire glow particle (Player gates that on IsWellRested plus
 	// actually sitting at the fire).
 	public bool IsWellRested;
+
+	// Runtime (not authored): set once Player.Initialize has seeded this member's
+	// starting loadout, so a later spawn (a load) doesn't hand it out again. Not
+	// written by a save: every saved member was spawned, so ReadRuntime sets it.
+	public bool StartingLoadoutGranted;
+
+	// Runtime (not authored): the template this member was cloned from. A save
+	// stores this reference plus the runtime fields above, and rebuilds the
+	// member by cloning it again — the authored fields never change per-run.
+	public PlayerState Template;
+
+	// A runtime member of `template`. A DEEP clone, so the member is independent
+	// of the .tres; field initializers give it its own Knowledge store.
+	public static PlayerState FromTemplate(PlayerState template)
+	{
+		var member = (PlayerState)template.Duplicate(true);
+		member.Template = template;
+		return member;
+	}
+
+	// Inside a shared EntitySerializer table (SaveGame).
+	public void WriteRuntime(BinaryWriter w)
+	{
+		EntitySerializer.WriteRef(w, Template);
+		w.Write(IsDead);
+		w.Write(ReviveByDay);
+		w.Write(RestDays);
+		w.Write(ForceWellRestedNextDay);
+		w.Write(IsWellRested);
+		Knowledge.Serialize(w);
+	}
+
+	// Null when the template no longer exists; the stream still stays aligned.
+	public static PlayerState ReadRuntime(BinaryReader r)
+	{
+		PlayerState template = EntitySerializer.ReadRef<PlayerState>(r);
+		bool isDead = r.ReadBoolean();
+		int reviveByDay = r.ReadInt32();
+		int restDays = r.ReadInt32();
+		bool forceWellRested = r.ReadBoolean();
+		bool isWellRested = r.ReadBoolean();
+		var knowledge = new Knowledge();
+		knowledge.Deserialize(r);
+		if (template == null)
+		{
+			return null;
+		}
+		PlayerState member = FromTemplate(template);
+		member.IsDead = isDead;
+		member.ReviveByDay = reviveByDay;
+		member.RestDays = restDays;
+		member.ForceWellRestedNextDay = forceWellRested;
+		member.IsWellRested = isWellRested;
+		member.StartingLoadoutGranted = true;
+		member.Knowledge.MergeFrom(knowledge);
+		return member;
+	}
 }

@@ -8,7 +8,7 @@
 
 [sub_resource type="Resource" id="mod_health"]
 script = ExtResource("3_mod")
-stat = 67108864
+stat = 16
 value = 200.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 

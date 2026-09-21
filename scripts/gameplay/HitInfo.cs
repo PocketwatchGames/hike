@@ -17,10 +17,10 @@ public struct HitInfo
 {
 	public Node source;
 	// Type tags carried from the source template (DamageData.tags /
-	// ContinuousDamageData.tags). Receivers fold their per-tag StatModifier
+	// ContinuousDamageData.tags). Receivers fold their TagModifier
 	// entries against this mask at multiple gameplay sites — damage scale,
 	// armor-penetration-chance, armor chip, knockback magnitude — when applying.
-	public EStat tags;
+	public EHitTag tags;
 	public float healthDamage;
 	// Non-null when the source template is an environmental hazard — the profile
 	// whose bands decide this hit's damage, its buildup proc rate, and the DoT of
@@ -173,7 +173,7 @@ public struct HitInfo
 		}
 		else
 		{
-			tags = EStat.None;
+			tags = EHitTag.None;
 			healthDamage = 0f;
 			hazardProfile = null;
 			continuousDeltaSeconds = 0f;
@@ -222,7 +222,7 @@ public struct HitInfo
 		}
 		else
 		{
-			tags = EStat.None;
+			tags = EHitTag.None;
 			healthDamage = 0f;
 			hazardProfile = null;
 			blunt = 0f;

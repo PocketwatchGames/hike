@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="FountainSpawnEntry" format=3 uid="uid://vfmxol8vs8pe"]
+
+[ext_resource type="Script" uid="uid://cuyu2uykmhfid" path="res://scripts/data/spawn/FountainSpawnEntry.cs" id="1_entry"]
+[ext_resource type="PackedScene" uid="uid://33f4c8yu0dfut" path="res://scenes/interactives/cauldron.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_entry")
+scene = ExtResource("2_scene")
+metadata/_custom_type_script = "uid://cuyu2uykmhfid"

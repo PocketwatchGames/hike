@@ -6,8 +6,8 @@
 [ext_resource type="PackedScene" uid="uid://11rjp0311ygl" path="res://scenes/characters/kun_kun.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="6_animdata"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="7_fxemr"]
-[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="7_statmod"]
 [ext_resource type="Resource" uid="uid://cdg5stnk2wq8r" path="res://resources/data/status_effects/status_dig_stun.tres" id="8_digstun"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 
 [sub_resource type="Resource" id="Resource_anim_dead"]
 script = ExtResource("6_animdata")
@@ -76,7 +76,7 @@ smellRange = 16.0
 smellRangePower = 2.0
 visibilityMovementPower = 1.0
 prominence = 0.75
-modifiers = Array[ExtResource("7_statmod")]([])
+modifiers = Array[ExtResource("modifier_1")]([])
 dizzyResistance = 0.5
 canBurrow = true
 burrowTime = 0.5

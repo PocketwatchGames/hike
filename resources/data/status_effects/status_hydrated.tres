@@ -4,11 +4,12 @@
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="PackedScene" uid="uid://bx8bas1ex2mik" path="res://scenes/fx/status_hydrated_start.tscn" id="3_startfx"]
 [ext_resource type="PackedScene" uid="uid://c3fq6q8o822kc" path="res://scenes/fx/status_hydrated_end.tscn" id="4_endfx"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 
 [sub_resource type="Resource" id="m_stamina"]
 script = ExtResource("m_script")
-stat = 2097152
+stat = 11
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
@@ -20,5 +21,5 @@ maxStack = 1
 startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")
 removesOnApply = []
-modifiers = Array[ExtResource("m_script")]([SubResource("m_stamina")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_stamina")])
 conditionalModifiers = []

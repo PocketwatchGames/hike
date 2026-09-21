@@ -3,10 +3,11 @@
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Texture2D" uid="uid://w01e1nyfp28o" path="res://assets/textures/status_effects/bolt.png" id="2_icon"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_mod"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 
 [sub_resource type="Resource" id="m_vision"]
 script = ExtResource("3_mod")
-stat = 16384
+stat = 4
 value = 1.25
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
@@ -19,5 +20,5 @@ upgradeSlot = 2
 durationType = 2
 maxStack = 1
 removesOnApply = []
-modifiers = Array[ExtResource("3_mod")]([SubResource("m_vision")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_vision")])
 conditionalModifiers = []

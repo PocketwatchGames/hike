@@ -1,37 +1,36 @@
+using System.Collections.Generic;
 using Godot;
 
-// Which player resource a fountain refills on use.
-public enum EFountainKind
-{
-    Health,
-    LanternFuel,
-}
-
-// Daily-cooldown refill station. On interact (while off cooldown) it refills a
-// player resource — full health, or every carried lantern's fuel — then goes
-// inert until the next in-world sunrise (a DayNumber deadline persisted on the
-// sim state, so the cooldown survives chunk streaming and save/load). While
-// ready its basin water is visible; once used the water mesh is hidden until the
-// fountain re-arms at sunrise. One scene per variant supplies the water color +
-// _kind; all the cooldown/visibility/discovery logic is shared here.
+// Anything the player drinks from: a healing or mana fountain, a well, a
+// cauldron. What a drink DOES is the placement's list of ItemEffects (see
+// FountainSpawnEntry); this node owns only when it can be used and what "ready"
+// looks like.
 //
-// Mirrors Forge's ready/inert daily-cooldown pattern (sans the item-minting
-// screen); the visual cue is water visibility rather than an orb material swap.
+// Ready = enabled (its enabledVariable, if any, is true) AND off cooldown (a
+// RegrowDay deadline, so it survives streaming and save/load). The scene
+// authors the ready look — nodes shown while ready (a fountain's water), and
+// optionally a light, a lit/doused material swap and a loop Fx (a cauldron's
+// fire). Both halves are event-driven: the day rollover and the script-variable
+// bank, never a per-frame poll.
 [GlobalClass]
 public partial class Fountain : Node3D, IInteractive, IWorldEntity
 {
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
     [Export] private Discoverable _discoverable;
     [Export] private Node3D _hudNode;
-    // Basin water surface — visible while ready, hidden once used.
-    [Export] private MeshInstance3D _waterMesh;
-    // Which player resource a use refills.
-    [Export] private EFountainKind _kind = EFountainKind.Health;
-    // Fraction of the player's MaxHealth restored on use (Health kind; 1 = full).
-    [Export(PropertyHint.Range, "0,1,0.05")] private float _healFraction = 1f;
+    [Export] private Node3D[] _readyNodes = System.Array.Empty<Node3D>();
+    [Export] private StationaryLight _light;
+    // Sub-model swapped between the lit and doused materials — point it at just
+    // the part that glows (the logs), so the rest keeps its imported material.
+    [Export] private Node3D _glowModel;
+    [Export] private Material _litMaterial;
+    [Export] private Material _dousedMaterial;
+    [Export] private PackedScene _loopEffectScene;
 
     private FountainSimState _simState;
     private Sim _world;
+    private Fx _loopEffect;
+    private readonly List<MeshInstance3D> _glowMeshes = new();
 
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
@@ -39,33 +38,90 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
 
     public override void _ExitTree()
     {
-        if (_world != null)
+        if (_world == null)
         {
-            _world.OnNewDay -= HandleNewDay;
+            return;
+        }
+        _world.OnNewDay -= HandleNewDay;
+        ScriptVariableBank vars = _world.WorldState?.SimState?.ScriptVars;
+        if (vars != null)
+        {
+            vars.OnChanged -= HandleVariableChanged;
         }
     }
 
-    // The fountain re-arms at sunrise; re-show the water when the day rolls over.
-    private void HandleNewDay(int day)
+    private bool IsEnabled()
     {
-        ApplyReadyVisual(CanInteract());
+        StringName gate = _simState?.EnabledVariable;
+        if (gate == null || gate.IsEmpty)
+        {
+            return true;
+        }
+        return _world?.WorldState?.SimState?.ScriptVars?.GetBool(gate) ?? false;
     }
 
-    // Water shown while ready, hidden once used.
-    private void ApplyReadyVisual(bool ready)
+    private bool IsOffCooldown()
     {
-        if (_waterMesh != null)
+        return _simState == null || _simState.IsRegrown(Sim.Current?.DayNumber ?? 0);
+    }
+
+    private void HandleNewDay(int day)
+    {
+        ApplyReadyVisual(CanInteract(), fade: true);
+    }
+
+    private void HandleVariableChanged(StringName id)
+    {
+        if (_simState?.EnabledVariable != null && id == _simState.EnabledVariable)
         {
-            _waterMesh.Visible = ready;
+            ApplyReadyVisual(CanInteract(), fade: true);
+        }
+    }
+
+    private void ApplyReadyVisual(bool ready, bool fade)
+    {
+        foreach (Node3D node in _readyNodes)
+        {
+            if (node != null)
+            {
+                node.Visible = ready;
+            }
+        }
+        _light?.SetActive(ready, fade);
+        Material mat = ready ? _litMaterial : _dousedMaterial;
+        if (mat != null)
+        {
+            foreach (MeshInstance3D mesh in _glowMeshes)
+            {
+                mesh.SetSurfaceOverrideMaterial(0, mat);
+            }
+        }
+        if (ready && _loopEffect == null && _loopEffectScene != null)
+        {
+            _loopEffect = Fx.Create(_loopEffectScene, this, Vector3.Zero);
+        }
+        else if (!ready && _loopEffect != null)
+        {
+            _loopEffect.Stop();
+            _loopEffect = null;
+        }
+    }
+
+    private void CollectGlowMeshes(Node node)
+    {
+        foreach (Node child in node.GetChildren())
+        {
+            if (child is MeshInstance3D mesh)
+            {
+                _glowMeshes.Add(mesh);
+            }
+            CollectGlowMeshes(child);
         }
     }
 
     public bool CanInteract()
     {
-        // Inert until the world day reaches the reactivation day (stamped to the
-        // next day on use, so the fountain re-arms at sunrise). 0 = ready.
-        int today = Sim.Current?.DayNumber ?? 0;
-        return _simState == null || today >= _simState.RegrowDay;
+        return IsEnabled() && IsOffCooldown();
     }
 
     public bool CanActorInteract(Player player)
@@ -93,27 +149,16 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        switch (_kind)
+        var context = new ActionContext { verb = EActionVerb.Use, target = player, worldPosition = GlobalPosition };
+        foreach (ItemEffect effect in _simState.Effects)
         {
-            case EFountainKind.Health:
-                player.Heal(player.MaxHealth * _healFraction);
-                break;
-            case EFountainKind.LanternFuel:
-                player.RefuelLantern();
-                break;
+            effect?.Apply(player, context);
         }
-        BeginCooldown();
-    }
-
-    private void BeginCooldown()
-    {
-        if (_simState == null)
+        if (_simState.CooldownDays > 0)
         {
-            return;
+            _simState.RegrowDay = (Sim.Current?.DayNumber ?? 0) + _simState.CooldownDays;
+            ApplyReadyVisual(false, fade: true);
         }
-        _simState.RegrowDay = (Sim.Current?.DayNumber ?? 0) + 1;
-        // Hide the water immediately; HandleNewDay restores it at the next sunrise.
-        ApplyReadyVisual(false);
     }
 
     public static Fountain Create(Sim sim, FountainSimState data)
@@ -122,11 +167,25 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
         data.SeatTransform(instance);
         instance._simState = data;
         instance._world = sim;
+        var baseWorldPos = new Vector3I(
+            Mathf.FloorToInt(data.WorldPosition.X),
+            Mathf.FloorToInt(data.WorldPosition.Y),
+            Mathf.FloorToInt(data.WorldPosition.Z)
+        );
+        instance._light?.Initialize(sim.WorldState, sim, baseWorldPos);
         sim.AddChild(instance);
-        // Snap the water to the spawned ready/inert state (no fade on stream-in),
-        // then re-show on the sunrise rollover rather than polling each frame.
-        instance.ApplyReadyVisual(instance.CanInteract());
+        if (instance._glowModel != null)
+        {
+            instance.CollectGlowMeshes(instance._glowModel);
+        }
+        // Snap to the spawned state — a fountain streaming in shouldn't fade up.
+        instance.ApplyReadyVisual(instance.CanInteract(), fade: false);
         sim.OnNewDay += instance.HandleNewDay;
+        ScriptVariableBank vars = sim.WorldState?.SimState?.ScriptVars;
+        if (vars != null)
+        {
+            vars.OnChanged += instance.HandleVariableChanged;
+        }
         return instance;
     }
 }

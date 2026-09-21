@@ -1,10 +1,13 @@
-[gd_resource type="Resource" script_class="FountainSpawnEntry" format=3 uid="uid://p8myqetzi5fav"]
+[gd_resource type="Resource" script_class="FountainSpawnEntry" format=3 uid="uid://r0id550acv8t"]
 
 [ext_resource type="Script" uid="uid://cuyu2uykmhfid" path="res://scripts/data/spawn/FountainSpawnEntry.cs" id="1_entry"]
-[ext_resource type="PackedScene" uid="uid://phz0ub8154wqh" path="res://scenes/interactives/fountain_mana.tscn" id="2_scene"]
+[ext_resource type="PackedScene" uid="uid://dvse25ibhjbg6" path="res://scenes/interactives/fountain_mana.tscn" id="2_scene"]
+[ext_resource type="Resource" uid="uid://dfhc5mj5gqxk3" path="res://resources/data/fountain_effects/refuel_all_lanterns.tres" id="3_effect"]
 
 [resource]
 script = ExtResource("1_entry")
 scene = ExtResource("2_scene")
-detailSuppressionRadius = 2.0
+effects = [ExtResource("3_effect")]
+cooldownDays = 1
+enabledVariable = null
 metadata/_custom_type_script = "uid://cuyu2uykmhfid"

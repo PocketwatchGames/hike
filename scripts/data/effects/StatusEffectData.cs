@@ -120,11 +120,13 @@ public partial class StatusEffectData : Resource
 	// HUD. Player-side display is unaffected. Default false = shows normally.
 	[Export] public bool hideOnMobHud = false;
 
-	// Resistance/scaling tags. Buildup contributions feeding this effect and the
-	// per-second `dot` tick both scale by the receiver's matching StatModifier (e.g.
-	// Fire-resistance shrinks a Fire|Damage burn). None = no scaling.
-	private EStat _tags;
-	[Export, CompactFlags] public EStat tags
+	// This effect's status family (Burning, Poisoned, …) — the key a receiver's
+	// TagModifier resists the BUILDUP feeding it by, and what a cure's tagMask
+	// matches. Once landed the effect runs at full strength: the `dot` tick is
+	// never resisted. Only EHitTag status families belong here (ResourceCheck).
+	// None = buildup is scaled by FortitudeResistance alone.
+	private EHitTag _tags;
+	[Export, CompactFlags] public EHitTag tags
 	{
 		get => _tags;
 		set
@@ -216,16 +218,16 @@ public partial class StatusEffectData : Resource
 	// What the effect does to the character carrying it. May sit on an item's effect (it
 	// modifies the wearer, composed across the actor's own + equipped-item effects).
 
-	// Stat changes applied while active, composed with inherent + equipment modifiers.
-	// Per-stat additive or multiplicative (StatModifierUtil.IsAdditive) — e.g. MoveSpeed
-	// 0.75 (mult, Cold slow), ColdResist -25 (add), Damage 0.0 (mult, dash i-frames).
+	// Modifiers applied while active, composed with inherent + equipment modifiers —
+	// e.g. a MoveSpeed 0.75 StatModifier (Cold slow), ColdResist -25 (additive), a
+	// Damage 0.0 TagModifier (dash i-frames).
 	[ExportGroup("Character Modifiers")]
-	[Export] public Godot.Collections.Array<StatModifier> modifiers;
+	[Export] public Godot.Collections.Array<Modifier> modifiers;
 	// Managed read-mirror of `modifiers` — see MobData.ModifiersFlat. This is
-	// the hottest of them all: StatusEffectController.FoldStat/FoldMask walk
+	// the hottest of them all: StatusEffectController.FoldStat/FoldTags walk
 	// every active effect on EVERY ComposeStat call, for both mobs and players.
-	private StatModifier[] _modifiersFlat;
-	public StatModifier[] ModifiersFlat => _modifiersFlat ??= StatModifierUtil.Flatten(modifiers);
+	private ModifierSet _modifiersFlat;
+	public ModifierSet ModifiersFlat => _modifiersFlat ??= ModifierSet.From(modifiers);
 
 	// Like `modifiers`, but each group contributes only while its runtime condition
 	// holds (see ConditionalModifierData). Lets a permanent trait grant a situational
@@ -270,7 +272,7 @@ public partial class StatusEffectData : Resource
 	// reaction. onDamagedTags == None matches any damaging hit.
 	[ExportGroup("On Damaged")]
 	[Export] public StatusEffectData onDamagedEffect;
-	[Export, CompactFlags] public EStat onDamagedTags = EStat.Melee | EStat.Ranged;
+	[Export, CompactFlags] public EHitTag onDamagedTags = EHitTag.Melee | EHitTag.Ranged;
 
 	// Weapon-only payload — null on non-weapon effects. See WeaponModData.
 	// The empty [ExportGroup] resets grouping so this stays ungrouped.

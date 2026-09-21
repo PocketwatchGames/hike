@@ -47,11 +47,6 @@ public partial class PauseMenu : Control
 		gameClient.QuitToMenu();
 	}
 
-	public void OnSaveButtonPressed()
-	{
-		gameClient.Save();
-	}
-
 	public void OnControlsButtonPressed()
 	{
 		if (controlsScreen == null)

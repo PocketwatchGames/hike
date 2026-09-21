@@ -37,6 +37,10 @@ public static partial class Loc
 		controls_melee,
 		controls_spell,
 		controls_rotate_camera,
-		controls_map
+		controls_map,
+		profile_new_game,
+		profile_delete,
+		profile_delete_confirm,
+		profile_unreadable
 	}
 }

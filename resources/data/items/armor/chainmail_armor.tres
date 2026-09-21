@@ -3,29 +3,31 @@
 [ext_resource type="Texture2D" uid="uid://x2030l2041kw" path="res://assets/textures/items/ChainmailArmor.png" id="1_sprite"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+[ext_resource type="Script" uid="uid://11t1a8dvp0j6n" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
+[ext_resource type="Script" uid="uid://ouzgtnkbomf4q" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 
 [sub_resource type="Resource" id="m_pen"]
-script = ExtResource("m_script")
-stat = 16
+script = ExtResource("tagmod_1")
+tag = 16
 value = 0.5
-metadata/_custom_type_script = "uid://bovyciaikopwb"
+metadata/_custom_type_script = "uid://11t1a8dvp0j6n"
 
 [sub_resource type="Resource" id="m_noise"]
 script = ExtResource("m_script")
-stat = 65536
+stat = 6
 value = 1.25
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="m_stamina"]
 script = ExtResource("m_script")
-stat = 2097152
+stat = 11
 value = -1.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("2_armor")
 maxArmor = 150.0
-modifiers = Array[ExtResource("m_script")]([SubResource("m_pen"), SubResource("m_noise"), SubResource("m_stamina")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_pen"), SubResource("m_noise"), SubResource("m_stamina")])
 outfit = &"swordsman"
 displayName = &"Chainmail"
 description = "Interlocking steel rings turn a blade's edge, though the links jingle with every step."

@@ -88,26 +88,26 @@ public partial class Player : CharacterBody3D
 		{
 			hit.healthDamage *= levelResist;
 		}
-		if (hit.tags == EStat.None)
+		if (hit.tags == EHitTag.None)
 		{
 			return;
 		}
-		EStat damageTags = hit.tags & StatModifierUtil.DamageScaleTags;
-		if (damageTags != EStat.None)
+		EHitTag damageTags = hit.tags & HitTags.DamageScale;
+		if (damageTags != EHitTag.None)
 		{
-			hit.healthDamage *= ComposeMaskMul(damageTags);
+			hit.healthDamage *= ComposeTagMul(damageTags);
 		}
-		if ((hit.tags & EStat.ArmorPenetration) != 0)
+		if ((hit.tags & EHitTag.ArmorPenetration) != 0)
 		{
-			hit.armorPenetration *= ComposeMaskMul(EStat.ArmorPenetration);
+			hit.armorPenetration *= ComposeTagMul(EHitTag.ArmorPenetration);
 		}
-		if ((hit.tags & EStat.Blunt) != 0)
+		if ((hit.tags & EHitTag.Blunt) != 0)
 		{
-			hit.blunt *= ComposeMaskMul(EStat.Blunt);
+			hit.blunt *= ComposeTagMul(EHitTag.Blunt);
 		}
-		if ((hit.tags & EStat.Knockback) != 0)
+		if ((hit.tags & EHitTag.Knockback) != 0)
 		{
-			float scale = ComposeMaskMul(EStat.Knockback);
+			float scale = ComposeTagMul(EHitTag.Knockback);
 			hit.knockbackDistance *= scale;
 			hit.knockbackTime *= scale;
 		}

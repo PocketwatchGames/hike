@@ -11,6 +11,8 @@
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="20_desc"]
 [ext_resource type="Resource" uid="uid://b45t676la3e45" path="res://resources/data/status_effects/traits/trait_runs_hot.tres" id="32_runshot"]
 [ext_resource type="Resource" uid="uid://ckmt8n5p3q07w" path="res://resources/data/items/loot/kun_kun_meat.tres" id="33_kunmeat"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
+[ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
 
 [sub_resource type="Resource" id="Desc_club"]
 script = ExtResource("20_desc")
@@ -33,20 +35,20 @@ descriptor = SubResource("Resource_l6my8")
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [sub_resource type="Resource" id="m_pen"]
-script = ExtResource("12_statmod")
-stat = 16
+script = ExtResource("tagmod_1")
+tag = 16
 value = 0.6
-metadata/_custom_type_script = "uid://bovyciaikopwb"
+metadata/_custom_type_script = "uid://11t1a8dvp0j6n"
 
 [sub_resource type="Resource" id="m_speed"]
 script = ExtResource("12_statmod")
-stat = 4096
+stat = 2
 value = 0.92
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="m_stamina"]
 script = ExtResource("12_statmod")
-stat = 2097152
+stat = 11
 value = -1.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
@@ -71,7 +73,7 @@ maxArmor = 200.0
 fortitude = 0.9
 strength = 1.1
 stealth = 0.8
-modifiers = Array[ExtResource("12_statmod")]([SubResource("m_pen"), SubResource("m_speed"), SubResource("m_stamina")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_pen"), SubResource("m_speed"), SubResource("m_stamina")])
 traits = Array[ExtResource("18_0l78o")]([ExtResource("32_runshot")])
 equippedInventory = [SubResource("Resource_club"), SubResource("Resource_x1qdn")]
 startingInventory = [SubResource("Resource_kunmeat")]

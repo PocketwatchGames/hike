@@ -3,10 +3,11 @@
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="1_armor"]
 [ext_resource type="Texture2D" uid="uid://lf6o4djji52u" path="res://assets/textures/items/HelmetGlimp.png" id="2_inv"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+[ext_resource type="Script" uid="uid://ouzgtnkbomf4q" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 
 [sub_resource type="Resource" id="m_nightvision"]
 script = ExtResource("m_script")
-stat = 33554432
+stat = 15
 value = 1.85
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
@@ -14,7 +15,7 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 script = ExtResource("1_armor")
 maxArmor = 40.0
 armorSlot = 1
-modifiers = Array[ExtResource("m_script")]([SubResource("m_nightvision")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_nightvision")])
 outfit = null
 displayName = &"Glimp Visor"
 description = "Luminous lenses pierce the gloom, granting sight in near-total darkness."

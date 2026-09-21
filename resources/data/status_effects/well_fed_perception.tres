@@ -8,19 +8,19 @@
 
 [sub_resource type="Resource" id="mod_health"]
 script = ExtResource("3_mod")
-stat = 67108864
+stat = 16
 value = 100.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="mod_vision"]
 script = ExtResource("3_mod")
-stat = 16384
+stat = 4
 value = 1.25
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="mod_hearing"]
 script = ExtResource("3_mod")
-stat = 32768
+stat = 5
 value = 1.25
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 

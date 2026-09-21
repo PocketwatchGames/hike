@@ -27,8 +27,8 @@ public partial class ConditionalModifierData : Resource
 
 	// Composed (multiplicatively or additively, per each entry's stat) into the
 	// actor's stat only while `condition` holds.
-	[Export] public Godot.Collections.Array<StatModifier> modifiers;
+	[Export] public Godot.Collections.Array<Modifier> modifiers;
 	// Managed read-mirror of `modifiers` — see MobData.ModifiersFlat.
-	private StatModifier[] _modifiersFlat;
-	public StatModifier[] ModifiersFlat => _modifiersFlat ??= StatModifierUtil.Flatten(modifiers);
+	private ModifierSet _modifiersFlat;
+	public ModifierSet ModifiersFlat => _modifiersFlat ??= ModifierSet.From(modifiers);
 }

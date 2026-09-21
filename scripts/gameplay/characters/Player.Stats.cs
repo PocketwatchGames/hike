@@ -133,8 +133,7 @@ public partial class Player : CharacterBody3D
 	}
 
 	// The hosted party member's multiplicative contribution to a composed
-	// stat (1 = neutral, or no member hosted). Folded into ComposeStat /
-	// ComposeMaskMul so the character sheet rides the same pipeline as gear
+	// stat (1 = neutral, or no member hosted). Folded into ComposeStat so the character sheet rides the same pipeline as gear
 	// and status modifiers. Returns 1 for every stat the sheet doesn't map
 	// (including all additive stats), so multiplying it in is always safe.
 	// Melee strength is applied at the hit site (ItemEventHandlers.ResolveHit),
@@ -163,33 +162,33 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Multiplicative compose across all sources for a tag mask — used at
-	// hit-application sites (damage / armor-penetration chance / blunt chip / knockback
-	// magnitude). Walks every entry whose single-bit stat overlaps the mask
-	// and multiplies. The StatusEffectController routes through this
-	// callback when scaling buildup contributions and DoT damage ticks.
-	public float ComposeMaskMul(EStat mask)
+	// Multiplicative compose of every TagModifier overlapping `mask`, across
+	// all sources — used at hit-application sites (damage / armor-penetration
+	// chance / blunt chip / knockback magnitude) and by the buildup resist.
+	public float ComposeTagMul(EHitTag mask)
 	{
 		float product = 1f;
 		if (data != null)
 		{
-			product = StatModifierUtil.FoldMask(mask, data.ModifiersFlat, product);
+			product = StatModifierUtil.FoldTags(mask, data.ModifiersFlat, product);
 		}
 		if (Member != null)
 		{
-			product = StatModifierUtil.FoldMask(mask, Member.ModifiersFlat, product);
+			product = StatModifierUtil.FoldTags(mask, Member.ModifiersFlat, product);
 		}
-		product = AccumulateArmorMask(EInventorySlot.Helmet, mask, product);
-		product = AccumulateArmorMask(EInventorySlot.Armor, mask, product);
-		product = _statusEffects?.FoldMask(mask, product) ?? product;
-		// Member-sheet contribution for the mask path. Only FortitudeResistance
-		// (the combat-buildup channel) rides ComposeMaskMul today — the sense
-		// stats are single-stat composes via ComposeStat.
-		if ((mask & EStat.FortitudeResistance) != 0)
-		{
-			product *= MemberStat(EStat.FortitudeResistance);
-		}
+		product = AccumulateArmorTags(EInventorySlot.Helmet, mask, product);
+		product = AccumulateArmorTags(EInventorySlot.Armor, mask, product);
+		product = _statusEffects?.FoldTags(mask, product) ?? product;
 		return product;
+	}
+
+	// Scale on a combat buildup feeding an effect of `family` (<1 = resistant):
+	// the family's TagModifiers, general FortitudeResistance (which carries the
+	// member's fortitude), and the Armor upgrade's level resist. The Armor
+	// upgrade also reduces direct hits (ApplyResistance), never a landed DoT.
+	public float ComposeBuildupResistance(EHitTag family)
+	{
+		return ComposeTagMul(family) * ComposeStat(EStat.FortitudeResistance) * IncomingLevelResist;
 	}
 
 	// Maps a data-authored ETraitCondition to this player's live state for the
@@ -234,12 +233,12 @@ public partial class Player : CharacterBody3D
 		return value;
 	}
 
-	private float AccumulateArmorMask(EInventorySlot slot, EStat mask, float product)
+	private float AccumulateArmorTags(EInventorySlot slot, EHitTag mask, float product)
 	{
 		if (_inventory == null) { return product; }
 		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data != null)
 		{
-			product = StatModifierUtil.FoldMask(mask, armor.data.ModifiersFlat, product);
+			product = StatModifierUtil.FoldTags(mask, armor.data.ModifiersFlat, product);
 		}
 		return product;
 	}

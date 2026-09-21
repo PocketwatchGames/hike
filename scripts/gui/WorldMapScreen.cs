@@ -539,16 +539,15 @@ public partial class WorldMapScreen : Control
 		}
 		if (_overviewMarkers == null)
 		{
-			// World map is banked-only — field markers appear here after camping.
 			_overviewMarkers = MapMarkerOverlay.Create(_gameClient, unknownMarkerIcon, markerIconSize,
-				includeProvisional: false, circleMaskFraction: 0f);
+				fadeWithChartReveal: true, circleMaskFraction: 0f);
 			_overviewMarkers.ActiveCampfireOnly = true;
 			mapView.AddChild(_overviewMarkers);
 		}
 		if (_detailMarkers == null)
 		{
 			_detailMarkers = MapMarkerOverlay.Create(_gameClient, unknownMarkerIcon, markerIconSize,
-				includeProvisional: false, circleMaskFraction: 0f);
+				fadeWithChartReveal: true, circleMaskFraction: 0f);
 			mapView.AddChild(_detailMarkers);
 		}
 		if (_xMarker == null)
@@ -679,11 +678,7 @@ public partial class WorldMapScreen : Control
 				_labels[region] = label;
 			}
 
-			// Show a region label once it's on the world map: banked at a
-			// campfire, OR captured in the frozen tree-climb scout snapshot
-			// (field-discovered regions graduate onto the world map when the
-			// player scouts from a tree, and stay frozen there until banked).
-			bool show = ws.SimState.IsRegionShownOnWorldMap(region);
+			bool show = ws.SimState.IsRegionDiscovered(region);
 			label.Visible = show;
 			if (!show)
 			{
@@ -739,12 +734,10 @@ public partial class WorldMapScreen : Control
 		Texture2D surf = s.Surface;
 		Texture2D below1 = s.SurfaceBelow1 ?? surf;
 		Texture2D below2 = s.SurfaceBelow2 ?? surf;
-		// The world map shows banked (party-only) reveal — un-banked field reveal
-		// stays on the minimap until recorded at a campfire. (The HUD minimap uses
-		// the party ∪ active Exploration textures instead.)
-		Texture2D expl = s.ExplorationBanked ?? surf;
-		Texture2D explBelow1 = s.ExplorationBankedBelow1 ?? expl;
-		Texture2D explBelow2 = s.ExplorationBankedBelow2 ?? expl;
+		// The world-map variant carries the chart-reveal sweep while one is armed.
+		Texture2D expl = s.WorldMapExploration ?? surf;
+		Texture2D explBelow1 = s.WorldMapExplorationBelow1 ?? expl;
+		Texture2D explBelow2 = s.WorldMapExplorationBelow2 ?? expl;
 
 		if (surf != bound.Surface) { mat.SetShaderParameter("surface_texture" + suffix, surf); bound.Surface = surf; }
 		if (below1 != bound.SurfaceBelow1) { mat.SetShaderParameter("surface_texture_below1" + suffix, below1); bound.SurfaceBelow1 = below1; }

@@ -2,24 +2,25 @@
 
 [ext_resource type="Texture2D" uid="uid://cxfdn0d5db6mw" path="res://assets/textures/items/LeatherArmor.png" id="1_kkvw5"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_bvjtb"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 
 [sub_resource type="Resource" id="m_cold"]
 script = ExtResource("m_script")
-stat = 4194304
+stat = 12
 value = 10.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="Resource_bvjtb"]
 script = ExtResource("m_script")
-stat = 16777216
+stat = 14
 value = 0.5
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("2_bvjtb")
 maxArmor = 100.0
-modifiers = Array[ExtResource("m_script")]([SubResource("m_cold"), SubResource("Resource_bvjtb")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource("Resource_bvjtb")])
 outfit = &"fighter"
 displayName = &"Leather Armor"
 description = "Protects against nicks and scratches."

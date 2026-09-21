@@ -1,18 +1,19 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://ghi3ms3aq1lb"]
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
-[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
+[ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
 
 [sub_resource type="Resource" id="m_damage"]
-script = ExtResource("m_script")
-stat = 1
+script = ExtResource("tagmod_1")
+tag = 1
 value = 0.0
-metadata/_custom_type_script = "uid://bovyciaikopwb"
+metadata/_custom_type_script = "uid://11t1a8dvp0j6n"
 
 [resource]
 script = ExtResource("1_data")
 displayName = &"Invulnerable"
 duration = 0.2
 removesOnApply = []
-modifiers = Array[ExtResource("m_script")]([SubResource("m_damage")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_damage")])
 conditionalModifiers = []

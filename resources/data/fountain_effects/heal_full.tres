@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="HealEffect" format=3 uid="uid://cnbun6in4kgt8"]
+
+[ext_resource type="Script" uid="uid://tvnxsypx42je" path="res://scripts/data/effects/HealEffect.cs" id="1_heal"]
+
+[resource]
+script = ExtResource("1_heal")
+amount = 0.0
+maxHealthFraction = 1.0
+metadata/_custom_type_script = "uid://tvnxsypx42je"

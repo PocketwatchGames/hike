@@ -531,7 +531,7 @@ public partial class Sim : Node3D
         // fires, so the client's node-refresh subscriber (well-rested buff +
         // lantern refuel) reads the updated PlayerState flags.
         Party party = _worldState?.SimState?.Party;
-        party?.AdvanceRestAndPickWellRested(_wellRestedRng);
+        party?.AdvanceRestAndPickWellRested(_worldState.DailyRandom(WELL_RESTED_SALT));
         // A new day resets the camp's leader + spell pick (the spell attunement is
         // cleared per-member in the client's OnNewDay node-refresh), so the next camp
         // forces a fresh choice.

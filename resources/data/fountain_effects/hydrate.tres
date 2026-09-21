@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="ApplyStatusEffect" format=3 uid="uid://oe1doskpv2lsh"]
+
+[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="1_apply"]
+[ext_resource type="Resource" uid="uid://br1kqb63rhipl" path="res://resources/data/status_effects/status_hydrated.tres" id="2_status"]
+
+[resource]
+script = ExtResource("1_apply")
+statusEffect = ExtResource("2_status")
+metadata/_custom_type_script = "uid://c2r668erdip1g"

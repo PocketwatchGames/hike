@@ -7,7 +7,7 @@
 
 [sub_resource type="Resource" id="mod_armor"]
 script = ExtResource("3_mod")
-stat = 134217728
+stat = 17
 value = 150.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 

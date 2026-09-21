@@ -6,7 +6,7 @@
 
 [sub_resource type="Resource" id="Resource_m0eo0"]
 script = ExtResource("2_j1wj3")
-stat = 134217728
+stat = 17
 value = 150.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
@@ -16,7 +16,6 @@ icon = ExtResource("1_mxkat")
 displayName = &"Stoneskin"
 description = "Stoneskin!"
 category = 2
-tags = 32
 maxStack = 1
 removesOnApply = []
 modifiers = [SubResource("Resource_m0eo0")]

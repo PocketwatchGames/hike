@@ -3,10 +3,11 @@
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Texture2D" uid="uid://brtbxwojsqpq4" path="res://assets/textures/status_effects/Stamina_Boost_Status.png" id="2_icon"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_mod"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 
 [sub_resource type="Resource" id="m_stamina"]
 script = ExtResource("3_mod")
-stat = 2097152
+stat = 11
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
@@ -18,5 +19,5 @@ upgradeSlot = 4
 durationType = 2
 maxStack = 1
 removesOnApply = []
-modifiers = Array[ExtResource("3_mod")]([SubResource("m_stamina")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_stamina")])
 conditionalModifiers = []

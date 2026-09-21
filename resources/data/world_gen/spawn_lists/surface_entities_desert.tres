@@ -12,7 +12,7 @@
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_red.tres" id="e_mushroom_red"]
 [ext_resource type="Resource" uid="uid://c44my6q0osrw6" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/spider_desert.tres" id="e_spider_desert"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/spike_trap.tres" id="e_spike_trap"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/well.tres" id="e_well"]
+[ext_resource type="Resource" uid="uid://e2ic4w0qeyl7" path="res://resources/data/world_authoring/spawn_entries/well.tres" id="e_well"]
 [ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 
 [sub_resource type="Resource" id="Row_goblin_desert"]

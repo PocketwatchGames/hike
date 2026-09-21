@@ -235,18 +235,28 @@ public static class ResourceCheck
             return;
         }
 
-        EStat tags = EStat.None;
+        EHitTag tags = EHitTag.None;
         string kind = null;
         switch (res)
         {
             case DamageData d: tags = d.tags; kind = nameof(DamageData); break;
             case ContinuousDamageData c: tags = c.tags; kind = nameof(ContinuousDamageData); break;
-            case StatusEffectData s: tags = s.tags; kind = nameof(StatusEffectData); break;
+            case StatusEffectData s:
+                // A status effect's tags are its buildup family and nothing
+                // else — a damage tag here would resist nothing (a landed DoT is
+                // never resisted) and read as though it did.
+                EHitTag stray = s.tags & ~HitTags.StatusFamilies;
+                if (stray != EHitTag.None)
+                {
+                    problems.Add($"{path}: a StatusEffectData carries non-family tags ({stray}) — "
+                        + "its tags are the buildup family only (Dizzy / Burning / Poisoned / Shocked / Sunlight)");
+                }
+                break;
         }
-        if (kind != null && (tags & EStat.Damage) != 0)
+        if (kind != null && (tags & EHitTag.Damage) != 0)
         {
             _damageTemplates++;
-            if ((tags & StatModifierUtil.DamageTypeTags) == 0)
+            if ((tags & HitTags.DamageTypes) == 0)
             {
                 problems.Add($"{path}: a {kind} sets Damage but no damage TYPE "
                     + "(Physical / Fire / Electrical / Poison / Magical) — such a hit is "

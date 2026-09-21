@@ -22,7 +22,7 @@ animName = 21
 
 [sub_resource type="Resource" id="Resource_cure_poison"]
 script = ExtResource("5_cure")
-tagMask = 256
+tagMask = 8192
 
 [sub_resource type="Resource" id="Resource_event_apply_decrement"]
 script = ExtResource("4_event")

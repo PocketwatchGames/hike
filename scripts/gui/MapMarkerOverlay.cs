@@ -6,11 +6,9 @@ using Godot;
 // to panel pixels with the SAME framing the minimap shader renders with (center
 // world XZ + view radius), so icons sit on the terrain beneath them.
 //
-// Marker source depends on the host: the HUD minimap includes the active
-// member's provisional field markers (IncludeProvisional, EnumerateMarkers =
-// party ∪ active), so a marker charted in the field shows there immediately; the
-// world map is banked-only (EnumerateBankedMarkers), so a field marker appears on
-// it only after camping (mirrors region labels / fog-of-war). Sensed markers draw
+// Both hosts draw every charted marker (SimState.EnumerateMarkers); the world
+// map's icons additionally fade in with their ground while a chart-reveal sweep
+// is showing (FadeWithChartReveal). Sensed markers draw
 // a shared "?" (UnknownIcon); Identified markers draw the record's own icon. Until
 // art is wired both fall back to a drawn placeholder ("?" glyph / filled dot) so
 // the system is visible immediately.
@@ -22,8 +20,9 @@ public partial class MapMarkerOverlay : Control
     public Texture2D UnknownIcon;
     // Drawn icon size in panel pixels (square).
     public float IconSize = 24f;
-    // True (minimap): draw party ∪ active. False (world map): banked-only.
-    public bool IncludeProvisional;
+    // True for the world map: icons follow the chart-reveal sweep's ground alpha.
+    // The minimap never sweeps.
+    public bool FadeWithChartReveal;
     // Round-minimap mask: icons fade out and cull as they reach this fraction of
     // the panel's half-extent from center (matching the map shader's mask_radius),
     // so none poke past the circle. 0 disables it (the square world map).
@@ -45,14 +44,14 @@ public partial class MapMarkerOverlay : Control
     private float _mapRotation;
     private bool _framed;
 
-    public static MapMarkerOverlay Create(GameClient gameClient, Texture2D unknownIcon, float iconSize, bool includeProvisional, float circleMaskFraction)
+    public static MapMarkerOverlay Create(GameClient gameClient, Texture2D unknownIcon, float iconSize, bool fadeWithChartReveal, float circleMaskFraction)
     {
         var overlay = new MapMarkerOverlay
         {
             _gameClient = gameClient,
             UnknownIcon = unknownIcon,
             IconSize = iconSize,
-            IncludeProvisional = includeProvisional,
+            FadeWithChartReveal = fadeWithChartReveal,
             CircleMaskFraction = circleMaskFraction,
             MouseFilter = MouseFilterEnum.Ignore,
             ClipContents = true,
@@ -110,12 +109,8 @@ public partial class MapMarkerOverlay : Control
         // -parentRotation. World-map parent is un-rotated → 0.
         float counterRot = -((GetParent() as Control)?.Rotation ?? 0f);
         float radiusSq = _viewRadiusMeters * _viewRadiusMeters;
-        // World-map icons fade in with their ground during the campfire reveal
-        // sweep; the minimap (provisional) overlay is never gated.
-        Minimap minimap = IncludeProvisional ? null : _gameClient?.Sim?.Minimap;
-        System.Collections.Generic.IEnumerable<MapMarkerRecord> markers =
-            IncludeProvisional ? sim.EnumerateMarkers() : sim.EnumerateWorldMapMarkers();
-        foreach (MapMarkerRecord record in markers)
+        Minimap minimap = FadeWithChartReveal ? _gameClient?.Sim?.Minimap : null;
+        foreach (MapMarkerRecord record in sim.EnumerateMarkers())
         {
             if (record == null || record.Level < EMapMarkerLevel.Sensed)
             {
@@ -138,7 +133,7 @@ public partial class MapMarkerOverlay : Control
             // minimap (mapRotation 0) the parent TextureRect's own rotation
             // carries the icon to camera yaw exactly as it does the map beneath.
             Vector2 px = center + (worldOffset / diameter).Rotated(-_mapRotation) * panel;
-            float revealAlpha = minimap?.BankedRevealAlphaAt(record.WorldPosition) ?? 1f;
+            float revealAlpha = minimap?.ChartRevealAlphaAt(record.WorldPosition) ?? 1f;
             float edgeFade = CircleEdgeFade(px, center, panel);
             if (edgeFade <= 0f)
             {
@@ -172,10 +167,10 @@ public partial class MapMarkerOverlay : Control
     }
 
     // Live entity markers (talkable NPCs, fallen party members): drawn at each
-    // entity's CURRENT position every redraw, always visible — no fog-reveal gate
-    // and no camp banking, so they show on both the minimap and world map the
-    // instant the entity exists. Sourced from the live World registry rather than
-    // the discovered-Knowledge stores the static markers above come from.
+    // entity's CURRENT position every redraw, always visible — no fog-reveal gate,
+    // so they show on both the minimap and world map the instant the entity
+    // exists. Sourced from the live World registry rather than the party's chart
+    // the static markers above come from.
     private void DrawLiveMarkers(Vector2 center, Vector2 panel, float diameter, float radiusSq, float counterRot)
     {
         Sim sim = _gameClient?.Sim;

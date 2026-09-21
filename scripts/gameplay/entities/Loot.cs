@@ -13,7 +13,7 @@ using System.Collections.Generic;
 // Area3D drives both — the auto-pickup probe and the interact-highlight scan
 // share the same volume so the two modes can't disagree on range.
 [GlobalClass]
-public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
+public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimState
 {
 	[Export] private CollisionShape3D _collisionShape;
 	[Export] private AnimationPlayer _animationPlayer;
@@ -1250,12 +1250,17 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		return reduced;
 	}
 
-	public override void _ExitTree()
+	public void SyncToSimState()
 	{
 		if (_simState != null && !_pickedUp)
 		{
 			_simState.WorldPosition = Position;
 		}
+	}
+
+	public override void _ExitTree()
+	{
+		SyncToSimState();
 		base._ExitTree();
 	}
 }

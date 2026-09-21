@@ -17,6 +17,18 @@ public class LanternState : ItemState
 	// or at a fountain (Refuel). Ignored entirely when the lantern has unlimited fuel.
 	public long FuelRemainingMs;
 
+	public override void WriteSubclassState(System.IO.BinaryWriter w)
+	{
+		w.Write(isActive);
+		w.Write(FuelRemainingMs);
+	}
+
+	public override void ReadSubclassState(System.IO.BinaryReader r)
+	{
+		isActive = r.ReadBoolean();
+		FuelRemainingMs = r.ReadInt64();
+	}
+
 	public LanternState(LanternData d) : base(d)
 	{
 		_lanternData = d;

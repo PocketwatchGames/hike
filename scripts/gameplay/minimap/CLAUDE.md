@@ -83,6 +83,25 @@ painter's paving IS a block and is unaffected — see the roads note below.
 
 A separate R8 texture per renderer (outdoor mask + per-slice masks). Soft-edged disk reveal writes `max(value, existing)`. Outdoor reveal uses `GameClient.minimapRevealMultiplier × player.visionRange`; slice reveal scales the same value linearly by `WorldState.GetPerceivedLightWorld(playerPos)` (zero light → zero reveal — you can't chart what you can't see).
 
+**The map is the party's, and it is never provisional.** Reveal writes straight
+into `Party.Chart` (`MapChart`: the `ExplorationMask`, discovered regions and
+map markers) and into the display textures that mirror it, so the minimap and the
+world map show the same thing and a death costs nothing. This used to follow the
+two-tier `Knowledge` model (a per-member field store banked at a campfire, a
+second "banked" texture for the world map, snapshots for the tree climb); the
+map left it on purpose, and `Knowledge` no longer has a map category. Don't
+reintroduce a per-member map buffer.
+
+**Bulk charting sweeps; walking does not.** Anything that charts a large area at
+once (the bird's-eye tree scout, `reveal_map`) wraps its writes in
+`Minimap.BeginChartReveal` / `PrepareChartReveal`. While a sweep is armed the
+world map's OUTDOOR layer binds `MinimapTextures`' `_sweep` buffer instead of the
+chart, holding the pre-reveal state until the almanac shows the map
+(`StartChartReveal`) and then growing the delta in; marker icons fade with it via
+`ChartRevealAlphaAt`. Live reveal keeps writing the chart underneath, and
+finalizing just hands the world map back to it. A new map-filling item should use
+the same two calls around its writes.
+
 ### Line-of-sight reveal (`MinimapLos`)
 
 Reveal isn't a plain disk — a mountain hides the valley behind it, walls hide the room behind them, and fog hides distant areas. Tuning lives on the `Minimap` node under the "Line of Sight" export group and is bundled into a `MinimapLos` struct (`MinimapData.cs`) once per reveal tick. `losEnabled = false` restores the old plain filled disks.
@@ -99,7 +118,7 @@ Three cases, chosen in `Minimap._PhysicsProcess`:
 
 **Slice reveal trace** (`Minimap.RevealOutdoorSliceColumns`) — *do not change to use the heightmap directly*. The aliasing reason is gone (the heightmap is per-column now; it used to take the max of each 2×2 block and misclassify cliff-edge cells into the wrong slice), but the **water** reason stands on its own: the trace treats water as content, matching the heightmap and slice-tile passes, and switching to `IsSolid` would skip water surfaces and never reveal lakes. The trace uses the heightmap as a search-start hint and walks `WorldState.GetVoxelWorld(wx, wy, wz)` downward at 1m granularity to find each column's actual topmost-non-air voxel. Treats water as content (matches the heightmap and slice-tile passes); using `IsSolid` would skip water surfaces and never reveal lakes.
 
-**View radius (adaptive zoom) tracks the reveal distance.** `Minimap.ComputeRevealRadius` = effective vision range × `revealMultiplier`, where the effective vision range folds in the player's vision stats (`EStat.Vision` — base perception, buffs, gear via `ComposeStat`). That radius drives BOTH the charted map reveal (the fog banked to the world map) and the zoom, so anything extending the player's sight widens both together. The view radius (zoom) is `Minimap.ComputeVisibleRevealRadiusMeters() × viewRevealMargin`, computed in `Hud.UpdateMinimapViewRadius` and damp-lerped. `ComputeVisibleRevealRadiusMeters` dims the reveal radius by the **global time-of-day sun brightness** (`DaylightFactor01` — `SkyController.CurrentPrimaryIntensity` normalized by `SimData.dayIntensityBase`, with night-vision relief lifting the floor) and caps it by the **local painted fog** at the player (`losFogFullBlockMeters / fog01`, same fog model as the reveal viewshed), then floors it at `minViewRadiusMeters`. **Brightness must come from the global sky, NOT a locally-sampled `GetPerceivedLightWorld` — the local light sample flickers hard as the player walks under forest canopy and popped the zoom** (an earlier version did this and had to be reworked). Fog stays a local sample by design (it only flickers at a swamp-pool edge, which the Hud damp-lerp eases). So the map zooms *in* at night or in fog (out again with night-vision gear, at dawn, or leaving the fog) and *out* with a vision buff, up to "just smaller than the max reveal distance". `indoorZoom` divides the target in indoor mode so corridors read closer. Bird's-eye keeps its wider radius (multiplier is inside `ComputeRevealRadius`).
+**View radius (adaptive zoom) tracks the reveal distance.** `Minimap.ComputeRevealRadius` = effective vision range × `revealMultiplier`, where the effective vision range folds in the player's vision stats (`EStat.Vision` — base perception, buffs, gear via `ComposeStat`). That radius drives BOTH the charted map reveal and the zoom, so anything extending the player's sight widens both together. The view radius (zoom) is `Minimap.ComputeVisibleRevealRadiusMeters() × viewRevealMargin`, computed in `Hud.UpdateMinimapViewRadius` and damp-lerped. `ComputeVisibleRevealRadiusMeters` dims the reveal radius by the **global time-of-day sun brightness** (`DaylightFactor01` — `SkyController.CurrentPrimaryIntensity` normalized by `SimData.dayIntensityBase`, with night-vision relief lifting the floor) and caps it by the **local painted fog** at the player (`losFogFullBlockMeters / fog01`, same fog model as the reveal viewshed), then floors it at `minViewRadiusMeters`. **Brightness must come from the global sky, NOT a locally-sampled `GetPerceivedLightWorld` — the local light sample flickers hard as the player walks under forest canopy and popped the zoom** (an earlier version did this and had to be reworked). Fog stays a local sample by design (it only flickers at a swamp-pool edge, which the Hud damp-lerp eases). So the map zooms *in* at night or in fog (out again with night-vision gear, at dawn, or leaving the fog) and *out* with a vision buff, up to "just smaller than the max reveal distance". `indoorZoom` divides the target in indoor mode so corridors read closer. Bird's-eye keeps its wider radius (multiplier is inside `ComputeRevealRadius`).
 
 ## Game-north (−X,−Z)
 

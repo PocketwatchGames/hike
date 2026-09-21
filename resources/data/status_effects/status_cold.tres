@@ -5,13 +5,14 @@
 [ext_resource type="PackedScene" uid="uid://j263ycq6qxxt" path="res://scenes/fx/status_cold_start.tscn" id="3_startfx"]
 [ext_resource type="PackedScene" uid="uid://dvlpurgxthixs" path="res://scenes/fx/status_cold_end.tscn" id="4_endfx"]
 [ext_resource type="PackedScene" uid="uid://cqlccjviyqona" path="res://scenes/fx/status_cold_loop.tscn" id="5_loopfx"]
-[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
+[ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
 
 [sub_resource type="Resource" id="m_movespeed"]
-script = ExtResource("m_script")
-stat = 1
+script = ExtResource("tagmod_1")
+tag = 1
 value = 2.0
-metadata/_custom_type_script = "uid://bovyciaikopwb"
+metadata/_custom_type_script = "uid://11t1a8dvp0j6n"
 
 [resource]
 script = ExtResource("1_data")
@@ -24,5 +25,5 @@ startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")
 loopFx = ExtResource("5_loopfx")
 removesOnApply = []
-modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_movespeed")])
 conditionalModifiers = []

@@ -11,15 +11,16 @@ using Godot;
 // its stub this is the object the save layer reads/writes for run-spanning
 // player progression; the chunk delta layer covers per-chunk mutations.
 //
-// KNOWLEDGE IS TWO-TIER. Identified items, discovered recipes/species/regions
-// and learned languages no longer live in flat sets here — they live in two
+// KNOWLEDGE IS TWO-TIER. Identified items, discovered recipes/species and
+// learned languages no longer live in flat sets here — they live in two
 // Knowledge stores: the permanent party pool (Party.Knowledge) and the active
 // member's provisional field store (Party.Active.Knowledge), banked into the
 // pool when the player camps (Party.BankActive). This class stays the single
 // FACADE the rest of the game talks to: writes go to the active member's store
 // (gated on the combined set), reads union party + active member, so every
 // existing call site keeps working while knowledge gained in the field is
-// provisional until banked.
+// provisional until banked. The map (fog, regions, markers) is the exception:
+// it is one permanent Party.Chart, written directly.
 public class SimState
 {
     // Party equipment stash — the shared store of weapons / armor / helmets /
@@ -236,6 +237,43 @@ public class SimState
         return false;
     }
 
+    // Both party stashes, inside a shared EntitySerializer table (SaveGame). An
+    // item whose ItemData no longer exists reads back null and is dropped.
+    public void SerializeStashes(BinaryWriter w)
+    {
+        WriteStash(w, PartyEquipmentStash);
+        WriteStash(w, PartyMaterialStash);
+    }
+
+    public void DeserializeStashes(BinaryReader r)
+    {
+        ReadStash(r, PartyEquipmentStash);
+        ReadStash(r, PartyMaterialStash);
+    }
+
+    private static void WriteStash(BinaryWriter w, List<ItemState> stash)
+    {
+        w.Write(stash.Count);
+        foreach (ItemState item in stash)
+        {
+            EntitySerializer.WriteItem(w, item);
+        }
+    }
+
+    private static void ReadStash(BinaryReader r, List<ItemState> stash)
+    {
+        stash.Clear();
+        int count = r.ReadInt32();
+        for (int i = 0; i < count; i++)
+        {
+            ItemState item = EntitySerializer.ReadItem(r);
+            if (item != null)
+            {
+                stash.Add(item);
+            }
+        }
+    }
+
     public void SerializeTreasureMaps(BinaryWriter w)
     {
         w.Write(TreasureMaps.Count);
@@ -290,18 +328,9 @@ public class SimState
     // scenario's initial knowledge is party-permanent from the first frame.
     public EKnowledgeCategory BankActiveKnowledge() => Party?.BankActive() ?? EKnowledgeCategory.None;
 
-    // Drop the provisional tree-climb world-map snapshots so the world map reverts
-    // to the banked party pool only. Called from Minimap.RebuildExplorationDisplay —
-    // the single choke point hit whenever the fog display is reseeded from the party
-    // pool (camp bank, member switch, revive). This keeps the region/marker snapshots
-    // PLAYER-TIED exactly like the fog: a member's un-banked survey graduates onto the
-    // world map at a tree climb but is lost when that field knowledge is (death /
-    // permanent destroy / switching away), leaving only what the party actually banked.
-    public void ClearWorldMapSnapshots()
-    {
-        _worldMapRegionSnapshot.Clear();
-        _worldMapMarkerSnapshot.Clear();
-    }
+    // The party's map (fog, regions, markers). Not two-tier: every write lands
+    // here directly and is never lost.
+    MapChart Chart => Party?.Chart;
 
     // ---- Items -------------------------------------------------------------
 
@@ -435,159 +464,80 @@ public class SimState
         {
             return false;
         }
-        return (Banked?.DiscoveredRegions.Contains(region) ?? false)
-            || (Active?.DiscoveredRegions.Contains(region) ?? false);
+        return Chart?.DiscoveredRegions.Contains(region) ?? false;
     }
 
-    // Map-display gate: a region appears on the world map only once it's been
-    // recorded at a campfire (banked into the party pool). A region discovered
-    // in the field sits in the active member's provisional store — known for
-    // dedup (IsRegionDiscovered) but hidden from the map — until the next camp
-    // banks it. Mirrors the exploration fog-of-war split (party pool only).
-    public bool IsRegionBanked(RegionData region)
-    {
-        if (region == null)
-        {
-            return false;
-        }
-        return Banked?.DiscoveredRegions.Contains(region) ?? false;
-    }
-
-    // Frozen "what the world map shows" snapshots: everything banked, PLUS a
-    // provisional snapshot captured each time the player scouts from a climbable
-    // tree (SnapshotWorldMapReveal). Walking around afterwards does NOT add to
-    // them — only the next tree climb re-snapshots, matching the exploration fog
-    // snapshot. Camp banks the field knowledge and clears these (the banked pool
-    // then covers everything). Regions gate labels; markers gate icons.
-    readonly HashSet<RegionData> _worldMapRegionSnapshot = new();
-    readonly Dictionary<Vector3I, MapMarkerRecord> _worldMapMarkerSnapshot = new();
-
-    public bool IsRegionShownOnWorldMap(RegionData region)
-    {
-        if (region == null)
-        {
-            return false;
-        }
-        return IsRegionBanked(region) || _worldMapRegionSnapshot.Contains(region);
-    }
-
-    // Graduate the field-discovered knowledge ("as discovered up until this point")
-    // onto the world map as a frozen snapshot — regions (labels) and markers
-    // (icons). Called from the tree-climb scout; unlike a campfire bank it leaves
-    // the provisional store untouched, so the knowledge stays un-banked until the
-    // player actually returns to a fire.
-    public void SnapshotWorldMapReveal()
-    {
-        foreach (RegionData r in EnumerateDiscoveredRegions())
-        {
-            _worldMapRegionSnapshot.Add(r);
-        }
-        // Markers: capture the current union (party ∪ active) so field-charted
-        // landmarks show on the world map without waiting for a camp bank.
-        foreach (MapMarkerRecord record in EnumerateMarkers())
-        {
-            _worldMapMarkerSnapshot[MapMarkerRecord.KeyFor(record.WorldPosition)] = record;
-        }
-    }
-
-    // Reveals a named map region (region-entry commit, treasure-map scroll, NPC
-    // hint). Returns true only when newly recorded. No announcement event —
-    // callers own their own region banner.
+    // Charts a named map region (region-entry, treasure-map scroll, NPC hint).
+    // Returns true only when newly recorded. No announcement event — callers own
+    // their own region banner.
     public bool DiscoverRegion(RegionData region)
     {
         if (region == null)
         {
             return false;
         }
-        Knowledge store = Active;
-        if (store == null || IsRegionDiscovered(region))
-        {
-            return false;
-        }
-        store.DiscoveredRegions.Add(region);
-        return true;
-    }
-
-    // Combined (party + active member) discovered regions, for the world-map
-    // label pass. Yields each region once even if present in both stores.
-    public IEnumerable<RegionData> EnumerateDiscoveredRegions()
-    {
-        var seen = new HashSet<RegionData>();
-        Knowledge banked = Banked;
-        if (banked != null)
-        {
-            foreach (RegionData r in banked.DiscoveredRegions)
-            {
-                if (seen.Add(r)) { yield return r; }
-            }
-        }
-        Knowledge active = Active;
-        if (active != null)
-        {
-            foreach (RegionData r in active.DiscoveredRegions)
-            {
-                if (seen.Add(r)) { yield return r; }
-            }
-        }
+        return Chart?.DiscoveredRegions.Add(region) ?? false;
     }
 
     // ---- Map markers -------------------------------------------------------
 
-    // Max discovery tier of the marker at `key` across both stores (Unknown when
-    // neither holds a record).
-    EMapMarkerLevel GetMarkerLevel(Vector3I key)
+    public EMapMarkerLevel GetMarkerLevel(Vector3 worldPos)
     {
-        EMapMarkerLevel level = EMapMarkerLevel.Unknown;
-        if ((Banked?.DiscoveredMarkers.TryGetValue(key, out MapMarkerRecord b) ?? false) && b.Level > level)
+        MapChart chart = Chart;
+        if (chart != null && chart.DiscoveredMarkers.TryGetValue(MapMarkerRecord.KeyFor(worldPos), out MapMarkerRecord record))
         {
-            level = b.Level;
+            return record.Level;
         }
-        if ((Active?.DiscoveredMarkers.TryGetValue(key, out MapMarkerRecord a) ?? false) && a.Level > level)
-        {
-            level = a.Level;
-        }
-        return level;
+        return EMapMarkerLevel.Unknown;
     }
-
-    public EMapMarkerLevel GetMarkerLevel(Vector3 worldPos) => GetMarkerLevel(MapMarkerRecord.KeyFor(worldPos));
 
     public bool IsMarkerDiscovered(Vector3 worldPos) => GetMarkerLevel(worldPos) != EMapMarkerLevel.Unknown;
 
     // Single write path for the MapMarker node: records/raises the marker at
-    // worldPos to at least `level` in the ACTIVE member's store, carrying its
-    // display data (icon/name). Covers both the reveal->Sensed step and the
-    // identify->Identified step. Writes the delta into Active even when the banked
-    // pool already holds a lower tier, so the change banks on the next camp.
-    // Returns true when the effective (union) tier actually increased. A marker
-    // already at >= `level` in either store is left untouched.
+    // worldPos to at least `level`, carrying its display data (icon/name). Covers
+    // both the reveal->Sensed step and the identify->Identified step. Returns true
+    // when the tier actually increased.
     public bool RecordMarker(Vector3 worldPos, EMapMarkerLevel level, MapMarker marker)
     {
-        Knowledge store = Active;
-        if (store == null || marker == null || level == EMapMarkerLevel.Unknown)
+        MapChart chart = Chart;
+        if (chart == null || marker == null || level == EMapMarkerLevel.Unknown)
         {
             return false;
         }
         Vector3I key = MapMarkerRecord.KeyFor(worldPos);
-        if (GetMarkerLevel(key) >= level)
+        if (!chart.DiscoveredMarkers.TryGetValue(key, out MapMarkerRecord record))
+        {
+            chart.DiscoveredMarkers[key] = new MapMarkerRecord(worldPos, level, marker.Icon,
+                marker.DisplayName, marker.HasActiveState, marker.IconModulate, marker.ActiveModulate);
+            return true;
+        }
+        if (record.Level >= level)
         {
             return false;
         }
-        if (!store.DiscoveredMarkers.TryGetValue(key, out MapMarkerRecord record))
-        {
-            store.DiscoveredMarkers[key] = new MapMarkerRecord(worldPos, level, marker.Icon,
-                marker.DisplayName, marker.HasActiveState, marker.IconModulate, marker.ActiveModulate);
-        }
-        else
-        {
-            record.Level = level;
-            record.Icon ??= marker.Icon;
-            record.DisplayName ??= marker.DisplayName;
-            // Keep the two-state visual config current (cheap; sourced from the node).
-            record.HasActiveState = marker.HasActiveState;
-            record.IconModulate = marker.IconModulate;
-            record.ActiveModulate = marker.ActiveModulate;
-        }
+        record.Level = level;
+        record.Icon ??= marker.Icon;
+        record.DisplayName ??= marker.DisplayName;
+        // Keep the two-state visual config current (cheap; sourced from the node).
+        record.HasActiveState = marker.HasActiveState;
+        record.IconModulate = marker.IconModulate;
+        record.ActiveModulate = marker.ActiveModulate;
         return true;
+    }
+
+    // Every charted marker, for both the minimap and the world map. Renderers
+    // read the records, never mutate them.
+    public IEnumerable<MapMarkerRecord> EnumerateMarkers()
+    {
+        MapChart chart = Chart;
+        if (chart == null)
+        {
+            yield break;
+        }
+        foreach (MapMarkerRecord record in chart.DiscoveredMarkers.Values)
+        {
+            yield return record;
+        }
     }
 
     // True if the marker at worldPos is currently in its ACTIVE state — read at
@@ -644,101 +594,6 @@ public class SimState
             }
         }
         return false;
-    }
-
-    // Banked (party-pool) markers for the WORLD MAP. Mirrors the region-label /
-    // fog-of-war split — a marker charted in the field stays off the world map
-    // until camped. Yields the party-pool records directly (renderers read,
-    // never mutate).
-    public IEnumerable<MapMarkerRecord> EnumerateBankedMarkers()
-    {
-        Knowledge banked = Banked;
-        if (banked == null)
-        {
-            yield break;
-        }
-        foreach (MapMarkerRecord record in banked.DiscoveredMarkers.Values)
-        {
-            yield return record;
-        }
-    }
-
-    // WORLD-MAP markers = banked pool ∪ the frozen tree-climb snapshot. The snapshot
-    // graduates field-charted landmarks onto the world map at a tree climb and holds
-    // them frozen there until banked (walking never adds), mirroring the region-label
-    // and fog snapshots. Snapshot record wins on a key collision (it's the union
-    // capture, so at least the banked tier). Each record is reported at its LIVE
-    // identification tier (see WithLiveMarkerLevel): the SET of world-map markers
-    // stays frozen, but a marker already shown as "?" upgrades to its real icon the
-    // moment it's identified in the field, without waiting for a camp bank.
-    public IEnumerable<MapMarkerRecord> EnumerateWorldMapMarkers()
-    {
-        var seen = new HashSet<Vector3I>();
-        foreach (KeyValuePair<Vector3I, MapMarkerRecord> kv in _worldMapMarkerSnapshot)
-        {
-            seen.Add(kv.Key);
-            yield return WithLiveMarkerLevel(kv.Key, kv.Value);
-        }
-        Knowledge banked = Banked;
-        if (banked != null)
-        {
-            foreach (KeyValuePair<Vector3I, MapMarkerRecord> kv in banked.DiscoveredMarkers)
-            {
-                if (seen.Add(kv.Key))
-                {
-                    yield return WithLiveMarkerLevel(kv.Key, kv.Value);
-                }
-            }
-        }
-    }
-
-    // Report a world-map marker at the CURRENT union (party ∪ active) tier so a
-    // field identification promotes an already-shown "?" to its real icon
-    // provisionally, before the change banks. The display data (icon/name/tints)
-    // already rides on the frozen record — it's stamped at Sensed — so only the
-    // Level needs bumping; return a shallow copy so the shared store/snapshot
-    // record is never mutated (that would silently persist the identification past
-    // an un-banked field death, breaking the provisional split).
-    MapMarkerRecord WithLiveMarkerLevel(Vector3I key, MapMarkerRecord record)
-    {
-        EMapMarkerLevel live = GetMarkerLevel(key);
-        if (live <= record.Level)
-        {
-            return record;
-        }
-        return new MapMarkerRecord(record.WorldPosition, live, record.Icon, record.DisplayName,
-            record.HasActiveState, record.IconModulate, record.ActiveModulate);
-    }
-
-    // Party pool ∪ active member's provisional markers for the MINIMAP — the
-    // controlled player's field-charted markers show there immediately (matching
-    // the minimap's party ∪ active fog-of-war), whereas the world map is
-    // banked-only. Deduped by key; the active record wins when both hold one,
-    // since RecordMarker only raises Active above the union tier (so it's always
-    // the higher of the two).
-    public IEnumerable<MapMarkerRecord> EnumerateMarkers()
-    {
-        var seen = new HashSet<Vector3I>();
-        Knowledge active = Active;
-        if (active != null)
-        {
-            foreach (KeyValuePair<Vector3I, MapMarkerRecord> kv in active.DiscoveredMarkers)
-            {
-                seen.Add(kv.Key);
-                yield return kv.Value;
-            }
-        }
-        Knowledge banked = Banked;
-        if (banked != null)
-        {
-            foreach (KeyValuePair<Vector3I, MapMarkerRecord> kv in banked.DiscoveredMarkers)
-            {
-                if (seen.Add(kv.Key))
-                {
-                    yield return kv.Value;
-                }
-            }
-        }
     }
 
     // ---- Species / bestiary ------------------------------------------------

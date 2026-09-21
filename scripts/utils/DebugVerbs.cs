@@ -261,6 +261,55 @@ public static class DebugVerbs
         GD.Print($"give: {count}x {data.ResourcePath.GetFile()} dropped at your feet");
     }
 
+    // --- setvar ---------------------------------------------------------
+
+    public static void SetVar(string arg)
+    {
+        ScriptVariableBank vars = Sim.Current?.WorldState?.SimState?.ScriptVars;
+        if (vars == null)
+        {
+            GD.PrintErr("setvar: no running game.");
+            return;
+        }
+
+        string[] tokens = Tokenize(arg);
+        if (tokens.Length == 0 || tokens[0] == ListToken)
+        {
+            var names = new List<string>();
+            foreach (StringName name in vars.DeclaredNames)
+            {
+                names.Add($"{name}={vars.GetInt(name)}");
+            }
+            names.Sort(System.StringComparer.Ordinal);
+            GD.Print("setvar: usage `setvar <name> <true|false|int>`. Declared: " + string.Join(", ", names));
+            return;
+        }
+        if (tokens.Length < 2)
+        {
+            GD.PrintErr("setvar: missing value. Usage `setvar <name> <true|false|int>`.");
+            return;
+        }
+
+        var id = new StringName(tokens[0]);
+        if (!vars.IsDeclared(id))
+        {
+            GD.PrintErr($"setvar: '{tokens[0]}' is not a declared variable. `setvar ?` lists them.");
+            return;
+        }
+        long value;
+        if (bool.TryParse(tokens[1], out bool b))
+        {
+            value = b ? 1 : 0;
+        }
+        else if (!long.TryParse(tokens[1], out value))
+        {
+            GD.PrintErr($"setvar: '{tokens[1]}' is neither true/false nor an integer.");
+            return;
+        }
+        vars.SetInt(id, value);
+        GD.Print($"setvar: {id} = {value}");
+    }
+
     // --- setup ----------------------------------------------------------
 
     public static void Setup(string arg)

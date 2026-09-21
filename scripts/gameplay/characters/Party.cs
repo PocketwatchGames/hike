@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using Godot;
 
 // The player's roster of characters. One member is "active" (the character the
@@ -26,10 +27,13 @@ public class Party
 	public void MarkLeaderChosen() { IsLeaderChosenToday = true; }
 
 	// The permanent, party-shared knowledge pool (identified items, discovered
-	// recipes/species/regions, learned languages). The active member accrues field
+	// recipes/species, learned languages). The active member accrues field
 	// knowledge into their own PlayerState.Knowledge; BankActive folds it in here
 	// when the player camps. Reads combine this with the active member's store.
 	public readonly Knowledge Knowledge = new();
+
+	// The party's map. Written directly by whoever is exploring — never banked.
+	public readonly MapChart Chart = new();
 
 	public IReadOnlyList<PlayerState> Members => _members;
 	public int Count => _members.Count;
@@ -112,9 +116,56 @@ public class Party
 			foreach (PlayerState template in templates)
 			{
 				if (template == null) { continue; }
-				party._members.Add((PlayerState)template.Duplicate(true));
+				party._members.Add(PlayerState.FromTemplate(template));
 			}
 		}
+		return party;
+	}
+
+	// Inside a shared EntitySerializer table (SaveGame). The leader pick is not
+	// written: a save is a sunrise wake, and a sunrise always resets it.
+	public void Serialize(BinaryWriter w)
+	{
+		w.Write(_members.Count);
+		for (int i = 0; i < _members.Count; i++)
+		{
+			_members[i].WriteRuntime(w);
+		}
+		w.Write(_activeIndex);
+		Knowledge.Serialize(w);
+		Chart.Serialize(w);
+	}
+
+	// A member whose template no longer exists is dropped (with a warning), and
+	// the active index follows the member it named. `savedOrder` is the roster as
+	// written, a null where a member was dropped, for sections keyed by it.
+	public static Party Read(BinaryReader r, out List<PlayerState> savedOrder)
+	{
+		var party = new Party();
+		int count = r.ReadInt32();
+		var loaded = new List<PlayerState>(count);
+		for (int i = 0; i < count; i++)
+		{
+			PlayerState member = PlayerState.ReadRuntime(r);
+			if (member == null)
+			{
+				GD.PushWarning($"Party: saved member {i}'s template no longer exists — dropping them.");
+			}
+			loaded.Add(member);
+		}
+		int savedActive = r.ReadInt32();
+		PlayerState active = savedActive >= 0 && savedActive < loaded.Count ? loaded[savedActive] : null;
+		foreach (PlayerState member in loaded)
+		{
+			if (member != null)
+			{
+				party._members.Add(member);
+			}
+		}
+		party._activeIndex = active != null ? party._members.IndexOf(active) : System.Math.Max(0, party.FirstAliveIndex());
+		party.Knowledge.Deserialize(r);
+		party.Chart.Deserialize(r);
+		savedOrder = loaded;
 		return party;
 	}
 

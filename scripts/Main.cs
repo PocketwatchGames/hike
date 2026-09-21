@@ -176,6 +176,13 @@ public partial class Main : Node
 			return;
 		}
 
+		if (CVars.autoload.Value)
+		{
+			StartMainMenu();
+			(_currentScreen as GuiMainMenu).LoadGame();
+			return;
+		}
+
 		// Same skip-the-menu path for the world editor, so `-- "autostart_editor 1"`
 		// drops straight into it (respects `world_file`, else the empty stub).
 		if (CVars.autostartEditor.Value)
@@ -190,6 +197,42 @@ public partial class Main : Node
 
 	async void NewGame(Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData)
 	{
+		LoadingScreen loadingScreen = await LeaveMenuForLoading();
+		await StartGame(loadingScreen, playerPosition, playerScene, worldGenData, save: null);
+	}
+
+	// A save names its own world, so this starts THAT world — not the menu's
+	// selection — and the party wakes at the campfire it slept at.
+	async void LoadGame(string savePath)
+	{
+		SaveFile save;
+		WorldGenData worldGenData;
+		try
+		{
+			save = SaveGame.Read(savePath);
+			string generatorPath = save.Origin.GeneratorPath;
+			if (string.IsNullOrEmpty(generatorPath) || !ResourceLoader.Exists(generatorPath))
+			{
+				throw new InvalidDataException($"its world generator '{generatorPath}' does not exist");
+			}
+			worldGenData = GD.Load<WorldGenData>(generatorPath);
+		}
+		catch (Exception e)
+		{
+			GD.PrintErr($"[Save] Can't load '{savePath}': {e.Message}");
+			return;
+		}
+		PackedScene playerScene = (_currentScreen as GuiMainMenu)?.playerScene;
+		// StartGame loads world_file when set and generates when not — the same
+		// switch a New Game row sets.
+		CVars.worldFile.Value = save.Origin.WorldFile;
+
+		LoadingScreen loadingScreen = await LeaveMenuForLoading();
+		await StartGame(loadingScreen, Vector3.Zero, playerScene, worldGenData, save);
+	}
+
+	async Task<LoadingScreen> LeaveMenuForLoading()
+	{
 		LoadingScreen loadingScreen = ShowLoadingScreen();
 		MusicManager.Instance?.SetLoading(true);
 		// Yield one frame so the overlay actually renders before the
@@ -200,15 +243,7 @@ public partial class Main : Node
 
 		_currentScreen.QueueFree();
 		_currentScreen = null;
-
-		await StartGame(loadingScreen, playerPosition, playerScene, worldGenData);
-	}
-
-	void LoadGame(string savePath)
-	{
-		//_currentScreen.QueueFree();
-		//var (worldState, cameraTileIndex, localTeam) = SaveGame.Load(savePath);
-		//StartGame();
+		return loadingScreen;
 	}
 
 	LoadingScreen ShowLoadingScreen()
@@ -219,7 +254,7 @@ public partial class Main : Node
 		return loadingScreen;
 	}
 
-	async Task StartGame(LoadingScreen loadingScreen, Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData)
+	async Task StartGame(LoadingScreen loadingScreen, Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData, SaveFile save)
 	{
 		// Upload the active world's terrain + detail palettes to the terrain
 		// shader / scatter system before any chunk mesh is built. Disk-loaded
@@ -274,9 +309,9 @@ public partial class Main : Node
 		// documented as thread-safe.
 		string cachePath = null;
 		bool cacheHit = false;
+		string fingerprint = loadingFromFile ? null : WorldGenCache.ComputeFingerprint(worldGenData);
 		if (!loadingFromFile && CVars.worldCacheEnabled.Value)
 		{
-			string fingerprint = WorldGenCache.ComputeFingerprint(worldGenData);
 			cachePath = WorldGenCache.GetCachePath(DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE, fingerprint);
 			cacheHit = WorldGenCache.Exists(cachePath);
 			GD.Print($"[Load] WorldGen cache {(cacheHit ? "HIT" : "MISS")}: {cachePath}");
@@ -429,6 +464,26 @@ public partial class Main : Node
 			StartMainMenu();
 			return;
 		}
+		// A painted world is identified by its bake, a generated one by what it
+		// was generated from — its cache file is rewritten with a new bake id.
+		worldState.Origin = new WorldOrigin(loadingFromFile ? worldFilePath : "", worldGenData?.ResourcePath ?? "",
+			loadingFromFile ? "bake:" + worldState.BakeId : "gen:" + fingerprint);
+		if (save != null && save.Origin.Fingerprint != worldState.Origin.Fingerprint)
+		{
+			GD.PrintErr($"[Save] This save was made in a different build of its world ({save.Origin.Fingerprint}, "
+				+ $"now {worldState.Origin.Fingerprint}) — the world was re-baked or regenerated since. "
+				+ "Pre-release saves are not carried across; start a new game.");
+			loadingScreen.QueueFree();
+			StartMainMenu();
+			return;
+		}
+		// Before any save is applied, so the next save diffs against the world
+		// as built. Then the saved chunks go in — after the worldgen cache was
+		// written, which must stay pristine.
+		var baselineSw = Stopwatch.StartNew();
+		SaveGame.CaptureEntityBaseline(worldState);
+		save?.ApplyEntities(worldState);
+		GD.Print($"[Load] Entity baseline{(save != null ? " + saved chunks" : "")}: {baselineSw.ElapsedMilliseconds}ms");
 		string sourceLabel = loadingFromFile
 			? "World file loaded"
 			: (cacheHit && worldState != null ? "WorldGen cache loaded" : "Worldgen complete");
@@ -478,7 +533,7 @@ public partial class Main : Node
 		AddChild(_currentScreen);
 		GD.Print($"[Load] Scene loaded: {phaseSw.ElapsedMilliseconds}ms");
 		loadingScreen.SetProgress(0.6f, "Building world...");
-		(_currentScreen as GameClient).Init(playerPosition, playerScene, worldState, loadingScreen);
+		(_currentScreen as GameClient).Init(playerPosition, playerScene, worldState, loadingScreen, save);
 		// Hand the persistent music director the fresh session so it can
 		// subscribe to combat/world events; it auto-detaches on quit.
 		MusicManager.Instance?.BindGame(_currentScreen as GameClient);
@@ -588,6 +643,7 @@ public partial class Main : Node
 		// another world's content, and for a hand-painted world usually no
 		// quests at all.
 		worldState.BindStartContent(source.StartContent);
+		worldState.BakeId = source.BakeId;
 
 		// Non-chunked globals (the companion) — filed into the persistent store
 		// rather than a chunk bucket, mirroring how WorldFile.Write emitted them.

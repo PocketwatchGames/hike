@@ -239,7 +239,16 @@ public static class WorldFile
     //      charted nothing — and was used up doing it. The BuriedSpot payload
     //      also carries its contents (item, count, payload entry) and names a
     //      BuriedSpotStyleData where it named a BuriedSpotData.
-    public const uint VERSION = 56;
+    // v57: the ItemState wire format carries the item's status-effect instances
+    //      (weapon mods, forge enchantments), its boon menu, and its subclass
+    //      state (weapon ammo, lantern lit + fuel). A modded item in a chest used
+    //      to come back plain.
+    // v58: wells and cauldrons are Fountains. The Well tag is gone, and the
+    //      Fountain payload carries its drink (ItemEffect refs), cooldown days and
+    //      enabling script variable, where the effect used to be baked into the scene.
+    // v59: the header carries a BakeId, fresh on every write — the identity a
+    //      save game checks its world against (SaveGame, WorldOrigin).
+    public const uint VERSION = 59;
 
     public struct IndexEntry
     {
@@ -289,6 +298,8 @@ public static class WorldFile
         public EntitySerializer.ReadPathTable PathTable;
         public List<EntitySimState> PersistentEntities;
         public uint ChunkCount;
+        // Fresh on every Write: two bakes of the same document differ here.
+        public string BakeId;
     }
 
     // Writes every chunk in `worldState` to `path`. Used by the world_export
@@ -364,6 +375,7 @@ public static class WorldFile
         // A path to the resource that AUTHORS them, not the values: knowledge is
         // authored as embedded sub-resources, which have no path of their own.
         w.Write(worldState.StartContentPath ?? "");
+        w.Write(Guid.NewGuid().ToString("N"));
         TerrainPalette palette = worldState.Terrains ?? TerrainPalette.Empty;
         string[] terrainSlots = palette.SlotNames();
         w.Write((uint)terrainSlots.Length);
@@ -451,6 +463,7 @@ public static class WorldFile
             Spawn = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()),
             SimDataPath = r.ReadString(),
             StartContentPath = r.ReadString(),
+            BakeId = r.ReadString(),
         };
         uint terrainSlotCount = r.ReadUInt32();
         header.TerrainSlots = new string[terrainSlotCount];

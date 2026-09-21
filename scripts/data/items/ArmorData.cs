@@ -16,11 +16,11 @@ public partial class ArmorData : ItemData
 	//   { Noise,         0.8 } — padded boots (multiplicative)
 	//   { ArmorPenetration, 0.5 } — chainmail (halves armor-penetration-bypass chance)
 	//   { Fire,          0.5 } — fire-warded plate (halves fire damage)
-	[Export] public Godot.Collections.Array<StatModifier> modifiers;
+	[Export] public Godot.Collections.Array<Modifier> modifiers;
 	// Managed read-mirror of `modifiers` — see MobData.ModifiersFlat. Folded
 	// per equipped slot on every Player.ComposeStat call.
-	private StatModifier[] _modifiersFlat;
-	public StatModifier[] ModifiersFlat => _modifiersFlat ??= StatModifierUtil.Flatten(modifiers);
+	private ModifierSet _modifiersFlat;
+	public ModifierSet ModifiersFlat => _modifiersFlat ??= ModifierSet.From(modifiers);
 
 	// The outfit shown on the player's 3D model while this piece is equipped —
 	// a key into PlayerData.outfits, the central mesh-name registry. A body

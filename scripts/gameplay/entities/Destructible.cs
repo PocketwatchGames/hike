@@ -34,7 +34,7 @@ public partial class Destructible : Node3D
     // vulnerability is the authored fact: a clay pot takes Physical, an ice
     // sculpture might take Fire alone. Stated as types, not as Melee/Ranged —
     // delivery says nothing about what a hit is made of.
-    [Export, CompactFlags] private EStat _destroyedBy = EStat.Physical;
+    [Export, CompactFlags] private EHitTag _destroyedBy = EHitTag.Physical;
 
     // Hits needed to destroy. 1 (the default) means the first strike does it —
     // grass, pots and barrels have no health pool. Only qualifying hits count.
@@ -86,7 +86,7 @@ public partial class Destructible : Node3D
     // a lightning bolt should still strike the bush — it just shouldn't fell it.
     private bool Breaks(in HitInfo hit)
     {
-        return _destroyedBy == EStat.None || (hit.tags & _destroyedBy) != 0;
+        return _destroyedBy == EHitTag.None || (hit.tags & _destroyedBy) != 0;
     }
 
     // Destroy now, whatever the hit count. Also the entry point for scripted

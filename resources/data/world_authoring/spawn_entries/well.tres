@@ -1,8 +1,13 @@
-[gd_resource type="Resource" script_class="WellSpawnEntry" format=3]
+[gd_resource type="Resource" script_class="FountainSpawnEntry" format=3 uid="uid://e2ic4w0qeyl7"]
 
-[ext_resource type="Script" uid="uid://b7gskt20b7441" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="script"]
-[ext_resource type="PackedScene" uid="uid://b7gskto31x441" path="res://scenes/interactives/well.tscn" id="r1"]
+[ext_resource type="Script" uid="uid://cuyu2uykmhfid" path="res://scripts/data/spawn/FountainSpawnEntry.cs" id="1_entry"]
+[ext_resource type="PackedScene" uid="uid://b7gskto31x441" path="res://scenes/interactives/well.tscn" id="2_scene"]
+[ext_resource type="Resource" uid="uid://cssqwmsx7gyi6" path="res://resources/data/fountain_effects/hydrate.tres" id="3_effect"]
 
 [resource]
-script = ExtResource("script")
-scene = ExtResource("r1")
+script = ExtResource("1_entry")
+scene = ExtResource("2_scene")
+effects = [ExtResource("3_effect")]
+enabledVariable = null
+detailSuppressionRadius = 0.0
+metadata/_custom_type_script = "uid://cuyu2uykmhfid"

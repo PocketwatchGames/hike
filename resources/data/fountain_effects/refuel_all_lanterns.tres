@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="RefillLanternOilEffect" format=3 uid="uid://wqio3v5farcdw"]
+
+[ext_resource type="Script" uid="uid://do0gxlqe4tomu" path="res://scripts/data/effects/RefillLanternOilEffect.cs" id="1_refill"]
+
+[resource]
+script = ExtResource("1_refill")
+refillFraction = 1.0
+allCarried = true
+metadata/_custom_type_script = "uid://do0gxlqe4tomu"

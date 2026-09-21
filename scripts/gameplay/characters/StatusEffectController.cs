@@ -33,15 +33,12 @@ public class StatusEffectController
 	// meaningful only for the damage path (delta < 0): it splits the chunk
 	// between armor chip and direct HP loss. Heals (delta > 0) ignore it.
 	readonly Action<float, float> _applyHealthDelta;
-	// Lookup callback into the owning actor's full multiplicative composition
-	// across inherent data + equipped armor + this controller's own active
-	// effects, for a given tag mask. The controller can't sum equipment /
-	// inherent stats on its own — the actor (Player / Mob) owns that data —
-	// so we route through a callback. Used by the buildup path (effect.tags)
-	// and the DoT tick (effect.tags) so a Fire-resistant target shrugs off
-	// a Burning DoT even though the controller never sees the hit that
-	// started it.
-	readonly Func<EStat, float> _composeMaskMul;
+	// The owning actor's full resistance to buildup of a status family (<1 =
+	// resistant): its TagModifiers for the family, FortitudeResistance, and its
+	// defensive level. The actor owns the inherent / armor sources, so the
+	// controller asks rather than sums. Only buildup is resisted — a landed
+	// effect's DoT ticks at full strength. Null = no resistance (item-side).
+	readonly Func<EHitTag, float> _buildupResistance;
 	// (max-health drain amount). Reduces the actor's MAXIMUM health, clamping
 	// current health down to follow and killing the actor when max hits 0. Null
 	// on actors that don't model a drainable max (items, and the player today —
@@ -53,14 +50,6 @@ public class StatusEffectController
 	// Null on actors that don't carry conditional traits (Mob, item-side
 	// controllers) — those skip every conditional group. See Player.EvaluateTraitCondition.
 	readonly Func<ETraitCondition, float, bool> _conditionActive;
-	// Receiver-side per-level resistance (<=1) folded onto every combat-delivered
-	// buildup, alongside the tag/fortitude resistance. Sourced from the actor's
-	// defensive level — the player's Armor forge-upgrade level, a mob's difficulty
-	// Level (see Player/Mob.IncomingLevelResist). Null on item-side controllers and
-	// any actor with no level defense → a neutral 1. Kept as a live callback (not a
-	// cached scalar) because the level can change mid-life (a forge visit swaps the
-	// Armor upgrade).
-	readonly Func<float> _incomingLevelResist;
 	// Live current-max-health accessor. Drives every percent-of-max path:
 	// DamageOverTimeData.fractionMaxHealthPerSecond (sunburn) and the hazard proc /
 	// dot bands. Wired by Player and Mob; null on item-side controllers, where those
@@ -81,15 +70,14 @@ public class StatusEffectController
 	// fx at and no health to chip away. `world` may also be null; the meter
 	// machinery falls back to a zero game-time which is fine for ContinuousArm
 	// (it doesn't read time) and degrades gracefully for ThresholdCross decay.
-	public StatusEffectController(Node3D actor, Sim sim, Action<float, float> applyHealthDelta, Func<EStat, float> composeMaskMul = null, Action<float> applyMaxHealthDelta = null, Func<ETraitCondition, float, bool> conditionActive = null, Func<float> incomingLevelResist = null, Func<float> maxHealth = null)
+	public StatusEffectController(Node3D actor, Sim sim, Action<float, float> applyHealthDelta, Func<EHitTag, float> buildupResistance = null, Action<float> applyMaxHealthDelta = null, Func<ETraitCondition, float, bool> conditionActive = null, Func<float> maxHealth = null)
 	{
 		_actor = actor;
 		_world = sim;
 		_applyHealthDelta = applyHealthDelta;
-		_composeMaskMul = composeMaskMul;
+		_buildupResistance = buildupResistance;
 		_applyMaxHealthDelta = applyMaxHealthDelta;
 		_conditionActive = conditionActive;
-		_incomingLevelResist = incomingLevelResist;
 		_maxHealth = maxHealth;
 	}
 
@@ -671,20 +659,15 @@ public class StatusEffectController
 	// and report whether it armed / crossed. Split out so out-of-band combat
 	// sources that need the crossing result (chain lightning, which gates its
 	// next hop on whether this link discharged) can share the identical scaling
-	// the ref-HitInfo path can't hand back. FortitudeResistance is OR'd into the
-	// tag mask so the actor's general buildup resistance (PlayerState.fortitude
-	// plus any gear/status modifier) scales every combat buildup on top of its
-	// per-tag resistance; levelResist (Armor upgrade / mob Level) is the buildup
-	// counterpart of the incoming-damage resist in ApplyResistance.
+	// the ref-HitInfo path can't hand back.
 	public bool AddCombatBuildup(StatusEffectData effect, float amount, float potency = 1f, HazardProfileData hazard = null)
 	{
 		if (effect == null || amount == 0f)
 		{
 			return false;
 		}
-		float resistance = _composeMaskMul?.Invoke(effect.tags | EStat.FortitudeResistance) ?? 1f;
-		float levelResist = _incomingLevelResist?.Invoke() ?? 1f;
-		return AddBuildup(effect, amount * resistance * levelResist, potency, hazard);
+		float resistance = _buildupResistance?.Invoke(effect.tags) ?? 1f;
+		return AddBuildup(effect, amount * resistance, potency, hazard);
 	}
 
 	// Per-second damage a hazard-applied instance ticks, as a fraction of this
@@ -1083,9 +1066,8 @@ public class StatusEffectController
 	// (data, amount) pairs only — decayStartMs deliberately isn't surfaced
 	// because it's a game-time stamp that's meaningless across a save/load
 	// boundary (loaded saves should get a fresh decay window, not inherit a
-	// wall-clock from the prior session). Active StatusEffectState instances
-	// (the per-stack list with expiry timers, fx, etc.) are NOT covered —
-	// that's separate state with its own save/restore concerns.
+	// wall-clock from the prior session). Active instances are saved separately
+	// (EntitySerializer.WriteStatusEffects).
 	public IEnumerable<(StatusEffectData data, float amount)> EnumerateBuildupsForSave()
 	{
 		foreach (var kv in _buildups)
@@ -1098,16 +1080,16 @@ public class StatusEffectController
 		}
 	}
 
-	// Bulk restore from save. Clears any existing buildups + active states
-	// first (the assumption is a freshly-constructed actor), then seeds each
-	// loaded meter and re-arms any ContinuousArm effect whose meter is at
-	// or above its arm threshold so the controller and the actor's derived
-	// state (modifier folds, HUD strip) agree on lifecycle. decayStartMs is
-	// reset to "now + delay" so ThresholdCross decay starts fresh from load
-	// time rather than inheriting a stale stamp.
+	// Bulk restore from save. Replaces the buildup meters only — active states
+	// are left alone, since a spawned actor already carries its derived ones
+	// (a player's traits). Seeds each loaded meter and re-arms any ContinuousArm
+	// effect whose meter is at or above its arm threshold so the controller and
+	// the actor's derived state (modifier folds, HUD strip) agree on lifecycle.
+	// decayStartMs is reset to "now + delay" so ThresholdCross decay starts fresh
+	// from load time rather than inheriting a stale stamp.
 	public void RestoreBuildups(IReadOnlyList<(StatusEffectData data, float amount)> entries)
 	{
-		Clear();
+		_buildups.Clear();
 		if (entries == null)
 		{
 			return;
@@ -1143,6 +1125,20 @@ public class StatusEffectController
 		}
 	}
 
+	// True when `state` is the instance a ContinuousArm meter armed — derived from
+	// the meter, so a save restores the meter rather than the instance.
+	public bool IsArmedByBuildup(StatusEffectState state)
+	{
+		foreach (var kv in _buildups)
+		{
+			if (kv.Value?.armedInstance == state)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public void Remove(StatusEffectState state)
 	{
 		if (state == null)
@@ -1167,9 +1163,9 @@ public class StatusEffectController
 	// cure-style consumables (cure-poison potion clears any effect tagged
 	// Poison). Matching buildup meters are also zeroed so a partially-charged
 	// effect doesn't immediately re-apply after the cure.
-	public void RemoveByTagMask(EStat mask)
+	public void RemoveByTagMask(EHitTag mask)
 	{
-		if (mask == EStat.None)
+		if (mask == EHitTag.None)
 		{
 			return;
 		}
@@ -1304,16 +1300,11 @@ public class StatusEffectController
 				s.tickAccumulator -= 1f;
 				if (_applyHealthDelta != null)
 				{
-					// Damage ticks (positive damagePerSecond) scale by the
-					// actor's full resistance to the effect's tags so a
-					// Fire-resistant body shrugs off a Burning burn tick.
-					// Heals (negative damagePerSecond) pass through neat —
-					// resistance is a damage-side concept; we don't want a
-					// Magical-resistant target healing slower from a Magical-
-					// tagged regen, and the explicit guard avoids a silly
-					// >1 vulnerability scaling a heal up either. Item-side
-					// controllers pass null _applyHealthDelta — items don't
-					// take damage from their own status effects.
+					// Never scaled by resistance: resistance decides whether
+					// and how fast an effect lands (the buildup), not how hard
+					// it hits once it has. Item-side controllers pass null
+					// _applyHealthDelta — items don't take damage from their
+					// own status effects.
 					// Per-instance potency scales both damage and heal magnitude — a
 					// level-5 poison stack ticks ~5.6x, a superior heal ticks 2x — so
 					// stronger sources show bigger numbers rather than more stacks.
@@ -1326,14 +1317,6 @@ public class StatusEffectController
 					if (hazardDps > 0f)
 					{
 						dps = hazardDps;
-					}
-					if (dps > 0f)
-					{
-						float resistance = _composeMaskMul?.Invoke(s.data.tags) ?? 1f;
-						// Defensive-level resist (the player's Armor upgrade; mobs are
-						// neutral — their level defense is the health pool alone)
-						// reduces incoming DoT the same as a direct hit.
-						dps *= resistance * (_incomingLevelResist?.Invoke() ?? 1f);
 					}
 					// Percentage-of-max-health damage (sunburn), added on top and
 					// deliberately UNSCALED by resistance/level so the melt time is
@@ -1393,21 +1376,19 @@ public class StatusEffectController
 				continue;
 			}
 			running = StatModifierUtil.Fold(stat, data.ModifiersFlat, running);
-			running = FoldConditional(data, running, mask: false, stat: stat, maskArg: EStat.None);
+			running = FoldConditional(data, running, stat, EHitTag.None);
 		}
 		return running;
 	}
 
-	// Multiplicative fold across every active effect's StatModifier entries
-	// whose single-bit stat overlaps `mask`. Used for hit-side composition
-	// (a hit tagged Damage|Fire pulls in both the Damage and Fire entries)
-	// at the various application sites — damage scale, armor-penetration-chance scale,
-	// blunt chip scale, knockback magnitude, buildup amount. Caller seeds
-	// with their inherent + equipment product; the controller adds the
-	// status-effect layer.
-	public float FoldMask(EStat mask, float product)
+	// Multiplicative fold across every active effect's TagModifier entries
+	// whose tag overlaps `mask` (a hit tagged Damage|Fire pulls in both the
+	// Damage and Fire entries). Used at the hit application sites and for
+	// buildup. Caller seeds with their inherent + equipment product; the
+	// controller adds the status-effect layer.
+	public float FoldTags(EHitTag mask, float product)
 	{
-		if (mask == EStat.None)
+		if (mask == EHitTag.None)
 		{
 			return product;
 		}
@@ -1418,18 +1399,17 @@ public class StatusEffectController
 			{
 				continue;
 			}
-			product = StatModifierUtil.FoldMask(mask, data.ModifiersFlat, product);
-			product = FoldConditional(data, product, mask: true, stat: EStat.None, maskArg: mask);
+			product = StatModifierUtil.FoldTags(mask, data.ModifiersFlat, product);
+			product = FoldConditional(data, product, EStat.None, mask);
 		}
 		return product;
 	}
 
 	// Fold an effect's conditionalModifiers into `running` for whichever fold is in
-	// flight — a single-stat Fold (mask == false, uses `stat`) or a tag-mask FoldMask
-	// (mask == true, uses `maskArg`). Each group is included only when the owning
+	// flight — a single-stat Fold (`stat` set) or a tag fold (`tags` set). Each group is included only when the owning
 	// actor's evaluator reports its condition active; without an evaluator (mobs,
 	// items) or a conditionalModifiers list, this is a no-op.
-	private float FoldConditional(StatusEffectData data, float running, bool mask, EStat stat, EStat maskArg)
+	private float FoldConditional(StatusEffectData data, float running, EStat stat, EHitTag tags)
 	{
 		Godot.Collections.Array<ConditionalModifierData> groups = data.conditionalModifiers;
 		if (groups == null || _conditionActive == null)
@@ -1445,8 +1425,8 @@ public class StatusEffectController
 			{
 				continue;
 			}
-			running = mask
-				? StatModifierUtil.FoldMask(maskArg, group.ModifiersFlat, running)
+			running = tags != EHitTag.None
+				? StatModifierUtil.FoldTags(tags, group.ModifiersFlat, running)
 				: StatModifierUtil.Fold(stat, group.ModifiersFlat, running);
 		}
 		return running;
@@ -1458,7 +1438,7 @@ public class StatusEffectController
 	// damage resolves. The applied effect's own maxStack governs whether repeat hits
 	// stack or just refresh the timer. Snapshots the effects to apply first because
 	// Add mutates _statusEffects mid-scan.
-	public void TriggerOnDamaged(EStat hitTags)
+	public void TriggerOnDamaged(EHitTag hitTags)
 	{
 		List<StatusEffectData> toApply = null;
 		for (int i = 0; i < _statusEffects.Count; i++)
@@ -1468,7 +1448,7 @@ public class StatusEffectController
 			{
 				continue;
 			}
-			if (data.onDamagedTags != EStat.None && (data.onDamagedTags & hitTags) == 0)
+			if (data.onDamagedTags != EHitTag.None && (data.onDamagedTags & hitTags) == 0)
 			{
 				continue;
 			}

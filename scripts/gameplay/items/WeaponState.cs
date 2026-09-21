@@ -74,6 +74,18 @@ public class WeaponState : ItemState
 	public override WeaponData data => _data;
 	private readonly WeaponData _data;
 
+	// Combo cursors, the guard pool and the recharge stamp are live-combat state
+	// that restarts on its own; ammo is the one thing a quiver carries.
+	public override void WriteSubclassState(System.IO.BinaryWriter w)
+	{
+		w.Write(ammo);
+	}
+
+	public override void ReadSubclassState(System.IO.BinaryReader r)
+	{
+		ammo = r.ReadInt32();
+	}
+
 	public WeaponState(WeaponData d) : base(d)
 	{
 		_data = d;

@@ -3,16 +3,17 @@
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_mod"]
 [ext_resource type="Script" uid="uid://s6bfihcepal1" path="res://scripts/data/effects/payloads/ConditionalModifierData.cs" id="3_cond"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 
 [sub_resource type="Resource" id="mod_stam"]
 script = ExtResource("2_mod")
-stat = 2097152
+stat = 11
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="cond_fallen"]
 script = ExtResource("3_cond")
 condition = 1
-modifiers = Array[ExtResource("2_mod")]([SubResource("mod_stam")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("mod_stam")])
 metadata/_custom_type_script = "uid://eok50kekxv5ds"
 
 [resource]

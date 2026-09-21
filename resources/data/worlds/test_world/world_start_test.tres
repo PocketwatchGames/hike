@@ -13,6 +13,7 @@ spell = ExtResource("8_salts")
 
 [resource]
 script = ExtResource("1_script")
+displayName = "Test World"
 scriptData = ExtResource("9_script")
 startingParty = [ExtResource("4_mischa")]
 initialKnowledge = Array[ExtResource("2_teach")]([SubResource("Know_salts")])

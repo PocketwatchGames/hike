@@ -1,6 +1,7 @@
 ﻿public static class CVars
 {
-    public static CVarString savePath = new CVarString("savepath", "./savegame.dat");
+    // The one save slot: written when the party wakes at a campfire, read by Load Game.
+    public static CVarString savePath = new CVarString("savepath", "user://savegame.dat");
     public static CVarString language = new CVarString("language", "");
     public static CVar version = new CVar("version", (cvar) => Godot.GD.Print(Version.Full));
     public static CVarBool ceilingCap = new CVarBool("ceiling_cap", true);
@@ -2164,6 +2165,10 @@
     // `--headless` and, for an unattended playthrough, `autoplay`.
     public static CVarBool autostart = new CVarBool("autostart", false);
 
+    // Same skip-the-menu path as `autostart`, but loads `savepath` instead of
+    // starting a new game. Ignored when `autostart` is also set.
+    public static CVarBool autoload = new CVarBool("autoload", false);
+
     // When true, Main spawns a HeadlessBot that drives the player with
     // synthesized input (wander + occasional dash/attack), so a headless run
     // exercises movement, chunk streaming, and combat without a human at the
@@ -2536,6 +2541,13 @@
     public static CVarString setupScenario = new CVarString("setup", "", (cvar) =>
     {
         DebugVerbs.Setup(((CVarString)cvar).Value);
+    });
+
+    // `setvar <name> <value>` — write a script variable (quest flag, world
+    // state): `true` / `false` or an int. `setvar ?` lists the declared ones.
+    public static CVarString setScriptVar = new CVarString("setvar", "", (cvar) =>
+    {
+        DebugVerbs.SetVar(((CVarString)cvar).Value);
     });
 
     // Headless data-integrity check: `--headless -- "resource_check 1"` reports

@@ -38,6 +38,7 @@ public sealed class WorldFileChunkSource : IChunkSource
     // from the world file's global section. Main.LoadWorldFromFile files these
     // into WorldState.PersistentEntities rather than a per-chunk bucket.
     public List<EntitySimState> PersistentEntities { get; }
+    public string BakeId { get; }
 
     private readonly Dictionary<Vector3I, WorldFile.IndexEntry> _index;
     private readonly Stream _stream;
@@ -57,7 +58,19 @@ public sealed class WorldFileChunkSource : IChunkSource
         _stream = new BufferedStream(new GodotFileReadStream(path), READ_BUFFER_BYTES);
         var r = new BinaryReader(_stream, Encoding.UTF8, leaveOpen: true);
 
-        WorldFile.Header header = WorldFile.ReadHeader(r);
+        // A rejected header (a stale version) must not leave the file open: the
+        // running game would hold the .hike and the re-bake that fixes it would
+        // fail to write.
+        WorldFile.Header header;
+        try
+        {
+            header = WorldFile.ReadHeader(r);
+        }
+        catch
+        {
+            _stream.Dispose();
+            throw;
+        }
         _pathTable = header.PathTable;
         Min = header.Min;
         Max = header.Max;
@@ -94,6 +107,7 @@ public sealed class WorldFileChunkSource : IChunkSource
         }
 
         PersistentEntities = header.PersistentEntities ?? new List<EntitySimState>();
+        BakeId = header.BakeId ?? "";
 
         _index = new Dictionary<Vector3I, WorldFile.IndexEntry>((int)header.ChunkCount);
         for (uint i = 0; i < header.ChunkCount; i++)

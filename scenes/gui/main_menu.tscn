@@ -5,8 +5,9 @@
 [ext_resource type="Resource" uid="uid://carn5t06puf34" path="res://resources/data/world_gen/default_world_gen.tres" id="3_worldgen"]
 [ext_resource type="Resource" uid="uid://bhodwg1042kim" path="res://resources/data/world_gen/world_gen_swamp.tres" id="5_swampgen"]
 [ext_resource type="PackedScene" uid="uid://w8ucvtu1v5688" path="res://scenes/gui/controls_screen.tscn" id="6_controls"]
+[ext_resource type="PackedScene" uid="uid://d0l5s8iba3nv8" path="res://scenes/gui/profile_screen.tscn" id="7_profiles"]
 
-[node name="MainMenu" type="Control" unique_id=316901958 node_paths=PackedStringArray("versionLabel", "buttonPanel", "fileSelector", "controlsScreen", "worldList")]
+[node name="MainMenu" type="Control" unique_id=316901958 node_paths=PackedStringArray("versionLabel", "buttonPanel", "fileSelector", "controlsScreen", "worldList", "profileScreen")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,6 +21,7 @@ versionLabel = NodePath("VersionContainer/Panel/MarginContainer/Label")
 buttonPanel = NodePath("HBoxContainer")
 fileSelector = NodePath("File Selector")
 controlsScreen = NodePath("ControlsScreen")
+profileScreen = NodePath("ProfileScreen")
 worldList = NodePath("File Selector/VBoxContainer/ItemList")
 worldOptions = [ExtResource("3_worldgen"), ExtResource("5_swampgen")]
 worldOptionLabels = PackedStringArray("Default", "Swamp")
@@ -58,15 +60,10 @@ layout_mode = 2
 [node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer/PanelContainer" unique_id=1018716819]
 layout_mode = 2
 
-[node name="NewGameButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer" unique_id=210051487]
+[node name="PlayButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer" unique_id=210051487]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
-text = "New Game"
-
-[node name="LoadGameButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer" unique_id=66426326]
-layout_mode = 2
-theme_override_font_sizes/font_size = 32
-text = "Load Game"
+text = "Play"
 
 [node name="WorldEditorButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer" unique_id=386196368]
 layout_mode = 2
@@ -151,8 +148,11 @@ text = "Continue"
 visible = false
 layout_mode = 1
 
-[connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/NewGameButton" to="." method="ShowNewGameOptions"]
-[connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/LoadGameButton" to="." method="LoadGame"]
+[node name="ProfileScreen" parent="." instance=ExtResource("7_profiles")]
+visible = false
+layout_mode = 1
+
+[connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/PlayButton" to="." method="ShowProfiles"]
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/WorldEditorButton" to="." method="ShowEditorOptions"]
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/WorldMapPainterButton" to="." method="ShowPainterOptions"]
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/ControlsButton" to="." method="ShowControls"]

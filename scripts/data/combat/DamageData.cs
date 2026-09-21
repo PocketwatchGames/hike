@@ -14,16 +14,16 @@ using Godot;
 public partial class DamageData : Resource
 {
 	// Type tags carried by this hit (Fire, Melee, Magical, …). Receivers
-	// fold their per-tag StatModifier entries (inherent + armor + active
-	// status effects) against this mask at multiple sites: healthDamage
-	// scale (any damage tag), armor-penetration-chance scale (EStat.ArmorPenetration only),
-	// armor-chip scale (EStat.Blunt only), knockback magnitude (EStat.
-	// Knockback only). Default None means the hit is untyped — no modifier
+	// fold their TagModifier entries (inherent + armor + active status
+	// effects) against this mask at multiple sites: healthDamage scale (any
+	// HitTags.DamageScale tag), armor-penetration-chance scale
+	// (ArmorPenetration only), armor-chip scale (Blunt only), knockback
+	// magnitude (Knockback only). Default None means the hit is untyped — no modifier
 	// entry matches, so it lands at full strength. Author broadly: a basic
 	// sword swing is Damage|Melee|Blunt, a fireball is Damage|Fire|Magical|
 	// Ranged.
-	private EStat _tags;
-	[Export, CompactFlags] public EStat tags
+	private EHitTag _tags;
+	[Export, CompactFlags] public EHitTag tags
 	{
 		get => _tags;
 		set

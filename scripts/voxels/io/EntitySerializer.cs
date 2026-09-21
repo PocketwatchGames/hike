@@ -23,7 +23,6 @@ public static class EntitySerializer
         Loot = 10,
         Campfire = 11,
         KnowledgeStone = 12,
-        Well = 13,
         ClimbableTree = 14,
         Boat = 15,
         BuriedSpot = 16,
@@ -96,6 +95,10 @@ public static class EntitySerializer
     // into the ref table (pre-v9 subscenes), which spelled some of them out as
     // bare path strings instead.
     [ThreadStatic] private static bool _legacyPathRefs;
+    // False while reading a subscene written before items carried their status
+    // effects, boons and subclass state (pre-v12). Defaults true, so a reader
+    // outside ReadList (the save game) always gets the current layout.
+    [ThreadStatic] private static bool _noItemExtras;
 
     // How one ref-table slot stores its resource.
     private enum RefKind : byte
@@ -231,6 +234,59 @@ public static class EntitySerializer
         _sharedWrite = false;
     }
 
+    // The read-side twin of BeginSharedWrite: every ReadRef / ReadItem / ReadList
+    // until EndSharedRead resolves against `table`.
+    public static void BeginSharedRead(ReadPathTable table)
+    {
+        _readPaths = table;
+    }
+
+    public static void EndSharedRead()
+    {
+        _readPaths = null;
+    }
+
+    // A resource reference outside an entity list — for a container (the save
+    // game) that stores its own records against the shared table. Only valid
+    // between BeginSharedWrite / EndSharedWrite (resp. Begin/EndSharedRead).
+    public static void WriteRef(BinaryWriter w, Resource resource)
+    {
+        if (_writePaths == null)
+        {
+            throw new InvalidOperationException("EntitySerializer.WriteRef outside BeginSharedWrite");
+        }
+        WriteResource(w, resource);
+    }
+
+    public static T ReadRef<T>(BinaryReader r) where T : Resource
+    {
+        if (_readPaths == null)
+        {
+            throw new InvalidOperationException("EntitySerializer.ReadRef outside BeginSharedRead");
+        }
+        return ReadPathRef<T>(r);
+    }
+
+    // One ItemState in the entity wire format, under the same shared-table rule
+    // as WriteRef. Null writes as an absent item and reads back as null.
+    public static void WriteItem(BinaryWriter w, ItemState item)
+    {
+        if (_writePaths == null)
+        {
+            throw new InvalidOperationException("EntitySerializer.WriteItem outside BeginSharedWrite");
+        }
+        WriteItemState(w, item);
+    }
+
+    public static ItemState ReadItem(BinaryReader r)
+    {
+        if (_readPaths == null)
+        {
+            throw new InvalidOperationException("EntitySerializer.ReadItem outside BeginSharedRead");
+        }
+        return ReadItemState(r);
+    }
+
     // Buffered, because encoding an inline resource interns the resources IT
     // references and so appends further slots — the count is only final once the
     // last entry is out.
@@ -349,12 +405,14 @@ public static class EntitySerializer
         return ReadList(br);
     }
 
-    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true, bool hasScale = true)
+    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true, bool hasScale = true, bool itemExtras = true)
     {
         ReadPathTable outer = _readPaths;
         int outerRoofFormat = _roofFormat;
         bool outerLegacyRefs = _legacyPathRefs;
+        bool outerNoItemExtras = _noItemExtras;
         _legacyPathRefs = !tableRefs;
+        _noItemExtras = !itemExtras;
         _readPaths = shared ?? ReadTable(r, tagged: tableRefs);
         _roofFormat = roofFormat;
         try
@@ -372,6 +430,7 @@ public static class EntitySerializer
             _readPaths = outer;
             _roofFormat = outerRoofFormat;
             _legacyPathRefs = outerLegacyRefs;
+            _noItemExtras = outerNoItemExtras;
         }
     }
 
@@ -678,12 +737,6 @@ public static class EntitySerializer
                 WriteScene(w, cactus.Scene);
                 break;
 
-            case WellSimState well:
-                w.Write((byte)Tag.Well);
-                WriteVec3(w, well.WorldPosition);
-                WriteScene(w, well.Scene);
-                break;
-
             case BerryTreeSimState berry:
                 w.Write((byte)Tag.BerryTree);
                 WriteVec3(w, berry.WorldPosition);
@@ -729,6 +782,13 @@ public static class EntitySerializer
                 w.Write((byte)Tag.Fountain);
                 WriteVec3(w, fountain.WorldPosition);
                 WriteScene(w, fountain.Scene);
+                w.Write(fountain.Effects.Length);
+                foreach (ItemEffect effect in fountain.Effects)
+                {
+                    WriteResource(w, effect);
+                }
+                w.Write(fountain.CooldownDays);
+                w.Write(fountain.EnabledVariable?.ToString() ?? string.Empty);
                 w.Write(fountain.RegrowDay);
                 break;
 
@@ -1147,12 +1207,6 @@ public static class EntitySerializer
                 cactus.HazardRadius = CactusSimState.DefaultHazardRadius;
                 return cactus;
             }
-            case Tag.Well:
-            {
-                Vector3 pos = ReadVec3(r);
-                PackedScene scene = ReadScene(r);
-                return new WellSimState(pos, scene);
-            }
             case Tag.BerryTree:
             {
                 Vector3 pos = ReadVec3(r);
@@ -1204,9 +1258,16 @@ public static class EntitySerializer
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
-                int reactivateDay = r.ReadInt32();
-                var fountain = new FountainSimState(pos, scene);
-                fountain.RegrowDay = reactivateDay;
+                var effects = new ItemEffect[r.ReadInt32()];
+                for (int i = 0; i < effects.Length; i++)
+                {
+                    effects[i] = ReadResource<ItemEffect>(r);
+                }
+                int cooldownDays = r.ReadInt32();
+                string enabledVariable = r.ReadString();
+                var fountain = new FountainSimState(pos, scene, effects, cooldownDays,
+                    enabledVariable.Length > 0 ? new StringName(enabledVariable) : null);
+                fountain.RegrowDay = r.ReadInt32();
                 return fountain;
             }
             case Tag.ForageSpawner:
@@ -1561,14 +1622,12 @@ public static class EntitySerializer
         return effects;
     }
 
-    // ItemState wire format: ItemData resource path + the base ItemState fields.
+    // ItemState wire format: ItemData resource path + the base ItemState fields,
+    // then the item's status-effect instances, its boon menu, and its subclass
+    // state (length-prefixed, see ItemState.WriteSubclassState).
     // The stack's units are stored as spoil cohorts — a count and each cohort's
     // (units, removeOnDay) pair — so per-batch spoilage survives save/load; then
     // cooldownExpireMs, cooldownDurationMs, touched, whole-item removeOnDay, level.
-    // Polymorphic subclass fields (WeaponState.ammo, LanternState.isActive) are
-    // not preserved — items round-trip through ItemData.CreateState() which resets
-    // them to authored defaults. Extend this when player Inventory persistence
-    // lands and subclass state needs to survive save/load.
     private static void WriteItemState(BinaryWriter w, ItemState item)
     {
         if (item == null || item.data == null)
@@ -1589,6 +1648,19 @@ public static class EntitySerializer
         w.Write(item.touched);
         w.Write(item.removeOnDay);
         w.Write(item.level);
+        WriteStatusEffects(w, item.statusEffects.StatusEffects);
+        w.Write(item.possibleBoons.Count);
+        foreach (BoonData boon in item.possibleBoons)
+        {
+            WriteResource(w, boon);
+        }
+        using var sub = new MemoryStream();
+        using (var sw = new BinaryWriter(sub, Encoding.UTF8, leaveOpen: true))
+        {
+            item.WriteSubclassState(sw);
+        }
+        w.Write7BitEncodedInt((int)sub.Length);
+        w.Write(sub.GetBuffer(), 0, (int)sub.Length);
     }
 
     private static ItemState ReadItemState(BinaryReader r)
@@ -1629,6 +1701,22 @@ public static class EntitySerializer
         bool touched = r.ReadBoolean();
         int removeOnDay = r.ReadInt32();
         int level = r.ReadInt32();
+        var effects = new List<StatusEffectRecord>();
+        var boons = new List<BoonData>();
+        byte[] subclassState = System.Array.Empty<byte>();
+        if (!_noItemExtras)
+        {
+            effects = ReadStatusEffects(r);
+            int boonCount = r.ReadInt32();
+            for (int i = 0; i < boonCount; i++)
+            {
+                if (ReadResource<BoonData>(r) is BoonData boon)
+                {
+                    boons.Add(boon);
+                }
+            }
+            subclassState = r.ReadBytes(r.Read7BitEncodedInt());
+        }
         if (data == null)
         {
             return null;
@@ -1646,7 +1734,81 @@ public static class EntitySerializer
         state.touched = touched;
         state.removeOnDay = removeOnDay;
         state.level = level;
+        foreach (StatusEffectRecord effect in effects)
+        {
+            effect.AddTo(state.statusEffects);
+        }
+        state.possibleBoons.AddRange(boons);
+        if (subclassState.Length > 0)
+        {
+            using var sr = new BinaryReader(new MemoryStream(subclassState));
+            state.ReadSubclassState(sr);
+        }
         return state;
+    }
+
+    // One status-effect instance as the wire stores it: what Add needs to rebuild
+    // it. Timers are NOT stored - Add re-arms them from the load, so a timed
+    // effect restarts its full window.
+    public readonly record struct StatusEffectRecord(StatusEffectData Data, int Level, EUpgradeSlot AppliedSlot,
+        float Potency, HazardProfileData Hazard, EWeaponModScope Scope, int ChargeIndex)
+    {
+        public StatusEffectState AddTo(StatusEffectController controller)
+        {
+            StatusEffectState state = controller.Add(Data, Level, AppliedSlot, Potency, Hazard);
+            if (state != null)
+            {
+                state.weaponModScope = Scope;
+                state.weaponModChargeIndex = ChargeIndex;
+            }
+            return state;
+        }
+    }
+
+    // Status-effect instances, under the shared-table rule of WriteRef. A record
+    // whose StatusEffectData no longer resolves is dropped on read.
+    public static void WriteStatusEffects(BinaryWriter w, IEnumerable<StatusEffectState> states)
+    {
+        var kept = new List<StatusEffectState>();
+        foreach (StatusEffectState state in states)
+        {
+            if (state?.data != null)
+            {
+                kept.Add(state);
+            }
+        }
+        w.Write(kept.Count);
+        foreach (StatusEffectState state in kept)
+        {
+            WriteResource(w, state.data);
+            w.Write(state.level);
+            w.Write((int)state.appliedUpgradeSlot);
+            w.Write(state.potency);
+            WriteResource(w, state.hazardProfile);
+            w.Write((int)state.weaponModScope);
+            w.Write(state.weaponModChargeIndex);
+        }
+    }
+
+    public static List<StatusEffectRecord> ReadStatusEffects(BinaryReader r)
+    {
+        int count = r.ReadInt32();
+        var records = new List<StatusEffectRecord>(count);
+        for (int i = 0; i < count; i++)
+        {
+            var data = ReadResource<StatusEffectData>(r);
+            int level = r.ReadInt32();
+            var slot = (EUpgradeSlot)r.ReadInt32();
+            float potency = r.ReadSingle();
+            var hazard = ReadResource<HazardProfileData>(r);
+            var scope = (EWeaponModScope)r.ReadInt32();
+            int chargeIndex = r.ReadInt32();
+            if (data != null)
+            {
+                records.Add(new StatusEffectRecord(data, level, slot, potency, hazard, scope, chargeIndex));
+            }
+        }
+        return records;
     }
 
     private static void WriteItemList(BinaryWriter w, IReadOnlyList<ItemState> items)

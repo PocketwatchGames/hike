@@ -70,8 +70,9 @@ public class QuestLog
 
     // Poll every quest, then drop any that went terminal this tick. Iterating a
     // copy-free forward pass for Tick, then a reverse pass for removal so a
-    // completion mid-list doesn't disturb the tick loop.
-    public void Tick(ulong nowMs)
+    // completion mid-list doesn't disturb the tick loop. A completed quest writes
+    // its QuestData.completedVariable into `record` on the way out.
+    public void Tick(ulong nowMs, ScriptVariableBank record)
     {
         for (int i = 0; i < _quests.Count; i++)
         {
@@ -79,10 +80,17 @@ public class QuestLog
         }
         for (int i = _quests.Count - 1; i >= 0; i--)
         {
-            if (_quests[i].Status != EQuestStatus.Active)
+            QuestState quest = _quests[i];
+            if (quest.Status == EQuestStatus.Active)
             {
-                Remove(_quests[i]);
+                continue;
             }
+            StringName completed = quest.Data?.completedVariable;
+            if (quest.Status == EQuestStatus.Complete && completed != null && !completed.IsEmpty)
+            {
+                record?.SetBool(completed, true);
+            }
+            Remove(quest);
         }
     }
 

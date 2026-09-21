@@ -22,12 +22,12 @@ using Godot;
 public partial class ContinuousDamageData : Resource
 {
 	// Type tags carried by this continuous hit (Fire, Poison, Magical, …).
-	// Same role as DamageData.tags — receivers fold their StatModifier
+	// Same role as DamageData.tags — receivers fold their TagModifier
 	// entries against this mask to scale per-frame health damage. Default
 	// None = untyped, full damage. A fire pillar would be Damage|Fire, a
 	// poison gas cloud Damage|Poison, etc.
-	private EStat _tags;
-	[Export, CompactFlags] public EStat tags
+	private EHitTag _tags;
+	[Export, CompactFlags] public EHitTag tags
 	{
 		get => _tags;
 		set

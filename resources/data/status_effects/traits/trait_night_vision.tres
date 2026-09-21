@@ -2,10 +2,11 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_mod"]
+[ext_resource type="Script" uid="uid://ouzgtnkbomf4q" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 
 [sub_resource type="Resource" id="mod_nightvision"]
 script = ExtResource("2_mod")
-stat = 33554432
+stat = 15
 value = 1.85
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
@@ -17,6 +18,6 @@ category = 2
 durationType = 1
 maxStack = 1
 removesOnApply = []
-modifiers = Array[ExtResource("2_mod")]([SubResource("mod_nightvision")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("mod_nightvision")])
 conditionalModifiers = []
 metadata/_custom_type_script = "uid://uqgkmpiv30t5"

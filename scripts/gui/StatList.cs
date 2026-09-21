@@ -352,27 +352,13 @@ public static class StatList
 		}
 	}
 
-	// Map an EStat (modifier-target / hit-tag value) onto the matching UI
-	// label key. Values that don't have a UI label return EStatName.Damage
-	// as a fallback — currently every EStat value has a mirrored EStatName
-	// since EStatName was extended in lockstep, so the fallback is dead
-	// code, but the explicit default keeps the switch exhaustive-safe
-	// against future EStat additions before their labels land.
+	// Map a modifier target onto its UI label key. A value with no label falls
+	// back to EStatName.Damage — every value has one today, so the fallback
+	// only guards a future addition landing before its label.
 	private static EStatName ToStatName(EStat stat)
 	{
 		return stat switch
 		{
-			EStat.Damage => EStatName.Damage,
-			EStat.Fire => EStatName.Fire,
-			EStat.Blunt => EStatName.Blunt,
-			EStat.Dizzy => EStatName.Dizzy,
-			EStat.ArmorPenetration => EStatName.ArmorPenetration,
-			EStat.Electrical => EStatName.Electrical,
-			EStat.Ranged => EStatName.Ranged,
-			EStat.Melee => EStatName.Melee,
-			EStat.Poison => EStatName.Poison,
-			EStat.Magical => EStatName.Magical,
-			EStat.Knockback => EStatName.Knockback,
 			EStat.OutgoingDamage => EStatName.OutgoingDamage,
 			EStat.MoveSpeed => EStatName.MoveSpeed,
 			EStat.AnimSpeed => EStatName.AnimSpeed,
@@ -394,41 +380,62 @@ public static class StatList
 		};
 	}
 
-	// Walk a StatModifier list and yield (label, formatted-value) tuples for
-	// every entry off its stat's neutral identity. Multiplicative stats
-	// render as scale deltas (e.g. "MoveSpeed: -25%"); additive stats render
-	// as signed offsets (e.g. "Camouflage: +5"). Used by StatusEffectInfo
-	// and ArmorStats so both shapes get a uniform readout.
-	public static IEnumerable<(string name, string value)> Modifiers(Godot.Collections.Array<StatModifier> modifiers)
+	private static EStatName ToStatName(EHitTag tag)
+	{
+		return tag switch
+		{
+			EHitTag.Damage => EStatName.Damage,
+			EHitTag.Fire => EStatName.Fire,
+			EHitTag.Blunt => EStatName.Blunt,
+			EHitTag.Dizzy => EStatName.Dizzy,
+			EHitTag.ArmorPenetration => EStatName.ArmorPenetration,
+			EHitTag.Electrical => EStatName.Electrical,
+			EHitTag.Ranged => EStatName.Ranged,
+			EHitTag.Melee => EStatName.Melee,
+			EHitTag.Poison => EStatName.Poison,
+			EHitTag.Magical => EStatName.Magical,
+			EHitTag.Knockback => EStatName.Knockback,
+			EHitTag.Physical => EStatName.Physical,
+			EHitTag.Burning => EStatName.Burning,
+			EHitTag.Poisoned => EStatName.Poisoned,
+			EHitTag.Shocked => EStatName.Shocked,
+			EHitTag.Sunlight => EStatName.Sunlight,
+			_ => EStatName.Damage,
+		};
+	}
+
+	// Walk a modifier list and yield (label, formatted-value) tuples for every
+	// entry off its neutral identity. Multiplicative entries render as scale
+	// deltas ("MoveSpeed: -25%"); additive stats as signed offsets
+	// ("Camouflage: +5"). Used by StatusEffectInfo, ArmorStats and the bestiary.
+	public static IEnumerable<(string name, string value)> Modifiers(Godot.Collections.Array<Modifier> modifiers)
 	{
 		if (modifiers == null)
 		{
 			yield break;
 		}
 		Dictionary<EStatName, string> names = GameClient.Current.statNames;
-		for (int i = 0; i < modifiers.Count; i++)
+		int count = modifiers.Count;
+		for (int i = 0; i < count; i++)
 		{
-			StatModifier m = modifiers[i];
-			if (m == null || m.stat == EStat.None)
+			switch (modifiers[i])
 			{
-				continue;
-			}
-			bool additive = StatModifierUtil.IsAdditive(m.stat);
-			if (additive)
-			{
-				if (m.value == 0f)
-				{
-					continue;
-				}
-				yield return (names[ToStatName(m.stat)], StatFormat.SignedNumber(m.value));
-			}
-			else
-			{
-				if (Mathf.IsEqualApprox(m.value, 1f))
-				{
-					continue;
-				}
-				yield return (names[ToStatName(m.stat)], StatFormat.ScaleDelta(m.value));
+				case StatModifier m when m.stat != EStat.None:
+					if (StatModifierUtil.IsAdditive(m.stat))
+					{
+						if (m.value != 0f)
+						{
+							yield return (names[ToStatName(m.stat)], StatFormat.SignedNumber(m.value));
+						}
+					}
+					else if (!Mathf.IsEqualApprox(m.value, 1f))
+					{
+						yield return (names[ToStatName(m.stat)], StatFormat.ScaleDelta(m.value));
+					}
+					break;
+				case TagModifier t when t.tag != EHitTag.None && !Mathf.IsEqualApprox(t.value, 1f):
+					yield return (names[ToStatName(t.tag)], StatFormat.ScaleDelta(t.value));
+					break;
 			}
 		}
 	}

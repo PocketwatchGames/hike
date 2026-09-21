@@ -8,7 +8,7 @@
 
 [sub_resource type="Resource" id="Resource_jn3a4"]
 script = ExtResource("3_6staj")
-stat = 67108864
+stat = 16
 value = 100.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 

@@ -40,10 +40,10 @@ public partial class SpeciesData : Resource
     // variant can be tankier / a forest one stealthier without forking MobData.
     // Also the source the bestiary lists per row (StatList.Modifiers). Empty =
     // identical to the base species' stats.
-    [Export] public Godot.Collections.Array<StatModifier> modifiers = new();
+    [Export] public Godot.Collections.Array<Modifier> modifiers = new();
     // Managed read-mirror of `modifiers` — see MobData.ModifiersFlat.
-    private StatModifier[] _modifiersFlat;
-    public StatModifier[] ModifiersFlat => _modifiersFlat ??= StatModifierUtil.Flatten(modifiers);
+    private ModifierSet _modifiersFlat;
+    public ModifierSet ModifiersFlat => _modifiersFlat ??= ModifierSet.From(modifiers);
 
     // Recolor override. Null = fall back to the species' own MobData.palette
     // (usually none). See MobPalette / ModelAnimator.

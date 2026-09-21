@@ -10,9 +10,9 @@ using Godot;
 // on onPartyMemberExpired), so the two never share a mutation.
 public partial class Sim
 {
-    // Draws the daily "well rested" member each sunrise (see AdvanceToNextSunrise →
-    // Party.AdvanceRestAndPickWellRested). Sim-side because the pick is roster state.
-    readonly System.Random _wellRestedRng = new();
+    // Salts the daily "well rested" draw (AdvanceToNextSunrise →
+    // Party.AdvanceRestAndPickWellRested) off WorldState.DailyRandom.
+    private const int WELL_RESTED_SALT = 0x4E57;
 
     // The active roster, or null before it's built. Read access for the client (it
     // reads ActiveIndex / members to drive the party UI); all WRITES go through the
@@ -117,9 +117,7 @@ public partial class Sim
         {
             return null;
         }
-        // Clone so the roster member is independent of the authored .tres (their
-        // vitals / inventory evolve per-run), matching Party.FromTemplates.
-        var member = (PlayerState)template.Duplicate(true);
+        PlayerState member = PlayerState.FromTemplate(template);
         party.Add(member);
         return member;
     }
@@ -139,24 +137,20 @@ public partial class Sim
     }
 
     // Restore a fallen member: fold their un-banked field knowledge back into the
-    // reviver's provisional store and clear the death flags. Returns true if knowledge
-    // moved, so the client recomposes the minimap fog to surface it.
-    public bool ReviveMember(PlayerState reviver, PlayerState corpse)
+    // reviver's provisional store and clear the death flags.
+    public void ReviveMember(PlayerState reviver, PlayerState corpse)
     {
         if (corpse == null || !corpse.IsDead)
         {
-            return false;
+            return;
         }
-        bool moved = false;
         if (reviver != null && reviver != corpse)
         {
             reviver.Knowledge.MergeFrom(corpse.Knowledge);
             corpse.Knowledge.Clear();
-            moved = true;
         }
         corpse.IsDead = false;
         corpse.ReviveByDay = 0;
-        return moved;
     }
 
     // Commit a camp stop: bank the active member's provisional field knowledge into
@@ -258,5 +252,4 @@ public partial class Sim
     // through WorldState.SimState. Each guards / announces inside SimState.
     public void DiscoverSpecies(SpeciesData species) => _worldState?.SimState?.DiscoverSpecies(species);
     public void DiscoverRegion(RegionData region) => _worldState?.SimState?.DiscoverRegion(region);
-    public void SnapshotWorldMapReveal() => _worldState?.SimState?.SnapshotWorldMapReveal();
 }

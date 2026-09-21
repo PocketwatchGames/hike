@@ -74,9 +74,9 @@ projectileLifetimeSeconds = 0.25
 [sub_resource type="Resource" id="Resource_charged_full"]
 script = ExtResource("4_charged")
 displayName = &"Snipe"
-staminaCost = 1.0
 activeDurationSeconds = 0.25
 cooldownSeconds = 0.25
+staminaCost = 1.0
 useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_full")])
 requirements = Array[ExtResource("4_1lc6q")]([SubResource("Resource_req_no_swim")])
@@ -102,7 +102,7 @@ addBuildups = []
 
 [sub_resource type="Resource" id="Resource_charged_damage"]
 script = ExtResource("1_damage")
-tags = 536870977
+tags = 2113
 healthDamage = 60.0
 critChance = 0.1
 damageVariance = 0.25
@@ -114,7 +114,7 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit")])
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
-tags = 536870977
+tags = 2113
 healthDamage = 30.0
 critChance = 0.1
 damageVariance = 0.25

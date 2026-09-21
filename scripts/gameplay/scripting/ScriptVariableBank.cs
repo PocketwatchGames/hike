@@ -74,6 +74,8 @@ public class ScriptVariableBank
         return _declared.ContainsKey(id);
     }
 
+    public IEnumerable<StringName> DeclaredNames => _declared.Keys;
+
     public long GetInt(StringName id)
     {
         WarnIfUndeclared(id);

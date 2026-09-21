@@ -21,7 +21,7 @@ size = Vector2(2.5, 2.5)
 
 [sub_resource type="Resource" id="Resource_blast_damage"]
 script = ExtResource("8_damage")
-tags = 536871943
+tags = 3079
 healthDamage = 60.0
 hitstun = 0.3
 knockbackDistance = 5.0

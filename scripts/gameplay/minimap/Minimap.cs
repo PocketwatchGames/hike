@@ -92,17 +92,17 @@ public partial class Minimap : Node3D
     // visible while scouting from the bird's-eye overlook. 0 = fog ignored.
     [Export(PropertyHint.Range, "0,64,1")] public float losFogFullBlockMeters = 16f;
 
-    [ExportGroup("Campfire Reveal")]
-    // Duration of the world-map reveal animation played when camping banks new
-    // ground (GameClient.EnterCampWithFade → almanac). Newly charted cells grow in
-    // as an animated noise threshold sweeps 0→1 over this many seconds.
-    [Export(PropertyHint.Range, "0.25,5,0.05")] public float bankRevealSeconds = 1.5f;
+    [ExportGroup("Chart Reveal")]
+    // Duration of the world-map sweep played when ground is charted in bulk (a
+    // tree-climb scout, the reveal_map cheat). Newly charted cells grow in as an
+    // animated noise threshold sweeps 0→1 over this many seconds.
+    [Export(PropertyHint.Range, "0.25,5,0.05")] public float chartRevealSeconds = 1.5f;
     // Value-noise cell size in map pixels — larger = broader, softer reveal patches;
     // smaller = a finer, more granular dissolve.
-    [Export(PropertyHint.Range, "2,64,1")] public float bankRevealNoiseCellPixels = 10f;
+    [Export(PropertyHint.Range, "2,64,1")] public float chartRevealNoiseCellPixels = 10f;
     // Soft-edge width of the sweeping threshold (in threshold units): cells fade in
     // across this band rather than snapping on as the threshold passes their noise value.
-    [Export(PropertyHint.Range, "0.01,0.5,0.01")] public float bankRevealEdgeSoftness = 0.15f;
+    [Export(PropertyHint.Range, "0.01,0.5,0.01")] public float chartRevealEdgeSoftness = 0.15f;
 
     private Sim _world;
     private MinimapTextures _textures;
@@ -120,20 +120,20 @@ public partial class Minimap : Node3D
     private Vector3 _lastRevealPos;
     private bool _hasRevealedOnce;
 
-    // Campfire reveal animation state. Baseline = the world-map (banked) outdoor
-    // buffer as it was BEFORE the camp bank; _bankRevealTarget = the freshly-banked
-    // buffer. _bankRevealCells lists the pixels that gained reveal, each paired with
-    // a [0,1) noise threshold; the animation lerps a sweeping threshold up so a cell
-    // fades from baseline to target as the sweep passes its noise value. Wall-clock
-    // timed (presentational — a frozen sim clock must not stretch it).
-    private byte[] _bankRevealBaseline;
-    private byte[] _bankRevealTarget;
-    private byte[] _bankRevealWork;
-    private int[] _bankRevealCells;
-    private float[] _bankRevealNoise;
-    private bool _bankRevealPrepared;
-    private bool _bankRevealAnimating;
-    private ulong _bankRevealStartMs;
+    // Chart-reveal sweep state. Baseline = the chart's outdoor buffer before a
+    // bulk reveal; target = after it. _chartRevealCells lists the pixels that
+    // gained reveal, each paired with a [0,1) noise threshold; the animation lerps
+    // a sweeping threshold up so a cell fades from baseline to target as the sweep
+    // passes its noise value. Wall-clock timed (presentational — a frozen sim
+    // clock must not stretch it).
+    private byte[] _chartRevealBaseline;
+    private byte[] _chartRevealTarget;
+    private byte[] _chartRevealWork;
+    private int[] _chartRevealCells;
+    private float[] _chartRevealNoise;
+    private bool _chartRevealPrepared;
+    private bool _chartRevealAnimating;
+    private ulong _chartRevealStartMs;
 
     // Live map markers, self-registered via World.onMapMarker{Spawned,Removed}.
     // Scanned each reveal tick for reveal-driven discovery (see UpdateMarkerDiscovery).
@@ -161,11 +161,11 @@ public partial class Minimap : Node3D
         public Texture2D Exploration;
         public Texture2D ExplorationBelow1;
         public Texture2D ExplorationBelow2;
-        // Party-only (banked) exploration for the world map; the fields above are
-        // party ∪ active for the minimap.
-        public Texture2D ExplorationBanked;
-        public Texture2D ExplorationBankedBelow1;
-        public Texture2D ExplorationBankedBelow2;
+        // What the world map samples: the same chart as above, except that the
+        // outdoor layer shows the chart-reveal sweep while one is armed.
+        public Texture2D WorldMapExploration;
+        public Texture2D WorldMapExplorationBelow1;
+        public Texture2D WorldMapExplorationBelow2;
         public Vector2I WorldOriginXZ;
         public Vector2 ExtentPixels;
         public float MetersPerPixel;
@@ -258,17 +258,15 @@ public partial class Minimap : Node3D
             return _sliceAtlas?.TryGetLayer(_activeSliceLevel)?.ExplorationTexture;
         }
     }
-    // Banked (party-only) exploration — the world map samples these instead of
-    // the party ∪ active textures above, so un-banked field reveal stays off it.
-    public ImageTexture ActiveExplorationBankedTexture
+    public ImageTexture ActiveWorldMapExplorationTexture
     {
         get
         {
             if (_mode == EMinimapMode.Outdoor)
             {
-                return _textures?.ExplorationBankedTexture;
+                return _textures?.WorldMapExplorationTexture;
             }
-            return _sliceAtlas?.TryGetLayer(_activeSliceLevel)?.ExplorationBankedTexture;
+            return ActiveExplorationTexture;
         }
     }
 
@@ -328,30 +326,10 @@ public partial class Minimap : Node3D
                 ?? ActiveExplorationTextureBelow1;
         }
     }
-    public ImageTexture ActiveExplorationBankedTextureBelow1
-    {
-        get
-        {
-            if (_mode == EMinimapMode.Outdoor || _sliceAtlas == null)
-            {
-                return ActiveExplorationBankedTexture;
-            }
-            return _sliceAtlas.TryGetLayer(_activeSliceLevel - 1)?.ExplorationBankedTexture
-                ?? ActiveExplorationBankedTexture;
-        }
-    }
-    public ImageTexture ActiveExplorationBankedTextureBelow2
-    {
-        get
-        {
-            if (_mode == EMinimapMode.Outdoor || _sliceAtlas == null)
-            {
-                return ActiveExplorationBankedTexture;
-            }
-            return _sliceAtlas.TryGetLayer(_activeSliceLevel - 2)?.ExplorationBankedTexture
-                ?? ActiveExplorationBankedTextureBelow1;
-        }
-    }
+    public ImageTexture ActiveWorldMapExplorationTextureBelow1 =>
+        _mode == EMinimapMode.Outdoor ? ActiveWorldMapExplorationTexture : ActiveExplorationTextureBelow1;
+    public ImageTexture ActiveWorldMapExplorationTextureBelow2 =>
+        _mode == EMinimapMode.Outdoor ? ActiveWorldMapExplorationTexture : ActiveExplorationTextureBelow2;
     public Vector2I ActiveWorldOriginXZ
     {
         get
@@ -377,85 +355,52 @@ public partial class Minimap : Node3D
         }
     }
 
-    // The active member's provisional field-reveal buffers (the reveal target;
-    // shown on the minimap but not the world map until banked) and the permanent
-    // party pool's (banked reveal, shown on both). Null before the roster exists,
-    // in which case reveal no-ops.
-    private ExplorationMask ActiveExplorationMask =>
-        _world?.WorldState?.SimState?.Party?.Active?.Knowledge?.Exploration;
-    private ExplorationMask PartyExplorationMask =>
-        _world?.WorldState?.SimState?.Party?.Knowledge?.Exploration;
+    // The party's charted fog-of-war — the reveal target. Null before the roster
+    // exists, in which case reveal no-ops.
+    private ExplorationMask ChartExploration =>
+        _world?.WorldState?.SimState?.Party?.Chart?.Exploration;
 
-    // Recompose the display exploration textures: the minimap texture from
-    // party ∪ active (the controlled player's un-banked field reveal shows on
-    // the minimap immediately), the world-map texture from the party pool only
-    // (banked-at-a-campfire reveal). GameClient calls this on bank
-    // (NotifyCampedAt) to fold freshly-banked reveal into the party pool, on
-    // member switch (SyncControlToActive) to swap in the new active member's
-    // provisional reveal, and on revive.
+    // Reseed the display textures from the chart. Needed once the roster exists
+    // (GameClient.Init); every later reveal keeps them in step as it writes.
     public void RebuildExplorationDisplay()
     {
-        ExplorationMask party = PartyExplorationMask;
-        ExplorationMask active = ActiveExplorationMask;
-        _textures?.RebuildExploration(party?.Outdoor, active?.Outdoor);
-        _sliceAtlas?.RebuildExploration(party, active);
-        // Reseeding the world-map fog from the party pool also retires the frozen
-        // region/marker snapshots, so all three world-map layers revert together
-        // and stay player-tied (lost on death, not stranded at party level).
-        _world?.WorldState?.SimState?.ClearWorldMapSnapshots();
+        ExplorationMask chart = ChartExploration;
+        _textures?.RebuildExploration(chart?.Outdoor);
+        _sliceAtlas?.RebuildExploration(chart);
     }
 
-    // Graduate the active member's field reveal onto the WORLD MAP as a frozen
-    // snapshot — the tree-climb scout. Unlike a campfire bank, this doesn't touch
-    // the party pool: it only advances the world map's banked-display buffers, so
-    // the perched wide reveal shows on the world map immediately yet stays
-    // provisional (un-banked) until the player actually returns to a fire. Normal
-    // walking reveal never writes these buffers, so the world map holds this
-    // snapshot frozen and only advances on the next tree climb.
-    public void SnapshotFieldRevealToWorldMap()
+    // Chart-reveal sweep: newly charted ground grows in on the WORLD MAP instead
+    // of popping, for anything that charts a large area at once. Walking reveal is
+    // continuous and never sweeps. Any bulk charting source uses the same calls:
+    //   1. BeginChartReveal() — snapshot the chart before writing to it.
+    //   2. (write into the party's chart)
+    //   3. PrepareChartReveal() — diff against the snapshot; if anything was
+    //      charted, the world map holds the snapshot until step 4.
+    //   4. StartChartReveal() — play it; fired when the almanac shows the world
+    //      map (AlmanacScreen.ShowTab), so the sweep is seen whenever it is opened.
+    //   5. FinalizeChartReveal() — snap to the full chart. Idempotent.
+    // The minimap never sweeps; it always shows the chart.
+
+    // True once a sweep is armed but not yet played/finalized.
+    public bool ChartRevealArmed => _chartRevealPrepared;
+
+    // Keeps the existing baseline while a sweep is armed but unseen, so several
+    // bulk reveals before the next map opening grow in as one sweep.
+    public void BeginChartReveal()
     {
-        ExplorationMask active = ActiveExplorationMask;
-        if (active == null)
+        if (!_chartRevealPrepared)
         {
-            return;
+            _chartRevealBaseline = _textures?.CopyOutdoor();
         }
-        _textures?.MergeActiveIntoBanked(active.Outdoor);
-        _sliceAtlas?.MergeActiveIntoBanked(active);
     }
 
-    // Campfire reveal animation. Armed by GameClient.NotifyCampedAt at camp entry,
-    // but played later when the player opens the map:
-    //   1. CaptureBankedRevealBaseline() — before the camp bank, snapshot the
-    //      world-map buffer as-is.
-    //   2. (bank happens: NotifyCampedAt → RebuildExplorationDisplay)
-    //   3. PrepareBankedReveal() — diff the newly-banked buffer against the
-    //      baseline; if new ground was charted, rewind the display to the baseline
-    //      (so the map still shows the pre-camp state) and return true. The map is
-    //      NOT updated on entering camp — it holds the baseline until step 4.
-    //   4. StartBankedReveal() — fired when the player next opens the almanac to the
-    //      world map (AlmanacScreen.ShowTab), in camp or later in the field.
-    //   5. FinalizeBankedReveal() — on almanac close, snap to the fully-revealed map
-    //      in case the player closed before the sweep finished. Idempotent.
-
-    // True once a deferred reveal is armed (display rewound to the baseline) but
-    // not yet played/finalized. Lets the camp bank avoid re-baselining across
-    // successive camps the player hasn't yet opened the map to see.
-    public bool BankRevealArmed => _bankRevealPrepared;
-
-    public void CaptureBankedRevealBaseline()
+    // Returns false (and arms nothing) when the chart gained nothing since
+    // BeginChartReveal.
+    public bool PrepareChartReveal()
     {
-        _bankRevealBaseline = _textures?.CopyBankedOutdoor();
-    }
-
-    // Diff the freshly-banked buffer against the pre-bank baseline. If nothing new
-    // was charted, returns false (caller skips the reveal and opens camp directly).
-    // Otherwise rewinds the displayed world-map buffer to the baseline and arms the
-    // animation (held at threshold 0 until StartBankedReveal).
-    public bool PrepareBankedReveal()
-    {
-        ClearBankedReveal();
-        byte[] baseline = _bankRevealBaseline;
-        byte[] target = _textures?.CopyBankedOutdoor();
+        byte[] baseline = _chartRevealBaseline;
+        byte[] target = _textures?.CopyOutdoor();
+        ClearChartReveal();
         if (baseline == null || target == null || baseline.Length != target.Length)
         {
             return false;
@@ -474,10 +419,11 @@ public partial class Minimap : Node3D
             return false;
         }
 
-        _bankRevealTarget = target;
-        _bankRevealWork = (byte[])baseline.Clone();
-        _bankRevealCells = new int[changed];
-        _bankRevealNoise = new float[changed];
+        _chartRevealBaseline = baseline;
+        _chartRevealTarget = target;
+        _chartRevealWork = (byte[])baseline.Clone();
+        _chartRevealCells = new int[changed];
+        _chartRevealNoise = new float[changed];
         int width = _textures.WidthPixels;
         int c = 0;
         for (int i = 0; i < target.Length; i++)
@@ -486,94 +432,86 @@ public partial class Minimap : Node3D
             {
                 continue;
             }
-            _bankRevealCells[c] = i;
-            _bankRevealNoise[c] = RevealNoise(i % width, i / width);
+            _chartRevealCells[c] = i;
+            _chartRevealNoise[c] = RevealNoise(i % width, i / width);
             c++;
         }
 
-        // Rewind the world map to the pre-camp state so the reveal grows from there.
-        _textures.SetBankedOutdoor(baseline);
-        _bankRevealPrepared = true;
+        _textures.SetSweepOutdoor(baseline);
+        _chartRevealPrepared = true;
         return true;
     }
 
-    public void StartBankedReveal()
+    public void StartChartReveal()
     {
-        if (!_bankRevealPrepared)
+        if (!_chartRevealPrepared)
         {
             return;
         }
-        _bankRevealAnimating = true;
-        _bankRevealStartMs = Time.GetTicksMsec();
+        _chartRevealAnimating = true;
+        _chartRevealStartMs = Time.GetTicksMsec();
     }
 
-    // Snap to the fully-charted map and drop the animation state. Safe to call at
-    // any point (never armed, mid-sweep, or already finished).
-    public void FinalizeBankedReveal()
+    public void FinalizeChartReveal()
     {
-        if (_bankRevealTarget != null)
-        {
-            _textures?.SetBankedOutdoor(_bankRevealTarget);
-        }
-        ClearBankedReveal();
+        ClearChartReveal();
     }
 
     // Alpha [0,1] for a world-map marker at worldXZ so its icon fades in with the
-    // ground beneath it during the campfire reveal. Gated on _bankRevealPrepared
-    // (not _bankRevealAnimating) so it tracks the rewound terrain the moment the map
-    // is rewound — through the black/fade-in hold before the sweep starts — instead
-    // of showing icons over still-hidden ground and then snapping them off. Returns
-    // 1 with no reveal armed (and for markers on already-charted ground, whose
-    // banked value is already full), so normal display and stable icons are untouched.
-    public float BankedRevealAlphaAt(Vector3 worldXZ)
+    // ground beneath it during a sweep. Gated on _chartRevealPrepared (not
+    // _chartRevealAnimating) so icons over still-hidden ground stay hidden from
+    // the moment the sweep is armed. 1 when nothing is armed.
+    public float ChartRevealAlphaAt(Vector3 worldXZ)
     {
-        if (!_bankRevealPrepared)
+        if (!_chartRevealPrepared)
         {
             return 1f;
         }
-        return _textures?.SampleBankedOutdoorAlpha(worldXZ) ?? 1f;
+        return _textures?.SampleWorldMapOutdoorAlpha(worldXZ) ?? 1f;
     }
 
-    private void ClearBankedReveal()
+    private void ClearChartReveal()
     {
-        _bankRevealTarget = null;
-        _bankRevealWork = null;
-        _bankRevealCells = null;
-        _bankRevealNoise = null;
-        _bankRevealPrepared = false;
-        _bankRevealAnimating = false;
+        _chartRevealBaseline = null;
+        _chartRevealTarget = null;
+        _chartRevealWork = null;
+        _chartRevealCells = null;
+        _chartRevealNoise = null;
+        _chartRevealPrepared = false;
+        _chartRevealAnimating = false;
+        _textures?.SetSweepOutdoor(null);
     }
 
     // Advance the sweep one frame (called from _PhysicsProcess). The threshold ramps
-    // 0→1 over bankRevealSeconds; each changed cell lerps baseline→target as the
-    // threshold crosses its noise value, across a bankRevealEdgeSoftness-wide band.
-    private void UpdateBankedReveal()
+    // 0→1 over chartRevealSeconds; each changed cell lerps baseline→target as the
+    // threshold crosses its noise value, across a chartRevealEdgeSoftness-wide band.
+    private void UpdateChartReveal()
     {
-        if (!_bankRevealAnimating)
+        if (!_chartRevealAnimating)
         {
             return;
         }
-        float elapsed = (Time.GetTicksMsec() - _bankRevealStartMs) / 1000f;
-        float duration = Mathf.Max(bankRevealSeconds, 0.01f);
+        float elapsed = (Time.GetTicksMsec() - _chartRevealStartMs) / 1000f;
+        float duration = Mathf.Max(chartRevealSeconds, 0.01f);
         float t = Mathf.Clamp(elapsed / duration, 0f, 1f);
         // Expand the sweep range slightly past [0,1] so the softness band fully
         // clears every cell (a cell at noise 1.0 still reaches full reveal at t=1).
-        float soft = Mathf.Max(bankRevealEdgeSoftness, 0.0001f);
+        float soft = Mathf.Max(chartRevealEdgeSoftness, 0.0001f);
         float threshold = t * (1f + soft);
 
-        for (int c = 0; c < _bankRevealCells.Length; c++)
+        for (int c = 0; c < _chartRevealCells.Length; c++)
         {
-            int idx = _bankRevealCells[c];
-            float reveal = Mathf.Clamp((threshold - _bankRevealNoise[c]) / soft, 0f, 1f);
-            byte from = _bankRevealBaseline[idx];
-            byte to = _bankRevealTarget[idx];
-            _bankRevealWork[idx] = (byte)Mathf.RoundToInt(Mathf.Lerp(from, to, reveal));
+            int idx = _chartRevealCells[c];
+            float reveal = Mathf.Clamp((threshold - _chartRevealNoise[c]) / soft, 0f, 1f);
+            byte from = _chartRevealBaseline[idx];
+            byte to = _chartRevealTarget[idx];
+            _chartRevealWork[idx] = (byte)Mathf.RoundToInt(Mathf.Lerp(from, to, reveal));
         }
-        _textures.SetBankedOutdoor(_bankRevealWork);
+        _textures.SetSweepOutdoor(_chartRevealWork);
 
         if (t >= 1f)
         {
-            FinalizeBankedReveal();
+            FinalizeChartReveal();
         }
     }
 
@@ -581,7 +519,7 @@ public partial class Minimap : Node3D
     // hashed lattice so reveal patches are contiguous blobs rather than TV static.
     private float RevealNoise(int px, int py)
     {
-        float cell = Mathf.Max(bankRevealNoiseCellPixels, 1f);
+        float cell = Mathf.Max(chartRevealNoiseCellPixels, 1f);
         float fx = px / cell;
         float fy = py / cell;
         int x0 = Mathf.FloorToInt(fx);
@@ -672,7 +610,7 @@ public partial class Minimap : Node3D
 
         _revealAccumulator += delta;
         // Bird's-eye movement-locks the player, so the moved gate would fire
-        // once on entry (with the ground-level radius already banked from
+        // once on entry (with the ground-level radius already charted from
         // walking there) and then never again. Keep revealing while perched so
         // the wider birds-eye radius actually charts new ground — the max-merge
         // makes re-running on a stationary player essentially free.
@@ -692,15 +630,14 @@ public partial class Minimap : Node3D
             UpdateMarkerDiscovery(playerPos);
         }
 
-        // Drive the campfire reveal sweep (armed by GameClient during camp entry).
-        UpdateBankedReveal();
+        UpdateChartReveal();
 
         _textures.Flush();
         _sliceAtlas.Flush();
     }
 
-    // One reveal pass at playerPos into the active member's field store (+ the live
-    // display buffer). Shared by the per-tick reveal and the on-spawn RevealAtPlayerNow.
+    // One reveal pass at playerPos into the party's chart (+ the display buffer).
+    // Shared by the per-tick reveal and the on-spawn RevealAtPlayerNow.
     private void RevealOnce(Vector3 playerPos)
     {
         float innerFraction = revealInnerFraction;
@@ -708,40 +645,37 @@ public partial class Minimap : Node3D
         // player can perceive, which doesn't shrink just because we're rendering a
         // more zoomed-in indoor view.
         float revealRadius = ComputeRevealRadius();
-        // The active member accumulates their own field reveal here; it stays off
-        // the displayed world map until banked at a campfire. Null before the roster
-        // exists — reveal then no-ops.
-        ExplorationMask individual = ActiveExplorationMask;
+        ExplorationMask chart = ChartExploration;
         WorldState ws = _world.WorldState;
         MinimapLos los = BuildLos();
         if (_mode == EMinimapMode.Outdoor)
         {
-            byte[] individualOutdoor = individual?.EnsureOutdoor(_textures.ExplorationBufferSize);
+            byte[] chartOutdoor = chart?.EnsureOutdoor(_textures.ExplorationBufferSize);
             bool birdsEye = _world.player?.IsBirdsEye ?? false;
             if (!los.Enabled)
             {
-                _textures.RevealCircle(playerPos, revealRadius, innerFraction, individualOutdoor);
+                _textures.RevealCircle(playerPos, revealRadius, innerFraction, chartOutdoor);
             }
             else if (birdsEye)
             {
                 // Scouting from above: no terrain occlusion, but distant fog volumes
                 // still hide what's inside them.
-                _textures.RevealCircleFogged(playerPos, revealRadius, innerFraction, ws, los.FogFullBlockMeters, individualOutdoor);
+                _textures.RevealCircleFogged(playerPos, revealRadius, innerFraction, ws, los.FogFullBlockMeters, chartOutdoor);
             }
             else
             {
-                _textures.RevealViewshed(playerPos, revealRadius, innerFraction, los, ws, individualOutdoor);
+                _textures.RevealViewshed(playerPos, revealRadius, innerFraction, los, ws, chartOutdoor);
             }
             // Slice-column reveal gated by terrain LOS on the ground, but ungated in
             // bird's-eye (looking down over the terrain) and when LOS is off.
-            RevealOutdoorSliceColumns(playerPos, innerFraction, individual, los, ws, gate: los.Enabled && !birdsEye);
+            RevealOutdoorSliceColumns(playerPos, innerFraction, chart, los, ws, gate: los.Enabled && !birdsEye);
         }
         else
         {
             // Indoor / underground: reveal only the active slice, with walls
             // occluding at the player's real eye height.
             float eyeY = playerPos.Y + GameCamera.EYE_HEIGHT;
-            _sliceAtlas.RevealCircle(_activeSliceLevel, playerPos, revealRadius, innerFraction, individual, ws, eyeY, los);
+            _sliceAtlas.RevealCircle(_activeSliceLevel, playerPos, revealRadius, innerFraction, chart, ws, eyeY, los);
         }
         _lastRevealPos = playerPos;
         _hasRevealedOnce = true;
@@ -749,9 +683,7 @@ public partial class Minimap : Node3D
 
     // Force a single reveal pass at the player's current position right now, outside
     // the per-tick cadence. Called once at spawn (GameClient.Init) so the immediate
-    // surroundings can be banked into the party pool — otherwise a fresh save opens
-    // to a blank world map (the per-tick reveal only fills the active member's
-    // provisional store, which the world map doesn't show until banked).
+    // surroundings are charted before the first reveal tick.
     public void RevealAtPlayerNow()
     {
         if (_world == null || _textures == null)
@@ -771,40 +703,37 @@ public partial class Minimap : Node3D
         _sliceAtlas.Flush();
     }
 
-    // Cheat (`reveal_map`): chart the whole world at once. Fills the active
-    // member's field mask — the outdoor buffer plus every allocated slice layer —
-    // names every region, senses every currently-loaded map marker, then runs the
-    // normal campfire bank so all of it graduates into the party pool and shows on
-    // the world map without a trip to a fire. Markers that haven't streamed in yet
-    // aren't sensed; they discover on their usual path.
+    // Cheat (`reveal_map`): chart the whole world at once — the outdoor buffer plus
+    // every allocated slice layer — name every region and sense every currently-
+    // loaded map marker. Goes through the chart-reveal sweep like any other bulk
+    // charting, so it grows in the next time the world map opens. Markers that
+    // haven't streamed in yet aren't sensed; they discover on their usual path.
     public void RevealEverything()
     {
         if (_world == null || _textures == null)
         {
             return;
         }
-        // An armed campfire sweep describes a map that no longer exists — drop it
-        // first, or finalizing it later would overwrite the full reveal.
-        ClearBankedReveal();
-
-        ExplorationMask active = ActiveExplorationMask;
-        if (active != null)
+        ExplorationMask chart = ChartExploration;
+        if (chart == null)
         {
-            System.Array.Fill(active.EnsureOutdoor(_textures.ExplorationBufferSize), byte.MaxValue);
-            _sliceAtlas.FillAllSlices(active);
+            return;
         }
+        BeginChartReveal();
+        System.Array.Fill(chart.EnsureOutdoor(_textures.ExplorationBufferSize), byte.MaxValue);
+        _sliceAtlas.FillAllSlices(chart);
         WorldState ws = _world.WorldState;
         foreach (RegionData region in ws.RegionCentroidsXZ.Keys)
         {
             _world.DiscoverRegion(region);
         }
+        RebuildExplorationDisplay();
+        PrepareChartReveal();
         Player player = _world.player;
         if (player != null)
         {
             UpdateMarkerDiscovery(player.GlobalPosition);
         }
-        ws.SimState?.BankActiveKnowledge();
-        RebuildExplorationDisplay();
         _textures.Flush();
         _sliceAtlas.Flush();
     }
@@ -846,7 +775,7 @@ public partial class Minimap : Node3D
     // been stamped (height=0) are skipped — there's no ground to register
     // as visible. Cells whose target slice has no allocated layer no-op
     // inside the atlas (cheap dictionary miss).
-    private void RevealOutdoorSliceColumns(Vector3 playerPos, float innerFraction, ExplorationMask individual, in MinimapLos los, WorldState ws, bool gate)
+    private void RevealOutdoorSliceColumns(Vector3 playerPos, float innerFraction, ExplorationMask chart, in MinimapLos los, WorldState ws, bool gate)
     {
         if (_textures == null || _sliceAtlas == null)
         {
@@ -905,7 +834,7 @@ public partial class Minimap : Node3D
                     }
                     target = (byte)Mathf.Clamp((int)(target * vis), 0, 255);
                 }
-                _sliceAtlas.RevealCellAtWorld(sliceLevel, wx, wz, target, individual);
+                _sliceAtlas.RevealCellAtWorld(sliceLevel, wx, wz, target, chart);
             }
         }
     }
@@ -918,12 +847,9 @@ public partial class Minimap : Node3D
     // Reveal-driven map-marker discovery, run each reveal tick. For every live
     // marker: mark it Sensed ("?" on the maps) once the outdoor fog has cleared
     // over its position, then — in Proximity mode — Identified once the player is
-    // within identifyRadius. Perception / Interaction identify happen off-loop
-    // (sibling Discoverable / host call). All writes go into the active member's
-    // Knowledge, so the marker shows on the MINIMAP immediately (party ∪ active)
-    // and graduates onto the WORLD MAP when banked at the next campfire. Gated on
-    // the active member's OUTDOOR mask regardless of mode — markers are outdoor
-    // landmarks and it's the persistent chart.
+    // Perception / Interaction identify happen off-loop
+    // (sibling Discoverable / host call). Gated on the chart's OUTDOOR mask
+    // regardless of mode — markers are outdoor landmarks.
     private void UpdateMarkerDiscovery(Vector3 playerPos)
     {
         if (_markers.Count == 0)
@@ -935,7 +861,7 @@ public partial class Minimap : Node3D
         {
             return;
         }
-        byte[] outdoor = ActiveExplorationMask?.Outdoor;
+        byte[] outdoor = ChartExploration?.Outdoor;
         foreach (MapMarker marker in _markers)
         {
             Vector3 pos = marker.WorldPosition;
@@ -993,7 +919,7 @@ public partial class Minimap : Node3D
     {
         Texture2D surf = ActiveSurfaceTexture;
         Texture2D expl = ActiveExplorationTexture;
-        Texture2D explBanked = ActiveExplorationBankedTexture;
+        Texture2D explWorldMap = ActiveWorldMapExplorationTexture;
         // Empty fallbacks: when no live texture exists yet (e.g. indoor mode
         // toggled into a slice that never loaded a layer), show void rather
         // than NaNs.
@@ -1005,9 +931,9 @@ public partial class Minimap : Node3D
             Exploration = expl,
             ExplorationBelow1 = ActiveExplorationTextureBelow1 ?? expl,
             ExplorationBelow2 = ActiveExplorationTextureBelow2 ?? expl,
-            ExplorationBanked = explBanked,
-            ExplorationBankedBelow1 = ActiveExplorationBankedTextureBelow1 ?? explBanked,
-            ExplorationBankedBelow2 = ActiveExplorationBankedTextureBelow2 ?? explBanked,
+            WorldMapExploration = explWorldMap,
+            WorldMapExplorationBelow1 = ActiveWorldMapExplorationTextureBelow1 ?? explWorldMap,
+            WorldMapExplorationBelow2 = ActiveWorldMapExplorationTextureBelow2 ?? explWorldMap,
             WorldOriginXZ = ActiveWorldOriginXZ,
             ExtentPixels = ActiveExtentPixels,
             MetersPerPixel = ActiveMetersPerPixel,

@@ -102,12 +102,11 @@ public partial class AlmanacScreen : Control
 		UpdateTab(_worldMapScreen, _worldMapTab, tab == EAlmanacTab.WorldMap);
 		UpdateTab(_bestiaryScreen, _bestiaryTab, tab == EAlmanacTab.Bestiary);
 		UpdateTab(_spellScreen, _spellTab, tab == EAlmanacTab.Spell);
-		// Opening (or cycling to) the world map plays any reveal armed by the last
-		// campfire bank / bird's-eye lift — the deferred "chart what you learned"
-		// sweep that camp entry deliberately held back. No-op when nothing is armed.
+		// Opening (or cycling to) the world map plays any armed chart-reveal sweep
+		// (a bird's-eye scout, bulk charting). No-op when nothing is armed.
 		if (tab == EAlmanacTab.WorldMap)
 		{
-			_gameClient?.Sim?.Minimap?.StartBankedReveal();
+			_gameClient?.Sim?.Minimap?.StartChartReveal();
 		}
 	}
 

@@ -64,7 +64,10 @@ public static class SubsceneFile
     //     status-effect and item-state lists spell their references out.
     // v11: the BuriedSpot payload carries its contents (see WorldFile v56). No
     //      earlier subscene holds a buried spot, so there is nothing to gate.
-    public const uint VERSION = 11;
+    // v12: the ItemState wire format gained the item's status effects, boon menu
+    //      and subclass state (see WorldFile v57). v11 and earlier still read -
+    //      their items (a stash chest's contents) load without them.
+    public const uint VERSION = 12;
 
     // Bytes before the directory block: magic + version + size + anchor +
     // channelMask + dirLength. ReadDirectory seeks past exactly this much.
@@ -208,7 +211,7 @@ public static class SubsceneFile
             : version >= 4 ? EntitySerializer.ROOF_FORMAT_BROKEN
             : EntitySerializer.ROOF_FORMAT_ORIGINAL;
         sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3, roofFormat: roofFormat, hasTag: version >= 6, tableRefs: version >= 9,
-            hasScale: version >= 10);
+            hasScale: version >= 10, itemExtras: version >= 12);
         return sub;
     }
 

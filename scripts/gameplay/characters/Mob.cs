@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Godot;
 
 [GlobalClass]
-public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive, IAimTarget
+public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive, IAimTarget, ISyncsSimState
 {
     [Export] private CollisionShape3D _collisionShape;
     // Live map/minimap marker child (talkable NPCs only — authored into the
@@ -859,7 +859,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // (for voxel queries), so construct here after both are wired.
         _navigator = new MobNavigator(this);
         _runner = new ActionRunner(this);
-        _statusEffects = new StatusEffectController(this, sim, ApplyStatusHealthDelta, ComposeMaskMul, DrainMaxHealth, incomingLevelResist: () => IncomingLevelResist, maxHealth: () => maxHealth);
+        _statusEffects = new StatusEffectController(this, sim, ApplyStatusHealthDelta, ComposeBuildupResistance, DrainMaxHealth, maxHealth: () => maxHealth);
         InitBehaviors();
         sim.AddChild(this);
         // A mob loaded mid-burrow (from save data) needs its rigid body +
@@ -1258,29 +1258,33 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         return value;
     }
 
-    // Multiplicative compose across all sources for a tag mask. Used at hit
-    // application sites and routed through to the StatusEffectController as
-    // the buildup / DoT resistance callback.
-    public float ComposeMaskMul(EStat mask)
+    // Multiplicative compose of every TagModifier overlapping `mask`, across
+    // all sources. Used at hit application sites and by the buildup resist.
+    public float ComposeTagMul(EHitTag mask)
     {
         float product = 1f;
         MobData md = mobData;
         if (md != null)
         {
-            product = StatModifierUtil.FoldMask(mask, md.ModifiersFlat, product);
+            product = StatModifierUtil.FoldTags(mask, md.ModifiersFlat, product);
         }
         SpeciesData species = _simState?.Species;
         if (species != null)
         {
-            product = StatModifierUtil.FoldMask(mask, species.ModifiersFlat, product);
+            product = StatModifierUtil.FoldTags(mask, species.ModifiersFlat, product);
         }
-        product = _statusEffects?.FoldMask(mask, product) ?? product;
-        // Per-species Dizzy resistance (MobData.dizzyResistance). The buildup
-        // feed scales by this product, so dividing by the resistance means a
-        // resistance of 2 needs twice the buildup to land Dizzy. Only bites the
-        // Dizzy buildup path — Dizzy isn't in DamageScaleTags, so no damage-
-        // scaling site ever composes this mask.
-        if ((mask & EStat.Dizzy) != 0 && mobData != null && mobData.dizzyResistance > 0f)
+        product = _statusEffects?.FoldTags(mask, product) ?? product;
+        return product;
+    }
+
+    // Scale on a combat buildup feeding an effect of `family` (<1 = resistant).
+    // Handed to the StatusEffectController; a landed effect's DoT is never
+    // resisted.
+    public float ComposeBuildupResistance(EHitTag family)
+    {
+        float product = ComposeTagMul(family) * ComposeStat(EStat.FortitudeResistance) * IncomingLevelResist;
+        // Per-species Dizzy resistance: 2 needs twice the buildup to land.
+        if ((family & EHitTag.Dizzy) != 0 && mobData != null && mobData.dizzyResistance > 0f)
         {
             product /= mobData.dizzyResistance;
         }
@@ -1306,26 +1310,26 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             hit.healthDamage *= levelResist;
         }
-        if (hit.tags == EStat.None)
+        if (hit.tags == EHitTag.None)
         {
             return;
         }
-        EStat damageTags = hit.tags & StatModifierUtil.DamageScaleTags;
-        if (damageTags != EStat.None)
+        EHitTag damageTags = hit.tags & HitTags.DamageScale;
+        if (damageTags != EHitTag.None)
         {
-            hit.healthDamage *= ComposeMaskMul(damageTags);
+            hit.healthDamage *= ComposeTagMul(damageTags);
         }
-        if ((hit.tags & EStat.ArmorPenetration) != 0)
+        if ((hit.tags & EHitTag.ArmorPenetration) != 0)
         {
-            hit.armorPenetration *= ComposeMaskMul(EStat.ArmorPenetration);
+            hit.armorPenetration *= ComposeTagMul(EHitTag.ArmorPenetration);
         }
-        if ((hit.tags & EStat.Blunt) != 0)
+        if ((hit.tags & EHitTag.Blunt) != 0)
         {
-            hit.blunt *= ComposeMaskMul(EStat.Blunt);
+            hit.blunt *= ComposeTagMul(EHitTag.Blunt);
         }
-        if ((hit.tags & EStat.Knockback) != 0)
+        if ((hit.tags & EHitTag.Knockback) != 0)
         {
-            float scale = ComposeMaskMul(EStat.Knockback);
+            float scale = ComposeTagMul(EHitTag.Knockback);
             hit.knockbackDistance *= scale;
             hit.knockbackTime *= scale;
         }
@@ -2569,7 +2573,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Writes the node's current transform back into the persistent sim state so
     // that when this Mob is freed (chunk unload, save), the saved position is
     // current rather than the original spawn position.
-    private void SyncToSimState()
+    public void SyncToSimState()
     {
         if (_simState == null || _syncSuppressed)
         {
@@ -4236,7 +4240,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     public void RemoveStatusEffect(StatusEffectState state) => _statusEffects.Remove(state);
 
-    public void RemoveStatusEffectsByTagMask(EStat mask) => _statusEffects.RemoveByTagMask(mask);
+    public void RemoveStatusEffectsByTagMask(EHitTag mask) => _statusEffects.RemoveByTagMask(mask);
 
     // IActionActor — restore HP, clamped at maxHealth. Routes through the
     // status-health path so a vampiric mob heal shows its floating heal number

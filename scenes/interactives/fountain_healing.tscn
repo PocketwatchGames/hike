@@ -38,12 +38,12 @@ size = Vector3(3, 3, 3)
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
 size = Vector3(2, 2.6, 1.7)
 
-[node name="HealingFountain" type="Node3D" node_paths=PackedStringArray("_discoverable", "_hudNode", "_waterMesh")]
+[node name="HealingFountain" type="Node3D" node_paths=PackedStringArray("_discoverable", "_hudNode", "_readyNodes")]
 script = ExtResource("1_fountain")
 _actions = Array[ExtResource("3_action")]([SubResource("Resource_fountain_action_heal")])
 _discoverable = NodePath("Discoverable")
 _hudNode = NodePath("HUDNode")
-_waterMesh = NodePath("FountainVisual/Water")
+_readyNodes = [NodePath("FountainVisual/Water")]
 
 [node name="FountainVisual" type="Node3D" parent="."]
 

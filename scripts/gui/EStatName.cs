@@ -42,6 +42,12 @@ public enum EStatName
 	Electrical,
 	Ranged,
 	Melee,
+	Physical,
+	// Status families (EHitTag) — shown as buildup resistances.
+	Burning,
+	Poisoned,
+	Shocked,
+	Sunlight,
 	OutgoingDamage,
 	// Level-derived forge-upgrade scaling: outgoing damage+buildup multiplier
 	// (offense slots) and incoming damage reduction (Armor slot).

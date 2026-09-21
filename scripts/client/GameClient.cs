@@ -50,6 +50,11 @@ public partial class GameClient : Node3D
 		{ EStatName.Electrical, "Electrical" },
 		{ EStatName.Ranged, "Ranged" },
 		{ EStatName.Melee, "Melee" },
+		{ EStatName.Physical, "Physical" },
+		{ EStatName.Burning, "Burning" },
+		{ EStatName.Poisoned, "Poisoned" },
+		{ EStatName.Shocked, "Shocked" },
+		{ EStatName.Sunlight, "Sunlight" },
 		{ EStatName.OutgoingDamage, "Outgoing Damage" },
 		{ EStatName.DamageScale, "Damage & Buildup" },
 		{ EStatName.DamageReduction, "Damage Reduction" },
@@ -696,9 +701,22 @@ public partial class GameClient : Node3D
 	// concepts — is carried by the WORLD (WorldState.BindStartContent), because a
 	// .hike used to be handed whichever generator resource the menu had selected
 	// and start a run with another world's content.
-	public async void Init(Vector3 playerPosition, PackedScene playerScene, WorldState worldState, LoadingScreen loadingScreen = null)
+	//
+	// `save` non-null is a Load Game: the party wakes at the save's campfire instead
+	// of the world spawn (which stays the respawn point), and the run state it
+	// carries is applied once the party exists.
+	public async void Init(Vector3 playerPosition, PackedScene playerScene, WorldState worldState, LoadingScreen loadingScreen = null, SaveFile save = null)
 	{
 		_spawnPosition = playerPosition;
+		if (save != null)
+		{
+			save.ApplyToWorld(worldState);
+			playerPosition = save.Campfire;
+		}
+		else
+		{
+			worldState.BeginRun((int)GD.Randi());
+		}
 		_lastCampfirePosition = playerPosition;
 		_playerScene = playerScene;
 		onHudText += OnHudTextRequested;
@@ -747,6 +765,7 @@ public partial class GameClient : Node3D
 		// Bind this world's authored scripted content (quests) onto the runtime sim
 		// state, now that Sim holds the WorldState (WorldGen and .hike-load paths alike).
 		_world.BindScriptData(worldState?.ScriptData);
+		save?.ReconcileStamps(_world);
 		GD.Print($"[Load] Building world (chunk-mesh fill): {phaseSw.ElapsedMilliseconds}ms");
 		phaseSw.Restart();
 		loadingScreen?.SetProgress(0.75f, "Spawning...");
@@ -773,32 +792,29 @@ public partial class GameClient : Node3D
 		GD.Print($"[Load] Spawn-ready wait: {phaseSw.ElapsedMilliseconds}ms");
 		phaseSw.Restart();
 
-		// Sim builds the roster once from the authored templates (idempotent, so a
-		// future disk-load carrying a party isn't rebuilt); we spawn a Player node
-		// per member below.
+		// A loaded roster is installed first, so EnsureParty keeps it; a New Game
+		// builds it from the authored templates. We spawn a Player node per member.
+		save?.ApplyParty(worldState);
 		Party party = _world.EnsureParty(worldState?.StartingParty);
 
 		// Spawn every member as a Player node: the active member at the spawn
 		// anchor (controlled), the rest evenly ringed around it and inactive
-		// (they idle where placed). Suppress announcements during spawn-time
-		// knowledge application so the starting potion / known recipes don't pop
-		// banners on the first frame — Player.Initialize walks
-		// WorldState.InitialKnowledge under this gate.
+		// (they idle where placed). Announcements are suppressed so a New Game's
+		// starting knowledge / traits don't pop banners on the first frame.
 		SuppressAnnouncements = true;
 		try
 		{
 			SpawnParty(party, playerScene, playerPosition);
+			if (save == null)
+			{
+				TeachInitialKnowledge(worldState);
+			}
 		}
 		finally
 		{
 			SuppressAnnouncements = false;
 		}
-
-		// The scenario's initial knowledge was just applied to the active member's
-		// provisional store during spawn — bank it into the permanent party pool
-		// so it's shared from the first frame rather than sitting un-banked on
-		// (and lost with) the starting character.
-		sim?.BankActiveKnowledge();
+		save?.ApplyAfterSpawn(worldState, PlayerFor);
 
 		// Burst the per-frame spawn budget while the loading overlay is
 		// opaque — the player can't see frame hitches, so we trade smooth
@@ -846,13 +862,10 @@ public partial class GameClient : Node3D
 		camera.Init(sceneViewport);
 		camera.SetInitialPosition(_player.GlobalPosition);
 
-		// Chart the spawn surroundings from frame one: the spawn chunks are loaded
-		// now, so run one reveal pass and bank it into the party pool — otherwise a
-		// fresh save opens to a blank world map (the per-tick reveal only fills the
-		// active member's provisional store, invisible to the world map until banked).
-		_world.Minimap?.RevealAtPlayerNow();
-		sim?.BankActiveKnowledge();
+		// The roster (and with it the party's chart) exists now: sync the map
+		// display to it, then chart the spawn surroundings from frame one.
 		_world.Minimap?.RebuildExplorationDisplay();
+		_world.Minimap?.RevealAtPlayerNow();
 
 		onPlayerSpawned?.Invoke(_player);
 
@@ -872,6 +885,60 @@ public partial class GameClient : Node3D
 		}
 		loadingScreen?.HideWithFade();
 		InputSuppressed = false;
+
+		if (save != null)
+		{
+			WakeIntoCamp();
+		}
+	}
+
+	// A New Game's scenario knowledge (WorldState.InitialKnowledge — start content
+	// of the WORLD, not of a character). Taught through the same Teach() flow a
+	// scroll or NPC uses, then banked straight into the party pool so it isn't
+	// provisional on the starting character. A load already carries it.
+	void TeachInitialKnowledge(WorldState worldState)
+	{
+		TeachableConcept[] initialKnowledge = worldState?.InitialKnowledge;
+		if (initialKnowledge == null || _player == null)
+		{
+			return;
+		}
+		for (int i = 0; i < initialKnowledge.Length; i++)
+		{
+			initialKnowledge[i]?.Teach(_player);
+		}
+		worldState.SimState?.BankActiveKnowledge();
+	}
+
+	// A loaded save is a wake at sunrise, so it opens the way a real one leaves
+	// the player: in camp, with the day's leader still to pick (a sunrise resets
+	// it — Sim.AdvanceToNextSunrise). The camp screen takes the input gate.
+	void WakeIntoCamp()
+	{
+		_world.Party?.RequireLeaderChoice();
+		campScreen?.Open(_player, _lastCampfirePosition);
+	}
+
+	// Every sunrise wake writes the save — there is no other save point. Called at
+	// the end of each wake path (camp sleep, pray-home, death sleep-off), after
+	// the whole wake has settled. A failure is reported, never fatal: the previous
+	// save is untouched (SaveGame.Save writes beside and moves over).
+	void AutosaveAtWake()
+	{
+		if (_world?.WorldState == null)
+		{
+			return;
+		}
+		try
+		{
+			_world.FlushLiveEntities();
+			SaveGame.Save(CVars.savePath.Value, _world.WorldState, PlayerFor, _lastCampfirePosition);
+			GD.Print($"[Save] Autosaved day {_world.WorldState.DayNumber} at {_lastCampfirePosition} -> {CVars.savePath.Value}");
+		}
+		catch (Exception e)
+		{
+			GD.PrintErr($"[Save] Autosave failed: {e.Message}");
+		}
 	}
 
 	// Instantiate one Player node per party member and place them around the
@@ -994,31 +1061,14 @@ public partial class GameClient : Node3D
 	public void NotifyCampedAt(Vector3 campfirePosition)
 	{
 		_lastCampfirePosition = campfirePosition;
-		// Snapshot the world map as the player last saw it BEFORE banking, so the
-		// deferred reveal can animate from that state to the freshly-banked one.
-		// Skip re-capturing when a reveal is already armed from an earlier camp the
-		// player hasn't opened the map to see yet — that keeps the baseline pinned to
-		// the genuinely last-seen state so the accumulated delta grows in one sweep.
-		Minimap minimap = _world?.Minimap;
-		if (minimap != null && !minimap.BankRevealArmed)
-		{
-			minimap.CaptureBankedRevealBaseline();
-		}
 		// Returning to a campfire commits the camp: Sim banks the active member's
 		// provisional field knowledge into the permanent party pool (the "commit" in the
 		// two-tier knowledge model) and drains their carried materials into the shared
 		// stash. The returned flags say which knowledge categories gained, so we can
-		// announce exactly what was recorded.
+		// announce exactly what was recorded. (The map is not banked — it is charted
+		// permanently as the player explores.)
 		EKnowledgeCategory banked = _world?.CommitCamp() ?? EKnowledgeCategory.None;
 		AnnounceBankedKnowledge(banked);
-		// Fold the freshly-banked reveal into the party pool display (the minimap,
-		// which shows party ∪ active, updates now), then ARM the world-map reveal
-		// WITHOUT playing it: PrepareBankedReveal rewinds the world map back to the
-		// pre-camp baseline and holds it there. The sweep only fires the next time
-		// the player opens the almanac to the map — in camp or later in the field
-		// (see AlmanacScreen.ShowTab) — so the map isn't updated on entering camp.
-		minimap?.RebuildExplorationDisplay();
-		minimap?.PrepareBankedReveal();
 	}
 
 	// Announce a HUD line for each category of knowledge freshly banked into the
@@ -1028,10 +1078,6 @@ public partial class GameClient : Node3D
 	// notice (it announces in the field on ID).
 	void AnnounceBankedKnowledge(EKnowledgeCategory banked)
 	{
-		if (banked.HasFlag(EKnowledgeCategory.Map))
-		{
-			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Map Updated" });
-		}
 		if (banked.HasFlag(EKnowledgeCategory.Recipe))
 		{
 			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Recipe Logged" });
@@ -1128,6 +1174,7 @@ public partial class GameClient : Node3D
 		p.onLanguageLearned += OnPlayerLanguageLearned;
 		p.onDied += OnPlayerDiedInternal;
 		if (birdsEye != null) { p.onBirdsEye += birdsEye.SetActive; }
+		p.onBirdsEye += OnPlayerBirdsEye;
 	}
 
 	void UnsubscribePlayerEvents(Player p)
@@ -1137,6 +1184,7 @@ public partial class GameClient : Node3D
 		p.onLanguageLearned -= OnPlayerLanguageLearned;
 		p.onDied -= OnPlayerDiedInternal;
 		if (birdsEye != null) { p.onBirdsEye -= birdsEye.SetActive; }
+		p.onBirdsEye -= OnPlayerBirdsEye;
 	}
 
 	// The party's Player nodes (index-aligned with the roster) and the index of
@@ -1191,10 +1239,6 @@ public partial class GameClient : Node3D
 		_world.SetPlayer(target);
 		hud?.RebindPlayer(target);
 		camera?.SetInitialPosition(target.GlobalPosition);
-		// Control moved to a different member — recompose the minimap fog-of-war
-		// as party ∪ new-active so the previous member's un-banked field reveal
-		// doesn't carry onto this character's map.
-		_world.Minimap?.RebuildExplorationDisplay();
 	}
 
 	// Immediate switch to a specific member: mark active + transfer control now.
@@ -2075,11 +2119,21 @@ public partial class GameClient : Node3D
 		}
 	}
 
+	// Bird's-eye scouting charts a wide area at once, so it goes through the
+	// world map's chart-reveal sweep: the baseline is the chart as it stood when
+	// the lift began, before the wider bird's-eye reveal wrote into it.
+	void OnPlayerBirdsEye(bool active)
+	{
+		if (active)
+		{
+			_world?.Minimap?.BeginChartReveal();
+		}
+	}
+
 	// Bird's-eye lift (tree climb OR birds_eye consumable — they do the same
-	// thing) has settled at its apex. Snapshot the wide reveal (fog + discovered
-	// regions + markers) onto the world map, then open the map on it. Closing the
-	// map (ESC / Map) descends the camera via OnBirdsEyeMapClosed. No-op if a modal
-	// is already up.
+	// thing) has settled at its apex. Arm the sweep of everything charted on the
+	// way up, then open the map on it. Closing the map (ESC / Map) descends the
+	// camera via OnBirdsEyeMapClosed. No-op if a modal is already up.
 	void OnBirdsEyeLiftApex()
 	{
 		if (_player == null || !_player.IsBirdsEye)
@@ -2090,18 +2144,9 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
-		Minimap minimap = _world?.Minimap;
-		// Snapshot onto the world map, then grow the newly-surveyed ground in with
-		// the SAME animated sweep the campfire bank uses. Baseline is the world map
-		// as it stood at the last provisional update (or last camp); the snapshot
-		// merges this climb's reveal into it; PrepareBankedReveal diffs the two and
-		// rewinds the display to the baseline so the delta fades in on top.
-		minimap?.CaptureBankedRevealBaseline();
-		minimap?.SnapshotFieldRevealToWorldMap();
-		_world?.SnapshotWorldMapReveal();
-		minimap?.PrepareBankedReveal();
+		_world?.Minimap?.PrepareChartReveal();
 		// Opening the almanac to the world map fires the armed sweep (AlmanacScreen
-		// .ShowTab → StartBankedReveal). The map opens instantly (no fade-to-black),
+		// .ShowTab → StartChartReveal). The map opens instantly (no fade-to-black),
 		// so the player watches the newly-surveyed ground grow in right away.
 		almanacScreen.Open(AlmanacScreen.EAlmanacTab.WorldMap, this, onClose: OnBirdsEyeMapClosed);
 	}
@@ -2110,7 +2155,7 @@ public partial class GameClient : Node3D
 	// (in case it closed mid-sweep), then drop back down / end the overlook.
 	void OnBirdsEyeMapClosed()
 	{
-		_world?.Minimap?.FinalizeBankedReveal();
+		_world?.Minimap?.FinalizeChartReveal();
 		_player?.RequestEndBirdsEye();
 	}
 
@@ -2897,6 +2942,7 @@ public partial class GameClient : Node3D
 		camera?.SetInitialPosition(_lastCampfirePosition);
 		slowMotion?.Release();
 		screenEffects?.ResetOnRespawn();
+		AutosaveAtWake();
 	}
 
 	// Each sunrise Sim rolls the roster (meal reset + well-rested lottery, in
@@ -2965,12 +3011,8 @@ public partial class GameClient : Node3D
 		}
 		// Sim restores the member: it folds the fallen member's un-banked field
 		// knowledge back into the reviving (active) member's provisional store and
-		// clears the death flags. MergeFrom folds in the map reveal too, so recompose
-		// the minimap display to surface it immediately when any knowledge moved.
-		if (_world?.ReviveMember(_player?.Member, corpse.Member) == true)
-		{
-			_world.Minimap?.RebuildExplorationDisplay();
-		}
+		// clears the death flags.
+		_world?.ReviveMember(_player?.Member, corpse.Member);
 		corpse.SetCorpseInteractable(false);
 		corpse.Respawn(_lastCampfirePosition);
 		corpse.SetActive(false);
@@ -3076,6 +3118,10 @@ public partial class GameClient : Node3D
 		// hours then heals a fraction; either way a surviving companion wakes at the
 		// player's side and the world's spawns reset (gated on time actually passing).
 		_world?.PerformSleepAdvance(hours, healFractionPerHour, _sleepToSunrise);
+		if (_sleepToSunrise)
+		{
+			AutosaveAtWake();
+		}
 	}
 
 	// Called by SleepOverlay when a clean wake's fade-in completes. A modal-driven
@@ -3122,11 +3168,7 @@ public partial class GameClient : Node3D
 		// CampScreen reads the lit node live (full cook/craft) once it streams in.
 		LitCampfireNode?.Light();
 		campScreen?.Open(_player, _lastCampfirePosition);
-	}
-
-	public void Save()
-	{
-		SaveGame.Save(CVars.savePath.Value);
+		AutosaveAtWake();
 	}
 
 	public void QuitToMenu()

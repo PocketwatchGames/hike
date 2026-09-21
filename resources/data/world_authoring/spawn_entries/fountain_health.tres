@@ -1,10 +1,13 @@
-[gd_resource type="Resource" script_class="FountainSpawnEntry" format=3 uid="uid://9a30yzgrtp5i4"]
+[gd_resource type="Resource" script_class="FountainSpawnEntry" format=3 uid="uid://ddt2aj3rb35g0"]
 
 [ext_resource type="Script" uid="uid://cuyu2uykmhfid" path="res://scripts/data/spawn/FountainSpawnEntry.cs" id="1_entry"]
-[ext_resource type="PackedScene" uid="uid://svcot4fgz5f5i" path="res://scenes/interactives/fountain_healing.tscn" id="2_scene"]
+[ext_resource type="PackedScene" uid="uid://dfo7hvqgrcw4g" path="res://scenes/interactives/fountain_healing.tscn" id="2_scene"]
+[ext_resource type="Resource" uid="uid://cnbun6in4kgt8" path="res://resources/data/fountain_effects/heal_full.tres" id="3_effect"]
 
 [resource]
 script = ExtResource("1_entry")
 scene = ExtResource("2_scene")
-detailSuppressionRadius = 2.0
+effects = [ExtResource("3_effect")]
+cooldownDays = 1
+enabledVariable = null
 metadata/_custom_type_script = "uid://cuyu2uykmhfid"

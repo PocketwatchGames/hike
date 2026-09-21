@@ -9,6 +9,11 @@ public enum EWaterState
 	Swimming,
 }
 
+// TODO(refactor): a member's persistent state — inventory, acquired status
+// effects, health — lives on this NODE, so the save reads it through each
+// member's Player (WriteMemberSave / RestoreMemberSave) and a member can't hold
+// gear without a spawned node. It belongs on PlayerState, with the node
+// presenting it. Blocked mainly by Inventory's owner-node events.
 [GlobalClass]
 public partial class Player : CharacterBody3D
 {
@@ -382,6 +387,9 @@ public partial class Player : CharacterBody3D
 	// Live handle to the WellRested daily stat buff while the member holds it, so
 	// RefreshWellRested can remove exactly that instance when the flag clears.
 	StatusEffectState _wellRestedBuff;
+	// The trait instances Initialize applied from the member — derived, so a save
+	// leaves them out and the next spawn applies them again.
+	readonly HashSet<StatusEffectState> _traitEffects = new();
 	// Tracked active slide-loop scene so per-ground-type swaps avoid
 	// recreating the Fx every tick. Same shape as _animLoopScene.
 	PackedScene _slideLoopScene;
@@ -685,16 +693,93 @@ public partial class Player : CharacterBody3D
 	// per-frame path so there's no separate catch-up logic to drift.
 	public void TickStatusEffects(float dt) => _statusEffects?.Tick(dt);
 
-	// Save/load passthroughs for the per-effect buildup meters — the only
-	// status-effect state currently serialized. Active StatusEffectState
-	// instances (per-stack expiry, etc.) aren't covered here; that's a
-	// separate concern with its own format. Item-side controllers (per-armor
-	// wetness, etc.) likewise need inventory serialization to plug in.
-	public IEnumerable<(StatusEffectData data, float amount)> EnumerateStatusBuildupsForSave() =>
-		_statusEffects.EnumerateBuildupsForSave();
+	// What a save carries for this member's node, inside a shared EntitySerializer
+	// table (SaveGame). Only what a sunrise keeps: the inventory, effects acquired
+	// in play (a forge upgrade), non-transient buildups, health (the wake heals
+	// only the controlled member), and where a fallen member's body lies.
+	public void WriteMemberSave(System.IO.BinaryWriter w)
+	{
+		w.Write(_health);
+		Vector3 position = GlobalPosition;
+		w.Write(position.X);
+		w.Write(position.Y);
+		w.Write(position.Z);
+		_inventory.Serialize(w);
+		EntitySerializer.WriteStatusEffects(w, EnumerateAcquiredEffects());
+		var buildups = new List<(StatusEffectData data, float amount)>();
+		foreach ((StatusEffectData data, float amount) in _statusEffects.EnumerateBuildupsForSave())
+		{
+			if ((data.category & EEffectCategory.Transient) == 0)
+			{
+				buildups.Add((data, amount));
+			}
+		}
+		w.Write(buildups.Count);
+		foreach ((StatusEffectData data, float amount) in buildups)
+		{
+			EntitySerializer.WriteRef(w, data);
+			w.Write(amount);
+		}
+	}
 
-	public void RestoreStatusBuildups(IReadOnlyList<(StatusEffectData data, float amount)> entries) =>
-		_statusEffects.RestoreBuildups(entries);
+	// The inverse, on a freshly spawned node (its traits / well-rested buff are
+	// already applied). A fallen member comes back as the corpse it was.
+	public void RestoreMemberSave(System.IO.BinaryReader r)
+	{
+		float health = r.ReadSingle();
+		var position = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
+		_inventory.Restore(r);
+		List<EntitySerializer.StatusEffectRecord> effects = EntitySerializer.ReadStatusEffects(r);
+		int buildupCount = r.ReadInt32();
+		var buildups = new List<(StatusEffectData data, float amount)>(buildupCount);
+		for (int i = 0; i < buildupCount; i++)
+		{
+			StatusEffectData data = EntitySerializer.ReadRef<StatusEffectData>(r);
+			float amount = r.ReadSingle();
+			if (data != null)
+			{
+				buildups.Add((data, amount));
+			}
+		}
+
+		_statusEffects.RestoreBuildups(buildups);
+		foreach (EntitySerializer.StatusEffectRecord effect in effects)
+		{
+			effect.AddTo(_statusEffects);
+		}
+		RecalculateMaxArmor();
+		_armor = MaxArmor;
+
+		if (Member is { IsDead: true })
+		{
+			TeleportTo(position);
+			_health = 0f;
+			SetCorpseInteractable(true);
+			PlayOneShot(EAnimation.Die);
+			return;
+		}
+		_health = Mathf.Clamp(health, 1f, MaxHealth);
+	}
+
+
+	// Effects this member acquired in play and a sunrise keeps. Transient ones end
+	// at the wake; traits, the well-rested buff and buildup-armed instances are
+	// re-derived on spawn from the member and the restored meters.
+	private IEnumerable<StatusEffectState> EnumerateAcquiredEffects()
+	{
+		foreach (StatusEffectState state in _statusEffects.StatusEffects)
+		{
+			if (state?.data == null
+				|| (state.data.category & EEffectCategory.Transient) != 0
+				|| state == _wellRestedBuff
+				|| _traitEffects.Contains(state)
+				|| _statusEffects.IsArmedByBuildup(state))
+			{
+				continue;
+			}
+			yield return state;
+		}
+	}
 
 	// Fill `dst` with a snapshot of the player's per-effect buildup meters
 	// (only entries with amount > 0). Forwards straight through to the
@@ -918,7 +1003,7 @@ public partial class Player : CharacterBody3D
 
 	public void RemoveStatusEffect(StatusEffectState state) => _statusEffects.Remove(state);
 
-	public void RemoveStatusEffectsByTagMask(EStat mask) => _statusEffects.RemoveByTagMask(mask);
+	public void RemoveStatusEffectsByTagMask(EHitTag mask) => _statusEffects.RemoveByTagMask(mask);
 
 	// Wipe ordinary combat states (poison, burning, wet, buildup, timed boons)
 	// while sparing permanent traits and elite auras. Used by the sleep-to-sunrise
@@ -1324,7 +1409,7 @@ public partial class Player : CharacterBody3D
 		// held-torch prop has to refresh even when the inventory contents don't.
 		_inventory.onConsumableChanged += OnConsumableChanged;
 		_runner = new ActionRunner(this);
-		_statusEffects = new StatusEffectController(this, sim, ApplyStatusHealthDelta, ComposeMaskMul, conditionActive: EvaluateTraitCondition, incomingLevelResist: () => IncomingLevelResist, maxHealth: () => MaxHealth);
+		_statusEffects = new StatusEffectController(this, sim, ApplyStatusHealthDelta, ComposeBuildupResistance, conditionActive: EvaluateTraitCondition, maxHealth: () => MaxHealth);
 		_scent = new ScentEmitter(this, sim, data.scentStrength, data.scentDecayRate,
 			data.scentStampInterval, data.scentStampMoveDistance, data.scentMaxCrumbs);
 		_health = MaxHealth;
@@ -1349,11 +1434,11 @@ public partial class Player : CharacterBody3D
 		ApplyAppearance(member);
 
 		// Starting loadout is per-character — this member's own gear, seeded
-		// into their inventory. (Moved off WorldGenData, which used to carry a
-		// single shared loadout.)
+		// into their inventory once, the first time they spawn. A loaded member
+		// gets their saved inventory instead (RestoreMemberSave).
 		if (member != null)
 		{
-			if (member.equippedInventory != null)
+			if (!member.StartingLoadoutGranted && member.equippedInventory != null)
 			{
 				foreach (ItemCount ic in member.equippedInventory)
 				{
@@ -1370,7 +1455,7 @@ public partial class Player : CharacterBody3D
 					}
 				}
 			}
-			if (member.startingInventory != null)
+			if (!member.StartingLoadoutGranted && member.startingInventory != null)
 			{
 				foreach (ItemCount ic in member.startingInventory)
 				{
@@ -1394,30 +1479,16 @@ public partial class Player : CharacterBody3D
 			{
 				foreach (StatusEffectData trait in member.traits)
 				{
-					if (trait != null) { AddStatusEffect(trait); }
+					if (trait == null) { continue; }
+					StatusEffectState applied = AddStatusEffect(trait);
+					if (applied != null) { _traitEffects.Add(applied); }
 				}
 			}
+			member.StartingLoadoutGranted = true;
 			// Grant the daily well-rested buff if this member spawns already rested
 			// (recruited mid-run, or a save restored with the flag set). The sunrise
 			// lottery drives it thereafter.
 			RefreshWellRested();
-		}
-
-		// Spawn-time knowledge is a property of the world SCENARIO, not the
-		// character, so it stays on WorldGenData. Each entry is a
-		// TeachableConcept (item identification, recipe, language piece, region
-		// reveal, mob bestiary seed) and routes through the same Teach() flow
-		// that scrolls / NPC dialogue use. Announcements are gated by
-		// GameClient.SuppressAnnouncements (set around this whole Init call) so
-		// the player doesn't see a wall of banners on the first frame for things
-		// they already know.
-		TeachableConcept[] initialKnowledge = sim?.WorldState?.InitialKnowledge;
-		if (initialKnowledge != null)
-		{
-			for (int i = 0; i < initialKnowledge.Length; i++)
-			{
-				initialKnowledge[i]?.Teach(this);
-			}
 		}
 
 		// Start the player at full armor so freshly-spawned armor reads as

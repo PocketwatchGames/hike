@@ -2,28 +2,29 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_mod"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 
 [sub_resource type="Resource" id="mod_damage"]
 script = ExtResource("2_mod")
-stat = 2048
+stat = 1
 value = 1.05
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="mod_fortitude"]
 script = ExtResource("2_mod")
-stat = 268435456
+stat = 18
 value = 0.95
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="mod_health"]
 script = ExtResource("2_mod")
-stat = 67108864
+stat = 16
 value = 50.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="mod_stamina"]
 script = ExtResource("2_mod")
-stat = 2097152
+stat = 11
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
@@ -33,6 +34,6 @@ category = 2
 durationType = 1
 maxStack = 1
 removesOnApply = []
-modifiers = Array[ExtResource("2_mod")]([SubResource("mod_damage"), SubResource("mod_fortitude"), SubResource("mod_health"), SubResource("mod_stamina")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("mod_damage"), SubResource("mod_fortitude"), SubResource("mod_health"), SubResource("mod_stamina")])
 conditionalModifiers = []
 metadata/_custom_type_script = "uid://uqgkmpiv30t5"

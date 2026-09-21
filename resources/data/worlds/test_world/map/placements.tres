@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="WorldMapPlacements" format=3]
 
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/well.tres" id="1_1iphp"]
+[ext_resource type="Resource" uid="uid://2gwlhjdros3wk" path="res://resources/data/world_authoring/spawn_entries/well.tres" id="1_1iphp"]
 [ext_resource type="Script" path="res://scripts/data/worldmap/WorldMapPlacements.cs" id="1_62klx"]
 [ext_resource type="Script" path="res://scripts/data/SubscenePlacement.cs" id="1_rkdci"]
 [ext_resource type="Script" path="res://scripts/data/worldmap/EntityPlacement.cs" id="2_4i2sm"]

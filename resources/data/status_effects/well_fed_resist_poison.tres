@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://tsxyk7jvtmq7"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://o3u3kejjr03c" path="res://assets/textures/status_effects/candy.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_mod"]
+[ext_resource type="PackedScene" uid="uid://bdr1he0fm3lyr" path="res://scenes/fx/status_well_fed_start.tscn" id="4_startfx"]
+[ext_resource type="PackedScene" uid="uid://cstguqovay7y0" path="res://scenes/fx/status_well_fed_end.tscn" id="5_endfx"]
+[ext_resource type="Script" uid="uid://11t1a8dvp0j6n" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
+
+[sub_resource type="Resource" id="mod_health"]
+script = ExtResource("3_mod")
+stat = 16
+value = 100.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="mod_poisoned"]
+script = ExtResource("tagmod_1")
+tag = 8192
+value = 0.5
+metadata/_custom_type_script = "uid://11t1a8dvp0j6n"
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("2_icon")
+displayName = &"Well Fed & Poison Resist"
+description = "+100 Health and half poison buildup until sunrise."
+category = 9
+durationType = 2
+maxStack = 1
+startFx = ExtResource("4_startfx")
+endFx = ExtResource("5_endfx")
+removesOnApply = []
+modifiers = [SubResource("mod_health"), SubResource("mod_poisoned")]
+conditionalModifiers = []

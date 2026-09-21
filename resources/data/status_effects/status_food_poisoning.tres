@@ -6,7 +6,7 @@
 
 [sub_resource type="Resource" id="Resource_3l2yc"]
 script = ExtResource("2_264vf")
-stat = 67108864
+stat = 16
 value = 0.8
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
@@ -15,7 +15,7 @@ script = ExtResource("2_flu34")
 icon = ExtResource("1_5gph6")
 displayName = &"Poisoned"
 category = 9
-tags = 257
+tags = 8192
 durationType = 2
 maxStack = 1
 removesOnApply = []

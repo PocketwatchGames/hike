@@ -38,6 +38,21 @@ public class WorldState
     // which have no path of their own — the owner does.
     public string StartContentPath = "";
 
+    // WorldStartData.displayName — what a save's profile is labelled with.
+    public string WorldName = "";
+
+    // Which world this is, as a save names it. Set by Main once the world is built.
+    public WorldOrigin Origin;
+
+    // The loaded .hike's WorldFile BakeId; empty for a world that wasn't read
+    // from a file.
+    public string BakeId = "";
+
+    // Hash of each chunk's entity bucket as the world was BUILT, before any save
+    // was applied — what a save diffs against to find the chunks the run changed
+    // (SaveGame.CaptureEntityBaseline). Null until captured.
+    public Dictionary<Vector3I, ulong> EntityBaseline;
+
     // The authoring document this world is being baked from, if any - the world
     // map painter's placements.tres. Everything under a painted world's map/
     // folder but the .hike itself is a bake INPUT and is excluded from an export,
@@ -61,6 +76,7 @@ public class WorldState
             ? System.Linq.Enumerable.ToArray(start.initialKnowledge)
             : System.Array.Empty<TeachableConcept>();
         StartContentPath = start.ResourcePath ?? "";
+        WorldName = start.displayName ?? "";
     }
 
     // Zones present in this world. Populated by WorldGen (or the disk
@@ -216,9 +232,11 @@ public class WorldState
     // darkening onto sky-exposed, upward-facing faces.
     public float WetnessLevel = 0f;
 
-    // Per-world deterministic RNG for weather rolls. Seeded so reloads
-    // produce the same forecast.
-    public RandomNumberGenerator WeatherRng = new RandomNumberGenerator();
+    // Seeds every per-day roll (weather, the well-rested pick). Picked at New
+    // Game and carried by the save — distinct from the world's generation seed,
+    // so two runs of one world don't live the same days. See DailyRandom.
+    public int RunSeed;
+    private const int WEATHER_SALT = 0x57EA7;
 
     public readonly Dictionary<Vector3I, ChunkState> _chunks = new();
     public readonly Dictionary<Vector3I, List<EntitySimState>> _entities = new();
@@ -319,10 +337,31 @@ public class WorldState
         TimeOfDay01 = simData?.initialTimeOfDay ?? 0.05f;
         DayNumber = 0;
         TimeOfDayAbsolute = DayNumber + TimeOfDay01;
-        WeatherRng.Randomize();
         // Roll the first day's day + night weather slots. Subsequent days
         // re-roll on the sleep-to-sunrise (Sim fires OnNewDay → RollDailyWeather).
+        // BeginRun rolls again once the run's seed is known.
         RollDailyWeather();
+        SnapWeatherToDaySlot();
+    }
+
+    // Seed this run's per-day randomness and re-roll today from it. Once the run
+    // is known: a New Game picks the seed, a load restores it (after the clock).
+    public void BeginRun(int runSeed)
+    {
+        RunSeed = runSeed;
+        RollDailyWeather();
+        SnapWeatherToDaySlot();
+    }
+
+    // A day's randomness is a pure function of the run and the day, so a load
+    // reproduces the day it woke into with no generator state saved.
+    public System.Random DailyRandom(int salt)
+    {
+        return new System.Random(TerrainMath.DeriveSeed(TerrainMath.DeriveSeed(RunSeed, salt), DayNumber));
+    }
+
+    private void SnapWeatherToDaySlot()
+    {
         WeatherVariance = DayWeatherVariance;
         HumidityVariance = DayHumidityVariance;
         CloudVariance = DayCloudVariance;
@@ -381,14 +420,15 @@ public class WorldState
 
     public void RollDailyWeather()
     {
-        DayWeatherVariance = WeatherRng.Randf();
-        DayHumidityVariance = WeatherRng.Randf();
-        DayCloudVariance = WeatherRng.Randf();
-        DayLightningVariance = WeatherRng.Randf();
-        NightWeatherVariance = WeatherRng.Randf();
-        NightHumidityVariance = WeatherRng.Randf();
-        NightCloudVariance = WeatherRng.Randf();
-        NightLightningVariance = WeatherRng.Randf();
+        System.Random rng = DailyRandom(WEATHER_SALT);
+        DayWeatherVariance = rng.NextSingle();
+        DayHumidityVariance = rng.NextSingle();
+        DayCloudVariance = rng.NextSingle();
+        DayLightningVariance = rng.NextSingle();
+        NightWeatherVariance = rng.NextSingle();
+        NightHumidityVariance = rng.NextSingle();
+        NightCloudVariance = rng.NextSingle();
+        NightLightningVariance = rng.NextSingle();
     }
 
     // World-coordinate accessors for cross-chunk light propagation
@@ -1564,6 +1604,12 @@ public class WorldState
     public void RemovePersistentEntity(EntitySimState entity)
     {
         _persistentEntities.Remove(entity);
+    }
+
+    public void ReplacePersistentEntities(List<EntitySimState> entities)
+    {
+        _persistentEntities.Clear();
+        _persistentEntities.AddRange(entities);
     }
 
     // Moves a chunk-filed entity into the persistent store — the runtime-taming

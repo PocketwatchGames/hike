@@ -1,78 +1,31 @@
-using System;
-
-// Unified stat-modifier key. Used by:
-//  - StatModifier.stat (single bit) on inherent / equipment / status-effect
-//    modifier lists
-//  - DamageData.tags / ContinuousDamageData.tags (multi-bit OR mask) declaring
-//    the hit's nature
-//  - StatusEffectData.tags (multi-bit OR mask) declaring the effect's nature
-//    for buildup / DoT scaling
+// A character stat — one value an actor composes on demand from every
+// modifier source (inherent data, class, equipped armor, active status
+// effects) via ComposeStat. A plain enum, not flags: a stat is never part of a
+// mask. What a hit or an effect IS lives on EHitTag instead.
 //
-// Each value is a single bit so hit-side fields can OR multiple tags into one
-// mask (a sword swing tagged Damage|Melee|Blunt, a fireball tagged
-// Damage|Fire|Magical|Ranged) while modifier entries set exactly one bit.
-// Composition is per-stat — the receiver knows whether each stat is
-// multiplicative (most) or additive (Camouflage, MaxStamina, ColdResist,
-// HeatResist) — and at which gameplay site each one applies (damage scale,
-// armor bypass chance, knockback magnitude, movement speed, sense
-// multipliers, etc.).
+// Composition op is intrinsic to the stat (StatModifierUtil.IsAdditive).
 //
-// Wire values are stable — append new bits, never reassign existing ones —
-// so existing .tres files keep loading.
-[Flags]
+// Values are written into .tres as ints, so they are explicit and APPEND-ONLY:
+// renumbering one silently re-points every authored StatModifier.
 public enum EStat
 {
 	None = 0,
-
-	// Damage-type tags. Hit-side OR mask on DamageData / ContinuousDamageData /
-	// StatusEffectData. Modifier entries against these scale damage / bypass /
-	// armor chip / knockback / buildup at their dedicated sites.
-	Damage = 1 << 0,
-	Fire = 1 << 1,
-	Blunt = 1 << 2,
-	Dizzy = 1 << 3,
-	ArmorPenetration = 1 << 4,
-	Electrical = 1 << 5,
-	Ranged = 1 << 6,
-	Melee = 1 << 7,
-	Poison = 1 << 8,
-	Magical = 1 << 9,
-	Knockback = 1 << 10,
-	// Ordinary matter-on-matter damage — a blade, a club, an arrow, a blast's
-	// concussion. Sits out of sequence with the other damage tags because wire
-	// values are append-only; it is a damage TYPE, not a character stat.
-	//
-	// It exists so "physical" is a thing a hit can SAY rather than something
-	// inferred from carrying no other type. Absence isn't expressible: it can't
-	// be resisted (a modifier entry needs a bit, and `Damage` rides on every
-	// hit, so it means "resist everything"), can't be required by a receiver,
-	// and can't be validated. Orthogonal to Melee/Ranged, which are delivery —
-	// a fireball is Ranged and not Physical, a flaming sword is both Melee and
-	// Physical. Every damaging template must declare at least one type; see the
-	// damage-tag check in ResourceCheck.
-	Physical = 1 << 29,
-
-	// Character stat modifiers. Composed by the actor on demand — receivers
-	// call into the stat-modifier system to get a final value for movement,
-	// sense, etc. Tag-mask use is meaningless for these (they identify a
-	// single stat, not a category of hit) — they only ever appear as single-
-	// bit modifier entries.
-	OutgoingDamage = 1 << 11,    // multiplicative — attacker-side damage scale
-	MoveSpeed = 1 << 12,         // multiplicative
-	AnimSpeed = 1 << 13,         // multiplicative
-	Vision = 1 << 14,            // multiplicative
-	Hearing = 1 << 15,           // multiplicative
-	Noise = 1 << 16,             // multiplicative
-	Scent = 1 << 17,             // multiplicative
-	FootprintAlpha = 1 << 18,    // multiplicative
-	FootprintDuration = 1 << 19, // multiplicative
-	Camouflage = 1 << 20,        // additive (sense offset)
-	MaxStamina = 1 << 21,        // additive (flat stamina bonus)
-	ColdResist = 1 << 22,        // additive (temperature threshold shift)
-	HeatResist = 1 << 23,        // additive (temperature threshold shift)
-	WetnessDryRate = 1 << 24,    // multiplicative (drying speed; <1 slows, >1 accelerates)
-	NightVision = 1 << 25,       // multiplicative (perception darkness relief; value-1 = fraction of darkness penalty removed, e.g. 1.85 = 85%)
-	MaxHealth = 1 << 26,        // additive (flat health bonus)
-	MaxArmor = 1 << 27,        // additive (flat armor bonus)
-	FortitudeResistance = 1 << 28, // multiplicative — incoming status-buildup scale (<1 = resistant); sourced from PlayerState.fortitude + any gear/status modifier, folded at the combat-buildup site
+	OutgoingDamage = 1,       // multiplicative — attacker-side damage scale
+	MoveSpeed = 2,            // multiplicative
+	AnimSpeed = 3,            // multiplicative
+	Vision = 4,               // multiplicative
+	Hearing = 5,              // multiplicative
+	Noise = 6,                // multiplicative
+	Scent = 7,                // multiplicative
+	FootprintAlpha = 8,       // multiplicative
+	FootprintDuration = 9,    // multiplicative
+	Camouflage = 10,          // additive (sense offset)
+	MaxStamina = 11,          // additive (flat stamina bonus)
+	ColdResist = 12,          // additive (temperature threshold shift)
+	HeatResist = 13,          // additive (temperature threshold shift)
+	WetnessDryRate = 14,      // multiplicative (drying speed; <1 slows, >1 accelerates)
+	NightVision = 15,         // multiplicative (perception darkness relief; value-1 = fraction of darkness penalty removed, e.g. 1.85 = 85%)
+	MaxHealth = 16,           // additive (flat health bonus)
+	MaxArmor = 17,            // additive (flat armor bonus)
+	FortitudeResistance = 18, // multiplicative — scale on EVERY combat buildup (<1 = resistant); PlayerState.fortitude folds in here too
 }

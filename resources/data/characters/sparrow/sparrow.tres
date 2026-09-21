@@ -5,8 +5,9 @@
 [ext_resource type="Resource" uid="uid://fvs72bqjuve5" path="res://resources/data/characters/sparrow/sparrow_brain.tres" id="3_mky6i"]
 [ext_resource type="Texture2D" uid="uid://ts31m5bk81go" path="res://assets/textures/portraits/sparrow.png" id="3_ub8pw"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="4_lbyg3"]
-[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="8_bjh47"]
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="9_bcxhy"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
+[ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
 
 [sub_resource type="Resource" id="Resource_anim_dead"]
 script = ExtResource("2_mky6i")
@@ -72,10 +73,10 @@ affectedBySpeedMultiplier = true
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
 [sub_resource type="Resource" id="Resource_dizzy_vuln"]
-script = ExtResource("8_bjh47")
-stat = 8
+script = ExtResource("tagmod_1")
+tag = 8
 value = 3.0
-metadata/_custom_type_script = "uid://bovyciaikopwb"
+metadata/_custom_type_script = "uid://11t1a8dvp0j6n"
 
 [resource]
 script = ExtResource("9_bcxhy")
@@ -88,7 +89,7 @@ smellRangePower = 2.0
 visibilityMovementPower = 1.0
 prominence = 0.75
 maxHealth = 50.0
-modifiers = Array[ExtResource("8_bjh47")]([SubResource("Resource_dizzy_vuln")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("Resource_dizzy_vuln")])
 dizzyResistance = 0.30000000000000004
 burrowTime = 0.0
 hideRange = 8.0

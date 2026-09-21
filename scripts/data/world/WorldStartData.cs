@@ -16,6 +16,9 @@ using Godot.Collections;
 [GlobalClass]
 public partial class WorldStartData : Resource
 {
+    // The world's name as the player sees it — a save's profile is labelled with it.
+    [Export] public string displayName = "";
+
     // This world's authored scripted content — quests today, scripted events
     // later. Threaded onto WorldState.ScriptData at load (GameClient.Init).
     // Separate from SimData, which is generic cross-session content. Null = no

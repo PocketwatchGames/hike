@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using Godot;
 
 // Which categories of knowledge a merge/bank freshly added to the destination
@@ -8,17 +9,16 @@ using Godot;
 public enum EKnowledgeCategory
 {
     None = 0,
-    Map = 1 << 0,       // fog-of-war reveal, discovered regions, or landmark markers
-    Recipe = 1 << 1,
-    Bestiary = 1 << 2,  // per-species discovery
-    Language = 1 << 3,
-    Item = 1 << 4,      // identified items
-    Spell = 1 << 5,     // learned alchemy spells
+    Recipe = 1 << 0,
+    Bestiary = 1 << 1,  // per-species discovery
+    Language = 1 << 2,
+    Item = 1 << 3,      // identified items
+    Spell = 1 << 4,     // learned alchemy spells
 }
 
-// A store of "learned" knowledge — identified items, discovered recipes, revealed
-// map regions, bestiary progress, and learned language pieces. Two instances
-// exist per run: one PERMANENT party-shared pool (Party.Knowledge) and one
+// A store of "learned" knowledge — identified items, discovered recipes, bestiary
+// progress, and learned language pieces. The map is not in here: it has no
+// provisional tier (see MapChart). Two instances exist per run: one PERMANENT party-shared pool (Party.Knowledge) and one
 // PROVISIONAL per-member pool (PlayerState.Knowledge) holding what the currently
 // active character has learned in the field since the last campfire "bank".
 //
@@ -35,23 +35,11 @@ public class Knowledge
     // is cast, never identified as a physical item, so it has no separate output-
     // identification step the way a cooked recipe does). Gates SpellSelectionPanel.
     public readonly HashSet<SpellData> KnownSpells = new();
-    public readonly HashSet<RegionData> DiscoveredRegions = new();
     // Per-species bestiary discovery — the set of species this store has charted.
     // Unioned across party+individual on read and on merge.
     public readonly HashSet<SpeciesData> DiscoveredSpecies = new();
     // Per-language learned component bitset; a missing key = fully unknown.
     public readonly Dictionary<LanguageData, ELanguageComponents> LearnedLanguages = new();
-
-    // Per-instance discovered map markers (landmarks charted on the world / minimap),
-    // keyed by quantized world position (MapMarkerRecord.KeyFor). Unioned by MAX
-    // Level on merge so banking keeps the most-known tier of each marker.
-    public readonly Dictionary<Vector3I, MapMarkerRecord> DiscoveredMarkers = new();
-
-    // Fog-of-war minimap reveal (outdoor + per-slice R8 buffers). The active
-    // member reveals into their own; the minimap composites max(party, active)
-    // for display; banking merges it like the sets below. Lazily allocated by the
-    // minimap on first reveal, so an unexplored store costs nothing.
-    public readonly ExplorationMask Exploration = new();
 
     // Fold `other` into this store: union the sets, OR language component bits.
     // Used to bank a member's field knowledge into the permanent
@@ -77,10 +65,6 @@ public class Knowledge
         KnownSpells.UnionWith(other.KnownSpells);
         if (KnownSpells.Count > spellsBefore) { changed |= EKnowledgeCategory.Spell; }
 
-        int regionsBefore = DiscoveredRegions.Count;
-        DiscoveredRegions.UnionWith(other.DiscoveredRegions);
-        if (DiscoveredRegions.Count > regionsBefore) { changed |= EKnowledgeCategory.Map; }
-
         int speciesBefore = DiscoveredSpecies.Count;
         DiscoveredSpecies.UnionWith(other.DiscoveredSpecies);
         if (DiscoveredSpecies.Count > speciesBefore) { changed |= EKnowledgeCategory.Bestiary; }
@@ -95,35 +79,64 @@ public class Knowledge
             if (merged != existing) { changed |= EKnowledgeCategory.Language; }
             LearnedLanguages[kv.Key] = merged;
         }
-        foreach (KeyValuePair<Vector3I, MapMarkerRecord> kv in other.DiscoveredMarkers)
-        {
-            if (kv.Value == null)
-            {
-                continue;
-            }
-            // Copy into a FRESH record so the party pool doesn't alias the active
-            // member's object (which gets Cleared right after banking).
-            if (!DiscoveredMarkers.TryGetValue(kv.Key, out MapMarkerRecord existing))
-            {
-                DiscoveredMarkers[kv.Key] = new MapMarkerRecord(
-                    kv.Value.WorldPosition, kv.Value.Level, kv.Value.Icon, kv.Value.DisplayName,
-                    kv.Value.HasActiveState, kv.Value.IconModulate, kv.Value.ActiveModulate);
-                changed |= EKnowledgeCategory.Map;
-            }
-            else if (kv.Value.Level > existing.Level)
-            {
-                existing.Level = kv.Value.Level;
-                existing.Icon ??= kv.Value.Icon;
-                existing.DisplayName ??= kv.Value.DisplayName;
-                existing.HasActiveState = kv.Value.HasActiveState;
-                existing.IconModulate = kv.Value.IconModulate;
-                existing.ActiveModulate = kv.Value.ActiveModulate;
-                changed |= EKnowledgeCategory.Map;
-            }
-        }
-        if (Exploration.MergeFrom(other.Exploration)) { changed |= EKnowledgeCategory.Map; }
 
         return changed;
+    }
+
+    // Inside a shared EntitySerializer table (SaveGame).
+    public void Serialize(BinaryWriter w)
+    {
+        WriteSet(w, IdentifiedItems);
+        WriteSet(w, DiscoveredRecipes);
+        WriteSet(w, KnownSpells);
+        WriteSet(w, DiscoveredSpecies);
+        w.Write(LearnedLanguages.Count);
+        foreach (KeyValuePair<LanguageData, ELanguageComponents> kv in LearnedLanguages)
+        {
+            EntitySerializer.WriteRef(w, kv.Key);
+            w.Write((int)kv.Value);
+        }
+    }
+
+    // Adds to this store; a reference that no longer resolves is dropped.
+    public void Deserialize(BinaryReader r)
+    {
+        ReadSet(r, IdentifiedItems);
+        ReadSet(r, DiscoveredRecipes);
+        ReadSet(r, KnownSpells);
+        ReadSet(r, DiscoveredSpecies);
+        int languages = r.ReadInt32();
+        for (int i = 0; i < languages; i++)
+        {
+            LanguageData language = EntitySerializer.ReadRef<LanguageData>(r);
+            var components = (ELanguageComponents)r.ReadInt32();
+            if (language != null)
+            {
+                LearnedLanguages[language] = components;
+            }
+        }
+    }
+
+    private static void WriteSet<T>(BinaryWriter w, HashSet<T> set) where T : Resource
+    {
+        w.Write(set.Count);
+        foreach (T item in set)
+        {
+            EntitySerializer.WriteRef(w, item);
+        }
+    }
+
+    private static void ReadSet<T>(BinaryReader r, HashSet<T> set) where T : Resource
+    {
+        int count = r.ReadInt32();
+        for (int i = 0; i < count; i++)
+        {
+            T item = EntitySerializer.ReadRef<T>(r);
+            if (item != null)
+            {
+                set.Add(item);
+            }
+        }
     }
 
     public void Clear()
@@ -131,10 +144,7 @@ public class Knowledge
         IdentifiedItems.Clear();
         DiscoveredRecipes.Clear();
         KnownSpells.Clear();
-        DiscoveredRegions.Clear();
         DiscoveredSpecies.Clear();
         LearnedLanguages.Clear();
-        DiscoveredMarkers.Clear();
-        Exploration.Clear();
     }
 }

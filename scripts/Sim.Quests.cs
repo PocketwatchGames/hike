@@ -30,7 +30,7 @@ public partial class Sim
         }
 
         SpawnRescueQuests(sim, log);
-        log.Tick(_worldState.GameTimeMs);
+        log.Tick(_worldState.GameTimeMs, sim.ScriptVars);
     }
 
     void SeedStartingQuests(QuestLog log)

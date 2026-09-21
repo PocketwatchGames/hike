@@ -10,14 +10,11 @@ using Godot;
 //                    Caller-side monotonic merge: only overwrite a pixel
 //                    when the new height >= existing (vertically stacked
 //                    chunk loads must converge to the highest surface).
-//   _exploration  — R8, same dimensions. The MINIMAP's display buffer = party
-//                    pool ∪ active member's provisional reveal. Reveal writes
-//                    into it live (max(existing, falloff)) so the controlled
-//                    player's freshly-charted ground shows immediately.
-//   _explorationBanked — R8, same dimensions. The WORLD MAP's display buffer =
-//                    party pool ONLY. Updated solely by RebuildExploration, so
-//                    un-banked field reveal stays off the world map until it's
-//                    recorded at a campfire.
+//   _exploration  — R8, same dimensions. Display mirror of the party's chart
+//                    (MapChart.Exploration.Outdoor); reveal writes both.
+//   _sweep        — R8, same dimensions. What the WORLD MAP shows while a
+//                    bulk-reveal sweep is animating (Minimap chart reveal);
+//                    otherwise the world map shows _exploration like the minimap.
 //
 // Sized once at construction from WorldState.Min/Max; one full-extent
 // upload per flush.
@@ -27,13 +24,13 @@ public class MinimapTextures
 
     private readonly byte[] _surfaceData;
     private readonly byte[] _exploration;
-    private readonly byte[] _explorationBanked;
+    private readonly byte[] _sweep;
     private readonly Image _surfaceImage;
     private readonly Image _explorationImage;
-    private readonly Image _explorationBankedImage;
+    private readonly Image _sweepImage;
     private readonly ImageTexture _surfaceTexture;
     private readonly ImageTexture _explorationTexture;
-    private readonly ImageTexture _explorationBankedTexture;
+    private readonly ImageTexture _sweepTexture;
 
     private readonly int _widthPixels;
     private readonly int _heightPixels;
@@ -48,14 +45,14 @@ public class MinimapTextures
 
     private bool _surfaceDirty;
     private bool _explorationDirty;
-    private bool _explorationBankedDirty;
+    private bool _sweepDirty;
+    private bool _sweepActive;
 
     public ImageTexture SurfaceTexture => _surfaceTexture;
-    // Minimap display (party ∪ active); world map display (party only).
     public ImageTexture ExplorationTexture => _explorationTexture;
-    public ImageTexture ExplorationBankedTexture => _explorationBankedTexture;
-    // Length of the outdoor exploration buffer — callers size their per-member
-    // ExplorationMask.Outdoor to this so pixel indices line up 1:1 with display.
+    public ImageTexture WorldMapExplorationTexture => _sweepActive ? _sweepTexture : _explorationTexture;
+    // Length of the outdoor exploration buffer — the chart's
+    // ExplorationMask.Outdoor is sized to this so pixel indices line up 1:1.
     public int ExplorationBufferSize => _widthPixels * _heightPixels;
     public int WidthPixels => _widthPixels;
     public int HeightPixels => _heightPixels;
@@ -76,14 +73,14 @@ public class MinimapTextures
 
         _surfaceData = new byte[_widthPixels * _heightPixels * BytesPerSurfacePixel];
         _exploration = new byte[_widthPixels * _heightPixels];
-        _explorationBanked = new byte[_widthPixels * _heightPixels];
+        _sweep = new byte[_widthPixels * _heightPixels];
 
         _surfaceImage = Image.CreateFromData(_widthPixels, _heightPixels, false, Image.Format.Rgba8, _surfaceData);
         _explorationImage = Image.CreateFromData(_widthPixels, _heightPixels, false, Image.Format.R8, _exploration);
-        _explorationBankedImage = Image.CreateFromData(_widthPixels, _heightPixels, false, Image.Format.R8, _explorationBanked);
+        _sweepImage = Image.CreateFromData(_widthPixels, _heightPixels, false, Image.Format.R8, _sweep);
         _surfaceTexture = ImageTexture.CreateFromImage(_surfaceImage);
         _explorationTexture = ImageTexture.CreateFromImage(_explorationImage);
-        _explorationBankedTexture = ImageTexture.CreateFromImage(_explorationBankedImage);
+        _sweepTexture = ImageTexture.CreateFromImage(_sweepImage);
     }
 
     // Apply one chunk's surface contribution. cells.Length must be at least
@@ -239,14 +236,12 @@ public class MinimapTextures
     // the disk paints 255, from there it linearly falls to 0 at the outer
     // edge. 1.0 = hard edge, ~0.5 = wide soft fade.
     //
-    // Apply one reveal sample: max-merge into the caller's provisional buffer
-    // (banked at a campfire) and into the live minimap display buffer (party ∪
-    // active, shown immediately). The banked world-map buffer is untouched.
-    private void WriteReveal(byte[] individual, int idx, byte target)
+    // Apply one reveal sample: max-merge into the chart and its display mirror.
+    private void WriteReveal(byte[] chart, int idx, byte target)
     {
-        if (target > individual[idx])
+        if (target > chart[idx])
         {
-            individual[idx] = target;
+            chart[idx] = target;
         }
         if (target > _exploration[idx])
         {
@@ -255,16 +250,11 @@ public class MinimapTextures
         }
     }
 
-    // Writes into the caller's per-member `individual` buffer (may be null
-    // before a roster exists) — the active member's provisional field reveal —
-    // AND into the live minimap display buffer (party ∪ active) so the
-    // controlled player's newly-charted ground shows immediately. It does NOT
-    // touch the banked world-map buffer: un-banked reveal stays off the world
-    // map until it's recorded at a campfire, at which point RebuildExploration
-    // recomposes both display buffers from the (now-merged) party pool.
-    public void RevealCircle(Vector3 worldPosXZ, float radiusMeters, float innerFraction, byte[] individual)
+    // `chart` is the party's outdoor buffer; null before a roster exists, in
+    // which case every reveal no-ops.
+    public void RevealCircle(Vector3 worldPosXZ, float radiusMeters, float innerFraction, byte[] chart)
     {
-        if (individual == null)
+        if (chart == null)
         {
             return;
         }
@@ -301,7 +291,7 @@ public class MinimapTextures
                     target = (byte)Mathf.Clamp((int)(t * 255f), 0, 255);
                 }
                 int idx = z * _widthPixels + x;
-                WriteReveal(individual, idx, target);
+                WriteReveal(chart, idx, target);
             }
         }
     }
@@ -312,9 +302,9 @@ public class MinimapTextures
     // for ground-level outdoor reveal; bird's-eye uses RevealCircleFogged and the
     // los-disabled path uses RevealCircle. `eyeFootPos` is the player's feet;
     // the sightline origin is lifted by los.EyeHeightMeters.
-    public void RevealViewshed(Vector3 eyeFootPos, float radiusMeters, float innerFraction, in MinimapLos los, WorldState ws, byte[] individual)
+    public void RevealViewshed(Vector3 eyeFootPos, float radiusMeters, float innerFraction, in MinimapLos los, WorldState ws, byte[] chart)
     {
-        if (individual == null)
+        if (chart == null)
         {
             return;
         }
@@ -350,7 +340,7 @@ public class MinimapTextures
                 float terrainVis = ComputeGroundVisibility(eyeXZ, eyeY, wx, wz, los, ws, out float fogVis);
                 byte target = (byte)Mathf.Clamp((int)(falloff * terrainVis * fogVis * 255f), 0, 255);
                 int idx = z * _widthPixels + x;
-                WriteReveal(individual, idx, target);
+                WriteReveal(chart, idx, target);
             }
         }
     }
@@ -359,9 +349,9 @@ public class MinimapTextures
     // from above looks straight down over the terrain) attenuated only by
     // LOCAL volumetric fog at each cell, scaled by distance. A distant column
     // buried in a painted fog volume stays uncharted; a near one reads through.
-    public void RevealCircleFogged(Vector3 worldPosXZ, float radiusMeters, float innerFraction, WorldState ws, float fogFullBlockMeters, byte[] individual)
+    public void RevealCircleFogged(Vector3 worldPosXZ, float radiusMeters, float innerFraction, WorldState ws, float fogFullBlockMeters, byte[] chart)
     {
-        if (individual == null)
+        if (chart == null)
         {
             return;
         }
@@ -407,7 +397,7 @@ public class MinimapTextures
                 }
                 byte target = (byte)Mathf.Clamp((int)(falloff * fogVis * 255f), 0, 255);
                 int idx = z * _widthPixels + x;
-                WriteReveal(individual, idx, target);
+                WriteReveal(chart, idx, target);
             }
         }
     }
@@ -490,77 +480,38 @@ public class MinimapTextures
         return terrainVis;
     }
 
-    // Recompose both display exploration buffers. The minimap buffer is
-    // party ∪ active (the controlled player's un-banked field reveal is shown),
-    // the world-map buffer is party only. Called on bank, member switch, and
-    // revive — the switch case is why the minimap buffer is fully rebuilt rather
-    // than only accrued: it must drop the previous member's provisional reveal.
-    // Either mask may be null (nothing banked / no active member yet).
-    public void RebuildExploration(byte[] party, byte[] active)
+    // Reseed the display mirror from the chart (null = nothing charted yet).
+    public void RebuildExploration(byte[] chart)
     {
         for (int i = 0; i < _exploration.Length; i++)
         {
-            byte p = (party != null && i < party.Length) ? party[i] : (byte)0;
-            byte a = (active != null && i < active.Length) ? active[i] : (byte)0;
-            _exploration[i] = a > p ? a : p;
-            _explorationBanked[i] = p;
+            _exploration[i] = (chart != null && i < chart.Length) ? chart[i] : (byte)0;
         }
         _explorationDirty = true;
-        _explorationBankedDirty = true;
     }
 
-    // Snapshot / drive the world-map (banked) outdoor buffer. The campfire reveal
-    // animation captures the pre-bank buffer, then walks the displayed buffer from
-    // that baseline up to the freshly-banked buffer over ~1.5s so newly charted
-    // ground grows in on the world map instead of popping (see Minimap reveal anim).
-    public byte[] CopyBankedOutdoor()
+    public byte[] CopyOutdoor()
     {
-        return (byte[])_explorationBanked.Clone();
+        return (byte[])_exploration.Clone();
     }
 
-    public void SetBankedOutdoor(byte[] data)
+    // Show `data` on the world map in place of the chart (the bulk-reveal sweep's
+    // current frame). Null hands the world map back to the chart.
+    public void SetSweepOutdoor(byte[] data)
     {
-        if (data == null || data.Length != _explorationBanked.Length)
+        if (data == null || data.Length != _sweep.Length)
         {
+            _sweepActive = false;
             return;
         }
-        System.Array.Copy(data, _explorationBanked, _explorationBanked.Length);
-        _explorationBankedDirty = true;
+        System.Array.Copy(data, _sweep, _sweep.Length);
+        _sweepActive = true;
+        _sweepDirty = true;
     }
 
-    // Fold a member's outdoor field reveal into the WORLD MAP's display buffer as
-    // a one-shot snapshot (per-pixel max) — the tree-climb scout. The perched
-    // wide reveal graduates onto the world map immediately (and stays frozen
-    // there, since normal walking reveal only writes the minimap's _exploration),
-    // without waiting for a campfire bank. A later RebuildExploration reseeds this
-    // buffer from the party pool, at which point a banked snapshot persists.
-    public void MergeActiveIntoBanked(byte[] activeOutdoor)
-    {
-        if (activeOutdoor == null)
-        {
-            return;
-        }
-        int n = System.Math.Min(_explorationBanked.Length, activeOutdoor.Length);
-        bool changed = false;
-        for (int i = 0; i < n; i++)
-        {
-            if (activeOutdoor[i] > _explorationBanked[i])
-            {
-                _explorationBanked[i] = activeOutdoor[i];
-                changed = true;
-            }
-        }
-        if (changed)
-        {
-            _explorationBankedDirty = true;
-        }
-    }
-
-    // Normalized (0..1) world-map reveal value at world XZ — same world→pixel
-    // mapping as IsRevealed, reading the banked display buffer. Out-of-bounds reads
-    // as 0. Lets world-map marker icons fade in with their ground during the
-    // campfire reveal sweep (Minimap.BankedRevealAlphaAt).
-    public float SampleBankedOutdoorAlpha(Vector3 worldPosXZ)
+    // Normalized (0..1) reveal the WORLD MAP currently shows at world XZ, so
+    // marker icons fade in with their ground during a sweep. Out of bounds reads 0.
+    public float SampleWorldMapOutdoorAlpha(Vector3 worldPosXZ)
     {
         int px = (Mathf.FloorToInt(worldPosXZ.X) - _worldOriginXZ.X) / MinimapData.OutdoorMetersPerPixel;
         int pz = (Mathf.FloorToInt(worldPosXZ.Z) - _worldOriginXZ.Y) / MinimapData.OutdoorMetersPerPixel;
@@ -568,11 +519,12 @@ public class MinimapTextures
         {
             return 0f;
         }
-        return _explorationBanked[pz * _widthPixels + px] / 255f;
+        byte[] shown = _sweepActive ? _sweep : _exploration;
+        return shown[pz * _widthPixels + px] / 255f;
     }
 
     // True if world XZ is revealed (value > threshold) in the supplied outdoor
-    // mask buffer (typically a member's ExplorationMask.Outdoor). Same world→pixel
+    // mask buffer (typically the chart's ExplorationMask.Outdoor). Same world→pixel
     // mapping as RevealCircle. A null/short buffer or out-of-bounds position reads
     // as unrevealed. Drives reveal-gated map-marker discovery (Minimap).
     public bool IsRevealed(byte[] outdoor, Vector3 worldPosXZ, byte threshold = 0)
@@ -711,11 +663,11 @@ public class MinimapTextures
             _explorationTexture.Update(_explorationImage);
             _explorationDirty = false;
         }
-        if (_explorationBankedDirty)
+        if (_sweepDirty)
         {
-            _explorationBankedImage.SetData(_widthPixels, _heightPixels, false, Image.Format.R8, _explorationBanked);
-            _explorationBankedTexture.Update(_explorationBankedImage);
-            _explorationBankedDirty = false;
+            _sweepImage.SetData(_widthPixels, _heightPixels, false, Image.Format.R8, _sweep);
+            _sweepTexture.Update(_sweepImage);
+            _sweepDirty = false;
         }
     }
 

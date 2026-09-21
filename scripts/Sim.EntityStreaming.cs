@@ -970,6 +970,19 @@ public partial class Sim
     // knows. Path-blocker and hazard cells, wind sources and the RuntimeNode
     // back-reference all release through the node's own TreeExiting, so
     // whatever the entity was blocking opens up for pathing as it frees.
+    // Push every live node's lagging state into its EntitySimState (see
+    // ISyncsSimState) — before a save reads WorldState.
+    public void FlushLiveEntities()
+    {
+        foreach (Node3D node in _entityStates.Keys)
+        {
+            if (node is ISyncsSimState syncs && GodotObject.IsInstanceValid(node))
+            {
+                syncs.SyncToSimState();
+            }
+        }
+    }
+
     public void DestroyEntity(Node3D node)
     {
         Node3D root = FindEntityRoot(node);

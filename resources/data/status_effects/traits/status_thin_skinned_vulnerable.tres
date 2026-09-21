@@ -2,10 +2,11 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_mod"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 
 [sub_resource type="Resource" id="mod_dmg"]
 script = ExtResource("2_mod")
-stat = 2048
+stat = 1
 value = 1.05
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
@@ -16,6 +17,6 @@ description = "+5% Damage"
 duration = 5.0
 maxStack = 1
 removesOnApply = []
-modifiers = Array[ExtResource("2_mod")]([SubResource("mod_dmg")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("mod_dmg")])
 conditionalModifiers = []
 metadata/_custom_type_script = "uid://uqgkmpiv30t5"

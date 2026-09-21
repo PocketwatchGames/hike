@@ -132,7 +132,7 @@ public partial class WorldGenData : Resource
     // Fountains scattered across the world (see WorldGen.PlaceFountains). Each
     // lands on its own rejection-sampled flat column. A null entry or a count of
     // 0 places none of that variant. Healing = full-heal, mana = lantern refuel;
-    // both are FountainSpawnEntry, differing only by the scene they carry.
+    // both are FountainSpawnEntry, differing by their scene and effects.
     [Export] public FountainSpawnEntry healingFountain;
     [Export(PropertyHint.Range, "0,16,1,or_greater")] public int healingFountainCount;
     [Export] public FountainSpawnEntry manaFountain;

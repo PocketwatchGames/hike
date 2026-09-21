@@ -13,6 +13,9 @@ public partial class GuiMainMenu : Node
 	// Controller / keyboard binding list, shown over the menu in place of the
 	// button column.
 	[Export] public ControlsScreen controlsScreen;
+	// Play opens this: pick a save slot to load, or an empty one to start a new
+	// game in.
+	[Export] public ProfileScreen profileScreen;
 	[Export] public ItemList worldList;
 	// Selectable worldgen templates shown in worldList; labels is the parallel
 	// display text (same length as worldOptions).
@@ -67,10 +70,50 @@ public partial class GuiMainMenu : Node
 		{
 			versionLabel.Text = Version.Display;
 		}
+		if (profileScreen != null)
+		{
+			profileScreen.SlotChosen += OnProfileSlotChosen;
+			profileScreen.Closed += ShowButtons;
+		}
 		ShowButtons();
 	}
 
 	// --- Button panel ---------------------------------------------------
+
+	public void ShowProfiles()
+	{
+		if (profileScreen == null)
+		{
+			ShowNewGameOptions();
+			return;
+		}
+		if (buttonPanel != null)
+		{
+			buttonPanel.Visible = false;
+		}
+		if (fileSelector != null)
+		{
+			fileSelector.Visible = false;
+		}
+		profileScreen.Open();
+	}
+
+	// The slot becomes savepath either way, so a new game's autosaves land in
+	// the slot it was started from.
+	void OnProfileSlotChosen(string savePath, bool hasSave)
+	{
+		CVars.savePath.Value = savePath;
+		if (hasSave)
+		{
+			LoadGame();
+			return;
+		}
+		if (profileScreen != null)
+		{
+			profileScreen.Visible = false;
+		}
+		ShowNewGameOptions();
+	}
 
 	public void ShowNewGameOptions()
 	{
@@ -115,6 +158,12 @@ public partial class GuiMainMenu : Node
 
 	public void SelectorBack()
 	{
+		// New Game is reached from a profile slot, so Back returns there.
+		if (_mode == SelectorMode.NewGame && profileScreen != null)
+		{
+			ShowProfiles();
+			return;
+		}
 		ShowButtons();
 	}
 
@@ -154,6 +203,10 @@ public partial class GuiMainMenu : Node
 
 	private void ShowButtons()
 	{
+		if (profileScreen != null)
+		{
+			profileScreen.Visible = false;
+		}
 		if (fileSelector != null)
 		{
 			fileSelector.Visible = false;

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 
 public class ItemState
 {
@@ -68,6 +69,17 @@ public class ItemState
 	// this list (see ApplyStatusEffect.Apply). Empty for ordinary items, whose
 	// use-effects are authored directly on their events.
 	public readonly List<BoonData> possibleBoons = new List<BoonData>();
+
+	// Subclass runtime state, carried by EntitySerializer's item format after the
+	// base fields (length-prefixed there, so a reader that can't rebuild the item
+	// still skips it). Override in a subclass that has any.
+	public virtual void WriteSubclassState(BinaryWriter w)
+	{
+	}
+
+	public virtual void ReadSubclassState(BinaryReader r)
+	{
+	}
 
 	public ItemState(ItemData d)
 	{

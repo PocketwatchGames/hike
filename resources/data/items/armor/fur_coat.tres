@@ -3,23 +3,24 @@
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="1_armor"]
 [ext_resource type="Texture2D" uid="uid://mfqa2y8v66b7" path="res://assets/textures/items/WolfCloak.png" id="2_sprite"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+[ext_resource type="Script" uid="uid://ouzgtnkbomf4q" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 
 [sub_resource type="Resource" id="m_cold"]
 script = ExtResource("m_script")
-stat = 4194304
+stat = 12
 value = 25.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="Resource_25iwx"]
 script = ExtResource("m_script")
-stat = 16777216
+stat = 14
 value = 0.2
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("1_armor")
 maxArmor = 100.0
-modifiers = Array[ExtResource("m_script")]([SubResource("m_cold"), SubResource("Resource_25iwx")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource("Resource_25iwx")])
 outfit = &"archer"
 displayName = &"Fur Coat"
 description = "Polar bears stay warm in the winter!"

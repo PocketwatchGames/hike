@@ -1,12 +1,9 @@
 [gd_scene format=3 uid="uid://b7gskto31x441"]
 
-[ext_resource type="Script" uid="uid://b7gsktphwax41" path="res://scripts/gameplay/entities/Well.cs" id="1_well"]
+[ext_resource type="Script" uid="uid://dq0gsfedya8d3" path="res://scripts/gameplay/entities/Fountain.cs" id="1_well"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
-[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="4_apply"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_vq54l"]
-[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_effect"]
-[ext_resource type="Resource" uid="uid://br1kqb63rhipl" path="res://resources/data/status_effects/status_hydrated.tres" id="6_status"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_req"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="8_interactivebox"]
 [ext_resource type="Texture2D" uid="uid://d2gqmdkg2cujq" path="res://assets/textures/interactions/drink.png" id="16_drink"]
@@ -16,14 +13,9 @@
 [ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="19_mapmarker"]
 [ext_resource type="Texture2D" uid="uid://cci6ftqwqo18g" path="res://assets/textures/map_markers/well.png" id="20_mapicon"]
 
-[sub_resource type="Resource" id="Resource_apply_hydrated"]
-script = ExtResource("4_apply")
-statusEffect = ExtResource("6_status")
-
 [sub_resource type="Resource" id="Resource_well_event_drink"]
 script = ExtResource("2_event")
-type = 264
-effects = Array[ExtResource("5_effect")]([SubResource("Resource_apply_hydrated")])
+type = 256
 
 [sub_resource type="Resource" id="Resource_well_action_drink"]
 script = ExtResource("3_action")

@@ -50,11 +50,6 @@ theme_override_font_sizes/font_size = 48
 text = "Game Paused"
 horizontal_alignment = 1
 
-[node name="SaveButton" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=903124947]
-layout_mode = 2
-theme_override_font_sizes/font_size = 32
-text = "Save Game"
-
 [node name="ResumeButton" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=982488480]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
@@ -84,7 +79,6 @@ text = "v 10543503948"
 visible = false
 layout_mode = 1
 
-[connection signal="pressed" from="PanelContainer/MarginContainer/VBoxContainer/SaveButton" to="." method="OnSaveButtonPressed"]
 [connection signal="pressed" from="PanelContainer/MarginContainer/VBoxContainer/ResumeButton" to="." method="OnResumeButtonPressed"]
 [connection signal="pressed" from="PanelContainer/MarginContainer/VBoxContainer/ControlsButton" to="." method="OnControlsButtonPressed"]
 [connection signal="pressed" from="PanelContainer/MarginContainer/VBoxContainer/QuitButton" to="." method="OnQuitButtonPressed"]

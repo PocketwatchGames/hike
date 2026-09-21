@@ -8,13 +8,13 @@
 
 [sub_resource type="Resource" id="mod_health"]
 script = ExtResource("3_mod")
-stat = 67108864
+stat = 16
 value = 100.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="mod_fortitude"]
 script = ExtResource("3_mod")
-stat = 268435456
+stat = 18
 value = 0.9
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 

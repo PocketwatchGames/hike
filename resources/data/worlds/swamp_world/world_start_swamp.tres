@@ -27,6 +27,7 @@ metadata/_custom_type_script = "uid://419ghc0cftgeg"
 
 [resource]
 script = ExtResource("1_script")
+displayName = "Swamp"
 scriptData = ExtResource("9_script")
 startingParty = [ExtResource("4_mischa"), ExtResource("5_rowan")]
 initialKnowledge = Array[ExtResource("2_teach")]([SubResource("Know_cure"), SubResource("Know_treat"), SubResource("Know_salts")])

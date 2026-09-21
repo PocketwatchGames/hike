@@ -1,0 +1,64 @@
+[gd_scene format=3 uid="uid://d0l5s8iba3nv8"]
+
+[ext_resource type="Script" uid="uid://bjf7xe3yc8ynd" path="res://scripts/gui/ProfileScreen.cs" id="1_8fo7h"]
+[ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="3_5ljg2"]
+[ext_resource type="PackedScene" uid="uid://s3bk01p7eltm" path="res://scenes/gui/profile_panel.tscn" id="4_panel"]
+
+[node name="ProfileScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("profileContainer")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_8fo7h")
+profileScene = ExtResource("4_panel")
+profileContainer = NodePath("MarginContainer/Profiles")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1767524930]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ButtonHints" type="HBoxContainer" parent="MarginContainer" unique_id=1245740980]
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_constants/separation = 30
+alignment = 1
+
+[node name="ButtonHintA" parent="MarginContainer/ButtonHints" unique_id=959365210 instance=ExtResource("3_5ljg2")]
+layout_mode = 2
+ActionName = "Select"
+
+[node name="ButtonHintX" parent="MarginContainer/ButtonHints" unique_id=1258403697 instance=ExtResource("3_5ljg2")]
+layout_mode = 2
+ActionName = "Delete"
+InputAction = "X"
+
+[node name="ButtonHintB" parent="MarginContainer/ButtonHints" unique_id=2009547151 instance=ExtResource("3_5ljg2")]
+layout_mode = 2
+ActionName = "Back"
+InputAction = "B"
+
+[node name="Profiles" type="VBoxContainer" parent="MarginContainer" unique_id=270012993]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/separation = 20
+
+[node name="BackButton" type="Button" parent="MarginContainer"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+focus_mode = 0
+theme_override_font_sizes/font_size = 24
+text = "Back"
+
+[connection signal="pressed" from="MarginContainer/BackButton" to="." method="Close"]

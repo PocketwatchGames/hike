@@ -11,6 +11,7 @@
 [ext_resource type="Resource" uid="uid://ccifgrtmdxnba" path="res://resources/data/status_effects/traits/trait_empathetic.tres" id="9_empath"]
 [ext_resource type="Texture2D" uid="uid://xbn8ns80jnq6" path="res://assets/textures/items/BasicCloak.png" id="11_icon"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="12_statmod"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 
 [sub_resource type="Resource" id="Desc_club"]
 script = ExtResource("4_desc")
@@ -44,13 +45,13 @@ metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [sub_resource type="Resource" id="m_speed"]
 script = ExtResource("12_statmod")
-stat = 4096
+stat = 2
 value = 1.05
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [sub_resource type="Resource" id="m_noise"]
 script = ExtResource("12_statmod")
-stat = 65536
+stat = 6
 value = 0.8
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
@@ -68,7 +69,7 @@ maxArmor = 50.0
 fortitude = 1.1
 perception = 0.8
 stealth = 0.9
-modifiers = Array[ExtResource("12_statmod")]([SubResource("m_speed"), SubResource("m_noise")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_speed"), SubResource("m_noise")])
 traits = Array[ExtResource("8_56gee")]([ExtResource("9_empath")])
 equippedInventory = [SubResource("Resource_club"), SubResource("Resource_6hrq3"), SubResource("Resource_uohhm")]
 metadata/_custom_type_script = "uid://b1rjovy8825fh"

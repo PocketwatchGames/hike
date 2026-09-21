@@ -515,12 +515,46 @@ see [scripts/data/spawn/CLAUDE.md](scripts/data/spawn/CLAUDE.md).
 
 ### Save/Load System (`scripts/SaveGame.cs`)
 
-Binary format with a version header. Still partial — the header, the player
-status-effect buildup section, the scripting-variable bank, the quest log and the
-collected treasure maps round-trip; inventory and active `StatusEffectState`
-instances do not yet. **A save that is not exactly `SAVE_VERSION` is rejected, not
-upgraded** (see Priorities): the game is pre-release, so the format is one shape
-with no version-gated read branches to keep in step.
+**A save is the party waking at a campfire at sunrise.** It is written at every
+sunrise wake (`GameClient.AutosaveAtWake`: camp sleep, pray-home, death sleep-off)
+— there is no manual save — and a load reproduces that wake: it starts the world
+the header names (`WorldState.Origin`), sets the clock to sunrise of the saved day,
+lights the saved campfire, spawns the party there and opens the camp screen with
+the leader pick pending. So **nothing a sleep-to-sunrise resets is saved** (health,
+transient effects, mobs, dropped loot, weather, leader / spell pick): the load
+re-derives it the way a real wake does. Mid-day saves are a likely later extension.
+
+The header is read before a world exists (`SaveGame.Read` → `SaveFile`), then
+EntitySerializer's shared resource table (so references resolve exactly as a
+`.hike`'s do, authoring-document forks by value), then the body, applied in three
+ordered steps at the points in `GameClient.Init` where what they restore exists.
+**A day's randomness is `WorldState.DailyRandom(salt)` — a pure function of the
+run seed (`RunSeed`, picked at New Game, in the header) and `DayNumber`** — so a
+load reproduces the day's weather and well-rested pick with no generator state
+saved; give any new per-day roll its own salt rather than a long-lived `Random`.
+Today the body carries the party (members rebuilt from their
+`PlayerState.Template` plus runtime fields and provisional knowledge), the party
+knowledge and map chart, both stashes, each member's node state
+(`Player.WriteMemberSave`: inventory, effects acquired in play such as forge
+upgrades, non-transient buildups, health, a fallen member's corpse position),
+script variables, the quest log and treasure maps. **What a spawn re-derives is
+never saved** — traits, the well-rested buff and buildup-armed instances come back
+from the member and the restored meters, and saving them too would double them.
+**World entity state is saved by CONTENT DIFF, not dirty flags:** Main hashes every
+chunk's entity bucket as the world is built (`WorldState.EntityBaseline`), and a
+save writes each bucket whose serialization no longer matches — whole, so removed,
+added and moved entities need no identity — plus the persistent list (companion).
+Nothing that mutates an entity has to remember to mark it. A node that keeps state
+on itself until it exits implements `ISyncsSimState`, and `Sim.FlushLiveEntities`
+runs before every save — **a new such entity must implement it or its state is
+silently stale in saves.** On load the saved buckets replace the built ones (after
+the worldgen cache write, so the cache stays pristine), and `SaveFile.ReconcileStamps`
+re-stamps their entity-owned voxels (a door left open) with an incremental relight.
+**A save is bound to the exact build of its world** (`WorldOrigin.Fingerprint`: a
+`.hike`'s `WorldFile` BakeId, a generated world's worldgen fingerprint) and is refused
+against any other — re-baking the painted world invalidates saves. **A save that is not exactly
+`SAVE_VERSION` is rejected, not upgraded** (see Priorities). `autoload 1` loads
+`savepath` straight from launch, the twin of `autostart`.
 
 ### Scripting Variables — Quest Flags / World State (`scripts/data/scripting/`, `scripts/gameplay/scripting/`, `resources/data/worlds/shared/script_variables/`)
 
@@ -683,6 +717,26 @@ A single per-actor `ActionRunner` drives all timeline-based player and mob actio
 
 Items are customized by **composition, not new `ItemData`** — a spawn source holds an `ItemDescriptor` (`ItemData` + `StatusEffectDescriptor` mods) composed onto the runtime `ItemState`, so **prefer a new mod over a new item variant.** Attacking mobs wield real `WeaponData` weapons (on `SpeciesData.weapons`) through the identical damage + weapon-mod path. See [scripts/data/items/CLAUDE.md](scripts/data/items/CLAUDE.md).
 
+### Stats, Hit Tags & Resistance (`scripts/data/combat/`)
+
+**Two enums for two questions, and a modifier list holds both.** `EStat` is a
+plain enum of character stats (MoveSpeed, MaxHealth, FortitudeResistance) —
+unbounded, never a mask. `EHitTag` is flags: what a hit IS (Damage, Fire,
+Physical, Melee, …) and a status effect's FAMILY (Dizzy, Burning, Poisoned,
+Shocked, Sunlight). A source's `modifiers` is an `Array<Modifier>` of
+`StatModifier` (one stat) and `TagModifier` (one tag, always multiplicative).
+
+- **Resistance to a status applies to its BUILDUP only.** A landed effect's DoT
+  is never scaled — not by tags, not by the Armor upgrade. The buildup scale is
+  `ComposeBuildupResistance(family)`: the family's TagModifiers ×
+  FortitudeResistance × the level resist. Direct hits still scale by their hit
+  tags and the level resist (`ApplyResistance`).
+- **A hit tag never resists a status.** Fire resists fire damage; Burning
+  resists catching fire. Gear that should do both lists both — say it, don't
+  infer it. `resource_check` refuses a `StatusEffectData` whose `tags` holds
+  anything but a family.
+- **Both enums are written into `.tres` as ints and are APPEND-ONLY.**
+
 ### Rideable Vehicles (`scripts/gameplay/vehicles/`, `scripts/data/vehicles/`)
 
 Board-and-ride vehicles (`Boat` now, mounts later) via the interactive system; `RideableVehicle` carries shared plumbing, subclasses supply physics. See [scripts/gameplay/vehicles/CLAUDE.md](scripts/gameplay/vehicles/CLAUDE.md).
@@ -790,7 +844,7 @@ Run `dotnet run --project tools/validate_uids` to scan for missing `.cs.uid` sid
 
 - **Exported floats authored at sub-0.01 magnitudes need explicit precision.** Godot's default `[Export] float` spinbox step is 0.001 — typed values finer than that snap to the nearest step (often to zero). The snap happens on UI input, not on save, so the .tres looks fine in the editor while the underlying value is wrong. Two fixes, pick by which one keeps authoring more honest: (1) invert the unit when the field is a density or rate so values land in the friendly 10..10000 range (`SquareMetersPerSpawn = 1000` instead of `Chance = 0.001`; "seconds to fully dry" instead of a per-second drying coefficient); or (2) if the small fraction IS the natural unit (a threshold against a normalized signal, a noise frequency), set `[Export(PropertyHint.Range, "0,1,0.0001")]` (or finer) so the spinbox respects the precision. Either way, never leave an unhinted `[Export] float` whose typical authored values approach 0.001.
 - **Per-tick reads: cost lives at the managed↔native boundary.** Anything read every tick, for every entity, should stay on the managed side. Three sources of boundary crossings, and only the first two are the problem:
-  - **`Godot.Collections.Array` / `Dictionary` element access — and `.Count`.** These aren't C# containers; they're handles over a native Variant container, so every index/lookup marshals a Variant (plus an instance-binding lookup when the element is `Resource`-derived). `.Count` is itself a native call, so `for (i = 0; i < arr.Count; i++)` crosses twice per element — hoist it into a local. **When such a collection on a `*Data` resource is read per-tick, give it a lazily-built managed mirror ON THAT RESOURCE and have hot paths read the mirror** (`MobData.ModifiersFlat`, `MobData.AnimationsFlat`; build via `StatModifierUtil.Flatten`). Put the mirror on the resource, never on the consuming instance — 139 mobs sharing five `MobData` assets should share five flattened arrays, not allocate 139. This needs no invalidation *because* `*Data` is immutable after load; if something must mutate at runtime it belongs on `*State` instead. Cold collections (read at spawn / load / UI-open) stay as they are — this is triggered by access frequency, not by type.
+  - **`Godot.Collections.Array` / `Dictionary` element access — and `.Count`.** These aren't C# containers; they're handles over a native Variant container, so every index/lookup marshals a Variant (plus an instance-binding lookup when the element is `Resource`-derived). `.Count` is itself a native call, so `for (i = 0; i < arr.Count; i++)` crosses twice per element — hoist it into a local. **When such a collection on a `*Data` resource is read per-tick, give it a lazily-built managed mirror ON THAT RESOURCE and have hot paths read the mirror** (`MobData.ModifiersFlat` via `ModifierSet.From`, `MobData.AnimationsFlat`). Put the mirror on the resource, never on the consuming instance — 139 mobs sharing five `MobData` assets should share five flattened arrays, not allocate 139. This needs no invalidation *because* `*Data` is immutable after load; if something must mutate at runtime it belongs on `*State` instead. Cold collections (read at spawn / load / UI-open) stay as they are — this is triggered by access frequency, not by type.
   - **Godot engine properties and methods on nodes/resources** — `GlobalPosition`, `Visible`, `LinearVelocity`, `AnimationPlayer.HasAnimation()`. Resolve once per tick into a local and reuse; don't let two call sites each walk the same transform.
   - **NOT plain `[Export]` fields on your own C# `Node`/`Resource` subclasses.** `[Export] public float visionRange` is an ordinary managed field — `[Export]` only affects the editor and serializer. Reading it is free, and the `[Export]`-everything conventions above stand unchanged.
 - **A read that costs something is a method, not a property.** A C# property reads like a field at the call site, so anything doing real work behind one — folding modifier lists, resolving a node transform, a line-of-sight query — gets sprinkled into per-tick code with no visible cost. Give those a verb name (`ComposeStat()`, `ShowsHudFeedbackAt()`) and reserve properties for genuine field forwarding (`health`, `alive`, `Level`). Related: **C# evaluates arguments eagerly**, so a cheap-looking call whose callee early-outs still pays for building its arguments — when the callee usually bails, expose the bail condition as a predicate the caller checks first (`DotHudAccumulator.WantsTick`).

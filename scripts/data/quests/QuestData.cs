@@ -40,6 +40,12 @@ public partial class QuestData : Resource
     // How the widget renders progress. See EQuestProgress.
     [Export] public EQuestProgress progressDisplay = EQuestProgress.None;
 
+    // Bool script variable set true when this quest COMPLETES (not on failure).
+    // A finished quest leaves the log, so this is the only lasting record of it —
+    // anything the quest unlocks (a Cauldron's enabledVariable) gates on this
+    // flag rather than on the quest. Blank = no record.
+    [Export] public StringName completedVariable;
+
     // Mint the runtime tracker for this quest. Each subclass overrides to
     // return its paired QuestState. Code paths that need runtime context (e.g.
     // the rescued Player) construct the runtime directly instead.

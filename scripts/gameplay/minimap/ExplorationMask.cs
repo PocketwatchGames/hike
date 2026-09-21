@@ -1,21 +1,12 @@
 using System.Collections.Generic;
+using System.IO;
 
-// CPU-side fog-of-war reveal buffers for one Knowledge store — the map a
-// character has personally charted. R8 bytes matching the minimap's exploration
-// texture layout: one world-sized outdoor buffer plus a sparse per-slice-level
-// dictionary for the indoor atlas. Reveal writes max(existing, falloff) (see
-// MinimapTextures / MinimapSliceAtlas, which own the geometry and do the writes
-// into these buffers).
-//
-// Two live per run, mirroring the teachable-concept split: the permanent party
-// pool (Party.Knowledge.Exploration) and the active member's provisional field
-// buffer (PlayerState.Knowledge.Exploration). The minimap displays
-// max(party, active) — the controlled player's un-banked reveal shows there
-// immediately — while the world map displays the party pool only. Banking at a
-// campfire folds the active buffer into the party pool (Knowledge.MergeFrom →
-// ExplorationMask.MergeFrom) and clears it, so the reveal graduates onto the
-// world map. Buffers are allocated lazily on first reveal, so an unexplored
-// member/pool costs nothing. Plain byte data — SaveGame-serializable.
+// CPU-side fog-of-war reveal buffers — the party's charted map (MapChart). R8
+// bytes matching the minimap's exploration texture layout: one world-sized
+// outdoor buffer plus a sparse per-slice-level dictionary for the indoor atlas.
+// Reveal writes max(existing, falloff) (see MinimapTextures / MinimapSliceAtlas,
+// which own the geometry and do the writes into these buffers). Allocated lazily
+// on first reveal. Plain byte data — SaveGame-serializable.
 public class ExplorationMask
 {
     // Outdoor world-extent R8 buffer (OutdoorMetersPerPixel). Null until first
@@ -23,7 +14,7 @@ public class ExplorationMask
     public byte[] Outdoor;
 
     // Per-slice-level R8 buffers (IndoorMetersPerPixel, full XZ extent), keyed by
-    // sliceLevel. Sparse — only slices the character has actually revealed exist.
+    // sliceLevel. Sparse — only slices the party has actually revealed exist.
     public readonly Dictionary<int, byte[]> Slices = new();
 
     public byte[] EnsureOutdoor(int size)
@@ -35,6 +26,50 @@ public class ExplorationMask
         return Outdoor;
     }
 
+    public void Serialize(BinaryWriter w)
+    {
+        WriteBuffer(w, Outdoor);
+        w.Write(Slices.Count);
+        foreach (KeyValuePair<int, byte[]> kv in Slices)
+        {
+            w.Write(kv.Key);
+            WriteBuffer(w, kv.Value);
+        }
+    }
+
+    // A buffer whose size no longer matches the minimap's is re-allocated blank
+    // by the next Ensure* — the world's extent changed under the save.
+    public void Deserialize(BinaryReader r)
+    {
+        Outdoor = ReadBuffer(r);
+        Slices.Clear();
+        int slices = r.ReadInt32();
+        for (int i = 0; i < slices; i++)
+        {
+            int level = r.ReadInt32();
+            byte[] buffer = ReadBuffer(r);
+            if (buffer != null)
+            {
+                Slices[level] = buffer;
+            }
+        }
+    }
+
+    private static void WriteBuffer(BinaryWriter w, byte[] buffer)
+    {
+        w.Write(buffer?.Length ?? -1);
+        if (buffer != null)
+        {
+            w.Write(buffer);
+        }
+    }
+
+    private static byte[] ReadBuffer(BinaryReader r)
+    {
+        int length = r.ReadInt32();
+        return length < 0 ? null : r.ReadBytes(length);
+    }
+
     public byte[] EnsureSlice(int sliceLevel, int size)
     {
         if (!Slices.TryGetValue(sliceLevel, out byte[] buffer) || buffer.Length != size)
@@ -43,51 +78,5 @@ public class ExplorationMask
             Slices[sliceLevel] = buffer;
         }
         return buffer;
-    }
-
-    // Fold `other` into this buffer set (per-pixel max). Used to bank a member's
-    // field reveal into the permanent party pool. Returns true if any pixel was
-    // newly revealed here (drives the campfire "Map Updated" announcement).
-    public bool MergeFrom(ExplorationMask other)
-    {
-        if (other == null)
-        {
-            return false;
-        }
-        bool changed = false;
-        if (other.Outdoor != null)
-        {
-            changed |= MaxInto(EnsureOutdoor(other.Outdoor.Length), other.Outdoor);
-        }
-        foreach (KeyValuePair<int, byte[]> kv in other.Slices)
-        {
-            if (kv.Value == null)
-            {
-                continue;
-            }
-            changed |= MaxInto(EnsureSlice(kv.Key, kv.Value.Length), kv.Value);
-        }
-        return changed;
-    }
-
-    public void Clear()
-    {
-        Outdoor = null;
-        Slices.Clear();
-    }
-
-    static bool MaxInto(byte[] dst, byte[] src)
-    {
-        bool changed = false;
-        int n = System.Math.Min(dst.Length, src.Length);
-        for (int i = 0; i < n; i++)
-        {
-            if (src[i] > dst[i])
-            {
-                dst[i] = src[i];
-                changed = true;
-            }
-        }
-        return changed;
     }
 }

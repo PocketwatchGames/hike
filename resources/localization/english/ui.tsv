@@ -34,3 +34,7 @@ controls_melee	Melee Attack
 controls_spell	Cast Spell
 controls_rotate_camera	Rotate Camera
 controls_map	Map
+profile_new_game	New Game
+profile_delete	Delete
+profile_delete_confirm	Confirm Delete?
+profile_unreadable	Unreadable Save
