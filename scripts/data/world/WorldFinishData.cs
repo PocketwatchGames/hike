@@ -108,15 +108,25 @@ public partial class WorldFinishData : Resource
     [Export(PropertyHint.Range, "1,8,1")] public int maxGradeStep = 1;
 
     // Density gradient under the fog top: density(wy) = (level - wy) *
-    // FogDensityPerVoxel, clamped to [0, 255].
-    [Export] public float fogDensityPerVoxel = 80f;
+    // FogDensityPerVoxel, clamped to [0, 255]. Keep this low enough that the
+    // upper half of the band is a real ramp rather than saturated: the faint
+    // top only reads once the weather's fog density is high, which is what
+    // makes the fog look deeper in rain than at a clear midday.
+    [Export] public float fogDensityPerVoxel = 30f;
 
-    // Fog depth above the local floor at humidity = 1, in voxels.
+    // Fog depth above the local floor at humidity = 1, in voxels. The top is a
+    // flat sheet over the pooled floor, so fog is this deep at the bottom of a
+    // hollow and thins to nothing up its sides.
     [Export] public float fogDepthPerHumidity = 6f;
 
     // How far (in chunks) a column looks for the low ground its fog pools over.
-    // Ground more than the fog depth above the lowest floor in reach stays clear.
+    // Ground more than the fog depth above that floor stays clear.
     [Export(PropertyHint.Range, "0,8,1")] public int fogPoolRadiusChunks = 2;
+
+    // Which quantile of the floors in reach becomes the fog floor. 0 is the
+    // strict minimum, where a single ravine sinks the fog for everything around
+    // it; low-but-not-zero keeps fog on the valley floor a creek runs through.
+    [Export(PropertyHint.Range, "0,0.5,0.01")] public float fogPoolQuantile = 0.25f;
 
     // Box blur (in chunks) over the pooled floor, so the fog top slopes gently
     // where it steps between pools.

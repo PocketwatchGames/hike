@@ -14,27 +14,35 @@
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="9_vmvbc"]
 [ext_resource type="PackedScene" uid="uid://oygoy20q68dr" path="res://scenes/fx/slime_target_preview.tscn" id="10_preview"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_vmvbc"]
+[ext_resource type="Script" uid="uid://cbrtam2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="20_burst"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("5_event")
 type = 64
 animName = 24
 
-[sub_resource type="Resource" id="Resource_areaspec_aoe"]
-script = ExtResource("4_area")
-damageProfileKey = &"aoe"
-tickInterval = 5.0
+[sub_resource type="Resource" id="Resource_damage_aoe"]
+script = ExtResource("6_damage")
+tags = 577
+healthDamage = 40.0
+hitstun = 0.2
+knockbackDistance = 0.3
+knockbackTime = 0.1
+buildups = []
+modifiers = []
+
+[sub_resource type="Resource" id="Resource_burst"]
+script = ExtResource("20_burst")
+damage = SubResource("Resource_damage_aoe")
+fx = ExtResource("8_burst")
 
 [sub_resource type="Resource" id="Resource_event_impact"]
 script = ExtResource("5_event")
-type = 81920
+type = 4259840
 cameraShakeMagnitude = 0.12
 cameraShakeDuration = 0.2
 cameraShakeRange = 18.0
-areaEffectScene = ExtResource("8_burst")
-areaRadius = 2.0
-areaDurationSeconds = 0.5
-areaIntervals = Array[ExtResource("4_area")]([SubResource("Resource_areaspec_aoe")])
+areaBurst = SubResource("Resource_burst")
 
 [sub_resource type="Resource" id="Resource_event_spit"]
 script = ExtResource("5_event")
@@ -67,16 +75,6 @@ turnLockDelaySeconds = 0.15
 script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_spit")])
 
-[sub_resource type="Resource" id="Resource_damage_aoe"]
-script = ExtResource("6_damage")
-tags = 577
-healthDamage = 40.0
-hitstun = 0.2
-knockbackDistance = 0.3
-knockbackTime = 0.1
-buildups = []
-modifiers = []
-
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("6_damage")
 tags = 577
@@ -88,7 +86,6 @@ modifiers = []
 [resource]
 script = ExtResource("1_weapon")
 damageProfiles = Dictionary[StringName, ExtResource("6_damage")]({
-&"aoe": SubResource("Resource_damage_aoe"),
 &"primary": SubResource("Resource_damage_primary")
 })
 actionProfile = SubResource("Resource_profile")

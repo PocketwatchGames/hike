@@ -19,6 +19,11 @@ using Godot;
 // Spawned by weapon AoEs (rain of arrows), GasClouds, and static traps
 // (fire columns). Routes through HurtBox.Hit so armor / knockback / hit
 // prediction match weapon hits.
+//
+// A zone is a hazard that LINGERS. Something that should hit once, now — an
+// explosion, a glob bursting — is an AreaBurst: an Area3D can't see its overlaps
+// until the physics step after it is added, and keeping one alive long enough to
+// register lets late arrivals walk into a finished blast.
 [GlobalClass]
 public partial class DamageZone : Area3D
 {
@@ -40,7 +45,7 @@ public partial class DamageZone : Area3D
 
     // Faction that "owns" this hazard, fed to the shared
     // ItemEventHandlers.CanDamage rule at enter time. Only consulted when
-    // friendlyFire is false — a player-spawned AoE (rain of arrows, bomb) gets
+    // friendlyFire is false — a player-spawned AoE (rain of arrows) gets
     // the firing actor's team via GasCloud so it spares the player and allies
     // while still hitting enemies. Environmental hazards leave friendlyFire
     // true and ignore this.
@@ -55,7 +60,7 @@ public partial class DamageZone : Area3D
 
     // When true, a hurtbox is only damaged if an unobstructed line exists from
     // the zone center to the target — solid terrain/props block the hit, so a
-    // tall blast can't reach enemies through a wall or an intervening floor.
+    // tall hazard can't reach enemies through a wall or an intervening floor.
     // Opt-in: environmental clouds meant to seep around corners leave it false.
     // Evaluated per-hit (not just on enter) so it re-checks as targets move.
     [Export] public bool requireLineOfSight = false;
@@ -267,60 +272,12 @@ public partial class DamageZone : Area3D
         }
     }
 
-    // Apply a hit only if the receiver's HurtBox.CanHit filter accepts it
-    // (team allegiance etc.) and — when requireLineOfSight is set — nothing
-    // solid occludes the target. The hazard's gate lives here, per tick,
-    // against the actual HitInfo — there is no enter-time team filter.
+    // Per tick, against the actual HitInfo — there is no enter-time team filter.
+    // The rules (team, occlusion, debris push) are the ones every area hit shares.
     private void TryHit(HurtBox hb, in HitInfo hit)
     {
-        if (!hb.CanBeHit(hit))
-        {
-            return;
-        }
-        if (requireLineOfSight && !HasLineOfSight(hb))
-        {
-            return;
-        }
-        // A zone damages whatever stands in it from no particular side, so its
-        // HitInfo carries no direction — fine for actors, useless for loose
-        // debris, which has nowhere to be thrown. Give debris a radial push out
-        // of the zone so a bomb actually scatters the items it goes off next to.
-        if ((hb.CollisionLayer & (uint)ECollisionLayer.Debris) != 0
-            && hit.hitDirection.LengthSquared() < 0.0001f)
-        {
-            Vector3 away = hb.GlobalPosition - GlobalPosition;
-            away.Y = 0f;
-            if (away.LengthSquared() > 0.0001f)
-            {
-                HitInfo debrisHit = hit;
-                debrisHit.hitDirection = away.Normalized();
-                hb.Hit(debrisHit);
-                return;
-            }
-        }
-        hb.Hit(hit);
-    }
-
-    // Raycast from the zone center to the target's hurtbox; blocked by solid
-    // terrain/props so a blast can't reach through walls or floors. Mirrors the
-    // perception LOS query (ECollisionLayer.Solid, bodies only). Areas are
-    // ignored so the HurtBox areas themselves don't register as occluders.
-    // Aimed at HurtBox.Center, never the hurtbox node: that sits at the target's
-    // feet, so the ray ends on the ground the target is standing on and every
-    // ground-resting blast self-blocks.
-    private bool HasLineOfSight(HurtBox hb)
-    {
-        World3D world = GetWorld3D();
-        if (world == null)
-        {
-            return true;
-        }
-        Vector3 from = GlobalPosition + Vector3.Up * losOriginHeight;
-        Vector3 to = hb.Center;
-        using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
-        query.CollideWithAreas = false;
-        query.CollideWithBodies = true;
-        return world.DirectSpaceState.IntersectRay(query).Count == 0;
+        World3D losWorld = requireLineOfSight ? GetWorld3D() : null;
+        AreaBurst.TryHit(hb, hit, GlobalPosition, radial: false, losWorld, GlobalPosition + Vector3.Up * losOriginHeight);
     }
 
     private void OnAreaExited(Area3D area)

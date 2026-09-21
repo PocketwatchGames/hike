@@ -828,24 +828,12 @@ public class StatusEffectController
 			{
 				continue;
 			}
-			AreaBurstData burst = data.attackImpact;
-			if (burst != null && (burst.damage != null || burst.fx != null))
-			{
-				if (burst.fx != null && _world != null)
-				{
-					Fx.Create(burst.fx, _world, position);
-				}
-				if (burst.damage != null)
-				{
-					ItemEventHandlers.ApplyAreaDamage(attacker, burst.damage, position, burst.radius);
-				}
-			}
+			AreaBurst.Fire(data.attackImpact, _world, position, attacker.AttackerNode, attacker.ActorTeam, attacker.SelfHurtBoxRid);
 		}
 	}
 
 	// Fire each active effect's dashBurst at the dashing actor. Called from
-	// Player.ApplyMotion when a dash begins. Like TriggerAttackImpact but the area
-	// damage uses radial knockback (targets shoved away from the actor).
+	// Player.ApplyMotion when a dash begins.
 	public void TriggerDashBurst(IActionActor attacker, Vector3 position)
 	{
 		if (attacker == null)
@@ -854,19 +842,8 @@ public class StatusEffectController
 		}
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
-			AreaBurstData burst = _statusEffects[i]?.data?.dashBurst;
-			if (burst == null || (burst.damage == null && burst.fx == null))
-			{
-				continue;
-			}
-			if (burst.fx != null && _world != null)
-			{
-				Fx.Create(burst.fx, _world, position);
-			}
-			if (burst.damage != null)
-			{
-				ItemEventHandlers.ApplyAreaDamage(attacker, burst.damage, position, burst.radius, radialKnockback: true);
-			}
+			AreaBurst.Fire(_statusEffects[i]?.data?.dashBurst, _world, position,
+				attacker.AttackerNode, attacker.ActorTeam, attacker.SelfHurtBoxRid);
 		}
 	}
 

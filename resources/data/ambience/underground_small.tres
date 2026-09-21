@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_script")
 displayName = "Underground Small"
-dustFloor = 0.35
+dustFloor = 0.07
 windSuppression = 1.0
 reverbWet = 0.4
 reverbRoomSize = 0.65

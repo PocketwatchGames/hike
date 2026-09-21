@@ -921,6 +921,10 @@ public partial class SimData : Resource
     // gets an afternoon mist, not pea soup. Wind disperses it (normalized
     // against the zone's own typical wind). 0 = no evaporative fog at all.
     [Export(PropertyHint.Range, "0,1,0.01")] public float evaporativeFogStrength = 0.35f;
+
+    // Wind that fully disperses evaporative fog, as a multiple of the zone's own
+    // typical wind: at typical nothing disperses, at this multiple all of it does.
+    [Export(PropertyHint.Range, "1.1,6,0.1")] public float fogWindDispersalMultiple = 2.5f;
     // Low-end dead-zone on the fog signal: fog below this collapses to 0, then
     // the remainder is rescaled to [0,1]. Stops the concave AmbientFog curve
     // from amplifying a trace humidity wisp into visible haze, so a nearly-dry
@@ -1592,12 +1596,13 @@ public partial class SimData : Resource
     // radius in thick fog.
     [Export(PropertyHint.Range, "0,2,0.01")] public float fogHearingBoost = 0.3f;
 
-    // Fraction of vision range removed at full fog. Fog scatters light and is
-    // the dominant weather reducer of sight. 0.6 = vision cut to 40% of its
-    // clear-air reach in the thickest fog.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float fogVisionReduction = 0.6f;
+    // Concealment at the thickest-LOOKING fog. Perception follows the visible
+    // fog's obscuration (where, when, how far through it) and this sets its
+    // strength: 0.35 = fog that looks fully opaque hides a target 35%. Tune the
+    // look with fogDensityK and this independently.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float fogMaxConcealment = 0.35f;
 
-    // Fraction of vision range removed at full rain. Rain is a slight extra
+    // Fraction of sight clarity removed at full rain. Rain is a slight extra
     // haze on top of any fog it brings — kept small so a downpour alone
     // doesn't blind anyone. 0.15 = -15% sight in heavy rain.
     [Export(PropertyHint.Range, "0,1,0.01")] public float rainVisionReduction = 0.15f;

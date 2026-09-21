@@ -198,8 +198,12 @@ public partial class ItemEvent : Resource
 	[Export] public PackedScene impactArmorEffect;
 	[Export] public PackedScene impactLethalEffect;
 
-	// SpawnAreaEffect: Node3D scene spawned at the actor's aim point (or
-	// position when no aim cursor is active). The scene is a "template" —
+	// AreaBurst: the instant blast — damage, radius and fx in one. See
+	// EItemEventType.AreaBurst.
+	[Export] public AreaBurstData areaBurst;
+
+	// SpawnAreaEffect: a LINGERING hazard's Node3D scene spawned at the actor's
+	// aim point (or position when no aim cursor is active). The scene is a "template" —
 	// it carries its own visual (particle loop, mesh), structural collision
 	// mask, and friendly-fire policy. The weapon-side fields below override
 	// damage, hazard radius, and lifetime on the spawned instance via
@@ -451,6 +455,7 @@ public partial class ItemEvent : Resource
 				or nameof(areaContinuousKey)
 				or nameof(areaIntervals) => EItemEventType.SpawnAreaEffect,
 			nameof(areaRadius) => EItemEventType.SpawnAreaEffect | EItemEventType.ApplyAreaStatusEffect,
+			nameof(areaBurst) => EItemEventType.AreaBurst,
 			nameof(areaMaxTargets) => EItemEventType.ApplyAreaStatusEffect,
 			nameof(cameraShakeMagnitude)
 				or nameof(cameraShakeDuration)

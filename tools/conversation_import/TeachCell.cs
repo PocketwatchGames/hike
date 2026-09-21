@@ -53,6 +53,8 @@ static class TeachCell
 		("vocabulary1", 1 << 2),
 		("vocabulary2", 1 << 3),
 		("vocabulary3", 1 << 4),
+		("vocabulary4", 1 << 5),
+		("vocabulary5", 1 << 6),
 	};
 
 	// True when the cell token is the inline teach form rather than the name of

@@ -66,6 +66,8 @@ public struct PerceptionDebug
     public float facing;
     public float speed;
     public float camouflage;
+    // Fog clarity on this sightline — what perception applies (1 = clear air).
+    public float fog;
     // Sightline state THIS tick. Clear = raycast ran and was unobstructed;
     // Blocked = raycast ran and hit; Unchecked = no raycast (out of range or
     // below the perception floor — we never looked).
@@ -354,7 +356,7 @@ public partial class Mob
                 float playerStealth = target.triggered
                     ? Mathf.Lerp(1f, stealthTerm, mobData.darknessPerceptionWeight)
                     : stealthTerm;
-                float env = PlayerPerception.VisionRangeMultiplier(_world, GlobalPosition, _world.player.GlobalPosition);
+                float env = PlayerPerception.SightlineClarity(_world, GlobalPosition, _world.player.GlobalPosition);
                 float clarity = facingFactor * env * playerStealth;
                 // Signal = closeness curve × clarity. minPerceptionDelta is the
                 // floor: kept low so perception starts rising EARLY and visibly (the
@@ -522,6 +524,7 @@ public partial class Mob
             mobToPlayerDebug.facing = facingFactor;
             mobToPlayerDebug.speed = _world.player.visibilitySpeed;
             mobToPlayerDebug.camouflage = _world.player.visibilityCamouflage;
+            mobToPlayerDebug.fog = PlayerPerception.FogClarity(_world, GlobalPosition, _world.player.GlobalPosition);
             // Unchecked when out of range (no raycast ran); otherwise Clear/Blocked
             // by the raycast result. Mirrors the player→mob tri-state.
             mobToPlayerDebug.los = inVisionRange
@@ -713,17 +716,16 @@ public partial class Mob
         float perceptionDelta = 0f;
         if (canSee)
         {
-            // Fog/rain shorten the sightline; fog averaged over both ends of the
-            // mob→enemy line.
-            float visionRange = mobData.visionRange
-                * PlayerPerception.VisionRangeMultiplier(_world, GlobalPosition, enemy.GlobalPosition);
+            // Fog and rain fade the target — the same clarity the player path uses.
+            float visionRange = mobData.visionRange;
             if (visionRange > 0f)
             {
                 float distSq = (enemy.GlobalPosition - GlobalPosition).LengthSquared();
                 float closeness = Mathf.Pow(
                     Mathf.Clamp(1f - distSq / (visionRange * visionRange), 0f, 1f),
                     mobData.visionRangePower);
-                perceptionDelta = closeness * mobData.visionStrength;
+                perceptionDelta = closeness * mobData.visionStrength
+                    * PlayerPerception.SightlineClarity(_world, GlobalPosition, enemy.GlobalPosition);
             }
             slot.lastKnownPosition = enemy.GlobalPosition;
         }

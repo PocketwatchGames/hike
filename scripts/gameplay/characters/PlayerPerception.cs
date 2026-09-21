@@ -101,6 +101,9 @@ public static class PlayerPerception
 
         var result = new PerceptionTickResult();
         debug = default;
+        // Clear air until the in-range block measures the sightline, so an
+        // out-of-range readout doesn't show as fully fogged.
+        debug.fog = 1f;
         if (sim == null || sim.player == null)
         {
             return result;
@@ -191,23 +194,13 @@ public static class PlayerPerception
             // 1 = linear. Full darkness still drives clarity to 0 (lightFactor 0 →
             // mLight 0), preserving the zero-light invariant.
             SimData simData = sim.SimData;
-            // Fog obscures the whole sightline, so average its density at both ends
-            // rather than only at the player — a mob standing in a low-lying fog
-            // bank then reads as obscured even when the player is in clear air (and
-            // vice-versa). Cheap (two single-voxel lookups) and symmetric, so a
-            // sightline reads the same fog whichever way it's perceived.
-            //
-            // FogFraction is the STATIC per-voxel field (where fog pools); scale it
-            // by the live diurnal CurrentFogAmount so obscuration tracks the VISIBLE
-            // fog the renderer shows (fog_map × fog_density). Without this the dense
-            // authored fog_map would blind perception at midday even though the fog
-            // has visibly burned off.
-            float fog = 0.5f * (FogFraction(sim, player.GlobalPosition) + FogFraction(sim, targetPos))
-                * sim.CurrentFogAmount();
             float rain = sim.CurrentRainAmount();
             float bite = 1f / Mathf.Max(0.01f, pd.clarityPower);
             float mLight = 1f - Mathf.Pow(1f - lightFactor, bite);
-            float mFog = simData != null ? 1f - simData.fogVisionReduction * Mathf.Pow(fog, bite) : 1f;
+            // Not shaped by clarityPower: FogClarity already follows the on-screen
+            // curve, and bending it would put concealment out of step with the look.
+            float mFog = FogClarity(sim, player.GlobalPosition, targetPos);
+            debug.fog = mFog;
             float mRain = simData != null ? 1f - simData.rainVisionReduction * Mathf.Pow(rain, bite) : 1f;
             float clarity = Mathf.Max(0f, mLight * mFog * mRain) * inputs.prominence;
             // Signal = closeness curve × clarity. perceptionMinimum is the floor:
@@ -388,27 +381,60 @@ public static class PlayerPerception
         return ws.GetFogWorld(Mathf.FloorToInt(pos.X), Mathf.FloorToInt(pos.Y), Mathf.FloorToInt(pos.Z)) / 255f;
     }
 
-    // Vision-range multiplier along the sightline between `perceiverPos` and
-    // `targetPos`: fog (dominant) and rain both add haze that shortens sight. Fog
-    // is averaged at both ends so a target standing in a fog bank reads as
-    // obscured even from clear air (and the value is symmetric — a sightline reads
-    // the same fog whichever direction it's perceived). Rain is the global blended
-    // amount. (player→mob applies its own clarityPower-shaped fog inline; this is
-    // the linear mob→player / mob→mob path.)
-    public static float VisionRangeMultiplier(Sim sim, Vector3 perceiverPos, Vector3 targetPos)
+    // Fraction of a target that VISIBLY shows through the fog between two points
+    // — the volumetric shader's own extinction, exp(-density × distance), with
+    // density = the fog field × SimData.fogDensityK × the weather's fog signal.
+    // A visual measure; gameplay reads it through FogClarity.
+    //
+    // The field is averaged at the two ends rather than marched: fog is
+    // regionally smooth, a target standing in a bank reads as obscured from
+    // clear air, and the value is symmetric whichever way it's perceived.
+    // Uses the fog signal BEFORE night dimming (CurrentFogAmount): night fog
+    // reads thick by contrast even though its rendered density is turned down.
+    public static float FogTransmittance(Sim sim, Vector3 a, Vector3 b)
     {
         SimData simData = sim?.SimData;
         if (simData == null)
         {
             return 1f;
         }
-        // Static per-voxel fog field (where fog pools), scaled by the live diurnal
-        // CurrentFogAmount so the obscurant tracks the VISIBLE fog the renderer
-        // shows (fog burns off at midday) rather than the always-dense fog_map.
-        float fog = 0.5f * (FogFraction(sim, perceiverPos) + FogFraction(sim, targetPos))
-            * sim.CurrentFogAmount();
+        float weatherFog = sim.CurrentFogAmount();
+        if (weatherFog <= 0f)
+        {
+            return 1f;
+        }
+        float field = 0.5f * (FogFraction(sim, a) + FogFraction(sim, b));
+        float density = field * simData.fogDensityK * weatherFog;
+        return Mathf.Exp(-density * a.DistanceTo(b));
+    }
+
+    // How clearly fog lets a target be perceived: its VISIBLE obscuration
+    // (1 - transmittance) scaled by SimData.fogMaxConcealment. Follows the look
+    // in shape — where the fog is, when, how far through it — while its strength
+    // is tuned on its own, so the fog can look thick without hiding too much.
+    public static float FogClarity(Sim sim, Vector3 a, Vector3 b)
+    {
+        SimData simData = sim?.SimData;
+        if (simData == null)
+        {
+            return 1f;
+        }
+        return 1f - simData.fogMaxConcealment * (1f - FogTransmittance(sim, a, b));
+    }
+
+    // Clarity multiplier along the sightline between `perceiverPos` and
+    // `targetPos`: fog and rain haze. (player→mob composes the same terms inline,
+    // rain shaped by clarityPower.)
+    public static float SightlineClarity(Sim sim, Vector3 perceiverPos, Vector3 targetPos)
+    {
+        SimData simData = sim?.SimData;
+        if (simData == null)
+        {
+            return 1f;
+        }
         float rain = sim.CurrentRainAmount();
-        return Mathf.Max(0f, (1f - simData.fogVisionReduction * fog) * (1f - simData.rainVisionReduction * rain));
+        return FogClarity(sim, perceiverPos, targetPos)
+            * Mathf.Max(0f, 1f - simData.rainVisionReduction * rain);
     }
 
     // Hearing-range multiplier at the listener: wind masks sound (turbulent

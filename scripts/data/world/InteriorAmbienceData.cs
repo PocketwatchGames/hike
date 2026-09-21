@@ -34,7 +34,7 @@ public partial class InteriorAmbienceData : Resource
     //
     // Fills the cell's own AIR voxels; unlike a roof there is no depth knob,
     // because a cell already knows the volume it covers.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float dustFloor;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float dustFloor;
 
     // How much this space seals out ambient wind. 0 = wind passes freely
     // (outdoors), 1 = dead calm. Applied as a multiplier on the sampled wind

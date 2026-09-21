@@ -2,14 +2,14 @@ using Godot;
 
 // A barrel that detonates the first time anything damages it — a player swing,
 // a stray arrow, a fire trap, or the blast of another exploding barrel (chain
-// reactions come for free, since the explosion's DamageZone hits every HurtBox
-// in range, including neighbouring barrels').
+// reactions come for free, since the blast hits every HurtBox in range,
+// including neighbouring barrels').
 //
 // It stays a plain prop for placement (derives from PropInstance, so the prop
 // brush / prop library / subscenes spawn it exactly like any other barrel) but
-// adds a HurtBox to receive hits. On detonation it spawns a self-contained
-// explosion scene (blast fx + AoE DamageZone) into the world, then swaps its
-// own intact model for a broken shell and reveals a lingering scorch stain.
+// adds a HurtBox to receive hits. On detonation it fires its AreaBurst (the blast
+// fx + one instant hit), then swaps its own intact model for a broken shell and
+// reveals a lingering scorch stain.
 [GlobalClass]
 public partial class ExplodingBarrel : PropInstance
 {
@@ -31,10 +31,9 @@ public partial class ExplodingBarrel : PropInstance
     // ground-stain quad — see GroundStainProjector).
     [Export] private Node3D _scorchStain;
 
-    // The explosion: a GasCloud carrying the blast fx + a damage zone. Spawned
-    // into the world (not parented to us) so it outlives the model swap and can
-    // reach neighbouring barrels. See barrel_explosion.tscn.
-    [Export] private PackedScene _explosionScene;
+    // The explosion. Its damage should author friendlyFire — a barrel belongs to
+    // no side and hits everyone, neighbouring barrels included.
+    [Export] private AreaBurstData _blast;
 
     // Height above the barrel's origin the explosion is centred at, so the blast
     // originates from the barrel's middle rather than the ground.
@@ -73,19 +72,10 @@ public partial class ExplodingBarrel : PropInstance
         }
         _exploded = true;
 
-        // Spawn the explosion into the world. Parenting to the Sim (not to us)
-        // keeps it independent of our model swap and lets its DamageZone chain
-        // into adjacent barrels.
-        if (_explosionScene != null)
-        {
-            Node host = (Node)Sim.Current ?? GetParent();
-            if (host != null)
-            {
-                Node3D blast = _explosionScene.Instantiate<Node3D>();
-                host.AddChild(blast);
-                blast.GlobalPosition = GlobalPosition + Vector3.Up * _blastHeightOffset;
-            }
-        }
+        // Deferred: the hit that set us off can arrive inside the physics flush
+        // (a hazard's area-entered signal), where the blast's shape query is not
+        // allowed.
+        Callable.From(FireBlast).CallDeferred();
 
         // Swap intact barrel for the broken shell + scorch mark.
         if (_intactModel != null)
@@ -114,5 +104,11 @@ public partial class ExplodingBarrel : PropInstance
         {
             _bodyCollision.SetDeferred(CollisionShape3D.PropertyName.Disabled, true);
         }
+    }
+
+    private void FireBlast()
+    {
+        Node3D host = Sim.Current ?? GetParent() as Node3D;
+        AreaBurst.Fire(_blast, host, GlobalPosition + Vector3.Up * _blastHeightOffset, this, ETeam.Neutral, _hurtBox?.GetRid());
     }
 }

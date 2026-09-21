@@ -11,7 +11,7 @@ using System.Text;
 public static class TextScrambler
 {
     // Applies the transforms named by `missing` to `text`. Per component:
-    //   Vocabulary1-3 — each word with letters is bucketed into one of
+    //   Vocabulary1-5 — each word with letters is bucketed into one of
     //                   three vocabulary slots by a stable hash of its
     //                   letters. The bucket's Vocabulary_N flag, when
     //                   missing, runs that word's letters through the
@@ -49,7 +49,8 @@ public static class TextScrambler
         bool doNumbers = (missing & ELanguageComponents.Numbers) != 0;
         bool doGrammar = (missing & ELanguageComponents.Grammar) != 0;
         ELanguageComponents missingVocab = missing & (ELanguageComponents.Vocabulary1
-            | ELanguageComponents.Vocabulary2 | ELanguageComponents.Vocabulary3);
+            | ELanguageComponents.Vocabulary2 | ELanguageComponents.Vocabulary3
+            | ELanguageComponents.Vocabulary4 | ELanguageComponents.Vocabulary5);
 
         List<string> tokens = new List<string>();
         List<string> separators = new List<string>();
@@ -110,12 +111,14 @@ public static class TextScrambler
         // mapping two buckets onto one flag made Vocabulary2 worth twice
         // Vocabulary1 and left every `components = 16` in the data teaching a bit
         // nothing tested.
-        int bucket = (h & 0x7FFFFFFF) % 3;
+        int bucket = (h & 0x7FFFFFFF) % 5;
         return bucket switch
         {
             0 => ELanguageComponents.Vocabulary1,
             1 => ELanguageComponents.Vocabulary2,
-            _ => ELanguageComponents.Vocabulary3,
+            2 => ELanguageComponents.Vocabulary3,
+            3 => ELanguageComponents.Vocabulary4,
+            _ => ELanguageComponents.Vocabulary5,
         };
     }
 
@@ -222,7 +225,10 @@ public static class TextScrambler
 
         ELanguageComponents missing = ELanguageComponents.All & ~learned;
         ELanguageComponents missingVocab = missing & (ELanguageComponents.Vocabulary1
-            | ELanguageComponents.Vocabulary2 | ELanguageComponents.Vocabulary3);
+            | ELanguageComponents.Vocabulary2 
+            | ELanguageComponents.Vocabulary3 
+            | ELanguageComponents.Vocabulary4 
+            | ELanguageComponents.Vocabulary5);
         bool numbersKnown = (missing & ELanguageComponents.Numbers) == 0;
         bool grammarKnown = (missing & ELanguageComponents.Grammar) == 0;
 

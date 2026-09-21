@@ -978,6 +978,10 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoSpawnAreaEffect(_actor, ev, ref _action);
 		}
+		if ((t & EItemEventType.AreaBurst) != 0)
+		{
+			ItemEventHandlers.DoAreaBurst(_actor, ev, ref _action);
+		}
 		if ((t & EItemEventType.UseAmmo) != 0)
 		{
 			ItemEventHandlers.DoUseAmmo(_actor, ev, ref _action);

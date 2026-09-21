@@ -824,6 +824,10 @@ public partial class SkyController : Node3D
     // stay null; the preview path reads previewZone / previewZone.weather
     // directly. ZoneBlend.Sample rewrites these in place each frame.
     private ZoneData _blendedZone;
+    // The blended AUTHORED weather of the zones here, never simulated over —
+    // the climate the fog gate asks about. _blendedZone cannot carry it: it is
+    // stitched from several zones and has no weather of its own.
+    private WeatherData _blendedClimate;
     private WeatherData _blendedWeather;
     // Blended runtime fields for the current sample. Mirrors what would
     // live on a working ZoneState; kept as scalars so SkyController's
@@ -851,6 +855,17 @@ public partial class SkyController : Node3D
         get
         {
             if (!Engine.IsEditorHint()) { return _blendedWeather; }
+            return previewZone?.weather;
+        }
+    }
+
+    // The blended AUTHORED climate here — what the fog gate asks "is this a
+    // humid PLACE", as opposed to the drifting live weather.
+    public WeatherData Climate
+    {
+        get
+        {
+            if (!Engine.IsEditorHint()) { return _blendedClimate; }
             return previewZone?.weather;
         }
     }
@@ -1096,6 +1111,7 @@ public partial class SkyController : Node3D
             // into stable instances without allocating per frame.
             _blendedZone = new ZoneData();
             _blendedWeather = new WeatherData();
+            _blendedClimate = new WeatherData();
         }
 
         // Dynamic ripple buffer + control globals. Declared in project.godot's
@@ -1141,6 +1157,7 @@ public partial class SkyController : Node3D
         // before the Sim is up, fall back to previewZone.
         ZoneData currentZone = _blendedZone;
         WeatherData currentWeather = _blendedWeather;
+        WeatherData currentClimate = _blendedClimate;
         SimData simData = Sim.Current?.WorldState?.SimData;
 
         if (!Engine.IsEditorHint() && simData != null && _blendedZone != null && _blendedWeather != null)
@@ -1148,7 +1165,7 @@ public partial class SkyController : Node3D
             Vector3 sampleAt = Sim.Current.ViewCenter;
             WorldState ws = Sim.Current.WorldState;
             ZoneBlend.Sample(sampleAt, ws, _blendedZone, _blendedWeather,
-                out _blendedWindDirection, out _blendedElevation);
+                out _blendedWindDirection, out _blendedElevation, _blendedClimate);
 
             // Diurnal + 12-hour-variance perturbation on top of the
             // zone-blended max envelope. Re-rolls the variance state
@@ -1186,6 +1203,8 @@ public partial class SkyController : Node3D
         {
             currentZone = previewZone;
             currentWeather = previewZone?.weather;
+            // A preview is ONE authored zone, so its own weather is its climate.
+            currentClimate = previewZone?.weather;
         }
 
         // Orbit first — derivation needs _sunElevationDegrees.
@@ -1193,7 +1212,7 @@ public partial class SkyController : Node3D
 
         // Derive. A null zone/weather still produces a palette with
         // fallback values so editor preview works without wiring.
-        _palette = WeatherDerivation.Derive(currentZone, currentWeather, _sunElevationDegrees, (float)_dayClock01, simData);
+        _palette = WeatherDerivation.Derive(currentZone, currentWeather, _sunElevationDegrees, (float)_dayClock01, simData, currentClimate);
 
         // Advance lingering surface wetness from the post-Derive inputs
         // (palette.Fog is computed inside Derive). Runs only when a real

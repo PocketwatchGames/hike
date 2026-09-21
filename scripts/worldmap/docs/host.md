@@ -632,7 +632,7 @@ MULTI-BIT alias (`All`) are skipped — neither is independently togglable, and 
 alias item toggles several primaries at once with an ambiguous checked state of
 its own. That last rule is what the checkbox version was missing: the knowledge
 stone's `ELanguageComponents` has `All = Grammar | Numbers | Vocabulary1 |
-Vocabulary2`, and it drew as a checkbox that flipped four bits.
+Vocabulary2 | Vocabulary3 | Vocabulary4 | Vocabulary5`, and it drew as a checkbox that flipped four bits.
 
 **It must not be FLAT**, which is a `MenuButton`'s default: flat, it draws as
 bare text beside the property name, identical to a read-only value, and the

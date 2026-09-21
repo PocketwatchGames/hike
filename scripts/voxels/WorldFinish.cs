@@ -726,7 +726,8 @@ public static class WorldFinish
         }
 
         // Step 2 — pool over neighbours, then soften the steps that leaves.
-        float[] fogFloor = MinFilterChunks(chunkFloor, sizeCX, sizeCZ, finish.fogPoolRadiusChunks);
+        float[] fogFloor = QuantileFilterChunks(chunkFloor, sizeCX, sizeCZ,
+            finish.fogPoolRadiusChunks, finish.fogPoolQuantile);
         fogFloor = BoxBlurChunks(fogFloor, sizeCX, sizeCZ, finish.fogFloorBlurRadiusChunks);
 
         // Step 3 — stamp fog density per voxel under the column's level.
@@ -778,35 +779,31 @@ public static class WorldFinish
         GD.Print($"[WorldFinish] fog: {fogged} voxels seeded across {zoneCount} zone(s)");
     }
 
-    // Square-window minimum over a chunk-XZ grid (index ix * sizeZ + iz),
-    // separable. Infinity marks a chunk with no floor and never wins.
-    private static float[] MinFilterChunks(float[] src, int sizeX, int sizeZ, int radius)
+    // Low QUANTILE of a square window over a chunk-XZ grid (index ix * sizeZ +
+    // iz). Not a minimum: one ditch or ravine would otherwise set the fog floor
+    // for every chunk within the radius, and at a few voxels of fog depth that
+    // left the ground around it entirely above the fog.
+    private static float[] QuantileFilterChunks(float[] src, int sizeX, int sizeZ, int radius, float quantile)
     {
         if (radius <= 0) { return src; }
-        float[] tmp = new float[src.Length];
         float[] dst = new float[src.Length];
+        int side = 2 * radius + 1;
+        float[] window = new float[side * side];
         for (int ix = 0; ix < sizeX; ix++)
         {
             for (int iz = 0; iz < sizeZ; iz++)
             {
-                float m = float.PositiveInfinity;
-                for (int d = Math.Max(0, iz - radius); d <= Math.Min(sizeZ - 1, iz + radius); d++)
+                int n = 0;
+                for (int dx = Math.Max(0, ix - radius); dx <= Math.Min(sizeX - 1, ix + radius); dx++)
                 {
-                    m = Math.Min(m, src[ix * sizeZ + d]);
+                    for (int dz = Math.Max(0, iz - radius); dz <= Math.Min(sizeZ - 1, iz + radius); dz++)
+                    {
+                        window[n++] = src[dx * sizeZ + dz];
+                    }
                 }
-                tmp[ix * sizeZ + iz] = m;
-            }
-        }
-        for (int ix = 0; ix < sizeX; ix++)
-        {
-            for (int iz = 0; iz < sizeZ; iz++)
-            {
-                float m = float.PositiveInfinity;
-                for (int d = Math.Max(0, ix - radius); d <= Math.Min(sizeX - 1, ix + radius); d++)
-                {
-                    m = Math.Min(m, tmp[d * sizeZ + iz]);
-                }
-                dst[ix * sizeZ + iz] = m;
+                Array.Sort(window, 0, n);
+                int pick = Math.Clamp((int)(quantile * (n - 1)), 0, n - 1);
+                dst[ix * sizeZ + iz] = window[pick];
             }
         }
         return dst;

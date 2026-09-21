@@ -6,11 +6,13 @@
 [sub_resource type="Resource" id="Var_1"]
 script = ExtResource("2_variable")
 id = &"intro_librarian_map"
+type = 0
 description = "Declared by the test_world/intro_librarian conversation sheet."
 
 [sub_resource type="Resource" id="Var_2"]
 script = ExtResource("2_variable")
 id = &"intro_watchman_customs"
+type = 0
 description = "Declared by the test_world/intro_watchman conversation sheet."
 
 [resource]

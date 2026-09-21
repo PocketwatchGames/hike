@@ -550,7 +550,7 @@ script = ExtResource("14_w1yuy")
 scene = ExtResource("13_hatgq")
 language = ExtResource("9_errfs")
 text = "Vyeshal is difficult to read. But study, my friend, and you will learn it."
-components = 16
+components = 120
 
 [sub_resource type="Resource" id="Resource_ql8yq"]
 script = ExtResource("2_4i2sm")

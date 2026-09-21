@@ -33,10 +33,16 @@ public static class ZoneBlend
     // returns the blended runtime fields via out parameters. If the
     // world has no zones or no chunks in the kernel, outputs are left
     // at whatever the caller had.
+    // `outClimate` (optional) receives the same blend as `outWeather` but is
+    // never simulated over: it is this place's authored CLIMATE, which is what
+    // asks "is this a humid PLACE" long after the live weather has drifted. The
+    // blended ZoneData cannot answer that — it is stitched from several zones
+    // and carries no `weather` of its own.
     public static void Sample(
         Vector3 playerWorldPos, WorldState ws,
         ZoneData outZone, WeatherData outWeather,
-        out Vector3 outWindDirection, out float outElevation)
+        out Vector3 outWindDirection, out float outElevation,
+        WeatherData outClimate = null)
     {
         outWindDirection = new Vector3(1f, 0f, 0f);
         outElevation = 0f;
@@ -105,6 +111,10 @@ public static class ZoneBlend
 
         // --- Weather (WeatherData) ---
         BlendWeather(ws, weights, outWeather);
+        if (outClimate != null)
+        {
+            BlendWeather(ws, weights, outClimate);
+        }
     }
 
     // Per-zone normalized weights at `playerWorldPos`. Same kernel as

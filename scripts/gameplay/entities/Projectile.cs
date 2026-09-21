@@ -602,7 +602,8 @@ public partial class Projectile : Node3D
 			EHitResult.None => _expirationEvent ?? _impactEvent,
 			_ => _impactEvent,
 		};
-		ItemEventHandlers.DispatchAtPosition(followUp, position, GetParent(), _impact.sourceWeapon?.data, _attackerTeam);
+		ItemEventHandlers.DispatchAtPosition(followUp, position, GetParent(),
+			GodotObject.IsInstanceValid(_source) ? _source : null, _impact.sourceWeapon?.data, _attackerTeam);
 		StopLoopFx();
 		QueueFree();
 	}

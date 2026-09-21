@@ -14,10 +14,9 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 [resource]
 script = ExtResource("1_data")
 displayName = &"Webbed"
-description = "Sticky webbing clings to you. Each strand slows you further — linger and you grind to a near-standstill; keep moving and you shrug it off."
+description = "Sticky webbing clings to you, slowing you down. Another strand renews it."
 duration = 0.6
-maxStack = 6
-suppressStackFx = true
+maxStack = 1
 buildupRemovalDelay = 1.0
 buildupRemovalSpeed = 2.0
 startFx = ExtResource("4_startfx")

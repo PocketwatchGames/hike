@@ -1,17 +1,20 @@
 [gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://w5olwf3iq444"]
 
-[ext_resource type="Resource" path="res://resources/data/dialogue_scripts/actions/recruit_to_party.tres" id="Act_recruit_to_party"]
-[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]
 [ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="Script_ConversationData"]
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]
 [ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
 [ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
+[ext_resource type="Resource" path="res://resources/data/dialogue_scripts/actions/recruit_to_party.tres" id="Act_recruit_to_party"]
+
+[sub_resource type="Resource" id="Entry_1"]
+script = ExtResource("Script_ConversationEntry")
+branch = &"greeting"
 
 [sub_resource type="Resource" id="Branch_greeting"]
 script = ExtResource("Script_ConversationBranch")
 name = &"greeting"
 lineLocKeys = Array[StringName]([&"hermit_greeting_01", &"hermit_greeting_02"])
-endActions = null
 exitGroup = &"topics"
 isPrimaryGroupEntry = true
 
@@ -19,14 +22,12 @@ isPrimaryGroupEntry = true
 script = ExtResource("Script_ConversationBranch")
 name = &"who"
 lineLocKeys = Array[StringName]([&"hermit_who_01"])
-endActions = null
 exitGroup = &"topics"
 
 [sub_resource type="Resource" id="Branch_marsh"]
 script = ExtResource("Script_ConversationBranch")
 name = &"marsh"
 lineLocKeys = Array[StringName]([&"hermit_marsh_01"])
-endActions = null
 exitGroup = &"topics"
 
 [sub_resource type="Resource" id="Branch_join"]
@@ -34,43 +35,31 @@ script = ExtResource("Script_ConversationBranch")
 name = &"join"
 lineLocKeys = Array[StringName]([&"hermit_join_01"])
 endActions = Array[Object]([ExtResource("Act_recruit_to_party")])
-exitGroup = null
 
 [sub_resource type="Resource" id="Branch_farewell"]
 script = ExtResource("Script_ConversationBranch")
 name = &"farewell"
 lineLocKeys = Array[StringName]([&"hermit_farewell_01"])
-endActions = null
-exitGroup = null
-
-[sub_resource type="Resource" id="Entry_1"]
-script = ExtResource("Script_ConversationEntry")
-branch = &"greeting"
-actions = null
 
 [sub_resource type="Resource" id="Resp_topics_1"]
 script = ExtResource("Script_ConversationResponse")
 textLocKey = &"hermit_topics_who"
 destination = &"who"
-actions = null
 
 [sub_resource type="Resource" id="Resp_topics_2"]
 script = ExtResource("Script_ConversationResponse")
 textLocKey = &"hermit_topics_marsh"
 destination = &"marsh"
-actions = null
 
 [sub_resource type="Resource" id="Resp_topics_3"]
 script = ExtResource("Script_ConversationResponse")
 textLocKey = &"hermit_topics_join"
 destination = &"join"
-actions = null
 
 [sub_resource type="Resource" id="Resp_topics_4"]
 script = ExtResource("Script_ConversationResponse")
 textLocKey = &"hermit_topics_farewell"
 destination = &"farewell"
-actions = null
 
 [sub_resource type="Resource" id="Group_topics"]
 script = ExtResource("Script_ConversationResponseGroup")

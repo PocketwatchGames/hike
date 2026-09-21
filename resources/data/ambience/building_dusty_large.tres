@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_script")
 displayName = "Building Dusty Large"
-dustFloor = 0.35
+dustFloor = 0.07
 windSuppression = 0.85
 reverbWet = 0.34
 reverbRoomSize = 0.58

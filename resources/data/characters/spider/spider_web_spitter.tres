@@ -15,30 +15,40 @@
 [ext_resource type="PackedScene" uid="uid://f3k3t2bsm1ci" path="res://scenes/fx/web_burst.tscn" id="10_burst"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="11_mdbnn"]
 [ext_resource type="PackedScene" uid="uid://ce52k000nd5f4" path="res://scenes/fx/web_target_preview.tscn" id="11_preview"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="12_mdbnn"]
 [ext_resource type="PackedScene" uid="uid://dsgde212y3j3m" path="res://scenes/fx/spider_spit.tscn" id="12_spit"]
 [ext_resource type="Resource" uid="uid://c2ed5t1het2h" path="res://resources/data/characters/ability_tells/ability_tell_web.tres" id="13_tell"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="18_b5wry"]
+[ext_resource type="Script" uid="uid://cbrtam2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="20_burst"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")
 type = 64
 
-[sub_resource type="Resource" id="Resource_areaspec_aoe"]
-script = ExtResource("3_area")
-damageProfileKey = &"aoe"
-tickInterval = 5.0
+[sub_resource type="Resource" id="Resource_webbed_buildup"]
+script = ExtResource("6_buildup")
+effect = ExtResource("7_webbed")
+applyImmediately = true
+
+[sub_resource type="Resource" id="Resource_damage_aoe"]
+script = ExtResource("5_damage")
+tags = 577
+healthDamage = 30.0
+hitstun = 0.2
+buildups = Array[ExtResource("6_buildup")]([SubResource("Resource_webbed_buildup")])
+modifiers = []
+
+[sub_resource type="Resource" id="Resource_burst"]
+script = ExtResource("20_burst")
+damage = SubResource("Resource_damage_aoe")
+fx = ExtResource("10_burst")
 
 [sub_resource type="Resource" id="Resource_event_impact"]
 script = ExtResource("4_event")
-type = 81920
+type = 4259840
 cameraShakeMagnitude = 0.12
 cameraShakeDuration = 0.2
 cameraShakeRange = 18.0
-areaEffectScene = ExtResource("10_burst")
-areaRadius = 2.0
-areaDurationSeconds = 7.0
-areaContinuousKey = &"web"
-areaIntervals = Array[ExtResource("3_area")]([SubResource("Resource_areaspec_aoe")])
+areaBurst = SubResource("Resource_burst")
 
 [sub_resource type="Resource" id="Resource_event_spit"]
 script = ExtResource("4_event")
@@ -72,23 +82,6 @@ releaseEffect = ExtResource("12_spit")
 script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_spit")])
 
-[sub_resource type="Resource" id="Resource_webbed_buildup"]
-script = ExtResource("6_buildup")
-effect = ExtResource("7_webbed")
-amount = 14.0
-
-[sub_resource type="Resource" id="Resource_web_continuous"]
-script = ExtResource("12_mdbnn")
-buildups = Array[ExtResource("6_buildup")]([SubResource("Resource_webbed_buildup")])
-
-[sub_resource type="Resource" id="Resource_damage_aoe"]
-script = ExtResource("5_damage")
-tags = 577
-healthDamage = 30.0
-hitstun = 0.2
-buildups = []
-modifiers = []
-
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("5_damage")
 tags = 577
@@ -101,11 +94,7 @@ modifiers = []
 script = ExtResource("1_weapon")
 abilityTell = ExtResource("13_tell")
 damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
-&"aoe": SubResource("Resource_damage_aoe"),
 &"primary": SubResource("Resource_damage_primary")
-})
-continuousProfiles = Dictionary[StringName, ExtResource("12_mdbnn")]({
-&"web": SubResource("Resource_web_continuous")
 })
 actionProfile = SubResource("Resource_profile")
 priority = 1

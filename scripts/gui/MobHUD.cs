@@ -219,9 +219,9 @@ public partial class MobHUD : Node2D
 				if (perceptionCvar)
 				{
 					text = string.Format(
-						"V{0:F2} H{1:F2} S{2:F2}\nL{3:F2} D{4:F2} F{5:F2} S{6:F2} C{7:F2} LOS{8}",
+						"V{0:F2} H{1:F2} S{2:F2}\nL{3:F2} D{4:F2} F{5:F2} S{6:F2} C{7:F2} Fg{8:F2} LOS{9}",
 						d.vision, d.hearing, d.smell,
-						d.lighting, d.distance, d.facing, d.speed, d.camouflage,
+						d.lighting, d.distance, d.facing, d.speed, d.camouflage, d.fog,
 						d.los switch { EPerceptionLos.Clear => "+", EPerceptionLos.Blocked => "-", _ => "?" });
 				}
 				if (positionCvar)

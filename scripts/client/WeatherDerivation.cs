@@ -38,7 +38,12 @@ public static class WeatherDerivation
     // `timeOfDay01` is the day clock (0 = sunrise … 1 = the next sunrise), NOT the
     // orbit phase — the nightfall pass at the bottom keys off clock position, and
     // only the diurnal weather curve wants the remapped phase.
-    public static DerivedPalette Derive(ZoneData zone, WeatherData weather, float sunElevationDegrees, float timeOfDay01, SimData simData)
+    // `climate` is the blended AUTHORED weather of the zones under the sample
+    // point — the time-invariant template, never touched by WeatherSimulation.
+    // Null falls back to the live values, which is the honest answer for an
+    // editor preview with nothing wired.
+    public static DerivedPalette Derive(ZoneData zone, WeatherData weather, float sunElevationDegrees, float timeOfDay01, SimData simData,
+        WeatherData climate = null)
     {
         DerivedPalette p = default;
         float orbitPhase01 = (float)WorldState.OrbitPhase01(timeOfDay01);
@@ -103,17 +108,21 @@ public static class WeatherDerivation
         float evaporativeStrength = simData?.evaporativeFogStrength ?? 0.35f;
         float coolDiurnal = 1f - WeatherSimulation.DiurnalCurve(orbitPhase01, simData);
         // Air-mass moisture: the wetter of this place's climate humidity (the value
-        // worldgen bakes the fog_map from) and the live advected humidity. Editor
-        // preview has no zone, so it falls back to the live value alone.
-        float climateHumidity = zone?.weather?.humidity ?? humidity;
+        // worldgen bakes the fog_map from) and the live advected humidity.
+        float climateHumidity = climate?.humidity ?? humidity;
         float airMassMoisture = Mathf.Max(climateHumidity, humidity);
         float humidGate = airMassMoisture > 0f ? Mathf.Pow(airMassMoisture, fogFromHumidity) : 0f;
         float coolGate = coolDiurnal > 0f ? Mathf.Pow(coolDiurnal, radiationFogSharpness) : 0f;
         // Evaporative route: a persistent ground-moisture saturation source, dialed
-        // down by wind (normalized against the zone's own typical wind so a calm
-        // basin clears at a gentler breeze than a gusty one).
-        float windMax = zone?.weather?.windSpeed ?? 0f;
-        float windFraction = windMax > 0.01f ? Mathf.Clamp(windSpeed / windMax, 0f, 1f) : 0f;
+        // down by wind ABOVE this place's typical — a calm basin clears at a
+        // gentler breeze than a gusty one, but its ordinary wind is the state the
+        // mist normally sits in. Dispersing at typical wind (windSpeed / typical)
+        // meant the route was off on almost every day it exists for.
+        float windMax = climate?.windSpeed ?? 0f;
+        float windDispersalMultiple = simData?.fogWindDispersalMultiple ?? 2.5f;
+        float windFraction = windMax > 0.01f
+            ? Mathf.SmoothStep(windMax, windMax * Mathf.Max(windDispersalMultiple, 1.01f), windSpeed)
+            : 0f;
         float evaporative = evaporativeStrength * (1f - windFraction);
         // Any route alone can saturate the air; together they reinforce.
         float saturation = 1f - (1f - coolGate) * (1f - rainAmount) * (1f - evaporative);

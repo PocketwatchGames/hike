@@ -640,7 +640,7 @@ wants falls straight out of it:
   a name can never be ambiguous and the cell says what it means; the name is the
   `.tres` basename, except a language, which is its `LanguageData.id` — the same
   spelling the `language` column and `[lang:]` markup use. Only a language takes
-  the third word, a `,`-separated subset of `grammar,numbers,vocabulary1..3`;
+  the third word, a `,`-separated subset of `grammar,numbers,vocabulary1..5`;
   leave it off to teach the whole tongue. The importer emits the `TeachAction`
   and its `TeachableConcept`, one per token. **An authored action `.tres` is
   still right** when the lesson is a named concept reused across NPCs, grants

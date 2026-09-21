@@ -457,87 +457,6 @@ public static class ItemEventHandlers
 		DebugDraw.Line(origin, hitPos, new Color(1f, 0f, 0f, 0.3f), 0.15f);
 	}
 
-	// Apply a single-frame AoE hit to every hurtbox inside `radius` of
-	// `center`. Position-anchored sibling of DoMelee's sphere query, factored
-	// out so status-effect on-impact bursts (elite lightning aura, etc.) reuse
-	// the exact same hurtbox resolution — self-exclusion, friendly-fire skip,
-	// one Hit per target. Friendly-fire policy rides on the DamageData (same as
-	// every other hit), so allies are spared unless the payload opts in. No
-	// charge-tier scaling and no per-target impact overlay: the burst's own fx
-	// (spawned by the caller at `center`) is the visual, and the payload is
-	// authored flat on the DamageData. Not a DoT — each call lands exactly once
-	// per affected target. Does NOT re-enter the attack pipeline (it calls
-	// HurtBox.Hit directly), so an on-impact burst can't recursively re-trigger
-	// itself.
-	public static void ApplyAreaDamage(IActionActor attacker, DamageData damage, Vector3 center, float radius, bool radialKnockback = false)
-	{
-		if (attacker == null || damage == null || radius <= 0f)
-		{
-			return;
-		}
-		World3D world3D = attacker.AttackerNode?.GetWorld3D();
-		if (world3D == null)
-		{
-			return;
-		}
-		var sphere = new SphereShape3D() { Radius = radius };
-		var query = new PhysicsShapeQueryParameters3D
-		{
-			Shape = sphere,
-			Transform = new Transform3D(Basis.Identity, center),
-			// Blasts scatter loose loot — see the melee sweep above for why
-			// Debris is safe in an every-overlap query and nowhere else.
-			CollisionMask = attacker.AttackHurtboxMask | (uint)ECollisionLayer.Debris,
-			CollideWithAreas = true,
-			CollideWithBodies = false,
-		};
-		var results = world3D.DirectSpaceState.IntersectShape(query, maxResults: 32);
-		Rid? selfHurtBox = attacker.SelfHurtBoxRid;
-		foreach (var result in results)
-		{
-			if (result["collider"].Obj is not HurtBox hurtBox)
-			{
-				continue;
-			}
-			if (selfHurtBox.HasValue && hurtBox.GetRid() == selfHurtBox.Value)
-			{
-				continue;
-			}
-			// Hit direction. Default is zero — the receiver applies no
-			// knockback when it's zero (an elite's lightning discharge authors
-			// none anyway). When `radialKnockback` is set (a shockwave like the
-			// fairy dash burst), push each target directly away from the blast
-			// center so the crowd scatters outward; a target sitting exactly on
-			// center falls back to zero (no usable axis). The attacker node is
-			// the source so the receiver still attributes the hit correctly.
-			Vector3 hitDir = Vector3.Zero;
-			// Loose debris always scatters outward, whether or not the effect
-			// authors radialKnockback — that flag is a per-effect choice about
-			// knocking ACTORS around, but a dropped item has to be thrown
-			// somewhere or the blast reads as passing straight through it.
-			bool isDebris = (hurtBox.CollisionLayer & (uint)ECollisionLayer.Debris) != 0;
-			if (radialKnockback || isDebris)
-			{
-				Vector3 away = hurtBox.GlobalPosition - center;
-				away.Y = 0f;
-				if (away.LengthSquared() > 0.0001f)
-				{
-					hitDir = away.Normalized();
-				}
-			}
-			HitInfo hit = new HitInfo(damage, attacker.AttackerNode, hitDir, attacker.ActorTeam);
-			if (!hurtBox.CanBeHit(hit))
-			{
-				continue;
-			}
-			hurtBox.Hit(hit);
-		}
-		if (CVars.debugAoe.Value)
-		{
-			DebugDraw.Sphere(center, radius, new Color(0.6f, 0.85f, 1f, 0.3f), 0.15f);
-		}
-	}
-
 	// Chain lightning: from `origin`, repeatedly find a random enemy hurtbox
 	// within `chainRange` of the current link and feed it Electrical BUILDUP,
 	// hopping up to `maxChains` times. Each link is chosen uniformly at random
@@ -549,7 +468,7 @@ public static class ItemEventHandlers
 	// Electrical buildup, so arcs propagate freely through soaked crowds and
 	// fizzle on dry ones. Shared by the Shocking weapon mod (player) and the
 	// elite lightning aura (goblins); team scoping rides on the attacker's
-	// AttackHurtboxMask + the receiver's CanBeHit, exactly like ApplyAreaDamage.
+	// AttackHurtboxMask + the receiver's CanBeHit, like every area hit.
 	// Does not re-enter the attack pipeline.
 	public static void ApplyChainLightning(IActionActor attacker, ChainLightningData data, Vector3 origin)
 	{
@@ -1206,13 +1125,18 @@ public static class ItemEventHandlers
 	// Position-aware sub-dispatcher for projectile impactEvents (and any
 	// future "fire at a point" sources). Subset of DispatchEvent because
 	// most handlers need an action context (selectedTier, primaryItem,
-	// chargeT, etc.) we don't have here. Currently supports SpawnAreaEffect
-	// — the canonical "arcing arrow lands → spawn AoE at the landing point"
-	// path. Other handlers no-op silently; their authored fields on the
-	// nested event just get ignored.
-	public static void DispatchAtPosition(ItemEvent ev, Vector3 position, Node parent, WeaponData sourceWeaponData, ETeam attackerTeam)
+	// chargeT, etc.) we don't have here. Supports AreaBurst, SpawnAreaEffect,
+	// CameraShake and ScreenFlash — the "arcing shot lands → burst at the
+	// landing point" path. Other handlers no-op silently; their authored fields
+	// on the nested event just get ignored. `source` is the shooter, or null
+	// once it is gone.
+	public static void DispatchAtPosition(ItemEvent ev, Vector3 position, Node parent, Node source, WeaponData sourceWeaponData, ETeam attackerTeam)
 	{
 		if (ev == null) { return; }
+		if ((ev.type & EItemEventType.AreaBurst) != 0)
+		{
+			AreaBurst.Fire(ev.areaBurst, (Sim.Current as Node3D) ?? (parent as Node3D), position, source, attackerTeam);
+		}
 		if ((ev.type & EItemEventType.SpawnAreaEffect) != 0 && ev.areaEffectScene != null)
 		{
 			Node host = (Node)Sim.Current ?? parent;
@@ -1281,6 +1205,13 @@ public static class ItemEventHandlers
 		}
 		parent.AddChild(instance);
 		instance.GlobalPosition = position;
+	}
+
+	// Fires ev.areaBurst at the actor's aim point, sparing the actor's own hurtbox.
+	public static void DoAreaBurst(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		AreaBurst.Fire(ev.areaBurst, (Sim.Current as Node3D) ?? (actor.AttackerNode?.GetParent() as Node3D),
+			ResolveAimPoint(actor), actor.AttackerNode, actor.ActorTeam, actor.SelfHurtBoxRid);
 	}
 
 	// Summons ev.minionSpecies at the actor's aim point (positional cursor when

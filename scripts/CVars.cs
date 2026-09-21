@@ -309,7 +309,7 @@
     // the step-down handing the tick back; this separates them in one line.
     public static CVarBool moveBlockDebug = new CVarBool("move_block_debug", false);
 
-    // Draw a translucent wireframe sphere at every ApplyAreaDamage burst
+    // Draw a translucent wireframe sphere at every AreaBurst blast
     // (status-effect impact/dash bursts, etc.) for one frame. Off by default —
     // the real hit feedback is the authored Fx; this is a dev visualizer for
     // tuning blast radii. Toggle with `debug_aoe 1` in the in-game console.
@@ -638,6 +638,10 @@
             }
         }
         Godot.GD.Print($"  FOG (what the volumetric shader reads):");
+        WeatherData climate = sky.Climate;
+        Godot.GD.Print($"    climate humidity     = {(climate != null ? $"{climate.humidity:F3}" : "none")}"
+            + $"   windSpeed = {(climate != null ? $"{climate.windSpeed:F2}" : "none")} m/s"
+            + "   (blended AUTHORED zone weather — the gate's humid-PLACE floor, and what wind disperses against)");
         Godot.GD.Print($"    fog signal           = {pal.Fog:F3}   (post-floor humidity×coolDiurnal)");
         Godot.GD.Print($"    fog_density          = {pal.FogDensity:F4}   (scales painted fog_map)");
         Godot.GD.Print($"    ambient_fog_density  = {pal.AmbientFogDensity * ambientFogScale:F4}   (uniform whole-scene haze, NO height gate)");

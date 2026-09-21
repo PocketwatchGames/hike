@@ -32,5 +32,7 @@ public enum ELanguageComponents
     Vocabulary1 = 1 << 2,
     Vocabulary2 = 1 << 3,
     Vocabulary3 = 1 << 4,
-    All = Grammar | Numbers | Vocabulary1 | Vocabulary2 | Vocabulary3,
+    Vocabulary4 = 1 << 5,
+    Vocabulary5 = 1 << 6,
+    All = Grammar | Numbers | Vocabulary1 | Vocabulary2 | Vocabulary3 | Vocabulary4 | Vocabulary5,
 }

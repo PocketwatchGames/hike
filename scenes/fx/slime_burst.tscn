@@ -1,15 +1,12 @@
 [gd_scene format=3 uid="uid://yksocqiagsg1"]
 
-[ext_resource type="Script" uid="uid://dgv1xdt06si" path="res://scripts/gameplay/entities/GasCloud.cs" id="1_gas"]
-[ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
 [ext_resource type="Material" uid="uid://ducap2anlt1b1" path="res://resources/materials/decal_active_slime.tres" id="3_3a7rp"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="3_plit"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="4_puff"]
 [ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="5_fade"]
 [ext_resource type="Script" uid="uid://bowccahwa232w" path="res://scripts/gameplay/effects/GroundDecal.cs" id="7_decal"]
-
-[sub_resource type="SphereShape3D" id="SphereShape3D_zone"]
-radius = 2.0
+[ext_resource type="Script" uid="uid://xewjw2klmrwj9" path="res://scripts/gameplay/effects/GroundDecalPreview.cs" id="8_mark"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ring"]
 size = Vector2(4, 4)
@@ -41,23 +38,16 @@ shader_parameter/use_vertex_color = true
 material = SubResource("ShaderMaterial_burst")
 size = Vector2(0.9, 0.9)
 
-[node name="SlimeBurst" type="Node3D" unique_id=298889650 node_paths=PackedStringArray("_dangerZone", "_decal")]
-script = ExtResource("1_gas")
+[node name="SlimeBurst" type="Node3D" unique_id=298889650]
+script = ExtResource("1_fx")
+
+[node name="Mark" type="Node3D" parent="." node_paths=PackedStringArray("_decal")]
+script = ExtResource("8_mark")
 lifetimeSeconds = 0.5
-_dangerZone = NodePath("DamageZone")
+fadeOutFraction = 1.0
 _decal = NodePath("Ring")
 
-[node name="DamageZone" type="Area3D" parent="." unique_id=19337770 node_paths=PackedStringArray("_shape")]
-collision_layer = 0
-collision_mask = 32
-script = ExtResource("2_dz")
-_shape = NodePath("CollisionShape3D")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="DamageZone" unique_id=533504938]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
-shape = SubResource("SphereShape3D_zone")
-
-[node name="Ring" type="MeshInstance3D" parent="." unique_id=408524066]
+[node name="Ring" type="MeshInstance3D" parent="Mark" unique_id=408524066]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
 material_override = ExtResource("3_3a7rp")
 mesh = SubResource("PlaneMesh_ring")

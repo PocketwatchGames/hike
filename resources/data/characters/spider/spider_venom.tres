@@ -18,26 +18,39 @@
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="11_qnv72"]
 [ext_resource type="PackedScene" uid="uid://dsgde212y3j3m" path="res://scenes/fx/spider_spit.tscn" id="12_spit"]
 [ext_resource type="Resource" uid="uid://mjuk30au128b" path="res://resources/data/characters/ability_tells/ability_tell_venom.tres" id="13_tell"]
+[ext_resource type="Script" uid="uid://cbrtam2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="20_burst"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")
 type = 64
 
-[sub_resource type="Resource" id="Resource_areaspec_aoe"]
-script = ExtResource("3_area")
-damageProfileKey = &"aoe"
-tickInterval = 5.0
+[sub_resource type="Resource" id="Resource_poison_buildup"]
+script = ExtResource("6_buildup")
+effect = ExtResource("7_poison")
+amount = 0.5
+
+[sub_resource type="Resource" id="Resource_damage_aoe"]
+script = ExtResource("5_damage")
+tags = 321
+healthDamage = 30.0
+hitstun = 0.2
+knockbackDistance = 0.3
+knockbackTime = 0.1
+buildups = Array[ExtResource("6_buildup")]([SubResource("Resource_poison_buildup")])
+modifiers = []
+
+[sub_resource type="Resource" id="Resource_burst"]
+script = ExtResource("20_burst")
+damage = SubResource("Resource_damage_aoe")
+fx = ExtResource("10_burst")
 
 [sub_resource type="Resource" id="Resource_event_impact"]
 script = ExtResource("4_event")
-type = 81920
+type = 4259840
 cameraShakeMagnitude = 0.12
 cameraShakeDuration = 0.2
 cameraShakeRange = 18.0
-areaEffectScene = ExtResource("10_burst")
-areaRadius = 2.0
-areaDurationSeconds = 1.0
-areaIntervals = Array[ExtResource("3_area")]([SubResource("Resource_areaspec_aoe")])
+areaBurst = SubResource("Resource_burst")
 
 [sub_resource type="Resource" id="Resource_event_spit"]
 script = ExtResource("4_event")
@@ -71,21 +84,6 @@ releaseEffect = ExtResource("12_spit")
 script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_spit")])
 
-[sub_resource type="Resource" id="Resource_poison_buildup"]
-script = ExtResource("6_buildup")
-effect = ExtResource("7_poison")
-amount = 0.5
-
-[sub_resource type="Resource" id="Resource_damage_aoe"]
-script = ExtResource("5_damage")
-tags = 321
-healthDamage = 30.0
-hitstun = 0.2
-knockbackDistance = 0.3
-knockbackTime = 0.1
-buildups = Array[ExtResource("6_buildup")]([SubResource("Resource_poison_buildup")])
-modifiers = []
-
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("5_damage")
 tags = 321
@@ -98,7 +96,6 @@ modifiers = []
 script = ExtResource("1_weapon")
 abilityTell = ExtResource("13_tell")
 damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
-&"aoe": SubResource("Resource_damage_aoe"),
 &"primary": SubResource("Resource_damage_primary")
 })
 actionProfile = SubResource("Resource_profile")

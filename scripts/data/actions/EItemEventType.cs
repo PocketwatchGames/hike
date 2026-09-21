@@ -52,9 +52,9 @@ public enum EItemEventType
 	// calls HurtBox.Hit — same payload shape as Hitscan, just delayed by
 	// flight time.
 	Projectile = 1 << 13,
-	// Spawns ev.areaEffectScene at the actor's aim point. The scene is a
-	// Node3D parented to the world (e.g. a GasCloud carrying a DamageZone
-	// + particle loop). Pairs with EAimType.Positional — the player's aim
+	// Spawns ev.areaEffectScene at the actor's aim point: a hazard that LINGERS
+	// (a GasCloud carrying a DamageZone + particle loop). An instant blast is
+	// AreaBurst instead. Pairs with EAimType.Positional — the player's aim
 	// cursor (Player.AimWorldPosition) is the drop target. Falls back to
 	// ActorWorldPosition when no aim cursor is active.
 	SpawnAreaEffect = 1 << 14,
@@ -104,4 +104,9 @@ public enum EItemEventType
 	// than tick in over a duration. ev.fx (if set) spawns on the actor as the
 	// cue the status effect's startFx used to provide.
 	Heal = 1 << 21,
+	// Fires ev.areaBurst (AreaBurst.Fire): its fx, and one instant hit on
+	// everything in range — nothing lingers. On a projectile impactEvent it lands
+	// where the shot ended; on an action timeline, at the actor's aim point. The
+	// blast counterpart of SpawnAreaEffect, which is for hazards that linger.
+	AreaBurst = 1 << 22,
 }

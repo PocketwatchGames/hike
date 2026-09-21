@@ -1319,6 +1319,8 @@ public partial class GameClient : Node3D
 			ELanguageComponents.Vocabulary1 => "Vocabulary 1",
 			ELanguageComponents.Vocabulary2 => "Vocabulary 2",
 			ELanguageComponents.Vocabulary3 => "Vocabulary 3",
+			ELanguageComponents.Vocabulary4 => "Vocabulary 4",
+			ELanguageComponents.Vocabulary5 => "Vocabulary 5",
 			_ => null,
 		};
 		return component != null ? $"{langName} {component}" : langName;

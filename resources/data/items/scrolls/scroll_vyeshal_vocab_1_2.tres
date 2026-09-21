@@ -8,7 +8,7 @@
 [sub_resource type="Resource" id="Resource_concept_vocab3"]
 script = ExtResource("2_ok0i8")
 language = ExtResource("1_ad04h")
-components = 12
+components = 60
 
 [resource]
 script = ExtResource("4_a3tgd")

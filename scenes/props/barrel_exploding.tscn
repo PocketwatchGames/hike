@@ -7,6 +7,8 @@
 [ext_resource type="PackedScene" uid="uid://bn6xtn81s3bab" path="res://assets/models/furniture/SM_Prop_Barrel_Broken_01.fbx" id="5_broken"]
 [ext_resource type="Material" uid="uid://bscorchstn4mq" path="res://resources/materials/scorch_stain.tres" id="6_scorch"]
 [ext_resource type="PackedScene" uid="uid://kv5h72dbtfxcz" path="res://scenes/fx/barrel_explosion.tscn" id="7_explosion"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="8_damage"]
+[ext_resource type="Script" uid="uid://cbrtam2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="9_burst"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_body"]
 size = Vector3(0.7676, 1.0312, 0.7677)
@@ -17,6 +19,22 @@ size = Vector3(0.85, 1.05, 0.85)
 [sub_resource type="PlaneMesh" id="PlaneMesh_scorch"]
 size = Vector2(2.5, 2.5)
 
+[sub_resource type="Resource" id="Resource_blast_damage"]
+script = ExtResource("8_damage")
+tags = 536871943
+healthDamage = 60.0
+hitstun = 0.3
+knockbackDistance = 5.0
+knockbackTime = 0.35
+friendlyFire = true
+
+[sub_resource type="Resource" id="Resource_blast"]
+script = ExtResource("9_burst")
+damage = SubResource("Resource_blast_damage")
+radius = 3.5
+height = 5.0
+fx = ExtResource("7_explosion")
+
 [node name="ExplodingBarrel" type="Node3D" node_paths=PackedStringArray("_hurtBox", "_bodyCollision", "_intactModel", "_brokenModel", "_scorchStain")]
 script = ExtResource("1_barrel")
 _hurtBox = NodePath("HurtBox")
@@ -24,7 +42,7 @@ _bodyCollision = NodePath("Body/CollisionShape3D")
 _intactModel = NodePath("IntactModel")
 _brokenModel = NodePath("BrokenModel")
 _scorchStain = NodePath("ScorchStain")
-_explosionScene = ExtResource("7_explosion")
+_blast = SubResource("Resource_blast")
 
 [node name="Body" type="StaticBody3D" parent="."]
 script = ExtResource("2_porous")

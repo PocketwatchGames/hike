@@ -60,6 +60,16 @@ public static class StatList
 			yield break;
 		}
 		Dictionary<EStatName, string> names = GameClient.Current.statNames;
+		// An instant blast reads as a plain hit: its damage, then its reach.
+		if ((areaEvent.type & EItemEventType.AreaBurst) != 0 && areaEvent.areaBurst != null)
+		{
+			foreach (var entry in BaseDamage(areaEvent.areaBurst.damage))
+			{
+				yield return entry;
+			}
+			yield return (names[EStatName.Radius], StatFormat.Meters(areaEvent.areaBurst.radius));
+			yield break;
+		}
 		float totalDps = 0f;
 		ContinuousDamageData continuous = weapon?.GetContinuousDamage(areaEvent.areaContinuousKey);
 		if (continuous != null && continuous.healthDamage > 0f)
@@ -717,9 +727,11 @@ public static class StatList
 	}
 
 	// Walks an action's events (and any projectile impactEvent chained off
-	// them) looking for a SpawnAreaEffect entry. Used to switch a stat row
+	// them) looking for a SpawnAreaEffect or AreaBurst entry. Used to switch a stat row
 	// into AoE mode — Rain of Arrows reads its DPS / radius / duration from
 	// the impactEvent on its arcing projectile.
+	private const EItemEventType AreaEventFlags = EItemEventType.SpawnAreaEffect | EItemEventType.AreaBurst;
+
 	public static ItemEvent FindAreaEffectEvent(ItemAction action)
 	{
 		if (action?.events == null)
@@ -732,11 +744,11 @@ public static class StatList
 			{
 				continue;
 			}
-			if ((ev.type & EItemEventType.SpawnAreaEffect) != 0)
+			if ((ev.type & AreaEventFlags) != 0)
 			{
 				return ev;
 			}
-			if (ev.impactEvent != null && (ev.impactEvent.type & EItemEventType.SpawnAreaEffect) != 0)
+			if (ev.impactEvent != null && (ev.impactEvent.type & AreaEventFlags) != 0)
 			{
 				return ev.impactEvent;
 			}

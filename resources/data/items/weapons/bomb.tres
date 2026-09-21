@@ -5,32 +5,43 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_action"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_lphds"]
-[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="5_areaspec"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="6_profile"]
 [ext_resource type="PackedScene" uid="uid://bm0bprojvl3ka" path="res://scenes/projectiles/bomb_projectile.tscn" id="7_proj"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_7xwph"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="8_68y43"]
-[ext_resource type="PackedScene" uid="uid://bm0xpmaaoe20c" path="res://scenes/fx/bomb_explosion.tscn" id="8_explosion"]
+[ext_resource type="PackedScene" uid="uid://bm0blastfx7k2" path="res://scenes/fx/bomb_blast_fx.tscn" id="8_blastfx"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="8_state"]
 [ext_resource type="PackedScene" uid="uid://bm0thrwfx02d" path="res://scenes/fx/bomb_throw.tscn" id="9_throw"]
 [ext_resource type="PackedScene" uid="uid://bm0held3mdl7" path="res://scenes/items/bomb_held.tscn" id="10_held"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_68y43"]
 [ext_resource type="Texture2D" uid="uid://ck8w0sjssnkkb" path="res://assets/textures/items/Bomb.png" id="11_inv"]
+[ext_resource type="Script" uid="uid://cbrtam2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="20_burst"]
 
-[sub_resource type="Resource" id="Resource_areaspec_blast"]
-script = ExtResource("5_areaspec")
-tickInterval = 5.0
+[sub_resource type="Resource" id="Resource_damage_primary"]
+script = ExtResource("1_damage")
+tags = 536871943
+healthDamage = 20.0
+damageVariance = 0.25
+hitstun = 0.3
+knockbackDistance = 3.0
+knockbackTime = 0.3
+buildups = []
+modifiers = []
+
+[sub_resource type="Resource" id="Resource_burst"]
+script = ExtResource("20_burst")
+damage = SubResource("Resource_damage_primary")
+radius = 3.0
+height = 8.0
+fx = ExtResource("8_blastfx")
 
 [sub_resource type="Resource" id="Resource_impact_small"]
 script = ExtResource("3_event")
-type = 81920
+type = 4259840
 cameraShakeMagnitude = 0.22
 cameraShakeDuration = 0.3
 cameraShakeRange = 30.0
-areaEffectScene = ExtResource("8_explosion")
-areaRadius = 3.0
-areaDurationSeconds = 1.2
-areaIntervals = Array[ExtResource("5_areaspec")]([SubResource("Resource_areaspec_blast")])
+areaBurst = SubResource("Resource_burst")
 
 [sub_resource type="Resource" id="Resource_proj_small"]
 script = ExtResource("3_event")
@@ -69,17 +80,6 @@ script = ExtResource("6_profile")
 chargedActions = Array[ExtResource("4_action")]([SubResource("Resource_tier_toss")])
 autoActivateAtMax = false
 queueWindowSeconds = 0.0
-
-[sub_resource type="Resource" id="Resource_damage_primary"]
-script = ExtResource("1_damage")
-tags = 536871943
-healthDamage = 20.0
-damageVariance = 0.25
-hitstun = 0.3
-knockbackDistance = 3.0
-knockbackTime = 0.3
-buildups = []
-modifiers = []
 
 [resource]
 script = ExtResource("2_weapon")

@@ -17,6 +17,10 @@
 [ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/fx/sword_hit_solid.tscn" id="7_hitsolid"]
 [ext_resource type="PackedScene" uid="uid://dkxvi0v1okv8f" path="res://scenes/fx/sword_attack_heavy.tscn" id="8_atkheavy"]
 [ext_resource type="PackedScene" uid="uid://dkxvm42mjkv8f" path="res://scenes/fx/sword_attack_light.tscn" id="8_atklight"]
+[ext_resource type="PackedScene" uid="uid://dmlri0vh6oc8f" path="res://scenes/fx/sword_charge_head.tscn" id="8_chghead"]
+[ext_resource type="PackedScene" uid="uid://dmlrncbt6oc8f" path="res://scenes/fx/sword_charge_loop.tscn" id="8_chgloop"]
+[ext_resource type="PackedScene" uid="uid://dmlruv4p6oc8f" path="res://scenes/fx/sword_charge_tail.tscn" id="8_chgtail"]
+[ext_resource type="PackedScene" uid="uid://dao14hlapsltn" path="res://scenes/fx/club_smear_heavy.tscn" id="9_smearheavy"]
 [ext_resource type="PackedScene" uid="uid://ncybxa3beup5" path="res://scenes/fx/club_smear_light.tscn" id="9_smearlight"]
 [ext_resource type="Texture2D" uid="uid://cfen4n77e6ynh" path="res://assets/textures/items/Club.png" id="15_3a20y"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="16_eda6u"]
@@ -79,7 +83,7 @@ forbidSwimming = true
 [sub_resource type="Resource" id="Resource_charged_light"]
 script = ExtResource("4_charged")
 displayName = &"Bash"
-chargeTime = 0.35
+chargeTime = 0.5
 activeDurationSeconds = 0.6
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light"), SubResource("Resource_prwqy")])
 comboWindowMs = 600
@@ -90,12 +94,90 @@ releaseEffect = ExtResource("8_atklight")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")
 
+[sub_resource type="Resource" id="Resource_event_heavy_anim"]
+script = ExtResource("3_event")
+type = 66624
+animName = 20
+motionForwardSpeed = 15.0
+motionFreezeGravity = false
+cameraShakeMagnitude = 1.0
+cameraShakeDuration = 0.4
+
+[sub_resource type="Resource" id="Resource_event_heavy_hit"]
+script = ExtResource("3_event")
+time = 50
+type = 1
+range = 5.0
+nearWidth = 1.0
+farWidth = 8.0
+smearEffect = ExtResource("9_smearheavy")
+smearClockwise = false
+damageProfileKey = &"charged"
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitsolid")
+impactLethalEffect = ExtResource("7_hitkill")
+
+[sub_resource type="Resource" id="Resource_charged_heavy"]
+script = ExtResource("4_charged")
+displayName = &"Slam"
+staminaCost = 1.0
+activeDurationSeconds = 0.5
+cooldownSeconds = 0.7
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy_anim"), SubResource("Resource_event_heavy_hit")])
+requirements = Array[ExtResource("4_in4wh")]([SubResource("Resource_req_no_swim")])
+maxSpeedCharging = 1
+speedMultiplierActive = 0.0
+chargeStartEffect = ExtResource("8_chghead")
+chargeLoopEffect = ExtResource("8_chgloop")
+chargeCancelEffect = ExtResource("8_chgtail")
+releaseEffect = ExtResource("8_atkheavy")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
+
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("5_profile")
-chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_light")])
+chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_light"), SubResource("Resource_charged_heavy")])
 autoActivateAtMax = false
 queueable = true
 queueWindowSeconds = 0.25
+
+[sub_resource type="Resource" id="Resource_charged_buildup_dizzy"]
+script = ExtResource("1_buildup")
+effect = ExtResource("1_dizzy")
+amount = 0.8
+
+[sub_resource type="Resource" id="Resource_charged_mod_crit"]
+script = ExtResource("1_modifier")
+overrides = 512
+damageMultiplier = 3.0
+knockbackDistance = 8.0
+addBuildups = []
+
+[sub_resource type="Resource" id="Resource_buildup_dizzy_backstab"]
+script = ExtResource("1_buildup")
+effect = ExtResource("1_dizzy")
+amount = 1.0
+
+[sub_resource type="Resource" id="Resource_charged_mod_backstab"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 256
+healthDamage = 120.0
+addBuildups = Array[ExtResource("1_buildup")]([SubResource("Resource_buildup_dizzy_backstab")])
+
+[sub_resource type="Resource" id="Resource_charged_damage"]
+script = ExtResource("1_damage")
+tags = 536872069
+healthDamage = 60.0
+critChance = 0.1
+damageVariance = 0.25
+blunt = 0.5
+hitstun = 0.5
+knockbackDistance = 6.0
+knockbackTime = 0.5
+buildups = Array[ExtResource("1_buildup")]([SubResource("Resource_charged_buildup_dizzy")])
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_charged_mod_crit"), SubResource("Resource_charged_mod_backstab")])
 
 [sub_resource type="Resource" id="Resource_parry_dizzy"]
 script = ExtResource("1_buildup")
@@ -126,11 +208,6 @@ damageMultiplier = 3.0
 knockbackDistance = 4.0
 addBuildups = []
 
-[sub_resource type="Resource" id="Resource_buildup_dizzy_backstab"]
-script = ExtResource("1_buildup")
-effect = ExtResource("1_dizzy")
-amount = 1.0
-
 [sub_resource type="Resource" id="Resource_mod_backstab"]
 script = ExtResource("1_modifier")
 trigger = 2
@@ -154,6 +231,7 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), 
 [resource]
 script = ExtResource("2_weapon")
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
+&"charged": SubResource("Resource_charged_damage"),
 &"parry": SubResource("Resource_parry"),
 &"primary": SubResource("Resource_damage")
 })
