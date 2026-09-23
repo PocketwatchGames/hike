@@ -178,6 +178,16 @@ public static class WorldMapCheck
         int carved = 0;
         int added = 0;
         int addedAboveGround = 0;
+        // Passages: carved voxels by the level they carry (slot 0 = the
+        // surface's) and by scatter set, then their floors — how many there
+        // are, how many have a scatter painted, how many of those the spawn
+        // gate accepts, and how many roll a spawn.
+        var passageLevels = new int[WorldMapState.MaxPassageLevel + 2];
+        var passageSets = new System.Collections.Generic.SortedDictionary<int, int>();
+        int passageFloors = 0;
+        int passageFloorsPainted = 0;
+        int passageFloorsEligible = 0;
+        int passageSpawns = 0;
         // The two prop layers, counted as PAINTED columns against the props that
         // will actually stand. Placement is one per column, so the gap between
         // the two numbers is entirely what CanPlacePropAt refused — water, a
@@ -286,6 +296,12 @@ public static class WorldMapCheck
                     if (edit == WorldMapState.EditCarve)
                     {
                         carved++;
+                        passageLevels[ctx.PassageLevelAt(px, pz, wy) + 1]++;
+                        int slot = ctx.PassageScatterSlotAt(px, pz, wy);
+                        if (slot >= 0)
+                        {
+                            passageSets[slot] = passageSets.GetValueOrDefault(slot) + 1;
+                        }
                     }
                     else if (edit == WorldMapState.EditAdd)
                     {
@@ -294,6 +310,24 @@ public static class WorldMapCheck
                         {
                             addedAboveGround++;
                         }
+                    }
+                }
+                for (int floor = ctx.PassageFloorBelow(px, pz, int.MaxValue);
+                    floor >= data.WorldMinY;
+                    floor = ctx.PassageFloorBelow(px, pz, floor))
+                {
+                    passageFloors++;
+                    if (ctx.PassageScatterAt(px, pz, floor + 1, out _) != null)
+                    {
+                        passageFloorsPainted++;
+                        if (ctx.PassageSpawnSetAt(px, pz, floor, out _) != null)
+                        {
+                            passageFloorsEligible++;
+                        }
+                    }
+                    if (ctx.PreviewPassageMobAt(px, pz, floor) >= 0)
+                    {
+                        passageSpawns++;
                     }
                 }
                 for (int d = 0; d < 4; d++)
@@ -338,6 +372,30 @@ public static class WorldMapCheck
 
         sb.AppendLine($"[worldmap_check] voxel edits: {carved} carved, {added} added "
             + $"({addedAboveGround} of them above the height map)");
+
+        var levelSpread = new StringBuilder($"surface:{passageLevels[0]}");
+        for (int i = 1; i < passageLevels.Length; i++)
+        {
+            if (passageLevels[i] > 0)
+            {
+                levelSpread.Append($", L{i - 1}:{passageLevels[i]}");
+            }
+        }
+        var setSpread = new StringBuilder();
+        foreach (var kvp in passageSets)
+        {
+            string label = kvp.Key < ctx.ScatterSets.Length ? ctx.ScatterSets[kvp.Key]?.Label : null;
+            setSpread.Append(setSpread.Length == 0 ? "" : ", ")
+                .Append($"{label ?? $"dead slot {kvp.Key}"}:{kvp.Value}");
+        }
+        sb.AppendLine($"[worldmap_check] passage levels (carved voxels): {levelSpread}");
+        sb.AppendLine($"[worldmap_check] passage scatter (carved voxels): "
+            + (setSpread.Length == 0 ? "none" : setSpread.ToString()));
+        // Painted but ineligible is the number to watch: floors a scatter was
+        // painted over that the gate refuses (flooded, a crawlway, paved, under
+        // a stamp) — the passage's version of a patchy barrier.
+        sb.AppendLine($"[worldmap_check] passage floors: {passageFloors}, {passageFloorsPainted} with a scatter, "
+            + $"{passageFloorsEligible} of those spawnable, {passageSpawns} previewing a spawn");
 
         // Edges the MAP inks, not cascades the world builds: a fall is measured
         // off the baked voxels (WaterfallFinder), which this check has none of.

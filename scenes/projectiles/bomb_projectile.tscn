@@ -1,14 +1,15 @@
 [gd_scene format=3 uid="uid://bm0bprojvl3ka"]
 
 [ext_resource type="Script" uid="uid://rmy8owd5hawv" path="res://scripts/gameplay/entities/Projectile.cs" id="1_proj"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="model_lit_shader"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bomb"]
-albedo_color = Color(0.09, 0.09, 0.11, 1)
-metallic = 0.4
-roughness = 0.5
+[sub_resource type="ShaderMaterial" id="Mat_bomb"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.09, 0.09, 0.11, 1)
 
 [sub_resource type="SphereMesh" id="SphereMesh_bomb"]
-material = SubResource("StandardMaterial3D_bomb")
+material = SubResource("Mat_bomb")
 radius = 0.16
 height = 0.32
 radial_segments = 12

@@ -54,9 +54,11 @@ public class MobLevelTool : IWorldMapTool
     public Color CursorColor(WorldMapInk ink) => Shade(ink, Level);
 
     public string HintText(WorldMapState ctx)
-        => "Eases toward the level you pick; RMB eases back to 0";
+        => "Eases toward the level you pick; RMB eases back to 0  |  "
+            + "T/G lower the cutaway to set a PASSAGE's level (RMB: back to the surface's)";
 
-    public string StatusText(WorldMapState ctx, WorldMapView view) => $"Danger level {Level}";
+    public string StatusText(WorldMapState ctx, WorldMapView view)
+        => view.IsCutAway ? $"Danger level {Level} (passages under the cut)" : $"Danger level {Level}";
 
     // The ramp sampled at a continuous level — stops lerped linearly, so the
     // brush's soft edge reads as a fade between bands instead of a hard ring.
@@ -85,9 +87,25 @@ public class MobLevelTool : IWorldMapTool
         // eases toward its target and the falloff becomes the gradient. Painting
         // is where the smoothing happens — nothing re-smooths it at bake, so the
         // shades on the map are exactly the levels the mobs get.
+        //
+        // Under a lowered cutaway it paints what the map shows: a column whose
+        // exposed floor has a passage over it sets that PASSAGE's level, whole
+        // and hard-edged (the carve stores whole levels, and a passage is one
+        // place); anywhere else it is the surface field as usual. The plane is
+        // what picks between two passages stacked in one column.
         float target = erase ? 0f : Level;
+        bool cut = view.IsCutAway;
+        int clip = view.CutawayY;
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
+            if (cut && ctx.CutawayPassage(px, pz, clip, out int floor, out int top))
+            {
+                for (int wy = floor + 1; wy <= top; wy++)
+                {
+                    ctx.SetPassageLevel(px, pz, wy, erase ? -1 : Level);
+                }
+                return;
+            }
             float k = brush.flow * weight;
             ctx.SetMobLevelAt(px, pz, Mathf.Lerp(ctx.MobLevelAt(px, pz), target, k));
         });
@@ -110,14 +128,31 @@ public class MobLevelTool : IWorldMapTool
 // The terrain recoloured entirely by difficulty — one shade per level, so a
 // glance answers "how dangerous is it here" and nothing else competes for the
 // colour. Water still reads as water, for orientation.
+//
+// Cuts away: with the plane lowered each column shades the level of what the
+// cut exposes — a passage's own, or the surface field where the exposed floor
+// is not one — and rock with no floor under it draws as rock. A floor seen
+// through rock is dithered by the painter like every cutaway.
 public class MobLevelView : IWorldMapView
 {
     public bool ShowsAllSteps => true;
     public bool DrawsWater => true;
+    public bool CutsAway => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.None;
 
     public Color ColorAt(WorldMapInk ink, int px, int pz)
     {
-        return ink.WithWater(MobLevelTool.Shade(ink, ink.Map.MobLevelAt(px, pz)), px, pz);
+        if (!ink.View.IsCutAway)
+        {
+            return ink.WithWater(MobLevelTool.Shade(ink, ink.Map.MobLevelAt(px, pz)), px, pz);
+        }
+        int clip = ink.View.CutawayY;
+        int floor = ink.Map.CutawayFloor(px, pz, clip, out bool buried);
+        if (floor < ink.Map.Data.WorldMinY)
+        {
+            return ink.Data.cutawayRockColor;
+        }
+        Color shade = MobLevelTool.Shade(ink, ink.Map.MobLevelUnderCut(px, pz, clip));
+        return buried ? shade : ink.WithWaterOver(shade, px, pz, floor, clip);
     }
 }

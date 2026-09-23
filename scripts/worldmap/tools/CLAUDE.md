@@ -14,17 +14,17 @@ would have left as air is solid" (`EditAdd`).
 brush is a BOX — `Radius` wide, `Height` tall (**Q/E**, 3 m by default), hung off
 `PaintY` (**R/F**, or alt+click).
 
-**The box hangs off the level in the direction the tool writes**: a carve runs UP
-from it, so `PaintY` is the first metre removed; a fill runs DOWN from it, so
-`PaintY` is the new surface and the thickness goes under it out of sight. Either
-way `PaintY` is the voxel you are acting ON, which is what lets one eyedropper
-serve both.
+**`PaintY` is the FLOOR the edit leaves you standing on**, for both tools: a
+carve opens the `Height` metres ABOVE it, a fill runs DOWN to it (so it is the
+new surface and the thickness goes under it out of sight). That is what lets one
+eyedropper serve both, and the HUD, the pick and the hover readout all name the
+same number.
 
 **alt+LMB lands `PaintY` EXACTLY on the elevation sampled** — the highest floor
-under the cut. Not one above it: that was tried, so a carve would preserve the
-floor it sampled rather than take it, and it made the HUD disagree with every
-pick. An eyedropper whose value is not the value you pointed at is not an
-eyedropper. Two things about which floor: a FLOOR, not merely the highest solid
+under the cut — so painting from a pick CONTINUES that floor at the same height:
+a passage carries on level, a deck extends flush. The carve used to start AT
+`PaintY`, which took the sampled floor and bored every continuation a metre
+below the passage it was picked from. Two things about which floor: a FLOOR, not merely the highest solid
 voxel, because on rock the latter is the cut plane itself, which is not a surface
 anyone pointed at (there the pick is a no-op); and under the CUT, because
 sampling the column's true top hands back the hilltop over a corridor instead of
@@ -85,6 +85,11 @@ the two that place something ON a floor — paving and entities — take
 cutaway below it. Tools that differ in what they WRITE and in the ink the outline
 pass lays over them, not in how the terrain is drawn, share the view; copies
 would only drift.
+
+The **danger** and **mobs** tools cut too, with their own views, because under
+the plane they paint the PASSAGE the cut exposes rather than the surface layer —
+its level and scatter live on the carve itself, so stacked passages differ. See
+"Passages" in [../CLAUDE.md](../CLAUDE.md).
 
 Both remaining per-column layers are worth knowing about: a climb route and a
 water surface are both per COLUMN, so marking one inside a passage marks the

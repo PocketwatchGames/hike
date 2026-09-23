@@ -1051,7 +1051,12 @@ public partial class WorldMapPainter : Node3D
         }
         if (view.PreviewLayer.HasFlag(ESpawnPreview.Mobs) && pixelsPerMeter >= 2)
         {
-            DrawSpawnDots(x0, z0, x1, z1, _ctx.ScatterSets, _ctx.PreviewMobAt, _markedScatter);
+            // Cut away, the dots are the scatter of whatever floor the cut
+            // exposes, passages included.
+            System.Func<int, int, int> previewAt = cut
+                ? (px, pz) => _ctx.PreviewMobUnderCut(px, pz, clipY)
+                : _ctx.PreviewMobAt;
+            DrawSpawnDots(x0, z0, x1, z1, _ctx.ScatterSets, previewAt, _markedScatter);
         }
 
         // Fourth pass: the hand-placed entities and the player spawn, on every

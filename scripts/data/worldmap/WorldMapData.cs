@@ -56,8 +56,10 @@ public partial class WorldMapData : Resource
     // 0..mobLevelCount-1. Five matches the 0-4 band worldgen uses
     // (mobLevelMin/Max, mobLevelCap). World data, not a tool setting — change it
     // and every already-painted column reads as a different level. How those
-    // levels are COLOURED is WorldMapInkData.mobLevelColors.
-    [Export(PropertyHint.Range, "1,16,1")] public int mobLevelCount = 5;
+    // levels are COLOURED is WorldMapInkData.mobLevelColors. At most 15: a
+    // passage stores its level in four bits of the tunnel mask, one of them
+    // "the surface's" (WorldMapState.MaxPassageLevel).
+    [Export(PropertyHint.Range, "1,15,1")] public int mobLevelCount = 5;
 
     // Roughen: the shortest step it treats as a cliff, and the band of wall that
     // always survives. A cliff of height h has h - band voxels of erosion to
@@ -444,41 +446,56 @@ public partial class WorldMapData : Resource
         return blank;
     }
 
-    // Per-voxel tunnel carve mask, indexed [px, ly, pz] (ly = wy - WorldMinY).
-    // Stored as a tiny raw .bin (dims header + bytes) — too sparse/3D to be a
-    // useful image, and the carved result is captured in the baked .hike anyway.
-    public byte[,,] LoadOrCreateTunnels()
+    // Per-voxel tunnel mask, indexed [px, ly, pz] (ly = wy - WorldMinY), one
+    // ushort per voxel packing the edit and its passage (see WorldMapState's
+    // accessors). Stored as a .bin — magic, version, dims, then the cells
+    // zlib-compressed: too 3D to be a useful image, and nearly all zeros, which
+    // raw was 28 MB of in git.
+    private const int TUNNEL_MAGIC = 0x4E544B48; // "HKTN"
+    private const int TUNNEL_VERSION = 2;
+
+    public ushort[,,] LoadOrCreateTunnels()
     {
         int nx = ImageWidth;
         int ny = VoxelHeight;
         int nz = ImageHeight;
-        if (!string.IsNullOrEmpty(tunnelMaskPath))
+        var arr = new ushort[nx, ny, nz];
+        if (string.IsNullOrEmpty(tunnelMaskPath))
         {
-            string os = ProjectSettings.GlobalizePath(tunnelMaskPath);
-            if (System.IO.File.Exists(os))
-            {
-                try
-                {
-                    using var fs = System.IO.File.OpenRead(os);
-                    using var br = new System.IO.BinaryReader(fs);
-                    int fx = br.ReadInt32();
-                    int fy = br.ReadInt32();
-                    int fz = br.ReadInt32();
-                    if (fx == nx && fy == ny && fz == nz)
-                    {
-                        var arr = new byte[nx, ny, nz];
-                        byte[] buf = br.ReadBytes(nx * ny * nz);
-                        System.Buffer.BlockCopy(buf, 0, arr, 0, buf.Length);
-                        return arr;
-                    }
-                }
-                catch (System.Exception e)
-                {
-                    GD.PrintErr($"WorldMapData: tunnel load failed: {e.Message}");
-                }
-            }
+            return arr;
         }
-        return new byte[nx, ny, nz];
+        string os = ProjectSettings.GlobalizePath(tunnelMaskPath);
+        if (!System.IO.File.Exists(os))
+        {
+            return arr;
+        }
+        // A mask that cannot be read THROWS rather than coming back blank: the
+        // painter saves every layer together, so a blank mask here is every
+        // tunnel in the document deleted at the next Ctrl+S.
+        using var fs = System.IO.File.OpenRead(os);
+        using var br = new System.IO.BinaryReader(fs);
+        int magic = br.ReadInt32();
+        int version = br.ReadInt32();
+        if (magic != TUNNEL_MAGIC || version != TUNNEL_VERSION)
+        {
+            throw new System.IO.InvalidDataException(
+                $"{tunnelMaskPath}: not a v{TUNNEL_VERSION} tunnel mask (magic {magic:X8}, version {version})");
+        }
+        int fx = br.ReadInt32();
+        int fy = br.ReadInt32();
+        int fz = br.ReadInt32();
+        if (fx != nx || fy != ny || fz != nz)
+        {
+            throw new System.IO.InvalidDataException(
+                $"{tunnelMaskPath}: mask is {fx}x{fy}x{fz}, document is {nx}x{ny}x{nz}");
+        }
+        byte[] buf = new byte[arr.Length * sizeof(ushort)];
+        using (var z = new System.IO.Compression.ZLibStream(fs, System.IO.Compression.CompressionMode.Decompress))
+        {
+            z.ReadExactly(buf);
+        }
+        System.Buffer.BlockCopy(buf, 0, arr, 0, buf.Length);
+        return arr;
     }
 
     public void SaveElevation(Image img)
@@ -511,7 +528,7 @@ public partial class WorldMapData : Resource
         SavePng(blockingPropImagePath, img, "blocking props");
     }
 
-    public void SaveTunnels(byte[,,] tunnels)
+    public void SaveTunnels(ushort[,,] tunnels)
     {
         if (string.IsNullOrEmpty(tunnelMaskPath))
         {
@@ -519,17 +536,19 @@ public partial class WorldMapData : Resource
         }
         try
         {
-            int nx = tunnels.GetLength(0);
-            int ny = tunnels.GetLength(1);
-            int nz = tunnels.GetLength(2);
-            byte[] buf = new byte[tunnels.Length];
+            byte[] buf = new byte[tunnels.Length * sizeof(ushort)];
             System.Buffer.BlockCopy(tunnels, 0, buf, 0, buf.Length);
             using var fs = System.IO.File.Create(ProjectSettings.GlobalizePath(tunnelMaskPath));
-            using var bw = new System.IO.BinaryWriter(fs);
-            bw.Write(nx);
-            bw.Write(ny);
-            bw.Write(nz);
-            bw.Write(buf);
+            using (var bw = new System.IO.BinaryWriter(fs, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                bw.Write(TUNNEL_MAGIC);
+                bw.Write(TUNNEL_VERSION);
+                bw.Write(tunnels.GetLength(0));
+                bw.Write(tunnels.GetLength(1));
+                bw.Write(tunnels.GetLength(2));
+            }
+            using var z = new System.IO.Compression.ZLibStream(fs, System.IO.Compression.CompressionLevel.Optimal);
+            z.Write(buf);
         }
         catch (System.Exception e)
         {

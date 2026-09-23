@@ -366,6 +366,12 @@ preview-versus-bake gap the spawn dots exist to close. Worldgen lerps difficulty
 across a noise field for the same reason: a raw per-column byte would step a
 whole level in one metre.
 
+**Underground, difficulty is on the carve instead**, in whole levels — a passage
+is one place and a clean step between chambers is what an author wants there,
+and a per-column field could not tell two stacked passages apart. An unset
+passage reads the surface field above it. See "Passages" in
+[../CLAUDE.md](../CLAUDE.md).
+
 **Subscene stamps are a LIST, and the tool is a pointer, not a brush.** Click
 empty ground to drop the palette's scene, click a stamp to select it, drag to
 slide it (grabbed where you clicked, so it does not snap its anchor to the

@@ -70,11 +70,36 @@ public class WorldMapState
     // Per-voxel edits to the heightfield: EditCarve removes a voxel the height
     // map would have made solid, EditAdd makes one solid the height map would
     // have left as air. Indexed [px, ly, pz], ly = wy - WorldMinY.
-    public byte[,,] Tunnels;
+    //
+    // A carved cell also names the PASSAGE it is part of — the danger level and
+    // the mob scatter that apply in that space — because a per-column layer
+    // cannot tell two passages stacked in one column apart. Packed:
+    //
+    //   bits  0-1   the edit
+    //   bits  2-5   passage level + 1          (0 = the surface's level here)
+    //   bits  6-11  passage scatter slot + 1   (0 = nothing scatters here)
+    //   bits 12-15  passage density, 0..15
+    //
+    // Read and written only through the accessors below.
+    public ushort[,,] Tunnels;
 
     public const byte EditNone = 0;
     public const byte EditCarve = 1;
     public const byte EditAdd = 2;
+
+    private const int EDIT_MASK = 0x3;
+    private const int PASSAGE_MASK = 0xFFFC;
+    private const int LEVEL_SHIFT = 2;
+    private const int LEVEL_MASK = 0xF;
+    private const int SET_SHIFT = 6;
+    private const int SET_MASK = 0x3F;
+    private const int DENSITY_SHIFT = 12;
+    private const int DENSITY_MASK = 0xF;
+
+    // The field widths, as limits on what can be authored.
+    public const int MaxPassageLevel = LEVEL_MASK - 1;
+    public const int MaxPassageSets = SET_MASK;
+    public const int PassageDensitySteps = DENSITY_MASK;
 
     // Highest and lowest world Y carrying a voxel edit, per column (WorldMinY - 1
     // and int.MaxValue where the column has none). Built lazily and maintained by
@@ -386,31 +411,178 @@ public class WorldMapState
         return WaterSurface(px, pz) > NoWater;
     }
 
-    public byte VoxelEdit(int px, int pz, int wy)
+    private bool InMask(int px, int pz, int ly)
+    {
+        return px >= 0 && px < Data.ImageWidth && pz >= 0 && pz < Data.ImageHeight
+            && ly >= 0 && ly < Data.VoxelHeight;
+    }
+
+    private int VoxelCell(int px, int pz, int wy)
     {
         int ly = wy - Data.WorldMinY;
-        if (px < 0 || px >= Data.ImageWidth || pz < 0 || pz >= Data.ImageHeight
-            || ly < 0 || ly >= Data.VoxelHeight)
-        {
-            return EditNone;
-        }
-        return Tunnels[px, ly, pz];
+        return InMask(px, pz, ly) ? Tunnels[px, ly, pz] : 0;
     }
+
+    public static byte EditOf(ushort cell) => (byte)(cell & EDIT_MASK);
+
+    public byte VoxelEdit(int px, int pz, int wy) => (byte)(VoxelCell(px, pz, wy) & EDIT_MASK);
 
     public bool IsTunnel(int px, int pz, int wy) => VoxelEdit(px, pz, wy) == EditCarve;
 
     public bool IsAdded(int px, int pz, int wy) => VoxelEdit(px, pz, wy) == EditAdd;
 
+    // Only a carve carries a passage. Re-carving a carved voxel keeps its
+    // passage; a FRESH carve takes the passage of a carved neighbour, so
+    // extending a tunnel extends what lives in it rather than leaving a strip of
+    // it with no level and no mobs.
     public void SetVoxelEdit(int px, int pz, int wy, byte edit)
     {
         int ly = wy - Data.WorldMinY;
-        if (px < 0 || px >= Data.ImageWidth || pz < 0 || pz >= Data.ImageHeight
-            || ly < 0 || ly >= Data.VoxelHeight)
+        if (!InMask(px, pz, ly))
         {
             return;
         }
-        Tunnels[px, ly, pz] = edit;
+        int old = Tunnels[px, ly, pz];
+        int passage = 0;
+        if (edit == EditCarve)
+        {
+            passage = (old & EDIT_MASK) == EditCarve ? old & PASSAGE_MASK : NeighbourPassage(px, pz, wy);
+        }
+        Tunnels[px, ly, pz] = (ushort)(edit | passage);
         Edits.Note(px, pz, wy, edit);
+    }
+
+    private static readonly Vector3I[] PASSAGE_NEIGHBOURS =
+    {
+        new Vector3I(0, -1, 0), new Vector3I(0, 1, 0),
+        new Vector3I(-1, 0, 0), new Vector3I(1, 0, 0),
+        new Vector3I(0, 0, -1), new Vector3I(0, 0, 1),
+    };
+
+    private int NeighbourPassage(int px, int pz, int wy)
+    {
+        foreach (Vector3I d in PASSAGE_NEIGHBOURS)
+        {
+            int cell = VoxelCell(px + d.X, pz + d.Z, wy + d.Y);
+            if ((cell & EDIT_MASK) == EditCarve && (cell & PASSAGE_MASK) != 0)
+            {
+                return cell & PASSAGE_MASK;
+            }
+        }
+        return 0;
+    }
+
+    // The danger level a carved voxel's passage sets, or -1 for "the surface's
+    // level at this column" (also the answer for anything not carved).
+    public int PassageLevelAt(int px, int pz, int wy)
+    {
+        int cell = VoxelCell(px, pz, wy);
+        if ((cell & EDIT_MASK) != EditCarve)
+        {
+            return -1;
+        }
+        return ((cell >> LEVEL_SHIFT) & LEVEL_MASK) - 1;
+    }
+
+    // The passage's scatter set and density, or null for none.
+    public SpawnScatterData PassageScatterAt(int px, int pz, int wy, out float density)
+    {
+        int cell = VoxelCell(px, pz, wy);
+        density = ((cell >> DENSITY_SHIFT) & DENSITY_MASK) / (float)DENSITY_MASK;
+        int idx = ((cell >> SET_SHIFT) & SET_MASK) - 1;
+        if ((cell & EDIT_MASK) != EditCarve || idx < 0 || idx >= ScatterSets.Length || density <= 0f)
+        {
+            return null;
+        }
+        return ScatterSets[idx];
+    }
+
+    // The raw slot, for a tool comparing against what it is about to write.
+    public int PassageScatterSlotAt(int px, int pz, int wy)
+    {
+        int cell = VoxelCell(px, pz, wy);
+        return (cell & EDIT_MASK) == EditCarve ? ((cell >> SET_SHIFT) & SET_MASK) - 1 : -1;
+    }
+
+    // -1 hands the passage back to the surface level. No-op on anything not
+    // carved: an uncarved voxel has no passage to belong to.
+    public void SetPassageLevel(int px, int pz, int wy, int level)
+    {
+        int ly = wy - Data.WorldMinY;
+        if (!InMask(px, pz, ly) || (Tunnels[px, ly, pz] & EDIT_MASK) != EditCarve)
+        {
+            return;
+        }
+        int stored = Mathf.Clamp(level, -1, MaxPassageLevel) + 1;
+        int cell = Tunnels[px, ly, pz] & ~(LEVEL_MASK << LEVEL_SHIFT);
+        Tunnels[px, ly, pz] = (ushort)(cell | (stored << LEVEL_SHIFT));
+    }
+
+    // setIndex -1 (or density 0) clears the passage's scatter.
+    public void SetPassageScatter(int px, int pz, int wy, int setIndex, float density)
+    {
+        int ly = wy - Data.WorldMinY;
+        if (!InMask(px, pz, ly) || (Tunnels[px, ly, pz] & EDIT_MASK) != EditCarve)
+        {
+            return;
+        }
+        int step = Mathf.Clamp(Mathf.RoundToInt(density * DENSITY_MASK), 0, DENSITY_MASK);
+        int slot = setIndex >= 0 && setIndex < MaxPassageSets && step > 0 ? setIndex + 1 : 0;
+        if (slot == 0)
+        {
+            step = 0;
+        }
+        int cell = Tunnels[px, ly, pz]
+            & ~(SET_MASK << SET_SHIFT) & ~(DENSITY_MASK << DENSITY_SHIFT);
+        Tunnels[px, ly, pz] = (ushort)(cell | (slot << SET_SHIFT) | (step << DENSITY_SHIFT));
+    }
+
+    // The passage a cutaway shows at a column: the carved run standing on the
+    // floor the cut exposes, bottom and top inclusive. False where that floor has
+    // no carve over it — open ground, the ground under a deck, or no floor at
+    // all — which is what the passage-painting tools fall back to the surface
+    // layer on.
+    //
+    // A floor seen THROUGH rock counts. Unlike the erase, painting a passage's
+    // properties destroys nothing, and needing the plane inside the passage
+    // rather than anywhere above it would only make it harder to reach.
+    public bool CutawayPassage(int px, int pz, int clipY, out int floor, out int top)
+    {
+        floor = CutawayFloor(px, pz, clipY, out _);
+        top = floor;
+        if (floor < Data.WorldMinY || VoxelEdit(px, pz, floor + 1) != EditCarve)
+        {
+            return false;
+        }
+        while (VoxelEdit(px, pz, top + 1) == EditCarve)
+        {
+            top++;
+        }
+        return true;
+    }
+
+    // The highest PASSAGE floor in the column strictly below `aboveY` — a solid
+    // voxel with carve directly over it — or WorldMinY - 1 for none. Stepping it
+    // down from int.MaxValue visits every passage floor a column has, stacked
+    // ones included; an unedited column answers in one read.
+    public int PassageFloorBelow(int px, int pz, int aboveY)
+    {
+        int x = ClampX(px);
+        int z = ClampZ(pz);
+        int top = Edits.Top(x, z);
+        if (top < Data.WorldMinY)
+        {
+            return Data.WorldMinY - 1;
+        }
+        int lowest = Mathf.Max(Data.WorldMinY, Edits.Bottom(x, z) - 1);
+        for (int wy = Mathf.Min(aboveY - 1, top - 1); wy >= lowest; wy--)
+        {
+            if (VoxelEdit(px, pz, wy + 1) == EditCarve && SolidAt(px, pz, wy))
+            {
+                return wy;
+            }
+        }
+        return Data.WorldMinY - 1;
     }
 
     // Anything that rewrites the edit layer wholesale — an undo restore, a
@@ -594,13 +766,30 @@ public class WorldMapState
         return h - lowest;
     }
 
-    // World position -> painted level, for the bake's MobLevelOverride.
+    // World position -> painted level, for the bake's MobLevelOverride: the
+    // level of the passage the position stands in, else the surface field.
     public int MobLevelAtWorld(Vector3 pos)
     {
+        int px = Mathf.FloorToInt(pos.X) - Data.WorldMinX;
+        int pz = Mathf.FloorToInt(pos.Z) - Data.WorldMinZ;
+        int passage = PassageLevelAt(px, pz, Mathf.FloorToInt(pos.Y));
         // Rounded only here, at the point a mob needs a whole level.
-        return Mathf.RoundToInt(MobLevelAt(
-            Mathf.FloorToInt(pos.X) - Data.WorldMinX,
-            Mathf.FloorToInt(pos.Z) - Data.WorldMinZ));
+        return passage >= 0 ? passage : Mathf.RoundToInt(MobLevelAt(px, pz));
+    }
+
+    // The level a map drawn at `clipY` shows at a column: the passage over the
+    // floor the cut exposes, or the surface field anywhere that is not one.
+    public float MobLevelUnderCut(int px, int pz, int clipY)
+    {
+        if (CutawayPassage(px, pz, clipY, out int floor, out _))
+        {
+            int passage = PassageLevelAt(px, pz, floor + 1);
+            if (passage >= 0)
+            {
+                return passage;
+            }
+        }
+        return MobLevelAt(px, pz);
     }
 
     public readonly TerrainKitData[] Terrains;
@@ -2454,6 +2643,77 @@ public class WorldMapState
         return -1;
     }
 
+    // The same answer for the scatter of the passage standing on `floorY`. Each
+    // floor rolls on its own hash, salted with its height, so two passages
+    // stacked in one column do not spawn in lockstep.
+    public int PreviewPassageMobAt(int px, int pz, int floorY)
+    {
+        SpawnScatterData set = PassageSpawnSetAt(px, pz, floorY, out float density);
+        SpawnListRow[] rows = set?.RowsFlat;
+        if (rows == null)
+        {
+            return -1;
+        }
+        for (int i = 0; i < rows.Length; i++)
+        {
+            if (rows[i] != null
+                && AreaRoll(PassageHash(px, pz, floorY, i), rows[i].squareMetersPerSpawn, density))
+            {
+                return IndexOfSet(ScatterSets, set);
+            }
+        }
+        return -1;
+    }
+
+    // What a map cut at `clipY` previews at a column: the passage scatter over
+    // the floor the cut exposes, or the surface scatter where that floor IS the
+    // surface. Anything else (the ground under a deck) scatters nothing.
+    public int PreviewMobUnderCut(int px, int pz, int clipY)
+    {
+        if (CutawayPassage(px, pz, clipY, out int floor, out _))
+        {
+            return PreviewPassageMobAt(px, pz, floor);
+        }
+        return floor >= Data.WorldMinY && floor == SurfaceBelow(px, pz, int.MaxValue)
+            ? PreviewMobAt(px, pz)
+            : -1;
+    }
+
+    internal static uint PassageHash(int px, int pz, int floorY, int row)
+    {
+        return Hash(px, pz, PASSAGE_SALT + (uint)row + (uint)floorY * 0x10000u);
+    }
+
+    // The passage scatter that applies on `floorY`, or null where none may
+    // spawn — the passage's half of CanSpawnAt, and like it the ONE gate the
+    // preview and the bake share:
+    //
+    //   dry         — the bake floods a carve up to the column's water surface.
+    //   headroom    — two metres of air, so nothing is spawned into a crawlway.
+    //   not paved   — a road deletes the scatter in its tread, as on the surface.
+    //   no stamp    — a stamp whose volume reaches the passage overwrites it.
+    public SpawnScatterData PassageSpawnSetAt(int px, int pz, int floorY, out float density)
+    {
+        SpawnScatterData set = PassageScatterAt(px, pz, floorY + 1, out density);
+        if (set == null
+            || WaterSurface(px, pz) > floorY
+            || SolidAt(px, pz, floorY + 2)
+            || PavingAtFloor(px, pz, floorY) != null)
+        {
+            return null;
+        }
+        SubscenePlacement stamp = PlacementAt(px, pz);
+        if (stamp != null)
+        {
+            int baseY = StampBaseY(stamp);
+            if (baseY <= floorY + 2 && baseY + StampHeight(stamp) > floorY)
+            {
+                return null;
+            }
+        }
+        return set;
+    }
+
     private static int FloorDiv(int a, int b) => a >= 0 ? a / b : ((a + 1) / b) - 1;
 
     private static int Mod(int a, int b) => ((a % b) + b) % b;
@@ -2566,6 +2826,7 @@ public class WorldMapState
     // same column.
     internal const uint PROP_SALT = 0x9E37u;
     internal const uint ENTITY_SALT = 0x85EBu;
+    internal const uint PASSAGE_SALT = 0xC2B2u;
 
     // Public because worldmap_check asks it of every hand-placed entity: this is
     // the one TrySpawn gate answerable without a built world, and a rejection by

@@ -10,17 +10,20 @@
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="8_porous"]
 [ext_resource type="PackedScene" uid="uid://v3kxzgx5dlqa8" path="res://scenes/fx/cactus_warning.tscn" id="9_fx_warning"]
 [ext_resource type="PackedScene" uid="uid://6ya965jtvf29c" path="res://scenes/fx/cactus_burst.tscn" id="10_fx_burst"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="model_lit_shader"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_body"]
-albedo_color = Color(0.22, 0.47, 0.26, 1)
+[sub_resource type="ShaderMaterial" id="Mat_body"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.22, 0.47, 0.26, 1)
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
-material = SubResource("StandardMaterial3D_body")
+material = SubResource("Mat_body")
 radius = 0.32
 height = 1.5
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_arm"]
-material = SubResource("StandardMaterial3D_body")
+material = SubResource("Mat_body")
 radius = 0.13
 height = 0.55
 

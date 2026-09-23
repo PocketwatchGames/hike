@@ -57,7 +57,7 @@ public class VoxelEditOverlay
         int bot = int.MaxValue;
         for (int y = 0; y < Map.Data.VoxelHeight; y++)
         {
-            if (Map.Tunnels[px, y, pz] != WorldMapState.EditNone)
+            if (WorldMapState.EditOf(Map.Tunnels[px, y, pz]) != WorldMapState.EditNone)
             {
                 top = Map.Data.WorldMinY + y;
                 bot = Mathf.Min(bot, top);
@@ -102,7 +102,7 @@ public class VoxelEditOverlay
             {
                 for (int pz = 0; pz < Map.Data.ImageHeight; pz++)
                 {
-                    if (Map.Tunnels[px, ly, pz] != WorldMapState.EditNone)
+                    if (WorldMapState.EditOf(Map.Tunnels[px, ly, pz]) != WorldMapState.EditNone)
                     {
                         _topEdit[px, pz] = Map.Data.WorldMinY + ly;
                         _botEdit[px, pz] = Mathf.Min(_botEdit[px, pz], Map.Data.WorldMinY + ly);

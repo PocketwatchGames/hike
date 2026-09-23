@@ -30,20 +30,17 @@ public abstract class VoxelEditTool : IWorldMapTool
     public IWorldMapView View { get; }
     public float Radius { get; set; } = 6f;
 
-    // The elevation the brush is aimed at, and how many metres tall the box is.
-    //
-    // The box hangs off it in the direction the tool writes: a carve runs UP from
-    // it (so PaintY is the first metre removed and you are left standing on the
-    // one below), a fill runs DOWN from it (so PaintY is the new surface). That
-    // is the voxel-editor rule — RMB takes the voxel you point at, LMB puts one
-    // on top of it — and it is what makes alt+click land the same way for both:
-    // the pick sets PaintY to the first free metre over the floor you clicked, so
-    // carving keeps that floor and blocking raises it by one.
+    // The FLOOR the edit leaves you standing on, and how many metres tall the box
+    // is. A carve opens the Height metres ABOVE PaintY; a fill runs DOWN to it,
+    // so PaintY is the new surface. Either way PaintY is the elevation of the
+    // floor you end up with — which is what the eyedropper samples and the HUD
+    // reports, so alt+clicking an existing passage and painting carries it on at
+    // the same height rather than a metre below it.
     public int PaintY = 4;
     public int Height = 3;
 
     // Lowest voxel the box covers.
-    private int BottomY => PaintsSolid ? PaintY - Height + 1 : PaintY;
+    private int BottomY => PaintsSolid ? PaintY - Height + 1 : PaintY + 1;
 
     protected VoxelEditTool()
     {
@@ -56,7 +53,7 @@ public abstract class VoxelEditTool : IWorldMapTool
     public int OptionIndex { get => 0; set { } }
 
     public string HintText(WorldMapState ctx) =>
-        $"LMB {(PaintsSolid ? "block (fills DOWN from the level)" : "tunnel (carves UP from the level)")}"
+        $"LMB {(PaintsSolid ? "block (fills DOWN to the level)" : "tunnel (carves ABOVE the level)")}"
         + $"  |  RMB erase the whole {(PaintsSolid ? "slab" : "passage")} under the cut  |  "
         + "Q/E brush height  |  T/G cutaway  |  alt+LMB pick the level, "
         + "alt+RMB aim the cutaway";
@@ -77,10 +74,8 @@ public abstract class VoxelEditTool : IWorldMapTool
         // Alt aims the brush at the floor under the cursor, the same eyedropper
         // the elevation and water tools have, and lands PaintY EXACTLY on the
         // elevation sampled — the number the HUD then shows is the one you
-        // clicked. It briefly picked one metre above (so a carve would preserve
-        // the floor it sampled rather than take it); that made the readout
-        // disagree with every pick, and an eyedropper whose value is not the
-        // value you pointed at is not an eyedropper.
+        // clicked, and because PaintY is the floor the edit leaves (BottomY),
+        // painting from the pick continues that floor at the same height.
         //
         // Two things about WHICH floor. The highest one UNDER THE CUTAWAY,
         // because the floor you can see is the one you meant — sampling the

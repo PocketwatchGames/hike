@@ -663,13 +663,30 @@ public class WorldMapBake
         // Props first and unconditionally: their own gate is CanPlacePropAt, and
         // CanSpawnAt now refuses the very region they are filling.
         ScatterProps(px, pz);
-        if (!Map.CanSpawnAt(px, pz))
+        if (Map.CanSpawnAt(px, pz))
         {
-            return;
+            var pos = new Vector3(Map.Data.WorldMinX + px + 0.5f, Map.TerrainHeight(px, pz) + 1f,
+                Map.Data.WorldMinZ + pz + 0.5f);
+            SpawnScatterData set = Map.MobSetAt(px, pz, out float mobDensity);
+            ScatterMobColumn(set, mobDensity, pos,
+                i => WorldMapState.Hash(px, pz, WorldMapState.ENTITY_SALT + (uint)i));
         }
-        var pos = new Vector3(Map.Data.WorldMinX + px + 0.5f, Map.TerrainHeight(px, pz) + 1f,
-            Map.Data.WorldMinZ + pz + 0.5f);
-        ScatterMobColumn(Map.MobSetAt(px, pz, out float mobDensity), mobDensity, px, pz, pos);
+        // Then every passage floor in the column, each off its own scatter. The
+        // surface pass never reaches one: CanSpawnAt wants the column's top to
+        // be the painted ground, which a carve is not.
+        for (int floor = Map.PassageFloorBelow(px, pz, int.MaxValue);
+            floor >= Map.Data.WorldMinY;
+            floor = Map.PassageFloorBelow(px, pz, floor))
+        {
+            SpawnScatterData set = Map.PassageSpawnSetAt(px, pz, floor, out float density);
+            if (set == null)
+            {
+                continue;
+            }
+            var pos = new Vector3(Map.Data.WorldMinX + px + 0.5f, floor + 1f, Map.Data.WorldMinZ + pz + 0.5f);
+            int floorY = floor;
+            ScatterMobColumn(set, density, pos, i => WorldMapState.PassageHash(px, pz, floorY, i));
+        }
     }
 
     // Whatever the fill decided stands here. Always PropType.Tree: the type is
@@ -713,7 +730,7 @@ public class WorldMapBake
     // Mobs: each row's OWN authored rate, then its own Spawn logic. The hash
     // decides placement; the seeded Random only fills in details, so the map
     // preview stays exact.
-    private void ScatterMobColumn(SpawnScatterData set, float density, int px, int pz, Vector3 pos)
+    private void ScatterMobColumn(SpawnScatterData set, float density, Vector3 pos, System.Func<int, uint> rowHash)
     {
         SpawnListRow[] rows = set?.RowsFlat;
         if (rows == null)
@@ -727,7 +744,7 @@ public class WorldMapBake
             {
                 continue;
             }
-            uint h = WorldMapState.Hash(px, pz, WorldMapState.ENTITY_SALT + (uint)i);
+            uint h = rowHash(i);
             if (!WorldMapState.AreaRoll(h, row.squareMetersPerSpawn, density))
             {
                 continue;
@@ -748,8 +765,9 @@ public class WorldMapBake
             SurfaceYAt = GroundYAtWorld,
             IsValidColumn = (wx, wz) => Map.CanSpawnAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ),
             IsFlatColumn = (wx, wz) => Map.IsFlatAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ),
-            // The painted difficulty layer, which is the only thing that knows a
-            // mob's level in a world nothing generated.
+            // The painted difficulty — the passage a mob stands in, else the
+            // surface layer — which is the only thing that knows a mob's level
+            // in a world nothing generated.
             MobLevelOverride = (pos, baseLevel) =>
                 Mathf.Clamp(baseLevel + Map.MobLevelAtWorld(pos), 0, levelCap),
             // A forge takes its tier from the SAME painted layer. Its own scale

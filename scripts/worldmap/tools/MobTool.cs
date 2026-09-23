@@ -72,13 +72,18 @@ public class MobTool : IWorldMapTool
         return SetIndex >= 0 && SetIndex < sets.Length ? sets[SetIndex] : null;
     }
 
-    public string HintText(WorldMapState ctx) => "";
+    public string HintText(WorldMapState ctx)
+        => "T/G lower the cutaway to scatter into the PASSAGES under it (RMB clears)";
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
         SpawnScatterData[] sets = ctx.ScatterSets;
         string label = SetIndex >= 0 && SetIndex < sets.Length ? sets[SetIndex]?.Label : null;
-        return string.IsNullOrEmpty(label) ? "No scatter sets authored" : label;
+        if (string.IsNullOrEmpty(label))
+        {
+            return "No scatter sets authored";
+        }
+        return view.IsCutAway ? $"{label} (passages under the cut)" : label;
     }
 
     public string LevelText(WorldMapState ctx, WorldMapView view) => $"Density {Mathf.RoundToInt(Density * 100f)}%";
@@ -90,8 +95,36 @@ public class MobTool : IWorldMapTool
     public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         byte id = (byte)Mathf.Clamp(SetIndex + 1, 1, 255);
+        bool cut = view.IsCutAway;
+        int clip = view.CutawayY;
+        if (cut && !erase && SetIndex >= WorldMapState.MaxPassageSets)
+        {
+            GD.PrintErr($"Mobs: a passage can hold scatter slots 0..{WorldMapState.MaxPassageSets - 1}; "
+                + $"slot {SetIndex} does not fit the tunnel mask");
+            return;
+        }
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
+            // Under a lowered cutaway, a column whose exposed floor has a passage
+            // over it paints THAT passage's scatter, the same way the danger
+            // tool paints its level; anywhere else, the surface layer.
+            if (cut && ctx.CutawayPassage(px, pz, clip, out int floor, out int top))
+            {
+                // Same Max rule as the surface, within one set: a stroke only
+                // raises density. Density is 15 steps in the carve, so a
+                // feathered rim rounds to them.
+                float pd = erase ? 0f : Density * weight;
+                if (!erase && ctx.PassageScatterSlotAt(px, pz, floor + 1) == SetIndex)
+                {
+                    ctx.PassageScatterAt(px, pz, floor + 1, out float had);
+                    pd = Mathf.Max(pd, had);
+                }
+                for (int wy = floor + 1; wy <= top; wy++)
+                {
+                    ctx.SetPassageScatter(px, pz, wy, erase ? -1 : SetIndex, pd);
+                }
+                return;
+            }
             if (erase)
             {
                 ctx.Mobs.SetPixel(px, pz, new Color(0f, 0f, 0f, 1f));
@@ -120,11 +153,22 @@ public class MobTool : IWorldMapTool
 
 // Ground underneath, mob colour in the dots — same reading as the prop view, so
 // wildlife is judged against the terrain it lives on.
+//
+// Cuts away like CutawayGroundView: with the plane lowered it draws the floors
+// the cut exposes, and the painter dots the scatter of whatever it exposed —
+// a passage's own, or the surface's where the floor is the surface
+// (WorldMapState.PreviewMobUnderCut).
 public class MobView : IWorldMapView
 {
     public bool ShowsAllSteps => true;
     public bool DrawsWater => true;
+    public bool CutsAway => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.Props | ESpawnPreview.Mobs;
 
-    public Color ColorAt(WorldMapInk ink, int px, int pz) => ink.GroundColorAt(px, pz);
+    public Color ColorAt(WorldMapInk ink, int px, int pz)
+    {
+        return ink.View.IsCutAway
+            ? ink.CutawayColorAt(px, pz, ink.View.CutawayY, out _)
+            : ink.GroundColorAt(px, pz);
+    }
 }

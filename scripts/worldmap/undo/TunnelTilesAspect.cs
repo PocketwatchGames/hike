@@ -11,8 +11,8 @@ using Godot;
 // snapshot instead of a per-slice bookkeeping problem.
 public sealed class TunnelTilesAspect : IMapEditAspect
 {
-    private Dictionary<Vector2I, byte[,,]> _before = new Dictionary<Vector2I, byte[,,]>();
-    private readonly Dictionary<Vector2I, byte[,,]> _after = new Dictionary<Vector2I, byte[,,]>();
+    private Dictionary<Vector2I, ushort[,,]> _before = new Dictionary<Vector2I, ushort[,,]>();
+    private readonly Dictionary<Vector2I, ushort[,,]> _after = new Dictionary<Vector2I, ushort[,,]>();
 
     public void Touch(WorldMapState ctx, Rect2I texelRect)
     {
@@ -39,10 +39,10 @@ public sealed class TunnelTilesAspect : IMapEditAspect
 
     public bool CaptureAfter(WorldMapState ctx)
     {
-        var changed = new Dictionary<Vector2I, byte[,,]>(_before.Count);
-        foreach (KeyValuePair<Vector2I, byte[,,]> kvp in _before)
+        var changed = new Dictionary<Vector2I, ushort[,,]>(_before.Count);
+        foreach (KeyValuePair<Vector2I, ushort[,,]> kvp in _before)
         {
-            byte[,,] now = Capture(ctx, kvp.Key);
+            ushort[,,] now = Capture(ctx, kvp.Key);
             if (Same(now, kvp.Value))
             {
                 continue;
@@ -56,17 +56,17 @@ public sealed class TunnelTilesAspect : IMapEditAspect
 
     public void Restore(WorldMapState ctx, bool redo)
     {
-        Dictionary<Vector2I, byte[,,]> source = redo ? _after : _before;
-        foreach (KeyValuePair<Vector2I, byte[,,]> kvp in source)
+        Dictionary<Vector2I, ushort[,,]> source = redo ? _after : _before;
+        foreach (KeyValuePair<Vector2I, ushort[,,]> kvp in source)
         {
             Write(ctx, kvp.Key, kvp.Value);
         }
     }
 
-    private static byte[,,] Capture(WorldMapState ctx, Vector2I tile)
+    private static ushort[,,] Capture(WorldMapState ctx, Vector2I tile)
     {
         int h = ctx.Data.VoxelHeight;
-        var slab = new byte[ChunkState.SIZE, h, ChunkState.SIZE];
+        var slab = new ushort[ChunkState.SIZE, h, ChunkState.SIZE];
         int ox = tile.X * ChunkState.SIZE;
         int oz = tile.Y * ChunkState.SIZE;
         for (int x = 0; x < ChunkState.SIZE && ox + x < ctx.Data.ImageWidth; x++)
@@ -82,7 +82,7 @@ public sealed class TunnelTilesAspect : IMapEditAspect
         return slab;
     }
 
-    private static void Write(WorldMapState ctx, Vector2I tile, byte[,,] slab)
+    private static void Write(WorldMapState ctx, Vector2I tile, ushort[,,] slab)
     {
         // Written straight into the array, so the per-column summary of where
         // the edits reach has to be dropped rather than maintained.
@@ -102,7 +102,7 @@ public sealed class TunnelTilesAspect : IMapEditAspect
         }
     }
 
-    private static bool Same(byte[,,] a, byte[,,] b)
+    private static bool Same(ushort[,,] a, ushort[,,] b)
     {
         for (int x = 0; x < a.GetLength(0); x++)
         {

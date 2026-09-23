@@ -82,9 +82,11 @@ Layers:
   hand-placed entities, and the player spawn. Not a raster: a per-column byte
   cannot hold "this scene, facing that way", nor two of them overlapping, nor a
   footprint that moves as one thing.
-- **Tunnels** — `.bin`, per-voxel EDIT mask (`byte[px,ly,pz]`: 0 untouched,
-  1 carved away, 2 added), too 3D to be a useful image; the result is captured
-  in the baked `.hike`.
+- **Tunnels** — `.bin` (magic + version + dims, then zlib), a per-voxel
+  `ushort[px,ly,pz]`: the EDIT in the low two bits (0 untouched, 1 carved away,
+  2 added) and, on a carve, the **passage** it belongs to — its danger level,
+  scatter set and density. Too 3D to be a useful image; the result is captured
+  in the baked `.hike`. See "Passages" below.
 ## What a painted world needs that is not the generator's
 
 
@@ -213,8 +215,8 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 |------|--------|-----------|------|
 | `ElevationTool` | elevation (raise/lower/flatten/flatten-soft/smooth/lift/smear) **and** cliff weathering (roughen) | `Op`, `VoxelsPerStroke`, `TargetVoxels`, `RoughenStopIndex`; `AdjustLevel` steps whichever number the op uses | one band per lattice step, eroded heights, water overlaid when `ShowWater` (**W**) |
 | `WaterTool` | each painted column's water surface AND its water type (RMB removes) | `SurfaceVoxels` (R/F, signed; alt+click samples), type (**Q/E**), `ReplaceOnly` (**X**) | water shaded by depth, dry land dimmed — **cuts away** (T/G), so water can be painted inside a passage |
-| `TunnelTool` | LMB carves the box UP from `PaintY`; RMB erases the whole exposed passage | `PaintY` (R/F), `Height` (Q/E) | `CutawayElevationView` — the elevation map cut at `view.CutawayY` (T/G): the highest floor under the cut in its own band, dithered where seen through rock |
-| `BlockTool` | the same box, LMB filling it DOWN from `PaintY` | the same | the same view |
+| `TunnelTool` | LMB carves the box ABOVE `PaintY`, which is the floor left behind; RMB erases the whole exposed passage | `PaintY` (R/F), `Height` (Q/E) | `CutawayElevationView` — the elevation map cut at `view.CutawayY` (T/G): the highest floor under the cut in its own band, dithered where seen through rock |
+| `BlockTool` | the same box, LMB filling it DOWN to `PaintY`, the new surface | the same | the same view |
 | `RegionTool` | per-chunk region index | `RegionIndex`, named in the option row | region colours, **50% darker under water** |
 | `ZoneTool` | per-chunk zone index | `ZoneIndex`, named in the option row | zone colours, **brightness by elevation** |
 | `WindTool` | per-chunk wind direction + strength (RMB clears back to the zone's) | `Mode` (Stroke / Inward / Outward), `AdjustLevel` = strength in m/s; alt+click samples | hue = compass angle, a sawtooth ramp ALONG the flow, unpainted chunks flat grey |
@@ -222,8 +224,8 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | `PropPaintTool` ("Blocking") | which `PropListData` fills a column (RMB clears, alt+click samples) | `ListIndex` | ground colour, a dot per painted column in that list's own `mapColor` — black for a barrier, mid-grey for a breakable one |
 | `ClimbTool` | climbing route on a column's walls | none | `CutawayElevationView`, routed edges inked magenta — **cuts away** (T/G), so a route can be painted on a passage's walls |
 | `SceneTool` | `.hikescene` stamps — place / select / move / rotate / delete | `SceneIndex`, `Selected` | the ground map (the stamps themselves draw on EVERY view) |
-| `MobLevelTool` | per-column danger level | `Level` | terrain recoloured, one shade per level |
-| `MobTool` | which `SpawnScatterData` supplies a column's wildlife + density; the inspector lists the set's entries at `n / km²` | `SetIndex`, `Density` | ground colour + a dot per mob spawn, the SELECTED set full weight and the rest dimmed |
+| `MobLevelTool` | per-column danger level; with the plane lowered, the level of the PASSAGE under the cut | `Level` | terrain recoloured, one shade per level — **cuts away** (T/G) to shade passages |
+| `MobTool` | which `SpawnScatterData` supplies a column's wildlife + density; with the plane lowered, the PASSAGE's scatter; the inspector lists the set's entries at `n / km²` | `SetIndex`, `Density` | ground colour + a dot per mob spawn, the SELECTED set full weight and the rest dimmed — **cuts away** (T/G), dotting the passage scatter |
 | `EntityTool` | individual entities, their per-placement properties, and the player spawn | `PaletteIndex`, `Selected` | the ground map (the marks themselves draw on EVERY view that shows props) |
 
 A spawn brush writes only its raster; `RescatterColumns` resolves it during the
@@ -253,6 +255,46 @@ match:
   barrier. Every decision is a hash of the column rather than a running `Random`,
   which is what lets the map preview reach the same answer without replaying the
   pass.
+
+### Passages: danger and scatter underground
+
+**A passage's danger and wildlife live ON THE CARVE, not in a per-column
+layer**, because two passages stacked in one column must be able to differ. Each
+carved voxel packs, beside its edit bits (`WorldMapState.Tunnels`):
+
+| Bits | Field | 0 means |
+|---|---|---|
+| 2–5 | level + 1 | the surface's level at this column |
+| 6–11 | scatter slot + 1 (the same ledger slot `mobs.png` stores) | nothing scatters here |
+| 12–15 | density, 15 steps | — |
+
+So `mobLevelCount` is capped at 15 and a passage can name scatter slots 0..62.
+Read and write through the accessors (`PassageLevelAt`, `PassageScatterAt`,
+`SetPassageLevel`, `SetPassageScatter`); the packing is private.
+
+- **Painted with the Danger and Mobs tools, under a lowered cutaway.** Each
+  paints what the map shows: a column whose exposed floor has carve over it
+  (`CutawayPassage`) sets that whole carved run; anywhere else is the surface
+  layer as usual. The plane picks between stacked passages. A floor seen through
+  rock IS paintable — unlike the erase, this destroys nothing. Passage levels
+  are whole and hard-edged, never a soft gradient.
+- **A fresh carve takes a carved neighbour's passage** (`SetVoxelEdit`), so
+  extending a tunnel extends what lives in it; re-carving keeps it. Undo, resize
+  and RMB-erase move whole cells, so the passage travels with its voxels.
+- **Scatter**: the bake visits every passage floor in a column
+  (`PassageFloorBelow`, a solid voxel with carve over it) and rolls that
+  passage's rows on `PassageHash`, salted with the floor's Y so stacked floors
+  roll independently. `PassageSpawnSetAt` is the passage's half of `CanSpawnAt`
+  — dry, two metres of headroom, unpaved, clear of a stamp's volume — and the one
+  gate the bake and the preview share. The surface pass never reaches a passage:
+  `CanSpawnAt` wants the column's top to be the painted ground.
+- **Danger at bake**: `MobLevelAtWorld(pos)` reads the passage of the voxel a
+  spawn stands in, else the surface field — so scattered mobs, hand-placed mobs
+  and forges in a passage all get its level.
+- `worldmap_check` reports carved voxels by passage level and set, and passage
+  floors as total / with a scatter / spawnable / previewing a spawn. A big gap
+  between "with a scatter" and "spawnable" is floors the gate refuses — flooded,
+  crawlways, paved, under a stamp.
 
 `WorldMapBrush` (`Resource`) is the shared, layer-agnostic stamp engine
 (falloff/flow/noise + `Stamp(center, radius, w, h, apply)` callback); each tool

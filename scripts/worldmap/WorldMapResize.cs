@@ -226,14 +226,14 @@ public static class WorldMapResize
         return dst;
     }
 
-    private static byte[,,] RecanvasTunnels(byte[,,] src, int oldW, int oldH, int newW, int newH,
+    private static ushort[,,] RecanvasTunnels(ushort[,,] src, int oldW, int oldH, int newW, int newH,
         Vector2I shift, int voxelHeight)
     {
         if (src == null)
         {
             return null;
         }
-        var dst = new byte[newW, voxelHeight, newH];
+        var dst = new ushort[newW, voxelHeight, newH];
         for (int x = 0; x < oldW; x++)
         {
             int nx = x + shift.X;
@@ -282,13 +282,14 @@ public static class WorldMapResize
     // that shrinks out of existence is a passage that silently seals, which is
     // worse than one that comes out a metre wide. A carve beats an added voxel
     // for the same reason — a sealed passage is the worse of the two failures.
-    private static byte[,,] ResampleTunnels(byte[,,] src, int oldW, int oldH, int newW, int newH, int voxelHeight)
+    // Whole cells are copied, so a carve keeps the passage it belonged to.
+    private static ushort[,,] ResampleTunnels(ushort[,,] src, int oldW, int oldH, int newW, int newH, int voxelHeight)
     {
         if (src == null)
         {
             return null;
         }
-        var dst = new byte[newW, voxelHeight, newH];
+        var dst = new ushort[newW, voxelHeight, newH];
         for (int x = 0; x < newW; x++)
         {
             int sx0 = x * oldW / newW;
@@ -299,13 +300,13 @@ public static class WorldMapResize
                 int sz1 = Mathf.Max(sz0 + 1, (z + 1) * oldH / newH);
                 for (int y = 0; y < voxelHeight; y++)
                 {
-                    byte v = WorldMapState.EditNone;
-                    for (int sx = sx0; sx < sx1 && v != WorldMapState.EditCarve; sx++)
+                    ushort v = 0;
+                    for (int sx = sx0; sx < sx1 && WorldMapState.EditOf(v) != WorldMapState.EditCarve; sx++)
                     {
-                        for (int sz = sz0; sz < sz1 && v != WorldMapState.EditCarve; sz++)
+                        for (int sz = sz0; sz < sz1 && WorldMapState.EditOf(v) != WorldMapState.EditCarve; sz++)
                         {
-                            byte sv = src[sx, y, sz];
-                            if (sv != WorldMapState.EditNone)
+                            ushort sv = src[sx, y, sz];
+                            if (WorldMapState.EditOf(sv) != WorldMapState.EditNone)
                             {
                                 v = sv;
                             }
