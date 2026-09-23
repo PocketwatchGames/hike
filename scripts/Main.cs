@@ -127,6 +127,14 @@ public partial class Main : Node
 			return;
 		}
 
+		// And for the in-world scripts: checks the UI font can draw every
+		// language's glyph block, which only shows up as tofu at runtime.
+		if (CVars.fontCheck.Value)
+		{
+			FontCheck.RunAndQuit(GetTree());
+			return;
+		}
+
 		// And for the spawn lists: dumps every list's resolved rows, so a
 		// re-shaping of those files is diff-provable.
 		if (CVars.spawnCheck.Value)
@@ -195,10 +203,10 @@ public partial class Main : Node
 		StartMainMenu();
 	}
 
-	async void NewGame(Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData)
+	async void NewGame(Vector3 playerPosition, WorldGenData worldGenData)
 	{
 		LoadingScreen loadingScreen = await LeaveMenuForLoading();
-		await StartGame(loadingScreen, playerPosition, playerScene, worldGenData, save: null);
+		await StartGame(loadingScreen, playerPosition, worldGenData, save: null);
 	}
 
 	// A save names its own world, so this starts THAT world — not the menu's
@@ -220,15 +228,21 @@ public partial class Main : Node
 		catch (Exception e)
 		{
 			GD.PrintErr($"[Save] Can't load '{savePath}': {e.Message}");
+			// From the menu there is nothing to do but stay there. From a game
+			// over the run is already finished, so fall back to the menu.
+			if (_currentScreen is GameClient finished)
+			{
+				finished.QueueFree();
+				StartMainMenu();
+			}
 			return;
 		}
-		PackedScene playerScene = (_currentScreen as GuiMainMenu)?.playerScene;
 		// StartGame loads world_file when set and generates when not — the same
 		// switch a New Game row sets.
 		CVars.worldFile.Value = save.Origin.WorldFile;
 
 		LoadingScreen loadingScreen = await LeaveMenuForLoading();
-		await StartGame(loadingScreen, Vector3.Zero, playerScene, worldGenData, save);
+		await StartGame(loadingScreen, Vector3.Zero, worldGenData, save);
 	}
 
 	async Task<LoadingScreen> LeaveMenuForLoading()
@@ -254,7 +268,7 @@ public partial class Main : Node
 		return loadingScreen;
 	}
 
-	async Task StartGame(LoadingScreen loadingScreen, Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData, SaveFile save)
+	async Task StartGame(LoadingScreen loadingScreen, Vector3 playerPosition, WorldGenData worldGenData, SaveFile save)
 	{
 		// Upload the active world's terrain + detail palettes to the terrain
 		// shader / scatter system before any chunk mesh is built. Disk-loaded
@@ -533,7 +547,7 @@ public partial class Main : Node
 		AddChild(_currentScreen);
 		GD.Print($"[Load] Scene loaded: {phaseSw.ElapsedMilliseconds}ms");
 		loadingScreen.SetProgress(0.6f, "Building world...");
-		(_currentScreen as GameClient).Init(playerPosition, playerScene, worldState, loadingScreen, save);
+		(_currentScreen as GameClient).Init(playerPosition, worldState, loadingScreen, save);
 		// Hand the persistent music director the fresh session so it can
 		// subscribe to combat/world events; it auto-detaches on quit.
 		MusicManager.Instance?.BindGame(_currentScreen as GameClient);
@@ -542,6 +556,9 @@ public partial class Main : Node
 			_currentScreen.QueueFree();
 			StartMainMenu();
 		};
+		// Total party wipe: restart the run from the last autosave, taking the
+		// same path the menu's Load row does (LoadGame frees this screen itself).
+		(_currentScreen as GameClient).onLoadLastSave += () => LoadGame(CVars.savePath.Value);
 	}
 
 	// Runs `work` on a thread-pool thread and yields the main thread each

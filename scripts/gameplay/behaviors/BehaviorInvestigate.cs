@@ -2,10 +2,6 @@ using Godot;
 
 public partial class BehaviorInvestigate : BehaviorBase
 {
-    // Eye height for the line-of-sight raycast. Matches UpdatePerception so
-    // "can I see the investigation point" uses the same sightline as "can I
-    // see the player".
-    private const float EyeHeight = 1.5f;
     // Extra slop on top of the investigation range when deciding we've
     // "arrived" for the purposes of starting the pause timer. The path
     // controller stops at `range`; this tolerance keeps us from missing the
@@ -62,7 +58,7 @@ public partial class BehaviorInvestigate : BehaviorBase
             output.yaw = Mathf.Atan2(flat.X, flat.Y);
         }
 
-        if (distSq < arriveRange * arriveRange && HasLineOfSight(me, investigation.position))
+        if (distSq < arriveRange * arriveRange && Sightline.IsClear(me, investigation.position))
         {
             // Arrived and can see the point — start the pause countdown.
             // Clamp the existing cancelTime down so a very long investigation
@@ -83,17 +79,4 @@ public partial class BehaviorInvestigate : BehaviorBase
         return new BehaviorOutput(EBehaviorResult.Running);
     }
 
-    // Environment-only raycast from the mob's eye to the investigation point.
-    // Mirrors the LOS check in UpdatePerception so both systems agree on what
-    // counts as visible.
-    private static bool HasLineOfSight(Mob me, Vector3 target)
-    {
-        Vector3 rayStart = me.GlobalPosition + new Vector3(0f, EyeHeight, 0f);
-        Vector3 rayEnd = target + new Vector3(0f, EyeHeight, 0f);
-        using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Solid);
-        query.CollideWithAreas = false;
-        query.CollideWithBodies = true;
-        var result = me.GetWorld3D().DirectSpaceState.IntersectRay(query);
-        return result.Count == 0;
-    }
 }

@@ -599,6 +599,12 @@ public static class EntitySerializer
                 // persist or a reloaded mob would revert to base stats. Appended last so older
                 // world files still parse.
                 w.Write(mob.Level);
+                // Whether the vitals above are a composed pool or still the raw
+                // base ones (see MobSimState.VitalsFinalized). A worldgen bake
+                // writes false and Mob.Initialize fills them on load; a save
+                // writes true and the wounded pool is preserved. Without it the
+                // reader cannot tell the two apart.
+                w.Write(mob.VitalsFinalized);
                 break;
 
             case DoorSimState door:
@@ -1010,7 +1016,6 @@ public static class EntitySerializer
                 // assigns it); only the authored spawn facing is in the payload.
                 var mob = new MobSimState(pos, rotationY: 0f, spawnPos, spawnRotationY, scene, mobData);
                 mob.Species = species;
-                mob.RestoredFromSave = true;
                 mob.Language = language;
                 if (!string.IsNullOrEmpty(initialBehavior))
                 {
@@ -1052,6 +1057,7 @@ public static class EntitySerializer
                 }
                 mob.RecruitTemplate = recruitTemplate;
                 mob.Level = r.ReadInt32();
+                mob.VitalsFinalized = r.ReadBoolean();
                 return mob;
             }
             case Tag.Door:

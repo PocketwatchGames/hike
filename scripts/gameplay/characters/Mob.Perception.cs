@@ -305,9 +305,12 @@ public partial class Mob
             // stealth lever (flank it). A HARD FOV limit (peripherally blind beyond
             // ±FOV/2), then inside the cone the forward-dot is remapped 0 (edge) → 1
             // (dead ahead) and raised to visionDotPower (sqrt) for clarity.
-            // Omnidirectional when perched.
+            // Omnidirectional when perched, and when the authored FOV is the full
+            // circle: the in-cone remap anchors on the cone EDGE, so at 360 it
+            // would still taper to 0 directly behind — a blind spot a many-eyed
+            // or faceless mob is authored not to have.
             float facingFactor;
-            if (perched)
+            if (perched || mobData.visionFovDegrees >= 360f)
             {
                 facingFactor = 1f;
             }
@@ -321,6 +324,10 @@ public partial class Mob
             }
             bool canSee = false;
             float visionDelta = 0f;
+            // Sightline state for the debug readout. Stays Unchecked unless the
+            // raycast below actually runs — out of range or under the floor means
+            // we never looked, which is not the same as being blocked.
+            EPerceptionLos visionLos = EPerceptionLos.Unchecked;
             if (inVisionRange)
             {
                 // Clarity: how clearly the mob reads the player right now — the
@@ -385,10 +392,12 @@ public partial class Mob
                     if (result.Count > 0)
                     {
                         visionDelta = 0f;
+                        visionLos = EPerceptionLos.Blocked;
                     }
                     else
                     {
                         canSee = true;
+                        visionLos = EPerceptionLos.Clear;
                     }
                 }
                 else
@@ -525,11 +534,10 @@ public partial class Mob
             mobToPlayerDebug.speed = _world.player.visibilitySpeed;
             mobToPlayerDebug.camouflage = _world.player.visibilityCamouflage;
             mobToPlayerDebug.fog = PlayerPerception.FogClarity(_world, GlobalPosition, _world.player.GlobalPosition);
-            // Unchecked when out of range (no raycast ran); otherwise Clear/Blocked
-            // by the raycast result. Mirrors the player→mob tri-state.
-            mobToPlayerDebug.los = inVisionRange
-                ? (canSee ? EPerceptionLos.Clear : EPerceptionLos.Blocked)
-                : EPerceptionLos.Unchecked;
+            // Tri-state set at the raycast itself (Mirrors the player→mob path):
+            // Clear/Blocked only when a ray was actually cast, Unchecked when the
+            // target was out of range or the signal never reached the floor.
+            mobToPlayerDebug.los = visionLos;
 
             if (perceptionDelta > mobData.minPerceptionDelta)
             {
@@ -539,8 +547,11 @@ public partial class Mob
                 // is caught near-instantly; a distant / edge-of-cone / stealthed
                 // contact builds slowly and visibly, giving time to react.
                 float accel = perceptionDelta * (1f + (mobData.perceptionAccel - 1f) * Mathf.Clamp(perceptionDelta, 0f, 1f));
+                // Suspicion scales the growth rate only inside this branch, so a
+                // rattled mob closes on something it can already make out faster
+                // without being able to sense anything it otherwise couldn't.
                 target.perception = Mathf.Clamp(
-                    target.perception + accel * mobData.perceptionIncreaseSpeed * delta,
+                    target.perception + accel * mobData.perceptionIncreaseSpeed * SuspicionMultiplier() * delta,
                     0f, 1f);
                 // Triggered (combat alert) requires active visual contact —
                 // a hearing-only spike raises perception but can't latch the
@@ -734,7 +745,8 @@ public partial class Mob
         if (perceptionDelta > mobData.minPerceptionDelta)
         {
             slot.perception = Mathf.Clamp(
-                slot.perception + perceptionDelta / (1.0f - mobData.minPerceptionDelta) * mobData.perceptionIncreaseSpeed * delta,
+                slot.perception + perceptionDelta / (1.0f - mobData.minPerceptionDelta)
+                    * mobData.perceptionIncreaseSpeed * SuspicionMultiplier() * delta,
                 0f, 1f);
             // Latch into combat on sight only when the perceived enemy is itself
             // flagged as triggering (enemy.mobData.canTriggerMobs) — a harmless
@@ -783,6 +795,71 @@ public partial class Mob
         _simState.SunExposure = sunExposure;
         _simState.SkyBrightness = skyBrightness;
         _simState.AmbientLight = sunExposure * skyBrightness;
+    }
+
+    // How much faster this mob's perception is growing right now because
+    // something rattled it — 1 when nothing has. Bleeds off at a constant
+    // MobData.suspicionDecayPerSecond from the moment it was raised, so a 2x
+    // spike is gone in ten seconds at the default rate and a 1.5x one in five.
+    public float SuspicionMultiplier()
+    {
+        MobData data = _simState.MobData;
+        if (data == null || _simState.SuspicionPeak <= 1f)
+        {
+            return 1f;
+        }
+        float elapsedSeconds = (GameTimeMs - _simState.SuspicionSetMs) * 0.001f;
+        return Mathf.Max(1f, _simState.SuspicionPeak - data.suspicionDecayPerSecond * elapsedSeconds);
+    }
+
+    // Put this mob on edge: perception grows `level` times faster, bleeding back
+    // to normal at the species' decay rate. Raising it never LOWERS the current
+    // value — a fresh spike takes the higher of the two and restarts the bleed —
+    // so a weaker stimulus can't calm a mob that just saw something worse.
+    // Suspicion only ever scales growth the mob was ALREADY making: it cannot
+    // push a contact past minPerceptionDelta, so it sharpens a real detection
+    // rather than conjuring one.
+    public void RaiseSuspicion(float level)
+    {
+        if (_simState.MobData == null || level <= 1f)
+        {
+            return;
+        }
+        _simState.SuspicionPeak = Mathf.Max(level, SuspicionMultiplier());
+        _simState.SuspicionSetMs = GameTimeMs;
+    }
+
+    // Hard vision-cone gate: is `worldPos` in front of this mob at all? The
+    // boolean half of the facing term the mob-to-player block grades above —
+    // same FOV, same omnidirectional cases (perched, or an authored full circle).
+    // Flattened to XZ, unlike that block, because the things asked about here sit
+    // on the GROUND: a body at your feet, or below a flier, is still in front of
+    // you, and a 3D dot against a horizontal forward axis would say otherwise.
+    public bool IsInVisionCone(Vector3 worldPos)
+    {
+        MobData data = _simState.MobData;
+        if (data == null)
+        {
+            return false;
+        }
+        if (_perched || data.visionFovDegrees >= 360f)
+        {
+            return true;
+        }
+        Vector3 diff = worldPos - GlobalPosition;
+        diff.Y = 0f;
+        if (diff.LengthSquared() < 0.0001f)
+        {
+            return true;
+        }
+        Vector3 forward = GlobalTransform.Basis.Z;
+        forward.Y = 0f;
+        if (forward.LengthSquared() < 0.0001f)
+        {
+            return true;
+        }
+        float forwardDot = diff.Normalized().Dot(forward.Normalized());
+        return forwardDot > Mathf.Cos(Mathf.DegToRad(data.visionFovDegrees * 0.5f));
     }
 
     public void Investigate(Vector3 position, float range, ulong cancelTimeMs, ulong pauseTimeMs, bool lookOnly = false)

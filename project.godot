@@ -37,6 +37,10 @@ project/assembly_name="hike"
 
 enabled=PackedStringArray("res://addons/voxel_atlas_stitcher/plugin.cfg", "res://addons/data_ed/plugin.cfg", "res://addons/anim_library_builder/plugin.cfg")
 
+[gui]
+
+theme/custom_font="res://resources/gui/ui_font.tres"
+
 [input]
 
 ui_accept={

@@ -48,6 +48,10 @@ public struct AIOutput
     public bool suspended;
     public InvestigateState? investigation;
     public bool resetInvestigation;
+    // Set by BehaviorInspectCorpse when it is done with (or gives up on) the
+    // body, so the default behavior's HasCorpseSighting edge cannot bounce it
+    // straight back in. The body itself stays remembered.
+    public bool resetCorpseSighting;
     public ulong? suspendTimeMs;
     // When set, Mob latches this as a one-shot animation through PlayOneShot
     // for the next tick. Looping animations are state-driven (alive/moving)
@@ -87,11 +91,16 @@ public partial class Mob
 {
 //    private Vector3? _fleePosition;
     private StringName _curBehavior;
+    private ulong _curBehaviorStartMs;
     private readonly System.Collections.Generic.Dictionary<StringName, BehaviorBase> _behaviors = new();
 
     // Current behavior node name — diagnostics only (e.g. danger_debug).
     // Empty until InitBehaviors runs.
     public StringName CurrentBehaviorName => _curBehavior;
+
+    // Sim-clock time the current behavior node was entered, re-stamped on every
+    // StartBehavior. Read by BehaviorElapsedCondition to time a node out.
+    public ulong CurrentBehaviorStartMs => _curBehaviorStartMs;
 
     // Called from Mob.Initialize after _simState is set. Walks the mob's BrainData,
     // creates a runtime BehaviorBase per node, validates that every transition
@@ -148,12 +157,15 @@ public partial class Mob
             }
         }
 
+        ResolveReactsToCorpses();
+
         // Same resolution the completion path uses (InitialBehavior > species
         // defaultBehavior > brain idleBehavior), so a mob starts in exactly the
         // behavior it will return to. Fall back to brain.idleBehavior if the
         // resolved name isn't a real node.
         StringName initial = defaultBehavior;
         _curBehavior = (initial != null && _behaviors.ContainsKey(initial)) ? initial : brain.idleBehavior;
+        _curBehaviorStartMs = _world?.GameTimeMs ?? 0;
         // Fire OnEnter for the starting behavior so its first tick sees the
         // same fresh-state guarantees that every later re-entry will. World
         // time isn't always meaningful at Initialize (the sim clock starts
@@ -224,6 +236,10 @@ public partial class Mob
         if (targetPerception.pawnTarget != null)
         {
             investigation = null;
+            // Aggro outranks curiosity: a body noticed before the fight is
+            // dropped rather than queued for afterwards. It stays remembered,
+            // so it draws no second reaction once the fight is over.
+            CorpseSighting = null;
         }
 
         int maxAttempts = 5;
@@ -303,6 +319,7 @@ public partial class Mob
             return;
         }
         _curBehavior = behaviorName;
-        b.OnEnter(this, _world?.GameTimeMs ?? 0);
+        _curBehaviorStartMs = _world?.GameTimeMs ?? 0;
+        b.OnEnter(this, _curBehaviorStartMs);
     }
 }

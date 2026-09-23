@@ -6,3 +6,4 @@
 script = ExtResource("1_lang")
 id = &"muddish"
 displayName = &"Muddish"
+glyphBase = 57600

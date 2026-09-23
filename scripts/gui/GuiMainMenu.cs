@@ -1,10 +1,9 @@
-using Godot;
+﻿using Godot;
 using System;
 using System.Collections.Generic;
 
 public partial class GuiMainMenu : Node
 {
-	[Export] public PackedScene playerScene;
 	[Export] public WorldGenData worldGenData;
 	[Export] public Label versionLabel;
 	// The main button column, and the file/world picker that replaces it.
@@ -39,7 +38,7 @@ public partial class GuiMainMenu : Node
 	[Export] public string newWorldPath = "user://world.hike";
 	[Export] public string newSceneLabel = "New Scene";
 	[Export] public string newWorldLabel = "New World";
-	[Signal] public delegate void OnNewGameEventHandler(Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData);
+	[Signal] public delegate void OnNewGameEventHandler(Vector3 playerPosition, WorldGenData worldGenData);
 	[Signal] public delegate void OnLoadGameEventHandler(string savePath);
 	[Signal] public delegate void OnStartEditorEventHandler(WorldGenData worldGenData, string worldFilePath);
 	// documentPath is the WorldMapData the picker chose; empty keeps whatever the
@@ -230,7 +229,7 @@ public partial class GuiMainMenu : Node
 		{
 			CVars.worldFile.Value = _documentPaths[index] ?? "";
 		}
-		EmitSignal(SignalName.OnNewGame, new Vector3(0, 24, 0), playerScene, SelectedWorldGen());
+		EmitSignal(SignalName.OnNewGame, new Vector3(0, 24, 0), SelectedWorldGen());
 	}
 
 	public void StartEditor()

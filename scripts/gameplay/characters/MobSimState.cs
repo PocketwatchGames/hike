@@ -204,10 +204,19 @@ public class MobSimState : EntitySimState
     public bool Airborne;
     public float MaxHealth;
     public float Health;
-    // Set by the deserializer so Mob.Initialize preserves the persisted vitals
-    // instead of refilling to the freshly-composed max. Transient — a fresh
-    // spawn leaves it false and gets its vitals finalized at spawn.
-    public bool RestoredFromSave;
+    // Whether Health/Armor have ever been reconciled against the COMPOSED caps
+    // (Mob.maxHealth / maxArmor — the base pool plus every MaxHealth/MaxArmor
+    // modifier from inherent data, the species variant and spawn-time status
+    // effects). False means the vitals are still the constructor's raw
+    // base-times-level values and Mob.Initialize must fill them; true means they
+    // are a real, possibly wounded pool and must be preserved.
+    //
+    // SERIALIZED, because the two states are indistinguishable at the reader:
+    // worldgen bakes a mob it never ran Initialize on, a save writes one it did.
+    // Reading a single "restored from disk" flag and preserving vitals on it left
+    // every baked elite permanently short its +MaxHealth buff — the buff is
+    // applied on load, so the cap included it while the stored health never had.
+    public bool VitalsFinalized;
     // Latches true the first time the player deals damage to this mob (any
     // hit with hit.source == Player, regardless of whether armor absorbed
     // it). Decides whether the eventual death awards bestiary kill credit:
@@ -255,7 +264,33 @@ public class MobSimState : EntitySimState
     public ulong MemoryTimeMs;
     public ulong VisibleTimeMs;
     public EPlayerPerceptionState DiscoveryState;
+    // Suspicion: a decaying multiplier on how fast perception grows, raised by a
+    // stimulus that puts this mob on edge (seeing a death, coming across a body).
+    // Stored as the level it was raised to and when, so the current value is a
+    // pure function of the sim clock — no per-tick integration, and the throttled
+    // perception tick can read it at any cadence. 0 peak = never raised, which
+    // reads as a multiplier of 1. Transient.
+    public float SuspicionPeak;
+    public ulong SuspicionSetMs;
     public InvestigateState? Investigation;
+    // The dead body this mob has noticed and not yet finished reacting to (see
+    // Mob.Corpses / BehaviorInspectCorpse). Transient — not serialized.
+    public CorpseSighting? CorpseSighting;
+    // Instance ids of bodies already reacted to, so each one draws a reaction
+    // once. Stamped when the sighting is POSTED rather than when the reaction
+    // finishes, so an aggro interrupt cannot replay it. Capped in
+    // Mob.RememberCorpse; transient.
+    public readonly System.Collections.Generic.List<ulong> SeenCorpses = new();
+    // Where the last damaging hit came from, and whether it came from a creature
+    // rather than a trap / hazard / the world. Stamped in Mob.Damage and read by
+    // Mob.Die, which has no HitInfo of its own (a mob can also die to a status
+    // tick or drained max health) — it is what tells a witness which way to look.
+    // Transient.
+    public Vector3 LastDamageSourcePosition;
+    public bool LastDamageFromActor;
+    // Instance id of that source, kept as an id rather than a reference so a
+    // dead mob is not holding a node alive. Identity only.
+    public ulong LastDamageSourceId;
     public bool Yelled;
     public ulong SuspendAITimeMs;
     // Composed behavior stance from the last AI tick (authored base + runtime
@@ -339,13 +374,14 @@ public class MobSimState : EntitySimState
         // fresh spawn's level flows through — so no caller can leave a
         // non-dangerous mob leveled (which would scale its vitals and light HUD pips).
         Level = mobData.dangerous ? Mathf.Max(0, level) : 0;
-        // Vitals at their level-scaled max. MaxHealth stays the unscaled drainable
-        // base (the maxHealth/maxArmor properties re-apply the pool multiplier on
-        // read); Health/Armor are stored already scaled so they agree with those
-        // properties even for a mob baked into a .hike straight from worldgen and
-        // reloaded as RestoredFromSave (which skips Mob.Initialize's vitals
-        // finalize). Inherent MobData.modifiers and elite status effects fold in
-        // later, in that finalize, for a fresh live spawn.
+        // Provisional vitals at the level-scaled BASE pool. MaxHealth stays the
+        // unscaled drainable base (the maxHealth/maxArmor properties re-apply the
+        // pool multiplier on read); Health/Armor are stored already scaled so a
+        // level-only mob already agrees with those properties. Inherent
+        // MobData.modifiers, species modifiers and elite status effects are NOT
+        // folded in here — they need a live Mob to compose — so VitalsFinalized
+        // stays false and Mob.Initialize fills these to the composed cap, whether
+        // the mob spawns now or is baked into a .hike and loaded later.
         float mult = Mob.PoolLevelMultiplier(levelScalePerLevel, Level);
         MaxHealth = mobData.maxHealth;
         Health = mobData.maxHealth * mult;
@@ -394,7 +430,7 @@ public class MobSimState : EntitySimState
     // re-materializes at the spawn post, full health, unaware — as if the chunk
     // had just loaded. Driven by Sim.ResetSpawns when time passes (sleep / death).
     // Restores the transform, revives, and clears all combat/awareness runtime
-    // state; vitals refill on the next Mob.Initialize because RestoredFromSave is
+    // state; vitals refill on the next Mob.Initialize because VitalsFinalized is
     // cleared here (so a killed or half-dead mob comes back at its full level/
     // elite-scaled max). Deliberately preserves identity and progression the reset
     // shouldn't undo — taming, loyalty, gifts, inventory, level, elite, species.
@@ -406,7 +442,7 @@ public class MobSimState : EntitySimState
         // Force the next spawn down the fresh-spawn path so it refills vitals to
         // the composed (level/elite-scaled) max rather than keeping the persisted
         // wounded pool.
-        RestoredFromSave = false;
+        VitalsFinalized = false;
 
         // Awareness / perception back to unseen-and-unaware.
         PlayerPerception = 0f;

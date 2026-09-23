@@ -12,6 +12,8 @@
 [ext_resource type="Script" uid="uid://dnl0n28wsm88g" path="res://scripts/data/behaviors/WanderBehaviorData.cs" id="10_wander"]
 [ext_resource type="Script" uid="uid://fl4vgm566vea" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="11_lookat"]
 [ext_resource type="Script" uid="uid://1ungofthkhct" path="res://scripts/data/behaviors/conditions/HasInvestigationCondition.cs" id="12_has_investigation"]
+[ext_resource type="Script" uid="uid://5e2rtgfswi77z" path="res://scripts/data/behaviors/CorpseInspectBehaviorData.cs" id="90_corpse"]
+[ext_resource type="Script" uid="uid://wqxnatskq1ix9" path="res://scripts/data/behaviors/conditions/HasCorpseSightingCondition.cs" id="91_has_corpse"]
 
 [sub_resource type="Resource" id="Resource_idle"]
 script = ExtResource("3_idle")
@@ -33,11 +35,19 @@ script = ExtResource("4_transition")
 condition = SubResource("Resource_cond_has_investigation")
 destination = &"LookAt"
 
+[sub_resource type="Resource" id="Resource_cond_has_corpse"]
+script = ExtResource("91_has_corpse")
+
+[sub_resource type="Resource" id="Resource_idle_to_corpse"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_has_corpse")
+destination = &"InspectCorpse"
+
 [sub_resource type="Resource" id="Resource_idle_node"]
 script = ExtResource("2_node")
 name = &"Idle"
 data = SubResource("Resource_idle")
-transitions = [SubResource("Resource_idle_to_flee"), SubResource("Resource_idle_to_lookat")]
+transitions = [SubResource("Resource_idle_to_flee"), SubResource("Resource_idle_to_lookat"), SubResource("Resource_idle_to_corpse")]
 
 [sub_resource type="Resource" id="Resource_flee"]
 script = ExtResource("7_flee")
@@ -92,11 +102,16 @@ script = ExtResource("4_transition")
 condition = SubResource("Resource_cond_has_investigation")
 destination = &"LookAt"
 
+[sub_resource type="Resource" id="Resource_wander_to_corpse"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_has_corpse")
+destination = &"InspectCorpse"
+
 [sub_resource type="Resource" id="Resource_wander_node"]
 script = ExtResource("2_node")
 name = &"Wander"
 data = SubResource("Resource_wander")
-transitions = [SubResource("Resource_wander_to_flee"), SubResource("Resource_wander_to_lookat")]
+transitions = [SubResource("Resource_wander_to_flee"), SubResource("Resource_wander_to_lookat"), SubResource("Resource_wander_to_corpse")]
 
 [sub_resource type="Resource" id="Resource_lookat"]
 script = ExtResource("11_lookat")
@@ -112,8 +127,18 @@ name = &"LookAt"
 data = SubResource("Resource_lookat")
 transitions = [SubResource("Resource_lookat_to_flee")]
 
+[sub_resource type="Resource" id="Resource_corpse"]
+script = ExtResource("90_corpse")
+approach = false
+
+[sub_resource type="Resource" id="Resource_corpse_node"]
+script = ExtResource("2_node")
+name = &"InspectCorpse"
+data = SubResource("Resource_corpse")
+transitions = [SubResource("Resource_idle_to_flee")]
+
 [resource]
 script = ExtResource("1_brain")
 idleBehavior = &"Idle"
-behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_flee_node"), SubResource("Resource_burrow_node"), SubResource("Resource_wander_node"), SubResource("Resource_lookat_node")]
+behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_flee_node"), SubResource("Resource_burrow_node"), SubResource("Resource_wander_node"), SubResource("Resource_lookat_node"), SubResource("Resource_corpse_node")]
 metadata/_custom_type_script = "uid://ctcx3rsnl61pe"

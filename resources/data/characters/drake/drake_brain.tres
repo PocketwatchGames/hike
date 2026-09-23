@@ -12,6 +12,8 @@
 [ext_resource type="Script" uid="uid://cv14ma5vsatj3" path="res://scripts/data/behaviors/RetreatBehaviorData.cs" id="10_retreat"]
 [ext_resource type="Script" uid="uid://v0r7qrrfr7aa" path="res://scripts/data/behaviors/conditions/TargetSafeCondition.cs" id="11_targetsafe"]
 [ext_resource type="Script" uid="uid://byt80ru3gmup4" path="res://scripts/data/behaviors/conditions/HurtWhileTargetSafeCondition.cs" id="12_hurtsafe"]
+[ext_resource type="Script" uid="uid://5e2rtgfswi77z" path="res://scripts/data/behaviors/CorpseInspectBehaviorData.cs" id="90_corpse"]
+[ext_resource type="Script" uid="uid://wqxnatskq1ix9" path="res://scripts/data/behaviors/conditions/HasCorpseSightingCondition.cs" id="91_has_corpse"]
 
 [sub_resource type="Resource" id="Resource_patrol"]
 script = ExtResource("4_patrol")
@@ -32,11 +34,19 @@ script = ExtResource("3_transition")
 condition = SubResource("Resource_cond_aggro_acquired")
 destination = &"Attack"
 
+[sub_resource type="Resource" id="Resource_cond_has_corpse"]
+script = ExtResource("91_has_corpse")
+
+[sub_resource type="Resource" id="Resource_patrol_to_corpse"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_has_corpse")
+destination = &"InspectCorpse"
+
 [sub_resource type="Resource" id="Resource_patrol_node"]
 script = ExtResource("2_node")
 name = &"Patrol"
 data = SubResource("Resource_patrol")
-transitions = [SubResource("Resource_patrol_to_retreat"), SubResource("Resource_patrol_to_attack")]
+transitions = [SubResource("Resource_patrol_to_retreat"), SubResource("Resource_patrol_to_attack"), SubResource("Resource_patrol_to_corpse")]
 
 [sub_resource type="Resource" id="Resource_attack"]
 script = ExtResource("5_attack")
@@ -105,7 +115,17 @@ name = &"Dodge"
 data = SubResource("Resource_dodge")
 transitions = []
 
+[sub_resource type="Resource" id="Resource_corpse"]
+script = ExtResource("90_corpse")
+approach = false
+
+[sub_resource type="Resource" id="Resource_corpse_node"]
+script = ExtResource("2_node")
+name = &"InspectCorpse"
+data = SubResource("Resource_corpse")
+transitions = [SubResource("Resource_patrol_to_retreat"), SubResource("Resource_patrol_to_attack")]
+
 [resource]
 script = ExtResource("1_brain")
 idleBehavior = &"Patrol"
-behaviors = [SubResource("Resource_patrol_node"), SubResource("Resource_attack_node"), SubResource("Resource_retreat_node"), SubResource("Resource_dodge_node")]
+behaviors = [SubResource("Resource_patrol_node"), SubResource("Resource_attack_node"), SubResource("Resource_retreat_node"), SubResource("Resource_dodge_node"), SubResource("Resource_corpse_node")]

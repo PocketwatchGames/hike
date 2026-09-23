@@ -83,6 +83,27 @@ public partial class Sim : Node3D
     private readonly ProjectileRegistry _projectiles = new();
     public ProjectileRegistry Projectiles => _projectiles;
 
+    // Corpses in loaded chunks — mobs that have died and have not yet been
+    // removed. Registered by Mob.Die, unregistered when the body leaves the
+    // tree. A flat list rather than a spatial structure because it holds a
+    // handful of bodies at most: the corpse-discovery scan in Mob walks it per
+    // perception tick, and the empty case has to cost nothing.
+    private readonly List<Mob> _corpses = new();
+    public IReadOnlyList<Mob> Corpses => _corpses;
+
+    public void RegisterCorpse(Mob corpse)
+    {
+        if (corpse != null && !_corpses.Contains(corpse))
+        {
+            _corpses.Add(corpse);
+        }
+    }
+
+    public void UnregisterCorpse(Mob corpse)
+    {
+        _corpses.Remove(corpse);
+    }
+
     // Coordinator for "where should each mob stand around the player /
     // other targets" — hands out angular standoff slots so a swarm fans
     // out instead of stacking. Slots are leased per-mob and survive

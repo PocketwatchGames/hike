@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://dqghp00idjmuy" path="res://scenes/gui/almanac_screen.tscn" id="18_ofv2n"]
 [ext_resource type="Script" uid="uid://b1lq7xv8n3eyk" path="res://scripts/gui/HudEventLog.cs" id="19_eventlog"]
 [ext_resource type="PackedScene" uid="uid://bkaby86guis4d" path="res://scenes/interactives/loot.tscn" id="20_loot"]
+[ext_resource type="PackedScene" uid="uid://cn3tkwyerft7v" path="res://scenes/characters/player.tscn" id="player_scene"]
 [ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
 [ext_resource type="PackedScene" uid="uid://bkn63m6xyu5a2" path="res://scenes/gui/upgrade_screen.tscn" id="27_upgrade"]
@@ -107,6 +108,7 @@ viewportRig = NodePath("ViewportRig")
 fogMaterial = ExtResource("fog_volumetric_mat")
 interactHudScene = ExtResource("3_0q6jn")
 lootScene = ExtResource("20_loot")
+playerScene = ExtResource("player_scene")
 hudTextInfoScene = ExtResource("hud_text_info")
 hudTextDamageLightScene = ExtResource("hud_text_damage_light")
 hudTextDamageHeavyScene = ExtResource("hud_text_damage_heavy")

@@ -237,7 +237,7 @@ public partial class ConversationController : Control
 				continue;
 			}
 			string debugSuffix = debug ? FormatDebugSuffix(vis) : null;
-			SpawnResponseButton(r, lang, _ctx.player, enabled: vis.Visible, debugSuffix);
+			SpawnResponseButton(r, enabled: vis.Visible, debugSuffix);
 		}
 		if (_responseButtons.Count == 0)
 		{
@@ -312,7 +312,7 @@ public partial class ConversationController : Control
 		return $"[{scorePct}% / {rollPct}%]";
 	}
 
-	void SpawnResponseButton(ConversationResponse response, LanguageData lang, Player player, bool enabled, string debugSuffix)
+	void SpawnResponseButton(ConversationResponse response, bool enabled, string debugSuffix)
 	{
 		Node instance = responseOptionScene.Instantiate();
 		if (instance is not Button btn)
@@ -325,15 +325,17 @@ public partial class ConversationController : Control
 		string label;
 		if (key == default || key == "")
 		{
-			// Silent / continue option — no localized text to scramble.
+			// Silent / continue option — no localized text at all.
 			label = "...";
 		}
 		else
 		{
-			// Resolve through the response so a common-tongue line is DRAWN in
-			// the same language ConversationVisibility scored it in — otherwise
-			// an always-visible option could still render as gibberish.
-			label = LanguageText.Render(Loc.Get(key), response.ResolveLanguage(lang), player);
+			// A player response is never scrambled — it is what the party
+			// MEANS to say, not what they manage to pronounce, so it reads
+			// plainly whatever the tongue. Comprehension still gates it:
+			// ConversationVisibility scores the same text and hides the
+			// options the party couldn't follow.
+			label = LanguageText.Strip(Loc.Get(key));
 		}
 		if (debugSuffix != null)
 		{

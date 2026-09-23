@@ -26,10 +26,6 @@ public enum EThreatDanger
 // which only ever tracks the player.
 public static class ThreatScan
 {
-    // Eye / nose height the line-of-sight ray is cast from and to, matching the
-    // mob-vision ray in MobAI.UpdatePerception.
-    private const float EyeHeight = 1.5f;
-
     // Reused across calls — ThreatScan only runs on the physics thread, so a
     // single shared scratch list is safe and keeps the scan allocation-free.
     private static readonly List<Mob> _scratch = new();
@@ -55,7 +51,7 @@ public static class ThreatScan
         hash.QueryRadius(me.GlobalPosition, range, _scratch, exclude: me);
 
         bool mePlayerSide = Teams.IsPlayerSide(me.ActorTeam);
-        Vector3 origin = me.GlobalPosition + Vector3.Up * EyeHeight;
+        Vector3 origin = me.GlobalPosition;
         PhysicsDirectSpaceState3D space = me.GetWorld3D().DirectSpaceState;
         Mob best = null;
         float bestAggro = 0f;
@@ -92,13 +88,8 @@ public static class ThreatScan
                     continue;
                 }
             }
-            // Line of sight — blocked by solid world geometry / props (same mask
-            // the mob-vision raycast uses).
-            Vector3 target = candidate.GlobalPosition + Vector3.Up * EyeHeight;
-            using PhysicsRayQueryParameters3D query = PhysicsRayQueryParameters3D.Create(origin, target, (uint)ECollisionLayer.Solid);
-            query.CollideWithAreas = false;
-            query.CollideWithBodies = true;
-            if (space.IntersectRay(query).Count > 0)
+            // Line of sight — blocked by solid world geometry / props.
+            if (!Sightline.IsClear(space, origin, candidate.GlobalPosition))
             {
                 continue;
             }

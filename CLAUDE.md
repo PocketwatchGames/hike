@@ -73,6 +73,7 @@ Measured warm on this machine, so the choice is by cost rather than by feel:
 | `block_check` / `shader_check` (boot included) | ~3s |
 | `spawn_check` (boot + every spawn list resolved) | ~4s |
 | `resource_check` (boot + all 776 `.tres` loaded) | ~7s |
+| `font_check` (boot + UI font + every language's glyph block) | ~3s |
 | `autostart` to `[Load] Total (to fade start)`, worldgen cache HIT | ~4.5s (world load ~0.9s, chunk-mesh fill ~1.5s, entity spawn ~1.2s) |
 | a full self-quitting headless smoke run (`exec ...; quit`), cache HIT | ~10s wall |
 | A full `.hike` bake of the painted world (`worldmap_bake`, 6.9k chunks) | ~33s |
@@ -184,6 +185,34 @@ chases is invisible from either side alone:
   class, a broken dependency, and a parse error.
 
 Grep the output for `FAIL`; a clean tree prints `[resource_check] ok`.
+
+### Checking That the In-World Scripts Still Render
+
+**`font_check` is the glyph loop** — `--headless -- "font_check 1"`,
+self-quitting. A language the player can't read is rewritten into its OWN
+script, not into Latin letters: `LanguageData.glyphBase` names the first of 36
+consecutive private-use codepoints (26 letters, then 10 numerals) that
+`TextScrambler` emits, and the UI font reaches the art through its `fallbacks`.
+
+- **Nothing on a display path knows this happens.** Font fallback is resolved
+  per GLYPH by the TextServer, so a half-understood line renders Latin and alien
+  script side by side inside one plain `Label`, and any display path added later
+  gets it without doing anything. That is why this is fallbacks and not a
+  `[font=…]` tag — the reveal is per word, and BBCode would also mean escaping
+  every authored string in a system whose markup is already `[lang:…]` brackets.
+- **`glyphBase` art missing is invisible to every other check.** It compiles, it
+  loads, `resource_check` passes, and the game draws tofu boxes. `font_check`
+  loads the font named by `gui/theme/custom_font` and asserts every language's
+  block resolves — plus that ASCII still does, because a `FontVariation` with no
+  `base_font` covers nothing but its fallbacks and blanks the entire UI.
+- **The glyphs are a placeholder.** `asset_src/fonts/build_alien_glyphs.py`
+  generates `assets/fonts/alien_glyphs.ttf` from a seed; redraw the outlines when
+  there is lettering art, keep the codepoint layout. Godot does not watch
+  `asset_src/`, so rerun it by hand.
+- **Authored text never contains these codepoints** — only rendered output, so
+  the `.tsv` and `.tres` stay ASCII and comprehension still scores the raw text.
+- `glyphBase = 0` means the language has no script of its own and scrambles in
+  Latin letters, which is what the common tongue is.
 
 ### Checking That the Conventions Still Hold
 
@@ -594,6 +623,10 @@ intro_dying_01	[lang:common]Sanctuary[/lang]... you must find it. My family, …
   place and the fragments around it jumble on their own — the anchor is the point.
 - **Spans do not nest**, and the tags work in a `.tres` `Text` field (signpost,
   knowledge stone) exactly as they do in the tsv.
+- **A span renders in its language's own script** where that language has a
+  `glyphBase` — see "Checking That the In-World Scripts Still Render". A line
+  mixing tongues therefore mixes scripts, resolved per glyph by the font's
+  `fallbacks`, with no markup and no change to any call site.
 - Balance, nesting and unknown ids are checked over every `.tsv` in the language
   folder — generated dialogue included — at build time by `tools/loc_generator` — a warning, never a build failure, so half-authored text
   never blocks a playtest. Text authored in a `.tres` isn't covered; that only

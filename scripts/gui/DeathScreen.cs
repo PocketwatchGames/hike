@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 using System;
 
 // Full-screen death overlay. GameClient.Show(this) starts the FadingOut
@@ -35,7 +35,8 @@ public partial class DeathScreen : Control
 	//  PartySelect — a party member fell but survivors remain: at black, gather
 	//                survivors at the last campfire and hand control off; fade in
 	//                and open the Select-Character screen (no prompt).
-	//  GameOver    — total party wipe: prompt, then return to the main menu.
+	//  GameOver    — total party wipe: prompt, then resume the run from the
+	//                last autosave (or the main menu if there is none).
 	public enum EDeathOutcome
 	{
 		Respawn,
@@ -95,7 +96,7 @@ public partial class DeathScreen : Control
 			promptRoot.Visible = false;
 		}
 		// GameOver (total wipe) is the only outcome that still shows a prompt; its
-		// button returns to the menu rather than respawning.
+		// button reloads the last save rather than respawning.
 		respawnHint?.SetHint("ui_accept", outcome == EDeathOutcome.GameOver ? "Continue" : "Respawn");
 		CaptureAudioBaseline();
 	}
@@ -165,9 +166,18 @@ public partial class DeathScreen : Control
 			GetViewport().SetInputAsHandled();
 			if (_outcome == EDeathOutcome.GameOver)
 			{
-				// Total party wipe: end the run from black.
+				// Total party wipe: restart from the last save (or, failing
+				// that, the menu) from black. Either way this screen goes away
+				// with the scene, so it never fades back in — and the scene is
+				// freed deferred, so stop accepting input now or a second press
+				// starts a second load.
+				_state = EState.Hidden;
+				if (promptRoot != null)
+				{
+					promptRoot.Visible = false;
+				}
 				RestoreAudioBaseline();
-				_gameClient?.QuitToMenu();
+				_gameClient?.EndRunAtGameOver();
 			}
 			else
 			{

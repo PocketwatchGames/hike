@@ -6,3 +6,4 @@
 script = ExtResource("1_uqcsc")
 id = &"vyeshal"
 displayName = &"Vyeshal"
+glyphBase = 57344

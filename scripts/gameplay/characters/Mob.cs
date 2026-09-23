@@ -837,6 +837,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             SyncToSimState();
             sim.MobSpatialHash.Remove(this);
+            sim.UnregisterCorpse(this);
             if (IsCompanion)
             {
                 sim.UnregisterCompanion(this);
@@ -902,22 +903,27 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
         // Intrinsic spawn-time effect (e.g. a summoned minion's lifelong self-
         // drain). Applied here alongside the elite effects so it's in place
-        // before vitals finalize and its start/loop Fx parent correctly. A
-        // fresh spawn only — a mob restored from save already carries it on its
-        // persisted status controller.
-        if (!_simState.RestoredFromSave && mobData?.spawnStatusEffect != null)
+        // before vitals finalize and its start/loop Fx parent correctly. The
+        // status controller is not serialized (see the StatusEffects loop above),
+        // so this re-applies on every spawn, restored or not.
+        if (mobData?.spawnStatusEffect != null)
         {
             _statusEffects.Add(mobData.spawnStatusEffect);
         }
 
         // Finalize vitals now that every spawn-time modifier is in place —
         // inherent MobData.modifiers plus any elite status effects added just
-        // above — so a freshly-spawned mob (elites included) starts at its full
-        // modified max. Mobs store MaxHealth rather than recomposing it per
-        // access (unlike the player), so this is the one point those MaxHealth/
-        // MaxArmor bonuses fold into the pool. A mob loaded from save keeps the
-        // Health / MaxHealth / Armor it was persisted with.
-        if (!_simState.RestoredFromSave)
+        // above — so a mob whose vitals have never been composed (elites
+        // included) starts at its full modified max. Mobs store MaxHealth rather
+        // than recomposing it per access (unlike the player), so this is the one
+        // point those MaxHealth/MaxArmor bonuses fold into the pool.
+        //
+        // Gated on the PERSISTED VitalsFinalized, not on "did this come off
+        // disk": a mob baked into a .hike by worldgen has never been through here
+        // either, and skipping it left every baked elite at its base pool against
+        // a cap that already counted the elite buff. A mob written by a save has
+        // been, and keeps the Health / MaxHealth / Armor it was persisted with.
+        if (!_simState.VitalsFinalized)
         {
             // Store the drainable BASE max only — the MaxHealth/MaxArmor stat
             // modifiers fold in live through the maxHealth/maxArmor properties,
@@ -926,6 +932,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _simState.MaxHealth = mobData.maxHealth;
             _simState.Health = maxHealth;
             _simState.Armor = maxArmor;
+            _simState.VitalsFinalized = true;
         }
     }
 
@@ -2907,6 +2914,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (_simState.PerceptionTickAccumulator >= MobSimState.PerceptionTickInterval)
         {
             UpdatePerception(_simState.PerceptionTickAccumulator);
+            // Noticing a body nobody saw die rides the same throttle — it is a
+            // sight like any other, and it must not run at 60Hz.
+            ScanForCorpses();
             _simState.PerceptionTickAccumulator = 0f;
         }
 
@@ -3329,6 +3339,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 UpdateGroundPitch((float)delta);
             }
 
+            if (aiOutput.resetCorpseSighting)
+            {
+                _simState.CorpseSighting = default;
+            }
             if (aiOutput.resetInvestigation)
             {
                 _simState.Investigation = default;
@@ -4029,6 +4043,20 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // (BehaviorRetreat / HurtWhileTargetSafeCondition). Any hit reaching
         // here counts, including armor-only ones — a shot is a shot.
         LastDamagedMs = _world?.GameTimeMs ?? 0;
+        // Where this hit came from, for Mob.Die's corpse broadcast — it has no
+        // HitInfo of its own. Only a creature gives a direction worth looking
+        // in; a trap / hazard / the world is a place, so the flag says which.
+        if (hit.source is Node3D damageSource)
+        {
+            _simState.LastDamageSourcePosition = damageSource.GlobalPosition;
+            _simState.LastDamageFromActor = damageSource is Player || damageSource is Mob;
+            _simState.LastDamageSourceId = damageSource.GetInstanceId();
+        }
+        else
+        {
+            _simState.LastDamageFromActor = false;
+            _simState.LastDamageSourceId = 0;
+        }
         // Bestiary kill credit: any damaging hit sourced from the player
         // latches the flag, even when armor soaks the payload. Status-
         // effect ticks and trap damage don't pass through here, so they
@@ -4667,6 +4695,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // already has Freeze=false; the new auto-freeze branch above
         // re-pins it once it settles.
         PlayOneShot(EAnimation.Die);
+
+        // Register the body so mobs that come across it later can react to it,
+        // then hand a sighting to everyone who watched it happen (they get the
+        // look-toward-the-killer leg that finding a body later cannot give).
+        _world?.RegisterCorpse(this);
+        BroadcastCorpseSighting();
 
         // Corpse-less species (the fairy orb): loot has been ejected and the
         // death fx fired above; now fade the body out in place and remove it

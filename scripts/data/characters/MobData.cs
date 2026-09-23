@@ -47,6 +47,11 @@ public partial class MobData : Resource
     // trunk it sits in doesn't blind it. Ignored by non-perching mobs.
     [Export] public float perchedVisionRangeMultiplier = 1.5f;
     [Export] public float perceptionIncreaseSpeed = 0.5f;
+    // How fast a suspicion spike (see Mob.RaiseSuspicion) bleeds off, in
+    // multiplier per second. Suspicion scales perceptionIncreaseSpeed while it
+    // lasts, so at the default a mob rattled to 2x is back to normal ten seconds
+    // later. 0 = a spike never fades.
+    [Export] public float suspicionDecayPerSecond = 0.1f;
     [Export] public float perceptionRelaxationSpeed = 0.1f;
     // Shapes how the mob→player perception meter fills with the per-tick contact
     // strength: growth = delta·(1 + (perceptionAccel−1)·delta). 1 = linear; >1
@@ -166,6 +171,11 @@ public partial class MobData : Resource
     // picking a fight unless provoked. Read off the *target* mob, so
     // "harmlessness" travels with the creature.
     [Export] public bool canTriggerMobs = true;
+    // Whether this creature registers a dead body at all (see
+    // BehaviorInspectCorpse). False for something too mindless to notice one —
+    // the slimes — so a species can decline the reaction while sharing a brain
+    // with species that keep it. Also skips that mob's corpse scan entirely.
+    [Export] public bool noticesCorpses = true;
     // Aggro bleed-off rate (aggro points per second) for this mob's per-enemy
     // threat-priority meter (see AggroTracker / MobSimState.Aggro). Damage this
     // mob takes — or, for a companion, damage dealt to its master — adds aggro

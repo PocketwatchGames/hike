@@ -248,7 +248,11 @@ public static class WorldFile
     //      enabling script variable, where the effect used to be baked into the scene.
     // v59: the header carries a BakeId, fresh on every write — the identity a
     //      save game checks its world against (SaveGame, WorldOrigin).
-    public const uint VERSION = 59;
+    // v60: the Mob payload carries VitalsFinalized, distinguishing a mob whose
+    //      Health/Armor are a composed (possibly wounded) pool from one still
+    //      holding the raw base vitals worldgen baked. Baked elites used to load
+    //      at their base pool against a cap that counted the elite MaxHealth buff.
+    public const uint VERSION = 60;
 
     public struct IndexEntry
     {

@@ -9,6 +9,12 @@ public partial class BehaviorFlee : BehaviorBase
     private ulong _pauseUntilMs;
     private ulong _pathTimeoutMs;
     private Vector3? _fleePoint;
+    // Where the threat last was. TickAI zeroes the perception slot a behavior
+    // sees the moment nothing is `triggered`, so a mob that loses track
+    // mid-flight would otherwise have nothing to run from and stall in the
+    // open. Keep running from the last known position; a brain that wants the
+    // mob to calm down instead leaves via its own aggro-lost transition.
+    private Vector3? _threatPosition;
 
     public BehaviorFlee(FleeBehaviorData data)
     {
@@ -25,6 +31,7 @@ public partial class BehaviorFlee : BehaviorBase
         _fleePoint = null;
         _pauseUntilMs = 0;
         _pathTimeoutMs = 0;
+        _threatPosition = null;
     }
 
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)
@@ -35,10 +42,14 @@ public partial class BehaviorFlee : BehaviorBase
         }
 
         Player target = targetPerception.pawnTarget;
-        if (target == null)
+        if (target != null)
         {
-            // Nothing to flee from. Stand still and let a transition
-            // (typically aggro-lost → Idle) pull us out next tick.
+            _threatPosition = target.GlobalPosition;
+        }
+        if (!_threatPosition.HasValue)
+        {
+            // Entered without ever having a threat. Stand still and let a
+            // transition pull us out next tick.
             return new BehaviorOutput(EBehaviorResult.Running);
         }
 
@@ -46,13 +57,13 @@ public partial class BehaviorFlee : BehaviorBase
         // AIOutput processing flips _simState.Yelled when the yell actually
         // fires; MobAI clears it again when perception drops so the next
         // engagement yells again.
-        if (!me.yelled && targetPerception.canSee)
+        if (target != null && !me.yelled && targetPerception.canSee)
         {
             output.vocalization = EVocalization.Yell;
             output.targetPos = target.GlobalPosition;
         }
 
-        Vector3 diff = target.GlobalPosition - me.weaponPosition;
+        Vector3 diff = _threatPosition.Value - me.weaponPosition;
 
         if (!_fleePoint.HasValue && time >= _pauseUntilMs)
         {

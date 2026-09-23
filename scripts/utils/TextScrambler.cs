@@ -8,8 +8,19 @@ using System.Text;
 // learned; the underlying string data stays intact. Same input + same
 // language + same missing-set always produces the same gibberish so
 // re-reading the same line looks identical.
+//
+// Unreadable text is rewritten into the language's OWN script when it has a
+// LanguageData.glyphBase — see ApplyLetterCipher. Nothing downstream knows:
+// the codepoints land in a private-use block that the UI font reaches through
+// its `fallbacks`, so a half-understood line renders Latin and alien glyphs
+// side by side in one plain Label.
 public static class TextScrambler
 {
+    // Layout of a LanguageData.glyphBase block: 26 letter glyphs then 10
+    // numeral glyphs, matching asset_src/fonts/build_alien_glyphs.py.
+    public const int GlyphLetterCount = 26;
+    public const int GlyphNumeralCount = 10;
+
     // Applies the transforms named by `missing` to `text`. Per component:
     //   Vocabulary1-5 — each word with letters is bucketed into one of
     //                   three vocabulary slots by a stable hash of its
@@ -19,13 +30,14 @@ public static class TextScrambler
     //                   flag reveals those words in their original glyphs.
     //                   Roughly a third of any text resolves per learned
     //                   vocabulary component.
-    //   Numbers       — replaces every digit anywhere in the text with a
-    //                   stable per-language letter.
+    //   Numbers       — replaces every digit anywhere in the text with the
+    //                   language's own numeral glyph (or a stable letter, for
+    //                   a language with no script of its own).
     //   Grammar       — strips every non-letter/digit character from the
     //                   text (standalone punctuation tokens like " — "
     //                   drop out entirely; punctuation inside words such
     //                   as "don't" or "1,000" collapses to "dont"/"1000"),
-    //                   lowercases the surviving ASCII letters (capital-
+    //                   lowercases the surviving letters (capital-
     //                   ization is part of the structural layer Grammar
     //                   gates), and then permutes the remaining word
     //                   tokens as one block. Without Grammar the player
@@ -41,10 +53,11 @@ public static class TextScrambler
             return text;
         }
         int seed = StableSeed(language.displayName.ToString());
-        int[] letterPerm = BuildPermutation(seed, 26);
-        // Digit→letter substitution uses an independent permutation so it
-        // isn't trivially derivable from the letter cipher.
-        int[] digitPerm = BuildPermutation(seed ^ 0x55AA55AA, 26);
+        int[] letterPerm = BuildPermutation(seed, GlyphLetterCount);
+        // Digit substitution uses an independent permutation so it isn't
+        // trivially derivable from the letter cipher.
+        int[] digitPerm = BuildPermutation(seed ^ 0x55AA55AA, GlyphNumeralCount);
+        int glyphBase = language.glyphBase;
 
         bool doNumbers = (missing & ELanguageComponents.Numbers) != 0;
         bool doGrammar = (missing & ELanguageComponents.Grammar) != 0;
@@ -69,7 +82,7 @@ public static class TextScrambler
             bool hasLetter = HasLetter(tok);
             if (doNumbers)
             {
-                tok = SubstituteDigits(tok, digitPerm);
+                tok = SubstituteDigits(tok, digitPerm, glyphBase);
             }
             // Vocabulary cipher: applied only when this word's bucket is
             // among the player's missing components. Each bucket's reveal
@@ -79,7 +92,7 @@ public static class TextScrambler
             if (hasLetter && missingVocab != ELanguageComponents.None
                 && (missingVocab & VocabularyBucketFor(tok)) != 0)
             {
-                tok = ApplyLetterCipher(tok, letterPerm);
+                tok = ApplyLetterCipher(tok, letterPerm, glyphBase);
             }
             tokens[i] = tok;
         }
@@ -102,9 +115,8 @@ public static class TextScrambler
         for (int i = 0; i < token.Length; i++)
         {
             char c = token[i];
-            if (c >= 'A' && c <= 'Z') { c = (char)(c - 'A' + 'a'); }
-            else if (c < 'a' || c > 'z') { continue; }
-            h = unchecked(h * 31 + c);
+            if (!char.IsLetter(c)) { continue; }
+            h = unchecked(h * 31 + char.ToLowerInvariant(c));
         }
         // One bucket per Vocabulary_N, so each covers ~a third of any text. The
         // count here and the number of Vocabulary_N flags must move together —
@@ -304,12 +316,13 @@ public static class TextScrambler
         return translatedPct * ((1f - grammarWeight) + orderPct * grammarWeight);
     }
 
+    // Any script's letters count, not just ASCII — an accented or CJK word is
+    // still a word the vocabulary cipher has to be able to hide.
     static bool HasLetter(string token)
     {
         for (int i = 0; i < token.Length; i++)
         {
-            char c = token[i];
-            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+            if (char.IsLetter(token[i]))
             {
                 return true;
             }
@@ -330,7 +343,11 @@ public static class TextScrambler
         return false;
     }
 
-    static string SubstituteDigits(string token, int[] digitPerm)
+    // Digits become the language's own numeral glyphs when it has a script,
+    // else a stable letter substitution. Deliberately independent of the
+    // word's vocabulary bucket: a known word holding an unknown quantity
+    // ("12 stones") should read as the word plus an unreadable number.
+    static string SubstituteDigits(string token, int[] digitPerm, int glyphBase)
     {
         // Most tokens have no digits; skip the StringBuilder allocation in
         // that case so non-numeric paragraphs are essentially free.
@@ -346,7 +363,15 @@ public static class TextScrambler
             char c = token[i];
             if (c >= '0' && c <= '9')
             {
-                sb.Append((char)('a' + digitPerm[c - '0']));
+                int slot = digitPerm[c - '0'];
+                if (glyphBase > 0)
+                {
+                    AppendGlyph(sb, glyphBase + GlyphLetterCount + slot);
+                }
+                else
+                {
+                    sb.Append((char)('a' + slot));
+                }
             }
             else
             {
@@ -356,18 +381,33 @@ public static class TextScrambler
         return sb.ToString();
     }
 
-    static string ApplyLetterCipher(string token, int[] perm)
+    // With a glyphBase the token is rewritten into that language's script and
+    // the result is unicameral — 'A' and 'a' are one glyph, since capitalization
+    // is part of the structural layer Grammar gates and no invented script here
+    // has a second case. Without one the cipher stays in Latin and keeps case.
+    //
+    // ASCII a-z maps through `perm` and so stays a bijection: a given letter is
+    // always the same glyph, which is what lets a player learn the alphabet by
+    // eye. Any other script's letters (accented Latin, CJK) have no 26-letter
+    // alphabet to permute, so they hash into the same block instead — not a
+    // bijection, but nothing decodes this text, and the alternative is leaving
+    // them legible in the middle of a word the player cannot read.
+    static string ApplyLetterCipher(string token, int[] perm, int glyphBase)
     {
         StringBuilder sb = new StringBuilder(token.Length);
         foreach (char c in token)
         {
             if (c >= 'A' && c <= 'Z')
             {
-                sb.Append((char)('A' + perm[c - 'A']));
+                AppendCiphered(sb, perm[c - 'A'], glyphBase, (char)('A' + perm[c - 'A']));
             }
             else if (c >= 'a' && c <= 'z')
             {
-                sb.Append((char)('a' + perm[c - 'a']));
+                AppendCiphered(sb, perm[c - 'a'], glyphBase, (char)('a' + perm[c - 'a']));
+            }
+            else if (glyphBase > 0 && char.IsLetter(c))
+            {
+                AppendGlyph(sb, glyphBase + perm[HashToSlot(c)]);
             }
             else
             {
@@ -375,6 +415,41 @@ public static class TextScrambler
             }
         }
         return sb.ToString();
+    }
+
+    static void AppendCiphered(StringBuilder sb, int slot, int glyphBase, char latin)
+    {
+        if (glyphBase > 0)
+        {
+            AppendGlyph(sb, glyphBase + slot);
+        }
+        else
+        {
+            sb.Append(latin);
+        }
+    }
+
+    // Knuth multiplicative hash, folded into a letter slot. Stable across runs
+    // and platforms for the same reason StableSeed is hand-rolled.
+    static int HashToSlot(char c)
+    {
+        uint h = unchecked((uint)c * 2654435761u);
+        return (int)((h >> 13) % GlyphLetterCount);
+    }
+
+    // glyphBase blocks may sit above the BMP — the supplementary private use
+    // areas are the collision-safe place for them if a primary UI font ever
+    // claims codepoints in U+E000..U+F8FF, which CJK fonts sometimes do.
+    static void AppendGlyph(StringBuilder sb, int codepoint)
+    {
+        if (codepoint <= char.MaxValue)
+        {
+            sb.Append((char)codepoint);
+        }
+        else
+        {
+            sb.Append(char.ConvertFromUtf32(codepoint));
+        }
     }
 
     // Fisher-Yates over the entire token list — when Grammar is missing
@@ -412,13 +487,12 @@ public static class TextScrambler
             for (int j = 0; j < tok.Length; j++)
             {
                 char c = tok[j];
-                if (c >= 'A' && c <= 'Z')
+                // Letter-or-digit in ANY script, not just ASCII: the test here
+                // decides what survives, so an ASCII-only one silently deletes
+                // every accented or CJK character in a localized line.
+                if (char.IsLetterOrDigit(c))
                 {
-                    sb.Append((char)(c - 'A' + 'a'));
-                }
-                else if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
-                {
-                    sb.Append(c);
+                    sb.Append(char.ToLowerInvariant(c));
                 }
             }
             if (sb.Length == 0)
@@ -441,8 +515,7 @@ public static class TextScrambler
     {
         for (int i = 0; i < token.Length; i++)
         {
-            char c = token[i];
-            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
+            if (char.IsLetterOrDigit(token[i]))
             {
                 return false;
             }

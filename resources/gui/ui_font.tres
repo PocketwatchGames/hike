@@ -1,0 +1,10 @@
+[gd_resource type="FontVariation" load_steps=3 format=3]
+
+[ext_resource type="FontFile" uid="uid://dmlxqf6agcojt" path="res://assets/fonts/alien_glyphs.ttf" id="1_glyphs"]
+
+[sub_resource type="SystemFont" id="SystemFont_base"]
+font_names = PackedStringArray("Sans-Serif")
+
+[resource]
+base_font = SubResource("SystemFont_base")
+fallbacks = Array[Font]([ExtResource("1_glyphs")])

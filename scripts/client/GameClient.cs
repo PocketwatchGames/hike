@@ -448,6 +448,9 @@ public partial class GameClient : Node3D
 	public Action<List<BoonData>, Action<BoonData>> startUpgradeSelection;
 	public Action<bool> onPauseToggled;
 	public Action onQuitToMenu;
+	// Total party wipe: Main restarts the run from the last autosave. Distinct
+	// from onQuitToMenu, which ends the session.
+	public Action onLoadLastSave;
 
 	// The named region the player is currently within, or null on unnamed /
 	// border terrain. Border chunks (RegionIndex points at a Regions[] entry
@@ -574,9 +577,10 @@ public partial class GameClient : Node3D
 	// spawn / campfire anchor.
 	[Export] float partyRingRadius = 2.5f;
 	Sim _world;
-	// Held from Init so party members recruited mid-run (RecruitToParty) can be
-	// spawned as Player nodes the same way SpawnParty builds the starting roster.
-	PackedScene _playerScene;
+	// The one party-member prefab. Gender, outfit and voice are resolved INSIDE
+	// it from the PlayerState it is initialized with (Player.Initialize picks the
+	// model package), so there is never a second scene to choose between.
+	[Export] PackedScene playerScene;
 	// Accumulator for the once-per-second sun + canopy print gated by
 	// CVars.debugSkyLight. Frame-rate independent; counts deltaTime in
 	// _Process and snaps the line whenever it crosses one second.
@@ -705,7 +709,7 @@ public partial class GameClient : Node3D
 	// `save` non-null is a Load Game: the party wakes at the save's campfire instead
 	// of the world spawn (which stays the respawn point), and the run state it
 	// carries is applied once the party exists.
-	public async void Init(Vector3 playerPosition, PackedScene playerScene, WorldState worldState, LoadingScreen loadingScreen = null, SaveFile save = null)
+	public async void Init(Vector3 playerPosition, WorldState worldState, LoadingScreen loadingScreen = null, SaveFile save = null)
 	{
 		_spawnPosition = playerPosition;
 		if (save != null)
@@ -718,7 +722,6 @@ public partial class GameClient : Node3D
 			worldState.BeginRun((int)GD.Randi());
 		}
 		_lastCampfirePosition = playerPosition;
-		_playerScene = playerScene;
 		onHudText += OnHudTextRequested;
 		onDamage += OnDamageRequested;
 		onHeal += OnHealRequested;
@@ -804,7 +807,7 @@ public partial class GameClient : Node3D
 		SuppressAnnouncements = true;
 		try
 		{
-			SpawnParty(party, playerScene, playerPosition);
+			SpawnParty(party, playerPosition);
 			if (save == null)
 			{
 				TeachInitialKnowledge(worldState);
@@ -944,7 +947,7 @@ public partial class GameClient : Node3D
 	// Instantiate one Player node per party member and place them around the
 	// spawn anchor: the active member at the anchor (controlled), the rest
 	// spread evenly on a ring and set inactive. Sets _player to the active one.
-	void SpawnParty(Party party, PackedScene playerScene, Vector3 anchor)
+	void SpawnParty(Party party, Vector3 anchor)
 	{
 		_partyPlayers.Clear();
 		int activeIndex = party.ActiveIndex;
@@ -965,7 +968,7 @@ public partial class GameClient : Node3D
 				pos = RingPosition(anchor, ringSlot, inactiveCount);
 				ringSlot++;
 			}
-			Player p = SpawnPartyMember(party[i], playerScene, pos, active);
+			Player p = SpawnPartyMember(party[i], pos, active);
 			_partyPlayers.Add(p);
 			if (active) { _player = p; }
 		}
@@ -1107,7 +1110,7 @@ public partial class GameClient : Node3D
 	// its conversation can't fire this twice.
 	public bool RecruitToParty(Mob mob)
 	{
-		if (mob?.RecruitTemplate == null || _playerScene == null)
+		if (mob?.RecruitTemplate == null || playerScene == null)
 		{
 			return false;
 		}
@@ -1129,7 +1132,7 @@ public partial class GameClient : Node3D
 			if (_partyPlayers[i] != null && _partyPlayers[i] != _player) { inactiveBefore++; }
 		}
 		Vector3 pos = RingPosition(_lastCampfirePosition, inactiveBefore, inactiveBefore + 1);
-		Player p = SpawnPartyMember(member, _playerScene, pos, active: false);
+		Player p = SpawnPartyMember(member, pos, active: false);
 		_partyPlayers.Add(p);
 
 		// Drop the player's highlight/current interactive if it still points at the
@@ -1153,7 +1156,7 @@ public partial class GameClient : Node3D
 		return true;
 	}
 
-	Player SpawnPartyMember(PlayerState member, PackedScene playerScene, Vector3 position, bool active)
+	Player SpawnPartyMember(PlayerState member, Vector3 position, bool active)
 	{
 		Player p = playerScene.Instantiate<Player>();
 		// Only the active (controlled) member's events drive GameClient; inactive
@@ -2911,8 +2914,21 @@ public partial class GameClient : Node3D
 		}
 		else
 		{
-			QuitToMenu();
+			EndRunAtGameOver();
 		}
+	}
+
+	// Total party wipe, resolved once the death screen is done with it: the run
+	// resumes from the last autosave (the party's last sunrise wake). A wipe
+	// before that profile ever saved has nothing to resume, so the run ends.
+	public void EndRunAtGameOver()
+	{
+		if (onLoadLastSave != null && SaveGame.Exists(CVars.savePath.Value))
+		{
+			onLoadLastSave.Invoke();
+			return;
+		}
+		QuitToMenu();
 	}
 
 	// Called by DeathScreen once the screen is fully black (party-select outcome):

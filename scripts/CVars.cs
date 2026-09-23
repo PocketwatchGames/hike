@@ -2132,6 +2132,11 @@
     public static CVarBool depthSortCheck = new CVarBool("depth_sort_check", false);
     public static CVarBool blockCheck = new CVarBool("block_check", false);
 
+    // Headless font check: `--headless -- "font_check 1"` reports any language
+    // whose glyphBase block the UI font has no art for (which renders as tofu
+    // boxes, and nothing else catches), then quits.
+    public static CVarBool fontCheck = new CVarBool("font_check", false);
+
     // Dumps every authored SpawnListData as its resolved rows and quits. A
     // spawn entry has no runtime error mode — a dropped density or condition
     // just silently stops placing something — so a diff of this output is how

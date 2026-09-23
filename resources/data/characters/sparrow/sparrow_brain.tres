@@ -9,6 +9,8 @@
 [ext_resource type="Script" uid="uid://fl4vgm566vea" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="7_lookat"]
 [ext_resource type="Script" uid="uid://1ungofthkhct" path="res://scripts/data/behaviors/conditions/HasInvestigationCondition.cs" id="8_hasinv"]
 [ext_resource type="Script" uid="uid://6hv6e7g1pnbe" path="res://scripts/data/behaviors/conditions/IncomingProjectileCondition.cs" id="9_incoming"]
+[ext_resource type="Script" uid="uid://5e2rtgfswi77z" path="res://scripts/data/behaviors/CorpseInspectBehaviorData.cs" id="90_corpse"]
+[ext_resource type="Script" uid="uid://wqxnatskq1ix9" path="res://scripts/data/behaviors/conditions/HasCorpseSightingCondition.cs" id="91_has_corpse"]
 
 [sub_resource type="Resource" id="Resource_perch"]
 script = ExtResource("1_perch")
@@ -37,11 +39,19 @@ script = ExtResource("4_trans")
 condition = SubResource("Resource_cond_hasinv")
 destination = &"LookAt"
 
+[sub_resource type="Resource" id="Resource_cond_has_corpse"]
+script = ExtResource("91_has_corpse")
+
+[sub_resource type="Resource" id="Resource_perch_to_corpse"]
+script = ExtResource("4_trans")
+condition = SubResource("Resource_cond_has_corpse")
+destination = &"InspectCorpse"
+
 [sub_resource type="Resource" id="Resource_perch_node"]
 script = ExtResource("2_node")
 name = &"Perch"
 data = SubResource("Resource_perch")
-transitions = [SubResource("Resource_perch_to_flee_shot"), SubResource("Resource_perch_to_flee"), SubResource("Resource_perch_to_lookat")]
+transitions = [SubResource("Resource_perch_to_flee_shot"), SubResource("Resource_perch_to_flee"), SubResource("Resource_perch_to_lookat"), SubResource("Resource_perch_to_corpse")]
 
 [sub_resource type="Resource" id="Resource_flyflee"]
 script = ExtResource("5_flyflee")
@@ -66,8 +76,18 @@ name = &"LookAt"
 data = SubResource("Resource_lookat")
 transitions = [SubResource("Resource_perch_to_flee_shot"), SubResource("Resource_lookat_to_flee")]
 
+[sub_resource type="Resource" id="Resource_corpse"]
+script = ExtResource("90_corpse")
+approach = false
+
+[sub_resource type="Resource" id="Resource_corpse_node"]
+script = ExtResource("2_node")
+name = &"InspectCorpse"
+data = SubResource("Resource_corpse")
+transitions = [SubResource("Resource_perch_to_flee_shot"), SubResource("Resource_lookat_to_flee")]
+
 [resource]
 script = ExtResource("6_brain")
 idleBehavior = &"Perch"
-behaviors = [SubResource("Resource_perch_node"), SubResource("Resource_flyflee_node"), SubResource("Resource_lookat_node")]
+behaviors = [SubResource("Resource_perch_node"), SubResource("Resource_flyflee_node"), SubResource("Resource_lookat_node"), SubResource("Resource_corpse_node")]
 metadata/_custom_type_script = "uid://ctcx3rsnl61pe"
