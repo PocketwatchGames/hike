@@ -103,6 +103,12 @@ global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
 global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 
+// Unlit haze scatters the poche rather than black, so fog over an unlit floor
+// leaves it at the same value as the undimmed cap beside it.
+#include "res://shaders/poche.gdshaderinc"
+global uniform float sun_intensity;
+global uniform float light_falloff_exp;
+
 uniform vec3 fog_color : source_color = vec3(0.85, 0.88, 0.95);
 // Defaults below are the actual tuned values for this game — if the
 // material (.tres) lacks shader_parameter overrides, these produce the
@@ -627,6 +633,9 @@ void fragment()
     // Dust + shaft inscatter stays live so you can see beams on a
     // fog-free baseline.
     float authored_scale = fog_enabled ? fog_density : 0.0;
+    // Constant along an ortho view ray, so resolving it once at the near plane
+    // gives the value every surface under this pixel resolves.
+    vec3 poche_px = poche_fill(near_world, INV_VIEW_MATRIX, FRAGCOORD.xy);
 
     if (band_range > 0.0)
     {
@@ -729,6 +738,7 @@ void fragment()
             // (same refactor bug as the fog_map guard above). Bare scope kept so
             // the diff stays minimal.
             float haze_gate = 1.0;
+            float unlit = 0.0;
             vec3 luvw = (p - light_map_origin) * light_map_inv_size;
             {
                 // Single linear-filtered sample. The previously-snapped
@@ -753,6 +763,11 @@ void fragment()
                 }
 
                 haze_gate = lm_r_soft;
+                // The lit shaders' area light, approximated (no surface normal in
+                // air), so the air fades to poche where the walls around it do.
+                float air_light = sun_intensity * pow(lm_r_soft, light_falloff_exp)
+                    + dot(lm.gba, vec3(0.299, 0.587, 0.114));
+                unlit = poche_weight(air_light);
                 min_lm_r = min(min_lm_r, lm.r);
 
                 // Sun gating: cloud mask (atmospheric, drifting) only. Terrain
@@ -864,7 +879,7 @@ void fragment()
             // haze_gate kills haze in unlit voxels. In a fully-lit
             // outdoor scene this matches the old `fog_color *
             // (1 - transmittance)` term exactly.
-            vec3 sample_haze = haze_gate * fog_color * sigma_t * zone_transmittance * step_size;
+            vec3 sample_haze = (haze_gate * fog_color + unlit * poche_px) * sigma_t * zone_transmittance * step_size;
             if (above_clip)
             {
                 outdoor_halo += sample_halo_v;

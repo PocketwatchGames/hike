@@ -49,6 +49,8 @@ global uniform vec3 sun_color;
 // was below in a cave.
 global uniform float camera_clip;
 
+#include "res://shaders/poche.gdshaderinc"
+
 varying vec3 world_pos;
 // COLOR is the particle's per-instance color (set by the
 // ParticleProcessMaterial's color / color_ramp). Capture it as flat in the
@@ -123,6 +125,8 @@ void fragment() {
 	// defaults false (so the per-particle COLOR.rgb did NOT tint the output).
 	vec3 vertex_tint = use_vertex_color ? particle_color.rgb : vec3(1.0);
 	ALBEDO = (tex.rgb * albedo.rgb * lit + emission.rgb) * vertex_tint;
+	// Unlit ends at the poche, not black — see poche.gdshaderinc.
+	ALBEDO += poche_unlit_light(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, lit);
 	EMISSION = vec3(0.0);
 	ALPHA = tex.a * max(albedo.a, emission.a) * particle_color.a;
 }

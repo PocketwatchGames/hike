@@ -23,6 +23,7 @@ global uniform float camera_clip_growth_edge_softness;
 // the adaptation tail. Everything below is only about what makes this water
 // FALLING; how it answers to light is not this file's business.
 #include "res://shaders/water_shading.gdshaderinc"
+#include "res://shaders/poche.gdshaderinc"
 
 // Surface reflection, same globals and same meaning as on the pool.
 global uniform float fresnel_power;
@@ -606,6 +607,9 @@ void fragment() {
 	// ea_exempt is zero by construction now: nothing here came out of the screen
 	// texture, so all of it is this shader's own light and all of it adapts.
 	ALBEDO = water_adapt(composited, ea_exempt, sun_lit, block_lit);
+	// Unlit water scatters the poche over what it hides. Premultiplied blend,
+	// so it scales by coverage: over a poche background the sum is the poche.
+	ALBEDO += poche_unlit(world_vertex, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit) * clamp(hidden, 0.0, 1.0);
 	ALPHA = clamp(hidden, 0.0, 1.0);
 
 	// 3 = surfaceness itself, flat and opaque: RED falling, GREEN surface. The

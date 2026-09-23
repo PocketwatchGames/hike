@@ -1,7 +1,11 @@
 [gd_scene format=3 uid="uid://dggymyg888552"]
 
-[sub_resource type="StandardMaterial3D" id="Mat_potion"]
-albedo_color = Color(0.8, 0.12, 0.12, 1)
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="model_lit_shader"]
+
+[sub_resource type="ShaderMaterial" id="Mat_potion"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.8, 0.12, 0.12, 1)
 
 [sub_resource type="BoxMesh" id="Box_potion"]
 material = SubResource("Mat_potion")

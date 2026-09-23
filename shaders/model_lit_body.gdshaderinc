@@ -42,6 +42,7 @@ global uniform float cloud_altitude;
 // Dark-adaptation ("night eyes") tone curve. Driven by the player sim
 // (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
 #include "res://shaders/eye_adaptation.gdshaderinc"
+#include "res://shaders/poche.gdshaderinc"
 #ifdef MODEL_SURFACE_DETAIL
 #include "res://shaders/roof_broken.gdshaderinc"
 #endif
@@ -575,6 +576,8 @@ void fragment() {
 		float ea_gain = eye_adaptation_gain(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
 		out_albedo *= ea_gain;
 		out_emission *= ea_gain;
+		// Unlit ends at the poche, not black — see poche.gdshaderinc.
+		out_emission += poche_unlit(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
 	}
 
 	// Self-illumination (inert at default 0), modulated by albedo so the glow

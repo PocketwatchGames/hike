@@ -9,7 +9,7 @@
 [ext_resource type="Script" uid="uid://bfryesc7k2a02" path="res://scripts/data/behaviors/FairyEscapeBehaviorData.cs" id="7_escape"]
 [ext_resource type="Script" uid="uid://cq57gys23wvvh" path="res://scripts/data/behaviors/conditions/AggroAcquiredCondition.cs" id="8_aggro_acquired"]
 [ext_resource type="Script" uid="uid://bthrbynd7k204" path="res://scripts/data/behaviors/conditions/ThreatBeyondDistanceCondition.cs" id="10_threat_beyond"]
-[ext_resource type="Script" uid="uid://mngoeify0amqb" path="res://scripts/data/behaviors/conditions/BehaviorElapsedCondition.cs" id="11_elapsed"]
+[ext_resource type="Script" uid="uid://172mcn8bn0g0" path="res://scripts/data/behaviors/conditions/BehaviorElapsedCondition.cs" id="11_elapsed"]
 
 [sub_resource type="Resource" id="Resource_idle"]
 script = ExtResource("4_idle")
@@ -56,7 +56,6 @@ destination = &"Escape"
 
 [sub_resource type="Resource" id="Resource_cond_elapsed"]
 script = ExtResource("11_elapsed")
-seconds = 30.0
 
 [sub_resource type="Resource" id="Resource_flee_to_escape_elapsed"]
 script = ExtResource("3_transition")

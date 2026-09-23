@@ -125,6 +125,7 @@ global uniform bool block_light_shadow_enabled;
 // Dark-adaptation ("night eyes") tone curve. Driven by the player sim
 // (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
 #include "res://shaders/eye_adaptation.gdshaderinc"
+#include "res://shaders/poche.gdshaderinc"
 
 varying flat vec2 anchor_px;
 varying flat vec3 world_origin;
@@ -323,6 +324,8 @@ void fragment() {
 	float ea_gain = eye_adaptation_gain(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
 	lit_albedo *= ea_gain;
 	lit_emission *= ea_gain;
+	// Unlit ends at the poche, not black — see poche.gdshaderinc.
+	lit_emission += poche_unlit(frag_world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
 	ALBEDO = mix(lit_albedo, vec3(0.0), silhouette_amount);
 	EMISSION = mix(lit_emission, silhouette_tint, silhouette_amount);
 }

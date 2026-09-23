@@ -227,6 +227,7 @@ global uniform bool block_light_shadow_enabled;
 // Dark-adaptation ("night eyes") tone curve. Driven by the player sim
 // (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
 #include "res://shaders/eye_adaptation.gdshaderinc"
+#include "res://shaders/poche.gdshaderinc"
 
 // Ceiling cutaway. Anchored on the CARD's own origin, not the tree's — a card
 // is a leaf-cluster-sized unit, so anchoring per card lets a canopy straddling
@@ -554,6 +555,8 @@ void fragment() {
 		float ea_gain = eye_adaptation_gain(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
 		ALBEDO *= ea_gain;
 		EMISSION *= ea_gain;
+		// Unlit ends at the poche, not black — see poche.gdshaderinc.
+		EMISSION += poche_unlit(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
 	}
 }
 

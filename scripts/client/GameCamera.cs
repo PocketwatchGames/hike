@@ -109,22 +109,24 @@ public partial class GameCamera : Camera3D
 	// This caps it at a stable horizontal plane first, so a tower or a sky
 	// castle sections cleanly. 0 disables the cap entirely.
 	[Export(PropertyHint.Range, "0,200,4")] public float maxClipHeightAbovePlayer = 20f;
-	// Fill colour of the cut-open interior (the poche), for both cap planes.
+	// Fill colour of the cut-open interior (the poche), for both cap planes —
+	// and the colour every lit shader fades to as its light goes to zero, so an
+	// unlit tunnel and the cut rock above it are one value (shaders/poche.gdshaderinc).
 	// Near-black but slightly lifted and cool so a sectioned building reads as
 	// solid rather than as a hole punched in the world.
 	[Export] public Color pocheColor = new("19191d");
 	// Crest colour of the swirl marbled through the poche. Set it equal to
 	// pocheColor for a flat fill; keep the two close — the poche has to recede.
 	[Export] public Color pocheSwirlColor = new("23232b");
-	// Noise cells per metre of section plane. 0.06 ≈ a 16 m cell, so the
-	// marbling reads as a few broad shapes across a room rather than texture.
+	// Noise cells per metre of the camera's image plane. 0.06 ≈ a 16 m cell, so
+	// the marbling reads as a few broad shapes across a room rather than texture.
 	[Export(PropertyHint.Range, "0.005,0.5,0.005")] public float pocheSwirlScale = 0.06f;
 	[Export(PropertyHint.Range, "0,4,0.1")] public float pocheSwirlWarp = 1.5f;
 	// Cells per second the swirl churns. Motion in a large peripheral fill is
 	// the easiest thing in the frame to over-do — at 0.03 a cell takes half a
 	// minute to turn over, which reads as "alive" only if you stop and look.
-	// 0 leaves it static; the pattern is world-anchored either way, so walking
-	// still slides the poche over it.
+	// 0 leaves it static; the pattern moves with the world either way, so
+	// walking still slides the poche over it.
 	[Export(PropertyHint.Range, "0,0.5,0.005")] public float pocheSwirlSpeed = 0.03f;
 	// De-banding jitter, as a fraction of the distance between the two poche
 	// colours. Those are ~10 8-bit codes apart, so the swirl posterizes into
@@ -132,6 +134,10 @@ public partial class GameCamera : Camera3D
 	// with the colour separation — under-dithering shows as creases in the fill,
 	// over-dithering only as faint stipple.
 	[Export(PropertyHint.Range, "0,0.5,0.01")] public float pocheDither = 0.1f;
+	// Light level at which a lit surface has fully left the poche, in the lit
+	// shaders' area-illuminance units (the same measure eye adaptation reads).
+	// Below it the surface crossfades in; 0 light is exactly the cap's fill.
+	[Export(PropertyHint.Range, "0,0.5,0.0005")] public float pocheLightKnee = 0.02f;
 
 	private float _pitchRadians => Mathf.DegToRad(pitchDegrees);
 	private float _clip = float.PositiveInfinity;
@@ -193,11 +199,8 @@ public partial class GameCamera : Camera3D
 	// the base plane the main cap is anchored to.
 	private MeshInstance3D _irisCapPlane;
 	private MeshInstance3D _waterCapPlane;
-	// Both cap materials, kept so the poche style can be re-pushed when an
-	// authored value changes. Last-pushed values, so it pushes only on change.
-	private ShaderMaterial _capMaterial;
-	private ShaderMaterial _irisCapMaterial;
-	private (Color, Color, float, float, float, float) _pocheStyle;
+	// Last-pushed poche globals, so SyncPocheStyle pushes only on change.
+	private (Color, Color, float, float, float, float, float)? _pocheStyle;
 	private SubViewport _capMaskViewport;
 	private Camera3D _capMaskCamera;
 	// Selection-outline plumbing (mirrors the cap-mask: off-screen mask
@@ -521,7 +524,6 @@ public partial class GameCamera : Camera3D
 		capMaterial.Shader = capShader;
 		capMaterial.RenderPriority = 1;
 		capMaterial.SetShaderParameter("cap_mask_tex", _capMaskViewport.GetTexture());
-		_capMaterial = capMaterial;
 
 		var planeMesh = new PlaneMesh();
 		planeMesh.Size = new Vector2(1000, 1000);
@@ -539,9 +541,8 @@ public partial class GameCamera : Camera3D
 		// neither draws over the other's fill.
 		var irisCapMaterial = (ShaderMaterial)capMaterial.Duplicate();
 		irisCapMaterial.SetShaderParameter("iris_inside_disk", true);
-		_irisCapMaterial = irisCapMaterial;
-		// Seed both here rather than waiting on the first clip update, so the
-		// cap is never drawn with the shader's fallback colours.
+		// Seed here rather than waiting on the first clip update, so the cap is
+		// never drawn with the project.godot defaults.
 		SyncPocheStyle();
 		_irisCapPlane = new MeshInstance3D();
 		_irisCapPlane.Mesh = planeMesh;
@@ -1188,11 +1189,11 @@ public partial class GameCamera : Camera3D
 		// in init alongside the SubViewport for the cap mask). Skip in
 		// that case; clip globals still propagate to shaders via the
 		// PushClipGlobals path.
+		SyncPocheStyle();
 		if (_clipCapPlane == null || _waterCapPlane == null)
 		{
 			return;
 		}
-		SyncPocheStyle();
 		// Anchor the cap to MIN(_clip, _clipPrev) so it covers whichever
 		// Y the dither is still cutting against during a transition. The
 		// "walk out from cover" case is the one that hurts without this:
@@ -1219,33 +1220,32 @@ public partial class GameCamera : Camera3D
 		}
 	}
 
-	// Push the poche look to both cap materials. Runs per frame but only crosses
+	// Push the poche look to its shader globals. Runs per frame but only crosses
 	// into the engine when an authored value actually moved, so the look stays
-	// tunable in a running game without paying for eight setters a frame.
+	// tunable in a running game without paying for seven setters a frame.
 	private void SyncPocheStyle()
 	{
-		var style = (pocheColor, pocheSwirlColor, pocheSwirlScale, pocheSwirlWarp, pocheSwirlSpeed, pocheDither);
+		var style = (pocheColor, pocheSwirlColor, pocheSwirlScale, pocheSwirlWarp, pocheSwirlSpeed, pocheDither, pocheLightKnee);
 		if (style.Equals(_pocheStyle))
 		{
 			return;
 		}
 		_pocheStyle = style;
-		ApplyPocheStyle(_capMaterial);
-		ApplyPocheStyle(_irisCapMaterial);
+		// The globals are linear: a global uniform carries no source_color hint to
+		// convert an sRGB Color the way the old per-material uniform did.
+		RenderingServer.GlobalShaderParameterSet("poche_color", ToLinearVector(pocheColor));
+		RenderingServer.GlobalShaderParameterSet("poche_swirl_color", ToLinearVector(pocheSwirlColor));
+		RenderingServer.GlobalShaderParameterSet("poche_swirl_scale", pocheSwirlScale);
+		RenderingServer.GlobalShaderParameterSet("poche_swirl_warp", pocheSwirlWarp);
+		RenderingServer.GlobalShaderParameterSet("poche_swirl_speed", pocheSwirlSpeed);
+		RenderingServer.GlobalShaderParameterSet("poche_dither", pocheDither);
+		RenderingServer.GlobalShaderParameterSet("poche_light_knee", pocheLightKnee);
 	}
 
-	private void ApplyPocheStyle(ShaderMaterial material)
+	private static Vector3 ToLinearVector(Color c)
 	{
-		if (material == null)
-		{
-			return;
-		}
-		material.SetShaderParameter("poche_color", pocheColor);
-		material.SetShaderParameter("poche_swirl_color", pocheSwirlColor);
-		material.SetShaderParameter("poche_swirl_scale", pocheSwirlScale);
-		material.SetShaderParameter("poche_swirl_warp", pocheSwirlWarp);
-		material.SetShaderParameter("poche_swirl_speed", pocheSwirlSpeed);
-		material.SetShaderParameter("poche_dither", pocheDither);
+		Color linear = c.SrgbToLinear();
+		return new Vector3(linear.R, linear.G, linear.B);
 	}
 
 	private void PushClipGlobals()

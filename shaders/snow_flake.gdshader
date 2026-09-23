@@ -42,6 +42,7 @@ global uniform vec3 camera_clip_growth_center;
 global uniform float camera_clip_growth_max_radius;
 global uniform float camera_clip_growth_edge_softness;
 #include "res://shaders/clip_dither.gdshaderinc"
+#include "res://shaders/poche.gdshaderinc"
 global uniform vec3 sun_color;
 global uniform float sun_intensity;
 global uniform float sun_ambient;
@@ -150,5 +151,7 @@ void fragment() {
     float ambient = max(sun_ambient, min_ambient);
     float lit = ambient + sun_mask * (1.0 - ambient);
     ALBEDO = albedo.rgb * sun_color * lit * sun_intensity;
+    // Unlit ends at the poche, not black — see poche.gdshaderinc.
+    ALBEDO += poche_unlit_light(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_color * lit * sun_intensity);
     ALPHA = albedo.a * coverage * particle_color.a;
 }

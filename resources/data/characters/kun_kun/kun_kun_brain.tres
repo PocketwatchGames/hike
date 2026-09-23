@@ -12,8 +12,8 @@
 [ext_resource type="Script" uid="uid://dnl0n28wsm88g" path="res://scripts/data/behaviors/WanderBehaviorData.cs" id="10_wander"]
 [ext_resource type="Script" uid="uid://fl4vgm566vea" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="11_lookat"]
 [ext_resource type="Script" uid="uid://1ungofthkhct" path="res://scripts/data/behaviors/conditions/HasInvestigationCondition.cs" id="12_has_investigation"]
-[ext_resource type="Script" uid="uid://5e2rtgfswi77z" path="res://scripts/data/behaviors/CorpseInspectBehaviorData.cs" id="90_corpse"]
-[ext_resource type="Script" uid="uid://wqxnatskq1ix9" path="res://scripts/data/behaviors/conditions/HasCorpseSightingCondition.cs" id="91_has_corpse"]
+[ext_resource type="Script" uid="uid://dc7oo1y1x33wn" path="res://scripts/data/behaviors/CorpseInspectBehaviorData.cs" id="90_corpse"]
+[ext_resource type="Script" uid="uid://dfwbcj7bw046g" path="res://scripts/data/behaviors/conditions/HasCorpseSightingCondition.cs" id="91_has_corpse"]
 
 [sub_resource type="Resource" id="Resource_idle"]
 script = ExtResource("3_idle")

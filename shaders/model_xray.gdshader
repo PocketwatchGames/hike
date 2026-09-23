@@ -53,6 +53,7 @@ global uniform vec3 camera_clip_growth_center;
 global uniform float camera_clip_growth_max_radius;
 global uniform float camera_clip_growth_edge_softness;
 #include "res://shaders/clip_dither.gdshaderinc"
+#include "res://shaders/poche.gdshaderinc"
 
 // Instance-uniform order MUST match model_lit_body.gdshaderinc exactly for every
 // shared name (visibility / silhouette_amount / silhouette_tint), or Godot
@@ -134,7 +135,9 @@ void fragment() {
 	}
 
 	// Occluded: alpha-blend translucent black. framebuffer *= (1 - ALPHA).
-	ALBEDO = vec3(0.0);
+	// Toward the poche rather than black, so a silhouette over unlit ground or
+	// the cap is the dark it sits in, not a blacker hole through it.
+	ALBEDO = poche_fill(poche_pixel_world(SCREEN_UV, FRAGCOORD.z, INV_PROJECTION_MATRIX, INV_VIEW_MATRIX), INV_VIEW_MATRIX, FRAGCOORD.xy);
 	EMISSION = vec3(0.0);
 	ALPHA = xray_alpha * xray_amount;
 }

@@ -1,9 +1,12 @@
-[gd_scene load_steps=6 format=3 uid="uid://b6xvvkhj2thr"]
+[gd_scene load_steps=7 format=3 uid="uid://b6xvvkhj2thr"]
 
 [ext_resource type="Script" uid="uid://b7hwld3k9mxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_hw"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="model_lit_shader"]
 
-[sub_resource type="StandardMaterial3D" id="Mat_club"]
-albedo_color = Color(0.45, 0.32, 0.18, 1)
+[sub_resource type="ShaderMaterial" id="Mat_club"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.45, 0.32, 0.18, 1)
 
 [sub_resource type="BoxMesh" id="Box_club"]
 material = SubResource("Mat_club")

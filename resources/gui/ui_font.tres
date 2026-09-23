@@ -1,4 +1,4 @@
-[gd_resource type="FontVariation" load_steps=3 format=3]
+[gd_resource type="FontVariation" format=3 uid="uid://ccayfwl2qvnu8"]
 
 [ext_resource type="FontFile" uid="uid://dmlxqf6agcojt" path="res://assets/fonts/alien_glyphs.ttf" id="1_glyphs"]
 
@@ -6,5 +6,8 @@
 font_names = PackedStringArray("Sans-Serif")
 
 [resource]
-base_font = SubResource("SystemFont_base")
 fallbacks = Array[Font]([ExtResource("1_glyphs")])
+base_font = SubResource("SystemFont_base")
+opentype_features = {
+1667329140: 0
+}

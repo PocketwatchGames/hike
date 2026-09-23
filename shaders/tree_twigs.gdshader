@@ -118,6 +118,7 @@ global uniform vec3 camera_clip_growth_center;
 global uniform float camera_clip_growth_max_radius;
 global uniform float camera_clip_growth_edge_softness;
 #include "res://shaders/clip_dither.gdshaderinc"
+#include "res://shaders/poche.gdshaderinc"
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -222,7 +223,9 @@ void fragment() {
 		vec3 base_filled = base * fill_a_tint * fill_b_tint;
 
 		ALBEDO = base_filled * sun_lit * (1.0 - sun_ambient);
-			EMISSION = base_filled * (block_lit + sun_lit * sun_ambient * cloud_dim);
+		EMISSION = base_filled * (block_lit + sun_lit * sun_ambient * cloud_dim);
+		// Unlit ends at the poche, not black — see poche.gdshaderinc.
+		EMISSION += poche_unlit(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
 	}
 }
 

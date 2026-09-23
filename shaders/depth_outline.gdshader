@@ -38,6 +38,21 @@ uniform float edge_max_depth : hint_range(0.0, 16.0, 0.01) = 4.0;
 // SceneViewport, which upscales to a chunky pixel-art line).
 uniform float thickness : hint_range(1.0, 4.0, 1.0) = 1.0;
 
+// Ink is a lighting device — it separates surfaces flat lighting can't — so it
+// fades with the light at the edge exactly as a surface fades to the poche. An
+// unlit edge has nothing to separate, and inking it would outline an unlit tunnel
+// (and the cap-to-floor step at the cut) right through the poche.
+global uniform sampler3D light_map : filter_linear, repeat_enable;
+global uniform vec3 light_map_origin;
+global uniform vec3 light_map_inv_size;
+global uniform float sun_intensity;
+global uniform float light_falloff_exp;
+#include "res://shaders/poche.gdshaderinc"
+
+// How far toward the camera the light is sampled, in metres, so an edge on a
+// solid face reads the air in front of it rather than the voxel it sits on.
+const float EDGE_LIGHT_LIFT = 0.5;
+
 void vertex()
 {
 	// QuadMesh(2,2): VERTEX.xy in [-1,1] emitted as clip space covers the whole
@@ -107,6 +122,15 @@ void fragment()
 
 		// One pixel is foreground OR background of a given edge, not both —
 		// pick the stronger term and blend toward its color via blend_mix.
+		// World position of this pixel, for its light.
+		vec4 vp = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, texture(depth_tex, SCREEN_UV).x, 1.0);
+		vec3 world = (INV_VIEW_MATRIX * vec4(vp.xyz / vp.w, 1.0)).xyz + INV_VIEW_MATRIX[2].xyz * EDGE_LIGHT_LIFT;
+		vec4 lm = texture(light_map, (world - light_map_origin) * light_map_inv_size);
+		float edge_light = sun_intensity * pow(lm.r, light_falloff_exp) + dot(lm.gba, vec3(0.299, 0.587, 0.114));
+		float lit = 1.0 - poche_weight(edge_light);
+		dark_e *= lit;
+		light_e *= lit;
+
 		if (dark_e >= light_e)
 		{
 			ALBEDO = dark_color.rgb;

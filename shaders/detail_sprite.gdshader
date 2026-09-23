@@ -137,6 +137,7 @@ global uniform float camera_clip_growth_edge_softness;
 // Dark-adaptation ("night eyes") tone curve. Driven by the player sim
 // (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
 #include "res://shaders/eye_adaptation.gdshaderinc"
+#include "res://shaders/poche.gdshaderinc"
 // Debug toggles — shared with voxel_clip so terrain and sprites behave
 // identically under each flag and you can isolate shading divergences.
 global uniform bool debug_normals;        // RGB = world_normal * 0.5 + 0.5
@@ -517,6 +518,8 @@ void fragment() {
 	float ea_gain = eye_adaptation_gain(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
 	ALBEDO *= ea_gain;
 	EMISSION *= ea_gain;
+	// Unlit ends at the poche, not black — see poche.gdshaderinc.
+	EMISSION += poche_unlit(frag_world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
 
 	if (debug_normals) {
 		ALBEDO = vec3(0.0);

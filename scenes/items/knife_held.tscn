@@ -1,16 +1,24 @@
 [gd_scene format=3 uid="uid://ce444jxc8syqg"]
 
 [ext_resource type="Script" uid="uid://b7hwld3k9mxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_hw"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="model_lit_shader"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_blade"]
-metallic = 0.8
-roughness = 0.25
+[sub_resource type="ShaderMaterial" id="Mat_blade"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.55, 0.57, 0.6, 1)
 
 [sub_resource type="BoxMesh" id="BoxMesh_blade"]
-material = SubResource("StandardMaterial3D_blade")
+material = SubResource("Mat_blade")
 size = Vector3(0.04, 0.45, 0.012)
 
+[sub_resource type="ShaderMaterial" id="Mat_grip"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.16, 0.12, 0.09, 1)
+
 [sub_resource type="BoxMesh" id="BoxMesh_grip"]
+material = SubResource("Mat_grip")
 size = Vector3(0.05, 0.14, 0.05)
 
 [node name="KnifeHeld" type="Node3D"]

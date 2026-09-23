@@ -162,8 +162,9 @@ amount = 1.0
 [sub_resource type="Resource" id="Resource_charged_mod_backstab"]
 script = ExtResource("1_modifier")
 trigger = 2
-overrides = 256
+overrides = 768
 healthDamage = 120.0
+damageMultiplier = 2.0
 addBuildups = Array[ExtResource("1_buildup")]([SubResource("Resource_buildup_dizzy_backstab")])
 
 [sub_resource type="Resource" id="Resource_charged_damage"]
@@ -211,8 +212,9 @@ addBuildups = []
 [sub_resource type="Resource" id="Resource_mod_backstab"]
 script = ExtResource("1_modifier")
 trigger = 2
-overrides = 256
+overrides = 768
 healthDamage = 60.0
+damageMultiplier = 1.5
 addBuildups = Array[ExtResource("1_buildup")]([SubResource("Resource_buildup_dizzy_backstab")])
 
 [sub_resource type="Resource" id="Resource_damage"]

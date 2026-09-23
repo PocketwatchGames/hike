@@ -379,6 +379,9 @@ global uniform bool ground_stain_enabled;
 // eye_adaptation == 0. See shaders/eye_adaptation.gdshaderinc.
 #include "res://shaders/eye_adaptation.gdshaderinc"
 
+// The colour of no light, shared with the cutaway cap — see poche.gdshaderinc.
+#include "res://shaders/poche.gdshaderinc"
+
 // Dynamic radial ripples (footsteps in puddles) — the same ring buffer the
 // open-water shader reads. Declares the water_ripple_* globals and the
 // dynamic_ripple_core helper; applied to standing-water pools below.
@@ -1153,6 +1156,10 @@ void fragment() {
 	float ea_gain = debug_no_eye_adapt ? 1.0 : eye_adaptation_gain(ea_light);
 	ALBEDO *= ea_gain;
 	EMISSION *= ea_gain;
+	// Unlit surfaces end at the poche, not at black, so a dark tunnel matches the
+	// cap cut above it. Added AFTER adaptation: the cap is not adapted, and the
+	// two must be the same value at zero light.
+	EMISSION += poche_unlit(world_vertex, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
 
 	if (dot(debug_solid, vec3(1.0)) > 0.001) {
 		ALBEDO = vec3(0.0);

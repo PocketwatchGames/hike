@@ -103,6 +103,7 @@ global uniform vec3 camera_clip_growth_center;
 global uniform float camera_clip_growth_max_radius;
 global uniform float camera_clip_growth_edge_softness;
 #include "res://shaders/clip_dither.gdshaderinc"
+#include "res://shaders/poche.gdshaderinc"
 
 varying flat vec2 anchor_px;
 varying flat vec3 world_origin;
@@ -233,7 +234,9 @@ void fragment() {
 	// Alpha-blend translucent black: framebuffer *= (1 - ALPHA). xray_amount
 	// is the per-instance fade (InteractiveXray driver gates 0→1→0); the
 	// shader-wide xray_alpha is the global strength knob.
-	ALBEDO = vec3(0.0);
+	// Toward the poche rather than black, so a silhouette over unlit ground or
+	// the cap is the dark it sits in, not a blacker hole through it.
+	ALBEDO = poche_fill(poche_pixel_world(SCREEN_UV, FRAGCOORD.z, INV_PROJECTION_MATRIX, INV_VIEW_MATRIX), INV_VIEW_MATRIX, FRAGCOORD.xy);
 	EMISSION = vec3(0.0);
 	ALPHA = xray_alpha * xray_amount;
 }

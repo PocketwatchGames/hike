@@ -47,6 +47,8 @@ uniform sampler2D screen_tex : hint_screen_texture, filter_nearest_mipmap;
 // still uses) and cloud_shadow / block_light_shadow / eye_adaptation, so none
 // of those may be declared or included again here.
 #include "res://shaders/water_shading.gdshaderinc"
+// The colour of no light, shared with the cutaway cap — see poche.gdshaderinc.
+#include "res://shaders/poche.gdshaderinc"
 
 // Per-zone water styling — all globals driven by ZoneData.WaterColor
 // through WeatherDerivation + SkyController.Apply. Authoring one RGBA per
@@ -1351,6 +1353,15 @@ void fragment() {
 	// `unshaded`, so scaling the composite directly is the final adaptation; no
 	// ALBEDO/EMISSION split here. No-op when eye_adaptation == 0.
 	ALBEDO = water_adapt(composited, ea_exempt, sun_lit, block_lit);
+	// Unlit water scatters the poche over the share of the pixel it hides, so a
+	// pool over an unlit (poche) floor stays the poche instead of darkening it
+	// into a hole. Every layer above the see-through part — volume, reflection,
+	// foam, film — generates no light of its own at zero light, so what they
+	// hide is exactly what they would otherwise have turned black. Unadapted,
+	// like the cap.
+	vec3 seen_share = transmittance * (1.0 - refl_mix) * (1.0 - (is_top ? foam_amount : 0.0)) * (1.0 - cover_amount);
+	float water_unlit = poche_weight(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
+	ALBEDO += poche_fill(world_vertex, INV_VIEW_MATRIX, FRAGCOORD.xy) * water_unlit * (1.0 - seen_share);
 	ALPHA = 1.0;
 
 	// Term isolation, the same approach that located the sun banding. Each

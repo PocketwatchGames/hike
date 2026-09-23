@@ -100,29 +100,45 @@ overrides = 512
 damageMultiplier = 3.0
 addBuildups = []
 
+[sub_resource type="Resource" id="Resource_t06ie"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 512
+damageMultiplier = 1.5
+addBuildups = []
+metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
+
 [sub_resource type="Resource" id="Resource_charged_damage"]
 script = ExtResource("1_damage")
 tags = 2113
-healthDamage = 60.0
+healthDamage = 40.0
 critChance = 0.1
 damageVariance = 0.25
 hitstun = 0.25
 knockbackDistance = 0.5
 knockbackTime = 0.25
 buildups = []
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit")])
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_t06ie")])
+
+[sub_resource type="Resource" id="Resource_gsna1"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 512
+damageMultiplier = 1.5
+addBuildups = []
+metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
 tags = 2113
-healthDamage = 30.0
+healthDamage = 20.0
 critChance = 0.1
 damageVariance = 0.25
 hitstun = 0.25
 knockbackDistance = 0.5
 knockbackTime = 0.25
 buildups = []
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit")])
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_gsna1")])
 
 [resource]
 script = ExtResource("2_weapon")

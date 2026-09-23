@@ -1,12 +1,13 @@
 [gd_resource type="Resource" script_class="SpawnScatterData" format=3 uid="uid://b2hghlw3aayio"]
 
 [ext_resource type="Script" uid="uid://dqlswysnuirjd" path="res://scripts/data/worldmap/SpawnScatterData.cs" id="1_list"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/drake_swamp.tres" id="9_w261p"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_gold.tres" id="8_rhi2x"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/sparrow_swamp.tres" id="9_b4m50"]
+[ext_resource type="Resource" uid="uid://fk5luyhye2h5" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/spider_swamp.tres" id="10_j0hgh"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/fire_trap.tres" id="e_fire_trap"]
 [ext_resource type="Resource" uid="uid://d1tr4270i64sw" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_swamp.tres" id="e_goblin_swamp"]
 [ext_resource type="Resource" uid="uid://dmn04bx0aoir2" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_swamp_elite.tres" id="e_goblin_swamp_elite"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_black.tres" id="e_mushroom_black"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_green.tres" id="e_mushroom_green"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_purple.tres" id="e_mushroom_purple"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_red.tres" id="e_mushroom_red"]
 [ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
@@ -20,16 +21,10 @@ initialBehaviorChance = 0.25
 
 [sub_resource type="Resource" id="Row_goblin_swamp_elite"]
 script = ExtResource("listrow")
-squareMetersPerSpawn = 1429.0
+squareMetersPerSpawn = 1500.0
 entry = ExtResource("e_goblin_swamp_elite")
 initialBehavior = &"Wander"
 initialBehaviorChance = 0.25
-
-[sub_resource type="Resource" id="Row_mushroom_green"]
-script = ExtResource("listrow")
-squareMetersPerSpawn = 300.0
-entry = ExtResource("e_mushroom_green")
-initialBehavior = null
 
 [sub_resource type="Resource" id="Row_mushroom_black"]
 script = ExtResource("listrow")
@@ -55,15 +50,29 @@ squareMetersPerSpawn = 250.0
 entry = ExtResource("e_fire_trap")
 initialBehavior = null
 
-[sub_resource type="Resource" id="Resource_rhi2x"]
+[sub_resource type="Resource" id="Resource_iyi6h"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 300.0
+entry = ExtResource("8_rhi2x")
+initialBehavior = null
+metadata/_custom_type_script = "uid://prsprptvme87"
+
+[sub_resource type="Resource" id="Resource_h43a1"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 500.0
-entry = ExtResource("9_w261p")
+entry = ExtResource("9_b4m50")
 initialBehavior = null
+metadata/_custom_type_script = "uid://prsprptvme87"
+
+[sub_resource type="Resource" id="Resource_yax8t"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 500.0
+entry = ExtResource("10_j0hgh")
+initialBehavior = &"Wander"
 metadata/_custom_type_script = "uid://prsprptvme87"
 
 [resource]
 script = ExtResource("1_list")
 displayName = "Swamp Fire"
 mapColor = Color(0.9, 0.35, 0.15, 1)
-rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_swamp"), SubResource("Row_goblin_swamp_elite"), SubResource("Row_mushroom_green"), SubResource("Row_mushroom_black"), SubResource("Row_mushroom_purple"), SubResource("Row_mushroom_red"), SubResource("Row_fire_trap"), SubResource("Resource_rhi2x")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_swamp"), SubResource("Row_goblin_swamp_elite"), SubResource("Row_mushroom_black"), SubResource("Row_mushroom_purple"), SubResource("Row_mushroom_red"), SubResource("Row_fire_trap"), SubResource("Resource_iyi6h"), SubResource("Resource_h43a1"), SubResource("Resource_yax8t")])

@@ -3981,10 +3981,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // receiver's ResolveTriggers agree on the outcome of this swing.
     private bool IsCritEligible(HitInfo hit)
     {
-        if (!triggered)
-        {
-            return true;
-        }
         float chance = 1f - (1f - Mathf.Clamp(hit.critChance, 0f, 1f)) * (1f - vulnerable);
         if (chance >= 1f)
         {

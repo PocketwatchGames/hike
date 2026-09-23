@@ -3,22 +3,26 @@
 [ext_resource type="Script" uid="uid://c8htr4n6qwb2t" path="res://scripts/gameplay/characters/HeldTorch.cs" id="1_r2rts"]
 [ext_resource type="PackedScene" uid="uid://co37ekycknxpo" path="res://scenes/fx/torch_loop.tscn" id="2_b0f62"]
 [ext_resource type="PackedScene" uid="uid://dmj3hp3rw122w" path="res://scenes/fx/moving_light_torch.tscn" id="3_4ey27"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="model_lit_shader"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_r2rts"]
-albedo_color = Color(0.45, 0.3, 0.18, 1)
-roughness = 0.9
+[sub_resource type="ShaderMaterial" id="Mat_r2rts"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.45, 0.3, 0.18, 1)
 
 [sub_resource type="CylinderMesh" id="Mesh_handle"]
-material = SubResource("StandardMaterial3D_r2rts")
+material = SubResource("Mat_r2rts")
 top_radius = 0.1
 bottom_radius = 0.1
 height = 0.3
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_b0f62"]
-albedo_color = Color(0.16, 0.12, 0.09, 1)
+[sub_resource type="ShaderMaterial" id="Mat_b0f62"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.16, 0.12, 0.09, 1)
 
 [sub_resource type="CylinderMesh" id="Mesh_head"]
-material = SubResource("StandardMaterial3D_b0f62")
+material = SubResource("Mat_b0f62")
 top_radius = 0.055
 bottom_radius = 0.038
 height = 0.1
@@ -27,12 +31,12 @@ height = 0.1
 radius = 0.15
 height = 0.3
 
-[sub_resource type="StandardMaterial3D" id="Mat_head_lit"]
-albedo_color = Color(0.6, 0.28, 0.1, 1)
-roughness = 0.8
-emission_enabled = true
-emission = Color(1, 0.5, 0.16, 1)
-emission_energy_multiplier = 2.5
+[sub_resource type="ShaderMaterial" id="Mat_head_lit"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.6, 0.28, 0.1, 1)
+shader_parameter/emission_tint = Color(1, 1, 1, 1)
+shader_parameter/emission_strength = 2.5
 
 [node name="TorchHeld" type="Node3D" unique_id=1678973944 node_paths=PackedStringArray("litHead", "flameAnchor")]
 script = ExtResource("1_r2rts")

@@ -1,8 +1,10 @@
 [gd_scene format=3 uid="uid://cwk3rn8qv2tba"]
 
-[sub_resource type="StandardMaterial3D" id="Mat_handle"]
-albedo_color = Color(0.45, 0.3, 0.18, 1)
-roughness = 0.9
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="model_lit_shader"]
+[sub_resource type="ShaderMaterial" id="Mat_handle"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.45, 0.3, 0.18, 1)
 
 [sub_resource type="CylinderMesh" id="Mesh_handle"]
 material = SubResource("Mat_handle")
@@ -10,10 +12,10 @@ top_radius = 0.05
 bottom_radius = 0.05
 height = 1.0
 
-[sub_resource type="StandardMaterial3D" id="Mat_blade"]
-albedo_color = Color(0.55, 0.57, 0.6, 1)
-metallic = 0.6
-roughness = 0.4
+[sub_resource type="ShaderMaterial" id="Mat_blade"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.55, 0.57, 0.6, 1)
 
 [sub_resource type="BoxMesh" id="Mesh_blade"]
 material = SubResource("Mat_blade")

@@ -35,6 +35,7 @@ global uniform float cloud_altitude;
 // Dark-adaptation ("night eyes") tone curve. Driven by the player sim
 // (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
 #include "res://shaders/eye_adaptation.gdshaderinc"
+#include "res://shaders/poche.gdshaderinc"
 
 // Ceiling cutaway: discard above the animating camera clip, tested on the mesh
 // ORIGIN so the whole piece cuts as a unit rather than being sliced at the
@@ -99,6 +100,8 @@ void fragment() {
 		float ea_gain = eye_adaptation_gain(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
 		ALBEDO *= ea_gain;
 		EMISSION *= ea_gain;
+		// Unlit ends at the poche, not black — see poche.gdshaderinc.
+		EMISSION += poche_unlit(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
 	}
 }
 

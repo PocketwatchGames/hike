@@ -76,6 +76,7 @@ global uniform vec3 camera_clip_growth_center;
 global uniform float camera_clip_growth_max_radius;
 global uniform float camera_clip_growth_edge_softness;
 #include "res://shaders/clip_dither.gdshaderinc"
+#include "res://shaders/poche.gdshaderinc"
 global uniform float sprite_stretch;
 
 // Ripple jitter — same globals voxel_water and the per-instance reflection
@@ -537,6 +538,8 @@ void fragment() {
     vec3 tinted = mix(reflected, tint_target, blend);
 
         ALBEDO = tinted * reflection_tint;
+        // Unlit ends at the poche, not black — see poche.gdshaderinc.
+        ALBEDO += poche_unlit(vertex_world_var, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
         // Fade reflection opacity by water clarity so muddy water lets its
         // own surface dominate instead of stamping the reflection sprite
         // over it. Clear water → ALPHA=1 (full reflection); swamp /

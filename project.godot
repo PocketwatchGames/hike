@@ -663,6 +663,34 @@ sun_color={
 "type": "vec3",
 "value": Vector3(1, 0.92, 0.72)
 }
+poche_color={
+"type": "vec3",
+"value": Vector3(0.0026, 0.0026, 0.0031)
+}
+poche_swirl_color={
+"type": "vec3",
+"value": Vector3(0.0046, 0.0046, 0.006)
+}
+poche_swirl_scale={
+"type": "float",
+"value": 0.12
+}
+poche_swirl_warp={
+"type": "float",
+"value": 4.0
+}
+poche_swirl_speed={
+"type": "float",
+"value": 0.05
+}
+poche_dither={
+"type": "float",
+"value": 0.1
+}
+poche_light_knee={
+"type": "float",
+"value": 0.02
+}
 sprite_chunky={
 "type": "float",
 "value": 0.0738

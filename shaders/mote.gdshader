@@ -48,6 +48,7 @@ global uniform float cloud_sharpness;
 global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
 global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
+#include "res://shaders/poche.gdshaderinc"
 
 // Base dust albedo, pushed from SkyController every frame (palette DustColor).
 // The glint colour is NOT a material param — it's the global sun_color above,
@@ -424,5 +425,7 @@ void fragment()
     // Fold in the per-particle lifetime ramp: rgb tints the speck, a fades it.
     // Both default to 1 (white/opaque) when no color_ramp is authored.
     ALBEDO = color * particle_color.rgb;
+    // Unlit ends at the poche, not black — see poche.gdshaderinc.
+    ALBEDO += poche_unlit_light(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, light_col);
     ALPHA = min(mote_alpha * dust_gain, 1.0) * coverage * beam * ground_fade * particle_color.a;
 }

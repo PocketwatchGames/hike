@@ -20,6 +20,7 @@ global uniform float sun_intensity;
 #include "res://shaders/sky_common.gdshaderinc"
 global uniform float cloud_shadow_strength;
 #include "res://shaders/cloud_shadow.gdshaderinc"
+#include "res://shaders/poche.gdshaderinc"
 
 // All water styling comes from region-driven globals — same authored set
 // as voxel_water.gdshader so the cap reads continuously with the water
@@ -165,7 +166,9 @@ void fragment() {
 	float refl_mix = fresnel * reflection_strength;
 	vec3 final_col = mix(water_col, refl_col, refl_mix);
 
-	ALBEDO = final_col;
+	// Unlit water scatters the poche (straight-alpha blend: over a poche floor
+	// the result stays the poche). See poche.gdshaderinc.
+	ALBEDO = final_col + poche_unlit(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
 	ALPHA = max(clamp(1.0 - dot(transmittance, vec3(1.0 / 3.0)), 0.0, 1.0), foam_amount);
 	}
 }

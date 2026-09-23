@@ -12,8 +12,8 @@
 [ext_resource type="Script" uid="uid://cv14ma5vsatj3" path="res://scripts/data/behaviors/RetreatBehaviorData.cs" id="10_retreat"]
 [ext_resource type="Script" uid="uid://v0r7qrrfr7aa" path="res://scripts/data/behaviors/conditions/TargetSafeCondition.cs" id="11_targetsafe"]
 [ext_resource type="Script" uid="uid://byt80ru3gmup4" path="res://scripts/data/behaviors/conditions/HurtWhileTargetSafeCondition.cs" id="12_hurtsafe"]
-[ext_resource type="Script" uid="uid://5e2rtgfswi77z" path="res://scripts/data/behaviors/CorpseInspectBehaviorData.cs" id="90_corpse"]
-[ext_resource type="Script" uid="uid://wqxnatskq1ix9" path="res://scripts/data/behaviors/conditions/HasCorpseSightingCondition.cs" id="91_has_corpse"]
+[ext_resource type="Script" uid="uid://dc7oo1y1x33wn" path="res://scripts/data/behaviors/CorpseInspectBehaviorData.cs" id="90_corpse"]
+[ext_resource type="Script" uid="uid://dfwbcj7bw046g" path="res://scripts/data/behaviors/conditions/HasCorpseSightingCondition.cs" id="91_has_corpse"]
 
 [sub_resource type="Resource" id="Resource_patrol"]
 script = ExtResource("4_patrol")
