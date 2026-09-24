@@ -167,3 +167,5 @@ script = ExtResource("Script_ConversationData")
 entryBranches = [SubResource("Entry_1")]
 branches = [SubResource("Branch_greeting"), SubResource("Branch_common"), SubResource("Branch_about"), SubResource("Branch_inn"), SubResource("Branch_seer"), SubResource("Branch_watchfolk"), SubResource("Branch_mud"), SubResource("Branch_treasure")]
 responseGroups = [SubResource("Group_language"), SubResource("Group_whittlebone"), SubResource("Group_topics"), SubResource("Group_city")]
+nameLocKey = &"intro_librarian_name"
+descriptionLocKey = &"intro_librarian_description"

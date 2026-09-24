@@ -21,4 +21,7 @@ public struct ConversationContext
     // Populated by ConversationController.Show — null when an evaluator is
     // called outside an active conversation (e.g. preview tooling).
     public ConversationController controller;
+    // The conversation being run - the identity whose name LearnNameAction
+    // teaches. Populated by ConversationController.Show.
+    public ConversationData conversation;
 }

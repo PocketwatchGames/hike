@@ -386,7 +386,7 @@ public partial class InteractHUD : Node2D
 		CloseModal();
 		// Route through the merged menu: TryStartMenuAction sends the first worldCount
 		// indices to the world interactive and the rest to a self-action.
-		if (interactive != null && player != null && interactive.CanActorInteract(player))
+		if (player != null && IInteractive.CanUse(interactive, player))
 		{
 			player.TryStartMenuAction(interactive, index);
 		}

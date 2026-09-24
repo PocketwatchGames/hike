@@ -19,7 +19,7 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[node name="ConversationPanel" type="Control" unique_id=657839596 node_paths=PackedStringArray("label", "responseOptionsContainer")]
+[node name="ConversationPanel" type="Control" unique_id=657839596 node_paths=PackedStringArray("label", "responseOptionsContainer", "nameLabel", "nameContainer")]
 layout_mode = 3
 anchors_preset = 7
 anchor_left = 0.5
@@ -32,34 +32,63 @@ offset_right = 300.0
 offset_bottom = -60.0
 grow_horizontal = 2
 grow_vertical = 0
+size_flags_vertical = 10
 mouse_filter = 2
 script = ExtResource("1_gaewx")
-label = NodePath("PanelContainer/VBoxContainer/Label")
+label = NodePath("VBoxContainer/TextContainer/VBoxContainer/Label")
 responseOptionScene = ExtResource("2_wydpk")
-responseOptionsContainer = NodePath("PanelContainer/VBoxContainer")
+responseOptionsContainer = NodePath("VBoxContainer/TextContainer/VBoxContainer")
+nameLabel = NodePath("VBoxContainer/NameContainer/MarginContainer/Label")
+nameContainer = NodePath("VBoxContainer/NameContainer")
 
-[node name="PanelContainer" type="PanelContainer" parent="." unique_id=1503499284]
-custom_minimum_size = Vector2(0, 60)
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=945425053]
 layout_mode = 1
-anchors_preset = 8
+anchors_preset = 7
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 0.5
+anchor_bottom = 1.0
 offset_left = -300.0
-offset_top = -27.5
+offset_top = -83.0
 offset_right = 300.0
-offset_bottom = 27.5
 grow_horizontal = 2
-grow_vertical = 2
+grow_vertical = 0
+mouse_filter = 2
+alignment = 2
+
+[node name="NameContainer" type="PanelContainer" parent="VBoxContainer" unique_id=456441149]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 8
+
+[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/NameContainer" unique_id=750190650]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_right = 20
+
+[node name="Label" type="Label" parent="VBoxContainer/NameContainer/MarginContainer" unique_id=100670943]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Misha the adventurer"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TextContainer" type="PanelContainer" parent="VBoxContainer" unique_id=1503499284]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_dialogue")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer" unique_id=385586223]
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/TextContainer" unique_id=385586223]
 layout_mode = 2
-size_flags_vertical = 4
+size_flags_vertical = 8
+alignment = 2
 
-[node name="Label" type="Label" parent="PanelContainer/VBoxContainer" unique_id=1357652148]
+[node name="Label" type="Label" parent="VBoxContainer/TextContainer/VBoxContainer" unique_id=1357652148]
 custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
+vertical_alignment = 2
 autowrap_mode = 3

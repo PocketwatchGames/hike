@@ -1,56 +1,56 @@
-character	player	conversation key	goto	language	condition	action	text
-intro_dying_		greeting				kill_speaker;give:lantern	[lang:common]Sanctuary...[/lang] you must find it. My family, they are in the capital. Please, find the [lang:common]Sanctuary[/lang]. For them. [lang:common]Sanctuary.[/lang]
-intro_guard_		greeting	real				Are you… real?
-	x	real	help				Yes. I was told you were injured. Can I help?
-		help					I nearly lost my leg to a night drake. Unless you have unseen powers, I doubt you can help.
-intro_hermit_		greeting					Hello, traveler. The mold in this valley makes my lungs ache.
-			topics				I long to leave.
-		recruit				recruit_to_party	Yes
-	x	topics	recruit				Then come with me!
-intro_librarian_		greeting	language				Ah, come in, come in!
-	x	language	common	common			Do you speak the common tongue?
-		common	whittlebone	common			Yes, a bit, a bit. But you won’t get far in Whittlebone without speaking Vyeshal.
-	x	whittlebone	about	common			Can you tell me about this place?
-		about	topics	common			Our seaside hamlet is sinking… into the mud to the south, or the mist to the east. We haven’t many seasons left. The inn, the seer, the watchfolk, all will be swallowed.
-	x	topics	inn	common			The inn?
-	x	topics	seer	common			Who is this Seer?
-	x	topics	watchfolk	common			Tell me about the watchfolk.
-	x	topics	mud	common			This town is sinking into… the mud?
-		inn	topics	common			We have an inn, you’ll smell it surely. The stew is as fermented as the spirits.
-		seer	topics	common			We were once famous for our Seer – he still serves us, as we do him.
-		watchfolk	topics	common			You must have met Talia if you climbed up from the shore. Her counterpart Jacksaw is at rest. He was injured by a night drake.
-		mud		common			Yes… it is the fault of governance by a clairvoyant. All visions of doom and no civic planning.
-			city				Tragic… the old city center sank, taking with it our primordial inheritance.
-	x	city	treasure		npcvar:map=false		The old city?
-		treasure	topics			give:map_city_center;npcvar:map=true	Yes yes. I have some old maps here that could help you if you plan to go that way.
-intro_mayor_		greeting	topics				Hello, traveler.
-		speak_common	topics	common			No. Ulga.
-		shipwreck	topics				We saw the shipwreck from the coast. There are rarely survivors on these shores. The mist swallows them.
-		village	topics				Praise be the old gods, we still have stores of amber to keep the village lit for a few more seasons. But the mist will take us, that is sure.
-		sanctuary	topics				I’ve heard tell of it. But if it’s out there it’s beyond beast infested lands. No mudman would make the trek. Our lives are measured in amber.
-	x	topics	speak_common	common	language_incomplete		Do you speak the common tongue?
-	x	topics	shipwreck				My ship wrecked off the shore. I need help.
-	x	topics	village				What is this place?
-	x	topics	sanctuary				A man on the shore kept saying “Sanctuary”. Do you know what this is?
-intro_merchant_		greeting					Hello, traveler.
-						open_shop	Can I interest you in some goods?
-intro_innkeeper		greeting					I’m the innkeeper!
-intro_patron1		greeting					Have you tried the stew? Each bite has 2 perfect golden mushrooms.
-intro_patron2		greeting					Mmm I can’t get enough of this stew. The 1 portion of succulent sparrow meat is my favorite part.
-intro_patron3		greeting					I hear the innkeeper cooks the stew for 6 hours.
-intro_mayor_assistant1		greeting					Hello.
-intro_mayor_assistant2		greeting					Salutations.
-intro_wanderer		greeting					I’ve been to the swamp. It’s hot.
-intro_watchman		entry	greeting_busy		npcvar:customs=true		
-		entry	greeting				
-		greeting	greeting_response				Who goes there?
-	x	greeting_response	common	common			I… I don’t know where I am.
-		common	whittlebone	common			Ah, common tongue. You’ve crossed into dangerous lands. But you can rest here in Whittlebone.
-	x	whittlebone	sanctuary	common			A man on the shore kept saying “Sanctuary”. Do you know what this is?
-	x	whittlebone	customs	common			Whittlebone?
-		sanctuary	whittlebone	common			The ramblings of a dying man? No. But you could ask Ulga, the crone in the broken house to the south.
-		customs	whittlebone	common		give:scroll_vyeshal_vocab_1_2;npcvar:customs=true	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now. Not many speak common tongue though. You’d do best to learn our customs. Here, take this.
-		greeting_busy		common			I am busy now, commoner. I must watch the sea.
-swamp_witch		greeting	shop				Oooh what’s this come crawlin outta the mud I see?
-							Come a little closer tadpole! Do ya have anything shiny?
-	x	shop				open_shop	Shall we trade?
+character	name	description	player	conversation key	goto	language	condition	action	text
+intro_dying_		Dying Man		greeting				kill_speaker;give:lantern	[lang:common]Sanctuary...[/lang] you must find it. My family, they are in the capital. Please, find the [lang:common]Sanctuary[/lang]. For them. [lang:common]Sanctuary.[/lang]
+intro_guard_		Resting Watchman		greeting	real				Are you… real?
+			x	real	help				Yes. I was told you were injured. Can I help?
+				help					I nearly lost my leg to a night drake. Unless you have unseen powers, I doubt you can help.
+intro_hermit_		Hermit		greeting					Hello, traveler. The mold in this valley makes my lungs ache.
+					topics				I long to leave.
+				recruit				recruit_to_party	Yes
+			x	topics	recruit				Then come with me!
+intro_librarian_	Ulga	Crone		greeting	language				Ah, come in, come in!
+			x	language	common	common			Do you speak the common tongue?
+				common	whittlebone	common			Yes, a bit, a bit. But you won’t get far in Whittlebone without speaking Vyeshal.
+			x	whittlebone	about	common			Can you tell me about this place?
+				about	topics	common			Our seaside hamlet is sinking… into the mud to the south, or the mist to the east. We haven’t many seasons left. The inn, the seer, the watchfolk, all will be swallowed.
+			x	topics	inn	common			The inn?
+			x	topics	seer	common			Who is this Seer?
+			x	topics	watchfolk	common			Tell me about the watchfolk.
+			x	topics	mud	common			This town is sinking into… the mud?
+				inn	topics	common			We have an inn, you’ll smell it surely. The stew is as fermented as the spirits.
+				seer	topics	common			We were once famous for our Seer – he still serves us, as we do him.
+				watchfolk	topics	common			You must have met Talia if you climbed up from the shore. Her counterpart Jacksaw is at rest. He was injured by a night drake.
+				mud		common			Yes… it is the fault of governance by a clairvoyant. All visions of doom and no civic planning.
+					city				Tragic… the old city center sank, taking with it our primordial inheritance.
+			x	city	treasure		npcvar:map=false		The old city?
+				treasure	topics			give:map_city_center;npcvar:map=true	Yes yes. I have some old maps here that could help you if you plan to go that way.
+intro_mayor_		Seer		greeting	topics				Hello, traveler.
+				speak_common	topics	common			No. Ulga.
+				shipwreck	topics				We saw the shipwreck from the coast. There are rarely survivors on these shores. The mist swallows them.
+				village	topics				Praise be the old gods, we still have stores of amber to keep the village lit for a few more seasons. But the mist will take us, that is sure.
+				sanctuary	topics				I’ve heard tell of it. But if it’s out there it’s beyond beast infested lands. No mudman would make the trek. Our lives are measured in amber.
+			x	topics	speak_common	common	language_incomplete		Do you speak the common tongue?
+			x	topics	shipwreck				My ship wrecked off the shore. I need help.
+			x	topics	village				What is this place?
+			x	topics	sanctuary				A man on the shore kept saying “Sanctuary”. Do you know what this is?
+intro_merchant_		Merchant		greeting					Hello, traveler.
+								open_shop	Can I interest you in some goods?
+intro_innkeeper		Innkeeper		greeting					I’m the innkeeper!
+intro_patron1		Patron		greeting					Have you tried the stew? Each bite has 2 perfect golden mushrooms.
+intro_patron2		Patron		greeting					Mmm I can’t get enough of this stew. The 1 portion of succulent sparrow meat is my favorite part.
+intro_patron3		Patron		greeting					I hear the innkeeper cooks the stew for 6 hours.
+intro_mayor_assistant1		Seer’s Assistant		greeting					Hello.
+intro_mayor_assistant2		Seer’s Assistant		greeting					Salutations.
+intro_wanderer		Wanderer		greeting					I’ve been to the swamp. It’s hot.
+intro_watchman		Watchman		entry	greeting_busy		npcvar:customs=true		
+				entry	greeting				
+				greeting	greeting_response				Who goes there?
+			x	greeting_response	common	common			I… I don’t know where I am.
+				common	whittlebone	common			Ah, common tongue. You’ve crossed into dangerous lands. But you can rest here in Whittlebone.
+			x	whittlebone	sanctuary	common			A man on the shore kept saying “Sanctuary”. Do you know what this is?
+			x	whittlebone	customs	common			Whittlebone?
+				sanctuary	whittlebone	common			The ramblings of a dying man? No. But you could ask Ulga, the crone in the broken house to the south.
+				customs	whittlebone	common		give:scroll_vyeshal_vocab_1_2;npcvar:customs=true	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now. Not many speak common tongue though. You’d do best to learn our customs. Here, take this.
+				greeting_busy		common			I am busy now, commoner. I must watch the sea.
+swamp_witch		Swamp Witch		greeting	shop				Oooh what’s this come crawlin outta the mud I see?
+									Come a little closer tadpole! Do ya have anything shiny?
+			x	shop				open_shop	Shall we trade?

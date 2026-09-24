@@ -464,15 +464,12 @@ public class FountainSimState : RegrowSimState
     public ItemEffect[] Effects;
     // 0 = usable any number of times.
     public int CooldownDays;
-    // Blank = always enabled.
-    public StringName EnabledVariable;
 
-    public FountainSimState(Vector3 worldPosition, PackedScene scene, ItemEffect[] effects, int cooldownDays, StringName enabledVariable)
+    public FountainSimState(Vector3 worldPosition, PackedScene scene, ItemEffect[] effects, int cooldownDays)
         : base(worldPosition, scene)
     {
         Effects = effects ?? System.Array.Empty<ItemEffect>();
         CooldownDays = cooldownDays;
-        EnabledVariable = enabledVariable;
     }
 
     public override Node3D CreateEntity(Sim sim)

@@ -47,6 +47,27 @@ the tool's own name lying about which button it was for. The two differ by
 `PaintsSolid` and nothing else, so `BlockTool` is a six-line subclass rather than
 a second tool to keep in step.
 
+**A fill is built of a BLOCK or of the ground.** The option row is `BuildingBlocks`
+— the SAME ledgered palette paving uses — behind a "Ground" row meaning the
+column's own terrain. The slot is stored in the added cell's otherwise-unused bits, so it is per VOXEL: a
+stone wall on a dirt plinth is one column. alt+LMB on a built floor adopts its
+block as well as its level; on natural ground it keeps the block, because that is
+picking a level to build on. A built top takes the detail-scatter skip paving
+gets, and every ground and cutaway map draws it in its block's `minimapColor`
+(`BuiltBlockAtFloor`).
+
+**Paving never lands on a built voxel** (`PavedYAt`, the one place a road
+resolves its floor). A road a wall is built over is hidden under the wall, not
+repaved onto its top (a surface-seated road otherwise rides the top solid
+voxel), and comes back where the wall is erased, since `paving.png`
+still holds it. A paving stroke across a build writes nothing there.
+`worldmap_check` counts these as "under a block-tool build".
+
+**Wall mode (X)** stands the box on each column's ground instead of hanging it off
+`PaintY`, so a wall's top follows the slope; R/F does nothing there. The ground
+is `TerrainHeight`, NOT the top solid voxel — measured from the top, a drag back
+over wall it has just built would stack it a `Height` higher each pass.
+
 **The layer records only a DISAGREEMENT with the height field.** Carving a voxel
 that is already air writes nothing, filling one the terrain already fills writes
 nothing, and RMB writes `EditNone` outright. Three things fall out, and the first

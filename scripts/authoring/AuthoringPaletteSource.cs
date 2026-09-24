@@ -99,7 +99,7 @@ public sealed class AuthoringPaletteSource
     public const string PropLists = "props";
     public const string ScatterSets = "spawn_scatters";
     public const string WaterTypes = "water_types";
-    public const string PavingBlocks = "paving_blocks";
+    public const string BuildingBlocks = "building_blocks";
     public const string Entities = "entities";
     public const string Presets = "presets";
 
@@ -133,10 +133,12 @@ public sealed class AuthoringPaletteSource
         new(WaterTypes, "Water", typeof(BlockData), indexed: true,
             blocks: b => b.render == EBlockRender.Water),
 
-        // Anything solid with a top face. That excludes air and openings (not
-        // solid) and the barrier (solid, but textureless — it is never meant to
-        // be seen), and it needs no new authored flag to say so.
-        new(PavingBlocks, "Paving", typeof(BlockData), indexed: true,
+        // What the paving and block tools lay: anything solid with a top face.
+        // That excludes air and openings (not solid) and the barrier (solid, but
+        // textureless — it is never meant to be seen), and it needs no new
+        // authored flag to say so. ONE palette for both, because paving.png and
+        // the voxel-edit layer store the same slot numbers.
+        new(BuildingBlocks, "Blocks", typeof(BlockData), indexed: true,
             blocks: b => b.solid && b.top != null && b.render != EBlockRender.Water),
 
         // FREE: EntityPlacement holds its entry by reference, so this list may

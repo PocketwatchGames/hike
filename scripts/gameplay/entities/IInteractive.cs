@@ -33,4 +33,18 @@ public interface IInteractive
     // self-describes its verb and display label; future radial UI iterates
     // this list to populate the hold-menu.
     Array<InteractiveAction> GetActions(Player player);
+
+    // The one "can this player use it right now" question every interact site
+    // asks: the placement's disabled gate first, then the interactive's own
+    // answer. Ask this, never CanActorInteract directly, or a disabled entity
+    // is usable from that site.
+    static bool CanUse(IInteractive interactive, Player actor)
+    {
+        return interactive != null && !IsDisabled(interactive) && interactive.CanActorInteract(actor);
+    }
+
+    static bool IsDisabled(IInteractive interactive)
+    {
+        return interactive is Node3D node && (Sim.Current?.IsEntityDisabled(node) ?? false);
+    }
 }

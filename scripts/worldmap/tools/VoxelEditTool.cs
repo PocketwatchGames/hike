@@ -20,6 +20,11 @@ using Godot;
 // has none, drawing a block back into a hole you cut leaves the mask genuinely
 // empty rather than holding a cancelling pair, and `CanSpawnAt` stays honest
 // because it asks whether the top solid voxel is still the painted ground.
+//
+// A fill is built of a BLOCK (the option row, from BuildingBlocks) or of the
+// column's own ground terrain, and it has two ways to place the box (X): hung
+// off `PaintY`, so its top is level, or WALL mode, `Height` voxels stood on each
+// column's own ground, so its top follows the slope.
 public abstract class VoxelEditTool : IWorldMapTool
 {
     public abstract string Name { get; }
@@ -39,7 +44,18 @@ public abstract class VoxelEditTool : IWorldMapTool
     public int PaintY = 4;
     public int Height = 3;
 
-    // Lowest voxel the box covers.
+    // The BuildingBlocks index a fill is built of, -1 for the column's ground
+    // terrain. Fills only.
+    public int BlockIndex = -1;
+
+    // Fills only: stand the box on each column's painted ground instead of
+    // hanging it off PaintY. Measured from the HEIGHT FIELD, not the top solid
+    // voxel, so a drag over wall it has just built does not climb its own top.
+    public bool WallMode;
+
+    private bool Walls => WallMode && PaintsSolid;
+
+    // Lowest voxel the box covers, in level mode.
     private int BottomY => PaintsSolid ? PaintY - Height + 1 : PaintY + 1;
 
     protected VoxelEditTool()
@@ -47,27 +63,99 @@ public abstract class VoxelEditTool : IWorldMapTool
         View = new CutawayElevationView();
     }
 
-    public string[] Options(WorldMapState ctx) => System.Array.Empty<string>();
-    public Color[] OptionColors(WorldMapInk ink) => null;
+    // Row 0 is "Ground" — the column's own terrain — and the blocks follow it.
+    // Q/E stays the brush height; a row is picked by clicking it or alt+click.
+    public string[] Options(WorldMapState ctx)
+    {
+        if (!PaintsSolid)
+        {
+            return System.Array.Empty<string>();
+        }
+        BlockData[] blocks = ctx.BuildingBlocks;
+        var names = new string[blocks.Length + 1];
+        names[0] = "Ground";
+        for (int i = 0; i < blocks.Length; i++)
+        {
+            names[i + 1] = blocks[i]?.blockName ?? $"Block {i}";
+        }
+        return names;
+    }
 
-    public int OptionIndex { get => 0; set { } }
+    public Color[] OptionColors(WorldMapInk ink)
+    {
+        if (!PaintsSolid)
+        {
+            return null;
+        }
+        BlockData[] blocks = ink.Map.BuildingBlocks;
+        var colors = new Color[blocks.Length + 1];
+        colors[0] = ink.ElevationColorAt(PaintY - ink.Map.SeaLevel);
+        for (int i = 0; i < blocks.Length; i++)
+        {
+            colors[i + 1] = blocks[i]?.minimapColor ?? Colors.White;
+        }
+        return colors;
+    }
 
-    public string HintText(WorldMapState ctx) =>
-        $"LMB {(PaintsSolid ? "block (fills DOWN to the level)" : "tunnel (carves ABOVE the level)")}"
-        + $"  |  RMB erase the whole {(PaintsSolid ? "slab" : "passage")} under the cut  |  "
-        + "Q/E brush height  |  T/G cutaway  |  alt+LMB pick the level, "
-        + "alt+RMB aim the cutaway";
+    public bool NumberKeys => false;
 
-    // The band of the floor being painted, so the ring answers "what height am I
-    // drawing at" against the map it is hovering over.
-    public Color CursorColor(WorldMapInk ink) => ink.ElevationColorAt(PaintY - ink.Map.SeaLevel);
+    public int OptionIndex
+    {
+        get => BlockIndex + 1;
+        set => BlockIndex = Mathf.Max(0, value) - 1;
+    }
 
-    public string StatusText(WorldMapState ctx, WorldMapView view) => $"Brush h={Height}";
+    public string HintText(WorldMapState ctx)
+    {
+        string lmb = !PaintsSolid ? "tunnel (carves ABOVE the level)"
+            : WallMode ? "wall (stands on the ground)"
+            : "block (fills DOWN to the level)";
+        return $"LMB {lmb}"
+            + $"  |  RMB erase the whole {(PaintsSolid ? "slab" : "passage")} under the cut  |  "
+            + (PaintsSolid ? "X level / wall  |  " : "")
+            + "Q/E brush height  |  T/G cutaway  |  alt+LMB pick the level"
+            + (PaintsSolid ? " and block" : "") + ", alt+RMB aim the cutaway";
+    }
+
+    // What a fill is built of, else the band of the floor being painted, so the
+    // ring answers "what am I about to draw" against the map under it.
+    public Color CursorColor(WorldMapInk ink)
+    {
+        BlockData block = Block(ink.Map);
+        return block != null ? block.minimapColor : ink.ElevationColorAt(PaintY - ink.Map.SeaLevel);
+    }
+
+    public string StatusText(WorldMapState ctx, WorldMapView view)
+    {
+        if (!PaintsSolid)
+        {
+            return $"Brush h={Height}";
+        }
+        BlockData block = Block(ctx);
+        return $"Brush h={Height}  |  {(block != null ? block.blockName?.ToString() ?? "Block" : "Ground")}";
+    }
 
     // The plane itself is reported by the painter on every tool, so this names
     // only the box being written.
-    public string LevelText(WorldMapState ctx, WorldMapView view) =>
-        $"Y={PaintY} [{BottomY}..{BottomY + Height - 1}]";
+    public string LevelText(WorldMapState ctx, WorldMapView view) => Walls
+        ? $"Wall {Height}m above the ground"
+        : $"Y={PaintY} [{BottomY}..{BottomY + Height - 1}]";
+
+    private BlockData Block(WorldMapState ctx)
+    {
+        BlockData[] blocks = ctx.BuildingBlocks;
+        return PaintsSolid && BlockIndex >= 0 && BlockIndex < blocks.Length ? blocks[BlockIndex] : null;
+    }
+
+    public bool ToggleMode()
+    {
+        if (!PaintsSolid)
+        {
+            return false;
+        }
+        WallMode = !WallMode;
+        return true;
+    }
 
     public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
@@ -89,6 +177,13 @@ public abstract class VoxelEditTool : IWorldMapTool
             if (floor >= ctx.Data.WorldMinY)
             {
                 PaintY = floor;
+                // Picking a built floor adopts what it is built of too, so a wall
+                // is continued in its own stone; picking natural ground keeps the
+                // block, since that is picking a level to build ON.
+                if (PaintsSolid && ctx.IsAdded(texel.X, texel.Y, floor))
+                {
+                    BlockIndex = ctx.AddedBlockIndexAt(texel.X, texel.Y, floor);
+                }
             }
         }
     }
@@ -99,7 +194,9 @@ public abstract class VoxelEditTool : IWorldMapTool
         // has one floor, and easing it in by weight would step its rim.
         bool wantsSolid = PaintsSolid;
         int clip = view.CutawayY;
+        bool walls = Walls;
         int y0 = BottomY;
+        int block = wantsSolid ? BlockIndex : -1;
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
             if (erase)
@@ -108,14 +205,15 @@ public abstract class VoxelEditTool : IWorldMapTool
                 return;
             }
             int th = ctx.TerrainHeight(px, pz);
+            int bottom = walls ? th + 1 : y0;
             for (int i = 0; i < Height; i++)
             {
-                int wy = y0 + i;
+                int wy = bottom + i;
                 bool solidHere = wy <= th;
                 byte edit = solidHere == wantsSolid
                     ? WorldMapState.EditNone
                     : wantsSolid ? WorldMapState.EditAdd : WorldMapState.EditCarve;
-                ctx.SetVoxelEdit(px, pz, wy, edit);
+                ctx.SetVoxelEdit(px, pz, wy, edit, block);
             }
         });
     }
@@ -161,10 +259,16 @@ public abstract class VoxelEditTool : IWorldMapTool
     // Picking this tool up drops the plane just over the level it paints at, so
     // the map is showing the ground you are about to work on rather than
     // whatever slice was left over from the last tool.
-    public int? CutawayFor(int headroom) => PaintY + headroom;
+    // A wall stands on the surface, so it leaves the plane where it is.
+    public int? CutawayFor(int headroom) => Walls ? null : PaintY + headroom;
 
+    // R/F moves the level, which a wall does not have.
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
+        if (Walls)
+        {
+            return;
+        }
         PaintY = Mathf.Clamp(PaintY + dir, ctx.Data.WorldMinY, ctx.Data.WorldMaxY);
     }
 }
@@ -177,10 +281,11 @@ public class TunnelTool : VoxelEditTool
 }
 
 // Builds ground where there is none — a bridge deck, a ledge, an arch over a
-// valley. The same brush, the same keys, the same cutaway; only which way LMB
-// writes differs, which is why it is a six-line subclass rather than a tool.
-// Its box hangs DOWN from the level, so the level is the deck you are laying and
-// the thickness goes under it out of sight.
+// valley, a wall. The same brush, the same keys, the same cutaway; only which
+// way LMB writes differs, which is why it is a six-line subclass rather than a
+// tool. Its box hangs DOWN from the level, so the level is the deck you are
+// laying and the thickness goes under it out of sight — or, in wall mode, it
+// stands on the ground.
 public class BlockTool : VoxelEditTool
 {
     public override string Name => "Block";

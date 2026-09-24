@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="WorldScriptData" format=3]
+[gd_resource type="Resource" script_class="TestWorldScript" format=3]
 
-[ext_resource type="Script" uid="uid://cpck4x65at916" path="res://scripts/data/worldgen/WorldScriptData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://9g4ebwo9litrd" path="res://scripts/world_scripts/TestWorldScript.cs" id="1_script"]
 [ext_resource type="Script" uid="uid://wnl1w7ak8uqg" path="res://scripts/data/quests/QuestData.cs" id="2_questbase"]
 [ext_resource type="Resource" uid="uid://buwh9zjfqgtky" path="res://resources/data/worlds/shared/quests/rescue_quest.tres" id="3_rescue"]
 [ext_resource type="Resource" uid="uid://1ibortkocv6hq" path="res://resources/data/worlds/shared/quests/return_to_camp.tres" id="4_return"]

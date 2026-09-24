@@ -316,6 +316,7 @@ public partial class Sim : Node3D
 
     public override void _ExitTree()
     {
+        UnbindWorldScript();
         if (Current == this)
         {
             Current = null;

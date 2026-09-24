@@ -2,7 +2,16 @@
 
 [ext_resource type="Script" uid="uid://dg7kpgrcetn2n" path="res://scripts/gui/ButtonHint.cs" id="1_2gwlu"]
 
-[node name="ButtonHint" type="BoxContainer" unique_id=959365210 node_paths=PackedStringArray("_buttonText", "_label", "_labelText", "_progressBar")]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_glow"]
+bg_color = Color(1, 0.85, 0.3, 0.35)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+shadow_color = Color(1, 0.85, 0.3, 0.9)
+shadow_size = 8
+
+[node name="ButtonHint" type="BoxContainer" unique_id=959365210 node_paths=PackedStringArray("_buttonText", "_label", "_labelText", "_progressBar", "_glow")]
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -22,6 +31,7 @@ _buttonText = NodePath("HBoxContainer/Button/ButtonText")
 _label = NodePath("HBoxContainer/Label")
 _labelText = NodePath("HBoxContainer/Label/MarginContainer/LabelText")
 _progressBar = NodePath("HBoxContainer/Button/ProgressBar")
+_glow = NodePath("HBoxContainer/Button/Glow")
 metadata/_custom_type_script = "uid://dg7kpgrcetn2n"
 
 [node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=2021003614]
@@ -33,6 +43,13 @@ alignment = 1
 [node name="Button" type="PanelContainer" parent="HBoxContainer" unique_id=2079185594]
 custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
+
+[node name="Glow" type="Panel" parent="HBoxContainer/Button"]
+visible = false
+show_behind_parent = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_glow")
 
 [node name="ProgressBar" type="ProgressBar" parent="HBoxContainer/Button" unique_id=692765047]
 visible = false

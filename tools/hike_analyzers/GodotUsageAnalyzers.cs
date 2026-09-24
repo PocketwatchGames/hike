@@ -278,7 +278,7 @@ public sealed class RuntimeConstructionAnalyzer : DiagnosticAnalyzer
 	}
 }
 
-// HK009: a SpawnEntryData.Spawn override that builds an EntitySimState without
+// HK009: a SpawnEntryData.SpawnEntities override that builds an EntitySimState without
 // seating it on the placement's facing. Every entity carries a RotationY and the
 // painter aims every placement, so an entry that never reads the facing draws an
 // aim line on the map that the bake then throws away — silently, and only for
@@ -307,7 +307,7 @@ public sealed class SpawnEntryFacingAnalyzer : DiagnosticAnalyzer
 	private static void Analyze(SyntaxNodeAnalysisContext context)
 	{
 		var method = (MethodDeclarationSyntax)context.Node;
-		if (method.Identifier.ValueText != "Spawn" || method.Body == null)
+		if (method.Identifier.ValueText != "SpawnEntities" || method.Body == null)
 		{
 			return;
 		}

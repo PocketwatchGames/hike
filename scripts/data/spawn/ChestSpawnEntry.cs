@@ -18,7 +18,7 @@ public partial class ChestSpawnEntry : SpawnEntryData
     // drops 4 (no re-roll on open, no surprise between save/load).
     [Export] public ItemCountRange[] lootItems = [];
 
-    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null)
         {

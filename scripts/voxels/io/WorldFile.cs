@@ -252,7 +252,11 @@ public static class WorldFile
     //      Health/Armor are a composed (possibly wounded) pool from one still
     //      holding the raw base vitals worldgen baked. Baked elites used to load
     //      at their base pool against a cap that counted the elite MaxHealth buff.
-    public const uint VERSION = 60;
+    // v61: every entity carries trailing script fields — the author's name for
+    //      it and a disabled gate (a Bool script variable + which value disables
+    //      it), stamped from the placement by SpawnEntryData.Spawn. The Fountain
+    //      payload drops its own enabling variable, which the gate replaces.
+    public const uint VERSION = 61;
 
     public struct IndexEntry
     {

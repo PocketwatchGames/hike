@@ -8,6 +8,14 @@ public partial class ButtonHint : BoxContainer
 	[Export] Control _label;
 	[Export] Label _labelText;
 	[Export] ProgressBar _progressBar;
+	// Drawn behind the glyph and pulsed while SetGlowing(true) — draws the eye to
+	// a hint the player hasn't acted on yet.
+	[Export] Control _glow;
+	[Export(PropertyHint.Range, "0.1,5,0.05")] public float glowPulseSeconds = 1.2f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float glowMinAlpha = 0.2f;
+
+	bool _glowing;
+	double _glowTime;
 
 	string _actionName = string.Empty;
 	[Export]
@@ -86,6 +94,7 @@ public partial class ButtonHint : BoxContainer
 	public override void _Ready()
 	{
 		ApplyActionName();
+		SetProcess(false);
 		if (Engine.IsEditorHint())
 		{
 			return;
@@ -121,6 +130,34 @@ public partial class ButtonHint : BoxContainer
 		_glyphOverrideKeyboard = string.Empty;
 		ActionName = hint;
 		UpdateButtonText();
+	}
+
+	public void SetGlowing(bool glowing)
+	{
+		if (glowing == _glowing)
+		{
+			return;
+		}
+		_glowing = glowing;
+		_glowTime = 0.0;
+		if (_glow != null)
+		{
+			_glow.Visible = glowing;
+		}
+		SetProcess(glowing && !Engine.IsEditorHint());
+	}
+
+	// Presentational, so wall clock.
+	public override void _Process(double delta)
+	{
+		if (_glow == null)
+		{
+			return;
+		}
+		_glowTime += delta;
+		float phase = (float)(_glowTime / Mathf.Max(0.1f, glowPulseSeconds)) * Mathf.Tau;
+		float t = 0.5f - 0.5f * Mathf.Cos(phase);
+		_glow.Modulate = new Color(1f, 1f, 1f, Mathf.Lerp(glowMinAlpha, 1f, t));
 	}
 
 	public void SetProgress(float value)

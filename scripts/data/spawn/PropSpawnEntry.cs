@@ -59,7 +59,7 @@ public partial class PropSpawnEntry : SpawnEntryData
         return library.entries;
     }
 
-    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (prop?.scene == null)
         {

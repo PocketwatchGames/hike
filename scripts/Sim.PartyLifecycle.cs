@@ -98,15 +98,6 @@ public partial class Sim
         return sim.Party;
     }
 
-    // Bind this world's authored scripted content (quests) onto the runtime state.
-    public void BindScriptData(WorldScriptData scriptData)
-    {
-        if (_worldState != null)
-        {
-            _worldState.ScriptData = scriptData;
-        }
-    }
-
     // Clone a recruit template into a new inactive roster member and return it (the
     // client spawns the matching Player node on the campfire ring). Null if there's
     // no roster or no template.

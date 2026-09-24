@@ -31,7 +31,7 @@ public partial class LeverSpawnEntry : SpawnEntryData
     public override string VariantName()
         => string.IsNullOrEmpty(targetLinkTag) ? null : targetLinkTag;
 
-    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null)
         {

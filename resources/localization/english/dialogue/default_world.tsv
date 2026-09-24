@@ -1,4 +1,6 @@
 key	value
+friendly_villager_name	Maren
+friendly_villager_description	A weathered villager
 friendly_villager_greeting_01	Hello, traveler.
 friendly_villager_greeting_02	You don't see many strangers around here these days.
 friendly_villager_greeting_03	Safe travels out there. Watch the treeline after dark.
@@ -8,6 +10,8 @@ friendly_villager_trade_01	Let's do it.
 friendly_villager_topics_tell_more	Tell me more.
 friendly_villager_topics_beard	I like your beard.
 friendly_villager_topics_trade	Do you want to trade?
+wanderer_name	Tobin
+wanderer_description	A wanderer resting by the fire
 wanderer_greeting_01	Well met, traveler. I’ve been resting my feet by this fire.
 wanderer_greeting_02	I know these roads — the peaks, the wood, the dunes, the mire. Been walking them alone too long, if I’m honest.
 wanderer_join_01	Ha — I thought you’d never ask. Aye, I’m with you. I’ll wait at your fire till you’re ready to move.

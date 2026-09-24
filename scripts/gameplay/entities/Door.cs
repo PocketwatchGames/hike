@@ -49,7 +49,6 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     private Basis[] _restBases;
     private float _swingRadians;
     private DoorSimState _interactiveState;
-    private WorldState _worldData;
     private Sim _world;
     private Vector3I _baseWorldPos;
 
@@ -142,31 +141,27 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
             .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
     }
 
+    // Active == closed, so a toggle opens exactly when it is closed.
     public void Complete(int actionIndex)
     {
-        _open = !_open;
-        _interactiveState.Active = !_open;
+        _world.SetDoorOpen(_interactiveState, _interactiveState.Active);
+    }
 
-        // Toggle movement blocker
+    // Bring the leaves and the blocker in line with the sim state, which
+    // Sim.SetDoorOpen has already changed — whoever asked (the player, a world
+    // script) and whether or not this node existed at the time.
+    public void SyncFromState(bool animate)
+    {
+        bool open = !_interactiveState.Active;
+        bool changed = open != _open;
+        _open = open;
         _blockCollider.GetNode<CollisionShape3D>("CollisionShape3D").Disabled = _open;
-
-        UpdateVisuals(true);
+        UpdateVisuals(animate);
 
         PackedScene swingFx = _open ? _openFx : _closeFx;
-        if (swingFx != null)
+        if (animate && changed && swingFx != null)
         {
             Fx.Create(swingFx, this, Vector3.Zero);
-        }
-
-        // Doorway voxels follow the new state, then relight what they changed.
-        // Lighting only — a Barrier has no geometry (Density.TypeDensity skips
-        // it), and terrain sun now comes from the light volume rather than the
-        // vertex bake, so nothing about the chunk mesh has moved.
-        var changed = new List<Vector3I>();
-        EntityVoxelStamper.Apply(_worldData, _interactiveState.ResolveStamp(_worldData), changed);
-        if (changed.Count > 0)
-        {
-            _world.UpdateLighting(changed);
         }
     }
 
@@ -228,7 +223,6 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         var instance = data.Scene.Instantiate<Door>();
         data.SeatTransform(instance);
         instance._interactiveState = data;
-        instance._worldData = sim.WorldState;
         instance._world = sim;
         // An unresolved base means no load-time stamp has seen this door — it
         // was placed live in the editor, so it has to stamp itself. Doors from
@@ -238,9 +232,7 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         instance._baseWorldPos = ResolveOccluderBase(sim.WorldState, data);
         sim.AddChild(instance);
 
-        instance._open = !data.Active;
-        instance._blockCollider.GetNode<CollisionShape3D>("CollisionShape3D").Disabled = instance._open;
-        instance.UpdateVisuals(false);
+        instance.SyncFromState(animate: false);
 
         if (needsStamp)
         {

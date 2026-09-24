@@ -1544,11 +1544,23 @@ public class WorldState
     // TaggingFixtures above.
     public List<EntitySimState> RecordingAdds;
 
+    // Set by SpawnEntryData.Spawn around the entry's own filing; see there.
+    public EntitySpawnStamp SpawnStamp;
+
     public void AddEntity(EntitySimState entity)
     {
         if (TaggingFixtures)
         {
             entity.PlacedAsFixture = true;
+        }
+        if (SpawnStamp.Name != null)
+        {
+            entity.Name = SpawnStamp.Name;
+        }
+        if (SpawnStamp.DisabledVariable != null)
+        {
+            entity.DisabledVariable = SpawnStamp.DisabledVariable;
+            entity.DisabledWhen = SpawnStamp.DisabledWhen;
         }
         RecordingAdds?.Add(entity);
         Vector3I coord = Sim.WorldToChunkCoord(entity.WorldPosition);
@@ -1599,6 +1611,37 @@ public class WorldState
         {
             _persistentEntities.Add(entity);
         }
+    }
+
+    // Every entity an author gave this name, wherever it is filed, resident or
+    // not. A full scan: it answers a script's rare "find the town gate", and an
+    // index would be one more thing every add, remove and bucket replace has to
+    // keep in step.
+    public List<EntitySimState> FindNamed(string name)
+    {
+        var found = new List<EntitySimState>();
+        if (string.IsNullOrEmpty(name))
+        {
+            return found;
+        }
+        foreach (List<EntitySimState> bucket in _entities.Values)
+        {
+            foreach (EntitySimState entity in bucket)
+            {
+                if (entity.Name == name)
+                {
+                    found.Add(entity);
+                }
+            }
+        }
+        foreach (EntitySimState entity in _persistentEntities)
+        {
+            if (entity.Name == name)
+            {
+                found.Add(entity);
+            }
+        }
+        return found;
     }
 
     public void RemovePersistentEntity(EntitySimState entity)

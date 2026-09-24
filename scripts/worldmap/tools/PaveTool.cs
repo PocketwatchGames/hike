@@ -38,7 +38,7 @@ public class PaveTool : IWorldMapTool
 
     public string[] Options(WorldMapState ctx)
     {
-        BlockData[] blocks = ctx.PavingBlocks;
+        BlockData[] blocks = ctx.BuildingBlocks;
         var names = new string[blocks.Length];
         for (int i = 0; i < names.Length; i++)
         {
@@ -49,7 +49,7 @@ public class PaveTool : IWorldMapTool
 
     public Color[] OptionColors(WorldMapInk ink)
     {
-        BlockData[] blocks = ink.Map.PavingBlocks;
+        BlockData[] blocks = ink.Map.BuildingBlocks;
         var colors = new Color[blocks.Length];
         for (int i = 0; i < colors.Length; i++)
         {
@@ -75,7 +75,7 @@ public class PaveTool : IWorldMapTool
     // without a second palette to keep in sync.
     public static Color Shade(WorldMapState ctx, int index)
     {
-        BlockData[] blocks = ctx.PavingBlocks;
+        BlockData[] blocks = ctx.BuildingBlocks;
         return index >= 0 && index < blocks.Length && blocks[index] != null
             ? blocks[index].minimapColor
             : Colors.White;
@@ -87,7 +87,7 @@ public class PaveTool : IWorldMapTool
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
-        BlockData[] blocks = ctx.PavingBlocks;
+        BlockData[] blocks = ctx.BuildingBlocks;
         string label = BlockIndex >= 0 && BlockIndex < blocks.Length ? blocks[BlockIndex]?.blockName : null;
         return string.IsNullOrEmpty(label) ? "No paving blocks authored" : label;
     }
@@ -129,7 +129,7 @@ public class PaveTool : IWorldMapTool
     public Rect2I? LastPaintRect => null;
     public void Cycle(WorldMapState ctx, int dir)
     {
-        int n = Mathf.Max(1, ctx.PavingBlocks.Length);
+        int n = Mathf.Max(1, ctx.BuildingBlocks.Length);
         BlockIndex = ((BlockIndex + dir) % n + n) % n;
     }
 

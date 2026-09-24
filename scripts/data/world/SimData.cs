@@ -53,6 +53,11 @@ public partial class SimData : Resource
     // Ids must be unique across the whole list, not just within one registry.
     [Export] public Array<ScriptVariableRegistry> scriptVariables = new();
 
+    // Bool flag set when the player picks up their first treasure map
+    // (RevealTreasureMapEffect). While it is false a map pickup opens the world
+    // map on the new map. Blank = never auto-open.
+    [Export] public StringName foundFirstMapVariable;
+
     // Status effect applied to every elite mob at spawn, in addition to the
     // signature effect(s) the elite's own EliteData authors. Authored once here
     // so the shared elite buff — larger

@@ -65,7 +65,7 @@ public partial class Player : CharacterBody3D
 			CancelInteract();
 			return;
 		}
-		bool hasTarget = _highlightInteractive != null && _highlightInteractive.CanActorInteract(this);
+		bool hasTarget = IInteractive.CanUse(_highlightInteractive, this);
 		// Nothing to run and nothing to open — leave the button alone rather than
 		// filling a hold bar for a menu that would come up empty.
 		if (!hasTarget && (_selfActions == null || _selfActions.Count == 0))
@@ -87,7 +87,7 @@ public partial class Player : CharacterBody3D
 		ulong elapsed = now > _interactHoldStartMs ? now - _interactHoldStartMs : 0;
 		InteractHoldProgress = Mathf.Clamp(elapsed / ContextButtonHoldMs, 0f, 1f);
 
-		bool hasTarget = _highlightInteractive != null && _highlightInteractive.CanActorInteract(this);
+		bool hasTarget = IInteractive.CanUse(_highlightInteractive, this);
 		if (!Input.IsActionPressed("Interact"))
 		{
 			_interactPressActive = false;

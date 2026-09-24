@@ -33,6 +33,8 @@ public partial class ConversationController : Control
 	[Export] public GameClient gameClient;
 	[Export] PackedScene responseOptionScene;
 	[Export] Control responseOptionsContainer;
+	[Export] public Label nameLabel;
+	[Export] public Control nameContainer;
 
 	enum EState { Hidden, Typing, Choosing }
 	EState _state = EState.Hidden;
@@ -96,6 +98,7 @@ public partial class ConversationController : Control
 		// Set on our stored copy so actions / visibility checks downstream
 		// see the same controller reference an OpenShopAction would close.
 		_ctx.controller = this;
+		_ctx.conversation = conversation;
 		_onClose = onClose;
 		if (gameClient != null)
 		{
@@ -144,6 +147,7 @@ public partial class ConversationController : Control
 	{
 		_currentBranch = branch;
 		ClearResponseButtons();
+		RefreshNameBox();
 		ResolveAndScrambleLines(branch, _ctx);
 		_lineIndex = 0;
 		_revealedChars = 0f;
@@ -490,13 +494,14 @@ public partial class ConversationController : Control
 	// Fires actions in array order. Null entries are skipped; the runtime
 	// does not enforce ordering between actions and the branch text — an
 	// action that closes the conversation suppresses the next branch.
-	static void FireActions(Godot.Collections.Array<ConversationAction> actions, ConversationContext ctx)
+	void FireActions(Godot.Collections.Array<ConversationAction> actions, ConversationContext ctx)
 	{
 		if (actions == null)
 		{
 			return;
 		}
-		for (int i = 0; i < actions.Count; i++)
+		int count = actions.Count;
+		for (int i = 0; i < count; i++)
 		{
 			ConversationAction a = actions[i];
 			if (a != null)
@@ -504,6 +509,40 @@ public partial class ConversationController : Control
 				a.Execute(ctx);
 			}
 		}
+		// An action may have introduced the speaker (LearnNameAction).
+		if (Visible)
+		{
+			RefreshNameBox();
+		}
+	}
+
+	// The speaker's name once the party knows it, their description until then,
+	// and no box at all for a source that has neither.
+	void RefreshNameBox()
+	{
+		if (nameContainer == null || nameLabel == null)
+		{
+			return;
+		}
+		StringName key = null;
+		if (_conversation != null)
+		{
+			bool hasName = !IsBlank(_conversation.nameLocKey);
+			bool known = hasName && (_ctx.sim?.WorldState?.SimState?.IsNameKnown(_conversation) ?? false);
+			key = known ? _conversation.nameLocKey : _conversation.descriptionLocKey;
+		}
+		if (IsBlank(key))
+		{
+			nameContainer.Visible = false;
+			return;
+		}
+		nameLabel.Text = Loc.Get(key);
+		nameContainer.Visible = true;
+	}
+
+	static bool IsBlank(StringName name)
+	{
+		return name is null || name.IsEmpty;
 	}
 
 	static ConversationBranch FindBranch(ConversationData conv, StringName name)

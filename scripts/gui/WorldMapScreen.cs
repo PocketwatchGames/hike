@@ -99,15 +99,22 @@ public partial class WorldMapScreen : Control
 	[Export(PropertyHint.Range, "8,96,1")] public int markerIconSize = 28;
 
 	[ExportGroup("Treasure Maps")]
-	// Switches the panel between the world map (item 0) and each collected
-	// treasure map. Populated from SimState.TreasureMaps.
-	[Export] public OptionButton mapSelector;
+	// Shows the current map's name; pressing it drops down mapList. A hand-rolled
+	// dropdown rather than an OptionButton because PopupMenu cannot colour one
+	// item's text, and unread maps are marked by colour.
+	[Export] public Button mapSelectorButton;
+	// Row 0 is the world map, row N treasure map N (SimState.TreasureMaps).
+	// Hidden until mapSelectorButton opens it.
+	[Export] public ItemList mapList;
+	// Text colour of a treasure map the player has not displayed yet.
+	[Export] public Color unviewedMapColor = new Color(1f, 0.85f, 0.2f);
 	// Zoom used for a treasure map — a small view radius so the marked area reads
 	// close-up, versus the radius the world map computes for itself.
 	[Export(PropertyHint.Range, "16,200,1")] public float treasureMapViewRadiusMeters = 48f;
 	// Icon drawn at the dig spot (map center) on a treasure map. Null = a drawn red X.
 	[Export] public Texture2D treasureXIcon;
-	// Glyph beside the selector. The focused OptionButton opens on ui_accept.
+	// Glyph beside the selector (the focused button opens on ui_accept). Pulses
+	// while any collected map is still unviewed.
 	[Export] public ButtonHint selectMapButtonHint;
 
 	// World-sampling spin (radians) that puts game-north (−X,−Z) at the top of
@@ -136,6 +143,13 @@ public partial class WorldMapScreen : Control
 		_gameClient = gameClient;
 	}
 
+	// Open on this treasure map instead of the one last shown. Null leaves the
+	// selection alone.
+	public void SetPendingFocus(TreasureMapState map)
+	{
+		_pendingMap = map;
+	}
+
 	// Textures already pushed to one layer's material, so an unchanged frame
 	// costs no managed/native crossings. One set per layer: the two materials
 	// are distinct objects and hold their uniforms independently.
@@ -156,8 +170,14 @@ public partial class WorldMapScreen : Control
 	// Lazy-created on first visible frame, once WorldState is available.
 	readonly Dictionary<RegionData, Label> _labels = new();
 
-	// Rebuild the selector only when the collected-map count changes.
-	int _selectorMapCount = -1;
+	// The map on display; null = the world map. Held by reference so a map dug
+	// up from earlier in the list doesn't shift the selection onto its neighbour.
+	TreasureMapState _selectedMap;
+	// Handed in by AlmanacScreen.Open, applied when the screen next shows.
+	TreasureMapState _pendingMap;
+	// Rebuild the list when the collected-map count changes or a map is first viewed.
+	int _listMapCount = -1;
+	bool _listDirty = true;
 
 	// false = overview, true = detail. `_zoomBlend` chases it 0 → 1.
 	bool _zoomedIn;
@@ -178,6 +198,18 @@ public partial class WorldMapScreen : Control
 		// selector is unreachable unless we hand it focus when the tab is shown.
 		VisibilityChanged += OnVisibilityChanged;
 		selectMapButtonHint?.SetHint("ui_accept", string.Empty);
+		if (mapSelectorButton != null)
+		{
+			mapSelectorButton.Pressed += OpenMapList;
+		}
+		if (mapList != null)
+		{
+			mapList.Visible = false;
+			mapList.ItemActivated += OnMapListActivated;
+			mapList.ItemClicked += OnMapListClicked;
+			mapList.GuiInput += OnMapListGuiInput;
+			mapList.FocusExited += CloseMapList;
+		}
 		if (overviewRect != null && overviewViewport != null)
 		{
 			overviewRect.Texture = overviewViewport.GetTexture();
@@ -194,13 +226,20 @@ public partial class WorldMapScreen : Control
 		{
 			SetViewportActive(overviewViewport, false);
 			SetViewportActive(detailViewport, false);
+			CloseMapList();
 			return;
 		}
-		if (mapSelector != null)
+		if (_pendingMap != null)
+		{
+			_selectedMap = _pendingMap;
+			_pendingMap = null;
+			_listDirty = true;
+		}
+		if (mapSelectorButton != null)
 		{
 			// Deferred: the control cannot take focus in the same frame its
 			// visibility flips on.
-			mapSelector.CallDeferred(Control.MethodName.GrabFocus);
+			mapSelectorButton.CallDeferred(Control.MethodName.GrabFocus);
 		}
 		// Always open on the whole world; the detail view re-centers on the
 		// player so the first zoom-in lands where the party is.
@@ -256,17 +295,24 @@ public partial class WorldMapScreen : Control
 		}
 
 		SimState simState = _gameClient?.Sim?.WorldState?.SimState;
+		TreasureMapState treasureMap = GetSelectedTreasureMap(simState);
+		if (treasureMap != null && !treasureMap.Viewed)
+		{
+			treasureMap.Viewed = true;
+			_listDirty = true;
+		}
 		SyncSelector(simState);
 		EnsureOverlays();
 		EnsureViewportSizes(minimap);
 
-		TreasureMapState treasureMap = GetSelectedTreasureMap(simState);
 		if (treasureMap != null)
 		{
 			RenderTreasureMap(detailMat, minimap, treasureMap);
 			return;
 		}
-		RenderWorldMap(overviewMat, detailMat, minimap, (float)delta);
+		// The open list owns the stick / arrows for its own navigation.
+		bool acceptInput = mapList == null || !mapList.Visible;
+		RenderWorldMap(overviewMat, detailMat, minimap, (float)delta, acceptInput);
 	}
 
 	// ---- framing -----------------------------------------------------------
@@ -356,7 +402,8 @@ public partial class WorldMapScreen : Control
 	// ---- world map ---------------------------------------------------------
 
 	// Whole-authored-world view, north-up, with region labels and banked markers.
-	void RenderWorldMap(ShaderMaterial overviewMat, ShaderMaterial detailMat, Minimap minimap, float delta)
+	void RenderWorldMap(ShaderMaterial overviewMat, ShaderMaterial detailMat, Minimap minimap, float delta,
+		bool acceptInput)
 	{
 		Vector2 worldCenter = WorldCenterXZ(minimap);
 		float overviewRadius = OverviewViewRadius(minimap);
@@ -373,11 +420,11 @@ public partial class WorldMapScreen : Control
 		}
 
 		// Zoom is a discrete two-level toggle; only the blend between them animates.
-		if (Input.IsActionJustPressed("LookUp"))
+		if (acceptInput && Input.IsActionJustPressed("LookUp"))
 		{
 			_zoomedIn = true;
 		}
-		else if (Input.IsActionJustPressed("LookDown"))
+		else if (acceptInput && Input.IsActionJustPressed("LookDown"))
 		{
 			_zoomedIn = false;
 		}
@@ -388,7 +435,7 @@ public partial class WorldMapScreen : Control
 		// a linear lerp crawls at the wide end and lurches at the near one.
 		float viewRadius = Mathf.Exp(Mathf.Lerp(Mathf.Log(overviewRadius), Mathf.Log(detailRadius), t));
 
-		Vector2 pan = Input.GetVector("MoveLeft", "MoveRight", "MoveUp", "MoveDown");
+		Vector2 pan = acceptInput ? Input.GetVector("MoveLeft", "MoveRight", "MoveUp", "MoveDown") : Vector2.Zero;
 		if (pan != Vector2.Zero)
 		{
 			_panOffsetMap += pan * (panScreensPerSecond * viewRadius * 2f * delta);
@@ -591,47 +638,130 @@ public partial class WorldMapScreen : Control
 
 	// ---- treasure-map selector --------------------------------------------
 
-	// Rebuild the selector's item list from the collected maps whenever their
-	// count changes (a map found or dug up). Item 0 is the world map; item N is
-	// treasure map N. Item index equals item id here (added in order).
+	// Rebuild the list from the collected maps when their count changes (a map
+	// found or dug up) or one is first viewed, and keep the button's caption and
+	// the hint's pulse in step with it.
 	void SyncSelector(SimState simState)
 	{
-		if (mapSelector == null)
-		{
-			return;
-		}
 		int count = simState?.TreasureMaps.Count ?? 0;
-		if (count == _selectorMapCount)
+		if (count != _listMapCount)
+		{
+			_listMapCount = count;
+			_listDirty = true;
+		}
+		if (!_listDirty)
 		{
 			return;
 		}
-		_selectorMapCount = count;
-		int prevId = mapSelector.GetSelectedId();
-		mapSelector.Clear();
-		mapSelector.AddItem(Loc.Get(Loc.Keys.map_option_world), 0);
+		_listDirty = false;
+
+		bool anyUnviewed = false;
+		if (mapList != null)
+		{
+			mapList.Clear();
+			mapList.AddItem(Loc.Get(Loc.Keys.map_option_world));
+		}
 		for (int i = 0; i < count; i++)
 		{
-			mapSelector.AddItem(Loc.Format(Loc.Keys.map_option_treasure, (i + 1).ToString()), i + 1);
+			TreasureMapState map = simState.TreasureMaps[i];
+			anyUnviewed |= !map.Viewed;
+			if (mapList == null)
+			{
+				continue;
+			}
+			int row = mapList.AddItem(Loc.Format(Loc.Keys.map_option_treasure, (i + 1).ToString()));
+			if (!map.Viewed)
+			{
+				mapList.SetItemCustomFgColor(row, unviewedMapColor);
+			}
 		}
-		// Keep the prior selection if it still exists, else fall back to the world map.
-		int restore = (prevId >= 0 && prevId <= count) ? prevId : 0;
-		mapSelector.Select(restore);
+		if (mapSelectorButton != null)
+		{
+			int selected = SelectedRow(simState);
+			mapSelectorButton.Text = selected == 0
+				? Loc.Get(Loc.Keys.map_option_world)
+				: Loc.Format(Loc.Keys.map_option_treasure, selected.ToString());
+		}
+		selectMapButtonHint?.SetGlowing(anyUnviewed);
 	}
 
-	// The treasure map the selector currently points at, or null for the world map
-	// (item 0) / no selection.
+	// List row of the map on display: 0 = world map, N = treasure map N. A map
+	// dug up while selected reads as the world map.
+	int SelectedRow(SimState simState)
+	{
+		if (_selectedMap == null || simState == null)
+		{
+			return 0;
+		}
+		return simState.TreasureMaps.IndexOf(_selectedMap) + 1;
+	}
+
 	TreasureMapState GetSelectedTreasureMap(SimState simState)
 	{
-		if (simState == null || mapSelector == null)
+		return SelectedRow(simState) > 0 ? _selectedMap : null;
+	}
+
+	void OpenMapList()
+	{
+		if (mapList == null)
 		{
-			return null;
+			return;
 		}
-		int idx = mapSelector.GetSelectedId() - 1;
-		if (idx < 0 || idx >= simState.TreasureMaps.Count)
+		mapList.Visible = true;
+		int row = SelectedRow(_gameClient?.Sim?.WorldState?.SimState);
+		if (row < mapList.ItemCount)
 		{
-			return null;
+			mapList.Select(row);
+			mapList.EnsureCurrentIsVisible();
 		}
-		return simState.TreasureMaps[idx];
+		mapList.GrabFocus();
+	}
+
+	void CloseMapList()
+	{
+		if (mapList == null || !mapList.Visible)
+		{
+			return;
+		}
+		mapList.Visible = false;
+		if (Visible && mapSelectorButton != null)
+		{
+			mapSelectorButton.CallDeferred(Control.MethodName.GrabFocus);
+		}
+	}
+
+	void ChooseRow(long row)
+	{
+		SimState simState = _gameClient?.Sim?.WorldState?.SimState;
+		int idx = (int)row - 1;
+		_selectedMap = simState != null && idx >= 0 && idx < simState.TreasureMaps.Count
+			? simState.TreasureMaps[idx]
+			: null;
+		_listDirty = true;
+		CloseMapList();
+	}
+
+	void OnMapListActivated(long row)
+	{
+		ChooseRow(row);
+	}
+
+	void OnMapListClicked(long row, Vector2 atPosition, long mouseButtonIndex)
+	{
+		if (mouseButtonIndex == (long)MouseButton.Left)
+		{
+			ChooseRow(row);
+		}
+	}
+
+	// Cancel closes the list, not the whole almanac behind it.
+	void OnMapListGuiInput(InputEvent e)
+	{
+		if (e.IsActionPressed("ui_cancel"))
+		{
+			CloseMapList();
+			mapList.AcceptEvent();
+		}
 	}
 
 	// ---- region labels -----------------------------------------------------

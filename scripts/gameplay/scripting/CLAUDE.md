@@ -24,3 +24,20 @@ Mod-friendly and quick to author, kept safe by a declared set + two-layer valida
 **Adding a use:** in a conversation, write `npcvar:`/`var:` in the sheet cell and there is nothing else to do. Elsewhere (a brain `.tres`), author the variable `.tres` + register it, then drop a condition/transition/action sub-resource referencing its name.
 
 **Adding a write source beyond conversations** (e.g. on boss death): call `world.WorldState.SimState.ScriptVars.SetBool(id, true)` from the gameplay event.
+
+## Disabled interactives
+
+**Any spawn entry can be switched off by a variable**: `SpawnEntryData.disabledVariable` + `disabledWhen` (`True` = a lock something clears, `False` = a gate something opens, e.g. a quest's `completedVariable`). `SpawnEntryData.Spawn` stamps it onto every state the entry files (`WorldState.SpawnStamp`, applied in `AddEntity`), so no entry type carries its own. A painter placement sets it on its fork.
+
+- **Ask `IInteractive.CanUse(interactive, player)`, never `CanActorInteract` directly** — the gate is checked there once, not by each interactive. A site that skips it makes a disabled entity usable.
+- An entity whose LOOK depends on the gate (the fountain's ready visuals) reads `EntitySimState.IsDisabled` itself and listens to `ScriptVars.OnChanged`.
+
+## World scripts — logic per world
+
+`WorldScriptData` (the world's `WorldStartData.scriptData`) has virtual hooks — `OnNewDay`, `OnNightfall`, `OnVariableChanged`, `OnMobKilled` — that `Sim` calls (`Sim.WorldScript.cs`). A world that needs logic subclasses it (`scripts/world_scripts/TestWorldScript.cs`) and its `.tres` names the subclass.
+
+- **A script holds no state.** It is a shared resource and nothing on it is saved; whatever it must remember goes in a script variable. `TestWorldScript`'s `town_gate_locked` is both the gate's disabled variable and its run-once guard.
+- **A script reaches the game only through `WorldScriptApi`** — variables, `OpenDoor` / `CloseDoor` by placement name. Add a verb there rather than handing out `Sim`; it is the surface a future data-driven trigger would share.
+- **Named entities:** a painter placement's `name` is stamped onto `EntitySimState.Name`; `WorldState.FindNamed` finds it whether or not it is streamed in, which is why a door opens in the sim (`Sim.SetDoorOpen`) and the node, if any, follows.
+- **Variable names written in C# are invisible to `validate_script_vars`** — declare every one in a registry; the bank warns at runtime on an undeclared name.
+- **Modding:** a data-only mod can use every existing script class. A mod shipping its OWN C# script would need its assembly loaded and its types registered with Godot, which Godot .NET does not support out of the box.

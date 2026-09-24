@@ -1,8 +1,19 @@
 using System;
 using Godot;
 
+// Which value of an entity's disabled variable switches it off. "False" is the
+// shape of a gate that opens when something is achieved (a quest's
+// completedVariable); "True" is a lock that something clears.
+//
+// APPEND new members only — written into .tres and the entity wire format as ints.
+public enum EDisabledWhen
+{
+    True,
+    False,
+}
+
 // WHAT to place and how one lands: subclass per entity type (MobSpawnEntry,
-// ChestSpawnEntry, ...) and override Spawn to construct the matching
+// ChestSpawnEntry, ...) and override SpawnEntities to construct the matching
 // EntitySimState and add it to the world.
 //
 // An entry is a SHARED asset — one goblin.tres named by every list that wants
@@ -21,6 +32,14 @@ public partial class SpawnEntryData : Resource
     // don't sit on a tile themselves — their anchor is just a scatter center,
     // so overlap at the group level is meaningless).
     [Export] public float minSpacing = 0.5f;
+
+    // Bool script variable that switches what this entry places off as an
+    // interactive — it cannot be used while the variable reads `disabledWhen`.
+    // Blank = never disabled. Stamped onto every state Spawn files, so an entry
+    // type carries nothing of its own for it, and checked in one place
+    // (IInteractive.CanUse) rather than by each interactive.
+    [Export] public StringName disabledVariable;
+    [Export] public EDisabledWhen disabledWhen;
 
     // Does this property mean anything to a HAND-PLACED entity? An editor for
     // one hides the rest, because a control that cannot change the result is
@@ -110,7 +129,34 @@ public partial class SpawnEntryData : Resource
     // An answer is advisory, not a constraint. Whatever the property currently
     // holds is offered too even when it is not in the list, so a value authored
     // against a different rig survives being looked at.
-    public virtual string[] NameCandidates(StringName property) => null;
+    public virtual string[] NameCandidates(StringName property)
+    {
+        return property == PropertyName.disabledVariable ? DeclaredBoolVariables() : null;
+    }
+
+    // Every declared Bool script variable: a mistyped gate reads false forever
+    // and fails silently. Registries rather than ScriptVariableData files,
+    // because the generated npc_variables registry embeds its declarations.
+    public static string[] DeclaredBoolVariables()
+    {
+        var names = new System.Collections.Generic.List<string>();
+        foreach (string path in ResourceTypeIndex.Candidates(typeof(ScriptVariableRegistry), null))
+        {
+            if (ResourceLoader.Load(path) is not ScriptVariableRegistry registry)
+            {
+                continue;
+            }
+            foreach (ScriptVariableData variable in registry.variables)
+            {
+                if (variable?.id != null && !variable.id.IsEmpty && variable.type == EScriptVarType.Bool)
+                {
+                    names.Add(variable.id.ToString());
+                }
+            }
+        }
+        names.Sort(StringComparer.Ordinal);
+        return names.ToArray();
+    }
 
     // The resources an Object-typed property may be set to, or null for "every
     // authored .tres of that type" — which is what the panel's project-wide scan
@@ -338,6 +384,36 @@ public partial class SpawnEntryData : Resource
         return true;
     }
 
+    // Files this entry's states, stamping each with what is true of the
+    // placement rather than of the entity type — the author's name for it and
+    // this entry's disabled gate. A scope on WorldState rather than a parameter
+    // because a composite entry files through its children's Spawn: a named
+    // group names every member, and a child with a gate of its own overrides
+    // the group's.
+    public void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    {
+        EntitySpawnStamp outer = ws.SpawnStamp;
+        EntitySpawnStamp stamp = outer;
+        if (context?.AuthoredName != null)
+        {
+            stamp.Name = context.AuthoredName;
+        }
+        if (disabledVariable != null && !disabledVariable.IsEmpty)
+        {
+            stamp.DisabledVariable = disabledVariable;
+            stamp.DisabledWhen = disabledWhen;
+        }
+        ws.SpawnStamp = stamp;
+        try
+        {
+            SpawnEntities(ws, position, rng, context);
+        }
+        finally
+        {
+            ws.SpawnStamp = outer;
+        }
+    }
+
     // 4-connected air check over a 2-voxel body height around the spawn
     // anchor's voxel. Conservative — rejects 1-voxel-wide tunnels (mobs
     // would barely fit and be hard to navigate around anyway).
@@ -372,8 +448,8 @@ public partial class SpawnEntryData : Resource
     // (MobSpawnEntry, LootSpawnEntry, ...) ignore it. May be null when the
     // caller has no scatter sampler to provide (e.g. cave-pocket pass —
     // cells are pre-validated, no rejection needed).
-    public virtual void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected virtual void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        GD.PushError($"SpawnEntryData subclass '{GetType().Name}' did not override Spawn");
+        GD.PushError($"SpawnEntryData subclass '{GetType().Name}' did not override SpawnEntities");
     }
 }

@@ -587,7 +587,7 @@ against any other — re-baking the painted world invalidates saves. **A save th
 
 ### Scripting Variables — Quest Flags / World State (`scripts/data/scripting/`, `scripts/gameplay/scripting/`, `resources/data/worlds/shared/script_variables/`)
 
-A save-persisted bank of named `Bool`/`Int` variables that conditions/actions read and write **by name** to branch mob conversations and behaviors (quest flags, world state, counters). Read via `ScriptVarCondition`/`ScriptVarTransition`, write via `SetScriptVarAction`. See [scripts/gameplay/scripting/CLAUDE.md](scripts/gameplay/scripting/CLAUDE.md).
+A save-persisted bank of named `Bool`/`Int` variables that conditions/actions read and write **by name** to branch mob conversations and behaviors (quest flags, world state, counters). Read via `ScriptVarCondition`/`ScriptVarTransition`, write via `SetScriptVarAction`. Any spawn entry can be disabled by one (`disabledVariable`, checked centrally by `IInteractive.CanUse`), and a world's per-world C# logic is a `WorldScriptData` subclass whose hooks (`OnNewDay`, …) act through `WorldScriptApi`. See [scripts/gameplay/scripting/CLAUDE.md](scripts/gameplay/scripting/CLAUDE.md).
 
 ### CVars (`scripts/console/`, `scripts/CVars.cs`)
 
@@ -642,7 +642,7 @@ the master spreadsheet over it); `tools/conversation_import` turns it into one
 GENERATED — never hand-edit a conversation `.tres` in the Godot inspector, the
 next build overwrites it.
 
-Columns: `character  player  conversation key  goto  language  condition  action  text`.
+Columns: `character  name  description  player  conversation key  goto  language  condition  action  text`.
 A row is one NPC turn or one player choice, and the bipartite graph the runtime
 wants falls straight out of it:
 
@@ -657,6 +657,12 @@ wants falls straight out of it:
 
 - **`character` fills down** — type it once, every row under it belongs to that
   character. Its value is the loc-key prefix and names the output file.
+- **`name` and `description` describe the CHARACTER**, once each, on any of its rows
+  (`ConversationData.nameLocKey` / `descriptionLocKey`, text under `<character>_name` /
+  `_description`). The panel's name box shows the description until the party knows
+  the name, the name after, and hides for a source with neither. The `learn_name`
+  action teaches it — `Knowledge.KnownNames`, keyed by the `ConversationData`, so
+  provisional until camp like every other lesson.
 - **A blank conversation key on an NPC row continues the branch above** — another
   paragraph.
 - **`goto`, `language` and `action` describe the BRANCH, not the paragraph they

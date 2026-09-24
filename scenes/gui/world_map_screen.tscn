@@ -54,7 +54,7 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[node name="WorldMapScreen" type="Control" unique_id=590275791 node_paths=PackedStringArray("mapView", "overviewViewport", "overviewSurface", "overviewRect", "detailViewport", "detailSurface", "detailRect", "regionLabels", "mapSelector", "selectMapButtonHint")]
+[node name="WorldMapScreen" type="Control" unique_id=590275791 node_paths=PackedStringArray("mapView", "overviewViewport", "overviewSurface", "overviewRect", "detailViewport", "detailSurface", "detailRect", "regionLabels", "mapSelectorButton", "mapList", "selectMapButtonHint")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -74,7 +74,8 @@ detailRect = NodePath("Panel/MarginContainer/VBoxContainer/AspectRatio/MapView/D
 detailPixelsPerMeter = 6.0
 regionLabels = NodePath("Panel/MarginContainer/VBoxContainer/AspectRatio/MapView/RegionLabels")
 unknownMarkerIcon = ExtResource("mm_question")
-mapSelector = NodePath("Panel/MarginContainer/MarginContainer/VBoxContainer/HBoxContainer/OptionButton")
+mapSelectorButton = NodePath("Panel/MarginContainer/MarginContainer/VBoxContainer/HBoxContainer/MapButton")
+mapList = NodePath("Panel/MarginContainer/MarginContainer/VBoxContainer/MapList")
 selectMapButtonHint = NodePath("Panel/MarginContainer/MarginContainer/VBoxContainer/HBoxContainer/ButtonHint")
 
 [node name="OverviewViewport" type="SubViewport" parent="." unique_id=2081889066]
@@ -186,8 +187,14 @@ layout_mode = 2
 [node name="HBoxContainer" type="HBoxContainer" parent="Panel/MarginContainer/MarginContainer/VBoxContainer" unique_id=1515914366]
 layout_mode = 2
 
-[node name="OptionButton" type="OptionButton" parent="Panel/MarginContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=1902027556]
+[node name="MapButton" type="Button" parent="Panel/MarginContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=1902027556]
 layout_mode = 2
 
 [node name="ButtonHint" parent="Panel/MarginContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=959365210 instance=ExtResource("5_mr766")]
 layout_mode = 2
+
+[node name="MapList" type="ItemList" parent="Panel/MarginContainer/MarginContainer/VBoxContainer"]
+visible = false
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+auto_height = true

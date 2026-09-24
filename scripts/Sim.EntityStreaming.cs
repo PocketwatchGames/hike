@@ -999,6 +999,37 @@ public partial class Sim
         root.QueueFree();
     }
 
+    // Open or close a door in the SIM, resident or not: a door out of streaming
+    // range has no node, and a world script opening the town gate while the
+    // party sleeps across the map must still find it open. The doorway voxels
+    // follow, then relight — lighting only, since a Barrier has no geometry
+    // (Density.TypeDensity skips it) — and a live node swings to match.
+    public void SetDoorOpen(DoorSimState door, bool open)
+    {
+        if (door == null || door.Active != open)
+        {
+            return;
+        }
+        door.Active = !open;
+        var changed = new List<Vector3I>();
+        EntityVoxelStamper.Apply(_worldState, door.ResolveStamp(_worldState), changed);
+        if (changed.Count > 0)
+        {
+            UpdateLighting(changed);
+        }
+        (door.RuntimeNode as Door)?.SyncFromState(animate: true);
+    }
+
+    // Is this interactive switched off by its placement's disabled gate? False
+    // for a node not materialized from a sim state (an editor preview, a scene
+    // added outside streaming), which has no gate to read.
+    public bool IsEntityDisabled(Node3D node)
+    {
+        Node3D root = FindEntityRoot(node);
+        return root != null && _entityStates.TryGetValue(root, out EntitySimState state)
+            && state.IsDisabled(_worldState?.SimState?.ScriptVars);
+    }
+
     // Nearest ancestor (starting at `node` itself) that was registered as a
     // spawned entity. Null when the node isn't part of one — an editor preview,
     // or a scene added outside the streaming path.

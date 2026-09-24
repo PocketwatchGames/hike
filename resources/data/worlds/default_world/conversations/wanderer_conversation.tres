@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
 [ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
+[ext_resource type="Resource" path="res://resources/data/dialogue_scripts/actions/learn_name.tres" id="Act_learn_name"]
 [ext_resource type="Resource" path="res://resources/data/dialogue_scripts/actions/recruit_to_party.tres" id="Act_recruit_to_party"]
 
 [sub_resource type="Resource" id="Entry_1"]
@@ -22,7 +23,7 @@ isPrimaryGroupEntry = true
 script = ExtResource("Script_ConversationBranch")
 name = &"join"
 lineLocKeys = Array[StringName]([&"wanderer_join_01"])
-endActions = Array[Object]([ExtResource("Act_recruit_to_party")])
+endActions = Array[Object]([ExtResource("Act_learn_name"), ExtResource("Act_recruit_to_party")])
 
 [sub_resource type="Resource" id="Branch_farewell"]
 script = ExtResource("Script_ConversationBranch")
@@ -49,3 +50,5 @@ script = ExtResource("Script_ConversationData")
 entryBranches = [SubResource("Entry_1")]
 branches = [SubResource("Branch_greeting"), SubResource("Branch_join"), SubResource("Branch_farewell")]
 responseGroups = [SubResource("Group_topics")]
+nameLocKey = &"wanderer_name"
+descriptionLocKey = &"wanderer_description"

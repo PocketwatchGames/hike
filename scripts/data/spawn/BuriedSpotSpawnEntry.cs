@@ -72,7 +72,7 @@ public partial class BuriedSpotSpawnEntry : SpawnEntryData
         return payload != null ? PaletteName(payload) : null;
     }
 
-    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null || style == null)
         {

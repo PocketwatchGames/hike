@@ -18,6 +18,10 @@ public class TreasureMapState
     // per map so each reads as its own oriented drawing rather than north-up.
     public float MapRotation;
 
+    // False until the player has displayed this map on the world-map screen. Drives
+    // the selector's "unread" highlight and the pulsing change-map hint.
+    public bool Viewed;
+
     public TreasureMapState()
     {
     }
@@ -43,12 +47,13 @@ public class TreasureMapState
         w.Write(DigLocation.Y);
         w.Write(DigLocation.Z);
         w.Write(MapRotation);
+        w.Write(Viewed);
     }
 
     public static TreasureMapState Deserialize(BinaryReader r)
     {
         Vector3 loc = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
         float rot = r.ReadSingle();
-        return new TreasureMapState(loc, rot);
+        return new TreasureMapState(loc, rot) { Viewed = r.ReadBoolean() };
     }
 }

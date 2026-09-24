@@ -178,6 +178,7 @@ public static class WorldMapCheck
         int carved = 0;
         int added = 0;
         int addedAboveGround = 0;
+        int addedBuilt = 0;
         // Passages: carved voxels by the level they carry (slot 0 = the
         // surface's) and by scatter set, then their floors — how many there
         // are, how many have a scatter painted, how many of those the spawn
@@ -203,6 +204,7 @@ public static class WorldMapCheck
         int pavedSurface = 0;
         int pavedUnder = 0;
         int pavedStranded = 0;
+        int pavedBuiltOver = 0;
         for (int px = 0; px < w; px++)
         {
             for (int pz = 0; pz < h; pz++)
@@ -271,7 +273,13 @@ public static class WorldMapCheck
                 if (ctx.PavingAt(px, pz) != null)
                 {
                     int pavedY = ctx.PavedYAt(px, pz);
-                    if (ctx.PavingLevelAt(px, pz) == WorldMapState.PavedOnSurface)
+                    if (pavedY < data.WorldMinY)
+                    {
+                        // A block-tool build stands on the floor it was laid
+                        // on, and paving never replaces a built voxel.
+                        pavedBuiltOver++;
+                    }
+                    else if (ctx.PavingLevelAt(px, pz) == WorldMapState.PavedOnSurface)
                     {
                         pavedSurface++;
                     }
@@ -306,6 +314,10 @@ public static class WorldMapCheck
                     else if (edit == WorldMapState.EditAdd)
                     {
                         added++;
+                        if (ctx.AddedBlockIndexAt(px, pz, wy) >= 0)
+                        {
+                            addedBuilt++;
+                        }
                         if (wy > th)
                         {
                             addedAboveGround++;
@@ -368,10 +380,11 @@ public static class WorldMapCheck
             + $"{blockingUncovered} uncovered (must be 0)");
 
         sb.AppendLine($"[worldmap_check] paving: {pavedSurface} columns on the surface, "
-            + $"{pavedUnder} on a floor under it, {pavedStranded} stranded (no floor at their level)");
+            + $"{pavedUnder} on a floor under it, {pavedStranded} stranded (no floor at their level), "
+            + $"{pavedBuiltOver} under a block-tool build");
 
         sb.AppendLine($"[worldmap_check] voxel edits: {carved} carved, {added} added "
-            + $"({addedAboveGround} of them above the height map)");
+            + $"({addedAboveGround} of them above the height map, {addedBuilt} of a chosen block)");
 
         var levelSpread = new StringBuilder($"surface:{passageLevels[0]}");
         for (int i = 1; i < passageLevels.Length; i++)

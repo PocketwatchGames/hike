@@ -73,12 +73,17 @@ public class WorldMapState
     //
     // A carved cell also names the PASSAGE it is part of — the danger level and
     // the mob scatter that apply in that space — because a per-column layer
-    // cannot tell two passages stacked in one column apart. Packed:
+    // cannot tell two passages stacked in one column apart. An added cell names
+    // the BLOCK it is built of instead. The rest of the cell means one or the
+    // other by its edit bits:
     //
     //   bits  0-1   the edit
+    //   carve:
     //   bits  2-5   passage level + 1          (0 = the surface's level here)
     //   bits  6-11  passage scatter slot + 1   (0 = nothing scatters here)
     //   bits 12-15  passage density, 0..15
+    //   add:
+    //   bits  2-15  BuildingBlocks slot + 1    (0 = the column's ground terrain)
     //
     // Read and written only through the accessors below.
     public ushort[,,] Tunnels;
@@ -95,6 +100,8 @@ public class WorldMapState
     private const int SET_MASK = 0x3F;
     private const int DENSITY_SHIFT = 12;
     private const int DENSITY_MASK = 0xF;
+    private const int BLOCK_SHIFT = 2;
+    private const int BLOCK_MASK = 0x3FFF;
 
     // The field widths, as limits on what can be authored.
     public const int MaxPassageLevel = LEVEL_MASK - 1;
@@ -156,7 +163,7 @@ public class WorldMapState
         PropLists = AuthoringPaletteSource.Resolve<PropListData>(AuthoringPaletteSource.PropLists, Palettes);
         ScatterSets = AuthoringPaletteSource.Resolve<SpawnScatterData>(AuthoringPaletteSource.ScatterSets, Palettes);
         WaterTypes = AuthoringPaletteSource.Resolve<BlockData>(AuthoringPaletteSource.WaterTypes, Palettes);
-        PavingBlocks = AuthoringPaletteSource.Resolve<BlockData>(AuthoringPaletteSource.PavingBlocks, Palettes);
+        BuildingBlocks = AuthoringPaletteSource.Resolve<BlockData>(AuthoringPaletteSource.BuildingBlocks, Palettes);
         EntityPalette = AuthoringPaletteSource.Resolve<SpawnEntryData>(AuthoringPaletteSource.Entities, Palettes);
         Presets = AuthoringPaletteSource.Resolve<PaintPresetData>(AuthoringPaletteSource.Presets, Palettes);
         Mobs = data.LoadOrCreateMobs();
@@ -435,7 +442,10 @@ public class WorldMapState
     // passage; a FRESH carve takes the passage of a carved neighbour, so
     // extending a tunnel extends what lives in it rather than leaving a strip of
     // it with no level and no mobs.
-    public void SetVoxelEdit(int px, int pz, int wy, byte edit)
+    //
+    // Only an add carries a block: `block` is a BuildingBlocks index, -1 for the
+    // column's ground terrain. Ignored for any other edit.
+    public void SetVoxelEdit(int px, int pz, int wy, byte edit, int block = -1)
     {
         int ly = wy - Data.WorldMinY;
         if (!InMask(px, pz, ly))
@@ -443,13 +453,50 @@ public class WorldMapState
             return;
         }
         int old = Tunnels[px, ly, pz];
-        int passage = 0;
+        int payload = 0;
         if (edit == EditCarve)
         {
-            passage = (old & EDIT_MASK) == EditCarve ? old & PASSAGE_MASK : NeighbourPassage(px, pz, wy);
+            payload = (old & EDIT_MASK) == EditCarve ? old & PASSAGE_MASK : NeighbourPassage(px, pz, wy);
         }
-        Tunnels[px, ly, pz] = (ushort)(edit | passage);
+        else if (edit == EditAdd && block >= 0 && block < BLOCK_MASK)
+        {
+            payload = (block + 1) << BLOCK_SHIFT;
+        }
+        Tunnels[px, ly, pz] = (ushort)(edit | payload);
         Edits.Note(px, pz, wy, edit);
+    }
+
+    // The BuildingBlocks index an added voxel is built of, or -1 where it is not
+    // an add or takes the column's ground terrain.
+    public int AddedBlockIndexAt(int px, int pz, int wy)
+    {
+        int cell = VoxelCell(px, pz, wy);
+        if ((cell & EDIT_MASK) != EditAdd)
+        {
+            return -1;
+        }
+        int idx = ((cell >> BLOCK_SHIFT) & BLOCK_MASK) - 1;
+        return idx < BuildingBlocks.Length ? idx : -1;
+    }
+
+    public BlockData AddedBlockAt(int px, int pz, int wy)
+    {
+        int idx = AddedBlockIndexAt(px, pz, wy);
+        return idx >= 0 ? BuildingBlocks[idx] : null;
+    }
+
+    // The block a floor is visibly MADE of when an author chose one — the block
+    // it was built from, or its paving (never both: paving does not land on a
+    // built voxel) — or null where it is the column's own terrain. What the maps
+    // draw and what keeps the detail scatter off it.
+    public BlockData BuiltBlockAtFloor(int px, int pz, int floorY)
+    {
+        return PavingAtFloor(px, pz, floorY) ?? AddedBlockAt(px, pz, floorY);
+    }
+
+    public BlockData SurfaceBuiltBlockAt(int px, int pz)
+    {
+        return BuiltBlockAtFloor(px, pz, SurfaceBelow(px, pz, int.MaxValue));
     }
 
     private static readonly Vector3I[] PASSAGE_NEIGHBOURS =
@@ -796,10 +843,9 @@ public class WorldMapState
 
     public readonly PaintPresetData[] Presets;
 
-    // Ground unpainted anywhere: deliberately a flat neutral rather than a guess
-    // at the zone's terrains, so it is obvious at a glance which ground you have
-    // actually authored and which is still inherited.
-    public readonly BlockData[] PavingBlocks;
+    // Blocks a column may be paved with or a block edit built from — the one
+    // slot numbering paving.png and the voxel-edit layer both store.
+    public readonly BlockData[] BuildingBlocks;
 
     // Water blocks a column may be painted with. The RASTER's slot 0 still means
     // "whatever the zone says"; these are the explicit overrides above it.
@@ -1344,7 +1390,7 @@ public class WorldMapState
     public BlockData PavingAt(int px, int pz)
     {
         int idx = PavingIndexAt(px, pz);
-        return idx >= 0 ? PavingBlocks[idx] : null;
+        return idx >= 0 ? BuildingBlocks[idx] : null;
     }
 
     // Which FLOOR a column's paving lies on: an absolute world Y, or
@@ -1362,21 +1408,17 @@ public class WorldMapState
     // drains the lake over it.
     public BlockData PavingAtFloor(int px, int pz, int floorY)
     {
-        Color cell = Paving.GetPixel(ClampX(px), ClampZ(pz));
-        int idx = PavingIndexOf(cell);
-        if (idx < 0)
-        {
-            return null;
-        }
-        int level = PavingLevelOf(cell);
-        return (level == PavedOnSurface ? SurfaceBelow(px, pz, int.MaxValue) : level) == floorY
-            ? PavingBlocks[idx]
-            : null;
+        return floorY >= Data.WorldMinY && PavedYAt(px, pz) == floorY ? PavingAt(px, pz) : null;
     }
 
-    // The world Y a column's paving lies at, or WorldMinY - 1 where it has
-    // none. A surface-seated road resolves against the top SOLID voxel, so it
-    // rides a deck built over it and drops into a hole carved under it.
+    // The world Y a column's paving lies at, or WorldMinY - 1 where it lies
+    // nowhere. A surface-seated road resolves against the top SOLID voxel, so it
+    // drops into a hole carved under it.
+    //
+    // **Paving never lands on a voxel the block tool added** — a wall or a deck
+    // is already the material it was built of. A road a wall is later built
+    // over is hidden under it, not repaved onto its top, and comes back where
+    // the wall is erased, because the layer still holds it.
     public int PavedYAt(int px, int pz)
     {
         Color cell = Paving.GetPixel(ClampX(px), ClampZ(pz));
@@ -1385,7 +1427,8 @@ public class WorldMapState
             return Data.WorldMinY - 1;
         }
         int level = PavingLevelOf(cell);
-        return level == PavedOnSurface ? SurfaceBelow(px, pz, int.MaxValue) : level;
+        int y = level == PavedOnSurface ? SurfaceBelow(px, pz, int.MaxValue) : level;
+        return IsAdded(px, pz, y) ? Data.WorldMinY - 1 : y;
     }
 
     // Paving lying on the column's OWN surface, or null. What every map drawn
@@ -1416,7 +1459,9 @@ public class WorldMapState
     {
         int floor = CutawayFloor(px, pz, clipY, out _);
         level = PavedOnSurface;
-        if (floor < Data.WorldMinY)
+        // A built floor is not pavable (see PavedYAt), so a stroke dragged across
+        // a wall leaves whatever the column holds under it alone.
+        if (floor < Data.WorldMinY || IsAdded(px, pz, floor))
         {
             return false;
         }
@@ -1444,7 +1489,7 @@ public class WorldMapState
     private int PavingIndexOf(Color cell)
     {
         int idx = Mathf.RoundToInt(cell.R * 255f) - 1;
-        return idx >= 0 && idx < PavingBlocks.Length ? idx : -1;
+        return idx >= 0 && idx < BuildingBlocks.Length ? idx : -1;
     }
 
     // Two channels, because a document may span more than 255 voxels of height

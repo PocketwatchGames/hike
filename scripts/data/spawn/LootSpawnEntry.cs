@@ -24,7 +24,7 @@ public partial class LootSpawnEntry : SpawnEntryData
         => property == PropertyName.item && variants.Length > 0
             ? variants : base.ResourceCandidates(property);
 
-    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (item?.item == null)
         {

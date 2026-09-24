@@ -405,7 +405,7 @@ public static class EntitySerializer
         return ReadList(br);
     }
 
-    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true, bool hasScale = true, bool itemExtras = true)
+    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true, bool hasScale = true, bool itemExtras = true, bool hasScriptFields = true)
     {
         ReadPathTable outer = _readPaths;
         int outerRoofFormat = _roofFormat;
@@ -421,7 +421,7 @@ public static class EntitySerializer
             var list = new List<EntitySimState>((int)count);
             for (uint i = 0; i < count; i++)
             {
-                list.Add(hasRotation ? ReadOne(r, hasTag, hasScale) : ReadPayload(r));
+                list.Add(hasRotation ? ReadOne(r, hasTag, hasScale, hasScriptFields) : ReadPayload(r));
             }
             return list;
         }
@@ -434,8 +434,8 @@ public static class EntitySerializer
         }
     }
 
-    // Tag + per-kind payload, then RotationY and the variant pool tag as common
-    // trailing fields — every entity carries both now, so writing them once here
+    // Tag + per-kind payload, then RotationY, the variant pool tag, the scale and
+    // the script fields (name, disabled gate) as common trailing fields — every entity carries both now, so writing them once here
     // beats threading them through 21 payloads. Trailing rather than leading
     // because the payload is what constructs the state; ReadOne assigns them
     // afterwards. The pool tag goes through the string table, so the common case
@@ -446,6 +446,9 @@ public static class EntitySerializer
         w.Write(e.RotationY);
         WriteInternedString(w, e.Tag);
         w.Write(e.Scale);
+        WriteInternedString(w, e.Name ?? "");
+        WriteInternedString(w, e.DisabledVariable?.ToString() ?? "");
+        w.Write((byte)e.DisabledWhen);
     }
 
     private static void WritePayload(BinaryWriter w, EntitySimState e)
@@ -794,7 +797,6 @@ public static class EntitySerializer
                     WriteResource(w, effect);
                 }
                 w.Write(fountain.CooldownDays);
-                w.Write(fountain.EnabledVariable?.ToString() ?? string.Empty);
                 w.Write(fountain.RegrowDay);
                 break;
 
@@ -874,17 +876,23 @@ public static class EntitySerializer
     // to be assigned after the payload because the payload is what constructs
     // the state. A payload that returns null (an unknown tag) still consumes it,
     // so the stream stays aligned.
-    private static EntitySimState ReadOne(BinaryReader r, bool hasTag, bool hasScale)
+    private static EntitySimState ReadOne(BinaryReader r, bool hasTag, bool hasScale, bool hasScriptFields)
     {
         EntitySimState state = ReadPayload(r);
         float rotationY = r.ReadSingle();
         string tag = hasTag ? ReadInternedString(r) : "";
         float scale = hasScale ? r.ReadSingle() : 1f;
+        string name = hasScriptFields ? ReadInternedString(r) : "";
+        string disabledVariable = hasScriptFields ? ReadInternedString(r) : "";
+        var disabledWhen = hasScriptFields ? (EDisabledWhen)r.ReadByte() : EDisabledWhen.True;
         if (state != null)
         {
             state.RotationY = rotationY;
             state.Tag = tag;
             state.Scale = scale;
+            state.Name = name.Length > 0 ? name : null;
+            state.DisabledVariable = disabledVariable.Length > 0 ? new StringName(disabledVariable) : null;
+            state.DisabledWhen = disabledWhen;
         }
         return state;
     }
@@ -1270,9 +1278,7 @@ public static class EntitySerializer
                     effects[i] = ReadResource<ItemEffect>(r);
                 }
                 int cooldownDays = r.ReadInt32();
-                string enabledVariable = r.ReadString();
-                var fountain = new FountainSimState(pos, scene, effects, cooldownDays,
-                    enabledVariable.Length > 0 ? new StringName(enabledVariable) : null);
+                var fountain = new FountainSimState(pos, scene, effects, cooldownDays);
                 fountain.RegrowDay = r.ReadInt32();
                 return fountain;
             }

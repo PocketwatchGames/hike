@@ -44,7 +44,7 @@ public partial class KnowledgeStoneSpawnEntry : SpawnEntryData
         return $"{language.ResourcePath.GetFile().GetBaseName()} {components}";
     }
 
-    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null)
         {

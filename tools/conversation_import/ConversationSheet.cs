@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 
 // One row of an authored conversation sheet, columns resolved by header name.
 class SheetRow
@@ -8,6 +9,8 @@ class SheetRow
 	public string File;
 	public int Line;
 	public string Character = "";
+	public string Name = "";
+	public string Description = "";
 	public string Player = "";
 	public string Key = "";
 	public string Goto = "";
@@ -73,6 +76,12 @@ class SheetCharacter
 	public List<SheetEntry> Entries = new List<SheetEntry>();
 	public List<KeyValuePair<string, string>> Strings = new List<KeyValuePair<string, string>>();
 	public SheetRow FirstRow;
+	// Loc keys of the speaker's name and description, empty when unset; the
+	// rows that claimed them, so a second claim can name the first.
+	public string NameKey = "";
+	public string DescriptionKey = "";
+	public SheetRow NameRow;
+	public SheetRow DescriptionRow;
 }
 
 static class ConversationSheet
@@ -84,7 +93,7 @@ static class ConversationSheet
 
 	static readonly string[] RequiredColumns =
 	{
-		"character", "player", "conversation key", "goto", "language", "condition", "action", "text",
+		"character", "name", "description", "player", "conversation key", "goto", "language", "condition", "action", "text",
 	};
 
 	// Reads one sheet export into rows, applying the fill-down rule on the
@@ -145,6 +154,8 @@ static class ConversationSheet
 				File = path,
 				Line = i + 1,
 				Character = Cell(cells, columns, "character"),
+				Name = Cell(cells, columns, "name"),
+				Description = Cell(cells, columns, "description"),
 				Player = Cell(cells, columns, "player"),
 				Key = Cell(cells, columns, "conversation key"),
 				Goto = Cell(cells, columns, "goto"),
@@ -153,7 +164,7 @@ static class ConversationSheet
 				Action = Cell(cells, columns, "action"),
 				Text = Cell(cells, columns, "text"),
 			};
-			if (row.Character.Length == 0 && row.Player.Length == 0 && row.Key.Length == 0
+			if (row.Character.Length == 0 && row.Name.Length == 0 && row.Description.Length == 0 && row.Player.Length == 0 && row.Key.Length == 0
 				&& row.Goto.Length == 0 && row.Language.Length == 0 && row.Condition.Length == 0
 				&& row.Action.Length == 0 && row.Text.Length == 0)
 			{
@@ -199,6 +210,14 @@ static class ConversationSheet
 				openCharacter = row.Character;
 			}
 
+			ApplyCharacterFields(character, row, report);
+			if (row.Player.Length == 0 && row.Key.Length == 0 && row.Goto.Length == 0 && row.Language.Length == 0
+				&& row.Condition.Length == 0 && row.Action.Length == 0 && row.Text.Length == 0)
+			{
+				// Nothing but the character's own name / description.
+				continue;
+			}
+
 			if (row.IsPlayer)
 			{
 				openBranch = null;
@@ -236,6 +255,38 @@ static class ConversationSheet
 			Resolve(character, report);
 		}
 		return characters;
+	}
+
+	// name and description describe the CHARACTER, not the row, and may be
+	// written on any of its rows - one each per character.
+	static void ApplyCharacterFields(SheetCharacter character, SheetRow row, Report report)
+	{
+		if (row.Name.Length > 0)
+		{
+			if (character.NameRow != null)
+			{
+				report.Error(row, $"{character.Name} is already named at {character.NameRow.Where} - a character has one name");
+			}
+			else
+			{
+				character.NameKey = character.Name + "_name";
+				character.NameRow = row;
+				character.Strings.Add(new KeyValuePair<string, string>(character.NameKey, row.Name));
+			}
+		}
+		if (row.Description.Length > 0)
+		{
+			if (character.DescriptionRow != null)
+			{
+				report.Error(row, $"{character.Name} is already described at {character.DescriptionRow.Where} - a character has one description");
+			}
+			else
+			{
+				character.DescriptionKey = character.Name + "_description";
+				character.DescriptionRow = row;
+				character.Strings.Add(new KeyValuePair<string, string>(character.DescriptionKey, row.Description));
+			}
+		}
 	}
 
 	static SheetBranch AddBranch(SheetCharacter character, SheetRow row, Report report)
@@ -537,13 +588,37 @@ static class ConversationSheet
 		return index < cells.Length ? cells[index].Trim() : "";
 	}
 
+	const int WINDOWS_1252 = 1252;
+
 	// FileShare.ReadWrite: a sheet export is routinely still open in the
 	// spreadsheet, and that holder's write handle fails the default request.
+	// Excel's plain "Text (Tab delimited)" export is Windows-1252, not UTF-8, and
+	// read as UTF-8 its curly quotes and ellipses become U+FFFD in game. Bytes that
+	// fail strict UTF-8 are therefore decoded as 1252 - 1252 text containing any of
+	// that punctuation is never valid UTF-8, so the fallback cannot misfire.
 	static List<string> ReadAllLinesShared(string path)
 	{
-		var lines = new List<string>();
+		byte[] bytes;
 		using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-		using (var reader = new StreamReader(stream))
+		using (var buffer = new MemoryStream())
+		{
+			stream.CopyTo(buffer);
+			bytes = buffer.ToArray();
+		}
+
+		string text;
+		try
+		{
+			text = new UTF8Encoding(false, true).GetString(bytes);
+		}
+		catch (DecoderFallbackException)
+		{
+			Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+			text = Encoding.GetEncoding(WINDOWS_1252).GetString(bytes);
+		}
+
+		var lines = new List<string>();
+		using (var reader = new StringReader(text.TrimStart('﻿')))
 		{
 			string line;
 			while ((line = reader.ReadLine()) != null)

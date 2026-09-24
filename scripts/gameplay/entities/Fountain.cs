@@ -6,7 +6,7 @@ using Godot;
 // FountainSpawnEntry); this node owns only when it can be used and what "ready"
 // looks like.
 //
-// Ready = enabled (its enabledVariable, if any, is true) AND off cooldown (a
+// Ready = enabled (its placement's disabled gate, if any, is open) AND off cooldown (a
 // RegrowDay deadline, so it survives streaming and save/load). The scene
 // authors the ready look — nodes shown while ready (a fountain's water), and
 // optionally a light, a lit/doused material swap and a loop Fx (a cauldron's
@@ -50,14 +50,11 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
         }
     }
 
+    // The shared placement gate (IInteractive.CanUse checks it too); read here
+    // as well because it decides the ready LOOK, not just the use.
     private bool IsEnabled()
     {
-        StringName gate = _simState?.EnabledVariable;
-        if (gate == null || gate.IsEmpty)
-        {
-            return true;
-        }
-        return _world?.WorldState?.SimState?.ScriptVars?.GetBool(gate) ?? false;
+        return _simState == null || !_simState.IsDisabled(_world?.WorldState?.SimState?.ScriptVars);
     }
 
     private bool IsOffCooldown()
@@ -72,7 +69,7 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
 
     private void HandleVariableChanged(StringName id)
     {
-        if (_simState?.EnabledVariable != null && id == _simState.EnabledVariable)
+        if (_simState?.DisabledVariable != null && id == _simState.DisabledVariable)
         {
             ApplyReadyVisual(CanInteract(), fade: true);
         }

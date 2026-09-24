@@ -8,6 +8,5 @@
 script = ExtResource("1_entry")
 scene = ExtResource("2_scene")
 effects = [ExtResource("3_effect")]
-enabledVariable = null
 detailSuppressionRadius = 0.0
 metadata/_custom_type_script = "uid://cuyu2uykmhfid"

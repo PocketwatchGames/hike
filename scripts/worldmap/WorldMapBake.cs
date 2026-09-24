@@ -198,10 +198,11 @@ public class WorldMapBake
             MaxZ = Map.Data.WorldMinZ + Map.Data.ImageHeight - 1,
             MaxGradeStep = Map.MaxGradeStep,
             // Paving is a deliberate bare tread, exactly as a road is — and so
-            // is a stamped surface: a building's roof, floor and courtyard are
-            // authored, so the scatter has no business dressing them.
+            // is the top of a wall built from a chosen block, and a stamped
+            // surface: a building's roof, floor and courtyard are authored, so
+            // the scatter has no business dressing them.
             SkipDetailColumn = (wx, wz) =>
-                Map.SurfacePavingAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ) != null
+                Map.SurfaceBuiltBlockAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ) != null
                 || IsStampedColumn(wx, wz),
             GroundYAt = GroundYAtWorld,
             PaintedWaterBlockAt = (wx, wz) => Map.PaintedWaterBlockAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ),
@@ -570,12 +571,15 @@ public class WorldMapBake
             {
                 // Added geometry stands above the painted ground, so it takes
                 // the zone's surface terrain — or its submerged one where the new
-                // voxel sits below a water surface.
+                // voxel sits below a water surface — unless it was built from a
+                // chosen block. The terrain channel is written either way, for
+                // the reason paving keeps it: it says what the column is made of.
                 byte terrain = wy > th
                     ? (wy <= wsurf ? terrains.Submerged : terrains.Surface)
                     : th - wy <= Map.Data.surfaceDepthVoxels ? topTerrain : terrains.Cave;
                 chunk.SetTerrainId(lx, ly, lz, terrain);
-                desired = WorldState.Terrains.BlockFor(terrain);
+                BlockData built = edit == WorldMapState.EditAdd ? Map.AddedBlockAt(px, pz, wy) : null;
+                desired = built?.blockId ?? WorldState.Terrains.BlockFor(terrain);
                 if (wy == pavedY)
                 {
                     // Paving replaces the terrain's block on ONE voxel — the floor

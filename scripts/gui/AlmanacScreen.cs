@@ -44,7 +44,8 @@ public partial class AlmanacScreen : Control
 		Visible = false;
 	}
 
-	public void Open(EAlmanacTab tab, GameClient gameClient, SpeciesData focusSpecies = null, Action onClose = null)
+	public void Open(EAlmanacTab tab, GameClient gameClient, SpeciesData focusSpecies = null, Action onClose = null,
+		TreasureMapState focusTreasureMap = null)
 	{
 		_gameClient = gameClient;
 		_onClose = onClose;
@@ -56,10 +57,9 @@ public partial class AlmanacScreen : Control
 		_bestiaryScreen?.Initialize(gameClient);
 		_spellScreen?.Initialize(gameClient);
 		// Per-open focus hint, consumed by the target sub-screen's next
-		// Rebuild. Only the Bestiary tab uses it today; other tabs can
-		// add their own typed focus params here if needed without changing
-		// the Open() surface that callers use.
+		// Rebuild or open.
 		_bestiaryScreen?.SetPendingFocus(focusSpecies);
+		_worldMapScreen?.SetPendingFocus(focusTreasureMap);
 		if (_gameClient != null)
 		{
 			_gameClient.InputSuppressed = true;

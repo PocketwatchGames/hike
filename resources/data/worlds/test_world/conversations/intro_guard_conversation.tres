@@ -37,3 +37,4 @@ script = ExtResource("Script_ConversationData")
 entryBranches = [SubResource("Entry_1")]
 branches = [SubResource("Branch_greeting"), SubResource("Branch_help")]
 responseGroups = [SubResource("Group_real")]
+descriptionLocKey = &"intro_guard_description"

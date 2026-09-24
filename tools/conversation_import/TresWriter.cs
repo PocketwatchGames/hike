@@ -128,6 +128,14 @@ class TresWriter
 		body.AppendLine($"entryBranches = [{SubList(entryIds)}]");
 		body.AppendLine($"branches = [{SubList(branchIds)}]");
 		body.AppendLine($"responseGroups = [{SubList(groupIds)}]");
+		if (character.NameKey.Length > 0)
+		{
+			body.AppendLine($"nameLocKey = &\"{character.NameKey}\"");
+		}
+		if (character.DescriptionKey.Length > 0)
+		{
+			body.AppendLine($"descriptionLocKey = &\"{character.DescriptionKey}\"");
+		}
 
 		var file = new StringBuilder();
 		string uidAttribute = existingUid != null ? $" uid=\"{existingUid}\"" : "";

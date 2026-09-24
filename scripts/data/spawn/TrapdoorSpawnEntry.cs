@@ -40,7 +40,7 @@ public partial class TrapdoorSpawnEntry : SpawnEntryData
     public override string VariantName()
         => string.IsNullOrEmpty(linkTag) ? null : linkTag;
 
-    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null)
         {

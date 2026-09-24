@@ -37,7 +37,7 @@ public partial class CampfireSpawnEntry : SpawnEntryData
     // (the bowl tilts, surrounding fuel/rocks intersect the step face).
     public override bool RequireFlatTerrain => true;
 
-    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null)
         {

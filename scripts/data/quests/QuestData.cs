@@ -42,8 +42,8 @@ public partial class QuestData : Resource
 
     // Bool script variable set true when this quest COMPLETES (not on failure).
     // A finished quest leaves the log, so this is the only lasting record of it —
-    // anything the quest unlocks (a Cauldron's enabledVariable) gates on this
-    // flag rather than on the quest. Blank = no record.
+    // anything the quest unlocks (a cauldron's disabledVariable, disabled while
+    // False) gates on this flag rather than on the quest. Blank = no record.
     [Export] public StringName completedVariable;
 
     // Mint the runtime tracker for this quest. Each subclass overrides to

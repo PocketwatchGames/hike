@@ -34,7 +34,7 @@ public partial class MarkerSpawnEntry : SpawnEntryData
         => property == PropertyName.poolTag && variants.Length > 0
             ? variants : base.NameCandidates(property);
 
-    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null)
         {

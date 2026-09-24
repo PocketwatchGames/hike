@@ -33,3 +33,4 @@ script = ExtResource("Script_ConversationData")
 entryBranches = [SubResource("Entry_1")]
 branches = [SubResource("Branch_greeting")]
 responseGroups = [SubResource("Group_shop")]
+descriptionLocKey = &"swamp_witch_description"

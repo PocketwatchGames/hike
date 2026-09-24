@@ -14,6 +14,7 @@ public enum EKnowledgeCategory
     Language = 1 << 2,
     Item = 1 << 3,      // identified items
     Spell = 1 << 4,     // learned alchemy spells
+    Name = 1 << 5,      // characters whose name the party has learned
 }
 
 // A store of "learned" knowledge — identified items, discovered recipes, bestiary
@@ -40,6 +41,9 @@ public class Knowledge
     public readonly HashSet<SpeciesData> DiscoveredSpecies = new();
     // Per-language learned component bitset; a missing key = fully unknown.
     public readonly Dictionary<LanguageData, ELanguageComponents> LearnedLanguages = new();
+    // Characters introduced by name, keyed by their conversation - it is the one
+    // resource per authored character (see ConversationData.nameLocKey).
+    public readonly HashSet<ConversationData> KnownNames = new();
 
     // Fold `other` into this store: union the sets, OR language component bits.
     // Used to bank a member's field knowledge into the permanent
@@ -68,6 +72,10 @@ public class Knowledge
         int speciesBefore = DiscoveredSpecies.Count;
         DiscoveredSpecies.UnionWith(other.DiscoveredSpecies);
         if (DiscoveredSpecies.Count > speciesBefore) { changed |= EKnowledgeCategory.Bestiary; }
+
+        int namesBefore = KnownNames.Count;
+        KnownNames.UnionWith(other.KnownNames);
+        if (KnownNames.Count > namesBefore) { changed |= EKnowledgeCategory.Name; }
         foreach (KeyValuePair<LanguageData, ELanguageComponents> kv in other.LearnedLanguages)
         {
             if (kv.Key == null)
@@ -90,6 +98,7 @@ public class Knowledge
         WriteSet(w, DiscoveredRecipes);
         WriteSet(w, KnownSpells);
         WriteSet(w, DiscoveredSpecies);
+        WriteSet(w, KnownNames);
         w.Write(LearnedLanguages.Count);
         foreach (KeyValuePair<LanguageData, ELanguageComponents> kv in LearnedLanguages)
         {
@@ -105,6 +114,7 @@ public class Knowledge
         ReadSet(r, DiscoveredRecipes);
         ReadSet(r, KnownSpells);
         ReadSet(r, DiscoveredSpecies);
+        ReadSet(r, KnownNames);
         int languages = r.ReadInt32();
         for (int i = 0; i < languages; i++)
         {
@@ -145,6 +155,7 @@ public class Knowledge
         DiscoveredRecipes.Clear();
         KnownSpells.Clear();
         DiscoveredSpecies.Clear();
+        KnownNames.Clear();
         LearnedLanguages.Clear();
     }
 }

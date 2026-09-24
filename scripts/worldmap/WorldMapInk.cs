@@ -53,12 +53,13 @@ public class WorldMapInk
         {
             return Data.cutawayRockColor;
         }
-        // Paving laid on THIS floor draws over the band, the same argument that
-        // puts it on every map drawn from above: a road is a fact about the
-        // ground you need while working beside it, and underground it is the one
-        // thing telling a corridor you have finished from one you have not.
-        BlockData paving = Map.PavingAtFloor(px, pz, floor);
-        Color band = paving != null ? paving.minimapColor : ElevationColorAt(floor - Map.SeaLevel);
+        // Paving laid on THIS floor, or a block built up to it, draws over the
+        // band, the same argument that puts it on every map drawn from above: a
+        // road or a wall is a fact about the ground you need while working beside
+        // it, and underground it is the one thing telling a corridor you have
+        // finished from one you have not.
+        BlockData built = Map.BuiltBlockAtFloor(px, pz, floor);
+        Color band = built != null ? built.minimapColor : ElevationColorAt(floor - Map.SeaLevel);
         return buried ? band : WithWaterOver(band, px, pz, floor, clipY);
     }
 
@@ -69,16 +70,16 @@ public class WorldMapInk
     // entirely by the step outlines in those views, which is why they draw every
     // step down to 1m. Water still composites over the top — a flooded column
     // reads as water first, whatever the ground under it is.
-    // Paving is resolved HERE rather than in the paving view, so a road shows on
-    // every view that draws ground — you cannot lay props or mobs sensibly along
-    // a road you cannot see. It wins over the ground set because it is what the
-    // surface is actually made of once paved.
+    // Paving and built blocks are resolved HERE rather than in their tools'
+    // views, so a road or a wall shows on every view that draws ground — you
+    // cannot lay props or mobs sensibly along a road you cannot see. They win
+    // over the ground set because they are what the surface is actually made of.
     public Color GroundColorAt(int px, int pz)
     {
-        BlockData paving = Map.SurfacePavingAt(px, pz);
-        if (paving != null)
+        BlockData built = Map.SurfaceBuiltBlockAt(px, pz);
+        if (built != null)
         {
-            return WithWater(paving.minimapColor, px, pz);
+            return WithWater(built.minimapColor, px, pz);
         }
         int idx = Map.GroundIndexAt(px, pz);
         TerrainKitData[] sets = Map.Terrains;

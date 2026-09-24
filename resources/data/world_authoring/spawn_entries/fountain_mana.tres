@@ -9,5 +9,4 @@ script = ExtResource("1_entry")
 scene = ExtResource("2_scene")
 effects = [ExtResource("3_effect")]
 cooldownDays = 1
-enabledVariable = null
 metadata/_custom_type_script = "uid://cuyu2uykmhfid"

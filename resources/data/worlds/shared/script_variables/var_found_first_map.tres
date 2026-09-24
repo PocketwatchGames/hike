@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ScriptVariableData" format=3 uid="uid://bwvix28tyn1r7"]
+
+[ext_resource type="Script" uid="uid://cq2svar0data8" path="res://scripts/data/scripting/ScriptVariableData.cs" id="1_svd"]
+
+[resource]
+script = ExtResource("1_svd")
+id = &"found_first_map"
+description = "Set true once the player picks up their first treasure map. The first pickup opens the world map on it; later ones don't."

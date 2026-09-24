@@ -24,7 +24,7 @@ public partial class SignpostSpawnEntry : SpawnEntryData
 
     public override bool RequireFlatTerrain => true;
 
-    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null)
         {

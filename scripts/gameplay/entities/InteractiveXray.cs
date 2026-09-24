@@ -134,9 +134,11 @@ public partial class InteractiveXray : Node3D
         float dt = (float)delta;
         // Skip the LOS probe (and force the target to 0) when the host no longer
         // wants the discovery silhouette — an opened chest, picked-up loot, or a
-        // stash the player has already found. Falls through to the fade path
-        // below so the silhouette dims away naturally instead of snapping off.
-        bool shouldXray = _interactive == null || _interactive.ShouldShowXray();
+        // stash the player has already found, or anything its placement's gate
+        // has disabled. Falls through to the fade path below so the silhouette
+        // dims away naturally instead of snapping off.
+        bool shouldXray = _interactive == null
+            || (_interactive.ShouldShowXray() && !IInteractive.IsDisabled(_interactive));
         if (shouldXray)
         {
             _probeAccumulator += dt;

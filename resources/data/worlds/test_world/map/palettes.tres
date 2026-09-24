@@ -30,7 +30,7 @@ slots = PackedStringArray("res://resources/data/voxels/blocks/block_water_clear.
 
 [sub_resource type="Resource" id="Resource_ua1it"]
 script = ExtResource("2_led")
-palette = "paving_blocks"
+palette = "building_blocks"
 slots = PackedStringArray("res://resources/data/voxels/blocks/block_road.tres", "res://resources/data/voxels/blocks/block_dirt.tres", "res://resources/data/voxels/blocks/block_rock.tres", "res://resources/data/voxels/blocks/block_sand.tres", "res://resources/data/voxels/blocks/block_cave_limestone.tres", "res://resources/data/voxels/blocks/block_cave_sandstone.tres", "res://resources/data/voxels/blocks/block_cobblestone.tres", "res://resources/data/voxels/blocks/block_desert_ground.tres", "res://resources/data/voxels/blocks/block_forest_soil.tres", "res://resources/data/voxels/blocks/block_grass.tres", "res://resources/data/voxels/blocks/block_marsh_ground.tres", "res://resources/data/voxels/blocks/block_mud.tres", "res://resources/data/voxels/blocks/block_snow.tres", "res://resources/data/voxels/blocks/block_stone.tres")
 
 [sub_resource type="Resource" id="Resource_gn0jf"]

@@ -31,7 +31,7 @@ public partial class StoneRingSpawnEntry : SpawnEntryData
 
     public override bool SelfPlaces => true;
 
-    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scenes == null || scenes.Length == 0 || spacing <= 0f || radius <= 0f)
         {

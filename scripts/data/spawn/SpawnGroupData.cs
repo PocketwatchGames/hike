@@ -38,7 +38,7 @@ public partial class SpawnGroupData : SpawnEntryData
 
     // A group hands its own context to every member, so aiming a group aims
     // everything in it the same way.
-    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (rows == null)
         {

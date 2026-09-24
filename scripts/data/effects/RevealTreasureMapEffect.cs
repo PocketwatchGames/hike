@@ -30,7 +30,8 @@ public partial class RevealTreasureMapEffect : ItemEffect
         }
         // False when the spot is already charted or already dug up — nothing to
         // chart, and no fx.
-        if (player.Sim?.WorldState?.RevealTreasureMap(treasureName) != true)
+        WorldState ws = player.Sim?.WorldState;
+        if (ws?.RevealTreasureMap(treasureName) != true)
         {
             return;
         }
@@ -38,5 +39,20 @@ public partial class RevealTreasureMapEffect : ItemEffect
         {
             ItemEventHandlers.SpawnOnActor(actor, revealEffect);
         }
+        OpenIfFirstMap(ws);
+    }
+
+    // The first map the player ever picks up opens the world map on itself, so
+    // they learn where maps live.
+    static void OpenIfFirstMap(WorldState ws)
+    {
+        StringName flag = ws.SimData?.foundFirstMapVariable;
+        if (flag is null || flag.IsEmpty || ws.SimState.ScriptVars.GetBool(flag))
+        {
+            return;
+        }
+        ws.SimState.ScriptVars.SetBool(flag, true);
+        // RevealTreasureMap appends, so the new map is the last one.
+        GameClient.Current?.OpenTreasureMap(ws.SimState.TreasureMaps[^1]);
     }
 }

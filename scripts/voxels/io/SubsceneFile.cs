@@ -67,7 +67,11 @@ public static class SubsceneFile
     // v12: the ItemState wire format gained the item's status effects, boon menu
     //      and subclass state (see WorldFile v57). v11 and earlier still read -
     //      their items (a stash chest's contents) load without them.
-    public const uint VERSION = 12;
+    // v13: entities gained trailing script fields — an author's name and a
+    //      disabled gate (see WorldFile v61). v12 and earlier still read — their
+    //      entities load unnamed and ungated. A fountain's payload lost its own
+    //      enabled variable in the same step; no subscene holds a fountain.
+    public const uint VERSION = 13;
 
     // Bytes before the directory block: magic + version + size + anchor +
     // channelMask + dirLength. ReadDirectory seeks past exactly this much.
@@ -211,7 +215,7 @@ public static class SubsceneFile
             : version >= 4 ? EntitySerializer.ROOF_FORMAT_BROKEN
             : EntitySerializer.ROOF_FORMAT_ORIGINAL;
         sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3, roofFormat: roofFormat, hasTag: version >= 6, tableRefs: version >= 9,
-            hasScale: version >= 10, itemExtras: version >= 12);
+            hasScale: version >= 10, itemExtras: version >= 12, hasScriptFields: version >= 13);
         return sub;
     }
 

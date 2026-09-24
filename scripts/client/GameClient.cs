@@ -1097,6 +1097,10 @@ public partial class GameClient : Node3D
 		{
 			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Language Recorded" });
 		}
+		if (banked.HasFlag(EKnowledgeCategory.Name))
+		{
+			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Acquaintance Recorded" });
+		}
 	}
 
 	// Recruit a talkable NPC into the party (fired by a RecruitToPartyAction in
@@ -2131,6 +2135,20 @@ public partial class GameClient : Node3D
 		{
 			_world?.Minimap?.BeginChartReveal();
 		}
+	}
+
+	// Open the world map showing one treasure map. Deferred because it is called
+	// from a pickup inside the sim tick. No-op if a modal is already up.
+	public void OpenTreasureMap(TreasureMapState map)
+	{
+		Callable.From(() =>
+		{
+			if (almanacScreen == null || almanacScreen.Visible || InputSuppressed || paused)
+			{
+				return;
+			}
+			almanacScreen.Open(AlmanacScreen.EAlmanacTab.WorldMap, this, focusTreasureMap: map);
+		}).CallDeferred();
 	}
 
 	// Bird's-eye lift (tree climb OR birds_eye consumable — they do the same

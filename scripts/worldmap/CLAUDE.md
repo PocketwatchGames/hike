@@ -85,8 +85,9 @@ Layers:
 - **Tunnels** — `.bin` (magic + version + dims, then zlib), a per-voxel
   `ushort[px,ly,pz]`: the EDIT in the low two bits (0 untouched, 1 carved away,
   2 added) and, on a carve, the **passage** it belongs to — its danger level,
-  scatter set and density. Too 3D to be a useful image; the result is captured
-  in the baked `.hike`. See "Passages" below.
+  scatter set and density — or, on an add, the **block** it is built of (a
+  `BuildingBlocks` slot + 1; 0 = the column's ground terrain). Too 3D to be a
+  useful image; the result is captured in the baked `.hike`. See "Passages" below.
 ## What a painted world needs that is not the generator's
 
 
@@ -216,7 +217,7 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | `ElevationTool` | elevation (raise/lower/flatten/flatten-soft/smooth/lift/smear) **and** cliff weathering (roughen) | `Op`, `VoxelsPerStroke`, `TargetVoxels`, `RoughenStopIndex`; `AdjustLevel` steps whichever number the op uses | one band per lattice step, eroded heights, water overlaid when `ShowWater` (**W**) |
 | `WaterTool` | each painted column's water surface AND its water type (RMB removes) | `SurfaceVoxels` (R/F, signed; alt+click samples), type (**Q/E**), `ReplaceOnly` (**X**) | water shaded by depth, dry land dimmed — **cuts away** (T/G), so water can be painted inside a passage |
 | `TunnelTool` | LMB carves the box ABOVE `PaintY`, which is the floor left behind; RMB erases the whole exposed passage | `PaintY` (R/F), `Height` (Q/E) | `CutawayElevationView` — the elevation map cut at `view.CutawayY` (T/G): the highest floor under the cut in its own band, dithered where seen through rock |
-| `BlockTool` | the same box, LMB filling it DOWN to `PaintY`, the new surface | the same | the same view |
+| `BlockTool` | the same box, LMB filling it DOWN to `PaintY`, the new surface — or, in wall mode, `Height` voxels stood on each column's ground | the same, plus the block (option row; "Ground" = the column's terrain) and `WallMode` (**X**) | the same view, built blocks in their `minimapColor` |
 | `RegionTool` | per-chunk region index | `RegionIndex`, named in the option row | region colours, **50% darker under water** |
 | `ZoneTool` | per-chunk zone index | `ZoneIndex`, named in the option row | zone colours, **brightness by elevation** |
 | `WindTool` | per-chunk wind direction + strength (RMB clears back to the zone's) | `Mode` (Stroke / Inward / Outward), `AdjustLevel` = strength in m/s; alt+click samples | hue = compass angle, a sawtooth ramp ALONG the flow, unpainted chunks flat grey |
@@ -368,7 +369,7 @@ KIND of thing.
 | Presets | `world_authoring/presets/` |
 | Entities | `world_authoring/spawn_entries/` + `.../mobs/` + `.../props/`, `worlds/shared/spawn_entries/npcs/` — one row per FAMILY; what a buried spot holds, what a stone teaches, what a chest contains is set on the placement (see [docs/host.md](docs/host.md)) |
 | Water | the block catalog, every block whose `render` is `Water` |
-| Paving | the block catalog, every solid block with a top surface |
+| Blocks (paving AND block edits — one slot numbering, stored by both `paving.png` and `tunnels.bin`) | the block catalog, every solid block with a top surface |
 
 Four rules, three of which were real bugs:
 
@@ -434,7 +435,8 @@ stopped being the hub does not error, it bakes a different world.
 ## Not yet (future steps)
 
 
-**Walls** — these ARE a raster, for tileable sets: a per-column mask plus a type
+**Prop-piece walls** — a VOXEL wall is the block tool in wall mode; this is walls
+built from tileable scenes. These ARE a raster: a per-column mask plus a type
 index, with the baker doing neighbour-bitmask tile selection (straight / corner /
 T / end / cross). The neighbour mask *is* the continuity, so nothing needs to
 store adjacency. Only a wall wanting continuous rotation would need vector data,

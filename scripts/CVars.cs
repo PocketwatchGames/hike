@@ -2555,6 +2555,14 @@
         DebugVerbs.SetVar(((CVarString)cvar).Value);
     });
 
+    // `next_day` — roll straight to the next sunrise, firing OnNewDay (and so
+    // every world-script OnNewDay hook) without a camp sleep. Sim-only: no
+    // fade, no heal, and deliberately no autosave over the dev save.
+    public static CVar nextDay = new CVar("next_day", (cvar) =>
+    {
+        Sim.Current?.AdvanceToNextSunrise();
+    });
+
     // Headless data-integrity check: `--headless -- "resource_check 1"` reports
     // [Tool]-closure gaps and any .tres that fails to load, then quits. The
     // data-side twin of shader_check / block_check.

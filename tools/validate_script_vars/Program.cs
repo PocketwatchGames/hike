@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 // Headless validator for the scripting-variable bank. Checks that every
 // authored reference (ScriptVarCondition / ScriptVarTransition /
 // SetScriptVarAction, and the Bool flags QuestData.completedVariable /
-// CauldronSpawnEntry.enabledVariable) names a variable that actually exists in
+// SpawnEntryData.disabledVariable / SimData.foundFirstMapVariable) names a variable that actually exists in
 // resources/data/worlds/shared/script_variables/, that ordering comparisons are only used
 // on Int variables, and that every declared variable is registered in a
 // ScriptVariableRegistry (so it gets seeded at runtime). Emits findings in
@@ -32,7 +32,7 @@ class Program
     // Fields naming a Bool flag by name, on any script — the names are distinctive
     // enough not to need a per-script table (QuestData has several subclasses).
     // Blank is legitimate on both: no record / always enabled.
-    static readonly Regex FlagFieldRegex = new(@"^\s*(?<field>completedVariable|enabledVariable)\s*=\s*&?""(?<id>[^""]*)""", RegexOptions.Compiled);
+    static readonly Regex FlagFieldRegex = new(@"^\s*(?<field>completedVariable|disabledVariable|foundFirstMapVariable)\s*=\s*&?""(?<id>[^""]*)""", RegexOptions.Compiled);
 
     const int TypeBool = 0;
 

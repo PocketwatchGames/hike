@@ -14,6 +14,15 @@ public interface ISyncsSimState
     void SyncToSimState();
 }
 
+// What a placement says about the entities it files, applied by
+// WorldState.AddEntity while SpawnEntryData.Spawn has it set.
+public struct EntitySpawnStamp
+{
+    public string Name;
+    public StringName DisabledVariable;
+    public EDisabledWhen DisabledWhen;
+}
+
 public abstract class EntitySimState
 {
     // Mutable so movers can sync their current position back before unload.
@@ -39,6 +48,24 @@ public abstract class EntitySimState
     // tag is all there is: the pool name for a position with no authored body.
     public string Tag = "";
     public readonly PackedScene Scene;
+
+    // What an author called this entity (a painter placement's name), or null —
+    // the handle a world script finds it by (WorldState.FindNamed).
+    public string Name;
+
+    // The Bool script variable that switches this entity off as an interactive,
+    // and which value of it does. Null = never disabled.
+    public StringName DisabledVariable;
+    public EDisabledWhen DisabledWhen;
+
+    public bool IsDisabled(ScriptVariableBank vars)
+    {
+        if (DisabledVariable == null || DisabledVariable.IsEmpty || vars == null)
+        {
+            return false;
+        }
+        return vars.GetBool(DisabledVariable) == (DisabledWhen == EDisabledWhen.True);
+    }
 
     protected EntitySimState(Vector3 worldPosition, PackedScene scene)
     {

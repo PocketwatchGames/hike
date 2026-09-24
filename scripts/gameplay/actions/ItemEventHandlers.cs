@@ -1632,7 +1632,7 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		if (!interactive.CanInteract())
+		if (IInteractive.IsDisabled(interactive) || !interactive.CanInteract())
 		{
 			return;
 		}

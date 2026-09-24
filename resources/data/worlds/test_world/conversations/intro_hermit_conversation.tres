@@ -39,3 +39,4 @@ script = ExtResource("Script_ConversationData")
 entryBranches = [SubResource("Entry_1")]
 branches = [SubResource("Branch_greeting"), SubResource("Branch_recruit")]
 responseGroups = [SubResource("Group_topics")]
+descriptionLocKey = &"intro_hermit_description"

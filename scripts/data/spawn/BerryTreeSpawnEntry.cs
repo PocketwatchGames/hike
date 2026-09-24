@@ -13,7 +13,7 @@ public partial class BerryTreeSpawnEntry : SpawnEntryData
     [Export] public int berryCountMin = 1;
     [Export] public int berryCountMax = 1;
 
-    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null)
         {

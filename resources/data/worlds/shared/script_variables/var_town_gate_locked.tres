@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ScriptVariableData" format=3 uid="uid://bfxnmfmjb2v1w"]
+
+[ext_resource type="Script" uid="uid://cq2svar0data8" path="res://scripts/data/scripting/ScriptVariableData.cs" id="1_svd"]
+
+[resource]
+script = ExtResource("1_svd")
+id = &"town_gate_locked"
+type = 0
+defaultValue = 1
+description = "True until test_world's script opens the town gate on the first sunrise (TestWorldScript). The gate's placement is disabled while it is true."

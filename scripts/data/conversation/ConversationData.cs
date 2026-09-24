@@ -40,4 +40,10 @@ public partial class ConversationData : Resource
     // Every response group reachable in this conversation. Referenced by
     // `name` from branches (via `exitGroup`).
     [Export] public Array<ConversationResponseGroup> responseGroups;
+
+    // Who is speaking, for the panel's name box. The name shows once the party
+    // has learned it (LearnNameAction); until then the description does. Both
+    // unset = an anonymous source, and the box is hidden.
+    [Export] public StringName nameLocKey;
+    [Export] public StringName descriptionLocKey;
 }

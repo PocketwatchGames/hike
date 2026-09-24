@@ -596,6 +596,34 @@ public class SimState
         return false;
     }
 
+    // ---- Character names ---------------------------------------------------
+
+    public bool IsNameKnown(ConversationData character)
+    {
+        if (character == null)
+        {
+            return false;
+        }
+        return (Banked?.KnownNames.Contains(character) ?? false)
+            || (Active?.KnownNames.Contains(character) ?? false);
+    }
+
+    // Returns true only on a new introduction.
+    public bool LearnName(ConversationData character)
+    {
+        if (character == null || IsNameKnown(character))
+        {
+            return false;
+        }
+        Knowledge store = Active;
+        if (store == null)
+        {
+            return false;
+        }
+        store.KnownNames.Add(character);
+        return true;
+    }
+
     // ---- Species / bestiary ------------------------------------------------
 
     public bool IsSpeciesDiscovered(SpeciesData species)
