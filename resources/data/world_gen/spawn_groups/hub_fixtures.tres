@@ -9,6 +9,7 @@
 [sub_resource type="Resource" id="Boat_home"]
 script = ExtResource("5_boat")
 scene = ExtResource("15_boatscene")
+disabledVariable = null
 metadata/_custom_type_script = "uid://kfffp8mrtgin"
 
 [sub_resource type="Resource" id="Row_Boat_home"]
@@ -26,3 +27,4 @@ initialBehavior = null
 script = ExtResource("2_group")
 scatterRadius = 5.0
 rows = Array[ExtResource("grouprow")]([SubResource("Row_Boat_home"), SubResource("Row_safety_zone")])
+disabledVariable = null

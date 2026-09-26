@@ -266,11 +266,12 @@ region's edge. Measured on the merged test map: 95 such columns, then 0.
 
 ## Seating on slopes
 
-`PropSeatY(px, pz)`. A flat column's drawn top is half a voxel above the surface
-voxel's top face (the mesher's shallow-Y smoothing) — that is `PropSurfaceLift`
-1.5. On a grade the mesher averages the cell's edge crossings instead, so the
-surface runs as a plane through the column and the flat anchor floats a prop off
-its downhill side.
+`PropSeatY(px, pz)`. A flat column's drawn top is the surface voxel's top face —
+`PropSurfaceLift` 1.0 over the topmost solid voxel. Terrain collision is built
+from the drawn mesh, so `prop_seat_probe` (console) checks this in-game: a
+painted prop on flat ground should read `+0.00`. On a grade the mesher averages
+the cell's edge crossings instead, so the surface runs as a plane through the
+column and the flat anchor floats a prop off its downhill side.
 
 The seat is the mean of the facing surfaces inside the grade window (a neighbour
 outside it is a wall and is left out, or a clifftop prop is dragged down the
@@ -278,10 +279,11 @@ drop), clamped twice:
 
 - **Never above the flat anchor** — rising ground buries a prop rather than
   leaving a gap under it.
-- **Never more than `PropMaxEmbed` (0.5) below it** — `floor(Y)` is the cell
-  `PathBlockerRasterizer` marks blocked, so half a voxel lower is the last seat
-  that still marks the AIR cell a mob walks through. Deeper marks the solid voxel
-  and the barrier stops blocking anything.
+- **Never more than `PropMaxEmbed` (0.5) below it** — a visual bound only. The
+  row a prop's nav blockers are stamped on comes from the voxels
+  (`PropSimState.StandingRow`: the air row above a prop seated into its top
+  voxel), not from `floor(Y)`, so how deep a prop sits never decides whether it
+  blocks.
 
 ## No-spawn
 

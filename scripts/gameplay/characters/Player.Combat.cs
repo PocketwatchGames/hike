@@ -221,6 +221,7 @@ public partial class Player : CharacterBody3D
 			PlayOneShot(EAnimation.Block);
 			// The weapon's parry cue (clang + shake), fired at the deflection.
 			SpawnWorldEffect(blockWeapon.data.parryEffect);
+			_world?.CreateNoiseEvent(GlobalPosition, blockWeapon.data.parryDecibels, this);
 		}
 		// Passive block guard takes the absorbable slice while the player is
 		// sneaking with a guard-bearing melee weapon — the sneak crouch doubles as
@@ -238,6 +239,7 @@ public partial class Player : CharacterBody3D
 				// Guard reaction one-shot over the sneak pose (resolves the wielded
 				// weapon's Block override; no-op if it authors none).
 				PlayOneShot(EAnimation.Block);
+				_world?.CreateNoiseEvent(GlobalPosition, blockWeapon.data.blockDecibels, this);
 			}
 		}
 		// Central armor chips at (1 + blunt) on whatever survived the guard.

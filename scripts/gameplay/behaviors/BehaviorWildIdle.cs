@@ -23,7 +23,6 @@ public partial class BehaviorWildIdle : BehaviorBase
 
     public override void OnEnter(Mob me, ulong time)
     {
-        me.Navigator?.Stop();
         _nextBarkMs = time;
     }
 

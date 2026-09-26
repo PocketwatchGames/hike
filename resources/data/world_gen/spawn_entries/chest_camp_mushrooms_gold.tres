@@ -15,3 +15,4 @@ countRange = 3
 script = ExtResource("script")
 scene = ExtResource("r1")
 lootItems = [SubResource("sub0")]
+disabledVariable = null

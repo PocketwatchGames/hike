@@ -102,6 +102,10 @@ public partial class Mob
     // StartBehavior. Read by BehaviorElapsedCondition to time a node out.
     public ulong CurrentBehaviorStartMs => _curBehaviorStartMs;
 
+    // Diagnostics only (debug_mob_behavior).
+    public BehaviorBase CurrentBehavior =>
+        _curBehavior != null && _behaviors.TryGetValue(_curBehavior, out BehaviorBase b) ? b : null;
+
     // Called from Mob.Initialize after _simState is set. Walks the mob's BrainData,
     // creates a runtime BehaviorBase per node, validates that every transition
     // target names a real node, and seeds the current behavior (see defaultBehavior).
@@ -274,9 +278,11 @@ public partial class Mob
 
         // Navigator runs after the behavior so behaviors can set high-level
         // intent via Navigator.Goto/Wander and have the navigator translate
-        // it into a pathTarget for the impulse layer. Behaviors that already
-        // wrote pathTarget directly (legacy) win — the navigator only fills
-        // it in when it's still null. See MobNavigator.WriteSteering.
+        // it into a pathTarget for the impulse layer. Ground movement must go
+        // through the navigator — a pathTarget written directly is a straight
+        // line with no pathfinding, and mobs pinned on the first tree in it.
+        // Only airborne steering (3D, no ground grid) still writes one, and
+        // it wins here. See MobNavigator.WriteSteering.
         if (_navigator != null && !output.pathTarget.HasValue)
         {
             using (Profiler.Sample("Mob.NavigatorWriteSteering"))
@@ -320,6 +326,12 @@ public partial class Mob
         }
         _curBehavior = behaviorName;
         _curBehaviorStartMs = _world?.GameTimeMs ?? 0;
+        // Movement intent belongs to the behavior that set it. Left running, a
+        // chase goal outlives the chase: whenever the next behavior writes no
+        // pathTarget of its own, WriteSteering fills one from the stale goal at
+        // full speed (Idle standing at spawn got shoved back toward the player's
+        // last-known position every time it arrived).
+        _navigator?.Stop();
         b.OnEnter(this, _curBehaviorStartMs);
     }
 }

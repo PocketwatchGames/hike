@@ -109,4 +109,9 @@ public enum EItemEventType
 	// where the shot ended; on an action timeline, at the actor's aim point. The
 	// blast counterpart of SpawnAreaEffect, which is for hazards that linger.
 	AreaBurst = 1 << 22,
+	// Sounds ev.noiseDecibels (Sim.CreateNoiseEvent) at the actor, attributed to
+	// it — a bowstring twang, a battle shout. On a projectile impactEvent it
+	// sounds where the shot ended. For the noise of a strike landing, use
+	// ev.impactDecibels on the Melee / Hitscan / Projectile event instead.
+	Noise = 1 << 23,
 }

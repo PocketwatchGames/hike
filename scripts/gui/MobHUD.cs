@@ -207,7 +207,8 @@ public partial class MobHUD : Node2D
 		// being non-visible no longer hides its readout.
 		bool perceptionCvar = CVars.debugPlayerPerception.Value || CVars.debugMobPerception.Value;
 		bool positionCvar = CVars.debugMobPosition.Value;
-		bool cvarEnabled = perceptionCvar || positionCvar;
+		bool behaviorCvar = CVars.debugMobBehavior.Value;
+		bool cvarEnabled = perceptionCvar || positionCvar || behaviorCvar;
 		PerceptionDebug d = CVars.debugMobPerception.Value ? _mob.mobToPlayerDebug : _mob.playerToMobDebug;
 		bool showDebug = _mob.alive && !behindCamera && cvarEnabled;
 		if (_debugLabel != null)
@@ -223,12 +224,21 @@ public partial class MobHUD : Node2D
 						d.vision, d.hearing, d.smell,
 						d.lighting, d.distance, d.facing, d.speed, d.camouflage, d.fog,
 						d.los switch { EPerceptionLos.Clear => "+", EPerceptionLos.Blocked => "-", _ => "?" });
+					if (d.los == EPerceptionLos.Blocked)
+					{
+						text += "\n" + FormatLosBlock(d);
+					}
 				}
 				if (positionCvar)
 				{
 					Vector3 mobPos = _mob.GlobalPosition;
 					string posLine = string.Format("Pos {0:F2},{1:F2},{2:F2}", mobPos.X, mobPos.Y, mobPos.Z);
 					text = text.Length > 0 ? text + "\n" + posLine : posLine;
+				}
+				if (behaviorCvar)
+				{
+					string behaviorText = FormatLocomotionDebug();
+					text = text.Length > 0 ? text + "\n" + behaviorText : behaviorText;
 				}
 				_debugLabel.Text = text;
 			}
@@ -404,6 +414,146 @@ public partial class MobHUD : Node2D
 			_discoveryBar.Value = _mob.discoveryProgress;
 		}
 		return true;
+	}
+
+	// debug_*_perception, sightline blocked: every point involved, so a prop that
+	// "looks too short" can be checked against where it actually is. Ground is
+	// read two ways under the blocker's origin — the voxel surface (what props
+	// are placed on) and the terrain collision mesh (the smoothed surface that
+	// is drawn) — because the two can disagree by a good fraction of a metre.
+	string FormatLosBlock(in PerceptionDebug d)
+	{
+		string blocker = Mob.DescribeColliderForDebug(d.losBlocker);
+		string text = string.Format("LOS hit {0}\n from {1} to {2}\n hit {3}",
+			blocker, FormatVec(d.losFrom), FormatVec(d.losTo), FormatVec(d.losHitPoint));
+		if (d.losBlocker is not Node3D body)
+		{
+			return text;
+		}
+		Vector3 basePos = body.GlobalPosition;
+		text += "\n base " + FormatVec(basePos);
+
+		float colliderTop = float.NaN;
+		foreach (Node child in body.GetChildren())
+		{
+			if (child is CollisionShape3D cs && cs.Shape != null)
+			{
+				Aabb box = cs.GlobalTransform * cs.Shape.GetDebugMesh().GetAabb();
+				colliderTop = float.IsNaN(colliderTop) ? box.End.Y : Mathf.Max(colliderTop, box.End.Y);
+			}
+		}
+
+		string voxelGround = "?";
+		WorldState ws = Sim.Current?.WorldState;
+		if (ws != null)
+		{
+			int wx = Mathf.FloorToInt(basePos.X);
+			int wz = Mathf.FloorToInt(basePos.Z);
+			int top = Mathf.FloorToInt(basePos.Y) + LosGroundProbeUp;
+			for (int y = top; y > top - LosGroundProbeDepth; y--)
+			{
+				if (ws.IsInBounds(wx, y, wz) && Blocks.IsSolid(ws.GetBlockWorld(wx, y, wz)))
+				{
+					voxelGround = (y + 1).ToString("F2");
+					break;
+				}
+			}
+		}
+
+		string meshGround = "?";
+		PhysicsDirectSpaceState3D space = body.GetWorld3D()?.DirectSpaceState;
+		if (space != null)
+		{
+			Vector3 from = basePos + Vector3.Up * LosGroundProbeUp;
+			Vector3 to = basePos + Vector3.Down * (LosGroundProbeDepth - LosGroundProbeUp);
+			using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+			Godot.Collections.Dictionary hit = space.IntersectRay(query);
+			if (hit.Count > 0)
+			{
+				meshGround = hit["position"].AsVector3().Y.ToString("F2");
+			}
+		}
+		return text + string.Format(" colliderTop {0:F2}\n ground voxel {1} mesh {2}", colliderTop, voxelGround, meshGround);
+	}
+
+	private const int LosGroundProbeUp = 2;
+	private const int LosGroundProbeDepth = 6;
+
+	private static string FormatVec(Vector3 v)
+	{
+		return string.Format("({0:F2},{1:F2},{2:F2})", v.X, v.Y, v.Z);
+	}
+
+	// debug_mob_behavior: the chain from behavior to visible anim, one link per
+	// line, so a mismatch (e.g. Run playing at zero speed) names the link that
+	// caused it.
+	string FormatLocomotionDebug()
+	{
+		Mob.LocomotionDebug l = _mob.locomotionDebug;
+		Vector3 pos = _mob.GlobalPosition;
+		ulong now = _mob.Sim?.GameTimeMs ?? 0;
+		float behaviorSeconds = (now - _mob.CurrentBehaviorStartMs) / 1000f;
+
+		string aiLine;
+		if (!l.aiRan)
+		{
+			aiLine = "AI off (stun)";
+		}
+		else if (l.suspended)
+		{
+			aiLine = "AI suspended";
+		}
+		else if (l.pathTarget.HasValue)
+		{
+			Vector3 toTarget = l.pathTarget.Value - pos;
+			toTarget.Y = 0f;
+			aiLine = string.Format("AI spd{0:F2} tgt {1:F2}/{2:F2}", l.aiSpeed, toTarget.Length(), l.pathSuccessDistance);
+		}
+		else
+		{
+			aiLine = string.Format("AI spd{0:F2} no tgt", l.aiSpeed);
+		}
+
+		MobNavigator nav = _mob.Navigator;
+		string navLine = "Nav none";
+		if (nav != null)
+		{
+			Vector3 toGoal = nav.Goal - pos;
+			toGoal.Y = 0f;
+			navLine = string.Format("Nav {0} arr{1} blk{2} goal{3:F2}\nPlan {4} wp{5}/{6}{7}",
+				nav.CurrentState, nav.HasArrived ? 1 : 0, nav.IsBlocked ? 1 : 0, toGoal.Length(),
+				nav.LastPlan, nav.WaypointIndex, nav.Waypoints.Count, nav.SteeringDirectToGoal ? " direct" : "");
+			// The pick persists after a Stop, so show it whenever the mob last
+			// wandered — the failed pick is what explains the pause that follows.
+			MobNavigator.WanderPickDebug pick = nav.LastWanderPick;
+			if (pick.result != MobNavigator.EWanderPickResult.None)
+			{
+				Vector3 toCenter = nav.WanderCenter - pos;
+				toCenter.Y = 0f;
+				navLine += string.Format("\nPick {0} st{1} rej w{2} h{3} s{4} L{5} leash{6:F1}/{7:F0}",
+					pick.result, pick.steps, pick.rejectWater, pick.rejectHazard, pick.rejectStep, pick.rejectLeash,
+					toCenter.Length(), nav.WanderRadius);
+			}
+		}
+
+		float stuckSeconds = _mob.StuckSeconds();
+		if (stuckSeconds > 0f)
+		{
+			navLine += string.Format("\nStuck {0:F1}s {1}", stuckSeconds, _mob.StuckContactsSummary);
+		}
+
+		Vector3 toSpawn = _mob.spawnPosition - pos;
+		toSpawn.Y = 0f;
+		string behaviorStatus = _mob.CurrentBehavior?.DebugStatus(now);
+		return string.Format(
+			"Beh {0} {1:F1}s home{2:F2}{13}\n{3}\n{4}\nVel {5:F2} mv{14:F2} intent {6}>{7}{8}\nAnim {9}{10} req {11} play {12}",
+			_mob.CurrentBehaviorName, behaviorSeconds, toSpawn.Length(),
+			aiLine,
+			navLine,
+			l.horizSpeed, l.intentRaw ? 1 : 0, l.intentFinal ? 1 : 0, _mob.Freeze ? " FRZ" : "",
+			l.loopAnim, l.oneShot != EAnimation.None ? " os:" + l.oneShot : "", l.requestedClip, l.playingClip,
+			behaviorStatus != null ? " " + behaviorStatus : "",
+			l.movedSpeed);
 	}
 
 	// Per-instance icon strip: one StatusEffectIcon per StatusEffectState on

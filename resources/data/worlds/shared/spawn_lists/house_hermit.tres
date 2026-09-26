@@ -50,6 +50,7 @@ idleAnimation = &"idle_old_man"
 recruitTemplate = ExtResource("10_recruit")
 species = ExtResource("D_standard_npc")
 initialBehavior = null
+disabledVariable = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [sub_resource type="Resource" id="Row_Hermit"]

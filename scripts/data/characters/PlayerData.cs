@@ -33,11 +33,8 @@ public partial class PlayerData : Resource
 
 	[ExportGroup("Movement")]
 	[Export] public float stepHeight = 0.5f;
-	// Forward ankle-height ray that decides whether the step-up lift is allowed
-	// this tick. Height is above the floor already stood on; reach extends past
-	// the movement capsule's radius and must exceed one tick of travel at
-	// moveSpeed or the player clips into a blocking prop before the probe sees it.
-	[Export] public float stepProbeHeight = 0.15f;
+	// Minimum lookahead of the step-up's blocked-move test and headroom ray. Must
+	// exceed one tick of travel at moveSpeed or a wall is only seen once flush.
 	[Export] public float stepProbeReach = 0.25f;
 	// Clearance the step-up lift must leave between the crown of the movement
 	// capsule and any ceiling it is about to pass under. Without it the lift is

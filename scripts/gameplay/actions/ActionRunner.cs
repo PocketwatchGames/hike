@@ -1034,6 +1034,10 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoDig(_actor, ev, ref _action);
 		}
+		if ((t & EItemEventType.Noise) != 0)
+		{
+			ItemEventHandlers.DoNoise(_actor, ev, ref _action);
+		}
 	}
 
 	private int SelectTierIndex(ItemActionProfile profile, in ActionContext context, float chargeElapsedSeconds, int comboIndex)

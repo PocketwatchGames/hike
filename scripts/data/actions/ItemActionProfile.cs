@@ -75,33 +75,55 @@ public partial class ItemActionProfile : Resource
 	// containers that marshal a Variant per element — and profiles are immutable
 	// after load, so there is nothing to invalidate.
 	private bool? _lunges;
+	private float _lungeDistance;
 	public bool Lunges
 	{
 		get
 		{
-			if (_lunges.HasValue)
+			FoldLunge();
+			return _lunges.Value;
+		}
+	}
+
+	// How far forward the longest tier's motion carries the body (m), from its
+	// ApplyMotion events' speed × duration. The lunge gate checks the ground
+	// over this far, not all the way to a target standing beyond it.
+	public float LungeDistance
+	{
+		get
+		{
+			FoldLunge();
+			return _lungeDistance;
+		}
+	}
+
+	private void FoldLunge()
+	{
+		if (_lunges.HasValue)
+		{
+			return;
+		}
+		bool found = false;
+		float longest = 0f;
+		int tierCount = chargedActions?.Count ?? 0;
+		for (int i = 0; i < tierCount; i++)
+		{
+			ItemAction tier = chargedActions[i];
+			int eventCount = tier?.events?.Count ?? 0;
+			float tierDistance = 0f;
+			for (int e = 0; e < eventCount; e++)
 			{
-				return _lunges.Value;
-			}
-			bool found = false;
-			int tierCount = chargedActions?.Count ?? 0;
-			for (int i = 0; i < tierCount && !found; i++)
-			{
-				ItemAction tier = chargedActions[i];
-				int eventCount = tier?.events?.Count ?? 0;
-				for (int e = 0; e < eventCount; e++)
+				ItemEvent ev = tier.events[e];
+				if (ev != null && (ev.type & EItemEventType.ApplyMotion) != 0)
 				{
-					ItemEvent ev = tier.events[e];
-					if (ev != null && (ev.type & EItemEventType.ApplyMotion) != 0)
-					{
-						found = true;
-						break;
-					}
+					found = true;
+					tierDistance += Mathf.Max(0f, ev.motionForwardSpeed) * ev.motionDuration;
 				}
 			}
-			_lunges = found;
-			return found;
+			longest = Mathf.Max(longest, tierDistance);
 		}
+		_lungeDistance = longest;
+		_lunges = found;
 	}
 
 	// Cumulative time-from-press at which the tier at `tierIndex` becomes

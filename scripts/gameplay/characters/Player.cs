@@ -18,7 +18,7 @@ public enum EWaterState
 public partial class Player : CharacterBody3D
 {
 	[Export] public PlayerData data;
-	// The movement capsule, read for its radius by the step-up forward probe.
+	// The movement capsule, read for its crown height by the step-up headroom ray.
 	[Export] private CollisionShape3D _movementCollision;
 	// The character's display name (stats panel, etc.), set from the hosted
 	// PlayerState.characterName at Initialize. Defaults to a placeholder so the
@@ -2208,8 +2208,9 @@ public partial class Player : CharacterBody3D
 		// horizontal motion because MoveAndSlide then pushes back down.
 		//
 		// Only lift when the flat move is actually blocked — see IsFlatMoveBlocked.
-		// That test runs first because it short-circuits the step-up ray on the
-		// common unobstructed tick.
+		// Whether the lift was ALLOWED is judged after the move, by where it lands
+		// (StepLiftLandsOnBlockingProp): what blocked the move says nothing about
+		// what the lifted body ends up standing on.
 		//
 		// A swimmer gets the same lift, capped so the feet end no higher than the
 		// waterline. Floating is not walking, but the bed of the shallows beside a
@@ -2225,14 +2226,14 @@ public partial class Player : CharacterBody3D
 		float stepUpLift = swimming
 			? Mathf.Min(data.stepHeight, _waterSurfaceY - GlobalPosition.Y)
 			: data.stepHeight;
-		bool useStepUp = (_grounded || swimming) && stepUpLift > 0f
-			&& IsFlatMoveBlocked(dt) && CanStepUpAhead();
+		bool useStepUp = (_grounded || swimming) && stepUpLift > 0f && IsFlatMoveBlocked(dt);
 		if (useStepUp)
 		{
 			// Only now that a lift is actually going to happen — this costs a ray.
 			stepUpLift = ClampStepUpToHeadroom(stepUpLift, dt);
 		}
-		if (useStepUp && stepUpLift > 0f)
+		bool lifted = useStepUp && stepUpLift > 0f;
+		if (lifted)
 		{
 			using var stepUpResult = MoveAndCollide(Vector3.Up * stepUpLift);
 		}
@@ -2243,7 +2244,16 @@ public partial class Player : CharacterBody3D
 		// the speed we approached the ground at — drives the hard-vs-soft land
 		// pick after the grounding logic resolves.
 		float inboundFallSpeed = -Velocity.Y;
+		Vector3 velocityBeforeMove = Velocity;
 		MoveAndSlide();
+		if (lifted && StepLiftLandsOnBlockingProp(StepDownDistance(posBeforeStep)))
+		{
+			// Take the tick again unlifted, so the body slides along the prop
+			// exactly as it would have if no lift had been tried.
+			GlobalPosition = posBeforeStep;
+			Velocity = velocityBeforeMove;
+			MoveAndSlide();
+		}
 
 		if (CVars.debugSlopes.Value)
 		{
@@ -2256,25 +2266,15 @@ public partial class Player : CharacterBody3D
 			HandleDashWallCollisions();
 		}
 
-		// Step down: snap back to the ground after moving. The vertical sweep
-		// distance has to cover stepHeight (matching the step-up at the start
-		// of the tick) PLUS the slope-induced floor drop across this tick's
-		// horizontal motion — on a downhill walk the floor at the new XZ has
-		// moved DOWN by horizDist * tan(slope), and a pure stepHeight sweep
-		// misses it, leaving the player floating one tick. tan(FloorMaxAngle)
-		// gives the worst-case walkable drop, so any walkable slope is caught.
-		// Was the cause of phantom landing sounds and false skate entries on
-		// 45°+ hills.
+		// Step down: snap back to the ground after moving (see StepDownDistance).
 		if (wasOnFloor && _waterState != EWaterState.Swimming)
 		{
-			Vector3 horizDelta = GlobalPosition - posBeforeStep;
-			horizDelta.Y = 0f;
-			float maxSlopeDrop = horizDelta.Length() * Mathf.Tan(FloorMaxAngle);
+			float stepDownDistance = StepDownDistance(posBeforeStep);
 			// Where the probe sweep starts. The body is airborne here whenever
 			// the step-up lifted it, so this is above the ground by construction
 			// — which is what makes it a safe origin for the ray fallback below.
 			float yBeforeProbe = GlobalPosition.Y;
-			using KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * (data.stepHeight + maxSlopeDrop));
+			using KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * stepDownDistance);
 			// Match the body's own floor classifier — same threshold MoveAndSlide
 			// and IsOnFloor use, editor-tunable via FloorMaxAngle on the node.
 			float floorDotMin = Mathf.Cos(FloorMaxAngle);
@@ -2293,7 +2293,7 @@ public partial class Player : CharacterBody3D
 				// before giving up, since a face beside us cannot intercept
 				// that. Floor, open air and a steep face are three different
 				// situations and must not be collapsed into one refusal.
-				EFloorProbe probe = ProbeFloorBelow(yBeforeProbe, data.stepHeight + maxSlopeDrop, out float probedFloorY);
+				EFloorProbe probe = ProbeFloorBelow(yBeforeProbe, stepDownDistance, out float probedFloorY, out _);
 				if (probe == EFloorProbe.Floor)
 				{
 					FallTraceMark("stepdown-probe");
@@ -2318,7 +2318,7 @@ public partial class Player : CharacterBody3D
 					FallTraceMark("stepdown-open");
 					if (CVars.moveBlockDebug.Value)
 					{
-						LogStepDownOutcome("open", stepDownResult, data.stepHeight + maxSlopeDrop);
+						LogStepDownOutcome("open", stepDownResult, stepDownDistance);
 					}
 					StepDownWalkOff(posBeforeStep);
 					if (CVars.debugSlopes.Value)
@@ -2338,7 +2338,7 @@ public partial class Player : CharacterBody3D
 					FallTraceMark("stepdown-revert");
 					if (CVars.moveBlockDebug.Value)
 					{
-						LogStepDownOutcome("revert", stepDownResult, data.stepHeight + maxSlopeDrop);
+						LogStepDownOutcome("revert", stepDownResult, stepDownDistance);
 					}
 					GlobalPosition = posBeforeStep;
 					_grounded = true;
@@ -2360,7 +2360,7 @@ public partial class Player : CharacterBody3D
 					FallTraceMark("stepdown-steep");
 					if (CVars.moveBlockDebug.Value)
 					{
-						LogStepDownOutcome("steep", stepDownResult, data.stepHeight + maxSlopeDrop);
+						LogStepDownOutcome("steep", stepDownResult, stepDownDistance);
 					}
 					StepDownWalkOff(posBeforeStep);
 					if (CVars.debugSlopes.Value)
@@ -2385,7 +2385,7 @@ public partial class Player : CharacterBody3D
 				// went airborne with the floor still under it.
 				if (CVars.moveBlockDebug.Value)
 				{
-					LogStepDownOutcome("nohit", stepDownResult, data.stepHeight + maxSlopeDrop);
+					LogStepDownOutcome("nohit", stepDownResult, stepDownDistance);
 				}
 				if (IsBodyIntersecting())
 				{
@@ -2538,15 +2538,21 @@ public partial class Player : CharacterBody3D
 	// actually underfoot. Cast from the pre-sweep height (the body is airborne
 	// there whenever the step-up lifted it) down the same distance the sweep had.
 	// Masks Solid, so ledge barriers can never answer as ground.
-	private EFloorProbe ProbeFloorBelow(float fromY, float distance, out float floorY)
+	private EFloorProbe ProbeFloorBelow(float fromY, float distance, out float floorY, out GodotObject floorCollider)
 	{
 		floorY = 0f;
+		floorCollider = null;
 		Vector3 from = new(GlobalPosition.X, fromY + FloorProbeLift, GlobalPosition.Z);
 		Vector3 to = from + Vector3.Down * (distance + FloorProbeLift);
 		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
-		Godot.Collections.Dictionary hit = GetWorld3D().DirectSpaceState.IntersectRay(query);
+		PhysicsDirectSpaceState3D space = GetWorld3D().DirectSpaceState;
+		Godot.Collections.Dictionary hit = space.IntersectRay(query);
 		if (hit.Count == 0)
 		{
+			if (CVars.moveBlockDebug.Value)
+			{
+				LogOpenFloorProbe(space, query, from, to);
+			}
 			return EFloorProbe.Open;
 		}
 		if (hit["normal"].AsVector3().Dot(Vector3.Up) < Mathf.Cos(FloorMaxAngle))
@@ -2554,7 +2560,68 @@ public partial class Player : CharacterBody3D
 			return EFloorProbe.Steep;
 		}
 		floorY = hit["position"].AsVector3().Y;
+		floorCollider = hit["collider"].As<GodotObject>();
 		return EFloorProbe.Floor;
+	}
+
+	// An Open probe while the body overlaps something contradicts itself. The
+	// retest with HitFromInside says whether the ray started inside a collider
+	// and so never reported it.
+	private void LogOpenFloorProbe(PhysicsDirectSpaceState3D space, PhysicsRayQueryParameters3D query,
+		Vector3 from, Vector3 to)
+	{
+		query.HitFromInside = true;
+		Godot.Collections.Dictionary inside = space.IntersectRay(query);
+		query.HitFromInside = false;
+		string insideDesc = inside.Count == 0
+			? "<none>"
+			: $"{DescribeCollider(inside["collider"].As<GodotObject>())} at {inside["position"].AsVector3()}";
+		GD.Print($"[move_block] floor probe open from ({from.X:F2},{from.Y:F2},{from.Z:F2})"
+			+ $" to y={to.Y:F2}; retest hitFromInside={insideDesc}");
+	}
+
+	// How far the step-down sweeps: stepHeight (matching the step-up at the start
+	// of the tick) PLUS the slope-induced floor drop across this tick's horizontal
+	// motion — on a downhill walk the floor at the new XZ has moved DOWN by
+	// horizDist * tan(slope), and a pure stepHeight sweep misses it, leaving the
+	// player floating one tick. tan(FloorMaxAngle) is the worst walkable drop.
+	private float StepDownDistance(Vector3 posBeforeStep)
+	{
+		Vector3 horizDelta = GlobalPosition - posBeforeStep;
+		horizDelta.Y = 0f;
+		return data.stepHeight + horizDelta.Length() * Mathf.Tan(FloorMaxAngle);
+	}
+
+	// A prop the step-up lift must not put the player on. The lift is blind
+	// geometry that hoists the body onto anything shorter than stepHeight, so a
+	// prop opts in (PorousBody.steppable) and everything else is refused.
+	private static bool IsBlockingProp(GodotObject collider)
+	{
+		return collider is PorousBody prop && !prop.steppable;
+	}
+
+	// Would the step-down after this lifted move leave the player on (or inside)
+	// a blocking prop? A test-only copy of the step-down's own sweep, so it
+	// predicts the real one rather than approximating it.
+	//
+	// A sweep that stops on the prop's FLANK is not a landing on terrain beside
+	// it: the real step-down then re-probes along the body's axis, and when that
+	// finds no floor it keeps the lifted horizontal carry and drops the body
+	// back to stance height — inside the prop, from where depenetration pops it
+	// out on top. So a flank hit is refused unless the axis finds real floor.
+	private bool StepLiftLandsOnBlockingProp(float sweepDistance)
+	{
+		using KinematicCollision3D hit = MoveAndCollide(Vector3.Down * sweepDistance, testOnly: true);
+		if (hit == null || !IsBlockingProp(hit.GetCollider()))
+		{
+			return false;
+		}
+		if (hit.GetNormal().Dot(Vector3.Up) >= Mathf.Cos(FloorMaxAngle))
+		{
+			return true;
+		}
+		EFloorProbe probe = ProbeFloorBelow(GlobalPosition.Y, sweepDistance, out _, out GodotObject floorCollider);
+		return probe != EFloorProbe.Floor || IsBlockingProp(floorCollider);
 	}
 
 	// Resolve a step-down that found no floor as walking off an edge: keep the
@@ -2598,9 +2665,8 @@ public partial class Player : CharacterBody3D
 	//
 	// TestMove is a query — it never moves the body, so there is no rewind and
 	// nothing downstream (step-down, grounding, land sounds) has to change.
-	// Reach floors at stepProbeReach for the same reason the step-up ray does:
-	// one tick of travel is shorter than the recovery margin, and a wall has to
-	// be seen before we are flush against it.
+	// Reach floors at stepProbeReach: one tick of travel is shorter than the
+	// recovery margin, and a wall has to be seen before we are flush against it.
 	private bool IsFlatMoveBlocked(float dt)
 	{
 		Vector3 dir = new(Velocity.X, 0f, Velocity.Z);
@@ -2747,36 +2813,6 @@ public partial class Player : CharacterBody3D
 		}
 		float ceilingY = ((Vector3)hit["position"]).Y;
 		return Mathf.Max(0f, ceilingY - data.stepUpCeilingClearance - from.Y);
-	}
-
-	// Gate for the per-tick step-up lift. The lift itself is blind geometry —
-	// it hoists the player onto anything shorter than stepHeight — so probe
-	// what the knees are about to meet and let that surface decide. Terrain and
-	// world walls are always steppable; a prop opts in via PorousBody.steppable,
-	// so by default the player bumps into a bed instead of walking up it (and
-	// MoveAndSlide then slides them along its flank).
-	//
-	// Only the FIRST hit along the ray matters — whatever is actually in the
-	// way is what a lift would climb. The ray masks Solid and the player is on
-	// the Player layer, so it can't self-hit.
-	private bool CanStepUpAhead()
-	{
-		Vector3 dir = new(Velocity.X, 0f, Velocity.Z);
-		if (dir.LengthSquared() < 0.0001f)
-		{
-			return true;
-		}
-		dir = dir.Normalized();
-		float radius = _movementCollision?.Shape is CapsuleShape3D capsule ? capsule.Radius : 0f;
-		Vector3 from = GlobalPosition + Vector3.Up * data.stepProbeHeight;
-		Vector3 to = from + dir * (radius + data.stepProbeReach);
-		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
-		Godot.Collections.Dictionary hit = GetWorld3D().DirectSpaceState.IntersectRay(query);
-		if (hit.Count == 0)
-		{
-			return true;
-		}
-		return hit["collider"].As<GodotObject>() is not PorousBody prop || prop.steppable;
 	}
 
 	bool TryGetWeaponState(EInventorySlot slot, out WeaponState weapon)

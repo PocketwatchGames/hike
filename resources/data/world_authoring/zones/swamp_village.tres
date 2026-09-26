@@ -25,4 +25,3 @@ waterOpacity = 0.75
 dustAmount = 0.15
 weather = SubResource("Resource_weather")
 ambience = ExtResource("1_6gauu")
-canSpawnFairy = true

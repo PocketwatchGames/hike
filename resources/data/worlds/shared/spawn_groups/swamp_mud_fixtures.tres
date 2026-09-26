@@ -12,4 +12,5 @@ initialBehavior = null
 [resource]
 script = ExtResource("2_group")
 rows = Array[ExtResource("grouprow")]([SubResource("Row_Stone_mud")])
+disabledVariable = null
 metadata/_custom_type_script = "uid://ci23e7ltpsb6o"

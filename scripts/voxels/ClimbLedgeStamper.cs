@@ -200,7 +200,7 @@ public static class ClimbLedgeStamper
                 var placement = new Transform3D(
                     Basis.FromEuler(new Vector3(0f, state.RotationY, 0f)).Scaled(Vector3.One * state.Scale),
                     state.WorldPosition);
-                int floorY = Mathf.FloorToInt(state.WorldPosition.Y);
+                int floorY = PropSimState.StandingRow(world, state.WorldPosition);
                 for (int c = 0; c < colliders.Length; c++)
                 {
                     cells.Clear();

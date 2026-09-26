@@ -22,6 +22,7 @@ type = 64
 script = ExtResource("4_event")
 time = 300
 type = 8192
+impactDecibels = 0.7
 impactEnvironmentEffect = ExtResource("7_impact")
 impactHealthEffect = ExtResource("7_impact")
 impactArmorEffect = ExtResource("7_impact")

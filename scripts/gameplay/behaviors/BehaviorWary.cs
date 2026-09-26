@@ -21,11 +21,10 @@ public partial class BehaviorWary : BehaviorBase
         _data = data;
     }
 
-    // Halt any in-progress follow goal and vocalize immediately on entering the
-    // wary state (re-entry from a re-perceived threat re-arms the first cry).
+    // Vocalize immediately on entering the wary state (re-entry from a
+    // re-perceived threat re-arms the first cry).
     public override void OnEnter(Mob me, ulong time)
     {
-        me.Navigator?.Stop();
         _nextVocalizeMs = time;
         if (CVars.companionDebug.Value)
         {

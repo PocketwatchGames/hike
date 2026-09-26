@@ -140,6 +140,7 @@ public static class ItemEventHandlers
 		// has closed having never connected — an empty tick mid-window is just a
 		// tick the volume happened to be over nothing.
 		bool whiffed = bestResult == EHitResult.None && windowEnd && !connectedBefore;
+		bool struckEnvironment = false;
 		if (whiffed)
 		{
 			// No hurtbox hit — fall back to environment so a swing into a wall
@@ -153,6 +154,7 @@ public static class ItemEventHandlers
 			};
 			if (world3D.DirectSpaceState.IntersectShape(envQuery, maxResults: 1).Count > 0)
 			{
+				struckEnvironment = true;
 				SpawnImpact(actor, ev.impactEnvironmentEffect, damagePos);
 			}
 			else
@@ -172,6 +174,10 @@ public static class ItemEventHandlers
 		if (!whiffed && (connectedBefore || bestResult == EHitResult.None))
 		{
 			return;
+		}
+		if (bestResult != EHitResult.None || struckEnvironment)
+		{
+			EmitImpactNoise(actor, ev, impactPos);
 		}
 		// Status-effect on-impact bursts (elite lightning aura, shock enchant,
 		// etc.) fire at the swing's resolved impact point — the best hurtbox
@@ -444,6 +450,11 @@ public static class ItemEventHandlers
 				// branch keys on _initialImpulse != Vector3.Zero).
 				Sim.Current.SpawnArrowLoot(hitPos, BuildArrowEjectImpulse(), shootingWeapon.data.arrowLootData, shootingWeapon);
 			}
+		}
+
+		if (hitResult != EHitResult.None || envResult.Count > 0)
+		{
+			EmitImpactNoise(actor, ev, hitPos);
 		}
 
 		// Status-effect on-impact bursts fire at the resolved hit point —
@@ -742,6 +753,7 @@ public static class ItemEventHandlers
 			backstab = tier?.impactBackstabEffect,
 			sourceWeapon = firingWeapon,
 			arrowLootData = arrowLootData,
+			impactDecibels = ev.impactDecibels,
 		};
 
 		// Flat shots recompute their spread per shot inside the launch loop below;
@@ -1126,7 +1138,7 @@ public static class ItemEventHandlers
 	// future "fire at a point" sources). Subset of DispatchEvent because
 	// most handlers need an action context (selectedTier, primaryItem,
 	// chargeT, etc.) we don't have here. Supports AreaBurst, SpawnAreaEffect,
-	// CameraShake and ScreenFlash — the "arcing shot lands → burst at the
+	// CameraShake, ScreenFlash and Noise — the "arcing shot lands → burst at the
 	// landing point" path. Other handlers no-op silently; their authored fields
 	// on the nested event just get ignored. `source` is the shooter, or null
 	// once it is gone.
@@ -1170,6 +1182,10 @@ public static class ItemEventHandlers
 		if ((ev.type & EItemEventType.ScreenFlash) != 0)
 		{
 			ScreenEffectsController.Current?.Flash(ev.screenFlashColor, ev.screenFlashIntensity, ev.screenFlashFadeSeconds);
+		}
+		if ((ev.type & EItemEventType.Noise) != 0)
+		{
+			Sim.Current?.CreateNoiseEvent(position, ev.noiseDecibels, source as Node3D, ENoiseAudience.All);
 		}
 	}
 
@@ -1849,6 +1865,17 @@ public static class ItemEventHandlers
 	private static void SpawnImpact(IActionActor actor, PackedScene scene, Vector3 position)
 	{
 		SpawnAtWorld(actor, scene, position);
+	}
+
+	public static void DoNoise(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		Sim.Current?.CreateNoiseEvent(actor.ActorWorldPosition, ev.noiseDecibels, actor.AttackerNode, ENoiseAudience.All);
+	}
+
+	// Audience All: a player's strike alerts mobs, a mob's draws the player's eye.
+	private static void EmitImpactNoise(IActionActor actor, ItemEvent ev, Vector3 position)
+	{
+		Sim.Current?.CreateNoiseEvent(position, ev.impactDecibels, actor.AttackerNode, ENoiseAudience.All);
 	}
 
 	// Spawn the tier's crit / backstab overlays on top of the base impact fx.

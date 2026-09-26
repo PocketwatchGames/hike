@@ -40,7 +40,7 @@ intro_patron2		Patron		greeting					Mmm I can’t get enough of this stew. The 1 p
 intro_patron3		Patron		greeting					I hear the innkeeper cooks the stew for 6 hours.
 intro_mayor_assistant1		Seer’s Assistant		greeting					Hello.
 intro_mayor_assistant2		Seer’s Assistant		greeting					Salutations.
-intro_wanderer		Wanderer		greeting					I’ve been to the swamp. It’s hot.
+									
 intro_watchman		Watchman		entry	greeting_busy		npcvar:customs=true		
 				entry	greeting				
 				greeting	greeting_response				Who goes there?
@@ -54,3 +54,4 @@ intro_watchman		Watchman		entry	greeting_busy		npcvar:customs=true
 swamp_witch		Swamp Witch		greeting	shop				Oooh what’s this come crawlin outta the mud I see?
 									Come a little closer tadpole! Do ya have anything shiny?
 			x	shop				open_shop	Shall we trade?
+intro_wanderer		Wanderer		greeting					Gate’s closed, friend

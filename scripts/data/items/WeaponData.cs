@@ -234,6 +234,11 @@ public partial class WeaponData : ItemData
 	// shake). Per-weapon so a knife's deflection can read differently from a
 	// club's. Null = no fx (the PARRIED! HUD text still shows).
 	[Export] public PackedScene parryEffect;
+	// Noise a block / parry with this weapon makes at the blocker
+	// (Sim.CreateNoiseEvent; see ItemEvent.impactDecibels for the scale), raising
+	// nearby mobs' perception of the player. 0 = silent.
+	[Export] public float blockDecibels = 0f;
+	[Export] public float parryDecibels = 0f;
 
 	public override ItemState CreateState()
 	{

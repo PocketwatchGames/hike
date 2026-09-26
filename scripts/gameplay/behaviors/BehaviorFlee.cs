@@ -4,6 +4,7 @@ public partial class BehaviorFlee : BehaviorBase
 {
     private const float PathSuccessDistance = 1f;
     private const float FleeSpeed = 1f;
+    private const float FleeArrivalDistance = 0.5f;
 
     private readonly FleeBehaviorData _data;
     private ulong _pauseUntilMs;
@@ -84,14 +85,17 @@ public partial class BehaviorFlee : BehaviorBase
         {
             Vector3 toPoint = _fleePoint.Value - me.GlobalPosition;
             toPoint.Y = 0f;
-            if (toPoint.Length() > PathSuccessDistance && time < _pathTimeoutMs)
+            // A flee point the pathfinder can't reach ends the leg early, the
+            // same as the timeout: pick another direction after the pause.
+            bool blocked = me.Navigator == null || me.Navigator.IsBlocked;
+            if (toPoint.Length() > PathSuccessDistance && time < _pathTimeoutMs && !blocked)
             {
-                output.pathTarget = _fleePoint.Value;
+                me.Navigator.Goto(_fleePoint.Value, FleeArrivalDistance);
                 output.speed = FleeSpeed;
-                output.pathSuccessDistance = 0.5f;
             }
             else
             {
+                me.Navigator?.Stop();
                 double pauseSeconds = GD.RandRange((double)_data.pauseTimeRange.X, (double)_data.pauseTimeRange.Y);
                 _pauseUntilMs = time + (ulong)(pauseSeconds * 1000.0);
                 _fleePoint = null;

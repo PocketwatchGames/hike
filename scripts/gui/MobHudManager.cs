@@ -65,7 +65,8 @@ public partial class MobHudManager : Node
         // every mob to hold a HUD. Read the cvars once, not per mob.
         bool debugOverlays = CVars.debugPlayerPerception.Value
             || CVars.debugMobPerception.Value
-            || CVars.debugMobPosition.Value;
+            || CVars.debugMobPosition.Value
+            || CVars.debugMobBehavior.Value;
 
         for (int i = _mobs.Count - 1; i >= 0; i--)
         {

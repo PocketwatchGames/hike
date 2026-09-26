@@ -54,6 +54,14 @@ public static class NavGridDebug
     private static readonly Color WaterColor = new(0.2f, 0.7f, 1f);
     private static readonly Color HazardColor = new(1f, 0.2f, 1f);
     private static readonly Color RejectColor = new(1f, 0.2f, 0.2f);
+    private static readonly Color FootprintColor = new(1f, 1f, 1f);
+    private static readonly Color InflatedColor = new(0.55f, 0.55f, 0.55f);
+
+    // Entities whose origin is this far outside the drawn window still have
+    // their colliders drawn — a big bush centred just off-window reaches in.
+    private const float FootprintEntityReach = 3f;
+    private const float FootprintLift = 0.1f;
+    private const int FootprintCircleSegments = 24;
 
     // profileOverride pins the drawn field to a specific body. The game passes
     // the PLAYER's profile so the overlay shows the exact cells the ledge guard
@@ -110,6 +118,140 @@ public static class NavGridDebug
                 }
             }
         }
+
+        DrawColliderFootprints(sim, center, profile.clearanceRadius);
+    }
+
+    // The real XZ footprint of every path-blocking collider in the window
+    // (white), and the same footprint grown by the profile's body radius
+    // (grey) — the region a body CENTER of that radius cannot enter. A green
+    // cell whose centre sits inside a grey outline is one the grid calls
+    // walkable but physics will refuse: the snag. Trimeshes draw as their XZ
+    // bounding box, so their outline over-reports the corners.
+    private static void DrawColliderFootprints(Sim sim, Vector3 center, float bodyRadius)
+    {
+        float reachSq = (RadiusVoxels + FootprintEntityReach) * (RadiusVoxels + FootprintEntityReach);
+        foreach (Node3D entity in sim.GetEntities<Node3D>())
+        {
+            Vector3 p = entity.GlobalPosition;
+            float dx = p.X - center.X;
+            float dz = p.Z - center.Z;
+            if (dx * dx + dz * dz > reachSq)
+            {
+                continue;
+            }
+            DrawFootprintsUnder(entity, p.Y + FootprintLift, bodyRadius);
+        }
+    }
+
+    // Same body filter as PathBlockerRasterizer: only Solid-layer bodies block.
+    private static void DrawFootprintsUnder(Node node, float y, float bodyRadius)
+    {
+        if (node is CollisionObject3D body && (body.CollisionLayer & (uint)ECollisionLayer.Solid) != 0)
+        {
+            foreach (Node child in body.GetChildren())
+            {
+                if (child is CollisionShape3D cs && cs.Shape != null && !cs.Disabled)
+                {
+                    DrawShapeFootprint(cs.Shape, cs.GlobalTransform, y, bodyRadius);
+                }
+            }
+        }
+        foreach (Node child in node.GetChildren())
+        {
+            DrawFootprintsUnder(child, y, bodyRadius);
+        }
+    }
+
+    private static void DrawShapeFootprint(Shape3D shape, Transform3D xform, float y, float bodyRadius)
+    {
+        Vector3 o = xform.Origin;
+        switch (shape)
+        {
+            case CylinderShape3D cyl:
+                DrawCircleXz(o.X, y, o.Z, cyl.Radius, FootprintColor);
+                DrawCircleXz(o.X, y, o.Z, cyl.Radius + bodyRadius, InflatedColor);
+                break;
+            case SphereShape3D sph:
+                DrawCircleXz(o.X, y, o.Z, sph.Radius, FootprintColor);
+                DrawCircleXz(o.X, y, o.Z, sph.Radius + bodyRadius, InflatedColor);
+                break;
+            case CapsuleShape3D cap:
+                DrawCircleXz(o.X, y, o.Z, cap.Radius, FootprintColor);
+                DrawCircleXz(o.X, y, o.Z, cap.Radius + bodyRadius, InflatedColor);
+                break;
+            case BoxShape3D box:
+            {
+                Vector3 h = box.Size * 0.5f;
+                Vector3 bx = xform.Basis.X.Normalized();
+                Vector3 bz = xform.Basis.Z.Normalized();
+                float sx = xform.Basis.X.Length() * h.X;
+                float sz = xform.Basis.Z.Length() * h.Z;
+                DrawBoxXz(o, bx * sx, bz * sz, y, FootprintColor);
+                DrawBoxXz(o, bx * (sx + bodyRadius), bz * (sz + bodyRadius), y, InflatedColor);
+                break;
+            }
+            case ConcavePolygonShape3D concave:
+            {
+                Vector3[] verts = concave.Data;
+                if (verts == null || verts.Length == 0)
+                {
+                    break;
+                }
+                float minX = float.MaxValue;
+                float maxX = float.MinValue;
+                float minZ = float.MaxValue;
+                float maxZ = float.MinValue;
+                for (int i = 0; i < verts.Length; i++)
+                {
+                    Vector3 w = xform * verts[i];
+                    minX = Mathf.Min(minX, w.X);
+                    maxX = Mathf.Max(maxX, w.X);
+                    minZ = Mathf.Min(minZ, w.Z);
+                    maxZ = Mathf.Max(maxZ, w.Z);
+                }
+                DrawRectXz(minX, maxX, minZ, maxZ, y, FootprintColor);
+                DrawRectXz(minX - bodyRadius, maxX + bodyRadius, minZ - bodyRadius, maxZ + bodyRadius, y, InflatedColor);
+                break;
+            }
+        }
+    }
+
+    private static void DrawCircleXz(float cx, float y, float cz, float radius, Color color)
+    {
+        float step = Mathf.Tau / FootprintCircleSegments;
+        for (int i = 0; i < FootprintCircleSegments; i++)
+        {
+            float a0 = i * step;
+            float a1 = a0 + step;
+            DebugDraw.Line(
+                new Vector3(cx + Mathf.Cos(a0) * radius, y, cz + Mathf.Sin(a0) * radius),
+                new Vector3(cx + Mathf.Cos(a1) * radius, y, cz + Mathf.Sin(a1) * radius),
+                color);
+        }
+    }
+
+    private static void DrawBoxXz(Vector3 o, Vector3 halfX, Vector3 halfZ, float y, Color color)
+    {
+        DrawQuadXz(o - halfX - halfZ, o + halfX - halfZ, o + halfX + halfZ, o - halfX + halfZ, y, color);
+    }
+
+    private static void DrawRectXz(float minX, float maxX, float minZ, float maxZ, float y, Color color)
+    {
+        DrawQuadXz(new Vector3(minX, y, minZ), new Vector3(maxX, y, minZ),
+            new Vector3(maxX, y, maxZ), new Vector3(minX, y, maxZ), y, color);
+    }
+
+    private static void DrawQuadXz(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float y, Color color)
+    {
+        a.Y = y;
+        b.Y = y;
+        c.Y = y;
+        d.Y = y;
+        DebugDraw.Line(a, b, color);
+        DebugDraw.Line(b, c, color);
+        DebugDraw.Line(c, d, color);
+        DebugDraw.Line(d, a, color);
     }
 
     // Nearest loaded mob's profile, or the default ground walker if none. The

@@ -32,6 +32,7 @@ motionFreezeGravity = false
 script = ExtResource("4_event")
 time = 250
 type = 1
+impactDecibels = 1.2
 range = 3.5
 farWidth = 3.0
 meleeDuration = 0.2

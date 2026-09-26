@@ -29,14 +29,14 @@ public partial class BehaviorFollow : BehaviorBase
 
         Vector3 toMaster = master.GlobalPosition - me.GlobalPosition;
         toMaster.Y = 0f;
-        if (toMaster.LengthSquared() > _data.followDistance * _data.followDistance)
+        if (toMaster.LengthSquared() > _data.followDistance * _data.followDistance && me.Navigator != null)
         {
-            output.pathTarget = master.GlobalPosition;
+            me.Navigator.Goto(master.GlobalPosition, _data.stopDistance);
             output.speed = _data.followSpeed;
-            output.pathSuccessDistance = _data.stopDistance;
         }
         else
         {
+            me.Navigator?.Stop();
             output.speed = 0f;
             if (toMaster.LengthSquared() > 0.0001f)
             {

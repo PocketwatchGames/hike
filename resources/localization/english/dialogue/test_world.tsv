@@ -53,8 +53,6 @@ intro_mayor_assistant1_description	Seer’s Assistant
 intro_mayor_assistant1_greeting_01	Hello.
 intro_mayor_assistant2_description	Seer’s Assistant
 intro_mayor_assistant2_greeting_01	Salutations.
-intro_wanderer_description	Wanderer
-intro_wanderer_greeting_01	I’ve been to the swamp. It’s hot.
 intro_watchman_description	Watchman
 intro_watchman_greeting_01	Who goes there?
 intro_watchman_greeting_response_common	I… I don’t know where I am.
@@ -68,3 +66,5 @@ swamp_witch_description	Swamp Witch
 swamp_witch_greeting_01	Oooh what’s this come crawlin outta the mud I see?
 swamp_witch_greeting_02	Come a little closer tadpole! Do ya have anything shiny?
 swamp_witch_shop_end	Shall we trade?
+intro_wanderer_description	Wanderer
+intro_wanderer_greeting_01	Gate’s closed, friend

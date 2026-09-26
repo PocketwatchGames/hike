@@ -6,10 +6,10 @@ using Godot;
 // just attacked skips the stare and bolts. Re-engages (transition back to
 // Attack via AggroAcquiredCondition) the instant the player leaves safety.
 //
-// Straight-line away-points (like BehaviorFlee) rather than A* home-pathing:
-// the whole point is to move away from the player, not to reach a spawn post
-// that may be unreachable across water/terrain (the failure mode the old
-// idle-return had in the swamp).
+// Away-points (like BehaviorFlee) rather than home-pathing: the whole point is
+// to move away from the player, not to reach a spawn post that may be
+// unreachable across water/terrain. Each leg is still routed by the navigator
+// on the ground; an unreachable one is dropped and re-picked.
 public partial class BehaviorRetreat : BehaviorBase
 {
     private const float PathSuccessDistance = 1f;
@@ -32,7 +32,6 @@ public partial class BehaviorRetreat : BehaviorBase
         // safety means run, not gawk.
         bool justHit = time - me.LastDamagedMs < (ulong)(_data.recentDamageSeconds * 1000f);
         _stareUntilMs = justHit ? 0 : time + (ulong)(_data.stareSeconds * 1000f);
-        me.Navigator?.Stop();
         // A flier that was resting must take off before it can move away.
         if (me.mobData?.CanFly == true)
         {
@@ -115,10 +114,23 @@ public partial class BehaviorRetreat : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.Running);
         }
 
-        output.pathTarget = _awayPoint.Value;
         output.speed = _data.retreatSpeed;
-        output.pathSuccessDistance = PathSuccessDistance;
         output.airborne = flying;
+        if (flying)
+        {
+            // Airborne steering is 3D and doesn't use the ground navigator.
+            output.pathTarget = _awayPoint.Value;
+            output.pathSuccessDistance = PathSuccessDistance;
+            return new BehaviorOutput(EBehaviorResult.Running);
+        }
+        if (me.Navigator == null || me.Navigator.IsBlocked)
+        {
+            // Unreachable away-point: pick another next tick.
+            me.Navigator?.Stop();
+            _awayPoint = null;
+            return new BehaviorOutput(EBehaviorResult.Running);
+        }
+        me.Navigator.Goto(_awayPoint.Value, PathSuccessDistance);
         return new BehaviorOutput(EBehaviorResult.Running);
     }
 }

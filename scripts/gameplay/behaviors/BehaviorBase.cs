@@ -26,6 +26,13 @@ public partial class BehaviorBase
         return new BehaviorOutput(EBehaviorResult.Complete);
     }
 
+    // debug_mob_behavior: this behavior's own cross-tick state, or null when it
+    // keeps none worth showing.
+    public virtual string DebugStatus(ulong time)
+    {
+        return null;
+    }
+
     protected bool TryTransitions(Mob me, ulong time, ref PerceptionState targetPerception, out StringName destination)
     {
         foreach (BehaviorNodeTransition t in behaviorNode.transitions)

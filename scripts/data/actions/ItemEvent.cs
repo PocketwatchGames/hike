@@ -187,6 +187,10 @@ public partial class ItemEvent : Resource
 	[Export(PropertyHint.Range, "0,1,0.01")] public float screenFlashIntensity = 0.5f;
 	[Export] public float screenFlashFadeSeconds = 0.3f;
 
+	// Noise: loudness of the event, in impactDecibels' currency. See
+	// EItemEventType.Noise.
+	[Export] public float noiseDecibels = 0f;
+
 	// Per-event impact one-shots spawned by the Melee/Hitscan handlers based
 	// on what the swing/ray hit. Authored on the event so a single weapon can
 	// give light vs heavy attacks distinct impact signatures, and so mob
@@ -197,6 +201,14 @@ public partial class ItemEvent : Resource
 	[Export] public PackedScene impactHealthEffect;
 	[Export] public PackedScene impactArmorEffect;
 	[Export] public PackedScene impactLethalEffect;
+	// Noise the impact makes (Sim.CreateNoiseEvent), once per swing / shot at the
+	// impact point, when it strikes a creature, a prop or terrain — a swing through
+	// empty air and a shot that expires in flight are silent. Same currency as
+	// movement noise: audible distance = decibels * the listener's hearingRange
+	// (15m for a typical mob), so running at 0.5 carries ~7.5m. A player's impact
+	// raises mobs' perception of the player; a mob's raises the player's awareness
+	// of that mob. 0 = silent.
+	[Export] public float impactDecibels = 0f;
 
 	// AreaBurst: the instant blast — damage, radius and fx in one. See
 	// EItemEventType.AreaBurst.
@@ -433,7 +445,8 @@ public partial class ItemEvent : Resource
 				or nameof(impactEnvironmentEffect)
 				or nameof(impactHealthEffect)
 				or nameof(impactArmorEffect)
-				or nameof(impactLethalEffect) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile,
+				or nameof(impactLethalEffect)
+				or nameof(impactDecibels) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile,
 			nameof(projectileScene)
 				or nameof(projectileSpeed)
 				or nameof(projectileLifetimeSeconds)
@@ -467,6 +480,7 @@ public partial class ItemEvent : Resource
 			nameof(screenFlashColor)
 				or nameof(screenFlashIntensity)
 				or nameof(screenFlashFadeSeconds) => EItemEventType.ScreenFlash,
+			nameof(noiseDecibels) => EItemEventType.Noise,
 			nameof(digRadius) or nameof(digReach)
 				or nameof(digNothingEffect)
 				or nameof(digCommonEffect)

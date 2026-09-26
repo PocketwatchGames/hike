@@ -72,6 +72,15 @@ public struct PerceptionDebug
     // Blocked = raycast ran and hit; Unchecked = no raycast (out of range or
     // below the perception floor — we never looked).
     public EPerceptionLos los;
+    // When Blocked: what the sightline hit, and where.
+    public GodotObject losBlocker;
+    public Vector3 losHitPoint;
+    // Height of the sightline above the feet of its lower end, for reading the
+    // hit height against.
+    public float losRayHeight;
+    public float losLowerFeetY;
+    public Vector3 losFrom;
+    public Vector3 losTo;
 }
 
 
@@ -393,6 +402,12 @@ public partial class Mob
                     {
                         visionDelta = 0f;
                         visionLos = EPerceptionLos.Blocked;
+                        mobToPlayerDebug.losBlocker = result["collider"].AsGodotObject();
+                        mobToPlayerDebug.losHitPoint = result["position"].AsVector3();
+                        mobToPlayerDebug.losRayHeight = eyeHeight;
+                        mobToPlayerDebug.losLowerFeetY = Mathf.Min(GlobalPosition.Y, _world.player.GlobalPosition.Y);
+                        mobToPlayerDebug.losFrom = rayStart;
+                        mobToPlayerDebug.losTo = rayEnd;
                     }
                     else
                     {

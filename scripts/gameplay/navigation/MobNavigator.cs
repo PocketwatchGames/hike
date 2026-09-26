@@ -105,6 +105,42 @@ public class MobNavigator
     private int _waypointIndex;
 
     public State CurrentState => _state;
+
+    // debug_mob_behavior: what the last repath and the last wander pick did.
+    // A failed pick leaves _goal where the previous leg put it, so a mob can
+    // "arrive" instantly and stand still with nothing else showing why.
+    public enum EPlanResult
+    {
+        None,
+        Path,
+        NoPath,
+        NoWalkableGoal,
+        GoalAtMob,
+    }
+    public enum EWanderPickResult
+    {
+        None,
+        Picked,
+        OffGrid,
+        NoStartLayer,
+        NoStep,
+    }
+    public struct WanderPickDebug
+    {
+        public EWanderPickResult result;
+        public int steps;
+        // Neighbour cells refused across the whole walk, by reason.
+        public int rejectWater;
+        public int rejectHazard;
+        public int rejectStep;
+        public int rejectLeash;
+    }
+    public EPlanResult LastPlan => _lastPlan;
+    public WanderPickDebug LastWanderPick => _lastWanderPick;
+    public float WanderRadius => _wanderRadius;
+    public Vector3 WanderCenter => _wanderCenter;
+    private EPlanResult _lastPlan;
+    private WanderPickDebug _lastWanderPick;
     public bool HasArrived => _arrived;
     public bool IsBlocked => _blocked;
     public Vector3 Goal => _goal;
@@ -452,26 +488,6 @@ public class MobNavigator
         return true;
     }
 
-    // Could the mob WALK from where it stands to `toWorld` in a straight line —
-    // no gap, no step taller than it can climb, nothing its own A* would refuse?
-    // The lunge gate asks this: an attack that darts the body forward is a
-    // committed displacement, so it must not be thrown at ground the mob could
-    // not have reached on foot, or the dart carries it off a ledge the
-    // pathfinder would never have routed it over.
-    //
-    // Samples the grid first rather than trusting the resident one. That is
-    // refreshed on the repath cadence and stops refreshing entirely once the mob
-    // arrives at its standoff slot (WriteSteering early-outs on _arrived), and a
-    // mob that has never navigated has no grid at all — both would answer "no"
-    // for the wrong reason and mute the attack permanently. The sample is a
-    // memcpy out of SharedWalkabilityCache in the common case, and this is asked
-    // once per attack commit, not per tick.
-    public bool CanWalkStraightTo(Vector3 toWorld)
-    {
-        RefreshGrid();
-        return GridLineClear(_mob.GlobalPosition, toWorld);
-    }
-
     // Line-of-sight test on the resident walkability grid: can the mob walk a
     // straight line from `fromWorld` to `toWorld` without leaving walkable
     // ground or crossing a step taller than it can climb? Used by the
@@ -571,6 +587,59 @@ public class MobNavigator
         return i >= 0 && i < size && j >= 0 && j < size;
     }
 
+    // mob_stuck_trace: the column at `worldPos` as this mob's resident grid
+    // saw it, beside a fresh uncached sample and the raw path-blocker cell.
+    // grid≠fresh means the shared cache is stale (a prop registered after the
+    // entry was sampled); walkable with blk=1 cannot happen, so a walkable
+    // cell under a touched prop means the prop's footprint missed the cell.
+    public string DescribeCellForDebug(Vector3 worldPos)
+    {
+        int wx = Mathf.FloorToInt(worldPos.X);
+        int wz = Mathf.FloorToInt(worldPos.Z);
+        int i = wx - _grid.OriginX;
+        int j = wz - _grid.OriginZ;
+        string grid = "off";
+        if (_grid.Size > 0 && InGrid(i, j, _grid.Size))
+        {
+            int layer = _grid.NearestLayer(i, j, worldPos.Y);
+            grid = layer < 0 ? "--" : $"W@{_grid.GetLayer(i, j, layer).surfaceY}";
+        }
+
+        string fresh = "n/a";
+        string blk = "?";
+        Sim w = _mob.Sim;
+        WorldState ws = w?.WorldState;
+        if (ws != null)
+        {
+            WalkabilityCell[] column = new WalkabilityCell[WalkabilityGrid.MaxColumnLayers];
+            WalkabilityGrid.SampleColumn(ws, w, _profile, wx, Mathf.FloorToInt(worldPos.Y), wz, column, 0);
+            fresh = "--";
+            float bestDist = float.MaxValue;
+            for (int layer = 0; layer < WalkabilityGrid.MaxColumnLayers && column[layer].Walkable; layer++)
+            {
+                float d = Mathf.Abs(column[layer].surfaceY - worldPos.Y);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    fresh = $"W@{column[layer].surfaceY}";
+                }
+            }
+            int wy = Mathf.FloorToInt(worldPos.Y + 0.01f);
+            int blocked = 0;
+            for (int h = 0; h < _profile.verticalClearance; h++)
+            {
+                if (w.IsPathBlocked(wx, wy + h, wz))
+                {
+                    blocked = 1;
+                    break;
+                }
+            }
+            blk = blocked.ToString();
+        }
+        string stale = grid != "off" && grid != fresh ? " STALE" : "";
+        return $"cell({wx},{wz}) grid={grid} fresh={fresh} blk={blk}{stale}";
+    }
+
     private void RefreshGrid()
     {
         Vector3 origin = _mob.GlobalPosition;
@@ -611,6 +680,7 @@ public class MobNavigator
             float len = dir.Length();
             if (len < 0.001f)
             {
+                _lastPlan = EPlanResult.GoalAtMob;
                 _waypoints.Clear();
                 _waypointIndex = 0;
                 return;
@@ -628,6 +698,7 @@ public class MobNavigator
                 if (!FindNearestWalkable(gi, gj, out gi, out gj))
                 {
                     _blocked = true;
+                    _lastPlan = EPlanResult.NoWalkableGoal;
                     _waypoints.Clear();
                     _waypointIndex = 0;
                     return;
@@ -644,6 +715,7 @@ public class MobNavigator
             if (!FindNearestWalkable(gi, gj, out gi, out gj))
             {
                 _blocked = true;
+                _lastPlan = EPlanResult.NoWalkableGoal;
                 _waypoints.Clear();
                 _waypointIndex = 0;
                 return;
@@ -658,11 +730,13 @@ public class MobNavigator
             // we can't sample) or couldn't find any forward progress. Fall
             // back to direct steering — the next repath gets another shot.
             _blocked = true;
+            _lastPlan = EPlanResult.NoPath;
             _waypoints.Clear();
             _waypointIndex = 0;
             return;
         }
         _blocked = false;
+        _lastPlan = EPlanResult.Path;
         _waypoints.Clear();
         _waypoints.AddRange(path);
         _waypointIndex = 0;
@@ -725,12 +799,14 @@ public class MobNavigator
     private bool TryPickWanderGoal(out Vector3 point)
     {
         point = default;
+        _lastWanderPick = default;
         Vector3 origin = _mob.GlobalPosition;
         int size = _grid.Size;
         int ci = Mathf.FloorToInt(origin.X) - _grid.OriginX;
         int cj = Mathf.FloorToInt(origin.Z) - _grid.OriginZ;
         if (ci < 0 || ci >= size || cj < 0 || cj >= size)
         {
+            _lastWanderPick.result = EWanderPickResult.OffGrid;
             return false;
         }
         // Start the walk on the stacked surface the mob is actually standing
@@ -739,6 +815,7 @@ public class MobNavigator
         int curLayer = _grid.NearestLayer(ci, cj, origin.Y);
         if (curLayer < 0)
         {
+            _lastWanderPick.result = EWanderPickResult.NoStartLayer;
             return false;
         }
 
@@ -793,12 +870,14 @@ public class MobNavigator
                         WalkabilityCell c = _grid.GetLayer(ni, nj, nLayer);
                         if (c.IsWater && _profile.waterCost > 1f)
                         {
+                            _lastWanderPick.rejectWater++;
                             continue;
                         }
                         // Never let the stroll endpoint land in (or the walk
                         // step onto) a hazard cell — wander routes around them.
                         if (c.IsHazard)
                         {
+                            _lastWanderPick.rejectHazard++;
                             continue;
                         }
                         // No-fall rule: wander never selects a step that would
@@ -810,6 +889,7 @@ public class MobNavigator
                         EStepClass wanderStep = TraversalRule.Classify(_profile, prev.surfaceY, c.surfaceY);
                         if (wanderStep != EStepClass.Walk && wanderStep != EStepClass.Mantle)
                         {
+                            _lastWanderPick.rejectStep++;
                             continue;
                         }
 
@@ -817,6 +897,7 @@ public class MobNavigator
                         Vector2 leashDelta = new Vector2(cellWorld.X - leashCenter.X, cellWorld.Z - leashCenter.Z);
                         if (leashDelta.LengthSquared() > leashRadiusSq)
                         {
+                            _lastWanderPick.rejectLeash++;
                             continue;
                         }
 
@@ -864,6 +945,7 @@ public class MobNavigator
             curI += di[picked];
             curJ += dj[picked];
             curLayer = layerPick[picked];
+            _lastWanderPick.steps++;
 
             // Update heading to this step's direction so subsequent steps
             // bias forward off the new direction. Without this the walk
@@ -879,8 +961,10 @@ public class MobNavigator
 
         if (curI == ci && curJ == cj)
         {
+            _lastWanderPick.result = EWanderPickResult.NoStep;
             return false;
         }
+        _lastWanderPick.result = EWanderPickResult.Picked;
 
         Vector3 chosen = _grid.CellToWorld(curI, curJ, curLayer);
         Vector3 newHeading = chosen - origin;

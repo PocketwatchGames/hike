@@ -64,6 +64,7 @@ initialBehavior = null
 script = ExtResource("9_sy5th")
 scatterRadius = 4.0
 rows = Array[ExtResource("grouprow")]([SubResource("Row_campfire"), SubResource("Row_knowledge_stone")])
+disabledVariable = null
 metadata/_custom_type_script = "uid://ci23e7ltpsb6o"
 
 [sub_resource type="Resource" id="ZoneTerrain_swamp_fire_gen"]

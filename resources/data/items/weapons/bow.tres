@@ -28,7 +28,9 @@
 
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")
-type = 8260
+type = 8396868
+noiseDecibels = 0.15
+impactDecibels = 0.4
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
@@ -59,7 +61,9 @@ impactBackstabEffect = ExtResource("7_hitcreature")
 
 [sub_resource type="Resource" id="Resource_event_full"]
 script = ExtResource("3_event")
-type = 9284
+type = 8397892
+noiseDecibels = 0.15
+impactDecibels = 0.4
 animName = 20
 damageProfileKey = &"charged"
 motionForwardSpeed = -10.0

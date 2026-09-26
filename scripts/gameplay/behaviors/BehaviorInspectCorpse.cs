@@ -45,7 +45,6 @@ public partial class BehaviorInspectCorpse : BehaviorBase
         bool approaching = me.CorpseSighting.HasValue && WillApproach(me, me.CorpseSighting.Value);
         _phaseUntilMs = time + RollSeconds(approaching ? _data.glanceTimeRange : _data.glanceOnlyTimeRange);
         _approachUntilMs = 0;
-        me.Navigator?.Stop();
     }
 
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)

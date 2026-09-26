@@ -14,3 +14,4 @@ initialBehavior = null
 script = ExtResource("2_group")
 scatterRadius = 5.0
 rows = Array[ExtResource("grouprow")]([SubResource("Row_safety_zone")])
+disabledVariable = null

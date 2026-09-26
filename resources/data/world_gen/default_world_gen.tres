@@ -57,6 +57,7 @@ script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
 text = "Crossroads. North to the peaks, west to the wood, east to the dunes, south to the mire."
 language = ExtResource("56_lang")
+disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
 [sub_resource type="Resource" id="Row_Sign_crossroads"]
@@ -80,6 +81,7 @@ script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
 text = "The mountains rise sharp and cold ahead. Bring rope."
 language = ExtResource("56_lang")
+disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
 [sub_resource type="Resource" id="Row_Sign_mountain"]
@@ -103,6 +105,7 @@ script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
 text = "Desert. Water is scarce — fill skins before crossing."
 language = ExtResource("56_lang")
+disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
 [sub_resource type="Resource" id="Row_Sign_desert"]
@@ -126,6 +129,7 @@ script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
 text = "Swampland. Stay on the high ground after dusk."
 language = ExtResource("56_lang")
+disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
 [sub_resource type="Resource" id="Row_signpost"]
@@ -149,6 +153,7 @@ script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
 text = "Forest path. Mind the roots, mind the wolves."
 language = ExtResource("56_lang")
+disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
 [sub_resource type="Resource" id="Row_Sign_forest"]

@@ -222,6 +222,15 @@ public static class PlayerPerception
                     query.CollideWithBodies = true;
                     Godot.Collections.Dictionary rayResult = player.GetWorld3D().DirectSpaceState.IntersectRay(query);
                     blocked = rayResult.Count > 0;
+                    if (blocked)
+                    {
+                        debug.losBlocker = rayResult["collider"].AsGodotObject();
+                        debug.losHitPoint = rayResult["position"].AsVector3();
+                        debug.losRayHeight = Mathf.Min(inputs.losRayHeight, PlayerEyeHeight);
+                        debug.losLowerFeetY = Mathf.Min(targetPos.Y, player.GlobalPosition.Y);
+                        debug.losFrom = rayStart;
+                        debug.losTo = rayEnd;
+                    }
                 }
                 if (blocked)
                 {

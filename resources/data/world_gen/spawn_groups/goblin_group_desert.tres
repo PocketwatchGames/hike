@@ -23,3 +23,4 @@ initialBehavior = null
 script = ExtResource("10_x87yb")
 scatterRadius = 5.0
 rows = Array[ExtResource("grouprow")]([SubResource("Row_goblin_desert_torchbearer_camp"), SubResource("Row_chest_camp_potions")])
+disabledVariable = null

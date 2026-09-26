@@ -16,14 +16,21 @@ public partial class BehaviorWander : BehaviorBase
         _data = data;
     }
 
-    // Reset cross-tick state on every (re-)entry so a behavior switch out
-    // and back doesn't leave us thinking we're still mid-wander while the
-    // navigator is now pointed somewhere else (e.g. a combat reposition
-    // goal set by BehaviorAttack just before we got control again).
+    // Reset cross-tick state on every (re-)entry: the behavior switch
+    // stopped the navigator, so we are no longer mid-wander.
     public override void OnEnter(Mob me, ulong time)
     {
         _wandering = false;
         _pauseUntilMs = 0;
+    }
+
+    public override string DebugStatus(ulong time)
+    {
+        if (time < _pauseUntilMs)
+        {
+            return $"paused {(_pauseUntilMs - time) / 1000f:F1}s";
+        }
+        return _wandering ? "walking leg" : "starting leg";
     }
 
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)

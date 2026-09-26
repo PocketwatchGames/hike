@@ -64,6 +64,7 @@ loyaltyGifts = Array[ExtResource("6_loyaltygift")]([SubResource("Loyalty_grammar
 inventory = [SubResource("Stock_leather")]
 species = ExtResource("D_standard_npc")
 initialBehavior = null
+disabledVariable = null
 metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 
 [sub_resource type="Resource" id="Row_Npc_villager"]

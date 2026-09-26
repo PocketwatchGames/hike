@@ -40,6 +40,7 @@ script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
 text = "Swampland. Stay on the high ground after dusk."
 language = ExtResource("56_lang")
+disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
 [sub_resource type="Resource" id="Row_signpost"]
@@ -63,6 +64,7 @@ script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
 text = "Village ahead. Trade, rest, and ask after the road."
 language = ExtResource("56_lang")
+disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
 [sub_resource type="Resource" id="Row_Sign_village"]
@@ -86,6 +88,7 @@ script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
 text = "Mudflats. Test each step — the mire swallows the careless."
 language = ExtResource("56_lang")
+disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
 [sub_resource type="Resource" id="Row_Sign_mud"]
@@ -109,6 +112,7 @@ script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
 text = "The highlands. Drier ground and a long view."
 language = ExtResource("56_lang")
+disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
 [sub_resource type="Resource" id="Row_Sign_highlands"]

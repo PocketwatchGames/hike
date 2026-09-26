@@ -465,6 +465,31 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private MobNavigator _navigator;
     public MobNavigator Navigator => _navigator;
 
+    // debug_mob_behavior readout, written only while that cvar is on: what this
+    // tick's AI output asked the body to do, and the loop anim picked from it.
+    public struct LocomotionDebug
+    {
+        public bool aiRan;
+        public bool suspended;
+        public float aiSpeed;
+        public Vector3? pathTarget;
+        public float pathSuccessDistance;
+        public bool intentRaw;
+        public bool intentFinal;
+        public float horizSpeed;
+        // Measured XZ displacement per second, smoothed.
+        public float movedSpeed;
+        public EAnimation oneShot;
+        public EAnimation loopAnim;
+        public StringName requestedClip;
+        public StringName playingClip;
+    }
+    public LocomotionDebug locomotionDebug;
+    private Vector3 _debugPrevPos;
+    // Per-tick blend for LocomotionDebug.movedSpeed — smooths out a body
+    // jittering in place so the readout is legible.
+    private const float DebugMovedSmoothing = 0.2f;
+
     // Shared action timeline runner (same class the player uses). Populated
     // each frame from AIOutput.attackProfile by BehaviorAttack; the runner
     // walks the timeline, fires combat events, and gates re-entry via its
@@ -672,6 +697,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // point if we ever want one-way physical interaction.
         CollisionMask = (uint)(ECollisionLayer.Blocking | ECollisionLayer.Player | ECollisionLayer.Mob);
         AxisLockAngularY = true;
+        // Contact reporting feeds the steering slide (_IntegrateForces).
+        ContactMonitor = true;
+        MaxContactsReported = SlideMaxContacts;
 
         if (_hurtBox != null)
         {
@@ -1725,6 +1753,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // only when) it picks a speed-scaled loop. One-shots take the early
         // return below, so this default sticks for them.
         _animator.effectSpeedMultiplier = 1f;
+        bool debugLoco = CVars.debugMobBehavior.Value;
+        if (debugLoco)
+        {
+            locomotionDebug.oneShot = _oneShotAnim ?? EAnimation.None;
+            locomotionDebug.loopAnim = EAnimation.None;
+            locomotionDebug.requestedClip = _animator.CurrentAnimation;
+            locomotionDebug.playingClip = _animator.player?.AssignedAnimation;
+        }
         if (_oneShotAnim.HasValue)
         {
             EAnimation oneShot = _oneShotAnim.Value;
@@ -1783,6 +1819,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             bool intentMoving = _navigator != null
                 && _navigator.CurrentState != MobNavigator.State.Idle
                 && !_navigator.HasArrived;
+            bool intentRaw = intentMoving;
 
             // Sustained-fall tracking. Without the grace window, hopping over
             // small ledges or being shoved by another mob flickers the fall
@@ -1809,6 +1846,22 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             else
             {
                 _intentStuckStartMs = 0;
+            }
+            if (debugLoco)
+            {
+                locomotionDebug.intentRaw = intentRaw;
+                locomotionDebug.intentFinal = intentMoving;
+                locomotionDebug.horizSpeed = Mathf.Sqrt(horizSpeedSq);
+                // What the body actually covered, beside what the engine
+                // reports: a body pinned by a contact can report full speed
+                // while going nowhere.
+                Vector3 p = GlobalPosition;
+                float dt = (float)GetPhysicsProcessDeltaTime();
+                Vector3 moved = p - _debugPrevPos;
+                moved.Y = 0f;
+                float movedSpeed = dt > 0f ? moved.Length() / dt : 0f;
+                locomotionDebug.movedSpeed = Mathf.Lerp(locomotionDebug.movedSpeed, movedSpeed, DebugMovedSmoothing);
+                _debugPrevPos = p;
             }
             bool fallingFast = vel.Y < -mobData.fallEnterSpeed;
             if (fallingFast)
@@ -1869,6 +1922,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (_lastLoopNamePlayable)
         {
             _animator.Play(loopName);
+        }
+        if (debugLoco)
+        {
+            locomotionDebug.loopAnim = loopAnim;
+            locomotionDebug.requestedClip = _animator.CurrentAnimation;
+            locomotionDebug.playingClip = _animator.player?.AssignedAnimation;
         }
 
         // Status retiming is gated per-anim by AnimationData — only loops
@@ -3033,6 +3092,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 TickAI((float)delta, out aiOutput);
             }
+            if (CVars.debugMobBehavior.Value)
+            {
+                locomotionDebug.aiRan = !(incapacitated || _simState.HitstunTime > 0f);
+                locomotionDebug.suspended = aiOutput.suspended;
+                locomotionDebug.aiSpeed = aiOutput.speed;
+                locomotionDebug.pathTarget = aiOutput.pathTarget;
+                locomotionDebug.pathSuccessDistance = aiOutput.pathSuccessDistance;
+            }
 
             ReportPlayerCombat(in aiOutput);
 
@@ -3142,6 +3209,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // intent (stay weightless and pass-through for the whole engagement);
             // only the steering pass below yields. For a non-combatant flier
             // (sparrow, which never attacks while airborne) the two are identical.
+            _groundSteering = false;
             bool airborneIntent = _simState.MobData.CanFly && aiOutput.airborne && !inBurrow;
             bool flying = airborneIntent && !actionLocksMovement;
             _simState.Airborne = airborneIntent;
@@ -3192,8 +3260,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     float speedScale = Mathf.Clamp(dist / (arrivalDist + 1f), 0f, 1f);
                     linearDampTarget = 0f;
                     Vector3 dir = toTarget / dist;
+                    // Probed once: it both exempts a riser from the slide (the
+                    // body must keep pressing into a step to be carried onto it)
+                    // and decides the lift below. Swimming has its own exit.
+                    bool stepAhead = !_swimming && IsClimbableStepAhead(dir);
+                    Vector3 moveDir = _swimming || stepAhead ? dir : SlideAlongContacts(dir);
+                    _groundSteering = true;
                     float maxSpd = _swimming ? _simState.MobData.swimSpeed : _simState.MobData.maxSpeed;
-                    Vector3 desiredVelocity = dir * maxSpd * aiOutput.speed * _terrainSpeed * speedScale * statusMoveMul;
+                    Vector3 desiredVelocity = moveDir * maxSpd * aiOutput.speed * _terrainSpeed * speedScale * statusMoveMul;
                     Vector3 currentVel = LinearVelocity;
                     Vector3 velocityChange = desiredVelocity - new Vector3(currentVel.X, 0f, currentVel.Z);
                     ApplyImpulse(new Vector3(velocityChange.X, 0f, velocityChange.Z) * Mass);
@@ -3217,16 +3291,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                                 TryWaterExit(dir);
                             }
                         }
-                        else if (!TryStartMantle(dir))
+                        else if (!TryStartMantle(dir) && stepAhead)
                         {
-                            // Not a ledge — an ordinary curb, or nothing at all.
-                            TryStepUp(dir);
+                            // Not a ledge — an ordinary curb.
+                            LiftOverStep();
                         }
                     }
 
                     if (!targetYaw.HasValue)
                     {
-                        targetYaw = Mathf.Atan2(dir.X, dir.Z);
+                        // Face where the body is going — along the obstacle
+                        // while sliding, not into it.
+                        Vector3 faceDir = moveDir.LengthSquared() > 0.0001f ? moveDir : dir;
+                        targetYaw = Mathf.Atan2(faceDir.X, faceDir.Z);
                     }
                 }
             }
@@ -3482,6 +3559,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             && (!alive || _simState.SuspendAITimeMs > _world.GameTimeMs);
         if (wantsFreeze)
         {
+            // A frozen body keeps reporting whatever velocity it froze with, and
+            // the gate above admits up to 0.1 m/s — squarely inside the move/idle
+            // anim hysteresis band, which then holds Run on a mob standing still.
+            LinearVelocity = Vector3.Zero;
+            AngularVelocity = Vector3.Zero;
             Freeze = true;
         }
         _impulseApplied = false;
@@ -3494,6 +3576,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Last, so the navigator state it reports is the one that produced this
         // tick's movement.
         TickFallTrace();
+        TickStuckTrace();
 
         using (Profiler.Sample("Mob.UpdateAnimation"))
         {
@@ -3584,6 +3667,300 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     + $" goal=({nav.Goal.X:F1},{nav.Goal.Y:F1},{nav.Goal.Z:F1})"));
     }
 
+    // mob_stuck_trace / debug_mob_behavior: a mob whose navigator still has a
+    // goal it hasn't reached while its body sits still. The navigator has no
+    // stuck detection of its own (IsBlocked is only a planning failure), so
+    // this is the one place a wedge is named — with what the body is touching
+    // and how the nav grid sees the cells involved, captured while it is
+    // still wedged, since both change the moment it frees itself.
+    private const float StuckTraceSpeedSq = 0.0025f; // 0.05 m/s
+    private const ulong StuckTraceReportMs = 1000;
+    private const ulong StuckTraceContactRefreshMs = 1000;
+    // Inflation of the body capsule for the contact query, so a body resting
+    // against a collider (separated by the solver's margin) still reports it.
+    private const float StuckContactProbeMargin = 0.1f;
+    private const int StuckContactMaxResults = 8;
+    private const int StuckContactMaxPoints = 16;
+
+    private ulong _stuckStartMs;
+    private ulong _stuckContactsAtMs;
+    private bool _stuckReported;
+    private Vector3 _stuckGoal;
+    private StringName _stuckBehavior;
+    private string _stuckContacts = "";
+
+    // Seconds the current stuck episode has lasted once past the report
+    // threshold, else 0. Only tracked while one of the two cvars is on.
+    public float StuckSeconds()
+    {
+        ulong now = _world?.GameTimeMs ?? 0;
+        if (_stuckStartMs == 0 || now - _stuckStartMs < StuckTraceReportMs)
+        {
+            return 0f;
+        }
+        return (now - _stuckStartMs) / 1000f;
+    }
+    public string StuckContactsSummary => _stuckContacts;
+
+    private void TickStuckTrace()
+    {
+        bool trace = CVars.mobStuckTrace.Value;
+        if (!trace && !CVars.debugMobBehavior.Value)
+        {
+            _stuckStartMs = 0;
+            _stuckReported = false;
+            return;
+        }
+        MobNavigator nav = _navigator;
+        ulong now = _world?.GameTimeMs ?? 0;
+        string notMovingReason = !alive ? "dead"
+            : nav == null || nav.CurrentState == MobNavigator.State.Idle ? "nav idle"
+            : nav.HasArrived ? "arrived"
+            : Freeze ? "frozen"
+            : Mantling ? "mantle"
+            : _runner != null && _runner.LocksMovement ? "action"
+            : _simState.KnockbackTime > 0f || _simState.MotionTime > 0f ? "knockback/dart"
+            : null;
+        Vector3 v = LinearVelocity;
+        bool still = v.X * v.X + v.Z * v.Z < StuckTraceSpeedSq;
+        if (notMovingReason == null && still)
+        {
+            if (_stuckStartMs == 0)
+            {
+                _stuckStartMs = now;
+                _stuckGoal = nav.Goal;
+                _stuckBehavior = CurrentBehaviorName;
+                _stuckContacts = "";
+                _stuckContactsAtMs = 0;
+                return;
+            }
+            if (now - _stuckStartMs < StuckTraceReportMs)
+            {
+                return;
+            }
+            bool report = trace && !_stuckReported;
+            if (report || now - _stuckContactsAtMs >= StuckTraceContactRefreshMs)
+            {
+                _stuckContacts = DescribeStuckContacts(nav, out string detail);
+                _stuckContactsAtMs = now;
+                if (report)
+                {
+                    _stuckReported = true;
+                    PrintStuckReport(nav, now, detail);
+                }
+            }
+            return;
+        }
+
+        if (_stuckStartMs != 0 && _stuckReported && trace)
+        {
+            string reason = notMovingReason ?? "moving";
+            float goalMoved = nav != null ? (nav.Goal - _stuckGoal).Length() : 0f;
+            Vector3 pos = GlobalPosition;
+            GD.Print($"[mob_stuck] {StuckTraceName()} released after {(now - _stuckStartMs) / 1000f:F1}s "
+                + $"at ({pos.X:F1},{pos.Y:F1},{pos.Z:F1}) by={reason} goalMoved={goalMoved:F1}m "
+                + $"behavior={_stuckBehavior}->{CurrentBehaviorName}");
+        }
+        _stuckStartMs = 0;
+        _stuckReported = false;
+    }
+
+    private string StuckTraceName()
+    {
+        string path = _simState.Species?.ResourcePath;
+        string name = string.IsNullOrEmpty(path) ? "mob" : System.IO.Path.GetFileNameWithoutExtension(path);
+        return $"{name}#{GetInstanceId() % 10000}";
+    }
+
+    private void PrintStuckReport(MobNavigator nav, ulong now, string contactDetail)
+    {
+        Vector3 pos = GlobalPosition;
+        Vector3 steer = nav.SteerTarget;
+        Vector3 toSteer = steer - pos;
+        toSteer.Y = 0f;
+        Vector3 toGoal = nav.Goal - pos;
+        toGoal.Y = 0f;
+        float bodyRadius = _collisionShape?.Shape is CapsuleShape3D cap ? cap.Radius : 0f;
+        // One cell toward the steer point: the cell the body is trying to enter.
+        Vector3 aheadPoint = toSteer.LengthSquared() > 0.0001f ? pos + toSteer.Normalized() : pos;
+        GD.Print($"[mob_stuck] {StuckTraceName()} behavior={CurrentBehaviorName} "
+            + $"stuck={(now - _stuckStartMs) / 1000f:F1}s at ({pos.X:F2},{pos.Y:F2},{pos.Z:F2}) "
+            + $"nav={nav.CurrentState} plan={nav.LastPlan} wp={nav.WaypointIndex}/{nav.Waypoints.Count} "
+            + $"direct={(nav.SteeringDirectToGoal ? 1 : 0)} blocked={(nav.IsBlocked ? 1 : 0)} "
+            + $"steer=({steer.X:F1},{steer.Y:F1},{steer.Z:F1})/{toSteer.Length():F2}m "
+            + $"goal=({nav.Goal.X:F1},{nav.Goal.Y:F1},{nav.Goal.Z:F1})/{toGoal.Length():F2}m "
+            + $"bodyR={bodyRadius:F2} navR={nav.Profile.clearanceRadius:F2}"
+            + $"\n  here:  {nav.DescribeCellForDebug(pos)}"
+            + $"\n  ahead: {nav.DescribeCellForDebug(aheadPoint)}"
+            + contactDetail);
+    }
+
+    // What the body capsule is touching right now. Returns a one-line summary
+    // for the HUD; `detail` gets one log line per collider, with the gap from
+    // the body's surface to the collider (negative = penetrating), how squarely
+    // it sits in the steer direction (1 = dead ahead), and the nav verdict for
+    // the cell the contact is in. Physics queries — only call from the physics
+    // tick, and only while stuck.
+    private string DescribeStuckContacts(MobNavigator nav, out string detail)
+    {
+        detail = "";
+        if (_collisionShape?.Shape is not CapsuleShape3D cap)
+        {
+            return "no capsule";
+        }
+        PhysicsDirectSpaceState3D space = GetWorld3D()?.DirectSpaceState;
+        if (space == null)
+        {
+            return "no space";
+        }
+        Rid probe = PhysicsServer3D.CapsuleShapeCreate();
+        try
+        {
+            PhysicsServer3D.ShapeSetData(probe, new Godot.Collections.Dictionary
+            {
+                { "radius", cap.Radius + StuckContactProbeMargin },
+                { "height", cap.Height + StuckContactProbeMargin * 2f },
+            });
+            Rid self = GetRid();
+            var query = new PhysicsShapeQueryParameters3D
+            {
+                ShapeRid = probe,
+                Transform = _collisionShape.GlobalTransform,
+                CollisionMask = CollisionMask,
+                CollideWithBodies = true,
+                CollideWithAreas = false,
+                Exclude = new Godot.Collections.Array<Rid> { self },
+            };
+            Godot.Collections.Array<Godot.Collections.Dictionary> hits = space.IntersectShape(query, StuckContactMaxResults);
+            int hitCount = hits.Count;
+            if (hitCount == 0)
+            {
+                detail = "\n  touching: nothing (within probe margin)";
+                return "touching nothing";
+            }
+
+            // One result per touched SHAPE, so a trimesh body or a compound prop
+            // repeats; collapse to one entry per body.
+            var hitRids = new List<Rid>(hitCount);
+            var colliders = new List<GodotObject>(hitCount);
+            for (int h = 0; h < hitCount; h++)
+            {
+                Rid rid = hits[h]["rid"].AsRid();
+                if (!hitRids.Contains(rid))
+                {
+                    hitRids.Add(rid);
+                    colliders.Add(hits[h]["collider"].AsGodotObject());
+                }
+            }
+            hitCount = hitRids.Count;
+
+            Vector3 pos = GlobalPosition;
+            Vector3 steerDir = nav.SteerTarget - pos;
+            steerDir.Y = 0f;
+            steerDir = steerDir.LengthSquared() > 0.0001f ? steerDir.Normalized() : Vector3.Zero;
+
+            var summary = new System.Text.StringBuilder();
+            var lines = new System.Text.StringBuilder();
+            for (int h = 0; h < hitCount; h++)
+            {
+                // Isolate this collider so the contact points are its own.
+                var exclude = new Godot.Collections.Array<Rid> { self };
+                for (int o = 0; o < hitCount; o++)
+                {
+                    if (o != h)
+                    {
+                        exclude.Add(hitRids[o]);
+                    }
+                }
+                query.Exclude = exclude;
+                Godot.Collections.Array<Vector3> points = space.CollideShape(query, StuckContactMaxPoints);
+
+                // Pairs: [query-shape point, collider point]. Nearest collider
+                // point to the body axis, in XZ.
+                float bestDist = float.MaxValue;
+                Vector3 bestPoint = pos;
+                int pointCount = points.Count;
+                for (int p = 1; p < pointCount; p += 2)
+                {
+                    Vector3 cp = points[p];
+                    float dx = cp.X - pos.X;
+                    float dz = cp.Z - pos.Z;
+                    float d = Mathf.Sqrt(dx * dx + dz * dz);
+                    if (d < bestDist)
+                    {
+                        bestDist = d;
+                        bestPoint = cp;
+                    }
+                }
+
+                string name = DescribeColliderForDebug(colliders[h]);
+                if (bestDist == float.MaxValue)
+                {
+                    lines.Append($"\n  touching: {name} (no contact points)");
+                    summary.Append(summary.Length > 0 ? ", " : "").Append(name);
+                    continue;
+                }
+                Vector3 toContact = bestPoint - pos;
+                toContact.Y = 0f;
+                float ahead = toContact.LengthSquared() > 0.0001f ? toContact.Normalized().Dot(steerDir) : 0f;
+                float gap = bestDist - cap.Radius;
+                Vector3 contactCell = new(bestPoint.X, pos.Y, bestPoint.Z);
+                // Height above the feet separates a riser (below maxStepHeight)
+                // from a side wall or an overhang the body is too tall for.
+                lines.Append($"\n  touching: {name} gap={gap:F2} ahead={ahead:F2} h={bestPoint.Y - pos.Y:F2} "
+                    + $"contact=({bestPoint.X:F2},{bestPoint.Y:F2},{bestPoint.Z:F2}) {nav.DescribeCellForDebug(contactCell)}");
+                summary.Append(summary.Length > 0 ? ", " : "").Append($"{name} gap{gap:F2} ahd{ahead:F1}");
+            }
+            detail = lines.ToString();
+            return summary.ToString();
+        }
+        finally
+        {
+            PhysicsServer3D.FreeRid(probe);
+        }
+    }
+
+    // "<scene>/<node>[layers]" — the scene file that owns the collider (a prop
+    // .tscn, a mob .tscn, or the game scene for terrain) and the layers that
+    // made it block this body.
+    public static string DescribeColliderForDebug(GodotObject collider)
+    {
+        if (collider is not Node node)
+        {
+            return collider?.GetClass() ?? "null";
+        }
+        Node owner = node;
+        while (owner != null && string.IsNullOrEmpty(owner.SceneFilePath))
+        {
+            owner = owner.GetParent();
+        }
+        string scene = owner != null ? System.IO.Path.GetFileNameWithoutExtension(owner.SceneFilePath) : "?";
+        string layers = "";
+        if (node is CollisionObject3D co)
+        {
+            var parts = new List<string>();
+            foreach ((ECollisionLayer layer, string label) in StuckColliderLayerLabels)
+            {
+                if ((co.CollisionLayer & (uint)layer) != 0)
+                {
+                    parts.Add(label);
+                }
+            }
+            layers = $"[{string.Join("|", parts)}]";
+        }
+        return $"{scene}/{node.Name}{layers}";
+    }
+
+    private static readonly (ECollisionLayer, string)[] StuckColliderLayerLabels =
+    {
+        (ECollisionLayer.Environment, "Env"),
+        (ECollisionLayer.Porous, "Porous"),
+        (ECollisionLayer.Mob, "Mob"),
+        (ECollisionLayer.Player, "Player"),
+        (ECollisionLayer.WorldBounds, "Bounds"),
+        (ECollisionLayer.LedgeBarrier, "Ledge"),
+    };
+
     // Whether the LedgeBarrier bit for this mob's class is currently in its mask.
     // Tracked so the common tick is a bool compare rather than a native property
     // read-modify-write.
@@ -3660,45 +4037,160 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Up-steps only — descending slopes are handled by gravity.
     // Returns true when it actually lifted the body, so a caller that would
     // otherwise pull it back down (StickMotionToGround) can stand aside.
+    // Collide-and-slide for the ground drive. The drive sets horizontal
+    // velocity straight at the steer point, so against an obstacle nearly all
+    // of it pushes INTO the contact, and friction (both bodies default to 1.0)
+    // then holds the body still at anything within ~45° of head-on: it pinned
+    // on bushes and rocks instead of easing round them. Removing the into-
+    // component before the drive leaves friction nothing to act on.
+    //
+    // Wall normals are captured in _IntegrateForces (during the physics step)
+    // and consumed by the next tick's steering.
+    private const int SlideMaxContacts = 8;
+    // A contact whose normal is steeper than this (|normal.Y| below it) is a
+    // wall to slide along; flatter is floor or ceiling. Walkable slopes never
+    // reach the slide either way — the step probe claims them first.
+    private const float SlideWallMaxNormalY = 0.3f;
+    // Below this fraction of the drive left after projection the hit is
+    // head-on: there is no side to prefer, so keep pushing as before.
+    private const float SlideMinTangent = 0.05f;
+    // Fraction of the drive kept pressing into the wall while sliding, so the
+    // contact persists tick to tick instead of alternating slide / push.
+    // Small enough that friction on it can't hold the tangential drive.
+    private const float SlideHugFraction = 0.1f;
+
+    private readonly Vector3[] _slideNormals = new Vector3[SlideMaxContacts];
+    private int _slideNormalCount;
+    // Written by the steering tick, read by the physics step that follows, so
+    // idle and airborne bodies skip the contact walk entirely.
+    private bool _groundSteering;
+
+    public override void _IntegrateForces(PhysicsDirectBodyState3D state)
+    {
+        _slideNormalCount = 0;
+        if (!_groundSteering)
+        {
+            return;
+        }
+        int count = state.GetContactCount();
+        Vector3 center = state.Transform.Origin;
+        for (int i = 0; i < count && _slideNormalCount < SlideMaxContacts; i++)
+        {
+            Vector3 n = state.GetContactLocalNormal(i);
+            if (Mathf.Abs(n.Y) > SlideWallMaxNormalY)
+            {
+                continue;
+            }
+            Vector3 h = new(n.X, 0f, n.Z);
+            if (h.LengthSquared() < 0.0001f)
+            {
+                continue;
+            }
+            h = h.Normalized();
+            // Orient away from the obstacle; don't depend on the engine's
+            // convention for which body the normal points out of.
+            Vector3 p = state.GetContactLocalPosition(i);
+            if (h.X * (center.X - p.X) + h.Z * (center.Z - p.Z) < 0f)
+            {
+                h = -h;
+            }
+            _slideNormals[_slideNormalCount++] = h;
+        }
+    }
+
+    // `dir` (unit, horizontal) with the component into each captured wall
+    // removed, renormalised to full speed so a sliding mob doesn't crawl.
+    private Vector3 SlideAlongContacts(Vector3 dir)
+    {
+        int count = _slideNormalCount;
+        if (count == 0 || !CVars.mobSlide.Value)
+        {
+            return dir;
+        }
+        // Two passes: projecting off one wall of a corner can push back into
+        // the other.
+        Vector3 v = dir;
+        bool touched = false;
+        for (int pass = 0; pass < 2; pass++)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                float into = v.Dot(_slideNormals[i]);
+                if (into < 0f)
+                {
+                    v -= _slideNormals[i] * into;
+                    touched = true;
+                }
+            }
+        }
+        if (!touched)
+        {
+            return dir;
+        }
+        float len = v.Length();
+        if (len < SlideMinTangent)
+        {
+            return dir;
+        }
+        v /= len;
+        for (int i = 0; i < count; i++)
+        {
+            if (dir.Dot(_slideNormals[i]) < 0f)
+            {
+                v -= _slideNormals[i] * SlideHugFraction;
+            }
+        }
+        return v;
+    }
+
     private bool TryStepUp(Vector3 dir)
+    {
+        return IsClimbableStepAhead(dir) && LiftOverStep();
+    }
+
+    // The geometry half of TryStepUp: is there a terrain riser at ankle height
+    // along `dir` with open space above maxStepHeight? The riser must be
+    // TERRAIN (Environment): a bush or rock is not a step — the pathfinder never
+    // routes onto a prop — and reading a prop shorter than the head probe as
+    // one lifted mobs up the side of it, pinned against it mid-air. The head
+    // probe still checks every Solid, so a bush standing ON a step refuses it.
+    private bool IsClimbableStepAhead(Vector3 dir)
     {
         MobData data = _simState.MobData;
         if (data == null || data.maxStepHeight <= 0 || data.stepClimbSpeed <= 0f)
         {
             return false;
         }
-        // A ledge drop or knockback arc shouldn't be mistaken for walking into
-        // a step — only assist when not significantly descending.
-        if (LinearVelocity.Y < StepFallGate)
-        {
-            return false;
-        }
-
         float radius = _collisionShape?.Shape is CapsuleShape3D cap ? cap.Radius : 0.4f;
         float reach = radius + StepLookahead;
         Vector3 feet = GlobalPosition;
 
-        // Obstacle directly ahead at ankle height?
         Vector3 footFrom = feet + Vector3.Up * StepFootProbeHeight;
-        if (!RaycastSolid(footFrom, footFrom + dir * reach))
+        if (!Raycast(footFrom, footFrom + dir * reach, ECollisionLayer.Environment))
         {
             return false;
         }
 
-        // Is the space above the step top open? If this also hits, the obstacle
-        // is taller than one step — a wall, not a curb — so refuse the lift.
+        // If this also hits, the obstacle is taller than one step — a wall,
+        // not a curb.
         float clearHeight = data.maxStepHeight + StepClearanceMargin;
         Vector3 headFrom = feet + Vector3.Up * clearHeight;
-        if (RaycastSolid(headFrom, headFrom + dir * reach))
+        return !RaycastSolid(headFrom, headFrom + dir * reach);
+    }
+
+    // Set vertical velocity directly (like ApplyKnockback) so the rise
+    // dominates gravity this tick. The horizontal impulse already applied
+    // carries the body forward onto the ledge as it clears.
+    private bool LiftOverStep()
+    {
+        // A ledge drop or knockback arc shouldn't be mistaken for walking into
+        // a step — only assist when not significantly descending.
+        Vector3 v = LinearVelocity;
+        if (v.Y < StepFallGate)
         {
             return false;
         }
-
-        // Climbable step: set vertical velocity directly (like ApplyKnockback)
-        // so the rise dominates gravity this tick. The horizontal impulse
-        // already applied carries the body forward onto the ledge as it clears.
-        Vector3 v = LinearVelocity;
-        LinearVelocity = new Vector3(v.X, data.stepClimbSpeed, v.Z);
+        LinearVelocity = new Vector3(v.X, _simState.MobData.stepClimbSpeed, v.Z);
         return true;
     }
 
@@ -3789,7 +4281,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // probe climbs geometry, not crowds.
     private bool RaycastSolid(Vector3 from, Vector3 to)
     {
-        using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
+        return Raycast(from, to, ECollisionLayer.Solid);
+    }
+
+    private bool Raycast(Vector3 from, Vector3 to, ECollisionLayer mask)
+    {
+        using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)mask);
         return GetWorld3D().DirectSpaceState.IntersectRay(query).Count > 0;
     }
 
@@ -5441,21 +5938,45 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _foliageCollisions.Remove(foliage);
     }
 
-    // Render the navigator's active path as line segments via DebugDraw.
-    // Lifted slightly off the surface so paths don't z-fight with the
-    // ground mesh on flat terrain. Single-frame lifetime — relies on this
-    // method being called every physics tick to stay on screen.
+    // mob_debug_path. Lifted slightly off the surface so paths don't z-fight
+    // with the ground mesh on flat terrain. Single-frame lifetime — relies on
+    // this method being called every physics tick to stay on screen.
     private void DrawPathDebug(Vector3? pathTarget)
     {
+        Vector3 lift = new(0f, 0.15f, 0f);
+        Vector3 mobPos = GlobalPosition + lift;
+        MobNavigator nav = _navigator;
+        if (nav != null && nav.CurrentState != MobNavigator.State.Idle && !nav.HasArrived)
+        {
+            IReadOnlyList<Vector3> wps = nav.Waypoints;
+            int count = wps.Count;
+            for (int k = 0; k < count - 1; k++)
+            {
+                Color c = k < nav.WaypointIndex ? PathDebugPassedColor : PathDebugAheadColor;
+                DebugDraw.Line(wps[k] + lift, wps[k + 1] + lift, c);
+            }
+            for (int k = nav.WaypointIndex; k < count; k++)
+            {
+                DebugDraw.Cross(wps[k] + lift, 0.2f, PathDebugAheadColor);
+            }
+            DebugDraw.Sphere(nav.Goal + lift, 0.3f, PathDebugGoalColor);
+        }
         if (!pathTarget.HasValue)
         {
             return;
         }
-        const float Lift = 0.15f;
-        Vector3 mobPos = GlobalPosition + new Vector3(0f, Lift, 0f);
-        Vector3 target = pathTarget.Value + new Vector3(0f, Lift, 0f);
-        DebugDraw.Line(mobPos, target, new Color(1f, 0.85f, 0.1f));
-        DebugDraw.Sphere(target, 0.25f, new Color(1f, 0.3f, 0.3f));
+        // The steer point is what the impulse actually chases — after
+        // string-pulling and the separation nudge, so it can sit off the path.
+        Color steerColor = nav != null && nav.SteeringDirectToGoal ? PathDebugDirectColor : PathDebugSteerColor;
+        Vector3 target = pathTarget.Value + lift;
+        DebugDraw.Line(mobPos, target, steerColor);
+        DebugDraw.Sphere(target, 0.2f, steerColor);
     }
+
+    private static readonly Color PathDebugAheadColor = new(0.2f, 0.9f, 0.2f);
+    private static readonly Color PathDebugPassedColor = new(0.5f, 0.5f, 0.5f);
+    private static readonly Color PathDebugSteerColor = new(1f, 0.85f, 0.1f);
+    private static readonly Color PathDebugDirectColor = new(1f, 0.45f, 0f);
+    private static readonly Color PathDebugGoalColor = new(1f, 0.25f, 0.25f);
 
 }

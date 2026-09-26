@@ -26,6 +26,8 @@ public struct ProjectileImpact
 	public PackedScene backstab;
 	public WeaponState sourceWeapon;
 	public ArrowLootData arrowLootData;
+	// ItemEvent.impactDecibels, sounded where the shot lands.
+	public float impactDecibels;
 }
 
 // In-flight arrow / bolt / magic missile. Spawned by ItemEventHandlers.DoProjectile
@@ -591,6 +593,12 @@ public partial class Projectile : Node3D
 	private void Despawn(EHitResult result, EDamageTriggerFlags triggers, HurtBox hurtBox, Vector3 position)
 	{
 		ResolveImpact(result, triggers, hurtBox, position);
+		// None = expired in flight, having struck nothing.
+		if (result != EHitResult.None)
+		{
+			Sim.Current?.CreateNoiseEvent(position, _impact.impactDecibels,
+				GodotObject.IsInstanceValid(_source) ? _source as Node3D : null, ENoiseAudience.All);
+		}
 		// Cause-specific follow-up: a direct creature hit fires _directHitEvent,
 		// lifetime expiry fires _expirationEvent, an environment clip fires
 		// _impactEvent. Each cause-specific event falls back to _impactEvent, so

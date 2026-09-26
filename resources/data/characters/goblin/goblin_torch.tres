@@ -34,6 +34,7 @@ motionFreezeGravity = false
 script = ExtResource("4_event")
 time = 450
 type = 1
+impactDecibels = 1.0
 farWidth = 3.0
 impactEnvironmentEffect = ExtResource("10_solidfx")
 impactHealthEffect = ExtResource("9_hitfx")

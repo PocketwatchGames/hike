@@ -42,12 +42,18 @@ public static class NavigationGoals
     // requireLineOfSight=true matches the typical "ranged mob holds
     // position with a clear shot" use case. Pass false for melee
     // standoff where line-of-sight isn't required at the slot itself.
+    //
+    // lungeReach > 0 means the mob is closing to throw a lunging attack from
+    // this slot, so the slot must also pass LungeLineClear toward the target —
+    // the same test the attack gate applies — or the mob would arrive and
+    // refuse to swing.
     public static Vector3 PickStandoffPoint(
         Sim sim,
         in TraversalProfile profile,
         Vector3 targetPos,
         float distance,
         float slotAngle,
+        float lungeReach = 0f,
         bool requireLineOfSight = true,
         int sweepAttempts = 5,
         float sweepStepDegrees = 22.5f)
@@ -88,6 +94,10 @@ public static class NavigationGoals
                 continue;
             }
             if (requireLineOfSight && !HasLineOfSight(sim, surfacePoint, targetPos))
+            {
+                continue;
+            }
+            if (lungeReach > 0f && !LungeLineClear(ws, profile, surfacePoint, targetPos, lungeReach, out _, out _))
             {
                 continue;
             }
@@ -411,6 +421,166 @@ public static class NavigationGoals
         // voxel below the slot, the slot is on an overhang / step down,
         // not stable ground.
         return Mathf.Abs(backSurface.Y - slotSurface.Y) <= 1.001f;
+    }
+
+    public enum ELungeFail
+    {
+        None,
+        // The dart would carry the body off a drop deeper than maxStepHeight
+        // (including into deep water).
+        Drop,
+        OffWorld,
+    }
+
+    // Could a lunge from `from` toward `to` be thrown without carrying the body
+    // off a ledge? This is the whole question the lunge gate asks, and the
+    // encircle slot picker asks it too, so a mob never parks at a slot it then
+    // refuses to attack from.
+    //
+    // Only DROPS refuse. A dart is a committed displacement with no steering,
+    // so the one thing it must not do is run off an edge the pathfinder would
+    // never have walked the mob over. Anything that STOPS a dart is harmless —
+    // a rock, a bush, a wall, a rise too tall to step: the body just bumps it,
+    // and the swing still lands if the target is in reach. So this reads bare
+    // terrain (no path-blocker props) and ends the scan at the first rise the
+    // step assist can't take. It checks only as far as the dart travels
+    // (`reach`), not to a target standing beyond it.
+    //
+    // A 2D DDA over world columns, stepping one axis per cell so a diagonal
+    // can't slip between two edge cells. A handful of voxel reads per column —
+    // cheap enough for the per-tick slot pick.
+    public static bool LungeLineClear(WorldState ws, in TraversalProfile profile, Vector3 from, Vector3 to, float reach,
+        out ELungeFail fail, out Vector2I failCell)
+    {
+        fail = ELungeFail.None;
+        failCell = default;
+        if (ws == null)
+        {
+            return true;
+        }
+        Vector3 d = to - from;
+        d.Y = 0f;
+        float len = d.Length();
+        if (len < 0.0001f || reach <= 0f)
+        {
+            return true;
+        }
+        Vector3 end = from + d * (Mathf.Min(len, reach) / len);
+
+        int i = Mathf.FloorToInt(from.X);
+        int j = Mathf.FloorToInt(from.Z);
+        int i1 = Mathf.FloorToInt(end.X);
+        int j1 = Mathf.FloorToInt(end.Z);
+
+        // Seat the start on its own column's surface: a body resting a hair
+        // into or above the floor must not read as a rise or a drop.
+        int cur = Mathf.FloorToInt(from.Y + LungeSurfaceEpsilon);
+        EColumnStep start = StepIntoColumn(ws, profile, i, j, cur, out int seated);
+        if (start == EColumnStep.OffWorld)
+        {
+            fail = ELungeFail.OffWorld;
+            failCell = new Vector2I(i, j);
+            return false;
+        }
+        if (start == EColumnStep.Continue)
+        {
+            cur = seated;
+        }
+
+        float x0 = from.X;
+        float z0 = from.Z;
+        float dx = end.X - x0;
+        float dz = end.Z - z0;
+        int stepI = dx > 0f ? 1 : (dx < 0f ? -1 : 0);
+        int stepJ = dz > 0f ? 1 : (dz < 0f ? -1 : 0);
+        float adx = Mathf.Abs(dx);
+        float adz = Mathf.Abs(dz);
+        float tMaxX = stepI != 0 ? (stepI > 0 ? (i + 1 - x0) : (x0 - i)) / adx : float.MaxValue;
+        float tMaxZ = stepJ != 0 ? (stepJ > 0 ? (j + 1 - z0) : (z0 - j)) / adz : float.MaxValue;
+        float tDeltaX = stepI != 0 ? 1f / adx : float.MaxValue;
+        float tDeltaZ = stepJ != 0 ? 1f / adz : float.MaxValue;
+
+        int guard = Mathf.Abs(i1 - i) + Mathf.Abs(j1 - j) + 2;
+        while ((i != i1 || j != j1) && guard-- > 0)
+        {
+            if (tMaxX < tMaxZ)
+            {
+                i += stepI;
+                tMaxX += tDeltaX;
+            }
+            else
+            {
+                j += stepJ;
+                tMaxZ += tDeltaZ;
+            }
+            switch (StepIntoColumn(ws, profile, i, j, cur, out int next))
+            {
+                case EColumnStep.Continue:
+                    cur = next;
+                    break;
+                case EColumnStep.Stopped:
+                    return true;
+                case EColumnStep.Drop:
+                    fail = ELungeFail.Drop;
+                    failCell = new Vector2I(i, j);
+                    return false;
+                default:
+                    fail = ELungeFail.OffWorld;
+                    failCell = new Vector2I(i, j);
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    private const float LungeSurfaceEpsilon = 0.05f;
+
+    private enum EColumnStep
+    {
+        Continue,
+        // A rise taller than maxStepHeight: the dart ends here, harmlessly.
+        Stopped,
+        Drop,
+        OffWorld,
+    }
+
+    // Moving from standing surface `cur` into column (x, z): where does the body
+    // end up? `next` is the new standing surface (the air voxel the feet are in).
+    // Water is not footing, so a column of water deeper than a step is a Drop.
+    private static EColumnStep StepIntoColumn(WorldState ws, in TraversalProfile profile, int x, int z, int cur, out int next)
+    {
+        next = cur;
+        if (!ws.IsInBounds(x, cur, z))
+        {
+            return EColumnStep.OffWorld;
+        }
+        int maxStep = Mathf.Max(0, profile.maxStepHeight);
+        if (Blocks.IsSolid(ws.GetBlockWorld(x, cur, z)))
+        {
+            for (int k = 1; k <= maxStep; k++)
+            {
+                if (ws.IsInBounds(x, cur + k, z) && !Blocks.IsSolid(ws.GetBlockWorld(x, cur + k, z)))
+                {
+                    next = cur + k;
+                    return EColumnStep.Continue;
+                }
+            }
+            return EColumnStep.Stopped;
+        }
+        for (int depth = 1; depth <= maxStep + 1; depth++)
+        {
+            int y = cur - depth;
+            if (!ws.IsInBounds(x, y, z))
+            {
+                return EColumnStep.OffWorld;
+            }
+            if (Blocks.IsSolid(ws.GetBlockWorld(x, y, z)))
+            {
+                next = y + 1;
+                return EColumnStep.Continue;
+            }
+        }
+        return EColumnStep.Drop;
     }
 
     // Environment-only line-of-sight raycast at eye height. Mirrors the

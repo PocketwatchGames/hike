@@ -48,6 +48,18 @@ public partial class BehaviorAttack : BehaviorBase
     {
         _attackPauseUntilMs = 0;
         _walkLineCheckedMs = 0;
+        _debugStatus = null;
+    }
+
+    // debug_mob_behavior: why this tick did or didn't swing — each weapon's
+    // verdict from ChooseReadyWeapon, then the swing gate that followed. A mob
+    // holding at its ring without attacking is always one named gate here.
+    private readonly System.Text.StringBuilder _gateDebug = new();
+    private string _debugStatus;
+
+    public override string DebugStatus(ulong time)
+    {
+        return _debugStatus;
     }
 
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)
@@ -147,6 +159,15 @@ public partial class BehaviorAttack : BehaviorBase
         bool facingTarget = !facingShown
             || dist2d <= 0.0001f
             || Mathf.Abs(Mathf.Wrap((output.yaw ?? me.Rotation.Y) - me.Rotation.Y, -Mathf.Pi, Mathf.Pi)) <= facingTolerance;
+        if (CVars.debugMobBehavior.Value)
+        {
+            string swing = ready == null
+                ? (readyWeapon != null ? $"pause {(_attackPauseUntilMs - time) / 1000f:F1}s" : "none ready")
+                : dist2d >= ready.maxAttackRange ? $"range {dist2d:F2}>={ready.maxAttackRange:F2}"
+                : !facingTarget ? "facing"
+                : "SWING";
+            _debugStatus = $"\nWeap {_gateDebug}\nSwing {swing} d{dist2d:F2} dy{diff.Y:F2}";
+        }
         if (ready != null && dist2d < ready.maxAttackRange && facingTarget)
         {
             // Mob's _PhysicsProcess will TryStart the profile this same tick.
@@ -211,18 +232,20 @@ public partial class BehaviorAttack : BehaviorBase
         // the mob: the attack approach never holds at the ring.
         Vector3 standoff;
         float holdDistance = (_data.encircleDistance > 0f) ? _data.encircleDistance : ClosestDesiredRange(me);
-        float standoffDistance = (ready != null && !ready.aiReactiveOnly)
-            ? ready.desiredAttackRange
-            : holdDistance;
+        bool closing = ready != null && !ready.aiReactiveOnly;
+        float standoffDistance = closing ? ready.desiredAttackRange : holdDistance;
+        // Closing for a lunge: the slot must be one the lunge gate will fire
+        // from. The hold ring is not an attack position, so it isn't checked.
+        float lungeReach = closing && ready.actionProfile.Lunges && !me.IsAirborne ? ready.actionProfile.LungeDistance : 0f;
         if (slotIdx < 0)
         {
             float angleToTarget = Mathf.Atan2(diff.X, diff.Z);
-            standoff = NavigationGoals.PickStandoffPoint(sim, me.Navigator.Profile, targetPos, standoffDistance, angleToTarget);
+            standoff = NavigationGoals.PickStandoffPoint(sim, me.Navigator.Profile, targetPos, standoffDistance, angleToTarget, lungeReach);
         }
         else
         {
             float slotAngle = EncircleSlotAllocator.SlotAngle(slotIdx, _data.encircleSlotCount);
-            standoff = NavigationGoals.PickStandoffPoint(sim, me.Navigator.Profile, targetPos, standoffDistance, slotAngle);
+            standoff = NavigationGoals.PickStandoffPoint(sim, me.Navigator.Profile, targetPos, standoffDistance, slotAngle, lungeReach);
         }
         me.Navigator.Goto(standoff, allowFalling: true, avoidHazards: false);
         return new BehaviorOutput(EBehaviorResult.Running);
@@ -273,34 +296,42 @@ public partial class BehaviorAttack : BehaviorBase
     // the earlier weapon in the list. Returns null when nothing qualifies (all on
     // cooldown, out of vertical reach, can't see, or the mob has no weapons), in
     // which case the mob holds at the encircle ring.
-    // "Could I walk to the target from here" — the gate on any attack that darts
-    // the body forward, memoized.
-    //
-    // The query samples a nav window, which is priced to ride the navigator's
-    // 0.4s repath cadence, not a 60Hz one; and this is asked from
-    // ChooseReadyWeapon, which runs EVERY tick a weapon is off cooldown (the
-    // authored attack pause alone is dozens of ticks). Both bodies move at
-    // walking speed, so the answer keeps for a beat — and the cost of it being
-    // stale is at most one lunge either way.
+    // "Would this dart carry me off a ledge" — the gate on any attack that darts
+    // the body forward (NavigationGoals.LungeLineClear), memoized: it is asked
+    // every tick a weapon is off cooldown, both bodies move at walking speed,
+    // and the cost of a stale answer is at most one lunge either way.
     private const ulong WalkLineRecheckMs = 250;
     private ulong _walkLineCheckedMs;
     private bool _walkLineClear;
+    private NavigationGoals.ELungeFail _lungeFail;
+    private Vector2I _lungeFailCell;
 
-    private bool WalkLineClear(Mob me, ulong time, Vector3 targetPos)
+    private bool WalkLineClear(Mob me, ulong time, Vector3 targetPos, float reach)
     {
         if (_walkLineCheckedMs != 0 && time - _walkLineCheckedMs < WalkLineRecheckMs)
         {
             return _walkLineClear;
         }
         _walkLineCheckedMs = time;
-        _walkLineClear = me.Navigator != null && me.Navigator.CanWalkStraightTo(targetPos);
+        MobNavigator nav = me.Navigator;
+        _walkLineClear = nav != null && NavigationGoals.LungeLineClear(me.Sim?.WorldState, nav.Profile,
+            me.GlobalPosition, targetPos, reach, out _lungeFail, out _lungeFailCell);
         return _walkLineClear;
     }
 
     private WeaponData ChooseReadyWeapon(Mob me, ulong time, float diffY, float dist2d, bool canSee, Vector3 targetPos)
     {
+        bool debug = CVars.debugMobBehavior.Value;
+        if (debug)
+        {
+            _gateDebug.Clear();
+        }
         if (!canSee)
         {
+            if (debug)
+            {
+                _gateDebug.Append("target unseen");
+            }
             return null;
         }
         // A land mob knocked into deep water can't fight with no footing.
@@ -310,6 +341,10 @@ public partial class BehaviorAttack : BehaviorBase
         // swimmers (AvoidsDeepWater false) attack normally while swimming.
         if (me.IsSwimming && me.mobData != null && me.mobData.AvoidsDeepWater)
         {
+            if (debug)
+            {
+                _gateDebug.Append("swimming");
+            }
             return null;
         }
         Godot.Collections.Array<WeaponData> weapons = me.Weapons;
@@ -328,10 +363,12 @@ public partial class BehaviorAttack : BehaviorBase
             }
             if (chosen != null && w.priority <= chosen.priority)
             {
+                NoteGate(debug, w, "outranked");
                 continue;
             }
             if (Mathf.Abs(diffY) > w.maxVerticalAttackRange)
             {
+                NoteGate(debug, w, debug ? $"vert {Mathf.Abs(diffY):F1}>{w.maxVerticalAttackRange:F1}" : null);
                 continue;
             }
             // A reactive weapon is never approached for — it's eligible only once
@@ -339,14 +376,17 @@ public partial class BehaviorAttack : BehaviorBase
             // close to melee between shots.
             if (w.aiReactiveOnly && dist2d > w.maxAttackRange)
             {
+                NoteGate(debug, w, "reactive-out-of-range");
                 continue;
             }
             if (_weaponCooldownUntilMs.TryGetValue(w, out ulong until) && time < until)
             {
+                NoteGate(debug, w, debug ? $"cd {(until - time) / 1000f:F1}s" : null);
                 continue;
             }
             if (w.minAllies > 0 && CountAlliesInRange(me, w.allyRange) < w.minAllies)
             {
+                NoteGate(debug, w, "allies");
                 continue;
             }
             // A lunging attack darts the body forward along its facing for the
@@ -354,7 +394,8 @@ public partial class BehaviorAttack : BehaviorBase
             // must only be committed toward ground the mob could have walked to.
             // Without this a goblin lunges at a player standing across a drop and
             // the dart carries it over the edge, which is not a decision its own
-            // pathfinder would ever have made (see MobNavigator.CanWalkStraightTo).
+            // pathfinder would ever have made. A prop in the way does NOT refuse
+            // it — the dart just bumps it (see NavigationGoals.LungeLineClear).
             //
             // Refused HERE rather than on the tier's requirements, for the same
             // reason as the vertical gate above: the profile is never committed, so
@@ -362,13 +403,28 @@ public partial class BehaviorAttack : BehaviorBase
             // fire every tick. The mob falls through to the encircle ring and
             // repositions instead. Non-lunging attacks — every ranged weapon, a
             // plain swing — are untouched and still fire across a gap.
-            if (w.actionProfile.Lunges && !WalkLineClear(me, time, targetPos))
+            // Only a body on its feet can be carried off a ledge; an airborne
+            // attacker's dart (the drake's bite) has no ground to leave.
+            if (w.actionProfile.Lunges && !me.IsAirborne && !WalkLineClear(me, time, targetPos, w.actionProfile.LungeDistance))
             {
+                NoteGate(debug, w, debug ? $"lunge-{_lungeFail}@({_lungeFailCell.X},{_lungeFailCell.Y})" : null);
                 continue;
             }
+            NoteGate(debug, w, "ok");
             chosen = w;
         }
         return chosen;
+    }
+
+    private void NoteGate(bool debug, WeaponData w, string verdict)
+    {
+        if (!debug)
+        {
+            return;
+        }
+        string path = w.ResourcePath;
+        string name = string.IsNullOrEmpty(path) ? "weapon" : System.IO.Path.GetFileNameWithoutExtension(path);
+        _gateDebug.Append(_gateDebug.Length > 0 ? " " : "").Append(name).Append(':').Append(verdict);
     }
 
     // Standoff fallback when encircleDistance isn't authored: the closest desired

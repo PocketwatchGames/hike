@@ -818,11 +818,26 @@
     // Use to diagnose the dog getting left behind / failing to catch up.
     public static CVarBool companionDebug = new CVarBool("companion_debug", false);
 
-    // When true, draws each alive mob's active path as line segments via
-    // DebugDraw — green for upcoming waypoints, yellow for the current
-    // segment from the mob to its next waypoint, red dot at the goal.
-    // Off by default; toggle from the in-game console.
+    // When true, draws each alive mob's navigation state via DebugDraw: the
+    // waypoints still ahead (green polyline, grey for ones already passed), the
+    // steer point the body is chasing (yellow line + sphere — orange when it is
+    // steering straight at the goal with no path), and the navigator's goal
+    // (red sphere). Off by default; toggle from the in-game console.
     public static CVarBool mobDebugPath = new CVarBool("mob_debug_path", false);
+
+    // Log a mob that wants to move but whose body has stood still for 1s: the
+    // navigator's whole state, every collider the body capsule is touching
+    // (scene, layers, gap to the body surface, how squarely it's ahead), and
+    // for its own cell, the cell ahead and each contact's cell — the resident
+    // grid's verdict vs a fresh uncached sample (STALE when they differ) and
+    // the raw path-blocker bit. A second line reports what released it. The
+    // tool for "mobs snag on bushes and rocks".
+    public static CVarBool mobStuckTrace = new CVarBool("mob_stuck_trace", false);
+
+    // Ground-steering collide-and-slide: a mob pressed against a wall, prop or
+    // another body steers along it instead of into it. Off = the old straight
+    // push, for A/B against snagging.
+    public static CVarBool mobSlide = new CVarBool("mob_slide", true);
 
     // When true, draws the mob-navigability grid in an 8m radius around the
     // player via DebugDraw — green square = standable dry cell (at its surface
@@ -875,6 +890,12 @@
     // player is demonstrably standing on — which the nav_grid overlay cannot,
     // since it draws the conclusion rather than the reasoning.
     public static CVar navColumn = new CVar("nav_column", (cvar) => NavColumnDebug.Dump());
+
+    // Console command: print how far every prop within 20m stands above the
+    // drawn terrain under it (terrain collision is the drawn mesh), with a
+    // histogram. Flat ground should read ~+0.0; a prop floating over the grass
+    // reads as the gap.
+    public static CVar propSeatProbe = new CVar("prop_seat_probe", (cvar) => PropInstance.ProbeSeats());
 
     // Log every mantle start and completion, with the resolved landing and rise.
     // Dumps the last ~2.5s of position ownership when the player ends up with no
@@ -938,6 +959,11 @@
     // a mob embedded in the floor whose LOS raycast originates from inside
     // geometry).
     public static CVarBool debugMobPosition = new CVarBool("debug_mob_position", false);
+
+    // When true, MobHUD adds each mob's locomotion chain to the debug overlay:
+    // the running behavior, what it asked for this tick, the navigator's state,
+    // the body's velocity, and the loop anim that was picked from all of that.
+    public static CVarBool debugMobBehavior = new CVarBool("debug_mob_behavior", false);
 
     // When true, every mob is forced into the Discovered perception state for
     // rendering purposes — the sprite shows through walls via the existing

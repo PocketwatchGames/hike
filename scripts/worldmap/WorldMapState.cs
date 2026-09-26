@@ -2583,12 +2583,12 @@ public class WorldMapState
 
     // Where a painted prop's base sits, in world Y.
     //
-    // A flat column's drawn top is half a voxel above the surface voxel's top
-    // face — the mesher's shallow-Y smoothing — which is what PropSurfaceLift
-    // is and why a prop anchored at the face alone is buried. On a GRADE the
-    // mesher stops snapping that vertex to the face and averages the cell's edge
-    // crossings instead, so the drawn surface runs as a plane through the column
-    // and the flat anchor floats a prop off the downhill side of it.
+    // A flat column's drawn top IS the surface voxel's top face; the terrain
+    // collision is the drawn mesh, and prop_seat_probe reads a painted prop's
+    // seat against it in-game. A prop seated higher floats, and every prop's
+    // height counts against the 1.5 m sightline from the bodies' feet. On a GRADE the mesher averages the cell's edge crossings instead, so the
+    // drawn surface runs as a plane through the column and the flat anchor
+    // floats a prop off the downhill side of it.
     //
     // The estimate is that plane at the column centre: the mean of the facing
     // surfaces around it, which is the same average the mesher takes. A
@@ -2600,11 +2600,10 @@ public class WorldMapState
     //   - Never LIFT above the flat anchor. Where the ground rises into the
     //     column the prop embeds into it, which is the honest answer for a
     //     barrier: a prop standing proud of the hill has a gap under it.
-    //   - Never sink past the surface voxel's top face. The prop's own Y is what
-    //     picks the cell the nav grid marks blocked (PathBlockerRasterizer takes
-    //     floor(Y)), so half a voxel lower is the last position that still marks
-    //     the AIR cell a mob would walk through. Sink past it and the barrier
-    //     stops blocking anything, which is the one failure worth clamping for.
+    //   - Never sink more than PropMaxEmbed. This is a visual bound only — the
+    //     nav blocker row comes from the voxels (PropSimState.StandingRow), not
+    //     from floor(Y), so a prop sunk into the top voxel still blocks the air
+    //     cell above it.
     public float PropSeatY(int px, int pz)
     {
         int h = TerrainHeight(px, pz);
@@ -2624,11 +2623,11 @@ public class WorldMapState
         return h + PropSurfaceLift + drop;
     }
 
-    // The drawn surface of a flat column, over its surface voxel's top face.
-    private const float PropSurfaceLift = 1.5f;
+    // The drawn surface of a flat column, over its topmost solid voxel: that
+    // voxel's top face.
+    private const float PropSurfaceLift = 1f;
 
-    // How far into the ground a prop may be seated. Exactly the lift, so the
-    // deepest seat is the top face itself — see PropSeatY.
+    // How far below the flat anchor a prop on a downhill grade may be seated.
     private const float PropMaxEmbed = 0.5f;
 
     // Re-read every prop list and its scenes from disk, then drop the fills

@@ -26,6 +26,7 @@
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
 type = 65
+impactDecibels = 0.3
 nearWidth = 0.4
 farWidth = 1.6
 smearEffect = ExtResource("8_lqdfk")
@@ -141,3 +142,5 @@ description = "A light, fast blade. Extra damage from behind."
 value = 60
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("17_held")
+blockDecibels = 0.3
+parryDecibels = 0.4

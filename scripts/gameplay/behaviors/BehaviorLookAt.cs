@@ -16,12 +16,10 @@ public partial class BehaviorLookAt : BehaviorBase
 
     // Latch the deadline on every re-entry so a follow-up yell that arrives
     // after we'd already returned to default gives us the full duration
-    // again. Stop the navigator so any in-progress wander goal halts here
-    // instead of carrying us through the look window.
+    // again.
     public override void OnEnter(Mob me, ulong time)
     {
         _lookUntilMs = time + (ulong)(_data.lookDurationSeconds * 1000f);
-        me.Navigator?.Stop();
     }
 
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)

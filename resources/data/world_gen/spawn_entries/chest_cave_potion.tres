@@ -15,3 +15,4 @@ script = ExtResource("script")
 scene = ExtResource("r1")
 altScene = ExtResource("r2")
 lootItems = [SubResource("sub0")]
+disabledVariable = null

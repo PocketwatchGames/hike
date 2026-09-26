@@ -13,3 +13,5 @@ script = ExtResource("6_05oaj")
 entryBranches = [SubResource("Entry_greeting")]
 branches = []
 responseGroups = []
+nameLocKey = null
+descriptionLocKey = null
