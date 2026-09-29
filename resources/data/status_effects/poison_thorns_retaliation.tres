@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="DamageData" format=3 uid="uid://ut72tj71ywdr"]
+
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="2_buildup"]
+[ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="3_poison"]
+
+[sub_resource type="Resource" id="buildup_poison"]
+script = ExtResource("2_buildup")
+effect = ExtResource("3_poison")
+amount = 1.0
+
+[resource]
+script = ExtResource("1_damage")
+aggroMultiplier = 0.0
+buildups = Array[ExtResource("2_buildup")]([SubResource("buildup_poison")])
+modifiers = []

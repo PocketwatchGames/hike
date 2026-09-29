@@ -1,0 +1,233 @@
+[gd_resource type="Resource" script_class="BrainData" format=3 uid="uid://gcxcisxx6cu3"]
+
+[ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/characters/BrainData.cs" id="1_brain"]
+[ext_resource type="Script" uid="uid://d3xbi1dqweahm" path="res://scripts/data/behaviors/BehaviorNode.cs" id="2_node"]
+[ext_resource type="Script" uid="uid://6xs48do3vkin" path="res://scripts/data/behaviors/IdleBehaviorData.cs" id="3_idle"]
+[ext_resource type="Script" uid="uid://bwn2kkju73s55" path="res://scripts/data/behaviors/BehaviorNodeTransition.cs" id="4_transition"]
+[ext_resource type="Script" uid="uid://bwlr3o0ebr4jc" path="res://scripts/data/behaviors/AttackBehaviorData.cs" id="5_attack"]
+[ext_resource type="Script" uid="uid://cq57gys23wvvh" path="res://scripts/data/behaviors/conditions/AggroAcquiredCondition.cs" id="6_aggro_acquired"]
+[ext_resource type="Script" uid="uid://bj36ge53ur48e" path="res://scripts/data/behaviors/conditions/AggroLostCondition.cs" id="7_aggro_lost"]
+[ext_resource type="Script" uid="uid://dnl0n28wsm88g" path="res://scripts/data/behaviors/WanderBehaviorData.cs" id="8_wander"]
+[ext_resource type="Script" uid="uid://dponrg4578kvd" path="res://scripts/data/behaviors/InvestigateBehaviorData.cs" id="9_investigate"]
+[ext_resource type="Script" uid="uid://1ungofthkhct" path="res://scripts/data/behaviors/conditions/HasInvestigationCondition.cs" id="10_has_investigation"]
+[ext_resource type="Script" uid="uid://dqaisfhv1c0sk" path="res://scripts/data/behaviors/conditions/NoInvestigationCondition.cs" id="11_no_investigation"]
+[ext_resource type="Script" uid="uid://b8actinv3wq5n" path="res://scripts/data/behaviors/conditions/HasActionableInvestigationCondition.cs" id="14_actionable"]
+[ext_resource type="Script" uid="uid://fl4vgm566vea" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="15_lookat"]
+[ext_resource type="Script" uid="uid://bugs6hed1gail" path="res://scripts/data/behaviors/conditions/ThreatPerceivedCondition.cs" id="16_threat"]
+[ext_resource type="Script" uid="uid://j3ks8lpiy8np" path="res://scripts/data/behaviors/DodgeBehaviorData.cs" id="17_dodge"]
+[ext_resource type="Script" uid="uid://6hv6e7g1pnbe" path="res://scripts/data/behaviors/conditions/IncomingProjectileCondition.cs" id="18_incoming"]
+[ext_resource type="Script" uid="uid://v0r7qrrfr7aa" path="res://scripts/data/behaviors/conditions/TargetSafeCondition.cs" id="19_targetsafe"]
+[ext_resource type="Script" uid="uid://cv14ma5vsatj3" path="res://scripts/data/behaviors/RetreatBehaviorData.cs" id="20_retreat"]
+[ext_resource type="Script" uid="uid://byt80ru3gmup4" path="res://scripts/data/behaviors/conditions/HurtWhileTargetSafeCondition.cs" id="21_hurtsafe"]
+[ext_resource type="Script" uid="uid://dc7oo1y1x33wn" path="res://scripts/data/behaviors/CorpseInspectBehaviorData.cs" id="90_corpse"]
+[ext_resource type="Script" uid="uid://dfwbcj7bw046g" path="res://scripts/data/behaviors/conditions/HasCorpseSightingCondition.cs" id="91_has_corpse"]
+
+[sub_resource type="Resource" id="Resource_idle"]
+script = ExtResource("3_idle")
+
+[sub_resource type="Resource" id="Resource_cond_hurt_safe"]
+script = ExtResource("21_hurtsafe")
+
+[sub_resource type="Resource" id="Resource_idle_to_retreat"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_hurt_safe")
+destination = &"Retreat"
+
+[sub_resource type="Resource" id="Resource_cond_aggro_acquired"]
+script = ExtResource("6_aggro_acquired")
+
+[sub_resource type="Resource" id="Resource_idle_to_attack"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_aggro_acquired")
+destination = &"Attack"
+
+[sub_resource type="Resource" id="Resource_cond_threat_alert"]
+script = ExtResource("16_threat")
+tier = 1
+
+[sub_resource type="Resource" id="Resource_idle_to_attack_threat"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_threat_alert")
+destination = &"Attack"
+
+[sub_resource type="Resource" id="Resource_cond_actionable"]
+script = ExtResource("14_actionable")
+
+[sub_resource type="Resource" id="Resource_idle_to_investigate"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_actionable")
+destination = &"Investigate"
+
+[sub_resource type="Resource" id="Resource_cond_has_investigation"]
+script = ExtResource("10_has_investigation")
+
+[sub_resource type="Resource" id="Resource_idle_to_lookat"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_has_investigation")
+destination = &"LookAt"
+
+[sub_resource type="Resource" id="Resource_cond_has_corpse"]
+script = ExtResource("91_has_corpse")
+
+[sub_resource type="Resource" id="Resource_idle_to_corpse"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_has_corpse")
+destination = &"InspectCorpse"
+
+[sub_resource type="Resource" id="Resource_idle_node"]
+script = ExtResource("2_node")
+name = &"Idle"
+data = SubResource("Resource_idle")
+transitions = [SubResource("Resource_idle_to_retreat"), SubResource("Resource_idle_to_attack"), SubResource("Resource_idle_to_attack_threat"), SubResource("Resource_idle_to_investigate"), SubResource("Resource_idle_to_lookat"), SubResource("Resource_idle_to_corpse")]
+
+[sub_resource type="Resource" id="Resource_attack"]
+script = ExtResource("5_attack")
+encircleDistance = 6.0
+attackFacingToleranceDegrees = 45.0
+attackPauseRandomSeconds = 1.0
+
+[sub_resource type="Resource" id="Resource_cond_target_safe"]
+script = ExtResource("19_targetsafe")
+
+[sub_resource type="Resource" id="Resource_attack_to_retreat"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_target_safe")
+destination = &"Retreat"
+
+[sub_resource type="Resource" id="Resource_cond_incoming"]
+script = ExtResource("18_incoming")
+requireFacingTarget = true
+
+[sub_resource type="Resource" id="Resource_attack_to_dodge"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_incoming")
+destination = &"Dodge"
+
+[sub_resource type="Resource" id="Resource_cond_aggro_lost"]
+script = ExtResource("7_aggro_lost")
+
+[sub_resource type="Resource" id="Resource_attack_to_idle"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_aggro_lost")
+destination = &"Idle"
+
+[sub_resource type="Resource" id="Resource_attack_node"]
+script = ExtResource("2_node")
+name = &"Attack"
+data = SubResource("Resource_attack")
+transitions = [SubResource("Resource_attack_to_retreat"), SubResource("Resource_attack_to_dodge"), SubResource("Resource_attack_to_idle")]
+
+[sub_resource type="Resource" id="Resource_retreat"]
+script = ExtResource("20_retreat")
+
+[sub_resource type="Resource" id="Resource_retreat_to_attack"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_aggro_acquired")
+destination = &"Attack"
+
+[sub_resource type="Resource" id="Resource_retreat_node"]
+script = ExtResource("2_node")
+name = &"Retreat"
+data = SubResource("Resource_retreat")
+transitions = [SubResource("Resource_retreat_to_attack")]
+
+[sub_resource type="Resource" id="Resource_dodge"]
+script = ExtResource("17_dodge")
+
+[sub_resource type="Resource" id="Resource_dodge_node"]
+script = ExtResource("2_node")
+name = &"Dodge"
+data = SubResource("Resource_dodge")
+transitions = []
+requiredAbilities = 1
+
+[sub_resource type="Resource" id="Resource_wander"]
+script = ExtResource("8_wander")
+
+[sub_resource type="Resource" id="Resource_wander_to_retreat"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_hurt_safe")
+destination = &"Retreat"
+
+[sub_resource type="Resource" id="Resource_wander_to_attack"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_aggro_acquired")
+destination = &"Attack"
+
+[sub_resource type="Resource" id="Resource_wander_to_attack_threat"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_threat_alert")
+destination = &"Attack"
+
+[sub_resource type="Resource" id="Resource_wander_to_investigate"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_actionable")
+destination = &"Investigate"
+
+[sub_resource type="Resource" id="Resource_wander_to_lookat"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_has_investigation")
+destination = &"LookAt"
+
+[sub_resource type="Resource" id="Resource_wander_to_corpse"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_has_corpse")
+destination = &"InspectCorpse"
+
+[sub_resource type="Resource" id="Resource_wander_node"]
+script = ExtResource("2_node")
+name = &"Wander"
+data = SubResource("Resource_wander")
+transitions = [SubResource("Resource_wander_to_retreat"), SubResource("Resource_wander_to_attack"), SubResource("Resource_wander_to_attack_threat"), SubResource("Resource_wander_to_investigate"), SubResource("Resource_wander_to_lookat"), SubResource("Resource_wander_to_corpse")]
+
+[sub_resource type="Resource" id="Resource_investigate"]
+script = ExtResource("9_investigate")
+
+[sub_resource type="Resource" id="Resource_investigate_to_attack"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_aggro_acquired")
+destination = &"Attack"
+
+[sub_resource type="Resource" id="Resource_cond_no_investigation"]
+script = ExtResource("11_no_investigation")
+
+[sub_resource type="Resource" id="Resource_investigate_to_idle"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_no_investigation")
+destination = &"Idle"
+
+[sub_resource type="Resource" id="Resource_investigate_node"]
+script = ExtResource("2_node")
+name = &"Investigate"
+data = SubResource("Resource_investigate")
+transitions = [SubResource("Resource_investigate_to_attack"), SubResource("Resource_investigate_to_idle")]
+
+[sub_resource type="Resource" id="Resource_lookat"]
+script = ExtResource("15_lookat")
+
+[sub_resource type="Resource" id="Resource_lookat_to_attack"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_aggro_acquired")
+destination = &"Attack"
+
+[sub_resource type="Resource" id="Resource_lookat_node"]
+script = ExtResource("2_node")
+name = &"LookAt"
+data = SubResource("Resource_lookat")
+transitions = [SubResource("Resource_lookat_to_attack")]
+
+[sub_resource type="Resource" id="Resource_corpse"]
+script = ExtResource("90_corpse")
+
+[sub_resource type="Resource" id="Resource_corpse_node"]
+script = ExtResource("2_node")
+name = &"InspectCorpse"
+data = SubResource("Resource_corpse")
+transitions = [SubResource("Resource_idle_to_attack"), SubResource("Resource_idle_to_attack_threat")]
+requiredAbilities = 4
+
+[resource]
+script = ExtResource("1_brain")
+idleBehavior = &"Idle"
+behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_attack_node"), SubResource("Resource_retreat_node"), SubResource("Resource_dodge_node"), SubResource("Resource_wander_node"), SubResource("Resource_investigate_node"), SubResource("Resource_lookat_node"), SubResource("Resource_corpse_node")]
+metadata/_custom_type_script = "uid://ctcx3rsnl61pe"

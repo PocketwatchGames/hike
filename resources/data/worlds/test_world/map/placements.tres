@@ -15,6 +15,8 @@
 [ext_resource type="Script" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="8_f8a1f"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/fountain_mana.tres" id="8_m17nx"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="9_errfs"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_invisibility.tres" id="9_vwgca"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_dog_treat.tres" id="10_4bsht"]
 [ext_resource type="PackedScene" path="res://scenes/interactives/signpost.tscn" id="10_m2c7i"]
 [ext_resource type="Script" path="res://scripts/data/spawn/SignpostSpawnEntry.cs" id="11_mw5ge"]
 [ext_resource type="PackedScene" path="res://scenes/interactives/knowledge_stone.tscn" id="13_hatgq"]
@@ -50,6 +52,7 @@
 [ext_resource type="Resource" path="res://resources/data/worlds/test_world/conversations/swamp_witch_conversation.tres" id="57_oxleg"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/spike_trap.tres" id="62_0mtyp"]
 [ext_resource type="Script" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="63_jwncb"]
+[ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_shockwave.tres" id="63_xefb8"]
 [ext_resource type="Resource" path="res://resources/data/characters/spider/spider_swamp.tres" id="64_3ss2w"]
 [ext_resource type="Resource" path="res://resources/data/characters/spider/spider_forest.tres" id="65_5we37"]
 [ext_resource type="Resource" path="res://resources/data/characters/spider/spider_desert.tres" id="66_xefb8"]
@@ -135,9 +138,20 @@ script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 anchorXZ = Vector2i(61, 69)
 
+[sub_resource type="Resource" id="Resource_oaout"]
+script = ExtResource("6_eflh0")
+item = ExtResource("9_vwgca")
+
+[sub_resource type="Resource" id="Resource_xpmpx"]
+script = ExtResource("8_f8a1f")
+scene = ExtResource("7_5uafj")
+lootItems = [SubResource("Resource_oaout")]
+disabledVariable = &""
+
 [sub_resource type="Resource" id="Resource_ne3xj"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
+custom = SubResource("Resource_xpmpx")
 anchorXZ = Vector2i(146, 60)
 
 [sub_resource type="Resource" id="Resource_jdn3h"]
@@ -165,9 +179,20 @@ script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 anchorXZ = Vector2i(139, -144)
 
+[sub_resource type="Resource" id="Resource_axgr2"]
+script = ExtResource("6_eflh0")
+item = ExtResource("10_4bsht")
+
+[sub_resource type="Resource" id="Resource_c8824"]
+script = ExtResource("8_f8a1f")
+scene = ExtResource("7_5uafj")
+lootItems = [SubResource("Resource_axgr2")]
+disabledVariable = &""
+
 [sub_resource type="Resource" id="Resource_6ef7y"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
+custom = SubResource("Resource_c8824")
 anchorXZ = Vector2i(211, 58)
 
 [sub_resource type="Resource" id="Resource_s6rg6"]
@@ -1016,9 +1041,20 @@ source = ExtResource("62_0mtyp")
 anchorXZ = Vector2i(102, 36)
 floorY = 0
 
+[sub_resource type="Resource" id="Resource_rhsyl"]
+script = ExtResource("6_eflh0")
+item = ExtResource("63_xefb8")
+
+[sub_resource type="Resource" id="Resource_63fgg"]
+script = ExtResource("8_f8a1f")
+scene = ExtResource("7_5uafj")
+lootItems = [SubResource("Resource_rhsyl")]
+disabledVariable = &""
+
 [sub_resource type="Resource" id="Resource_fehiu"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
+custom = SubResource("Resource_63fgg")
 anchorXZ = Vector2i(99, 36)
 floorY = 0
 
@@ -1068,7 +1104,6 @@ floorY = -1
 script = ExtResource("2_4i2sm")
 source = ExtResource("62_0mtyp")
 anchorXZ = Vector2i(132, 28)
-floorY = -1
 
 [sub_resource type="Resource" id="Resource_lu4bc"]
 script = ExtResource("2_4i2sm")
@@ -1200,7 +1235,6 @@ script = ExtResource("2_4i2sm")
 source = ExtResource("67_da0an")
 custom = SubResource("Resource_5nqub")
 anchorXZ = Vector2i(135, 31)
-floorY = -1
 
 [sub_resource type="Resource" id="Resource_n0le8"]
 script = ExtResource("69_xefb8")

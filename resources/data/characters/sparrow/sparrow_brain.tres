@@ -85,6 +85,7 @@ script = ExtResource("2_node")
 name = &"InspectCorpse"
 data = SubResource("Resource_corpse")
 transitions = [SubResource("Resource_perch_to_flee_shot"), SubResource("Resource_lookat_to_flee")]
+requiredAbilities = 4
 
 [resource]
 script = ExtResource("6_brain")

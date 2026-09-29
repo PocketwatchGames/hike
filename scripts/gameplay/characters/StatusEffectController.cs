@@ -282,6 +282,24 @@ public class StatusEffectController
 		return result;
 	}
 
+	// On-kill events on active weapon mods reaching charge tier `chargeIndex`
+	// (the Explosive Corpse mod). Returns null when none reach, so the common
+	// no-mod hot path allocates nothing.
+	public Godot.Collections.Array<ItemEvent> WeaponModOnKillEvents(int chargeIndex)
+	{
+		Godot.Collections.Array<ItemEvent> result = null;
+		ForEachWeaponMod(chargeIndex, mod =>
+		{
+			if (mod.onKillEvent == null)
+			{
+				return;
+			}
+			result ??= new Godot.Collections.Array<ItemEvent>();
+			result.Add(mod.onKillEvent);
+		});
+		return result;
+	}
+
 	// Summed extra knockback distance (m/s) from active weapon mods reaching
 	// charge tier `chargeIndex` (the Knockback mod); the melee/hitscan/projectile
 	// paths add it to the hit's knockbackDistance. 0 if none reach.
@@ -811,7 +829,20 @@ public class StatusEffectController
 			{
 				continue;
 			}
-			AreaBurst.Fire(data.attackImpact, _world, position, attacker.AttackerNode, attacker.ActorTeam, attacker.SelfHurtBoxRid);
+			AreaBurst.Fire(data.attackImpact, _world, position, attacker.AttackerNode, attacker.ActorTeam, attacker.SelfHurtBox?.GetRid());
+		}
+	}
+
+	// End every active effect flagged removedOnAttack. Called when the bearer
+	// delivers an attack (IActionActor.OnAttack).
+	public void RemoveOnAttack()
+	{
+		for (int i = _statusEffects.Count - 1; i >= 0; i--)
+		{
+			if (_statusEffects[i]?.data?.removedOnAttack == true)
+			{
+				Remove(_statusEffects[i]);
+			}
 		}
 	}
 
@@ -826,7 +857,7 @@ public class StatusEffectController
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
 			AreaBurst.Fire(_statusEffects[i]?.data?.dashBurst, _world, position,
-				attacker.AttackerNode, attacker.ActorTeam, attacker.SelfHurtBoxRid);
+				attacker.AttackerNode, attacker.ActorTeam, attacker.SelfHurtBox?.GetRid());
 		}
 	}
 
@@ -1437,22 +1468,30 @@ public class StatusEffectController
 	// taken" debuff on physical damage). Called from the actor's hit pipeline after
 	// damage resolves. The applied effect's own maxStack governs whether repeat hits
 	// stack or just refresh the timer. Snapshots the effects to apply first because
-	// Add mutates _statusEffects mid-scan.
-	public void TriggerOnDamaged(EHitTag hitTags)
+	// Add mutates _statusEffects mid-scan. Also strikes the attacker back with each
+	// matching effect's onDamagedRetaliation.
+	public void TriggerOnDamaged(in HitInfo hit, IActionActor wearer)
 	{
 		List<StatusEffectData> toApply = null;
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
 			StatusEffectData data = _statusEffects[i]?.data;
-			if (data?.onDamagedEffect == null)
+			if (data == null || (data.onDamagedEffect == null && data.onDamagedRetaliation == null))
 			{
 				continue;
 			}
-			if (data.onDamagedTags != EHitTag.None && (data.onDamagedTags & hitTags) == 0)
+			if (data.onDamagedTags != EHitTag.None && (data.onDamagedTags & hit.tags) == 0)
 			{
 				continue;
 			}
-			(toApply ??= new List<StatusEffectData>()).Add(data.onDamagedEffect);
+			if (data.onDamagedRetaliation != null)
+			{
+				Retaliate(data.onDamagedRetaliation, hit.source, wearer);
+			}
+			if (data.onDamagedEffect != null)
+			{
+				(toApply ??= new List<StatusEffectData>()).Add(data.onDamagedEffect);
+			}
 		}
 		if (toApply == null)
 		{
@@ -1462,6 +1501,34 @@ public class StatusEffectController
 		{
 			Add(toApply[i]);
 		}
+	}
+
+	// Hit `attacker` back with `damage`, attributed to `wearer`. Only an actor that
+	// struck in person is answered — a trap, zone or orphaned projectile has no
+	// body to return the blow to. Deferred: this runs inside the attacker's own
+	// swing dispatch, and a synchronous Hit would re-enter its ActionRunner
+	// (TryInterrupt) mid-event.
+	private static void Retaliate(DamageData damage, Node attacker, IActionActor wearer)
+	{
+		if (wearer == null || attacker is not IActionActor attackerActor || attacker == wearer.AttackerNode)
+		{
+			return;
+		}
+		HurtBox target = attackerActor.SelfHurtBox;
+		if (target == null)
+		{
+			return;
+		}
+		Vector3 dir = attackerActor.ActorWorldPosition - wearer.ActorWorldPosition;
+		dir.Y = 0f;
+		HitInfo retaliation = new HitInfo(damage, wearer.AttackerNode, dir, wearer.ActorTeam);
+		Callable.From(() =>
+		{
+			if (GodotObject.IsInstanceValid(target) && target.CanBeHit(retaliation))
+			{
+				target.Hit(retaliation);
+			}
+		}).CallDeferred();
 	}
 
 	// Show / hide every active effect's loop fx, following the owning body's

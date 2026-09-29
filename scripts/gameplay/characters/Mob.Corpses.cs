@@ -44,23 +44,19 @@ public partial class Mob
         set => _simState.CorpseSighting = value;
     }
 
-    // True when this mob's brain wires a corpse-inspect node AND the species
-    // notices bodies at all — resolved once in InitBehaviors so the discovery
+    // True when this mob's brain kept a corpse-inspect node (its species has
+    // EMobAbility.InspectCorpses) — resolved once in InitBehaviors so the discovery
     // scan and the death broadcast can skip every mob that never reacts.
     public bool ReactsToCorpses => _corpseInspectData != null;
 
     // The tuning of this mob's own corpse-inspect node, resolved once in
-    // InitBehaviors. Also the ReactsToCorpses flag: null means either the brain
-    // wires no such node or the species declines to notice bodies.
+    // InitBehaviors. Also the ReactsToCorpses flag: null means the brain wires no
+    // such node or the species lacks the ability that keeps it.
     private CorpseInspectBehaviorData _corpseInspectData;
 
     private void ResolveReactsToCorpses()
     {
         _corpseInspectData = null;
-        if (mobData?.noticesCorpses != true)
-        {
-            return;
-        }
         foreach (BehaviorBase behavior in _behaviors.Values)
         {
             if (behavior is BehaviorInspectCorpse inspect)

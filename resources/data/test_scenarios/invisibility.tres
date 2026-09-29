@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3 uid="uid://dy30sceg883qe"]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "invisibility"
+description = "Invisibility scroll, two casts of reagents, and goblins to slip past."
+commands = "// No verb attunes a spell: read the scroll, then attune Invisibility at a campfire.
+// Let the goblins lock on first, then cast: they should lose you but stay alert.
+give scroll_invisibility
+give mushroom_purple 4
+give spider_legs 2
+spawn goblin_forest 3"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

@@ -31,12 +31,12 @@ motionFreezeGravity = false
 script = ExtResource("4_event")
 time = 200
 type = 1
-impactDecibels = 0.3
 meleeDuration = 0.2
 impactEnvironmentEffect = ExtResource("7_solidfx")
 impactHealthEffect = ExtResource("6_hitfx")
 impactArmorEffect = ExtResource("7_solidfx")
 impactLethalEffect = ExtResource("6_hitfx")
+impactDecibels = 0.3
 
 [sub_resource type="Resource" id="Resource_action_bite"]
 script = ExtResource("3_action")

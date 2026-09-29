@@ -1586,14 +1586,16 @@ public class WorldState
         _entities[coord] = new List<EntitySimState>(entities);
     }
 
+    // Removes the entity wherever it is filed — its chunk bucket or, for a
+    // tamed companion, the persistent list.
     public bool RemoveEntity(EntitySimState entity)
     {
         Vector3I coord = Sim.WorldToChunkCoord(entity.WorldPosition);
-        if (_entities.TryGetValue(coord, out List<EntitySimState> entities))
+        if (_entities.TryGetValue(coord, out List<EntitySimState> entities) && entities.Remove(entity))
         {
-            return entities.Remove(entity);
+            return true;
         }
-        return false;
+        return _persistentEntities.Remove(entity);
     }
 
     // Persistent (non-chunked) entity states — the player's companion(s). Unlike
@@ -1642,11 +1644,6 @@ public class WorldState
             }
         }
         return found;
-    }
-
-    public void RemovePersistentEntity(EntitySimState entity)
-    {
-        _persistentEntities.Remove(entity);
     }
 
     public void ReplacePersistentEntities(List<EntitySimState> entities)

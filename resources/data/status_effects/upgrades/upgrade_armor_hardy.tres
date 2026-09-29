@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://daqgnmhtw3n5n"]
 
-[ext_resource type="Texture2D" uid="uid://ddce2ofirul1c" path="res://assets/textures/status_effects/heart.png" id="1_cxj3n"]
+[ext_resource type="Texture2D" uid="uid://c5h35oj6a02eb" path="res://assets/textures/status_effects/upgrade_hardy.png" id="1_cxj3n"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_r7pts"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="3_c6q4b"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]

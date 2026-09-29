@@ -5,6 +5,7 @@
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="3_burning"]
 [ext_resource type="PackedScene" uid="uid://bf2lmtrlqawq3" path="res://scenes/fx/flame_trail_loop.tscn" id="4_flame"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="5_buildup"]
+[ext_resource type="Texture2D" uid="uid://c1xeeniw7uut1" path="res://assets/textures/status_effects/upgrade_flaming.png" id="icon_upgrade"]
 
 [sub_resource type="Resource" id="buildup_burning"]
 script = ExtResource("5_buildup")
@@ -19,6 +20,7 @@ projectileFx = ExtResource("4_flame")
 
 [resource]
 script = ExtResource("1_data")
+icon = ExtResource("icon_upgrade")
 displayName = &"Flaming"
 description = "Sets struck targets ablaze, dealing fire damage over time."
 upgradeSlot = 3

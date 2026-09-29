@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
+[ext_resource type="Texture2D" uid="uid://dars6taqyim40" path="res://assets/textures/status_effects/upgrade_pierce.png" id="icon_upgrade"]
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("2_mod")
@@ -12,6 +13,7 @@ affixPosition = 1
 
 [resource]
 script = ExtResource("1_data")
+icon = ExtResource("icon_upgrade")
 displayName = &"Piercing"
 description = "Charged shot pierces up to three foes."
 upgradeSlot = 2

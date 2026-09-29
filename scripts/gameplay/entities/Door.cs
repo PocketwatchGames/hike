@@ -156,6 +156,12 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         bool changed = open != _open;
         _open = open;
         _blockCollider.GetNode<CollisionShape3D>("CollisionShape3D").Disabled = _open;
+        // The hurtbox spans the closed doorway, not the swung leaf -- left on, it
+        // eats every arrow fired through the open door.
+        if (_hurtBox?.Shape != null)
+        {
+            _hurtBox.Shape.Disabled = _open;
+        }
         UpdateVisuals(animate);
 
         PackedScene swingFx = _open ? _openFx : _closeFx;

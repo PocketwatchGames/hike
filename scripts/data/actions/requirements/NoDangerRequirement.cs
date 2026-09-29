@@ -5,7 +5,7 @@ using Godot;
 // while a dangerous hostile makes the spot unsafe. Anchored at the interactive
 // being used (falling back to the actor) and scoped by `dangerRadius`: a mob
 // blocks only if it's within that radius AND either in an engaged posture or has
-// a clear line of sight to the object (see Sim.IsDangerNear). Fog/lighting-
+// a clear line of sight to the object (see Sim.FindDanger). Fog/lighting-
 // independent and symmetric about the object.
 //
 // If the interactive implements IMobWard (a lit campfire), mobs it wards off
@@ -30,8 +30,32 @@ public partial class NoDangerRequirement : ActionRequirement
             // half-initialised state, matching the other requirement subclasses.
             return false;
         }
+        return FindBlocker(sim, actor, context, out _, out _) == null;
+    }
+
+    public override string ExplainRejection(IActionActor actor, in ActionContext context)
+    {
+        Sim sim = Sim.Current;
+        if (sim == null)
+        {
+            return "no Sim";
+        }
+        Mob mob = FindBlocker(sim, actor, context, out Vector3 anchor, out bool engaging);
+        if (mob == null)
+        {
+            return null;
+        }
+        float dist = mob.GlobalPosition.DistanceTo(anchor);
+        string clause = engaging ? "engaging (any range)" : $"in sight within {dangerRadius:F0}m";
+        return $"{mob.mobData?.displayName} ({mob.Name}) {clause}: dist={dist:F1} pos={mob.GlobalPosition} " +
+            $"behavior={mob.CurrentBehaviorName} flags={mob.CurrentBehaviorFlags} nav={mob.Navigator.LastPlan} " +
+            $"playerSeesMob={mob.playerCanSee}";
+    }
+
+    private Mob FindBlocker(Sim sim, IActionActor actor, in ActionContext context, out Vector3 anchor, out bool engaging)
+    {
         IInteractive interactive = context.primaryInteractive;
-        Vector3 anchor = (interactive as Node3D)?.GlobalPosition ?? actor.ActorWorldPosition;
+        anchor = (interactive as Node3D)?.GlobalPosition ?? actor.ActorWorldPosition;
         Func<Mob, bool> warded = interactive is IMobWard ward ? ward.WardsOff : null;
         // Exclude the interactive's own colliders from the line-of-sight ray so a
         // mob's clear view of the object isn't blocked by the object itself (it's a
@@ -42,7 +66,7 @@ public partial class NoDangerRequirement : ActionRequirement
             losExclude = new Godot.Collections.Array<Rid>();
             CollectBodyRids(node, losExclude);
         }
-        return !sim.IsDangerNear(anchor, dangerRadius, warded, losExclude);
+        return sim.FindDanger(anchor, dangerRadius, out engaging, warded, losExclude);
     }
 
     // Depth-first collect the RIDs of every CollisionObject3D at or under `node`

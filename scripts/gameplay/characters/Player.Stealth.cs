@@ -161,20 +161,25 @@ public partial class Player : CharacterBody3D
 
 		float speedFactor = data.moveSpeed > 0f ? Mathf.Clamp(Mathf.Pow(Velocity.Length() / data.moveSpeed, data.visibilityMovementPower), data.visibilityMovementMin, 1f) : 1f;
 
-		float camouflage = 0f;
+		// Cover (the densest foliage touched) plus the Camouflage stat from gear and
+		// status effects; 1 or more is fully unseen (invisibility).
+		float foliageCamouflage = 0f;
 		foreach (Foliage foliage in _foliageCollisions)
 		{
-			camouflage = Mathf.Max(camouflage, foliage.camouflage);
+			foliageCamouflage = Mathf.Max(foliageCamouflage, foliage.camouflage);
 		}
+		float camouflage = Mathf.Clamp(foliageCamouflage + ComposeStat(EStat.Camouflage), 0f, 1f);
 
 		visibility = Mathf.Clamp(lightFactor * speedFactor * (1.0f - camouflage), 0f, 1f);
 		visibilityLight = lightFactor;
 		visibilitySpeed = speedFactor;
-		visibilityCamouflage = Mathf.Max(0f, 1f - camouflage);
+		visibilityCamouflage = 1f - camouflage;
+		_animator?.SetCamouflageDither(Mathf.Lerp(1f, data.fullCamouflageVisibility, camouflage));
 
 		Vector3 horizVel = Velocity;
 		horizVel.Y = 0f;
-		CurrentDecibels = PlayerPerception.ComputeMovementDecibels(horizVel.Length(), data.sneakSpeed, data.moveSpeed, data.sneakDecibels, data.runDecibels);
+		CurrentDecibels = PlayerPerception.ComputeMovementDecibels(horizVel.Length(), data.sneakSpeed, data.moveSpeed, data.sneakDecibels, data.runDecibels)
+			* ComposeStat(EStat.Noise);
 	}
 
 	// Smooth the dark-adaptation state toward "how dark is it where I stand".

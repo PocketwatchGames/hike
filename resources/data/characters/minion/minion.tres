@@ -63,6 +63,7 @@ animations = Dictionary[int, ExtResource("4_animdata")]({
 displayName = &"Minion"
 hudScale = 0.6
 team = 1
+alwaysKnownToPlayer = true
 maxSpeed = 8.0
 spawnStatusEffect = ExtResource("5_drain")
 maxHealth = 300.0

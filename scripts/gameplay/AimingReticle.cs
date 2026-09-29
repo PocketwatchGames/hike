@@ -1808,7 +1808,7 @@ public partial class AimingReticle : Node3D
 		using var hurtQuery = PhysicsRayQueryParameters3D.Create(from, envEnd, (uint)ECollisionLayer.HurtBox);
 		hurtQuery.CollideWithBodies = false;
 		hurtQuery.CollideWithAreas = true;
-		Rid? selfHurtBox = _player?.SelfHurtBoxRid;
+		Rid? selfHurtBox = _player?.SelfHurtBox?.GetRid();
 		if (selfHurtBox.HasValue)
 		{
 			hurtQuery.Exclude = new Godot.Collections.Array<Rid> { selfHurtBox.Value };

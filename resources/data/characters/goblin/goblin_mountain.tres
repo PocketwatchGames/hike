@@ -28,4 +28,5 @@ mob = ExtResource("2_mob")
 displayName = &"Mountain Goblin"
 weapons = Array[ExtResource("9_wd")]([ExtResource("10_cry"), ExtResource("11_claw")])
 loot = Array[ExtResource("6_lootcount")]([SubResource("Resource_loot_meat")])
+abilities = 5
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

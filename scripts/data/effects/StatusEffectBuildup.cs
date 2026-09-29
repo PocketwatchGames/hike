@@ -5,6 +5,10 @@ using Godot;
 // every on-hit effect — DamageData.buildups, DamageDataModifier.addBuildups,
 // WeaponModData.onHitBuildups all hold these; there is no separate direct
 // status-effect list.
+//
+// [Tool] because DamageData / WeaponModData (both [Tool]) export lists of these —
+// without it the editor blanks and then drops every authored buildup.
+[Tool]
 [GlobalClass]
 public partial class StatusEffectBuildup : Resource
 {

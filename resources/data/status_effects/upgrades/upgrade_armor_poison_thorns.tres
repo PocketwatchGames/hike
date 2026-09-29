@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_se"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/poison_thorns_retaliation.tres" id="2_retaliation"]
+[ext_resource type="Texture2D" uid="uid://dxksnc4t6wym2" path="res://assets/textures/status_effects/Poison_Status.png" id="3_icon"]
+
+[resource]
+script = ExtResource("1_se")
+icon = ExtResource("3_icon")
+displayName = &"Poison Thorns"
+description = "Melee attackers are poisoned until sunrise."
+upgradeSlot = 4
+durationType = 2
+maxStack = 1
+removesOnApply = []
+modifiers = []
+conditionalModifiers = []
+onDamagedRetaliation = ExtResource("2_retaliation")
+onDamagedTags = 128

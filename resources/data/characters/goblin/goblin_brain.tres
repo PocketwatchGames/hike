@@ -96,7 +96,6 @@ destination = &"Retreat"
 
 [sub_resource type="Resource" id="Resource_cond_incoming"]
 script = ExtResource("18_incoming")
-requireCanDodge = true
 requireFacingTarget = true
 
 [sub_resource type="Resource" id="Resource_attack_to_dodge"]
@@ -140,6 +139,7 @@ script = ExtResource("2_node")
 name = &"Dodge"
 data = SubResource("Resource_dodge")
 transitions = []
+requiredAbilities = 1
 
 [sub_resource type="Resource" id="Resource_wander"]
 script = ExtResource("8_wander")
@@ -224,6 +224,7 @@ script = ExtResource("2_node")
 name = &"InspectCorpse"
 data = SubResource("Resource_corpse")
 transitions = [SubResource("Resource_idle_to_attack"), SubResource("Resource_idle_to_attack_threat")]
+requiredAbilities = 4
 
 [resource]
 script = ExtResource("1_brain")

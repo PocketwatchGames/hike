@@ -154,7 +154,7 @@ public partial class BehaviorAttack : BehaviorBase
         // it waits. Bypassed when its facing is frozen off-screen (it can't turn to
         // satisfy the gate, and an off-axis swing the player can't see is harmless)
         // so an unseen attacker never deadlocks. dist2d ~ 0 (target on top) passes.
-        bool facingShown = me.playerCanSee || Teams.AreAllied(me.ActorTeam, ETeam.Player);
+        bool facingShown = me.playerCanSee || me.IsKnownToPlayer;
         float facingTolerance = Mathf.DegToRad(_data.attackFacingToleranceDegrees);
         bool facingTarget = !facingShown
             || dist2d <= 0.0001f

@@ -340,7 +340,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		// can't afford it (the analog of a weapon's ammo gate). Only gate spells that
 		// actually cost reagents — a reagentless spell casts freely.
 		SpellData attuned = _inventory.AttunedSpell;
-		if (attuned != null && attuned.reagents.Count > 0 && GetSpellAmmo() <= 0)
+		if (attuned != null && attuned.reagents.Count > 0 && !CVars.freeSpells.Value && GetSpellAmmo() <= 0)
 		{
 			return;
 		}
@@ -766,7 +766,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 
 	public ulong GameTimeMs => _world?.GameTimeMs ?? 0;
 	public uint AttackHurtboxMask => (uint)ECollisionLayer.HurtBox;
-	public Rid? SelfHurtBoxRid => _hurtBox?.GetRid();
+	public HurtBox SelfHurtBox => _hurtBox;
 	public Node3D AttackerNode => this;
 	public float OutgoingDamageMultiplier => _statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f;
 	// IActionActor — melee-only damage scale from the hosted member's strength.
@@ -802,6 +802,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// the swing/ray impact point. Shares the controller path with Mob so an
 	// enchant authored as a StatusEffectData works identically on the player.
 	public void TriggerAttackImpact(Vector3 position) => _statusEffects?.TriggerAttackImpact(this, position);
+	public void OnAttack() => _statusEffects?.RemoveOnAttack();
 	// IActionActor — body-carried on-attack projectile mods (a Fairy boon's
 	// homing missiles), fired by the Melee / Hitscan handlers regardless of the
 	// wielded weapon. Shares the controller path with Mob.

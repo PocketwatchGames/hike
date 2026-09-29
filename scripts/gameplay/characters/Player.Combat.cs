@@ -320,13 +320,13 @@ public partial class Player : CharacterBody3D
 		if (_health > 0f && !parried)
 		{
 			appliedBuildup = _statusEffects?.ApplyHitBuildups(ref hit) ?? false;
-			// On-damaged trait reactions (Thin Skinned → its "+5% damage taken"
-			// debuff). Discrete hits only — a continuous DoT tick shouldn't re-arm
+			// On-damaged reactions (Thin Skinned → its "+5% damage taken"
+			// debuff; Poison Thorns → poison the attacker). Discrete hits only — a continuous DoT tick shouldn't re-arm
 			// the debuff every physics frame; the tag filter on each effect further
 			// scopes it (e.g. physical only).
 			if (!hit.dot)
 			{
-				_statusEffects?.TriggerOnDamaged(hit.tags);
+				_statusEffects?.TriggerOnDamaged(hit, this);
 			}
 		}
 

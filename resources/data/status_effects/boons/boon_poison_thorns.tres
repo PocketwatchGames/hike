@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="BoonData" format=3 uid="uid://duhgebxuyuyxb"]
+
+[ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="1_boon"]
+[ext_resource type="Resource" uid="uid://ut72tj71ywdr" path="res://resources/data/status_effects/poison_thorns_retaliation.tres" id="2_retaliation"]
+[ext_resource type="Texture2D" uid="uid://dxksnc4t6wym2" path="res://assets/textures/status_effects/Poison_Status.png" id="5_icon"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="6_se"]
+
+[sub_resource type="Resource" id="se_poison_thorns"]
+script = ExtResource("6_se")
+icon = ExtResource("5_icon")
+displayName = &"Poison Thorns"
+description = "Melee attackers are poisoned."
+durationType = 2
+maxStack = 1
+removesOnApply = []
+modifiers = []
+conditionalModifiers = []
+onDamagedRetaliation = ExtResource("2_retaliation")
+onDamagedTags = 128
+
+[resource]
+script = ExtResource("1_boon")
+displayName = null
+statusEffect = SubResource("se_poison_thorns")

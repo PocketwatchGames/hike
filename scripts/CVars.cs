@@ -71,7 +71,7 @@
     public static CVarBool editorMarkerOverlay = new CVarBool("editor_markers", true);
 
     // Periodically logs each dangerous hostile near the player with the factors
-    // the interactive danger gate reads (Sim.IsDangerNear) — distance, behavior,
+    // the interactive danger gate reads (Sim.FindDanger) — distance, behavior,
     // composed EBehaviorFlags, IsEngaging, and clear-line-to-player — so a stuck
     // "Danger Nearby" with nothing on screen can be traced to the exact mob.
     public static CVarBool dangerDebug = new CVarBool("danger_debug", false);
@@ -2580,6 +2580,17 @@
     {
         DebugVerbs.SetVar(((CVarString)cvar).Value);
     });
+
+    // `spells_all` — learn every spell on SimData.spells and stock the party
+    // material stash with enough reagents to cast each one several times.
+    public static CVar allSpells = new CVar("spells_all", (cvar) =>
+    {
+        DebugVerbs.AllSpells();
+    });
+
+    // Debug: attuned spells cast without reagents — neither gated on the pool nor
+    // spending from it. Reagent-costed interactives still charge.
+    public static CVarBool freeSpells = new CVarBool("spells_free", false);
 
     // `next_day` — roll straight to the next sunrise, firing OnNewDay (and so
     // every world-script OnNewDay hook) without a camp sleep. Sim-only: no

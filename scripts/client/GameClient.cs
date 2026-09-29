@@ -1635,6 +1635,9 @@ public partial class GameClient : Node3D
 		// Silence any in-flight rumble when the game scene tears down (quit to
 		// menu, scene swap) — the OS motor keeps running otherwise.
 		_rumble.StopAll();
+		// Quit-to-menu from the pause menu tears the scene down while paused;
+		// the main menu must not inherit a paused tree.
+		GetTree().Paused = false;
 	}
 
 	// One-shot scene-tree census for unattended runs, which have no console to
@@ -1751,28 +1754,22 @@ public partial class GameClient : Node3D
 			TickClipIris(deltaTime);
 		}
 
-		// Drive rumble before the pause/console gate: an indefinite vibration
-		// would otherwise stick on while paused. On a blocked frame StopAll
-		// kills the motors immediately rather than letting impulses decay.
-		if (_player == null || ConsoleUI.IsOpen || paused)
+		// Pause stops the whole tree (TogglePause), so this never runs while
+		// paused. The console does NOT pause — the world keeps running under it
+		// and only player input is dropped.
+		if (_player == null)
 		{
 			_rumble.StopAll();
-		}
-		else
-		{
-			_rumble.Tick((float)deltaTime);
-		}
-
-		if (_player == null || ConsoleUI.IsOpen || paused)
-		{
 			return;
 		}
+		_rumble.Tick((float)deltaTime);
+
 		_world.Tick(deltaTime);
 		Combat?.Tick(_world.GameTimeMs);
 		UpdateRegion(deltaTime);
 		UpdateDebugSkyLight(deltaTime);
 
-		if (!InputSuppressed)
+		if (!InputSuppressed && !ConsoleUI.IsOpen)
 		{
 			// Any modal that wants to block gameplay input flips
 			// InputSuppressed in its Open(); Sim.Tick keeps running so a
@@ -2201,9 +2198,9 @@ public partial class GameClient : Node3D
 		// Mouse-motion aim has to live in _Input, not _UnhandledInput: while
 		// the cursor is in Captured mode (gameplay), motion events never reach
 		// the UnhandledInput tier, so we'd otherwise never see them. Gameplay
-		// is gated by the same paused/InputSuppressed/no-player checks the
+		// is gated by the same InputSuppressed/console/no-player checks the
 		// UnhandledInput block uses.
-		if (e is InputEventMouseMotion mouseMotion && !paused && !InputSuppressed && _player != null)
+		if (e is InputEventMouseMotion mouseMotion && !InputSuppressed && !ConsoleUI.IsOpen && _player != null)
 		{
 			if (flyCamera != null && flyCamera.HandleMouseMotion(mouseMotion))
 			{
@@ -2278,8 +2275,8 @@ public partial class GameClient : Node3D
 		// Suppressed while a modal is up (almanac, merchant, etc.): Escape is
 		// bound to both TogglePause and ui_cancel, so consuming it here would
 		// open the pause menu instead of letting the modal close on its own
-		// ui_cancel. TogglePause deliberately isn't gated on `paused` so Escape
-		// still un-pauses (modals don't set `paused`).
+		// ui_cancel. This only ever PAUSES: once paused the tree stops
+		// delivering input here, and PauseMenu handles the un-pause.
 		if (!InputSuppressed && e.IsActionPressed("TogglePause"))
 		{
 			TogglePause();
@@ -2287,11 +2284,12 @@ public partial class GameClient : Node3D
 			return;
 		}
 
-		// While paused, or while any input-consuming modal is up, gameplay
+		// While any input-consuming modal or the console is up, gameplay
 		// input is dropped. Modal-close keys (ui_cancel for map/inventory)
-		// fall through to the modal itself in its own _UnhandledInput —
-		// see InputSuppressed gate below.
-		if (paused || InputSuppressed)
+		// fall through to the modal itself in its own _UnhandledInput.
+		// (Paused never reaches here: the tree is paused and PauseMenu owns
+		// the unpause.)
+		if (InputSuppressed || ConsoleUI.IsOpen)
 		{
 			return;
 		}
@@ -2859,9 +2857,18 @@ public partial class GameClient : Node3D
 		}
 	}
 
+	// A real tree pause: mob physics, AI, Fx and the sim clock all stop together.
+	// Anything that must keep working while paused (PauseMenu, ConsoleUI,
+	// MusicManager) sets ProcessMode = Always.
 	public void TogglePause()
 	{
 		paused = !paused;
+		GetTree().Paused = paused;
+		if (paused)
+		{
+			// Motors keep running on their own; _Process no longer ticks to stop them.
+			_rumble.StopAll();
+		}
 		onPauseToggled?.Invoke(paused);
 	}
 

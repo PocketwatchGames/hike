@@ -7,12 +7,11 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_l1sea"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
-[ext_resource type="PackedScene" uid="uid://c8a6r5gxqwv3p" path="res://scenes/fx/goblin_attack.tscn" id="6_atkfx"]
-[ext_resource type="PackedScene" uid="uid://dn4p7m2qx8kjf" path="res://scenes/fx/goblin_claw_hit.tscn" id="7_hitfx"]
+[ext_resource type="PackedScene" uid="uid://87a6epwec1ep" path="res://scenes/fx/goblin_attack.tscn" id="6_atkfx"]
+[ext_resource type="PackedScene" uid="uid://buvwhfga0dg5g" path="res://scenes/fx/goblin_claw_hit.tscn" id="7_hitfx"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_12u36"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="8_rxhcv"]
 [ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/fx/sword_hit_solid.tscn" id="8_solidfx"]
-[ext_resource type="PackedScene" uid="uid://bs6g5vb3w6472" path="res://scenes/items/club_held.tscn" id="9_held"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="10_rxhcv"]
 
 [sub_resource type="Resource" id="Resource_event_windup_anim"]
@@ -32,7 +31,6 @@ motionFreezeGravity = false
 script = ExtResource("4_event")
 time = 250
 type = 1
-impactDecibels = 1.2
 range = 3.5
 farWidth = 3.0
 meleeDuration = 0.2
@@ -40,6 +38,7 @@ impactEnvironmentEffect = ExtResource("8_solidfx")
 impactHealthEffect = ExtResource("7_hitfx")
 impactArmorEffect = ExtResource("8_solidfx")
 impactLethalEffect = ExtResource("7_hitfx")
+impactDecibels = 1.2
 
 [sub_resource type="Resource" id="Resource_action_claw"]
 script = ExtResource("3_action")
@@ -58,7 +57,7 @@ chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_cl
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("5_damage")
 tags = 3205
-healthDamage = 60.0
+healthDamage = 30.0
 blunt = 0.5
 hitstun = 0.3
 knockbackDistance = 1.0
@@ -76,4 +75,3 @@ maxAttackRange = 6.0
 desiredAttackRange = 2.5
 cooldownSeconds = 1.0
 displayName = &"Goblin Claw"
-heldModel = ExtResource("9_held")

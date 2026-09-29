@@ -50,7 +50,6 @@ impactLethalEffect = ExtResource("7_hitkill")
 script = ExtResource("3_event")
 time = 50
 type = 1
-impactDecibels = 1.2
 range = 3.0
 nearWidth = 0.8
 farWidth = 4.0
@@ -60,6 +59,7 @@ impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
+impactDecibels = 1.2
 metadata/_custom_type_script = "uid://cmw4pa3roleml"
 
 [sub_resource type="Resource" id="Resource_club_swing1"]
@@ -108,7 +108,6 @@ cameraShakeDuration = 0.4
 script = ExtResource("3_event")
 time = 50
 type = 1
-impactDecibels = 1.5
 range = 5.0
 nearWidth = 1.0
 farWidth = 8.0
@@ -119,6 +118,7 @@ impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
+impactDecibels = 1.5
 
 [sub_resource type="Resource" id="Resource_charged_heavy"]
 script = ExtResource("4_charged")
@@ -247,10 +247,10 @@ parryTimeMs = 350
 maxParryDamage = 300.0
 parryDamageProfileKey = &"parry"
 parryEffect = ExtResource("22_parryfx")
+blockDecibels = 1.0
+parryDecibels = 1.2
 displayName = &"Big Stick"
 description = "A heavy, slow melee weapon."
 value = 50
 inventorySprite = ExtResource("15_3a20y")
 heldModel = ExtResource("17_held")
-blockDecibels = 1.0
-parryDecibels = 1.2

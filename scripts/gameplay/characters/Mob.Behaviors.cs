@@ -48,6 +48,9 @@ public struct AIOutput
     public bool suspended;
     public InvestigateState? investigation;
     public bool resetInvestigation;
+    // Clears the investigation like resetInvestigation, and also marks its
+    // point abandoned so perception doesn't immediately re-issue it.
+    public bool abandonInvestigation;
     // Set by BehaviorInspectCorpse when it is done with (or gives up on) the
     // body, so the default behavior's HasCorpseSighting edge cannot bounce it
     // straight back in. The body itself stays remembered.
@@ -107,8 +110,10 @@ public partial class Mob
         _curBehavior != null && _behaviors.TryGetValue(_curBehavior, out BehaviorBase b) ? b : null;
 
     // Called from Mob.Initialize after _simState is set. Walks the mob's BrainData,
-    // creates a runtime BehaviorBase per node, validates that every transition
-    // target names a real node, and seeds the current behavior (see defaultBehavior).
+    // creates a runtime BehaviorBase per node the species' abilities allow, hands
+    // each its transitions minus those into a pruned node, validates that every
+    // other destination names a real node, and seeds the current behavior (see
+    // defaultBehavior).
     private void InitBehaviors()
     {
         _behaviors.Clear();
@@ -120,6 +125,9 @@ public partial class Mob
             return;
         }
 
+        EMobAbility abilities = _simState?.Species?.abilities ?? EMobAbility.None;
+        var pruned = new System.Collections.Generic.HashSet<StringName>();
+        var created = new System.Collections.Generic.List<(BehaviorNode node, BehaviorBase runtime)>();
         foreach (BehaviorNode node in brain.behaviors)
         {
             if (node == null || node.data == null)
@@ -127,9 +135,14 @@ public partial class Mob
                 GD.PushError($"Brain '{brain.ResourcePath}' contains a null node or node with null data");
                 continue;
             }
-            if (_behaviors.ContainsKey(node.name))
+            if (_behaviors.ContainsKey(node.name) || pruned.Contains(node.name))
             {
                 GD.PushError($"Brain '{brain.ResourcePath}' has duplicate behavior name '{node.name}'");
+                continue;
+            }
+            if ((node.requiredAbilities & ~abilities) != 0)
+            {
+                pruned.Add(node.name);
                 continue;
             }
             BehaviorBase runtime = node.data.CreateRuntime();
@@ -137,28 +150,39 @@ public partial class Mob
             {
                 continue;
             }
-            runtime.Init(node);
             _behaviors[node.name] = runtime;
+            created.Add((node, runtime));
         }
 
-        // Validate that every transition destination names a known node.
-        foreach (BehaviorNode node in brain.behaviors)
+        var kept = new System.Collections.Generic.List<BehaviorNodeTransition>();
+        foreach ((BehaviorNode node, BehaviorBase runtime) in created)
         {
-            if (node?.transitions == null)
+            kept.Clear();
+            if (node.transitions != null)
             {
-                continue;
-            }
-            foreach (BehaviorNodeTransition t in node.transitions)
-            {
-                if (t == null || t.destination == null)
+                foreach (BehaviorNodeTransition t in node.transitions)
                 {
-                    continue;
-                }
-                if (!_behaviors.ContainsKey(t.destination))
-                {
-                    GD.PushError($"Brain '{brain.ResourcePath}' node '{node.name}' has transition to unknown destination '{t.destination}'");
+                    if (t == null)
+                    {
+                        continue;
+                    }
+                    if (t.destination != null && !_behaviors.ContainsKey(t.destination))
+                    {
+                        if (!pruned.Contains(t.destination))
+                        {
+                            GD.PushError($"Brain '{brain.ResourcePath}' node '{node.name}' has transition to unknown destination '{t.destination}'");
+                        }
+                        continue;
+                    }
+                    kept.Add(t);
                 }
             }
+            runtime.Init(node, kept.ToArray());
+        }
+
+        if (brain.idleBehavior != null && pruned.Contains(brain.idleBehavior))
+        {
+            GD.PushError($"Brain '{brain.ResourcePath}' idle behavior '{brain.idleBehavior}' requires abilities species '{_simState?.Species?.ResourcePath}' lacks");
         }
 
         ResolveReactsToCorpses();

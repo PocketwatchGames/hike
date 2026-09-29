@@ -1,0 +1,42 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://rmy8owd5hawv" path="res://scripts/gameplay/entities/Projectile.cs" id="1_proj"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="2_model_lit"]
+[ext_resource type="Script" uid="uid://de7or1xx11ad5" path="res://scripts/gameplay/MovingLight.cs" id="3_light"]
+[ext_resource type="PackedScene" uid="uid://bf2lmtrlqawq3" path="res://scenes/fx/flame_trail_loop.tscn" id="4_fuse"]
+
+[sub_resource type="ShaderMaterial" id="Mat_bomb"]
+render_priority = 0
+shader = ExtResource("2_model_lit")
+shader_parameter/color_tint = Color(1, 0.45, 0.12, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_bomb"]
+material = SubResource("Mat_bomb")
+radius = 0.2
+height = 0.4
+radial_segments = 12
+rings = 8
+
+[node name="CorpseBomb" type="Node3D"]
+script = ExtResource("1_proj")
+groundShadowRadius = 0.25
+
+[node name="Sphere" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_bomb")
+
+[node name="Glow" type="Node3D" parent="."]
+script = ExtResource("3_light")
+distance = 5.0
+falloff = 1.4
+brightness = 1.2
+lightColor = Color(1, 0.4, 0.1, 1)
+verticalOffset = 0.5
+flicker = true
+flickerMin = 0.35
+flickerMax = 1.2
+flickerHz = 10.0
+fadeInDuration = 0.1
+fadeOutDuration = 0.1
+
+[node name="Fuse" parent="." instance=ExtResource("4_fuse")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)

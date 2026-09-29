@@ -88,6 +88,7 @@ script = ExtResource("2_node")
 name = &"Burrow"
 data = SubResource("Resource_burrow")
 transitions = [SubResource("Resource_burrow_to_idle")]
+requiredAbilities = 2
 
 [sub_resource type="Resource" id="Resource_wander"]
 script = ExtResource("10_wander")
@@ -136,6 +137,7 @@ script = ExtResource("2_node")
 name = &"InspectCorpse"
 data = SubResource("Resource_corpse")
 transitions = [SubResource("Resource_idle_to_flee")]
+requiredAbilities = 4
 
 [resource]
 script = ExtResource("1_brain")

@@ -703,9 +703,12 @@ public partial class Sim
     // the object the player stands. Drives NoDangerRequirement. `isWarded`
     // optionally excludes mobs the interactive repels (a lit campfire's feared
     // slimes) so those never block it. Cheap enough to call at action-press time.
-    public bool IsDangerNear(Vector3 anchor, float radius, Func<Mob, bool> isWarded = null,
+    // Returns the first mob that makes the spot unsafe (null = safe); `engaging`
+    // says which clause it tripped, for the rejection log.
+    public Mob FindDanger(Vector3 anchor, float radius, out bool engaging, Func<Mob, bool> isWarded = null,
         Godot.Collections.Array<Rid> losExclude = null)
     {
+        engaging = false;
         float radiusSq = radius * radius;
         foreach (Mob mob in GetEntities<Mob>())
         {
@@ -721,7 +724,8 @@ public partial class Sim
             // close, dive, or shoot (a drake attacks from altitude/distance).
             if (mob.IsEngaging)
             {
-                return true;
+                engaging = true;
+                return mob;
             }
             // A merely-present hostile (aware of the spot but not engaged) counts
             // only when it's near AND has a clear line to it. Horizontal distance
@@ -731,10 +735,10 @@ public partial class Sim
             toMob.Y = 0f;
             if (toMob.LengthSquared() <= radiusSq && HasLineOfSight(mob.GlobalPosition, anchor, losExclude))
             {
-                return true;
+                return mob;
             }
         }
-        return false;
+        return null;
     }
 
     // Clear-line test for the danger gate against solid geometry (terrain, walls,
@@ -835,6 +839,12 @@ public partial class Sim
     public void CreateNoiseEvent(Vector3 position, float decibels, Node3D source = null,
         ENoiseAudience audience = ENoiseAudience.Mobs)
     {
+        // The player's Noise stat scales every sound it makes, not just footsteps
+        // (Player.CurrentDecibels) — so muffled or invisible also means quiet here.
+        if (source is Player noisyPlayer)
+        {
+            decibels *= noisyPlayer.ComposeStat(EStat.Noise);
+        }
         if (decibels <= 0f || source == null)
         {
             return;

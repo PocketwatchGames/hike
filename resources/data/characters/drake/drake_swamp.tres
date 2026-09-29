@@ -26,3 +26,4 @@ mob = ExtResource("2_mob")
 displayName = &"Swamp Drake"
 weapons = Array[ExtResource("8_wd")]([ExtResource("9_lightning"), ExtResource("10_bite")])
 loot = Array[ExtResource("5_lootcount")]([SubResource("Resource_loot_meat")])
+abilities = 5

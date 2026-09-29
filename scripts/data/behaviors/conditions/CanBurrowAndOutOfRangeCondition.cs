@@ -6,7 +6,7 @@ public partial class CanBurrowAndOutOfRangeCondition : BehaviorTransitionData
 {
     public override bool Evaluate(Mob me, ref PerceptionState targetPerception)
     {
-        if (!me.mobData.canBurrow || !me.CanBurrowNow || targetPerception.pawnTarget == null)
+        if (!me.CanBurrowNow || targetPerception.pawnTarget == null)
         {
             return false;
         }

@@ -8,4 +8,6 @@ public partial class BehaviorNode : Resource
     [Export] public StringName name;
     [Export] public BehaviorData data;
     [Export] public Array<BehaviorNodeTransition> transitions;
+    // Abilities the mob's species must ALL have for this node to exist; see EMobAbility.
+    [Export] public EMobAbility requiredAbilities;
 }

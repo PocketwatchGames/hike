@@ -11,6 +11,8 @@ public partial class PauseMenu : Control
 
 	override public void _Ready()
 	{
+		// The pause menu is what runs while GameClient.TogglePause has the tree paused.
+		ProcessMode = ProcessModeEnum.Always;
 		Visible = gameClient.paused;
 		gameClient.onPauseToggled += (p) => { Visible = p; };
 		VisibilityChanged += OnVisibilityChanged;

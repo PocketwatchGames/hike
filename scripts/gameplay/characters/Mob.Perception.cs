@@ -11,6 +11,10 @@ public struct PerceptionState
     // window of first being triggered. Meaningless while `triggered` is false.
     public ulong triggeredTimeMs;
     public bool canSee;
+    // The last perception tick's senses registered the target (delta above
+    // minPerceptionDelta). A triggered mob in contact tracks it regardless of
+    // facing; losing contact (a corner, darkness) puts the facing cone back.
+    public bool inContact;
     public Vector3 lastKnownPosition;
     Node3D _target;
     Player _pawnTarget;
@@ -317,9 +321,11 @@ public partial class Mob
             // Omnidirectional when perched, and when the authored FOV is the full
             // circle: the in-cone remap anchors on the cone EDGE, so at 360 it
             // would still taper to 0 directly behind — a blind spot a many-eyed
-            // or faceless mob is authored not to have.
+            // or faceless mob is authored not to have. A triggered mob still in
+            // contact is tracking the player and turns with them, so the cone
+            // doesn't apply until contact breaks.
             float facingFactor;
-            if (perched || mobData.visionFovDegrees >= 360f)
+            if (perched || mobData.visionFovDegrees >= 360f || (target.triggered && target.inContact))
             {
                 facingFactor = 1f;
             }
@@ -342,10 +348,9 @@ public partial class Mob
                 // Clarity: how clearly the mob reads the player right now — the
                 // facing cone, the player's stealth (light w/ the mob's
                 // dark-adaptation relief, movement, camouflage, base prominence),
-                // and fog over the sightline. A triggered mob has LOCKED ON: it
-                // ignores the player's stealth (but must still face them and hold a
-                // clear line). Eye dilation lifts only the light term, matching the
-                // player→mob relief.
+                // and fog over the sightline. Stealth applies to a triggered mob
+                // too — darkness or camouflage can still lose it. Eye dilation lifts
+                // only the light term, matching the player→mob relief.
                 float dilationRelief = _simState.EyeDilation * mobData.eyeDilationVisionRelief;
                 float playerLight = Mathf.Lerp(_world.player.visibilityLight, 1f, dilationRelief);
                 // Darkness creatures (gellies) see by the ABSENCE of block light,
@@ -363,15 +368,8 @@ public partial class Mob
                     float slimeLight = Mathf.Max(Mathf.Pow(unlit, mobData.darknessVisionCurve), mobData.darknessSightFloor);
                     playerLight = Mathf.Lerp(playerLight, slimeLight, mobData.darknessPerceptionWeight);
                 }
-                float stealthTerm = Mathf.Clamp(playerLight * _world.player.visibilitySpeed * _world.player.visibilityCamouflage, 0f, 1f)
+                float playerStealth = Mathf.Clamp(playerLight * _world.player.visibilitySpeed * _world.player.visibilityCamouflage, 0f, 1f)
                     * _world.player.data.prominence;
-                // A triggered mob is normally locked on (ignores stealth). For a
-                // darkness creature the lock is softened by its weight, so a player
-                // who reaches the light can still slip a hunting slime — its
-                // perception then drains through the usual memory window.
-                float playerStealth = target.triggered
-                    ? Mathf.Lerp(1f, stealthTerm, mobData.darknessPerceptionWeight)
-                    : stealthTerm;
                 float env = PlayerPerception.SightlineClarity(_world, GlobalPosition, _world.player.GlobalPosition);
                 float clarity = facingFactor * env * playerStealth;
                 // Signal = closeness curve × clarity. minPerceptionDelta is the
@@ -533,6 +531,7 @@ public partial class Mob
             float hearingContribution = hearingDelta * mobData.hearingStrength;
             float smellContribution = smellDelta * mobData.smellStrength;
             float perceptionDelta = visionContribution + hearingContribution + smellContribution;
+            target.inContact = perceptionDelta > mobData.minPerceptionDelta;
 
             // Debug breakdown — written every perception tick for the
             // CVars.debugMobPerception HUD overlay. Facing factor mirrors
@@ -570,8 +569,11 @@ public partial class Mob
                     0f, 1f);
                 // Triggered (combat alert) requires active visual contact —
                 // a hearing-only spike raises perception but can't latch the
-                // mob into the alert state on its own.
-                if (canSee && target.perception >= mobData.perceptionThresholdAlert)
+                // mob into the alert state on its own. A player-side mob never
+                // alerts on its own ally: `triggered` means "in combat", and
+                // hostile ThreatScan reads it as exactly that.
+                if (canSee && target.perception >= mobData.perceptionThresholdAlert
+                    && !Teams.IsPlayerSide(ActorTeam))
                 {
                     if (!target.triggered)
                     {
@@ -614,10 +616,11 @@ public partial class Mob
             // a hostile brain wires HasActionableInvestigationCondition→Investigate
             // (path toward it). Not lookOnly — that gate is for cross-team yells;
             // here the mob perceives the target directly. Re-issued each tick it
-            // holds so the point tracks a target it keeps hearing; once perception
-            // relaxes below the threshold the last investigation's own cancel
-            // timer ends it.
-            if (!target.triggered && target.perception >= mobData.perceptionThresholdAlert && target.pawnTarget != null)
+            // holds so the point tracks a target it keeps hearing, under the
+            // original deadline (see Investigate); a point the mob has just given
+            // up on is left alone for investigateAbandonTime.
+            if (!target.triggered && target.perception >= mobData.perceptionThresholdAlert && target.pawnTarget != null
+                && !IsInvestigationAbandoned(target.pawnTarget.GlobalPosition))
             {
                 Investigate(
                     target.pawnTarget.GlobalPosition,
@@ -877,15 +880,31 @@ public partial class Mob
         return forwardDot > Mathf.Cos(Mathf.DegToRad(data.visionFovDegrees * 0.5f));
     }
 
+    // Re-issuing while an investigation is live moves its point but keeps its
+    // deadline — a suspicion the mob keeps feeding must still run out, or a
+    // target it can sense but never reach holds it in Investigate forever.
     public void Investigate(Vector3 position, float range, ulong cancelTimeMs, ulong pauseTimeMs, bool lookOnly = false)
     {
+        ulong now = _world.GameTimeMs;
+        ulong cancelTime = now + cancelTimeMs;
+        if (investigation.HasValue && investigation.Value.cancelTime > now)
+        {
+            cancelTime = investigation.Value.cancelTime < cancelTime ? investigation.Value.cancelTime : cancelTime;
+        }
         investigation = new InvestigateState
         {
             position = position,
             range = range,
-            cancelTime = _world.GameTimeMs + cancelTimeMs,
+            cancelTime = cancelTime,
             pauseTime = pauseTimeMs,
             lookOnly = lookOnly,
         };
+    }
+
+    private bool IsInvestigationAbandoned(Vector3 point)
+    {
+        return _world.GameTimeMs < _simState.AbandonedInvestigationUntilMs
+            && point.DistanceSquaredTo(_simState.AbandonedInvestigationPoint)
+                <= mobData.investigateRange * mobData.investigateRange;
     }
 }

@@ -26,4 +26,5 @@ script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 displayName = &"Mountain Kun-Kun"
 loot = Array[ExtResource("3_lootcount")]([SubResource("Resource_loot_meat")])
+abilities = 6
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

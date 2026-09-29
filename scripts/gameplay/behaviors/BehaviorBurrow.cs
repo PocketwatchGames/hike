@@ -1,6 +1,6 @@
 using Godot;
 
-// Terminal behavior for mobs with canBurrow = true. Raises the burrow flag on
+// Terminal behavior for species with EMobAbility.Burrow. Raises the burrow flag on
 // the AI output; Mob consumes the flag to mark the sim state as burrowed and
 // despawn the node. The sim state's Burrowed flag keeps the mob from
 // respawning when its chunk is re-loaded.

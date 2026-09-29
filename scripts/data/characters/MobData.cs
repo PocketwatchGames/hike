@@ -16,6 +16,12 @@ public partial class MobData : Resource
     // shared across teams — the brain decides what to do, the team decides
     // who counts as a target.
     [Export] public ETeam team = ETeam.Hostile;
+    // The player always knows where this mob is: drawn fully visible at any
+    // range and through cover, never perception-gated or remembered as a
+    // silhouette. For the player's own summons. Being on the player's side is
+    // NOT enough — a Friendly villager is discovered and forgotten like any
+    // other mob. A tamed companion gets this regardless (Mob.IsKnownToPlayer).
+    [Export] public bool alwaysKnownToPlayer = false;
     // NOTE: the second "threat perception" channel (a companion tracking enemies,
     // a hostile tracking the player's companions) is NOT authored per-mob — it's
     // derived. A `dangerous` mob automatically scans the player's side, and a
@@ -171,11 +177,6 @@ public partial class MobData : Resource
     // picking a fight unless provoked. Read off the *target* mob, so
     // "harmlessness" travels with the creature.
     [Export] public bool canTriggerMobs = true;
-    // Whether this creature registers a dead body at all (see
-    // BehaviorInspectCorpse). False for something too mindless to notice one —
-    // the slimes — so a species can decline the reaction while sharing a brain
-    // with species that keep it. Also skips that mob's corpse scan entirely.
-    [Export] public bool noticesCorpses = true;
     // Aggro bleed-off rate (aggro points per second) for this mob's per-enemy
     // threat-priority meter (see AggroTracker / MobSimState.Aggro). Damage this
     // mob takes — or, for a companion, damage dealt to its master — adds aggro
@@ -276,6 +277,10 @@ public partial class MobData : Resource
     // BehaviorAttack.
     [Export] public float maxHealth = 100f;
     [Export] public float maxArmor = 0f;
+    // Added to maxArmor when the spawn is elite. Authored on the species rather
+    // than on EliteData because the elite signatures are shared across species,
+    // and not every elite body wears armor.
+    [Export] public float eliteMaxArmor = 0f;
     [Export] public float armorRechargeDelay = 6f;
     // Seconds for the armor pool to refill from empty to full maxArmor. The
     // per-tick rate is derived as maxArmor / armorRechargeTime, so a mob whose
@@ -307,14 +312,6 @@ public partial class MobData : Resource
     // { Dizzy, x } TagModifier (kun-kun's { Dizzy, 3 } vulnerability still
     // stacks on top). Leave at 1 for no per-species adjustment.
     [Export(PropertyHint.Range, "0.1,10,0.1,or_greater")] public float dizzyResistance = 1f;
-    // Whether this species can sidestep incoming projectiles (the Attack->Dodge
-    // reaction). Opt-in per species so a shared attack brain doesn't force the
-    // dodge onto every mob that uses it — e.g. the agile goblin dodges, while the
-    // aquatic lurker reuses the same brain but leaves this false (a ground dash
-    // would just beach it). Read by IncomingProjectileCondition.requireCanDodge;
-    // dodge tuning (distance / cooldown) still lives on the brain's
-    // DodgeBehaviorData.
-    [Export] public bool canDodge = false;
     // Whether the player can land a positional backstab on this species. True for
     // ordinary mobs with a meaningful facing; set false for radially-symmetric
     // creatures (a slime blob has no "back"), so a hit from behind folds no
@@ -329,7 +326,6 @@ public partial class MobData : Resource
     [Export] public StatusEffectData spawnStatusEffect;
 
     [ExportGroup("Burrowing")]
-    [Export] public bool canBurrow = false;
     // Seconds from the moment a mob starts burrowing to when it's fully
     // underground and uninteractable. During this window the mesh is sinking
     // but the mob is still hittable.
@@ -370,6 +366,15 @@ public partial class MobData : Resource
     [Export] public float investigateRange = 8f;
     [Export] public float investigateCancelTime = 30f;
     [Export] public float investigatePauseTime = 3f;
+    // Seconds an investigation may go without getting closer to its point
+    // before the mob gives up — catches a point it cannot reach (the
+    // pathfinder hands back a partial path, so the mob parks at the nearest
+    // cell and never "arrives").
+    [Export] public float investigateStallTime = 4f;
+    // Seconds after giving up during which the mob's own senses won't restart
+    // an investigation near the abandoned point. Without it a target it keeps
+    // hearing re-issues the investigation on the very next perception tick.
+    [Export] public float investigateAbandonTime = 60f;
     // Continuous movement noise this mob emits. Mapped from current speed:
     // 0 at rest, sneakDecibels at half maxSpeed, runDecibels at maxSpeed.
     // Listeners (player + other mobs) check `decibels * hearingRange >
@@ -439,6 +444,11 @@ public partial class MobData : Resource
     // reads exactly, regardless of the mesh's source texture. Empty = no level
     // tell for this species.
     [Export] public string[] levelColorMeshNames = System.Array.Empty<string>();
+    // Mesh node names that make up the species' worn armor, shown only while the
+    // mob's armor pool is above zero: a mob with no armor never shows them, and an
+    // armored one sheds them when its armor breaks. They must ALSO be listed in the
+    // scene's ModelAnimator.visibleMeshNames, or the allowlist frees them at load.
+    [Export] public string[] armorMeshNames = System.Array.Empty<string>();
     // How strongly the mob's visual model pitches to follow the ground slope
     // under it. The model's up vector is slerped from world-up toward the local
     // ground normal by this fraction, taking only the tilt along the facing

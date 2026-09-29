@@ -1,0 +1,12 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[ext_resource type="Texture2D" uid="uid://vr7sx20810g3" path="res://assets/textures/effects/decal_ring.png" id="1_ring"]
+
+[resource]
+resource_name = "decal_caltrops"
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+disable_fog = true
+albedo_color = Color(0.42, 0.44, 0.48, 0.7)
+albedo_texture = ExtResource("1_ring")

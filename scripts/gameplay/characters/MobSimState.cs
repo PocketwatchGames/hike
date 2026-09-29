@@ -273,6 +273,10 @@ public class MobSimState : EntitySimState
     public float SuspicionPeak;
     public ulong SuspicionSetMs;
     public InvestigateState? Investigation;
+    // Where the last investigation was given up, and until when perception
+    // leaves that spot alone (MobData.investigateAbandonTime). Transient.
+    public Vector3 AbandonedInvestigationPoint;
+    public ulong AbandonedInvestigationUntilMs;
     // The dead body this mob has noticed and not yet finished reacting to (see
     // Mob.Corpses / BehaviorInspectCorpse). Transient — not serialized.
     public CorpseSighting? CorpseSighting;
@@ -450,6 +454,7 @@ public class MobSimState : EntitySimState
         VisibleTimeMs = 0;
         DiscoveryState = EPlayerPerceptionState.Hidden;
         Investigation = null;
+        AbandonedInvestigationUntilMs = 0;
         Yelled = false;
         SuspendAITimeMs = 0;
         ThreatPerception = default;

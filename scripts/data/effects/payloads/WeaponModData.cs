@@ -139,6 +139,15 @@ public partial class WeaponModData : Resource
 	// onAttackEvent is null.
 	[Export] public EInventorySlot onAttackSlot = EInventorySlot.WeaponMelee;
 
+	// Fired at the corpse of each creature a hit from this weapon kills — the
+	// "Explosive Corpse" mod drops a fused bomb there. Dispatched at a point
+	// (ItemEventHandlers.DispatchAtPosition), so a Projectile event launches
+	// straight up at projectileSpeed from the corpse; its damage scales with the
+	// killing weapon's level. Whatever it spawns carries no on-kill payload of its
+	// own, so kills it makes never chain. Null = none.
+	[ExportGroup("On Kill")]
+	[Export] public ItemEvent onKillEvent;
+
 	// ============================ Naming ============================
 	// How this mod names the weapons it's attached to (see WeaponNameGenerator).
 

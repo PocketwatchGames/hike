@@ -11,6 +11,10 @@ using Godot;
 // the active one and runs its events on its own timeline.
 public class ActionRunner
 {
+	// Event types that deliver a hit — firing one counts as attacking (IActionActor.OnAttack).
+	private const EItemEventType ATTACK_EVENT_TYPES = EItemEventType.Melee | EItemEventType.Hitscan
+		| EItemEventType.Projectile | EItemEventType.AreaBurst | EItemEventType.SpawnAreaEffect;
+
 	private readonly IActionActor _actor;
 	private PlayerAction _action;
 
@@ -916,6 +920,10 @@ public class ActionRunner
 	private void DispatchEvent(ItemEvent ev)
 	{
 		EItemEventType t = ev.type;
+		if ((t & ATTACK_EVENT_TYPES) != 0)
+		{
+			_actor.OnAttack();
+		}
 		if ((t & EItemEventType.PlayAnim) != 0)
 		{
 			// Per-swing anim override: a repeat swing authoring animName != None
@@ -1184,6 +1192,11 @@ public class ActionRunner
 			{
 				continue;
 			}
+			string why = req.ExplainRejection(_actor, context);
+			if (why != null)
+			{
+				GD.Print($"[reject] {action.displayName}: {req.GetType().Name} — {why}");
+			}
 			// No authored reason — this gate refuses silently (the reject Fx
 			// still played). Skip to the next failed requirement.
 			if (string.IsNullOrEmpty(req.rejectMessage.ToString()))
@@ -1292,12 +1305,12 @@ public class ActionRunner
 		}
 		if (_channelZone == null)
 		{
-			_channelZone = ItemEventHandlers.SpawnChannelZone(_actor, tier.channelZoneScene, tier.positionalAreaRadius);
+			_channelZone = ItemEventHandlers.SpawnChannelZone(_actor, tier.channelZoneScene, tier.positionalAreaRadius, _action.context);
 			_lastChannelDrainMs = now;
 		}
 		if (_channelZone != null && Godot.GodotObject.IsInstanceValid(_channelZone))
 		{
-			_channelZone.GlobalPosition = ItemEventHandlers.ResolveAimPoint(_actor);
+			_channelZone.GlobalPosition = ItemEventHandlers.ResolveAimPoint(_actor, _action.context);
 		}
 		// Smooth per-second drain: spend exactly the blood accrued since the
 		// last tick. A whole-frame's worth is tiny, so abort only when even that

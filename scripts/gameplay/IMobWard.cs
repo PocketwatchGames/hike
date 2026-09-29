@@ -1,5 +1,5 @@
 // An interactive that repels certain mobs (a lit campfire scaring slimes). The
-// interactive danger gate (NoDangerRequirement -> Sim.IsDangerNear) excludes
+// interactive danger gate (NoDangerRequirement -> Sim.FindDanger) excludes
 // warded mobs, so a mob that's afraid of the thing never blocks the player from
 // using it — the player can light / camp at a fire surrounded by fire-fearing
 // mobs, and lighting it then drives them off via the safety zone.

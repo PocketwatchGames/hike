@@ -129,7 +129,7 @@ public partial class MobHudManager : Node
         }
         // Fully hidden and alive: only the health bar can still show, and only
         // for a mob the player owns, can see, or has engaged.
-        bool healthEligible = Teams.AreAllied(mob.ActorTeam, ETeam.Player)
+        bool healthEligible = mob.IsKnownToPlayer
             || mob.playerCanSee
             || mob.triggered;
         if (!healthEligible)

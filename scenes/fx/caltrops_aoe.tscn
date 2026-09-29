@@ -1,0 +1,49 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dgv1xdt06si" path="res://scripts/gameplay/entities/GasCloud.cs" id="1_gas"]
+[ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="3_continuous"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="4_buildup"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/status_caltrops.tres" id="5_caltrops"]
+[ext_resource type="Script" uid="uid://bowccahwa232w" path="res://scripts/gameplay/effects/GroundDecal.cs" id="6_decal"]
+[ext_resource type="Material" path="res://resources/materials/decal_caltrops.tres" id="7_decal_mat"]
+
+[sub_resource type="Resource" id="Resource_caltrops_buildup"]
+script = ExtResource("4_buildup")
+effect = ExtResource("5_caltrops")
+applyImmediately = true
+
+[sub_resource type="Resource" id="Resource_caltrops_continuous"]
+script = ExtResource("3_continuous")
+buildups = Array[ExtResource("4_buildup")]([SubResource("Resource_caltrops_buildup")])
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_caltrops_zone"]
+height = 1.5
+radius = 2.5
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_caltrops"]
+size = Vector2(5, 5)
+
+[node name="CaltropsAoE" type="Node3D" node_paths=PackedStringArray("_dangerZone", "_decal")]
+script = ExtResource("1_gas")
+_dangerZone = NodePath("DamageZone")
+_decal = NodePath("Decal")
+decalFadeOutFraction = 0.2
+
+[node name="DamageZone" type="Area3D" parent="." node_paths=PackedStringArray("_shape")]
+collision_layer = 0
+collision_mask = 32
+script = ExtResource("2_dz")
+damageContinuous = SubResource("Resource_caltrops_continuous")
+_shape = NodePath("CollisionShape3D")
+metadata/_custom_type_script = "uid://bcc4gtomm0vvk"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DamageZone"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("CylinderShape3D_caltrops_zone")
+
+[node name="Decal" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+material_override = ExtResource("7_decal_mat")
+mesh = SubResource("PlaneMesh_caltrops")
+script = ExtResource("6_decal")

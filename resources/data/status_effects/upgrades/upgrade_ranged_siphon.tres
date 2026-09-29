@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://bt81x27m5jlgw"]
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
-[ext_resource type="Texture2D" uid="uid://brtbxwojsqpq4" path="res://assets/textures/status_effects/Stamina_Boost_Status.png" id="2_icon"]
+[ext_resource type="Texture2D" uid="uid://3iv2lpm2c4c3" path="res://assets/textures/status_effects/upgrade_siphon.png" id="2_icon"]
 [ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="3_mod"]
 
 [sub_resource type="Resource" id="weaponMod"]

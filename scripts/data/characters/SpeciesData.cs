@@ -77,6 +77,11 @@ public partial class SpeciesData : Resource
     // MobSimState.Loot (read by Mob.EjectLoot); empty = no drops.
     [Export] public Godot.Collections.Array<ItemCount> loot = new();
 
+    // What this species can do. A brain node requiring an ability it lacks is
+    // dropped at spawn, so species sharing one brain differ here rather than
+    // forking it (a basic goblin without Dodge). See EMobAbility.
+    [Export] public EMobAbility abilities;
+
     // Build the runtime sim state for a mob of this species at the given
     // transform. Returns null when the species has no usable MobData or scene.
     //

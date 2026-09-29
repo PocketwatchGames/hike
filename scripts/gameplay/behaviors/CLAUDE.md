@@ -9,8 +9,8 @@ Per-mob hierarchical state machine driven by polymorphic Resource data.
 ## Data model (authored in `.tres`)
 
 - `BrainData` (`scripts/data/BrainData.cs`) — `idleBehavior` (StringName) + `Array<BehaviorNode> behaviors`. One brain per mob type, referenced from `MobData.brain`.
-- `BehaviorNode` — `name` (StringName, per-brain instance id), `data` (`BehaviorData` subclass), `Array<BehaviorNodeTransition> transitions`.
-- `BehaviorData` (base, `scripts/data/BehaviorData.cs`) — abstract per-behavior tuning. Subclasses live in `scripts/data/behaviors/` (e.g. `IdleBehaviorData`, `AttackBehaviorData`). Override `CreateRuntime()` to return a fresh `BehaviorBase` instance bound to this data. Also carries `behaviorFlags` (`EBehaviorFlags`, a `[Flags]` bitmask) — the behavior's resting *stance*: `Engaging` (Attack/Investigate/Wary/Dodge/aerial-attack), `Disengaging` (Flee/Retreat/escape), or `None` (idle/wander/look/follow). It's authored `[Export]` but each subclass sets its own correct default in its constructor, so authors never touch it and existing brains pick it up on next save. Consumed by the interactive danger gate (`Sim.IsDangerNear` reads `Mob.IsEngaging`) — a fleeing mob is not danger, a hunting one is even behind cover.
+- `BehaviorNode` — `name` (StringName, per-brain instance id), `data` (`BehaviorData` subclass), `Array<BehaviorNodeTransition> transitions`, `requiredAbilities` (see Species abilities below).
+- `BehaviorData` (base, `scripts/data/BehaviorData.cs`) — abstract per-behavior tuning. Subclasses live in `scripts/data/behaviors/` (e.g. `IdleBehaviorData`, `AttackBehaviorData`). Override `CreateRuntime()` to return a fresh `BehaviorBase` instance bound to this data. Also carries `behaviorFlags` (`EBehaviorFlags`, a `[Flags]` bitmask) — the behavior's resting *stance*: `Engaging` (Attack/Investigate/Wary/Dodge/aerial-attack), `Disengaging` (Flee/Retreat/escape), or `None` (idle/wander/look/follow). It's authored `[Export]` but each subclass sets its own correct default in its constructor, so authors never touch it and existing brains pick it up on next save. Consumed by the interactive danger gate (`Sim.FindDanger` reads `Mob.IsEngaging`) — a fleeing mob is not danger, a hunting one is even behind cover.
 - `BehaviorNodeTransition` — `condition` (`BehaviorTransitionData` subclass) + `destination` (StringName naming a sibling node).
 - `BehaviorTransitionData` (base, `scripts/data/BehaviorTransitionData.cs`) — abstract transition predicate. Subclasses live in `scripts/data/behaviors/conditions/` (e.g. `AggroAcquiredCondition`). Override `Evaluate(Mob, ref PerceptionState)`.
 
@@ -39,6 +39,29 @@ Per-mob hierarchical state machine driven by polymorphic Resource data.
   keeps a mob fully on edge for the whole walk to a body. Raised today only by the
   corpse stimuli below; any future stimulus (a heard scream, a sprung trap) raises
   it the same way.
+
+## Species abilities (one brain, many species)
+
+**A brain is authored as the full set of behaviors; the species decides which
+exist.** `BehaviorNode.requiredAbilities` (`EMobAbility`, `[Flags]`) names what a
+node needs, `SpeciesData.abilities` what a species has, and `Mob.InitBehaviors`
+drops every node whose requirements are not ALL met — plus every transition
+into it — before the mob's first tick. A basic goblin without Dodge is an
+unticked box on its `SpeciesData`, not a forked brain.
+
+- **Absence removes.** A species lists what it CAN do; an unset `abilities`
+  keeps only the ungated nodes. A new species that should dodge / burrow /
+  react to bodies must say so.
+- **Gate the node, never the edge.** Pruning at init means no per-tick check
+  and no edge into a gated node can skip the gate — which is what the old
+  per-condition `requireCanDodge` bool allowed.
+- **Ability is per SPECIES, not per `MobData`.** Regional and loadout variants
+  share one `MobData` and one brain, and this is exactly the axis they differ on.
+- A brain whose `idleBehavior` is pruned errors at spawn.
+- Adding one: append a bit to `EMobAbility` (stored as an int — append-only),
+  set it on the node, tick it on the species that have it. No code reads it
+  beyond `InitBehaviors`; if a behavior needs a species-level fact at runtime,
+  that is a `MobData`/`SpeciesData` field, not an ability.
 
 ## Aggro (target priority, separate from perception)
 
@@ -90,10 +113,9 @@ machine with legs dropped:
   with the body, so a goblin that watched you kill its packmate stays sharp
   through the walk over and for ten seconds after — on top of the last leg
   turning it to face where the blow came from.
-- **The brain wires the reaction; the species can decline it.**
-  `MobData.noticesCorpses` (false on the slimes) is how a creature too mindless to
-  register a body opts out of a brain it shares with species that keep it — the
-  same shape as `canTriggerMobs`, and it skips that mob's scan entirely.
+- **The brain wires the reaction; the species opts in.** The node requires
+  `EMobAbility.InspectCorpses`, so a species without it (the slimes) loses the
+  node at spawn and, with no node, skips the scan entirely.
 - **A body nobody saw die is found by polling**, so it rides the throttled
   perception tick and walks `Sim.Corpses` (registered in `Die`, unregistered on
   tree exit) rather than a spatial query per mob per tick — the no-corpses case

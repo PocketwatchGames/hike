@@ -140,6 +140,9 @@ public partial class Projectile : Node3D
 	// Chain-lightning mods (Shocking bow) that discharge from each creature this
 	// shot strikes. Null when the shot carries none.
 	private Godot.Collections.Array<ChainLightningData> _chainLightning;
+	// On-kill weapon mods (Explosive Corpse) fired at each creature this shot
+	// kills. Null when the shot carries none.
+	private Godot.Collections.Array<ItemEvent> _onKillEvents;
 	// Knockback-mod shove (m/s) + stagger (s) added to each hit. 0 = none.
 	private float _knockbackBonus;
 	private float _knockbackTimeBonus;
@@ -213,7 +216,8 @@ public partial class Projectile : Node3D
 		ItemEvent expirationEvent = null,
 		float damageMultiplier = 1f,
 		float potency = 1f,
-		float staminaOnHit = 0f)
+		float staminaOnHit = 0f,
+		Godot.Collections.Array<ItemEvent> onKillEvents = null)
 	{
 		if (scene == null || parent == null)
 		{
@@ -225,6 +229,7 @@ public partial class Projectile : Node3D
 		inst._staminaOnHit = staminaOnHit;
 		inst._onHitBuildups = onHitBuildups;
 		inst._chainLightning = chainLightning;
+		inst._onKillEvents = onKillEvents;
 		inst._knockbackBonus = knockbackBonus;
 		inst._knockbackTimeBonus = knockbackTimeBonus;
 		inst._damageMultiplier = damageMultiplier;
@@ -500,6 +505,12 @@ public partial class Projectile : Node3D
 								ItemEventHandlers.ApplyChainLightning(chainActor, _chainLightning[ci], hitPos);
 							}
 						}
+						if (hitResult == EHitResult.Lethal)
+						{
+							ItemEventHandlers.FireOnKillEvents(_onKillEvents, hurtBox, GetParent(),
+								GodotObject.IsInstanceValid(_source) ? _source : null, _impact.sourceWeapon?.data,
+								_attackerTeam, _damageMultiplier, _potency);
+						}
 						if (_pierceRemaining <= 0)
 						{
 							// No pierce budget left — this hit ends the shot (impact
@@ -611,7 +622,8 @@ public partial class Projectile : Node3D
 			_ => _impactEvent,
 		};
 		ItemEventHandlers.DispatchAtPosition(followUp, position, GetParent(),
-			GodotObject.IsInstanceValid(_source) ? _source : null, _impact.sourceWeapon?.data, _attackerTeam);
+			GodotObject.IsInstanceValid(_source) ? _source : null, _impact.sourceWeapon?.data, _attackerTeam,
+			_damageMultiplier, _potency);
 		StopLoopFx();
 		QueueFree();
 	}

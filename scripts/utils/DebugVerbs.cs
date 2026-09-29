@@ -21,6 +21,9 @@ public static class DebugVerbs
     // Dropped items pop up slightly so they settle rather than clipping the floor.
     private static readonly Vector3 GiveImpulse = new(0f, 2.5f, 0f);
 
+    // Casts of every spell `all_spells` stocks reagents for.
+    private const int AllSpellsCasts = 10;
+
     // Argument that asks a verb to list what it accepts. A BARE verb cannot do
     // this: ProcessCommand answers a value-less cvar with its current value and
     // never runs the callback, so there has to be an argument.
@@ -259,6 +262,67 @@ public static class DebugVerbs
         // Dropping exercises what the player actually does.
         sim.SpawnLoot(player.GlobalPosition + Vector3.Up * 0.5f, GiveImpulse, state);
         GD.Print($"give: {count}x {data.ResourcePath.GetFile()} dropped at your feet");
+    }
+
+    // --- all_spells -----------------------------------------------------
+
+    public static void AllSpells()
+    {
+        Sim sim = Sim.Current;
+        SimState state = sim?.WorldState?.SimState;
+        if (state == null || sim.SimData == null)
+        {
+            GD.PrintErr("all_spells: no running game.");
+            return;
+        }
+
+        // Taught through the real path, so the knowledge is provisional until
+        // the next camp exactly as a scroll or NPC lesson would be.
+        int learned = 0;
+        var reagentTotals = new Dictionary<ItemData, int>();
+        foreach (SpellData spell in sim.SimData.spells)
+        {
+            if (spell == null)
+            {
+                continue;
+            }
+            if (state.LearnSpell(spell))
+            {
+                learned++;
+            }
+            foreach (RecipeInput r in spell.reagents)
+            {
+                if (r?.item == null || r.count <= 0)
+                {
+                    continue;
+                }
+                reagentTotals.TryGetValue(r.item, out int existing);
+                reagentTotals[r.item] = existing + r.count * AllSpellsCasts;
+            }
+        }
+
+        // Into the party stash rather than the backpack: it is uncapped and
+        // always part of the pool a cast draws from (Player.CombinedMaterialPool).
+        var given = new List<string>();
+        foreach (KeyValuePair<ItemData, int> kv in reagentTotals)
+        {
+            int perStack = Mathf.Max(1, kv.Key.maxStack);
+            for (int remaining = kv.Value; remaining > 0; remaining -= perStack)
+            {
+                ItemState stack = kv.Key.CreateState();
+                if (stack == null)
+                {
+                    GD.PrintErr($"all_spells: '{kv.Key.ResourcePath.GetFile()}' produced no item state.");
+                    break;
+                }
+                stack.SetCount(Mathf.Min(perStack, remaining));
+                ItemStash.Add(state.PartyMaterialStash, stack);
+            }
+            given.Add($"{kv.Value}x {kv.Key.ResourcePath.GetFile()}");
+        }
+
+        GD.Print($"all_spells: learned {learned} new of {sim.SimData.spells.Count} spells; "
+            + $"stashed reagents for {AllSpellsCasts} casts each — {string.Join(", ", given)}");
     }
 
     // --- setvar ---------------------------------------------------------

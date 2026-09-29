@@ -175,7 +175,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // effects (e.g. Stoneskin), so a buff applied mid-life raises the recharge
     // ceiling and the HUD bar immediately. TickArmor clamps current armor down
     // when the buff expires and this shrinks.
-    public float maxArmor => ((mobData?.maxArmor ?? 0f) + ComposeStat(EStat.MaxArmor)) * LevelMultiplier;
+    public float maxArmor => ((mobData?.maxArmor ?? 0f) + (IsElite ? (mobData?.eliteMaxArmor ?? 0f) : 0f) + ComposeStat(EStat.MaxArmor)) * LevelMultiplier;
     // Difficulty tier stamped at spawn (MobSimState.Level). Drives LevelMultiplier
     // below, the per-level offense/defense scaling (OutgoingLevelScale /
     // IncomingLevelResist), and the HUD level pips (Level+1 of them). Immutable
@@ -254,7 +254,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         && _simState.MemoryTimeMs > _world.GameTimeMs;
     // A dangerous mob on a team hostile to the player and still alive — the base
     // filter for "could this thing hurt the player." Whether it actually gates an
-    // interaction is decided per-object by the danger scan (Sim.IsDangerNear),
+    // interaction is decided per-object by the danger scan (Sim.FindDanger),
     // which adds proximity, line-of-sight, and engagement (see IsEngaging).
     public bool IsDangerousHostile => alive && mobData != null && mobData.dangerous
         && !Teams.AreAllied(ActorTeam, ETeam.Player);
@@ -313,6 +313,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // becomes a companion the moment its loyalty crosses MobData.tameLoyalty
     // (or it spawns pre-tamed, like the starter pet). See Tame / ActorTeam.
     public bool IsCompanion => _simState != null && _simState.Tamed;
+    // Exempt from player perception: always drawn, never faded to a memory
+    // silhouette. The player's own companion or summon — not merely an ally
+    // (see MobData.alwaysKnownToPlayer).
+    public bool IsKnownToPlayer => IsCompanion || (mobData?.alwaysKnownToPlayer ?? false);
 
     // Party-member template for a recruitable NPC (null = not recruitable). When
     // set, a RecruitToPartyAction in this mob's conversation hands the mob to
@@ -962,6 +966,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _simState.Armor = maxArmor;
             _simState.VitalsFinalized = true;
         }
+        SyncArmorMeshes();
     }
 
     // Apply one spawn-time status effect, routed by kind: a weapon-mod effect
@@ -1097,13 +1102,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // IActionActor — what ActionRunner and ItemEventHandlers read. Forward
     // is the mob's facing direction (basis Z, matching how Mob updates
     // Rotation.Y from its yaw target). AttackHurtboxMask matches the
-    // player's hurtbox layer so mob attacks land on the player; SelfHurtBoxRid
+    // player's hurtbox layer so mob attacks land on the player; SelfHurtBox
     // excludes the mob's own hurtbox from its own attack queries.
     public Vector3 ActorWorldPosition => GlobalPosition;
     public Vector3 ActorForward => GlobalTransform.Basis.Z;
     public ulong GameTimeMs => _world?.GameTimeMs ?? 0;
     public uint AttackHurtboxMask => (uint)ECollisionLayer.HurtBox;
-    public Rid? SelfHurtBoxRid => _hurtBox?.GetRid();
+    public HurtBox SelfHurtBox => _hurtBox;
 
     // World-space body center used by the player's aim assist as the "where to
     // pull toward" point. Falls back to the body root if the hurtbox or its
@@ -1263,6 +1268,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // (elite lightning aura, etc.) at the swing/ray impact point. Forwarded to
     // the shared controller so mobs and the player run identical logic.
     public void TriggerAttackImpact(Vector3 position) => _statusEffects?.TriggerAttackImpact(this, position);
+    public void OnAttack() => _statusEffects?.RemoveOnAttack();
 
     // IActionActor — body-carried on-attack projectile mods (a boon's homing
     // missiles), forwarded to the shared controller so player and mob run
@@ -1404,7 +1410,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // space or the ceiling:
     //   - mesh not drawn (culled / faded out), or a remembered-silhouette mob
     //     that's outside the line-of-sight window (playerCanSee false) and not
-    //     player-side — you can't see where it really is.
+    //     known to the player — you can't see where it really is.
     //   - cut away by the ceiling cutaway (an upper floor removed overhead). The
     //     cutaway is inert outdoors, so this only bites indoors.
     public bool ShowsHudFeedback => ShowsHudFeedbackAt(hudPosition);
@@ -1418,7 +1424,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return false;
         }
-        if (!Teams.AreAllied(ActorTeam, ETeam.Player) && !playerCanSee)
+        if (!IsKnownToPlayer && !playerCanSee)
         {
             return false;
         }
@@ -2671,11 +2677,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             discovered = true;
         }
-        // Mobs on the player's side (minions, tamed pets, friendly NPCs) are
-        // never perception-gated — the player always knows where their own team
-        // is, so they stay fully visible regardless of line of sight / memory.
-        bool playerSide = Teams.AreAllied(ActorTeam, ETeam.Player);
-        if (playerSide)
+        // The player's own companions and summons are never perception-gated —
+        // they stay fully visible regardless of line of sight / memory. A
+        // Friendly NPC is NOT: it is discovered and forgotten like any mob.
+        bool knownToPlayer = IsKnownToPlayer;
+        if (knownToPlayer)
         {
             discovered = true;
         }
@@ -2692,7 +2698,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // and never dithered out. A motionless body, once seen, is something
         // the player keeps seeing; perception toward it only ever rose (see
         // Mob.UpdatePerception, which early-outs once this latch is set). Mirror
-        // the player-side treatment: force-visible and always "within visible
+        // the known-to-player treatment: force-visible and always "within visible
         // time" so no silhouette ramps up.
         bool corpseSeen = _simState.DiscoveryState == EPlayerPerceptionState.CorpseDiscovered;
         if (corpseSeen)
@@ -2707,9 +2713,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Step values move toward targets at 1 / VisibilityFadeTime per
         // second so both the pop-in and the transition to/from silhouette
         // are smooth rather than instant.
-        // Player-side mobs read as fully lit, never the "remembered" black
-        // silhouette, since they're always actively seen by their own side.
-        bool withinVisibleTime = playerSide || corpseSeen || _world.GameTimeMs < _simState.VisibleTimeMs;
+        // Known-to-player mobs read as fully lit, never the "remembered" black
+        // silhouette.
+        bool withinVisibleTime = knownToPlayer || corpseSeen || _world.GameTimeMs < _simState.VisibleTimeMs;
         float targetVisibility = discovered ? 1f : 0f;
         // Silhouette target only moves while we WANT to be visible — when
         // fading out, freeze it so a silhouetted mob whose memory just
@@ -3021,6 +3027,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 using (Profiler.Sample("Mob.StatusTick"))
                 {
                     TickArmor(coldDt);
+                    SyncArmorMeshes();
                     _statusEffects.Tick(coldDt);
                     // A +MaxHealth buff expiring (processed in the status tick above)
                     // shrinks the live cap; clamp current health down so it can't sit
@@ -3378,14 +3385,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // in _Process stops the skeleton re-skinning; without this gate the
             // body would keep rotating to track the player under that frozen
             // pose, so the silhouette's facing would drift while its animation
-            // sat still. Player-side allies are exempt: they render fully lit
+            // sat still. Known-to-player mobs are exempt: they render fully lit
             // regardless of line of sight (UpdateVisibility's withinVisibleTime
-            // ORs in playerSide), so freezing their facing on the narrower
+            // ORs in knownToPlayer), so freezing their facing on the narrower
             // playerCanSee window would leave a companion visibly trotting one
             // way while still facing its old heading whenever it slips behind
             // the player. Mirror the rendering condition here so an always-shown
             // mob always turns to face its movement direction.
-            bool facingShown = playerCanSee || Teams.AreAllied(ActorTeam, ETeam.Player);
+            bool facingShown = playerCanSee || IsKnownToPlayer;
             if (!inBurrow && targetYaw.HasValue && facingShown)
             {
                 Vector3 currentRot = Rotation;
@@ -3420,7 +3427,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 _simState.CorpseSighting = default;
             }
-            if (aiOutput.resetInvestigation)
+            if (aiOutput.abandonInvestigation)
+            {
+                if (_simState.Investigation.HasValue)
+                {
+                    _simState.AbandonedInvestigationPoint = _simState.Investigation.Value.position;
+                    _simState.AbandonedInvestigationUntilMs = _world.GameTimeMs
+                        + (ulong)(mobData.investigateAbandonTime * 1000f);
+                }
+                _simState.Investigation = default;
+            }
+            else if (aiOutput.resetInvestigation)
             {
                 _simState.Investigation = default;
             }
@@ -4644,6 +4661,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (health - incoming > 0f)
         {
             appliedBuildup = _statusEffects.ApplyHitBuildups(ref hit);
+            // On-damaged reactions (thorns) — discrete hits only, as on the player.
+            if (!hit.dot)
+            {
+                _statusEffects.TriggerOnDamaged(hit, this);
+            }
         }
 
         // Hitstun + knockback: stack on top of any buildup handling above so a
@@ -4890,6 +4912,28 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _simState.ArmorRechargeStartMs = now + (ulong)(mobData.armorRecoverTime * 1000f);
         }
         _simState.ArmorRecharging = false;
+        SyncArmorMeshes();
+    }
+
+    // Shows MobData.armorMeshNames while the armor pool is above zero. Cached so
+    // the per-tick call only crosses into the scene on a change; -1 forces the
+    // first push at spawn.
+    private int _armorMeshesShown = -1;
+
+    private void SyncArmorMeshes()
+    {
+        string[] names = mobData?.armorMeshNames;
+        if (_modelAnimator == null || names == null || names.Length == 0)
+        {
+            return;
+        }
+        int shown = armor > 0f ? 1 : 0;
+        if (shown == _armorMeshesShown)
+        {
+            return;
+        }
+        _armorMeshesShown = shown;
+        _modelAnimator.SetMeshesVisible(names, shown == 1);
     }
 
     private void TickArmor(float dt)
@@ -5854,9 +5898,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // perception of it (Detected or beyond) — not only once it's fully
         // drawn. A camouflaged underwater mob the player can't yet resolve
         // still disturbs the surface once noticed, and that surface tell is
-        // what gives it away. Below Detected it stays a secret. Player-side
-        // allies and reveal-mobs always ripple.
-        bool partiallyPerceived = Teams.AreAllied(ActorTeam, ETeam.Player)
+        // what gives it away. Below Detected it stays a secret. Known-to-player
+        // mobs and reveal-mobs always ripple.
+        bool partiallyPerceived = IsKnownToPlayer
             || CVars.revealMobs.Value
             || _simState.DiscoveryState >= EPlayerPerceptionState.Detected;
         if (!partiallyPerceived)

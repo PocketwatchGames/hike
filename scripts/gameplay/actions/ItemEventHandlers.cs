@@ -82,7 +82,7 @@ public static class ItemEventHandlers
 		};
 
 		var results = world3D.DirectSpaceState.IntersectShape(query);
-		Rid? selfHurtBox = actor.SelfHurtBoxRid;
+		Rid? selfHurtBox = actor.SelfHurtBox?.GetRid();
 		// Whether the swing had already landed on something before this tick.
 		// Distinguishes the swing's ONE impact moment (the first connect, or the
 		// closing tick of a swing that never connects) from later ticks of the
@@ -125,6 +125,10 @@ public static class ItemEventHandlers
 				if (r == EHitResult.Health || r == EHitResult.Lethal)
 				{
 					healthDamageDealt += hit.healthDamage;
+				}
+				if (r == EHitResult.Lethal)
+				{
+					FireWeaponModOnKill(actor, action, hurtBox);
 				}
 				if (HitPriority(r) > HitPriority(bestResult))
 				{
@@ -368,7 +372,7 @@ public static class ItemEventHandlers
 		hurtQuery.CollisionMask = actor.AttackHurtboxMask;
 		hurtQuery.CollideWithAreas = true;
 		hurtQuery.CollideWithBodies = false;
-		Rid? selfHurtBox = actor.SelfHurtBoxRid;
+		Rid? selfHurtBox = actor.SelfHurtBox?.GetRid();
 		if (selfHurtBox.HasValue)
 		{
 			hurtQuery.Exclude = new Godot.Collections.Array<Rid> { selfHurtBox.Value };
@@ -396,6 +400,10 @@ public static class ItemEventHandlers
 					if (hitResult == EHitResult.Health || hitResult == EHitResult.Lethal)
 					{
 						ApplyLifesteal(actor, action, hit.healthDamage);
+					}
+					if (hitResult == EHitResult.Lethal)
+					{
+						FireWeaponModOnKill(actor, action, hurtBox);
 					}
 				}
 			}
@@ -493,7 +501,7 @@ public static class ItemEventHandlers
 			return;
 		}
 		Node fxHost = (Node)Sim.Current ?? attacker.AttackerNode?.GetParent();
-		Rid? selfHurtBox = attacker.SelfHurtBoxRid;
+		Rid? selfHurtBox = attacker.SelfHurtBox?.GetRid();
 		var struck = new System.Collections.Generic.HashSet<ulong>();
 		var sphere = new SphereShape3D { Radius = data.chainRange };
 		Vector3 current = origin;
@@ -830,6 +838,8 @@ public static class ItemEventHandlers
 		// Chain-lightning mods (Shocking bow) discharge from each creature the
 		// shot strikes.
 		Godot.Collections.Array<ChainLightningData> chainLightning = null;
+		// On-kill mods (Explosive Corpse) fire at each creature the shot kills.
+		Godot.Collections.Array<ItemEvent> onKillEvents = null;
 		// Knockback mod — extra shove + stagger added to each hit.
 		float knockbackBonus = 0f;
 		float knockbackTimeBonus = 0f;
@@ -853,6 +863,7 @@ public static class ItemEventHandlers
 			staminaOnHit = firingWeapon.statusEffects.StaminaOnHit(firingChargeIndex);
 			onHitBuildups = firingWeapon.statusEffects.WeaponModOnHitBuildups(firingChargeIndex);
 			chainLightning = firingWeapon.statusEffects.WeaponModChainLightning(firingChargeIndex);
+			onKillEvents = firingWeapon.statusEffects.WeaponModOnKillEvents(firingChargeIndex);
 			knockbackBonus = firingWeapon.statusEffects.WeaponModKnockbackBonus(firingChargeIndex);
 			knockbackTimeBonus = firingWeapon.statusEffects.WeaponModKnockbackTimeBonus(firingChargeIndex);
 			projectileFx = firingWeapon.statusEffects.WeaponModProjectileFx(firingChargeIndex);
@@ -899,7 +910,7 @@ public static class ItemEventHandlers
 				damageData,
 				attacker,
 				actor.AttackHurtboxMask,
-				actor.SelfHurtBoxRid,
+				actor.SelfHurtBox?.GetRid(),
 				excludeBody,
 				impact,
 				gravity,
@@ -921,7 +932,8 @@ public static class ItemEventHandlers
 				ev.expirationEvent,
 				damageMultiplier,
 				potency,
-				staminaOnHit);
+				staminaOnHit,
+				onKillEvents);
 		}
 
 		// On-attack mods for a ranged-slot Fairy boon: a bow shot is a Projectile
@@ -1137,17 +1149,25 @@ public static class ItemEventHandlers
 	// Position-aware sub-dispatcher for projectile impactEvents (and any
 	// future "fire at a point" sources). Subset of DispatchEvent because
 	// most handlers need an action context (selectedTier, primaryItem,
-	// chargeT, etc.) we don't have here. Supports AreaBurst, SpawnAreaEffect,
+	// chargeT, etc.) we don't have here. Supports AreaBurst, Projectile (an
+	// arcing lob popped up from the point — see LaunchAtPosition), SpawnAreaEffect,
 	// CameraShake, ScreenFlash and Noise — the "arcing shot lands → burst at the
 	// landing point" path. Other handlers no-op silently; their authored fields
 	// on the nested event just get ignored. `source` is the shooter, or null
-	// once it is gone.
-	public static void DispatchAtPosition(ItemEvent ev, Vector3 position, Node parent, Node source, WeaponData sourceWeaponData, ETeam attackerTeam)
+	// once it is gone. `damageMultiplier` / `potency` are the level scale of
+	// whatever fired this, carried onto the burst and any projectile it launches.
+	public static void DispatchAtPosition(ItemEvent ev, Vector3 position, Node parent, Node source, WeaponData sourceWeaponData, ETeam attackerTeam,
+		float damageMultiplier = 1f, float potency = 1f)
 	{
 		if (ev == null) { return; }
 		if ((ev.type & EItemEventType.AreaBurst) != 0)
 		{
-			AreaBurst.Fire(ev.areaBurst, (Sim.Current as Node3D) ?? (parent as Node3D), position, source, attackerTeam);
+			AreaBurst.Fire(ev.areaBurst, (Sim.Current as Node3D) ?? (parent as Node3D), position, source, attackerTeam,
+				damageMultiplier: damageMultiplier, potency: potency);
+		}
+		if ((ev.type & EItemEventType.Projectile) != 0)
+		{
+			LaunchAtPosition(ev, position, (Node)Sim.Current ?? parent, source, attackerTeam, damageMultiplier, potency);
 		}
 		if ((ev.type & EItemEventType.SpawnAreaEffect) != 0 && ev.areaEffectScene != null)
 		{
@@ -1189,6 +1209,93 @@ public static class ItemEventHandlers
 		}
 	}
 
+	// A Projectile event fired at a point has no aim, so it must be an arcing
+	// lob: it pops straight up to projectileArcRise, bounces off solids and
+	// fires its impactEvent at the fuse (projectileLifetimeSeconds) — a bomb
+	// dropped where the point is. Bounce mode ignores hurtboxes, so the shot's own
+	// DamageData is never read; the payload is the impactEvent.
+	private static void LaunchAtPosition(ItemEvent ev, Vector3 position, Node parent, Node source, ETeam attackerTeam,
+		float damageMultiplier, float potency)
+	{
+		if (ev.projectileScene == null || parent == null)
+		{
+			return;
+		}
+		if (!ev.projectileArcing)
+		{
+			GD.PushError($"ItemEvent {ev.ResourcePath}: a Projectile fired at a point must be projectileArcing — a flat shot has no direction there.");
+			return;
+		}
+		IActionActor sourceActor = source as IActionActor;
+		Rid? excludeBody = source is CollisionObject3D body ? body.GetRid() : null;
+		Vector3 velocity = Vector3.Up * AimingReticle.ArcLaunchVerticalSpeed(ev.projectileArcRise, ev.projectileGravity);
+		ProjectileImpact impact = new ProjectileImpact
+		{
+			miss = ev.impactMissEffect,
+			environment = ev.impactEnvironmentEffect,
+			impactDecibels = ev.impactDecibels,
+		};
+		Projectile.Launch(
+			parent,
+			ev.projectileScene,
+			ev.projectileLifetimeSeconds,
+			position,
+			velocity,
+			null,
+			source,
+			sourceActor?.AttackHurtboxMask ?? (uint)ECollisionLayer.HurtBox,
+			sourceActor?.SelfHurtBox?.GetRid(),
+			excludeBody,
+			impact,
+			ev.projectileGravity,
+			impactEvent: ev.impactEvent,
+			attackerTeam: attackerTeam,
+			bounce: true,
+			bounciness: ev.projectileBounciness,
+			friction: ev.projectileFriction,
+			directHitEvent: ev.directHitEvent,
+			expirationEvent: ev.expirationEvent,
+			damageMultiplier: damageMultiplier,
+			potency: potency);
+	}
+
+	// Fire `events` (a weapon's on-kill mods) at the corpse of a creature its hit
+	// just killed. `hurtBox` is the victim's; the events fire from its body
+	// center so a dropped bomb falls to the ground the corpse lies on.
+	public static void FireOnKillEvents(Godot.Collections.Array<ItemEvent> events, HurtBox hurtBox, Node parent, Node source,
+		WeaponData sourceWeaponData, ETeam attackerTeam, float damageMultiplier, float potency)
+	{
+		if (events == null || hurtBox == null)
+		{
+			return;
+		}
+		Vector3 corpse = hurtBox.Center;
+		int count = events.Count;
+		for (int i = 0; i < count; i++)
+		{
+			DispatchAtPosition(events[i], corpse, parent, source, sourceWeaponData, attackerTeam, damageMultiplier, potency);
+		}
+	}
+
+	// FireOnKillEvents for a swing/shot resolved inside an action (melee,
+	// hitscan): the weapon's on-kill mods at the firing tier, scaled like the
+	// weapon's own direct hits (composed weapon level × per-level offense scale).
+	private static void FireWeaponModOnKill(IActionActor actor, in PlayerAction action, HurtBox victim)
+	{
+		if (action.context.primaryItem is not WeaponState weapon)
+		{
+			return;
+		}
+		Godot.Collections.Array<ItemEvent> events = weapon.statusEffects.WeaponModOnKillEvents(FindChargeIndex(weapon, action.selectedTier));
+		if (events == null)
+		{
+			return;
+		}
+		float levelScale = actor.OutgoingLevelScale(action.context.sourceSlot ?? EInventorySlot.None);
+		FireOnKillEvents(events, victim, actor.AttackerNode?.GetParent(), actor.AttackerNode, weapon.data, actor.ActorTeam,
+			weapon.DamageMultiplier * levelScale, levelScale);
+	}
+
 	// Spawns ev.areaEffectScene at the player's aim cursor (when valid) or
 	// the actor's feet otherwise. The scene is parented to the Sim so it
 	// outlives the actor and stays put as the actor keeps moving. Used for
@@ -1200,11 +1307,7 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		Vector3 position = actor.ActorWorldPosition;
-		if (actor is Player player && player.AimingReticle != null && player.AimingReticle.HasAimWorldPosition)
-		{
-			position = player.AimingReticle.AimWorldPosition;
-		}
+		Vector3 position = ResolveAimPoint(actor, action.context);
 		Node parent = (Node)Sim.Current ?? actor.AttackerNode?.GetParent();
 		if (parent == null)
 		{
@@ -1223,11 +1326,11 @@ public static class ItemEventHandlers
 		instance.GlobalPosition = position;
 	}
 
-	// Fires ev.areaBurst at the actor's aim point, sparing the actor's own hurtbox.
+	// Fires ev.areaBurst at the actor's aim point (see ResolveAimPoint), sparing the actor's own hurtbox.
 	public static void DoAreaBurst(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		AreaBurst.Fire(ev.areaBurst, (Sim.Current as Node3D) ?? (actor.AttackerNode?.GetParent() as Node3D),
-			ResolveAimPoint(actor), actor.AttackerNode, actor.ActorTeam, actor.SelfHurtBoxRid);
+			ResolveAimPoint(actor, action.context), actor.AttackerNode, actor.ActorTeam, actor.SelfHurtBox?.GetRid());
 	}
 
 	// Summons ev.minionSpecies at the actor's aim point (positional cursor when
@@ -1253,20 +1356,24 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		Mob minion = sim.SpawnMob(ev.minionSpecies, ResolveAimPoint(actor));
+		Mob minion = sim.SpawnMob(ev.minionSpecies, ResolveAimPoint(actor, action.context));
 		if (minion != null)
 		{
 			weapon.AddMinion(minion);
 		}
 	}
 
-	// The actor's current aim point: the player's positional aim cursor when
-	// one is active, otherwise the actor's own world position. Shared by the
-	// positional-aim handlers (area effect, dig, summon) and ActionRunner's
+	// The actor's current aim point: the player's aim cursor when one is active,
+	// otherwise the actor's own world position. Shared by the positional-aim
+	// handlers (area effect, area burst, summon) and ActionRunner's
 	// channeled-charge zone so they all read the same ground target.
-	public static Vector3 ResolveAimPoint(IActionActor actor)
+	// The cursor belongs to the ranged weapon — the reticle is driven by that
+	// slot alone — so only a ranged-slot action reads it. Melee swings and spells
+	// act where the caster stands, even when a stale ranged cursor is still valid.
+	public static Vector3 ResolveAimPoint(IActionActor actor, in ActionContext context)
 	{
-		if (actor is Player player && player.AimingReticle != null && player.AimingReticle.HasAimWorldPosition)
+		if (context.sourceSlot == EInventorySlot.WeaponRanged
+			&& actor is Player player && player.AimingReticle != null && player.AimingReticle.HasAimWorldPosition)
 		{
 			return player.AimingReticle.AimWorldPosition;
 		}
@@ -1279,7 +1386,7 @@ public static class ItemEventHandlers
 	// caster's team so the channel spares the caster + allies. Mirrors
 	// DoSpawnAreaEffect's parenting (World so it outlives the actor) and the
 	// before-AddChild Initialize ordering DamageZone requires.
-	public static GasCloud SpawnChannelZone(IActionActor actor, PackedScene scene, float radius)
+	public static GasCloud SpawnChannelZone(IActionActor actor, PackedScene scene, float radius, in ActionContext context)
 	{
 		if (scene == null)
 		{
@@ -1298,7 +1405,7 @@ public static class ItemEventHandlers
 		}
 		cloud.InitializeChannel(actor.ActorTeam, radius);
 		parent.AddChild(cloud);
-		cloud.GlobalPosition = ResolveAimPoint(actor);
+		cloud.GlobalPosition = ResolveAimPoint(actor, context);
 		return cloud;
 	}
 
@@ -1588,7 +1695,10 @@ public static class ItemEventHandlers
 		if (inv != null && inv.AttunedSpell != null && item == inv.GetActiveConsumable())
 		{
 			// SpendReagents notifies the inventory itself on a successful spend.
-			castPlayer.SpendReagents(inv.AttunedSpell.reagents);
+			if (!CVars.freeSpells.Value)
+			{
+				castPlayer.SpendReagents(inv.AttunedSpell.reagents);
+			}
 			return;
 		}
 		// Reveal the item's real name on first successful use. Decrement is

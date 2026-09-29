@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="MobSpawnEntry" format=3 uid="uid://oa4ya0balu6t"]
+
+[ext_resource type="Resource" uid="uid://um67ok6ubiyg" path="res://resources/data/characters/troll/troll_swamp_torchbearer.tres" id="r1"]
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="script"]
+
+[resource]
+script = ExtResource("script")
+species = ExtResource("r1")
+initialBehavior = null

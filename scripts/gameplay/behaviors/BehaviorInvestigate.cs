@@ -8,12 +8,23 @@ public partial class BehaviorInvestigate : BehaviorBase
     // arrival check by a few centimeters.
     private const float ArrivalSlack = 1f;
     private const float InvestigateSpeed = 0.25f;
+    // Metres closer to the point that count as progress for the stall timer —
+    // above the jitter of a mob shuffling against a wall.
+    private const float ProgressEpsilon = 0.5f;
 
     private readonly InvestigateBehaviorData _data;
+    private float _bestDistance;
+    private ulong _lastProgressTime;
 
     public BehaviorInvestigate(InvestigateBehaviorData data)
     {
         _data = data;
+    }
+
+    public override void OnEnter(Mob me, ulong time)
+    {
+        _bestDistance = float.MaxValue;
+        _lastProgressTime = time;
     }
 
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)
@@ -48,6 +59,16 @@ public partial class BehaviorInvestigate : BehaviorBase
         float distSq = diff.LengthSquared();
         float arriveRange = investigation.range + ArrivalSlack;
 
+        // The point tracks a moving target, so progress is measured against
+        // wherever it is now: any tick that ends meaningfully closer than the
+        // best so far resets the stall clock.
+        float dist = Mathf.Sqrt(distSq);
+        if (dist < _bestDistance - ProgressEpsilon)
+        {
+            _bestDistance = dist;
+            _lastProgressTime = time;
+        }
+
         // Face the investigation point every tick — a yell that drops us into
         // Investigate should snap our head toward the source immediately, not
         // wait for the path-direction auto-yaw to kick in (and not depend on
@@ -58,7 +79,8 @@ public partial class BehaviorInvestigate : BehaviorBase
             output.yaw = Mathf.Atan2(flat.X, flat.Y);
         }
 
-        if (distSq < arriveRange * arriveRange && Sightline.IsClear(me, investigation.position))
+        bool arrived = distSq < arriveRange * arriveRange && Sightline.IsClear(me, investigation.position);
+        if (arrived)
         {
             // Arrived and can see the point — start the pause countdown.
             // Clamp the existing cancelTime down so a very long investigation
@@ -71,12 +93,17 @@ public partial class BehaviorInvestigate : BehaviorBase
             output.investigation = investigation;
         }
 
-        if (time >= investigation.cancelTime)
+        bool stalled = !arrived && time - _lastProgressTime >= (ulong)(me.mobData.investigateStallTime * 1000f);
+        if (time >= investigation.cancelTime || stalled)
         {
-            output.resetInvestigation = true;
+            output.abandonInvestigation = true;
         }
 
         return new BehaviorOutput(EBehaviorResult.Running);
     }
 
+    public override string DebugStatus(ulong time)
+    {
+        return $"best={_bestDistance:F1}m noProgress={(time - _lastProgressTime) / 1000f:F1}s";
+    }
 }

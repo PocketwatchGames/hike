@@ -168,6 +168,10 @@ public partial class StatusEffectData : Resource
 	// blessing). False (default): added normally; modifiers / dot / duration apply over time.
 	[Export] public bool instantaneous = false;
 
+	// Ends the moment its bearer delivers an attack — any action event that deals a
+	// hit (melee, hitscan, projectile, area burst / area effect). Invisibility.
+	[Export] public bool removedOnAttack = false;
+
 	// --- Buildup meter ---
 	// DamageData StatusEffectBuildup entries accumulate into a per-effect meter. How the
 	// meter applies is set by buildupBehavior (see EBuildupBehavior); the editor hides the
@@ -270,8 +274,12 @@ public partial class StatusEffectData : Resource
 	// short "+5% damage taken" debuff each time physical damage lands. Fired from the
 	// actor's hit pipeline (StatusEffectController.TriggerOnDamaged); null effect = no
 	// reaction. onDamagedTags == None matches any damaging hit.
+	// `onDamagedRetaliation` strikes the ATTACKER back with this damage on the same
+	// matching hit (Poison Thorns: a zero-damage hit carrying a Poison buildup).
+	// Author it with no Melee/Ranged tag, or two thorned fighters ping-pong.
 	[ExportGroup("On Damaged")]
 	[Export] public StatusEffectData onDamagedEffect;
+	[Export] public DamageData onDamagedRetaliation;
 	[Export, CompactFlags] public EHitTag onDamagedTags = EHitTag.Melee | EHitTag.Ranged;
 
 	// Weapon-only payload — null on non-weapon effects. See WeaponModData.

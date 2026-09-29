@@ -1,0 +1,110 @@
+[gd_scene format=3 uid="uid://o82whnkokp9j8"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_plit"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_puff"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="3_fade"]
+[ext_resource type="AudioStream" uid="uid://df2vjnoawsbx" path="res://assets/audio/source/impact/sfx_bomb_explosion_big_01.wav" id="4_boom1"]
+[ext_resource type="AudioStream" uid="uid://bm74kmxjdhq8f" path="res://assets/audio/source/impact/sfx_bomb_explosion_big_02.wav" id="5_boom2"]
+[ext_resource type="AudioStream" uid="uid://cuok2g1ddvcy" path="res://assets/audio/source/weapons/sfx_magic_missile_impact.wav" id="6_magic"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_ring"]
+emission_shape = 1
+emission_sphere_radius = 0.4
+direction = Vector3(0, 1, 0)
+spread = 90.0
+flatness = 1.0
+initial_velocity_min = 14.0
+initial_velocity_max = 16.0
+damping_min = 20.0
+damping_max = 22.0
+scale_min = 2.0
+scale_max = 3.4
+color = Color(0.62, 0.52, 0.38, 1)
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ring"]
+render_priority = 0
+shader = ExtResource("2_plit")
+shader_parameter/albedo_texture = ExtResource("tex_puff")
+shader_parameter/albedo = Color(0.62, 0.52, 0.38, 0.85)
+shader_parameter/emission = Color(0, 0, 0, 1)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_ring"]
+material = SubResource("ShaderMaterial_ring")
+size = Vector2(0.2, 0.2)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dust"]
+emission_shape = 1
+emission_sphere_radius = 0.8
+direction = Vector3(0, 1, 0)
+spread = 60.0
+initial_velocity_min = 1.5
+initial_velocity_max = 3.5
+gravity = Vector3(0, 0.8, 0)
+damping_min = 0.5
+damping_max = 1.5
+scale_min = 3.0
+scale_max = 5.0
+color = Color(0.55, 0.47, 0.36, 1)
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dust"]
+render_priority = 0
+shader = ExtResource("2_plit")
+shader_parameter/albedo_texture = ExtResource("tex_puff")
+shader_parameter/albedo = Color(0.55, 0.47, 0.36, 0.7)
+shader_parameter/emission = Color(0, 0, 0, 1)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_dust"]
+material = SubResource("ShaderMaterial_dust")
+size = Vector2(0.22, 0.22)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_boom"]
+playback_mode = 1
+random_pitch = 1.08
+random_volume_offset_db = 2.0
+streams_count = 2
+stream_0/stream = ExtResource("4_boom1")
+stream_1/stream = ExtResource("5_boom2")
+
+[node name="ShockwaveFx" type="Node3D" unique_id=1414271926]
+script = ExtResource("1_fx")
+
+[node name="Ring" type="GPUParticles3D" parent="." unique_id=1882988422]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+emitting = false
+amount = 72
+lifetime = 0.7
+one_shot = true
+explosiveness = 1.0
+randomness = 0.3
+process_material = SubResource("ParticleProcessMaterial_ring")
+draw_pass_1 = SubResource("QuadMesh_ring")
+
+[node name="Dust" type="GPUParticles3D" parent="." unique_id=1884816252]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+emitting = false
+amount = 24
+lifetime = 1.0
+one_shot = true
+explosiveness = 1.0
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_dust")
+draw_pass_1 = SubResource("QuadMesh_dust")
+
+[node name="Boom" type="AudioStreamPlayer3D" parent="." unique_id=1541917424]
+stream = SubResource("AudioStreamRandomizer_boom")
+volume_db = 2.0
+pitch_scale = 0.75
+max_distance = 45.0
+bus = &"World3D"
+
+[node name="Magic" type="AudioStreamPlayer3D" parent="." unique_id=627104583]
+stream = ExtResource("6_magic")
+volume_db = -4.0
+pitch_scale = 0.8
+max_distance = 30.0
+bus = &"World3D"

@@ -3,14 +3,18 @@ using Godot;
 public partial class BehaviorBase
 {
     protected BehaviorNode behaviorNode { get; private set; }
+    // The node's transitions minus any into a node this mob's abilities pruned.
+    // A managed copy, so the per-tick walk never touches the Godot array.
+    private BehaviorNodeTransition[] _transitions = System.Array.Empty<BehaviorNodeTransition>();
 
     // Authored resting stance for this node, seeded into AIOutput.behaviorFlags
     // each tick before Run so a behavior can compose extra bits on top of it.
     public EBehaviorFlags BaseFlags => behaviorNode?.data?.behaviorFlags ?? EBehaviorFlags.None;
 
-    public void Init(BehaviorNode node)
+    public void Init(BehaviorNode node, BehaviorNodeTransition[] transitions)
     {
         behaviorNode = node;
+        _transitions = transitions;
     }
 
     // Called whenever this behavior becomes current — both first run and every
@@ -35,12 +39,8 @@ public partial class BehaviorBase
 
     protected bool TryTransitions(Mob me, ulong time, ref PerceptionState targetPerception, out StringName destination)
     {
-        foreach (BehaviorNodeTransition t in behaviorNode.transitions)
+        foreach (BehaviorNodeTransition t in _transitions)
         {
-            if (t == null)
-            {
-                continue;
-            }
             if (t.condition != null && t.condition.Evaluate(me, ref targetPerception))
             {
                 destination = t.destination;

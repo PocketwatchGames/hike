@@ -18,8 +18,11 @@ public static class AreaBurst
 	// Spawn `burst.fx` at `center` and apply its damage. `host` parents the fx and
 	// supplies the physics world. `source` is who the hit is attributed to (may be
 	// null — a projectile whose shooter died); `exclude` skips the firer's own
-	// hurtbox.
-	public static void Fire(AreaBurstData burst, Node3D host, Vector3 center, Node source, ETeam attackerTeam, Rid? exclude = null)
+	// hurtbox. `damageMultiplier` scales healthDamage and `potency` rides onto any
+	// status the blast applies — the level scale of whatever launched it, exactly
+	// as that source's direct hits carry it.
+	public static void Fire(AreaBurstData burst, Node3D host, Vector3 center, Node source, ETeam attackerTeam, Rid? exclude = null,
+		float damageMultiplier = 1f, float potency = 1f)
 	{
 		if (burst == null || host == null)
 		{
@@ -29,10 +32,11 @@ public static class AreaBurst
 		{
 			Fx.Create(burst.fx, host, center);
 		}
-		ApplyDamage(host.GetWorld3D(), burst, center, source, attackerTeam, exclude);
+		ApplyDamage(host.GetWorld3D(), burst, center, source, attackerTeam, exclude, damageMultiplier, potency);
 	}
 
-	private static void ApplyDamage(World3D world3D, AreaBurstData burst, Vector3 center, Node source, ETeam attackerTeam, Rid? exclude)
+	private static void ApplyDamage(World3D world3D, AreaBurstData burst, Vector3 center, Node source, ETeam attackerTeam, Rid? exclude,
+		float damageMultiplier, float potency)
 	{
 		if (world3D == null || burst.damage == null || burst.radius <= 0f)
 		{
@@ -66,6 +70,8 @@ public static class AreaBurst
 		var results = world3D.DirectSpaceState.IntersectShape(query, maxResults: 32);
 		Vector3 losOrigin = center + Vector3.Up * LOS_ORIGIN_HEIGHT;
 		HitInfo hit = new HitInfo(burst.damage, source, Vector3.Zero, attackerTeam);
+		hit.healthDamage *= damageMultiplier;
+		hit.potency = potency;
 		foreach (var result in results)
 		{
 			if (result["collider"].Obj is not HurtBox hurtBox)

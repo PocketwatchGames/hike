@@ -23,4 +23,12 @@ public partial class ActionRequirement : Resource
 		GD.PushError($"ActionRequirement subclass {GetType().Name} must override Evaluate.");
 		return false;
 	}
+
+	// Diagnostic detail logged when this requirement refuses an interactive
+	// press — what specifically failed, for refusals that aren't obvious from
+	// the screen. Null = nothing to add beyond the reject message.
+	public virtual string ExplainRejection(IActionActor actor, in ActionContext context)
+	{
+		return null;
+	}
 }

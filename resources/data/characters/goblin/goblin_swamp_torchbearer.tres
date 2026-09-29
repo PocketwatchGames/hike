@@ -57,4 +57,5 @@ displayName = &"Swamp Torchbearer"
 statusEffects = Array[ExtResource("4_sedata")]([SubResource("Resource_venom_effect")])
 weapons = Array[ExtResource("11_wd")]([ExtResource("12_cry"), ExtResource("13_torch")])
 loot = Array[ExtResource("8_lootcount")]([SubResource("Resource_loot_meat")])
+abilities = 4
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

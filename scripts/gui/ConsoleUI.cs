@@ -26,6 +26,8 @@ public partial class ConsoleUI : CanvasLayer
 	public override void _Ready()
 	{
 		Layer = ConsoleLayer;
+		// Usable while the pause menu has the tree paused.
+		ProcessMode = ProcessModeEnum.Always;
 		Visible = false;
 		BuildUI();
 	}

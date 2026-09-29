@@ -29,4 +29,5 @@ mob = ExtResource("2_mob")
 displayName = &"Swamp Spider"
 weapons = Array[ExtResource("5_wd")]([ExtResource("6_bite"), ExtResource("7_web")])
 loot = Array[ExtResource("1_mia4m")]([SubResource("Resource_loot_legs")])
+abilities = 4
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

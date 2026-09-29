@@ -78,7 +78,6 @@ visibilityMovementPower = 1.0
 prominence = 0.75
 modifiers = Array[ExtResource("modifier_1")]([])
 dizzyResistance = 0.5
-canBurrow = true
 burrowTime = 0.5
 hideRange = 8.0
 dugUpStun = ExtResource("8_digstun")

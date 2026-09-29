@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
+[ext_resource type="Texture2D" uid="uid://cqqblowko0g84" path="res://assets/textures/status_effects/upgrade_fragile.png" id="icon_upgrade"]
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("2_mod")
@@ -10,6 +11,7 @@ onHitBuildups = []
 
 [resource]
 script = ExtResource("1_data")
+icon = ExtResource("icon_upgrade")
 displayName = &"Fragile"
 description = "Lobbed projectiles shatter on contact instead of bouncing."
 upgradeSlot = 2

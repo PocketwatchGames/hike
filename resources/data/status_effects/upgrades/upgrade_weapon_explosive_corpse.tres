@@ -1,0 +1,68 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://dckk42hob78g0"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_bastm"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://cbrtam2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="4_burst"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_mtvfi"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/corpse_bomb.tscn" id="6_proj"]
+[ext_resource type="PackedScene" uid="uid://bm0blastfxlha" path="res://scenes/fx/bomb_blast_fx_large.tscn" id="7_blastfx"]
+[ext_resource type="Texture2D" uid="uid://c0bxf8os6dn5x" path="res://assets/textures/status_effects/skull.png" id="icon_upgrade"]
+
+[sub_resource type="Resource" id="blastDamage"]
+script = ExtResource("5_damage")
+tags = 3079
+healthDamage = 20.0
+damageVariance = 0.25
+hitstun = 0.3
+knockbackDistance = 3.0
+knockbackTime = 0.3
+buildups = []
+modifiers = []
+
+[sub_resource type="Resource" id="blast"]
+script = ExtResource("4_burst")
+damage = SubResource("blastDamage")
+radius = 6.0
+height = 8.0
+fx = ExtResource("7_blastfx")
+
+[sub_resource type="Resource" id="blastEvent"]
+script = ExtResource("3_event")
+type = 4259840
+cameraShakeMagnitude = 0.3
+cameraShakeDuration = 0.35
+cameraShakeRange = 30.0
+areaBurst = SubResource("blast")
+
+[sub_resource type="Resource" id="onKillEvent"]
+script = ExtResource("3_event")
+type = 8192
+projectileScene = ExtResource("6_proj")
+projectileArcing = true
+projectileArcRise = 1.0
+projectileGravity = 20.0
+projectileBounciness = 0.35
+impactEvent = SubResource("blastEvent")
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("2_mod")
+onHitBuildups = []
+onKillEvent = SubResource("onKillEvent")
+affix = &"Explosive"
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("icon_upgrade")
+displayName = &"Explosive Corpse"
+description = "Foes slain by this weapon leave a glowing charge that explodes a moment later."
+upgradeSlot = 3
+category = 2
+durationType = 2
+maxStack = 1
+removesOnApply = []
+modifiers = []
+conditionalModifiers = []
+weaponMod = SubResource("weaponMod")

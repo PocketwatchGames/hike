@@ -57,4 +57,5 @@ displayName = &"Forest Goblin"
 statusEffects = Array[ExtResource("5_q4wxy")]([SubResource("Resource_venom_effect")])
 weapons = Array[ExtResource("12_wd")]([ExtResource("13_cry"), ExtResource("14_claw")])
 loot = Array[ExtResource("9_lootcount")]([SubResource("Resource_loot_meat")])
+abilities = 5
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

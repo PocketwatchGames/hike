@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://ba4jima3xbnvt"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://ch7oqsqesrjtx" path="res://assets/textures/status_effects/Icon24.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_mod"]
+[ext_resource type="PackedScene" uid="uid://c2bvax257ed67" path="res://scenes/fx/status_invisible_start.tscn" id="4_startfx"]
+[ext_resource type="PackedScene" uid="uid://nket8el47mwh" path="res://scenes/fx/status_invisible_end.tscn" id="5_endfx"]
+
+[sub_resource type="Resource" id="mod_camouflage"]
+script = ExtResource("3_mod")
+stat = 10
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="mod_noise"]
+script = ExtResource("3_mod")
+stat = 6
+value = 0.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="mod_scent"]
+script = ExtResource("3_mod")
+stat = 7
+value = 0.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("2_icon")
+displayName = &"Invisible"
+description = "Unseen, unheard and unsmelled. Attacking breaks it."
+duration = 5.0
+maxStack = 1
+removedOnAttack = true
+startFx = ExtResource("4_startfx")
+endFx = ExtResource("5_endfx")
+removesOnApply = []
+modifiers = [SubResource("mod_camouflage"), SubResource("mod_noise"), SubResource("mod_scent")]
+conditionalModifiers = []

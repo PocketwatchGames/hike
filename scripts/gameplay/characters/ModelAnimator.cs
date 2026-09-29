@@ -112,6 +112,8 @@ public partial class ModelAnimator : Node
     // pushed to these as per-instance shader params so undiscovered mobs dither
     // out — see SetDiscoveryVisuals, driven by Mob.cs.
     private readonly List<MeshInstance3D> _meshes = new();
+    // Last value SetCamouflageDither pushed to _meshes.
+    private float _camouflageDither = 1f;
 
     public override void _Ready()
     {
@@ -173,6 +175,23 @@ public partial class ModelAnimator : Node
             {
                 mesh.CastShadow = castMode;
             }
+        }
+    }
+
+    // Player-side use of the same `visibility` dither: a camouflaged player reads
+    // as partly there. Separate from SetDiscoveryVisuals, which also drives the
+    // silhouette / X-ray the player never uses. Pushes only on change — the
+    // player calls this every tick.
+    public void SetCamouflageDither(float visibility)
+    {
+        if (visibility == _camouflageDither)
+        {
+            return;
+        }
+        _camouflageDither = visibility;
+        for (int i = 0; i < _meshes.Count; i++)
+        {
+            _meshes[i]?.SetInstanceShaderParameter("visibility", visibility);
         }
     }
 
@@ -371,6 +390,21 @@ public partial class ModelAnimator : Node
     // inert defaults (amount 0 = untouched). The player's modular-appearance
     // hook — skin tone on the body/face meshes, hair color on the live hair
     // style — applied once at spawn from Player. Names match the FBX node names.
+    // Show or hide the named meshes, leaving the rest of the allowlist alone —
+    // for a part that comes and goes at runtime (a mob's armor). Only reaches
+    // meshes that survived the load-time prune.
+    public void SetMeshesVisible(string[] meshNames, bool visible)
+    {
+        for (int i = 0; i < _meshes.Count; i++)
+        {
+            MeshInstance3D mesh = _meshes[i];
+            if (mesh != null && Array.IndexOf(meshNames, mesh.Name.ToString()) >= 0)
+            {
+                mesh.Visible = visible;
+            }
+        }
+    }
+
     public void SetMeshRecolor(string[] meshNames, Color color)
     {
         SetMeshRecolor(meshNames, color, 1f);

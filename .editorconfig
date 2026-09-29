@@ -116,7 +116,7 @@ dotnet_style_namespace_match_folder = true:suggestion
 # Baseline at time of writing (files, not occurrences):
 #   HK001: 7
 #   HK002: 26
-#   HK003: 5
+#   HK003: 1
 #   HK004: 1
 #   HK005: 4
 #   HK006: 5
@@ -124,10 +124,10 @@ dotnet_style_namespace_match_folder = true:suggestion
 #   HK008: 44
 #   HK009: 0
 #
-# HK003 is the expensive one and the only one that loses authored data. The 5
-# baselined files are the same 9 sites `resource_check` reports. Closing them
+# HK003 is the expensive one and the only one that loses authored data. The 1
+# baselined file is the same 5 sites `resource_check` reports. Closing them
 # means tagging ItemEffect / ItemData / TeachableConcept / AreaIntervalSpec /
-# MobDescriptor / StatusEffectBuildup [Tool], and the rule cascades through
+# MobDescriptor [Tool], and the rule cascades through
 # their exports and subclasses: measured at ~169 classes. That sweep is a task
 # of its own - a half-applied one leaves the bug in place.
 ##############################################################################
@@ -194,20 +194,8 @@ dotnet_diagnostic.HK001.severity = warning
 [scripts/data/actions/ItemEvent.cs]
 dotnet_diagnostic.HK003.severity = warning
 
-[scripts/data/combat/ContinuousDamageData.cs]
-dotnet_diagnostic.HK003.severity = warning
-
-[scripts/data/combat/DamageData.cs]
-dotnet_diagnostic.HK003.severity = warning
-
-[scripts/data/combat/DamageDataModifier.cs]
-dotnet_diagnostic.HK003.severity = warning
-
 [scripts/data/conversation/ConversationVisibility.cs]
 dotnet_diagnostic.HK008.severity = warning
-
-[scripts/data/effects/payloads/WeaponModData.cs]
-dotnet_diagnostic.HK003.severity = warning
 
 [scripts/data/items/ConsumableData.cs]
 dotnet_diagnostic.HK008.severity = warning

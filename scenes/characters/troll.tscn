@@ -1,0 +1,124 @@
+[gd_scene format=3 uid="uid://bo5oybf3cpch3"]
+
+[ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/characters/Mob.cs" id="1_hfanx"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
+[ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="3_mobhud"]
+[ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/effects/footprint.png" id="8_hi5vn"]
+[ext_resource type="PackedScene" uid="uid://m4gdn08c2l4r" path="res://scenes/fx/footstep_grass.tscn" id="11_fstgrass"]
+[ext_resource type="PackedScene" uid="uid://buklbibdpbasp" path="res://scenes/fx/footstep_mud.tscn" id="11_fstmud"]
+[ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/fx/footstep_sand.tscn" id="11_fstsand"]
+[ext_resource type="PackedScene" uid="uid://7nfxgl33kg3n" path="res://scenes/fx/footstep_stone.tscn" id="11_fststone"]
+[ext_resource type="PackedScene" uid="uid://0gwx2qeenb5r" path="res://scenes/fx/footstep_water.tscn" id="11_fstwater"]
+[ext_resource type="PackedScene" uid="uid://s0t1uc6w6465" path="res://scenes/fx/blood_damage.tscn" id="12_blooddmg"]
+[ext_resource type="PackedScene" uid="uid://dj7kicjjbco3y" path="res://scenes/fx/blood_death_medium.tscn" id="13_deathmed"]
+[ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/fx/water_enter_splash.tscn" id="14_watenter"]
+[ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/fx/water_movement_loop.tscn" id="15_watloop"]
+[ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="16_grassloop"]
+[ext_resource type="PackedScene" uid="uid://b8oe6da86xb0k" path="res://scenes/fx/troll_idle_loop.tscn" id="18_idle"]
+[ext_resource type="PackedScene" uid="uid://b8xv8kd878b0k" path="res://scenes/fx/troll_run_loop.tscn" id="19_run"]
+[ext_resource type="PackedScene" uid="uid://b8yx7g15v8b0k" path="res://scenes/fx/troll_swim_idle_loop.tscn" id="20_swimidle"]
+[ext_resource type="PackedScene" uid="uid://ccc3b2d0mgx8l" path="res://scenes/fx/armor_break.tscn" id="22_armorbrk"]
+[ext_resource type="PackedScene" uid="uid://kk8sdm8tk63s" path="res://assets/models/characters/goblin/goblin.fbx" id="26_goblinfbx"]
+[ext_resource type="AnimationLibrary" path="res://assets/models/characters/goblin/goblin_anims.res" id="27_goblinanims"]
+[ext_resource type="Material" uid="uid://b7y886pj064wu" path="res://resources/materials/troll_body_lit.tres" id="28_goblinbodymat"]
+[ext_resource type="Material" uid="uid://q7irr67p0x71" path="res://resources/materials/troll_props_lit.tres" id="29_goblinpropsmat"]
+[ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="30_modelanim"]
+[ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
+[ext_resource type="Script" uid="uid://bqh3ld1tmv0sx" path="res://scripts/gameplay/characters/HeldItemVisual.cs" id="41_helditemvis"]
+[ext_resource type="Resource" uid="uid://bo3pqc5mnad2i" path="res://resources/data/characters/troll/troll_voice.tres" id="50_voice"]
+[ext_resource type="PackedScene" uid="uid://bvq7x2mn4k8rp" path="res://scenes/fx/mob_dash.tscn" id="51_dashfx"]
+[ext_resource type="PackedScene" uid="uid://dseuhbe357xj7" path="res://scenes/fx/footstep_snow.tscn" id="99_fstsnow"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gby2u"]
+height = 2.5
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
+radius = 0.8
+height = 2.5
+
+[node name="Mob2" type="RigidBody3D" unique_id=2065293612 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_heldVisual", "_hurtBox", "hudAnchor")]
+axis_lock_angular_x = true
+axis_lock_angular_z = true
+script = ExtResource("1_hfanx")
+_collisionShape = NodePath("MovementCollision")
+_modelAnimator = NodePath("ModelAnimator")
+_mesh = NodePath("Visuals/MeshContainer")
+_visuals = NodePath("Visuals")
+_heldVisual = NodePath("HeldItemVisual")
+_hurtBox = NodePath("HurtBox")
+hudAnchor = NodePath("Visuals/HUDNode")
+hudScene = ExtResource("3_mobhud")
+_bloodDamageFx = ExtResource("12_blooddmg")
+_deathFx = ExtResource("13_deathmed")
+_waterEnterSplashFx = ExtResource("14_watenter")
+_waterMovementLoopFx = ExtResource("15_watloop")
+_foliageMovementLoopFx = ExtResource("16_grassloop")
+_idleLoopFx = ExtResource("18_idle")
+_runLoopFx = ExtResource("19_run")
+_swimIdleLoopFx = ExtResource("20_swimidle")
+_voice = ExtResource("50_voice")
+_dashFx = ExtResource("51_dashfx")
+_armorDepletedFx = ExtResource("22_armorbrk")
+_footstepEffects = Dictionary[int, PackedScene]({
+0: ExtResource("11_fstgrass"),
+1: ExtResource("11_fststone"),
+2: ExtResource("11_fstsand"),
+3: ExtResource("11_fstwater"),
+4: ExtResource("11_fstmud"),
+5: ExtResource("11_fststone"),
+7: ExtResource("99_fstsnow")
+})
+_footprintTexture = ExtResource("8_hi5vn")
+_footprintSize = Vector2(0.4, 0.6)
+metadata/_custom_type_script = "uid://b71b1ywgyuwp"
+
+[node name="Visuals" type="Node3D" parent="." unique_id=1620335130]
+
+[node name="MeshContainer" type="Node3D" parent="Visuals" unique_id=1610472919]
+
+[node name="GoblinModel" type="Node3D" parent="Visuals/MeshContainer" unique_id=459564527]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0)
+
+[node name="goblin" parent="Visuals/MeshContainer/GoblinModel" unique_id=351241307 instance=ExtResource("26_goblinfbx")]
+
+[node name="AnimationPlayer2" type="AnimationPlayer" parent="Visuals/MeshContainer/GoblinModel/goblin" unique_id=1741754756]
+libraries/ = ExtResource("27_goblinanims")
+
+[node name="HUDNode" type="Node3D" parent="Visuals" unique_id=1599354847]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.152813, 0)
+
+[node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
+shape = SubResource("CapsuleShape3D_gby2u")
+
+[node name="HurtBox" type="Area3D" parent="." unique_id=1798461975]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=35722461]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
+shape = SubResource("CapsuleShape3D_1uit0")
+
+[node name="PixelSnap" type="Node" parent="." unique_id=1139919210 node_paths=PackedStringArray("_target")]
+script = ExtResource("40_pixelsnap")
+_target = NodePath("../Visuals/MeshContainer/GoblinModel")
+
+[node name="ModelAnimator" type="Node" parent="." unique_id=318847850 node_paths=PackedStringArray("player", "visual")]
+script = ExtResource("30_modelanim")
+player = NodePath("../Visuals/MeshContainer/GoblinModel/goblin/AnimationPlayer2")
+visual = NodePath("../Visuals/MeshContainer/GoblinModel")
+modelMaterial = ExtResource("28_goblinbodymat")
+secondaryMaterial = ExtResource("29_goblinpropsmat")
+secondaryMeshNames = PackedStringArray("SM_Sword", "SM_Shield", "SM_ForearmArmorLeft", "SM_ForearmArmorRight", "SM_LegArmorLeft", "SM_LegArmorRight", "SK_ShoulderPad", "SM_DaggerLeft", "SM_DaggerRight", "SM_Stone", "SK_Slingshot")
+visibleMeshNames = PackedStringArray("SK_GoblinBody", "SM_Shield", "SM_ForearmArmorLeft", "SM_ForearmArmorRight", "SM_LegArmorLeft", "SM_LegArmorRight", "SK_ShoulderPad")
+
+[node name="HeldItemVisual" type="Node3D" parent="." unique_id=318847851 node_paths=PackedStringArray("visual")]
+script = ExtResource("41_helditemvis")
+visual = NodePath("../Visuals/MeshContainer/GoblinModel")
+boneName = &"R Hand"
+leftBoneName = &"L Hand"
+gripOffset = Vector3(0.0859, 0.0179, -0.0076)
+gripRotationDegrees = Vector3(-74.01, 100.5, 88.9)
+leftGripOffset = Vector3(0.0829, 0.0094, -0.0149)
+leftGripRotationDegrees = Vector3(72.28, -116.74, -112.86)

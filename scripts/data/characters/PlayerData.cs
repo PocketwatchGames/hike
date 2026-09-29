@@ -365,6 +365,9 @@ public partial class PlayerData : Resource
 	// for an inherently sneakier build (small, crouched, dark gear). Does not
 	// affect hearing or smell.
 	[Export] public float prominence = 1f;
+	// How much of the model still draws (the dither the mob pop-in uses) at full
+	// camouflage — an invisible player. Partial camouflage dithers proportionally.
+	[Export(PropertyHint.Range, "0,1,0.05")] public float fullCamouflageVisibility = 0.3f;
 	// Continuous movement noise the player emits. Mapped piecewise: 0 at
 	// rest, sneakDecibels at sneakSpeed, runDecibels at moveSpeed. Mobs
 	// sample this in their mob-perceives-player tick.

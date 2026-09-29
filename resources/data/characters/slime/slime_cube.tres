@@ -58,7 +58,6 @@ script = ExtResource("1_mobdata")
 displayName = &"Slime Cube"
 darknessPerceptionWeight = 1.0
 sunburnBuildupPerSecond = 0.5
-noticesCorpses = false
 dangerous = true
 fearsCampfire = true
 modifiers = null

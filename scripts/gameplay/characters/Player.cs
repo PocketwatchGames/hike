@@ -593,7 +593,7 @@ public partial class Player : CharacterBody3D
 	// UpdateVisibility tick alongside the composite.
 	public float visibilityLight = 1f;
 	public float visibilitySpeed = 1f;
-	public float visibilityCamouflage = 1f; // 1 - max(grass.camouflage)
+	public float visibilityCamouflage = 1f; // 1 - (densest foliage + Camouflage stat), clamped
 	// Dark-adaptation ("night eyes") state in [0,1]: 0 = light-adapted (bright),
 	// 1 = fully dilated (deep dark). Sim-owned — updated each physics tick from
 	// the perceived light where the player stands (UpdateEyeDilation), smoothed

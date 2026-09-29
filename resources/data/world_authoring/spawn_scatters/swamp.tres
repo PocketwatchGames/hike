@@ -9,7 +9,7 @@
 
 [sub_resource type="Resource" id="Row_goblin_swamp"]
 script = ExtResource("listrow")
-squareMetersPerSpawn = 500.0
+squareMetersPerSpawn = 300.0
 entry = ExtResource("e_goblin_swamp")
 initialBehavior = &"Wander"
 initialBehaviorChance = 0.25

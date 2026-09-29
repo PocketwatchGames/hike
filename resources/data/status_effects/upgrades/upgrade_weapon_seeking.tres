@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://c1gf8agnm62bs" path="res://scenes/fx/homing_missile_impact.tscn" id="5_impact"]
 [ext_resource type="PackedScene" uid="uid://betguwy5h6abj" path="res://scenes/fx/homing_missile_expire.tscn" id="6_expire"]
 [ext_resource type="PackedScene" uid="uid://35k2amn0cgis" path="res://scenes/fx/homing_missile_fire.tscn" id="7_fire"]
+[ext_resource type="Texture2D" uid="uid://cro4bvfya8non" path="res://assets/textures/status_effects/upgrade_seeking.png" id="icon_upgrade"]
 
 [sub_resource type="Resource" id="onAttackEvent"]
 script = ExtResource("3_event")
@@ -34,6 +35,7 @@ metadata/_custom_type_script = "uid://fwmd5k3q8x2n"
 
 [resource]
 script = ExtResource("1_data")
+icon = ExtResource("icon_upgrade")
 displayName = &"Seeking"
 description = "Each attack fires two homing missiles at nearby foes."
 upgradeSlot = 3

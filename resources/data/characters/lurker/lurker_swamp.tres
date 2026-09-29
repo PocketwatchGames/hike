@@ -28,4 +28,5 @@ mob = ExtResource("2_mob")
 displayName = &"Swamp Lurker"
 weapons = Array[ExtResource("3_weapon")]([ExtResource("4_bite")])
 loot = Array[ExtResource("5_lootcount")]([SubResource("Resource_loot_meat")])
+abilities = 4
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

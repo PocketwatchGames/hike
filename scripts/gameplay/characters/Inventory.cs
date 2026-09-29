@@ -540,10 +540,14 @@ public class Inventory
 	// Attune `spell` to the single consumable slot: build its persistent cast
 	// instance (a SpellState via CreateState) and fire the equip hook. Passing
 	// null (or ClearAttunement) unattunes and fires the outgoing spell's unequip
-	// hook. Re-attuning the same spell rebuilds the instance, dropping any live
-	// toggle state (e.g. desummons a pet) — call only on a genuine change.
+	// hook, which desummons its pet. Re-picking the attuned spell is a no-op, so
+	// it keeps its pet.
 	public void AttuneSpell(SpellData spell)
 	{
+		if (spell == _attunedSpell)
+		{
+			return;
+		}
 		if (_castInstance != null)
 		{
 			_castInstance.OnUnequipped(_owner);
@@ -570,8 +574,9 @@ public class Inventory
 
 	// Carry the attuned spell to another inventory (a deliberate campfire character
 	// switch), so the quick-cast slot travels with control. The destination rebuilds
-	// its own cast instance from the spell; this inventory is left unattuned. No-op
-	// onto self or a null destination.
+	// its own cast instance from the spell and takes over its summoned pet, so the
+	// switch doesn't desummon it; this inventory is left unattuned. No-op onto self
+	// or a null destination.
 	public void TransferAttunementTo(Inventory dest)
 	{
 		if (dest == null || dest == this || _attunedSpell == null)
@@ -579,8 +584,10 @@ public class Inventory
 			return;
 		}
 		SpellData spell = _attunedSpell;
-		ClearAttunement();
+		SpellState outgoing = _castInstance;
 		dest.AttuneSpell(spell);
+		outgoing?.TransferPetTo(dest._castInstance);
+		ClearAttunement();
 	}
 
 	// Swap two backpack slots. The slots may be empty (null) — moving an

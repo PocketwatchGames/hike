@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MobSpawnEntry" format=3 uid="uid://b6yxivf8i7u64"]
+
+[ext_resource type="Resource" uid="uid://ca71cwv6a8qgy" path="res://resources/data/characters/elites/elite_lightning.tres" id="E_elite_lightning"]
+[ext_resource type="Resource" uid="uid://btykrgpa6v4ui" path="res://resources/data/characters/troll/troll_mountain.tres" id="r1"]
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="script"]
+
+[resource]
+script = ExtResource("script")
+species = ExtResource("r1")
+elite = ExtResource("E_elite_lightning")
+initialBehavior = null

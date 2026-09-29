@@ -1,12 +1,12 @@
 using Godot;
 
-// Toggle-summons a persistent, tamed pet (the dog) from a reusable consumable.
-// The summoned mob is tracked on the triggering SpellState so a later Use
-// can find it: a live pet is desummoned, a dead one is cleared and re-summoned,
-// and no pet at all is summoned fresh. Player-only; needs a loaded chunk to
-// spawn into. Mirrors DoSummonMinion's spawn but owns lifetime on the item, not
-// a WeaponState, and taming routes the pet through the companion follow/persist
-// path rather than the self-draining minion path.
+// Toggle-summons a persistent, tamed pet (the dog) from an attuned spell.
+// The summoned mob is owned by the triggering SpellState, which desummons it
+// when the spell is unattuned: a later cast dismisses a live pet, clears a dead
+// one and re-summons, and summons fresh when there is none. Player-only; needs
+// a loaded chunk to spawn into. Mirrors DoSummonMinion's spawn but owns
+// lifetime on the spell, not a WeaponState, and taming routes the pet through
+// the companion follow/persist path rather than the self-draining minion path.
 [GlobalClass]
 public partial class SummonPetEffect : ItemEffect
 {
@@ -31,16 +31,11 @@ public partial class SummonPetEffect : ItemEffect
 		}
 
 		Mob existing = consumable.SummonedPet;
-		bool haveExisting = existing != null && GodotObject.IsInstanceValid(existing);
-		bool haveLivePet = haveExisting && existing.alive;
+		bool haveLivePet = existing != null && GodotObject.IsInstanceValid(existing) && existing.alive;
 
-		// Clear whatever's tracked: a live pet is being dismissed, a corpse is
+		// Clear whatever's owned: a live pet is being dismissed, a corpse is
 		// being cleaned up before we call a fresh one.
-		if (haveExisting)
-		{
-			existing.Despawn();
-		}
-		consumable.SummonedPet = null;
+		consumable.DesummonPet();
 
 		// A live pet toggles off — this Use only desummons.
 		if (haveLivePet)
@@ -48,23 +43,14 @@ public partial class SummonPetEffect : ItemEffect
 			return;
 		}
 
-		// No pet (or the tracked one was dead): summon a fresh tamed pet.
-		Mob summoned = sim.SpawnMob(pet, ItemEventHandlers.ResolveAimPoint(actor));
+		// No pet (or the owned one was dead): summon a fresh tamed pet.
+		Mob summoned = sim.SpawnMob(pet, ItemEventHandlers.ResolveAimPoint(actor, context));
 		if (summoned == null)
 		{
 			return;
 		}
 		summoned.Tame();
-		consumable.SummonedPet = summoned;
-		// Drop our reference if the pet dies/despawns/evicts by any other path,
-		// so the next Use summons fresh rather than desummoning a stale ref.
-		summoned.TreeExiting += () =>
-		{
-			if (consumable.SummonedPet == summoned)
-			{
-				consumable.SummonedPet = null;
-			}
-		};
+		consumable.AdoptPet(summoned);
 		// Only summoning/resurrecting spends a treat; the desummon branch above
 		// returns before here, so putting the dog away is free. The stack is
 		// this item's "ammo" — the timeline carries no DecrementStack, so this

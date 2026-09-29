@@ -1,24 +1,69 @@
+using Godot;
+
 // Runtime state of an attuned alchemy spell — the persistent cast instance held
 // in the single spell slot (Inventory._castInstance / the runner's primaryItem).
 // Its "ammo" is however many casts the party reagent pool currently affords, so
-// this holds no stack; it only tracks the pet a summon spell keeps alive.
+// this holds no stack; it only owns the pet a summon spell keeps alive.
 public class SpellState : ItemState
 {
 	public override SpellData data => _data;
 	private readonly SpellData _data;
 
-	// Runtime-only ref to the pet this spell most recently summoned
-	// (SummonPetEffect), so a later cast can desummon a live pet or replace a
-	// dead one. Not persisted — the attuned spell lives on Inventory, which
-	// isn't world-serialized; the summoned pet persists via the companion store.
-	public Mob SummonedPet;
+	// The pet this spell summoned (SummonPetEffect), owned for as long as the
+	// spell stays attuned: unattuning desummons it. Not persisted, and needs no
+	// persistence — attunement clears every sunrise and a save is only written
+	// at a sunrise wake, so no summoned pet is ever alive in a save.
+	public Mob SummonedPet { get; private set; }
 
 	public SpellState(SpellData d) : base(d)
 	{
 		_data = d;
 	}
 
+	// Take ownership of `pet`. Drops the reference if the pet leaves the tree by
+	// any other path (death cleanup, eviction), so a later cast summons fresh
+	// rather than dismissing a stale ref.
+	public void AdoptPet(Mob pet)
+	{
+		SummonedPet = pet;
+		if (pet == null)
+		{
+			return;
+		}
+		pet.TreeExiting += () =>
+		{
+			if (SummonedPet == pet)
+			{
+				SummonedPet = null;
+			}
+		};
+	}
+
+	// Hand the owned pet to `other` (the same spell re-attuned on another party
+	// member), leaving this instance with nothing to desummon.
+	public void TransferPetTo(SpellState other)
+	{
+		Mob pet = SummonedPet;
+		SummonedPet = null;
+		other?.AdoptPet(pet);
+	}
+
+	// Remove the owned pet from the world, live or dead.
+	public void DesummonPet()
+	{
+		Mob pet = SummonedPet;
+		SummonedPet = null;
+		if (pet != null && GodotObject.IsInstanceValid(pet))
+		{
+			pet.Despawn();
+		}
+	}
+
 	// Attune hooks — fired when this spell is set into / cleared from the slot.
 	public virtual void OnEquipped(Player player) { }
-	public virtual void OnUnequipped(Player player) { }
+
+	public virtual void OnUnequipped(Player player)
+	{
+		DesummonPet();
+	}
 }

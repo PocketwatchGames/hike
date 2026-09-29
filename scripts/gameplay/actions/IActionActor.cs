@@ -10,7 +10,7 @@ public interface IActionActor
 	Vector3 ActorForward { get; }
 	ulong GameTimeMs { get; }
 	uint AttackHurtboxMask { get; }
-	Rid? SelfHurtBoxRid { get; }
+	HurtBox SelfHurtBox { get; }
 	Node3D AttackerNode { get; }
 	// `animDuration` > 0 asks the actor to retime the clip so it runs for exactly
 	// that many seconds (ItemEvent.animDuration); 0 plays it at authored speed.
@@ -104,6 +104,10 @@ public interface IActionActor
 	// active status effect reshape the swing without the handler knowing which
 	// effect (if any) is responsible.
 	void TriggerAttackImpact(Vector3 position);
+
+	// The actor just delivered an attack — an action event that deals a hit fired.
+	// Ends status effects that don't survive attacking (removedOnAttack).
+	void OnAttack();
 
 	// On-attack projectile mods this actor carries as BODY status effects (a
 	// Fairy boon's homing missiles), independent of the wielded weapon. Player

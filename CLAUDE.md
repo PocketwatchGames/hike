@@ -238,7 +238,7 @@ they fail at the compiler instead of depending on a reviewer having read this fi
   not an exemption list: fix a file and delete its section. **Never add a section
   to silence new code** — that is the whole mechanism.
 - **`HK003` is `resource_check`'s `[Tool]` rule moved to the compiler**, and the
-  two agree exactly (same 9 sites today). The compile-time copy is the useful one:
+  two agree exactly (same 5 sites today). The compile-time copy is the useful one:
   it fires before the editor has a chance to drop the reference. `resource_check`
   keeps the load sweep, which needs a running engine.
 - **A rule that cannot be decided from source does not go here.** The `.cs.uid`
