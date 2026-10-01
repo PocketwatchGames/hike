@@ -156,8 +156,7 @@ public partial class ItemInfoPanel : PanelContainer
 			else if (state.ShowsCountdownBar)
 			{
 				ulong now = Sim.Current?.GameTimeMs ?? 0;
-				double nowTod = Sim.Current?.TimeOfDayAbsolute ?? 0.0;
-				progress = state.RemainingProgress(now, nowTod);
+						progress = state.RemainingProgress(now);
 				hasTimer = true;
 				buildup = 0f;
 			}

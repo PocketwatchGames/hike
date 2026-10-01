@@ -450,13 +450,7 @@ public static class ItemEventHandlers
 			}
 			else
 			{
-				// Chest-style 45° pop on a random horizontal heading. Same
-				// arc Mob.EjectLoot / EjectStuckArrows use, so arrows landing
-				// on the ground vs popping off a corpse have a consistent
-				// "freshly dropped" read. The launch also kicks the bob
-				// animation in Loot.Settle on rest (the AnimationPlayer
-				// branch keys on _initialImpulse != Vector3.Zero).
-				Sim.Current.SpawnArrowLoot(hitPos, BuildArrowEjectImpulse(), shootingWeapon.data.arrowLootData, shootingWeapon);
+				Sim.Current.EjectArrowLoot(hitPos, shootingWeapon.data.arrowLootData, shootingWeapon);
 			}
 		}
 
@@ -682,23 +676,6 @@ public static class ItemEventHandlers
 			node = node.GetParent();
 		}
 		return null;
-	}
-
-	// 45° upward pop on a random horizontal heading at chest-eject speed.
-	// Shared by the env-hit and miss paths so both produce the same
-	// "freshly dropped" arc through Loot's physics; Mob.EjectStuckArrows
-	// uses the same shape inline for arrows scattering off a corpse.
-	private const float ARROW_EJECT_SPEED = 5f;
-	public static Vector3 BuildArrowEjectImpulse()
-	{
-		float horizontalSpeed = ARROW_EJECT_SPEED * Mathf.Cos(Mathf.Pi / 4f);
-		float verticalSpeed = ARROW_EJECT_SPEED * Mathf.Sin(Mathf.Pi / 4f);
-		float angle = (float)GD.RandRange(0.0, Mathf.Tau);
-		return new Vector3(
-			horizontalSpeed * Mathf.Cos(angle),
-			verticalSpeed,
-			horizontalSpeed * Mathf.Sin(angle)
-		);
 	}
 
 	// Spawns a Projectile at the actor's position. Two flight modes:

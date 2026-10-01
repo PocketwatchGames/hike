@@ -13,8 +13,7 @@ using Godot;
 // (ZoneData.canSpawnFairy) a roll against that zone's ZoneData.fairySpawnChance
 // decides whether a fairy actually appears. At most SimData.fairyMaxSpawnsPerDay
 // spawn in a day, and once the player has killed SimData.fairyKillStopCount of them
-// no more spawn until the next day. All per-day counters reset on the day rollover
-// (detected by Sim.DayNumber changing).
+// no more spawn until the next day. All per-day counters reset on Sim.OnNewDay.
 //
 // Spawns are TRANSIENT (Sim.SpawnMobTransient with ESpawnConditions.None — which
 // the off-condition cleanup ignores) — like the night gellies they live only near
@@ -36,7 +35,6 @@ public partial class FairySpawner : Node
     private readonly WalkabilityGrid _grid = new WalkabilityGrid();
     private readonly List<Vector3> _standable = new();
 
-    private int _lastDayNumber = int.MinValue;
     // Highest day-period index we've already made a spawn decision for. Reset to 0
     // each day so the first block (index 0) never spawns.
     private int _decidedPeriod;
@@ -59,7 +57,7 @@ public partial class FairySpawner : Node
     // chunk-unloaded) drop out as their node dies.
     private readonly List<(Mob mob, ulong expireMs)> _living = new();
 
-    // The World whose onMobKilled we track kills through. Bound in _Ready (this
+    // The World whose onMobKilled / OnNewDay we track. Bound in _Ready (this
     // node is created by Sim.Initialize after Sim.Current is set) and dropped
     // in _ExitTree — no re-bind needed since a FairySpawner lives and dies with
     // its World.
@@ -72,6 +70,7 @@ public partial class FairySpawner : Node
         if (_subscribedWorld != null)
         {
             _subscribedWorld.onMobKilled += OnMobKilled;
+            _subscribedWorld.OnNewDay += OnNewDay;
         }
     }
 
@@ -80,8 +79,17 @@ public partial class FairySpawner : Node
         if (_subscribedWorld != null)
         {
             _subscribedWorld.onMobKilled -= OnMobKilled;
+            _subscribedWorld.OnNewDay -= OnNewDay;
             _subscribedWorld = null;
         }
+    }
+
+    private void OnNewDay(int dayNumber)
+    {
+        _decidedPeriod = 0;
+        _pendingSpawn = false;
+        _spawnedToday = 0;
+        _killedToday = 0;
     }
 
     public override void _Process(double delta)
@@ -97,17 +105,6 @@ public partial class FairySpawner : Node
         if (player == null)
         {
             return;
-        }
-
-        // Reset the per-day budget on the day rollover (Sim.AdvanceToNextSunrise
-        // bumps DayNumber). Also seeds _lastDayNumber on the first frame.
-        if (sim.DayNumber != _lastDayNumber)
-        {
-            _lastDayNumber = sim.DayNumber;
-            _decidedPeriod = 0;
-            _pendingSpawn = false;
-            _spawnedToday = 0;
-            _killedToday = 0;
         }
 
         // Retire fairies that have outlived their lifetime (runs regardless of the

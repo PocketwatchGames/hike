@@ -695,7 +695,7 @@ public partial class Player : CharacterBody3D
 
 	// What a save carries for this member's node, inside a shared EntitySerializer
 	// table (SaveGame). Only what a sunrise keeps: the inventory, effects acquired
-	// in play (a forge upgrade), non-transient buildups, health (the wake heals
+	// in play that outlast the dawn, non-transient buildups, health (the wake heals
 	// only the controlled member), and where a fallen member's body lies.
 	public void WriteMemberSave(System.IO.BinaryWriter w)
 	{
@@ -1793,7 +1793,6 @@ public partial class Player : CharacterBody3D
 		TickBlockArmor(dt);
 		TickParryWindow();
 		TickAmmoRecharge(_world?.GameTimeMs ?? 0);
-		TickItemExpiry();
 		TickStamina(dt);
 		TickSwimStamina(dt);
 		TickStaminaExhaustion();

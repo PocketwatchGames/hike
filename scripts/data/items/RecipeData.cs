@@ -6,7 +6,7 @@ using Godot.Collections;
 // from the list, or a successful experimental cook) consumes `inputs` from the
 // party material stash and applies `statusEffects` to the chosen character
 // immediately, replacing whatever meal they last ate (the effects are marked
-// EEffectCategory.Meal). Author them TimeOfDay/sunrise so the buff lasts the day,
+// EEffectCategory.Meal). Author them UntilSunrise so the buff lasts the day,
 // unless a shorter authored duration is the point (e.g. food poisoning).
 //
 // Standard and high-quality variants of the same dish are authored as two

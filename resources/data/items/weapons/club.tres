@@ -202,7 +202,7 @@ modifiers = []
 [sub_resource type="Resource" id="Resource_buildup_dizzy"]
 script = ExtResource("1_buildup")
 effect = ExtResource("1_dizzy")
-amount = 0.45
+amount = 0.6
 
 [sub_resource type="Resource" id="Resource_mod_crit"]
 script = ExtResource("1_modifier")

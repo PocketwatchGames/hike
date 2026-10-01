@@ -23,16 +23,14 @@ public partial class Sim : Node3D
     public SimData SimData => _worldState.SimData;
     public WorldState WorldState => _worldState;
     public ulong GameTimeMs => _worldState.GameTimeMs;
-    public double TimeOfDayAbsolute => _worldState.TimeOfDayAbsolute;
-    // Normalized day clock (0 = sunrise … 1 = the next sunrise). Paired with
-    // DayNumber by TimeOfDay-expiring status effects, which can't use the summed
-    // TimeOfDayAbsolute alone (the day's end and the next sunrise share one value).
+    // Normalized day clock (0 = sunrise … 1 = the next sunrise).
     public double TimeOfDay01 => _worldState.TimeOfDay01;
 
-    // Fired once when the day advances at sunrise (a sleep-to-sunrise). A shared
-    // day-cadence hook — forge reactivation, daily weather re-roll, permanent
-    // removal of fallen party members, spawn/quest bookkeeping — so those don't
-    // each poll the clock. Passes the new DayNumber.
+    // Fired once when the day advances at sunrise (a sleep-to-sunrise). The ONE
+    // place day-deadline work happens — status effects and spoilage expiring,
+    // daily budgets resetting — because nothing else moves DayNumber: polling it
+    // per frame instead leaves a gap after the roll in which the wake's autosave
+    // records what the new day already ended. Passes the new DayNumber.
     public event Action<int> OnNewDay;
 
     // Fired on the day->night (dusk) edge, so systems can react to nightfall
@@ -354,7 +352,6 @@ public partial class Sim : Node3D
             double todDelta = delta * CVars.timeScale.Value / dayLength;
             double tod = System.Math.Min(WorldState.EndOfDayTimeOfDay01, _worldState.TimeOfDay01 + todDelta);
             _worldState.TimeOfDay01 = tod;
-            _worldState.TimeOfDayAbsolute = _worldState.DayNumber + tod;
         }
 
         bool isNight = WorldState.IsNight(_worldState.TimeOfDay01);
@@ -536,15 +533,15 @@ public partial class Sim : Node3D
         _worldState.GameTimeMs += (ulong)(skippedSeconds * 1000.0);
         _worldState.DayNumber += 1;
         _worldState.TimeOfDay01 = WorldState.SunriseTimeOfDay01;
-        _worldState.TimeOfDayAbsolute = _worldState.DayNumber + WorldState.SunriseTimeOfDay01;
         _worldState.RollDailyWeather();
-        // Spoil perishables sitting in the shared party stashes (the backpack is
-        // swept continuously by Player.TickItemExpiry).
+        // Spoil perishables sitting in the shared party stashes (each member's
+        // backpack is swept by Player.ExpireForDay, off OnNewDay).
         _worldState.SimState?.PruneExpiredPerishables(_worldState.DayNumber);
 
         foreach (Mob mob in GetEntities<Mob>())
         {
             mob.TickStatusEffects((float)skippedSeconds);
+            mob.ExpireForDay(_worldState.DayNumber);
         }
 
         _wasNight = WorldState.IsNight(_worldState.TimeOfDay01);
@@ -575,7 +572,6 @@ public partial class Sim : Node3D
             double todDelta = seconds / dayLength;
             double tod = System.Math.Min(WorldState.EndOfDayTimeOfDay01, _worldState.TimeOfDay01 + todDelta);
             _worldState.TimeOfDay01 = tod;
-            _worldState.TimeOfDayAbsolute = _worldState.DayNumber + tod;
         }
     }
 

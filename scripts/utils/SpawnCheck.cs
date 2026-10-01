@@ -26,6 +26,7 @@ public static class SpawnCheck
         var sb = new StringBuilder();
         int lists = 0;
         int rows = 0;
+        _failures = 0;
         foreach (string path in paths)
         {
             if (GD.Load<Resource>(path) is not SpawnListData list)
@@ -37,7 +38,7 @@ public static class SpawnCheck
             rows += DumpList(sb, list, "  ");
         }
         GD.Print(sb.ToString().TrimEnd());
-        GD.Print($"[spawn_check] {lists} lists, {rows} rows");
+        GD.Print($"[spawn_check] {lists} lists, {rows} rows, {_failures} FAIL");
         GD.Print("[spawn_check] done");
         tree.Quit();
     }
@@ -76,6 +77,11 @@ public static class SpawnCheck
         sb.AppendLine($"{indent}{index,2}  {entry.GetType().Name,-24} "
             + $"{Properties(entry, skip: SpawnGroupData.PropertyName.rows)} "
             + $"{Properties(row, skip: SpawnRow.PropertyName.entry)}".Trim());
+        if (entry is MobSpawnEntry mob)
+        {
+            CheckInitialBehavior(sb, indent, mob, row.initialBehavior);
+            CheckInitialBehavior(sb, indent, mob, mob.initialBehavior);
+        }
         int dumped = 1;
         if (entry is SpawnGroupData group && group.rows != null)
         {
@@ -86,6 +92,55 @@ public static class SpawnCheck
             }
         }
         return dumped;
+    }
+
+    private static int _failures;
+
+    // An initialBehavior is a free-typed node name. The mob falls back to its
+    // brain's idle at spawn, so a bad one is silent until the first behavior
+    // completes, and then errors on every completion for the mob's lifetime.
+    // Checked against every species the entry may be set to, and a node the
+    // species' abilities prune counts as missing, as it does at runtime.
+    private static void CheckInitialBehavior(StringBuilder sb, string indent, MobSpawnEntry entry, StringName behavior)
+    {
+        if (behavior is null || behavior.IsEmpty)
+        {
+            return;
+        }
+        var species = new List<SpeciesData>();
+        if (entry.species != null)
+        {
+            species.Add(entry.species);
+        }
+        if (entry.variants != null)
+        {
+            species.AddRange(entry.variants);
+        }
+        foreach (SpeciesData s in species)
+        {
+            if (s != null && !BrainRuns(s, behavior))
+            {
+                _failures++;
+                sb.AppendLine($"{indent}    FAIL initialBehavior '{behavior}' is not a node {StringExtensions.GetFile(s.ResourcePath)}'s brain runs");
+            }
+        }
+    }
+
+    private static bool BrainRuns(SpeciesData species, StringName behavior)
+    {
+        Godot.Collections.Array<BehaviorNode> nodes = species.mob?.brain?.behaviors;
+        if (nodes == null)
+        {
+            return false;
+        }
+        foreach (BehaviorNode node in nodes)
+        {
+            if (node != null && node.name == behavior)
+            {
+                return (node.requiredAbilities & ~species.abilities) == 0;
+            }
+        }
+        return false;
     }
 
     // Every property Godot would STORE for this resource, in declaration order.

@@ -95,7 +95,7 @@ public partial class ArrowStuck : Node3D, IWeaponArrow
     // Transition stuck → loose loot. Removes the stuck instance from the
     // weapon's tracking without bumping ammo (the new ArrowLootSimState
     // re-registers, so the net count is unchanged), then frees self.
-    public void DropAsLoot(Vector3 impulse)
+    public void DropAsLoot()
     {
         WeaponState weapon = _sourceWeapon;
         ArrowLootData data = _data;
@@ -105,7 +105,7 @@ public partial class ArrowStuck : Node3D, IWeaponArrow
         weapon?.DetachArrow(this);
         if (weapon != null && data != null && Sim.Current != null)
         {
-            Sim.Current.SpawnArrowLoot(worldPos, impulse, data, weapon);
+            Sim.Current.EjectArrowLoot(worldPos, data, weapon);
         }
         QueueFree();
     }

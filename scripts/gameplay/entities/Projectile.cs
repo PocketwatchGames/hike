@@ -712,7 +712,7 @@ public partial class Projectile : Node3D
 		}
 		else
 		{
-			Sim.Current.SpawnArrowLoot(position, ItemEventHandlers.BuildArrowEjectImpulse(), arrowLootData, weapon);
+			Sim.Current.EjectArrowLoot(position, arrowLootData, weapon);
 		}
 	}
 }

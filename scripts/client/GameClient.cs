@@ -2999,6 +2999,9 @@ public partial class GameClient : Node3D
 	{
 		for (int i = 0; i < _partyPlayers.Count; i++)
 		{
+			// First, so the refresh below and the wake's autosave never see what
+			// the new day has ended.
+			_partyPlayers[i]?.ExpireForDay(dayNumber);
 			_partyPlayers[i]?.RefreshWellRested();
 			_partyPlayers[i]?.RefuelLantern();
 			_partyPlayers[i]?.Inventory?.ClearAttunement();

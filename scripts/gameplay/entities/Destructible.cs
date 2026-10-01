@@ -48,9 +48,6 @@ public partial class Destructible : Node3D
     // of thing drops; a per-instance payload rides on Destroyed instead.
     [Export] private ItemCountRange[] _drops;
 
-    // Launch speed of ejected drops, thrown at 45° along a random heading.
-    [Export(PropertyHint.Range, "0,20,0.5")] private float _dropSpeed = 6f;
-
     // Fires immediately before the entity leaves the world, while the scene is
     // still intact and its transforms are still valid.
     public event Action Destroyed;
@@ -134,22 +131,7 @@ public partial class Destructible : Node3D
             {
                 continue;
             }
-            int count = drop.Resolve(rng).count;
-            for (int n = 0; n < count; n++)
-            {
-                sim.SpawnLoot(origin, RandomEjectImpulse(rng, _dropSpeed), drop.item);
-            }
+            sim.EjectLoot(drop.item, drop.Resolve(rng).count, origin);
         }
-    }
-
-    // One drop's launch impulse: full speed at 45° up, along a random heading.
-    // Static and public so an owner ejecting its own per-instance payload from
-    // Destroyed scatters it the same way at its own authored speed.
-    public static Vector3 RandomEjectImpulse(Random rng, float speed)
-    {
-        float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
-        float horizontal = speed * Mathf.Cos(Mathf.Pi / 4f);
-        float vertical = speed * Mathf.Sin(Mathf.Pi / 4f);
-        return new Vector3(horizontal * Mathf.Cos(angle), vertical, horizontal * Mathf.Sin(angle));
     }
 }

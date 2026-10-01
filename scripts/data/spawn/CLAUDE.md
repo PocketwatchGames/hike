@@ -65,3 +65,6 @@ container is worse than a missing one: it invites tuning that does nothing.
   resolved rows with every stored property. There is no runtime error mode here —
   a dropped rate or condition just quietly stops placing something — so a diff of
   this output is how an edit to these files is proved to have changed nothing else.
+  It also prints `FAIL` for an `initialBehavior` (row or entry) that names no node
+  the species' brain runs — the mob would fall back to idle silently at spawn, then
+  error on every behavior completion.

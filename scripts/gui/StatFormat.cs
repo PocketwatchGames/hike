@@ -37,8 +37,8 @@ public static class StatFormat
 	}
 
 	// Player-facing lifetime string for a status effect, dispatched by its
-	// EDurationType: "10s" for a Timed effect, "Until sunrise" (etc.) for a
-	// TimeOfDay effect, empty for Persistent or a Timed effect with no fixed
+	// EDurationType: "10s" for a Timed effect, "Until sunrise" for an
+	// UntilSunrise effect, empty for Persistent or a Timed effect with no fixed
 	// duration (the arming system owns its lifetime — wet, etc.). Callers that
 	// emit a labeled row should skip it when this returns empty.
 	public static string Duration(StatusEffectData effect)
@@ -49,8 +49,8 @@ public static class StatFormat
 		}
 		switch (effect.durationType)
 		{
-			case EDurationType.TimeOfDay:
-				return Loc.Format(Loc.Keys.status_duration_until, TimeOfDayLabel(effect.timeOfDayTarget));
+			case EDurationType.UntilSunrise:
+				return Loc.Get(Loc.Keys.status_duration_until_sunrise);
 			case EDurationType.Timed:
 				return effect.duration > 0f ? Seconds(effect.duration) : string.Empty;
 			// Sustained (hot/cold) treats `duration` as a post-source grace window, not a
@@ -60,22 +60,6 @@ public static class StatFormat
 			default:
 				return string.Empty;
 		}
-	}
-
-	// Localized name for a normalized time-of-day (0 = sunrise, 0.25 = noon,
-	// 0.5 = sunset, 0.75 = midnight, 1 = the next sunrise). The cardinal points
-	// read as phase names; any other target falls back to a 24-hour clock string,
-	// where the day spans 06:00 (sunrise) around to 06:00 again.
-	private static string TimeOfDayLabel(float timeOfDay01)
-	{
-		const float Tol = 0.01f;
-		if (timeOfDay01 < Tol || timeOfDay01 > 1f - Tol) { return Loc.Get(Loc.Keys.time_of_day_sunrise); }
-		if (Mathf.Abs(timeOfDay01 - (float)WorldState.NoonTimeOfDay01) < Tol) { return Loc.Get(Loc.Keys.time_of_day_noon); }
-		if (Mathf.Abs(timeOfDay01 - (float)WorldState.SunsetTimeOfDay01) < Tol) { return Loc.Get(Loc.Keys.time_of_day_sunset); }
-		if (Mathf.Abs(timeOfDay01 - (float)WorldState.MidnightTimeOfDay01) < Tol) { return Loc.Get(Loc.Keys.time_of_day_midnight); }
-		// 06:00 at sunrise, +24h around the clock back to 06:00 at the day's end.
-		int totalMinutes = Mathf.RoundToInt((6f + timeOfDay01 * 24f) * 60f) % (24 * 60);
-		return (totalMinutes / 60).ToString("00") + ":" + (totalMinutes % 60).ToString("00");
 	}
 
 	public static string Percent(float fraction)

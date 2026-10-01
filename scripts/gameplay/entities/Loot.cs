@@ -119,6 +119,10 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 	[Export(PropertyHint.Range, "0,5,0.01")] private float _knockbackMinDistance = 0.5f;
 	private bool _seeking;
 	private bool _seekGravityActive;
+	// Set once the spawn arc has cleared (_pickupReadyDelaySeconds elapsed or the
+	// body settled). The magnet waits on it so a chest's burst is seen landing
+	// before it is vacuumed up.
+	private bool _pickupReady;
 	// Scalar flight speed, ramped by _magnetAcceleration. Kept separate from
 	// LinearVelocity so the seek direction is re-aimed from scratch every tick
 	// (see UpdateMagnet).
@@ -206,36 +210,20 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		// freezing the body — pickup remains available even if the loot is
 		// still tumbling. Settle() (called from _IntegrateForces on rest)
 		// also sets Monitoring=true, so whichever path fires first wins.
-		else if (_interactArea != null && !_interactArea.Monitoring
+		else if (!_pickupReady
 			&& _pickupReadyDelaySeconds > 0f && ageMs >= (ulong)(_pickupReadyDelaySeconds * 1000f))
 		{
-			_interactArea.Monitoring = true;
+			_pickupReady = true;
+			if (_interactArea != null)
+			{
+				_interactArea.Monitoring = true;
+			}
 		}
 		ItemData data = _simState?.Item?.data ?? _simState?.Data;
 		if (data is LootData lootData && lootData.removeTimeMs > 0 && ageMs >= (ulong)lootData.removeTimeMs)
 		{
 			Expire();
 			return;
-		}
-		ItemState carried = _simState?.Item;
-		if (carried != null)
-		{
-			// Perishable food dropped back into the world keeps spoiling: shed any
-			// expired cohorts and despawn once the whole pile is gone.
-			carried.PruneExpired(_world.DayNumber);
-			if (carried.stackCount <= 0)
-			{
-				Expire();
-				return;
-			}
-			// A carried instance can also carry its own dawn expiry
-			// (ItemState.removeOnDay) — e.g. a time-limited fairy corpse dropped
-			// back out is still due to vanish at the next sleep-to-sunrise. Unlike
-			// LootData.removeTimeMs (an age-since-spawn duration) this is a day count.
-			if (carried.removeOnDay > 0 && _world.DayNumber >= carried.removeOnDay)
-			{
-				Expire();
-			}
 		}
 	}
 
@@ -489,9 +477,9 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 			// on mid-flight doesn't stop it dead; its sideways momentum is
 			// deliberately dropped.
 			_seekSpeed = Mathf.Max(0f, LinearVelocity.Dot(toTarget.Normalized()));
-			// Guarantee the interact area is probing so contact pickup fires even
-			// if the post-spawn arc delay hasn't elapsed, and stop the idle bob —
-			// the magnet owns the loot's vertical motion now.
+			// Guarantee the interact area is probing (timed-emergent loot gates it
+			// separately), and stop the idle bob — the magnet owns the loot's
+			// vertical motion now.
 			if (_interactArea != null)
 			{
 				_interactArea.Monitoring = true;
@@ -551,8 +539,9 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		}
 		// Timed-emergent loot is only grabbable while fully risen. The seek
 		// force-enables the interact area, so without this gate the magnet would
-		// vacuum up a mushroom that's still buried outside its window.
-		if (IsTimedEmergent && _emergeState != EmergeState.Visible)
+		// vacuum up a mushroom that's still buried outside its window. Everything
+		// else waits out its spawn arc.
+		if (IsTimedEmergent ? _emergeState != EmergeState.Visible : !_pickupReady)
 		{
 			return false;
 		}
@@ -600,6 +589,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		// Enable monitoring after settle so the area only starts probing once
 		// the loot is at rest — avoids spurious BodyEntered events from
 		// graze-collisions during the post-spawn flight arc.
+		_pickupReady = true;
 		if (_interactArea != null)
 		{
 			_interactArea.Monitoring = true;

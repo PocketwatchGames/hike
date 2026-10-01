@@ -176,7 +176,6 @@ public partial class PlayerStatsPanel : PanelContainer
 		_levels.Clear();
 		_seenOrder.Clear();
 		ulong now = Sim.Current?.GameTimeMs ?? 0;
-		double nowTod = Sim.Current?.TimeOfDayAbsolute ?? 0.0;
 		IReadOnlyList<StatusEffectState> effects = _player.StatusEffects;
 		for (int i = 0; i < effects.Count; i++)
 		{
@@ -197,7 +196,7 @@ public partial class PlayerStatsPanel : PanelContainer
 			}
 			if (s.ShowsCountdownBar)
 			{
-				float progress = s.RemainingProgress(now, nowTod);
+				float progress = s.RemainingProgress(now);
 				if (!_minProgress.TryGetValue(key, out float prevProgress) || progress < prevProgress)
 				{
 					_minProgress[key] = progress;

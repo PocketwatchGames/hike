@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="BlockData" format=3 uid="uid://bkas0013l1p5v"]
 
-[ext_resource type="Script" uid="uid://fgg6ne3hi4dk5" path="res://scripts/data/world/BlockData.cs" id="1_s"]
+[ext_resource type="Resource" uid="uid://fou5abjylf85" path="res://resources/data/voxels/surfaces/surface_climb_lichen.tres" id="1_ix6i5"]
+[ext_resource type="Script" uid="uid://bk2b2c57xwhte" path="res://scripts/data/world/BlockData.cs" id="1_s"]
 [ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/voxels/surfaces/surface_dirt_overlay.tres" id="2_dirt_overlay"]
 
 [resource]
@@ -12,4 +13,5 @@ minimapColor = Color(0.47843137, 0.45882353, 0.4, 1)
 blendNoise = 0.55
 naturalGround = true
 defaultShape = 2
+climbGrowthSurface = ExtResource("1_ix6i5")
 groundType = 6

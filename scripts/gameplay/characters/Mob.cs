@@ -137,11 +137,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the 25% bump into world space and the halo floats just over the head.
     private const float CrownHeadMargin = 0.4f;
 
-    // Fallback outward arc speed for ejected loot when a mob has no MobData
-    // (defensive — real mobs always carry one, but the elite-trophy drop path
-    // must still pick a speed). Mirrors MobData.lootEjectSpeed's default.
-    private const float DefaultLootEjectSpeed = 5f;
-
     public float discoveryProgress
     {
         get
@@ -513,6 +508,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // time-skip (Sim.AdvanceTime) bulk-ticks every loaded mob over the
     // skipped span. Same path as the per-frame tick, just one coarse step.
     public void TickStatusEffects(float dt) => _statusEffects?.Tick(dt);
+
+    public void ExpireForDay(int day) => _statusEffects?.ExpireForDay(day);
 
     // Rolls up HitInfo.dot per-frame damage / heal into one onDamage / onHeal
     // invocation per second. Same shape as the player's accumulator — a fast
@@ -5282,106 +5279,30 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
 
     // Eject an authored item list from this mob while it's still alive — a
-    // conversation handing over a reward, a scripted stash drop. Uses the same
-    // 45° scatter arc as the death drop so a handover and a carcass read the
-    // same. Species loot is untouched: this mob still drops it when it dies.
+    // conversation handing over a reward, a scripted stash drop. Species loot is
+    // untouched: this mob still drops it when it dies.
     public void EjectItems(Godot.Collections.Array<ItemCount> items)
     {
-        if (_world == null || items == null || items.Count == 0)
-        {
-            return;
-        }
-        var rng = new Random();
-        float ejectSpeed = mobData?.lootEjectSpeed ?? DefaultLootEjectSpeed;
-        float horizontalSpeed = ejectSpeed * Mathf.Cos(Mathf.Pi / 4f);
-        float verticalSpeed = ejectSpeed * Mathf.Sin(Mathf.Pi / 4f);
-        int count = items.Count;
-        for (int i = 0; i < count; i++)
-        {
-            ItemCount entry = items[i];
-            if (entry?.descriptor?.item == null)
-            {
-                continue;
-            }
-            for (int n = 0; n < entry.count; n++)
-            {
-                EjectLootPiece(entry.descriptor, horizontalSpeed, verticalSpeed, rng);
-            }
-        }
+        _world?.EjectLoot(items, GlobalPosition + Vector3.Up);
     }
 
-    // Mirrors Chest.Complete's loot ejection: each ItemCount entry (stamped onto
-    // the sim state from the spawning SpeciesData.loot) fires `count` Loot
-    // instances outward on a 45° upward arc. Random horizontal angle per item so
-    // a multi-drop carcass scatters rather than dropping in a tight stack.
+    // The species loot stamped onto the sim state, plus the elite trophy.
     private void EjectLoot()
     {
         if (_world == null)
         {
             return;
         }
-        MobData md = mobData;
-        Godot.Collections.Array<ItemCount> loot = _simState?.Loot;
-        bool hasSpeciesLoot = loot != null && loot.Count > 0;
+        Vector3 origin = GlobalPosition + Vector3.Up;
+        _world.EjectLoot(_simState?.Loot, origin);
         // Elites drop the shared crown trophy on top of their species loot —
         // the same halo (SimData.EliteCrownScene) that marked them alive, now a
         // collectible. Authored once on SimData so it's species-agnostic, and
         // dropped even by an elite of a mob type with no authored loot.
-        LootData eliteLoot = IsElite ? _world.SimData?.eliteLoot : null;
-        if (!hasSpeciesLoot && eliteLoot == null)
+        if (IsElite)
         {
-            return;
+            _world.EjectLoot(_world.SimData?.eliteLoot, 1, origin);
         }
-        var rng = new Random();
-        float ejectSpeed = md?.lootEjectSpeed ?? DefaultLootEjectSpeed;
-        float horizontalSpeed = ejectSpeed * Mathf.Cos(Mathf.Pi / 4f);
-        float verticalSpeed = ejectSpeed * Mathf.Sin(Mathf.Pi / 4f);
-        if (hasSpeciesLoot)
-        {
-            for (int i = 0; i < loot.Count; i++)
-            {
-                ItemCount entry = loot[i];
-                if (entry?.descriptor?.item == null)
-                {
-                    continue;
-                }
-                for (int n = 0; n < entry.count; n++)
-                {
-                    EjectLootPiece(entry.descriptor, horizontalSpeed, verticalSpeed, rng);
-                }
-            }
-        }
-        if (eliteLoot != null)
-        {
-            EjectLootPiece(eliteLoot, horizontalSpeed, verticalSpeed, rng);
-        }
-    }
-
-    // Fire a single loot item outward on a 45° upward arc with a random
-    // horizontal heading so a multi-drop carcass scatters rather than stacking.
-    private void EjectLootPiece(ItemData item, float horizontalSpeed, float verticalSpeed, Random rng)
-    {
-        _world.SpawnLoot(GlobalPosition + Vector3.Up, BuildLootImpulse(horizontalSpeed, verticalSpeed, rng), item);
-    }
-
-    // Descriptor variant — composes the entry's permanent mods onto a fresh
-    // state (e.g. a goblin that drops a Fragile bomb) and spawns that state so
-    // the dropped item carries the mod. Each piece is its own stackCount=1 state.
-    private void EjectLootPiece(ItemDescriptor descriptor, float horizontalSpeed, float verticalSpeed, Random rng)
-    {
-        _world.SpawnLoot(GlobalPosition + Vector3.Up, BuildLootImpulse(horizontalSpeed, verticalSpeed, rng), descriptor.CreateState());
-    }
-
-    // 45° upward arc on a random horizontal heading — shared so multi-drop
-    // carcasses scatter rather than stacking.
-    private static Vector3 BuildLootImpulse(float horizontalSpeed, float verticalSpeed, Random rng)
-    {
-        float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
-        return new Vector3(
-            horizontalSpeed * Mathf.Cos(angle),
-            verticalSpeed,
-            horizontalSpeed * Mathf.Sin(angle)
-        );
     }
 
     // Spawn an ArrowStuck child at the world-space hit point. Caller has
@@ -5419,8 +5340,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         stuck.ReturnAmmoOnRemoval();
     }
 
-    // Drop each stuck arrow as loose loot with the same 45° outward arc
-    // EjectLoot uses for mob drops. Called from Die after EjectLoot so the
+    // Drop each stuck arrow as loose loot. Called from Die after EjectLoot so the
     // arrows scatter alongside the mob's authored loot. The stuck instance
     // hands its weapon binding off to the new ArrowLoot via DropAsLoot —
     // no ammo is bumped on the transition.
@@ -5430,23 +5350,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return;
         }
-        var rng = new Random();
-        float ejectSpeed = mobData.lootEjectSpeed;
-        float horizontalSpeed = ejectSpeed * Mathf.Cos(Mathf.Pi / 4f);
-        float verticalSpeed = ejectSpeed * Mathf.Sin(Mathf.Pi / 4f);
         // Iterate a snapshot — DropAsLoot frees each ArrowStuck, which will
         // null out _sourceWeapon and remove the node from the tree.
         ArrowStuck[] snapshot = _stuckArrows.ToArray();
         _stuckArrows.Clear();
         for (int i = 0; i < snapshot.Length; i++)
         {
-            float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
-            var impulse = new Vector3(
-                horizontalSpeed * Mathf.Cos(angle),
-                verticalSpeed,
-                horizontalSpeed * Mathf.Sin(angle)
-            );
-            snapshot[i].DropAsLoot(impulse);
+            snapshot[i].DropAsLoot();
         }
     }
 

@@ -5,11 +5,7 @@ public static partial class Loc
 	{
 		weapon_name_prefix,
 		weapon_name_suffix,
-		status_duration_until,
-		time_of_day_sunrise,
-		time_of_day_noon,
-		time_of_day_sunset,
-		time_of_day_midnight,
+		status_duration_until_sunrise,
 		danger_nearby,
 		too_hurt_to_rest,
 		not_enough_health_to_revive,

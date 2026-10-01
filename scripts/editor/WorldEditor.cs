@@ -669,7 +669,6 @@ public partial class WorldEditor : Node3D
     private void ApplyTimeOfDay(float timeOfDay01)
     {
         _worldState.TimeOfDay01 = Mathf.Clamp(timeOfDay01, 0f, 1f);
-        _worldState.TimeOfDayAbsolute = _worldState.DayNumber + _worldState.TimeOfDay01;
     }
 
     // Fills the Weather dropdown from the palette and forces the first preset.

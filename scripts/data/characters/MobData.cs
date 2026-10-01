@@ -471,12 +471,6 @@ public partial class MobData : Resource
     // concern that lives on SpeciesData.loot (so a forest vs desert kun-kun
     // drops different meat). CreateState stamps it onto MobSimState.Loot;
     // Mob.EjectLoot reads it from there. See SpeciesData.
-
-    // Outward arc speed (m/s) applied to each piece of ejected loot when
-    // the mob dies — both authored drops in EjectLoot and any stuck arrows
-    // scattered with the corpse. Launched on a 45° upward arc; larger
-    // values scatter wider.
-    [Export] public float lootEjectSpeed = 5f;
     // When true the mob leaves no corpse: once it dies (loot ejected, death
     // fx fired) the body fades out in place over deathDespawnSeconds and is
     // removed permanently (node + sim state). For ethereal creatures like the

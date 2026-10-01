@@ -549,7 +549,7 @@
             : dryGate >= orographicGate ? "DRY" : "OROGRAPHIC";
 
         Godot.GD.Print("=== weather probe ===");
-        Godot.GD.Print($"  time-of-day:    day={ws.DayNumber} tod={tod:F3} (abs={ws.TimeOfDayAbsolute:F3})  diurnal={diurnal:F3}  slope={diurnalSlope:F3}  coolingRate={coolingRate:F3}");
+        Godot.GD.Print($"  time-of-day:    day={ws.DayNumber} tod={tod:F3}  diurnal={diurnal:F3}  slope={diurnalSlope:F3}  coolingRate={coolingRate:F3}");
         Godot.GD.Print($"  {(WorldState.IsNight(tod) ? "NIGHT slot active" : "DAY slot active")} (day/night weather re-roll at each sleep-to-sunrise)");
         if (zone != null)
         {
@@ -686,7 +686,6 @@
         if (ws == null) { return; }
         double v = System.Math.Clamp((double)((CVarFloat)cvar).Value, 0.0, 1.0);
         ws.TimeOfDay01 = v;
-        ws.TimeOfDayAbsolute = ws.DayNumber + v;
     });
 
     // Swaps the MainCamera between authored framing presets (CameraAngleSettings)

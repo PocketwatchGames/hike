@@ -966,7 +966,6 @@ public partial class Hud : Control
 		_statusEffectMinProgress.Clear();
 		_statusEffectsThisTick.Clear();
 
-		double nowTod = Sim.Current?.TimeOfDayAbsolute ?? 0.0;
 		IReadOnlyList<StatusEffectState> effects = _player.StatusEffects;
 		for (int i = 0; i < effects.Count; i++)
 		{
@@ -979,7 +978,7 @@ public partial class Hud : Control
 			_statusEffectCounts[s.data] = prevCount + 1;
 			if (s.ShowsCountdownBar)
 			{
-				float progress = s.RemainingProgress(now, nowTod);
+				float progress = s.RemainingProgress(now);
 				if (!_statusEffectMinProgress.TryGetValue(s.data, out float prevProgress)
 					|| progress < prevProgress)
 				{

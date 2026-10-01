@@ -164,42 +164,82 @@ public partial class Sim
         return loot;
     }
 
-    // Eject a set of loot stacks in a random upward-and-out spray from `origin` —
-    // the shared "pop loot out" used both when a chest is opened and when a buried
-    // spot is dug. Each ItemCount ejects as ONE stacked Loot (a "3 crowns" entry
-    // is one pile of 3, not three pickups).
-    public void EjectLootPile(ItemCount[] items, Vector3 origin)
+    // --- Loot ejection ---------------------------------------------------------
+    // Every "loot pops out of something" — a chest, a dug spot, a mob's death or
+    // handover, a smashed pot, a picked bush, a bare dig, a loose arrow — goes
+    // through here, so the arc and the stack splitting are tuned once on SimData.
+
+    public void EjectLoot(IEnumerable<ItemCount> items, Vector3 origin)
     {
         if (items == null)
         {
             return;
         }
-        for (int i = 0; i < items.Length; i++)
+        foreach (ItemCount entry in items)
         {
-            ItemCount entry = items[i];
-            if (entry?.descriptor?.item == null || entry.count <= 0)
+            if (entry?.descriptor?.item != null)
             {
-                continue;
+                EjectLoot(entry.descriptor.CreateState, entry.count, origin);
             }
-            ItemState stack = entry.descriptor.CreateState();
-            stack.SetCount(entry.count);
-            EjectLoot(stack, origin);
         }
     }
 
-    // One stack, popped out on its own random heading.
-    public void EjectLoot(ItemState stack, Vector3 origin)
+    public void EjectLoot(ItemDescriptor descriptor, int count, Vector3 origin)
     {
-        if (stack == null)
+        if (descriptor?.item != null)
+        {
+            EjectLoot(descriptor.CreateState, count, origin);
+        }
+    }
+
+    public void EjectLoot(ItemData item, int count, Vector3 origin)
+    {
+        if (item != null)
+        {
+            EjectLoot(item.CreateState, count, origin);
+        }
+    }
+
+    // A small stack (SimData.lootEjectSplitMaxCount) scatters as single pickups,
+    // each a fresh state from `createState` so every piece carries the
+    // descriptor's mods.
+    private void EjectLoot(Func<ItemState> createState, int count, Vector3 origin)
+    {
+        if (count <= 0)
         {
             return;
         }
-        const float Speed = 5f;
-        float horizontal = Speed * Mathf.Cos(Mathf.Pi / 4f);
-        float vertical = Speed * Mathf.Sin(Mathf.Pi / 4f);
-        float angle = (float)(Random.Shared.NextDouble() * Mathf.Pi * 2f);
-        Vector3 impulse = new Vector3(horizontal * Mathf.Cos(angle), vertical, horizontal * Mathf.Sin(angle));
-        DropItem(stack, origin, impulse);
+        if (count <= (SimData?.lootEjectSplitMaxCount ?? 0))
+        {
+            for (int i = 0; i < count; i++)
+            {
+                SpawnLoot(origin, BuildEjectImpulse(), createState());
+            }
+        }
+        else
+        {
+            ItemState stack = createState();
+            stack.SetCount(count);
+            SpawnLoot(origin, BuildEjectImpulse(), stack);
+        }
+    }
+
+    public Loot EjectArrowLoot(Vector3 origin, ArrowLootData data, WeaponState sourceWeapon)
+    {
+        return SpawnArrowLoot(origin, BuildEjectImpulse(), data, sourceWeapon);
+    }
+
+    // 45° up on a random heading, at a speed rolled per piece so a pile scatters
+    // rather than landing on a ring.
+    private Vector3 BuildEjectImpulse()
+    {
+        float speedMin = SimData?.lootEjectSpeedMin ?? 0f;
+        float speedMax = SimData?.lootEjectSpeedMax ?? 0f;
+        float speed = Mathf.Lerp(speedMin, speedMax, (float)Random.Shared.NextDouble());
+        float horizontal = speed * Mathf.Cos(Mathf.Pi / 4f);
+        float vertical = speed * Mathf.Sin(Mathf.Pi / 4f);
+        float angle = (float)(Random.Shared.NextDouble() * Mathf.Tau);
+        return new Vector3(horizontal * Mathf.Cos(angle), vertical, horizontal * Mathf.Sin(angle));
     }
 
     // Spawn a pickup carrying a specific ItemState (player-dropped item path).
@@ -360,25 +400,14 @@ public partial class Sim
         BlockData dugBlock = GroundTypeResolver.ResolveBlock(_worldState, position);
         if (dugBlock?.digItem != null)
         {
-            SpawnLoot(position + Vector3.Up * DIG_YIELD_POP_HEIGHT, BuildDigYieldImpulse(), dugBlock.digItem);
+            EjectLoot(dugBlock.digItem, 1, position + Vector3.Up * DIG_YIELD_POP_HEIGHT);
             return EDigResult.Common;
         }
 
         return EDigResult.Nothing;
     }
 
-    // Loose-loot pop for a bare-ground dig yield: a 45° upward arc on a random
-    // horizontal heading so the scooped material tumbles out of the hole. Same
-    // arc shape the berry tree / chest ejects use.
     private const float DIG_YIELD_POP_HEIGHT = 0.5f;
-    private const float DIG_YIELD_POP_SPEED = 3f;
-    private static Vector3 BuildDigYieldImpulse()
-    {
-        float horizontal = DIG_YIELD_POP_SPEED * Mathf.Cos(Mathf.Pi / 4f);
-        float vertical = DIG_YIELD_POP_SPEED * Mathf.Sin(Mathf.Pi / 4f);
-        float angle = (float)GD.RandRange(0.0, Mathf.Tau);
-        return new Vector3(horizontal * Mathf.Cos(angle), vertical, horizontal * Mathf.Sin(angle));
-    }
 
     // Roll a single SpawnEntryData payload at `position` and materialize its
     // entity (or entities) into the live scene right now, rather than waiting

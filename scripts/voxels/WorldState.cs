@@ -169,16 +169,10 @@ public class WorldState
     // Explicit whole-day counter. Starts at 0 and is incremented ONLY by the
     // sleep-to-sunrise path (Sim.AdvanceToNextSunrise) — the day cycle no
     // longer rolls over on its own, so this can't be derived from the clock.
-    // Dawn-expiring deadlines (time-limited items, forge cooldown) compare against
-    // this rather than projecting a wall-clock sunrise (there is no such time
-    // now — the clock stops at the end of the day until the player sleeps).
+    // Day deadlines (UntilSunrise effects, spoilage, forge cooldown) compare
+    // against this rather than projecting a wall-clock sunrise (there is no such
+    // time — the clock stops at the end of the day until the player sleeps).
     public int DayNumber;
-
-    // Unwrapping day+fraction coordinate = DayNumber + TimeOfDay01. Still used
-    // by "until sunrise" status-effect expiry (StatusEffectState) and the sky
-    // disk-fade windows. Advances with TimeOfDay01 during the day and
-    // jumps to (DayNumber+1) + 0 on a sleep-to-sunrise.
-    public double TimeOfDayAbsolute;
 
     // Sun direction (unit vector, the direction light travels). Written by
     // SkyController each frame from TimeOfDay01; read by
@@ -336,7 +330,6 @@ public class WorldState
         SimState.ScriptVars.Initialize(simData?.scriptVariables);
         TimeOfDay01 = simData?.initialTimeOfDay ?? 0.05f;
         DayNumber = 0;
-        TimeOfDayAbsolute = DayNumber + TimeOfDay01;
         // Roll the first day's day + night weather slots. Subsequent days
         // re-roll on the sleep-to-sunrise (Sim fires OnNewDay → RollDailyWeather).
         // BeginRun rolls again once the run's seed is known.

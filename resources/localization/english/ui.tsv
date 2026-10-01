@@ -1,11 +1,7 @@
 key	                value
 weapon_name_prefix	%0 %1
 weapon_name_suffix	%0 %1
-status_duration_until	Until %0
-time_of_day_sunrise	sunrise
-time_of_day_noon	noon
-time_of_day_sunset	sunset
-time_of_day_midnight	midnight
+status_duration_until_sunrise	Until sunrise
 danger_nearby	Danger Nearby
 too_hurt_to_rest	Too Hurt to Rest
 not_enough_health_to_revive	Not Enough Health

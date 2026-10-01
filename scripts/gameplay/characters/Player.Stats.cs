@@ -565,45 +565,26 @@ public partial class Player : CharacterBody3D
 		weapon.blockArmor = Mathf.Min(max, weapon.blockArmor + speed * dt);
 	}
 
-	// Per-tick ammo recharge for every weapon the player owns that opts in
-	// (WeaponData.ammoRechargeSeconds > 0) — the single, unified ammo timer.
-	// Driven for both equip slots AND the backpack so an unequipped weapon
-	// keeps reclaiming arrows / refilling while stashed. A weapon dropped on
-	// the ground isn't ticked at all, but ammoRechargeReadyMs is an absolute
-	// game-time deadline, so the first tick after it re-enters the inventory
-	// catches up every interval that elapsed while it was gone (see the
-	// catch-up loop in TickWeaponAmmoRecharge). The timer is a single deadline
-	// (ammoRechargeReadyMs): armed the frame ammo drops below max, advanced
-	// after each unit refills, and cleared at full — so it runs continuously
-	// while below max and firing never resets an in-flight charge.
-	// On each elapse it recovers one unit of ammo: a weapon that left arrows in
-	// the world (the bow) auto-reclaims its oldest outstanding arrow (which
-	// bumps ammo as it leaves play); a self-recharging weapon with no arrows
-	// (the bomb) just regenerates ammo from nothing.
-	// Destroys any owned item whose removeOnDay deadline has been reached —
-	// time-limited items (e.g. the fairy corpse) that expire at the next
-	// sleep-to-sunrise, wherever they sit: backpack, hotbar, or an equipped slot.
-	// Collect-then-remove so
-	// Inventory.Remove (which mutates slots and fires onChanged) isn't called
-	// mid-enumeration.
-	private void TickItemExpiry()
+	// Everything this member holds that day `today` ends: UntilSunrise status
+	// effects (a forge upgrade) and spoiled food cohorts in the inventory. Called
+	// once per member by the day roll (GameClient.OnNewDayRefreshNodes), before the
+	// wake's autosave — never polled, since nothing else moves DayNumber.
+	// Collect-then-remove so Inventory.Remove (which mutates slots and fires
+	// onChanged) isn't called mid-enumeration.
+	public void ExpireForDay(int today)
 	{
+		_statusEffects.ExpireForDay(today);
 		if (_inventory == null)
 		{
 			return;
 		}
-		int today = _world?.DayNumber ?? 0;
 		System.Collections.Generic.List<ItemState> expired = null;
 		foreach (ItemState item in _inventory.EnumerateAll())
 		{
-			// Prune spoiled food cohorts in place — a half-spoiled pile loses only
-			// its old batch and survives on its fresher ones. The whole item is
-			// pulled only when its last cohort is gone, or when a non-food timed
-			// drop (removeOnDay lifespan, e.g. a fairy corpse) reaches its day.
+			// A half-spoiled pile loses only its old batch; the item is pulled once
+			// its last cohort is gone.
 			item.PruneExpired(today);
-			bool emptied = item.stackCount <= 0;
-			bool lifespanElapsed = item.removeOnDay != 0 && today >= item.removeOnDay;
-			if (emptied || lifespanElapsed)
+			if (item.stackCount <= 0)
 			{
 				(expired ??= new System.Collections.Generic.List<ItemState>()).Add(item);
 			}
@@ -622,6 +603,21 @@ public partial class Player : CharacterBody3D
 		RefillEmptyEquipmentFromStarting();
 	}
 
+	// Per-tick ammo recharge for every weapon the player owns that opts in
+	// (WeaponData.ammoRechargeSeconds > 0) — the single, unified ammo timer.
+	// Driven for both equip slots AND the backpack so an unequipped weapon
+	// keeps reclaiming arrows / refilling while stashed. A weapon dropped on
+	// the ground isn't ticked at all, but ammoRechargeReadyMs is an absolute
+	// game-time deadline, so the first tick after it re-enters the inventory
+	// catches up every interval that elapsed while it was gone (see the
+	// catch-up loop in TickWeaponAmmoRecharge). The timer is a single deadline
+	// (ammoRechargeReadyMs): armed the frame ammo drops below max, advanced
+	// after each unit refills, and cleared at full — so it runs continuously
+	// while below max and firing never resets an in-flight charge.
+	// On each elapse it recovers one unit of ammo: a weapon that left arrows in
+	// the world (the bow) auto-reclaims its oldest outstanding arrow (which
+	// bumps ammo as it leaves play); a self-recharging weapon with no arrows
+	// (the bomb) just regenerates ammo from nothing.
 	private void TickAmmoRecharge(ulong now)
 	{
 		if (_inventory == null)

@@ -123,7 +123,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         // WorldGenData, future editor placements) and arrive through the sim
         // state — the scene itself carries no loot. Ejected through the shared
         // loot-pop (also used by a dug buried spot): each ItemCount is one pile.
-        _world.EjectLootPile(_interactiveState.LootItems, GlobalPosition + Vector3.Up);
+        _world.EjectLoot(_interactiveState.LootItems, GlobalPosition + Vector3.Up);
 
         // Fire any wired traps/effects. The chest itself is the source —
         // ITriggerables that need body-area context (a SpikeDeployer)

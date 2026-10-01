@@ -12,7 +12,6 @@
 script = ExtResource("listrow")
 squareMetersPerSpawn = 500.0
 entry = ExtResource("2_7q2k4")
-initialBehavior = &"Wander"
 metadata/_custom_type_script = "uid://prsprptvme87"
 
 [sub_resource type="Resource" id="Row_goblin_swamp"]

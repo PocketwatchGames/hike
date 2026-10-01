@@ -36,7 +36,7 @@ public class SimState
 
     // Age the shared party stashes at the sunrise day rollover: prune each stack's
     // spoiled cohorts (meat, mushrooms) in place and drop any stack that empties,
-    // mirroring the backpack sweep in Player.TickItemExpiry. Called from
+    // mirroring the backpack sweep in Player.ExpireForDay. Called from
     // Sim.AdvanceToNextSunrise. The equipment stash is swept too for symmetry;
     // equipment carries no perishable cohorts, so it's a no-op there.
     public void PruneExpiredPerishables(int dayNumber)
@@ -55,11 +55,9 @@ public class SimState
                 continue;
             }
             // Spoiled food cohorts drop in place; the stack leaves the stash only
-            // when it empties out, or when a non-food timed drop's whole-item
-            // lifespan (removeOnDay) elapses.
+            // when it empties out.
             item.PruneExpired(dayNumber);
-            bool lifespanElapsed = item.removeOnDay != 0 && dayNumber >= item.removeOnDay;
-            if (item.stackCount <= 0 || lifespanElapsed)
+            if (item.stackCount <= 0)
             {
                 stash.RemoveAt(i);
             }

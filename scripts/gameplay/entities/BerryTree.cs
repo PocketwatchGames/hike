@@ -18,7 +18,6 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
     // In-world days a picked bush takes to bear fruit again. Species-tied, so it
     // lives on the scene alongside _berryItem.
     [Export(PropertyHint.Range, "1,60,1,or_greater")] private int _regrowDays = 3;
-    [Export] private float _lootSpeed = 10;
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
     private BerryTreeSimState _interactiveState;
@@ -107,12 +106,7 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        var rng = new Random();
-        for (int i = 0; i < _interactiveState.BerryCount; i++)
-        {
-            _world.SpawnLoot(GlobalPosition + Vector3.Up,
-                Destructible.RandomEjectImpulse(rng, _lootSpeed), _berryItem);
-        }
+        _world.EjectLoot(_berryItem, _interactiveState.BerryCount, GlobalPosition + Vector3.Up);
     }
 
     // Show/hide the fruit. The hurtbox is NOT gated on ripeness — a picked bush

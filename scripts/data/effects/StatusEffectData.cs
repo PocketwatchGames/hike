@@ -19,9 +19,9 @@ public enum EBuildupBehavior
 //   Timed      — expires `duration` seconds after apply (0 = no auto-expiry; the
 //                arming system or explicit Remove owns lifetime, e.g. Wet).
 //   Persistent — never expires on its own; gameplay code calls Remove.
-//   TimeOfDay  — expires at the next occurrence of `timeOfDayTarget`
-//                (0 = sunrise), so a boon can last "until sunrise" regardless
-//                of how long that is (the sleep-to-sunrise crosses it).
+//   UntilSunrise — expires at the next day roll (a sleep to sunrise), however
+//                long the party stays up. A day deadline, never a clock time:
+//                only the day roll moves DayNumber, so only it ends these.
 //   Sustained  — kept alive by an ongoing external condition that pauses the
 //                timer while it holds (body temperature in a hot/cold zone).
 //                `duration` is the grace window the effect lingers AFTER the
@@ -35,7 +35,7 @@ public enum EDurationType
 {
 	Timed = 0,
 	Persistent = 1,
-	TimeOfDay = 2,
+	UntilSunrise = 2,
 	Sustained = 3,
 }
 
@@ -137,20 +137,13 @@ public partial class StatusEffectData : Resource
 		}
 	}
 
-	// How this effect's lifetime ends (Timed / Persistent / TimeOfDay). See EDurationType.
+	// How this effect's lifetime ends (Timed / Persistent / UntilSunrise / Sustained). See EDurationType.
 	[Export] public EDurationType durationType = EDurationType.Timed;
 
 	// Timed / Sustained: seconds the effect lasts. For Timed, seconds after apply (0 =
 	// the arming system owns lifetime, e.g. Wet lives off the wetness meter). For
 	// Sustained, the grace window it lingers after the sustaining condition clears.
 	[Export] public float duration;
-
-	// TimeOfDay only: normalized time-of-day the effect expires at (0 = sunrise,
-	// 0.25 = noon, 0.5 = sunset, 0.75 = midnight). The effect lasts
-	// until the next occurrence of this time; the default (sunrise) is the common
-	// "until sunrise" boon, which the sleep-to-sunrise then crosses. See
-	// WorldState.TimeOfDay01.
-	[Export(PropertyHint.Range, "0,1,0.001")] public float timeOfDayTarget = 0.0f;
 
 	// Max simultaneous instances. A further Add refreshes the oldest instance's timer
 	// instead of stacking. 1 makes re-applying just extend the timer (consumables, Wet).
@@ -300,7 +293,6 @@ public partial class StatusEffectData : Resource
 			nameof(clearBuildupOnApply) => isContinuous,
 			nameof(applyTrigger) => isContinuous,
 			nameof(duration) => isContinuous || (durationType != EDurationType.Timed && durationType != EDurationType.Sustained),
-			nameof(timeOfDayTarget) => durationType != EDurationType.TimeOfDay,
 			nameof(armThreshold) => !isContinuous,
 			nameof(disarmThreshold) => !isContinuous,
 			_ => false,

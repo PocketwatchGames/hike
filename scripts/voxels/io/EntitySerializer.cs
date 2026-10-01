@@ -1639,7 +1639,7 @@ public static class EntitySerializer
     // state (length-prefixed, see ItemState.WriteSubclassState).
     // The stack's units are stored as spoil cohorts — a count and each cohort's
     // (units, removeOnDay) pair — so per-batch spoilage survives save/load; then
-    // cooldownExpireMs, cooldownDurationMs, touched, whole-item removeOnDay, level.
+    // cooldownExpireMs, cooldownDurationMs, touched, level.
     private static void WriteItemState(BinaryWriter w, ItemState item)
     {
         if (item == null || item.data == null)
@@ -1658,7 +1658,6 @@ public static class EntitySerializer
         w.Write(item.cooldownExpireMs);
         w.Write(item.cooldownDurationMs);
         w.Write(item.touched);
-        w.Write(item.removeOnDay);
         w.Write(item.level);
         WriteStatusEffects(w, item.statusEffects.StatusEffects);
         w.Write(item.possibleBoons.Count);
@@ -1711,7 +1710,6 @@ public static class EntitySerializer
         ulong cooldownExpireMs = r.ReadUInt64();
         ulong cooldownDurationMs = r.ReadUInt64();
         bool touched = r.ReadBoolean();
-        int removeOnDay = r.ReadInt32();
         int level = r.ReadInt32();
         var effects = new List<StatusEffectRecord>();
         var boons = new List<BoonData>();
@@ -1744,7 +1742,6 @@ public static class EntitySerializer
         state.cooldownExpireMs = cooldownExpireMs;
         state.cooldownDurationMs = cooldownDurationMs;
         state.touched = touched;
-        state.removeOnDay = removeOnDay;
         state.level = level;
         foreach (StatusEffectRecord effect in effects)
         {
@@ -1760,10 +1757,11 @@ public static class EntitySerializer
     }
 
     // One status-effect instance as the wire stores it: what Add needs to rebuild
-    // it. Timers are NOT stored - Add re-arms them from the load, so a timed
-    // effect restarts its full window.
+    // it, plus an UntilSunrise effect's deadline day. A millisecond timer is NOT
+    // stored - Add re-arms it from the load, so a Timed effect restarts its full
+    // window - but a day deadline is absolute and comes back exactly as written.
     public readonly record struct StatusEffectRecord(StatusEffectData Data, int Level, EUpgradeSlot AppliedSlot,
-        float Potency, HazardProfileData Hazard, EWeaponModScope Scope, int ChargeIndex)
+        float Potency, HazardProfileData Hazard, EWeaponModScope Scope, int ChargeIndex, int ExpireDay)
     {
         public StatusEffectState AddTo(StatusEffectController controller)
         {
@@ -1772,6 +1770,10 @@ public static class EntitySerializer
             {
                 state.weaponModScope = Scope;
                 state.weaponModChargeIndex = ChargeIndex;
+                if (ExpireDay != 0)
+                {
+                    state.expireDay = ExpireDay;
+                }
             }
             return state;
         }
@@ -1799,6 +1801,7 @@ public static class EntitySerializer
             WriteResource(w, state.hazardProfile);
             w.Write((int)state.weaponModScope);
             w.Write(state.weaponModChargeIndex);
+            w.Write(state.expireDay);
         }
     }
 
@@ -1815,9 +1818,10 @@ public static class EntitySerializer
             var hazard = ReadResource<HazardProfileData>(r);
             var scope = (EWeaponModScope)r.ReadInt32();
             int chargeIndex = r.ReadInt32();
+            int expireDay = r.ReadInt32();
             if (data != null)
             {
-                records.Add(new StatusEffectRecord(data, level, slot, potency, hazard, scope, chargeIndex));
+                records.Add(new StatusEffectRecord(data, level, slot, potency, hazard, scope, chargeIndex, expireDay));
             }
         }
         return records;

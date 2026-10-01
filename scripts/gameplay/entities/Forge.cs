@@ -7,7 +7,7 @@ using Godot;
 // this forge's Level — evicting whatever occupies that slot — and the forge goes
 // inert until the next in-world sunrise (a sim-clock deadline persisted on the sim
 // state so the cooldown survives chunk streaming and save/load). The upgrade
-// effects are authored as sunrise-expiring (durationType TimeOfDay), so they last
+// effects are authored as sunrise-expiring (durationType UntilSunrise), so they last
 // exactly one day, matching the forge's daily re-arm.
 //
 // The offered upgrade is chosen deterministically from (world position, day), so

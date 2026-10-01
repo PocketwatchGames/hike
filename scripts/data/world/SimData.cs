@@ -167,7 +167,7 @@ public partial class SimData : Resource
 
     // Upgrade pool a Forge draws its single offered upgrade from. Each entry is a
     // slot-locked StatusEffectData (upgradeSlot != None) applied at the forge's
-    // level and expiring at the next sunrise (author with durationType TimeOfDay).
+    // level and expiring at the next sunrise (author with durationType UntilSunrise).
     // A given forge deterministically offers one of these per day. Centralized here
     // so the pool is tuned in one place, mirroring the fairy-boon pool above.
     // Empty = the forge offers nothing.
@@ -1175,6 +1175,17 @@ public partial class SimData : Resource
     // reloads, or at the next nightfall once the player has moved away. See
     // Sim.RefreshTimeOfDayEntities.
     [Export(PropertyHint.Range, "0,100,1")] public float spawnMinDistanceFromPlayer = 24f;
+
+    [ExportGroup("Loot Eject")]
+    // Launch speed (m/s, 45° up, random heading) of loot popped out of a chest or
+    // dug spot, rolled per piece between these so a pile scatters instead of
+    // landing on a ring. With loot's gravity_scale 3 and the 1m launch height,
+    // 7 lands ~2.4m out and 9 ~3.4m.
+    [Export(PropertyHint.Range, "0,20,0.1")] public float lootEjectSpeedMin = 7f;
+    [Export(PropertyHint.Range, "0,20,0.1")] public float lootEjectSpeedMax = 9f;
+    // A stack of at most this many ejects as that many single pickups; a larger
+    // one ejects as one pile. 0 never splits.
+    [Export(PropertyHint.Range, "0,20,1")] public int lootEjectSplitMaxCount = 5;
 
     [ExportGroup("Spawn Cleanup")]
     // Mirror of the spawn gate: a loaded mob whose ESpawnConditions no longer

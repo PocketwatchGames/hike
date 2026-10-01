@@ -256,7 +256,9 @@ public static class WorldFile
     //      it and a disabled gate (a Bool script variable + which value disables
     //      it), stamped from the placement by SpawnEntryData.Spawn. The Fountain
     //      payload drops its own enabling variable, which the gate replaces.
-    public const uint VERSION = 61;
+    // v62: a status-effect instance carries its UntilSunrise deadline day, and
+    //      the ItemState wire format drops the whole-item removeOnDay nothing set.
+    public const uint VERSION = 62;
 
     public struct IndexEntry
     {

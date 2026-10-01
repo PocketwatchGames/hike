@@ -37,29 +37,13 @@ public class StatusEffectState
 	public HazardProfileData hazardProfile;
 
 	// Game-time (ms) at which a Timed effect expires. 0 = no ms timer
-	// (Persistent, TimeOfDay, or a paused situational timer — see PauseTimer).
+	// (Persistent, UntilSunrise, or a paused situational timer — see PauseTimer).
 	public ulong expireTimeMs;
 
-	// Absolute time-of-day at which a TimeOfDay effect expires (= _expireDay +
-	// _expireTimeOfDay01), in WorldState.TimeOfDayAbsolute units. Non-zero marks
-	// a TimeOfDay effect and drives the HUD progress bar; the ACTUAL expiry test
-	// uses the (_expireDay, _expireTimeOfDay01) pair below, not this sum. 0 = not
-	// a TimeOfDay effect.
-	public double expireTimeOfDayAbsolute;
-
-	// Expiry as an explicit (DayNumber, time-of-day fraction) pair. Kept separate
-	// from the summed absolute above because the day clock stops at its end
-	// (tod 1.0), whose absolute (DayNumber + 1.0) numerically COLLIDES with the
-	// next day's sunrise ((DayNumber+1) + 0.0). Comparing the sum would expire an
-	// "until sunrise" boon at the day's end — before the sleep-to-sunrise that is meant
-	// to end it. IsExpired compares the day explicitly to avoid that.
-	private int _expireDay;
-	private double _expireTimeOfDay01;
-
-	// Span from apply to expiry for a TimeOfDay effect (in TimeOfDayAbsolute /
-	// day units), captured at arm time so the HUD can render a 0..1 progress
-	// bar. 0 for non-TimeOfDay effects.
-	private double _timeOfDaySpan;
+	// The DayNumber whose sunrise ends an UntilSunrise effect; 0 = none. Only the
+	// day roll moves DayNumber, so only the day roll expires these
+	// (StatusEffectController.ExpireForDay) — the per-frame Tick never looks.
+	public int expireDay;
 
 	// Seconds since the last per-second damage tick. Counts up to 1.0, then
 	// the actor's TickStatusEffects applies one chunk of damagePerSecond and
@@ -97,62 +81,40 @@ public class StatusEffectState
 	// equals its slot).
 	public EUpgradeSlot appliedUpgradeSlot = EUpgradeSlot.None;
 
-	public StatusEffectState(StatusEffectData data, ulong nowMs, int nowDay, double nowTimeOfDay01)
+	public StatusEffectState(StatusEffectData data, ulong nowMs, int nowDay)
 	{
 		this.data = data;
-		ArmTimer(nowMs, nowDay, nowTimeOfDay01);
+		ArmTimer(nowMs, nowDay);
 	}
 
-	// True when this instance carries an active expiry timer of any kind (ms or
-	// time-of-day). False for Persistent effects and paused situational timers.
-	public bool IsTimed => expireTimeMs != 0 || expireTimeOfDayAbsolute != 0;
+	// True when this instance carries an active expiry of either kind. False for
+	// Persistent effects and paused situational timers.
+	public bool IsTimed => expireTimeMs != 0 || expireDay != 0;
 
-	// Whether the HUD should render a shrinking countdown bar. True only for a
-	// plain Timed ms-expiry. A TimeOfDay ("until sunrise") effect is gated on the
-	// player choosing to sleep, not on the wall clock — the awake clock freezes at
-	// midnight and only the sleep-to-sunrise ends it — so a bar tracking the clock
-	// would drain to empty while the effect is still active. We render those (and
-	// paused/persistent effects) as persistent instead: icon only, no bar.
+	// Whether the HUD should render a shrinking countdown bar: a plain Timed
+	// ms-expiry only. An UntilSunrise effect ends when the party chooses to sleep,
+	// not on the clock, so it shows as persistent (icon only, no bar).
 	public bool ShowsCountdownBar => expireTimeMs != 0;
 
-	// Whether the effect has reached its expiry on whichever clock it uses.
-	// The TimeOfDay branch compares the day explicitly so midnight of day N
-	// (tod 1.0) does NOT satisfy a day-(N+1) sunrise deadline, even though the
-	// two share the same summed absolute — an "until sunrise" boon must survive
-	// the frozen midnight and end only once the sleep-to-sunrise rolls the day.
-	public bool IsExpired(ulong nowMs, int nowDay, double nowTimeOfDay01)
-	{
-		if (expireTimeOfDayAbsolute != 0)
-		{
-			return nowDay > _expireDay || (nowDay == _expireDay && nowTimeOfDay01 >= _expireTimeOfDay01);
-		}
-		return expireTimeMs != 0 && nowMs >= expireTimeMs;
-	}
+	public bool IsExpiredAt(ulong nowMs) => expireTimeMs != 0 && nowMs >= expireTimeMs;
 
-	// Fraction of lifetime remaining in [0, 1] for the HUD bar; 1 when the
-	// effect carries no timer (persistent). Spans both clocks.
-	public float RemainingProgress(ulong nowMs, double nowTimeOfDayAbsolute)
+	public bool IsExpiredOnDay(int day) => expireDay != 0 && day >= expireDay;
+
+	// Fraction of a Timed effect's lifetime remaining in [0, 1] for the HUD bar;
+	// 1 when it carries no ms timer.
+	public float RemainingProgress(ulong nowMs)
 	{
-		if (expireTimeOfDayAbsolute != 0)
+		if (expireTimeMs == 0)
 		{
-			if (_timeOfDaySpan <= 0.0)
-			{
-				return 0f;
-			}
-			double remaining = expireTimeOfDayAbsolute - nowTimeOfDayAbsolute;
-			return Mathf.Clamp((float)(remaining / _timeOfDaySpan), 0f, 1f);
+			return 1f;
 		}
-		if (expireTimeMs != 0)
+		float total = (data?.duration ?? 0f) * 1000f;
+		if (total <= 0f)
 		{
-			float total = (data?.duration ?? 0f) * 1000f;
-			if (total <= 0f)
-			{
-				return 0f;
-			}
-			float remaining = expireTimeMs > nowMs ? expireTimeMs - nowMs : 0f;
-			return Mathf.Clamp(remaining / total, 0f, 1f);
+			return 0f;
 		}
-		return 1f;
+		float remaining = expireTimeMs > nowMs ? expireTimeMs - nowMs : 0f;
+		return Mathf.Clamp(remaining / total, 0f, 1f);
 	}
 
 	// Pause / resume the expiry timer for situational effects (e.g. wet pauses
@@ -163,23 +125,16 @@ public class StatusEffectState
 	public void PauseTimer()
 	{
 		expireTimeMs = 0;
-		expireTimeOfDayAbsolute = 0;
-		_expireDay = 0;
-		_expireTimeOfDay01 = 0.0;
-		_timeOfDaySpan = 0.0;
+		expireDay = 0;
 	}
 
-	// (Re)arm the expiry per data.durationType. Timed → now + duration; TimeOfDay
-	// → the next crossing of data.timeOfDayTarget (tracked as an explicit day +
-	// fraction, see the field comments); Persistent (and Timed with duration 0) →
+	// (Re)arm the expiry per data.durationType. Timed → now + duration;
+	// UntilSunrise → the next day roll; Persistent (and Timed with duration 0) →
 	// no timer, so the arming system or explicit Remove owns lifetime.
-	public void ArmTimer(ulong nowMs, int nowDay, double nowTimeOfDay01)
+	public void ArmTimer(ulong nowMs, int nowDay)
 	{
 		expireTimeMs = 0;
-		expireTimeOfDayAbsolute = 0;
-		_expireDay = 0;
-		_expireTimeOfDay01 = 0.0;
-		_timeOfDaySpan = 0.0;
+		expireDay = 0;
 		if (data == null)
 		{
 			return;
@@ -196,14 +151,8 @@ public class StatusEffectState
 					expireTimeMs = nowMs + (ulong)(data.duration * 1000f);
 				}
 				break;
-			case EDurationType.TimeOfDay:
-				_expireTimeOfDay01 = data.timeOfDayTarget;
-				// Target later today, else the same time tomorrow. `>` (not `>=`)
-				// sends an effect armed exactly at the target time to tomorrow so it
-				// lasts a full day rather than expiring instantly.
-				_expireDay = data.timeOfDayTarget > nowTimeOfDay01 ? nowDay : nowDay + 1;
-				expireTimeOfDayAbsolute = _expireDay + _expireTimeOfDay01;
-				_timeOfDaySpan = expireTimeOfDayAbsolute - (nowDay + nowTimeOfDay01);
+			case EDurationType.UntilSunrise:
+				expireDay = nowDay + 1;
 				break;
 		}
 	}

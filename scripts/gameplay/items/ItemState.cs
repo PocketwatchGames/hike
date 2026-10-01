@@ -26,16 +26,6 @@ public class ItemState
 	public ulong cooldownExpireMs;
 	public ulong cooldownDurationMs;
 
-	// Day number (Sim.DayNumber) on which this item is destroyed wherever it
-	// lives — backpack, hotbar, or an equipped slot. 0 = no scheduled removal
-	// (the default). A time-limited drop (e.g. the fairy corpse) stamps this to a
-	// future day directly, so it vanishes at the next sleep-to-sunrise (there is no
-	// wall-clock sunrise to project toward — the clock stops at the day's end). The
-	// player checks it in TickItemExpiry and a dropped instance honors it in Loot.
-	// Distinct from the per-cohort spoil deadlines: this is a whole-item lifespan
-	// for non-material special drops, not perishable-food spoilage.
-	public int removeOnDay;
-
 	// Power tier, composed onto the state at construction (ItemDescriptor.level),
 	// NOT earned through use. 0 = base. WeaponState scales outgoing damage by
 	// 2^level and ArmorState scales its armor points by 2^level; harmless (unused)
@@ -275,7 +265,6 @@ public class ItemState
 		fresh.SetCount(0);
 		fresh.touched = touched;
 		fresh.level = level;
-		fresh.removeOnDay = removeOnDay;
 		TransferTo(fresh, count);
 		return fresh;
 	}
