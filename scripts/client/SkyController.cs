@@ -1401,24 +1401,24 @@ public partial class SkyController : Node3D
     //     a sub-horizon "orbit" that isn't a real light.
     private void UpdateSunAndMoon()
     {
-        double todAwake;
+        double dayClock01;
         if (!Engine.IsEditorHint() && Sim.Current?.WorldState != null)
         {
-            todAwake = Sim.Current.WorldState.TimeOfDay01;
+            dayClock01 = Sim.Current.WorldState.TimeOfDay01;
         }
         else
         {
-            todAwake = previewTimeOfDay;
+            dayClock01 = previewTimeOfDay;
         }
-        // WorldState.TimeOfDay01 is the day clock (0 = sunrise … 1 = the next
-        // sunrise). All the orbit math below is written in celestial orbit phase
+        // WorldState.TimeOfDay01 is the day clock (0 = sunrise, wrapping at the
+        // next one). All the orbit math below is written in celestial orbit phase
         // (0.25 = sunrise, 0.5 = noon, 0.75 = sunset, 1.0/0 = midnight), so remap
         // once here (WorldState.OrbitPhase01) and everything downstream keeps
         // working unchanged. The post-midnight quarter wraps onto phase
         // [0, 0.25), where the moon rides down to its setting point and the sun
-        // climbs back toward — but never reaches — the eastern horizon.
-        double t = WorldState.OrbitPhase01(todAwake);
-        _dayClock01 = todAwake;
+        // climbs back to the eastern horizon for the next dawn.
+        double t = WorldState.OrbitPhase01(dayClock01);
+        _dayClock01 = dayClock01;
         _orbitPhase01 = t;
 
         SimData simData = Sim.Current?.WorldState?.SimData;
@@ -1463,19 +1463,6 @@ public partial class SkyController : Node3D
         _sunActualDir = (-sunDiskPos).Normalized();
         _sunElevationDegrees = Mathf.RadToDeg(Mathf.Asin(Mathf.Clamp(sunDiskPos.Y, -1f, 1f)));
 
-        // Everything that reads _sunElevationDegrees is asking "how far into the
-        // day are we" for COLOR and intensity, and after midnight the honest
-        // answer stops being the arc: the sun climbing back toward the horizon
-        // would walk the palette into a second dawn we deliberately never play
-        // (the day ends in darkness and only a sleep starts the next one). Hold
-        // it at the midnight nadir so the phase weights stay pinned to full
-        // night and the sky just fades out. The disk arc above is untouched, so
-        // the moon still visibly sets as the clock runs out.
-        if (todAwake > WorldState.MidnightTimeOfDay01)
-        {
-            _sunElevationDegrees = Mathf.Min(_sunElevationDegrees, -sunMaxElev);
-        }
-
         // --- Light directions: remapped so rise/set land at
         //     SunsetAngleDegrees exactly at t=0.25 / 0.75 -----------------
         // Pick θ₀ so sin(θ₀) · sin(SunMaxElev) == sin(SunsetAngle), then
@@ -1511,7 +1498,7 @@ public partial class SkyController : Node3D
         // than the orbit phase: the phase wraps back to 0.25 (sunrise) at the
         // end-of-day hold, which would hand primacy to a sun that never rose,
         // and the clock parks there until the player sleeps.
-        bool isDay = todAwake < WorldState.SunsetTimeOfDay01;
+        bool isDay = dayClock01 < WorldState.SunsetTimeOfDay01;
         _primaryLightDir = isDay ? sunLightDir : moonLightDir;
         _sunIsPrimary = isDay;
 
@@ -1627,13 +1614,8 @@ public partial class SkyController : Node3D
         float dayNightThreshold = sunsetAngle + colorRange;
         float nightT = 1f - Mathf.SmoothStep(-dayNightThreshold, dayNightThreshold, _sunElevationDegrees);
 
-        // Nightfall dimming (1 at sunset → 0 at midnight). Derivation already
-        // applied it to the palette's own channels; the celestial reads below
-        // are SkyController's, so they ride the same curve here.
-        float skyLight = _palette.SkyLight;
-
         float effSunDiskGlow = sunDiskGlowStrength * (1f - nightT);
-        float effMoonDiskGlow = moonDiskGlowStrength * nightT * skyLight;
+        float effMoonDiskGlow = moonDiskGlowStrength * nightT;
         // Sun disk intensity lerps between sunsetDiskIntensity (horizon) and
         // sunDiskIntensity (noon) with sin(orbital phase) as the parameter —
         // sin(phase) is 1 at noon, 0 at sunrise/sunset. Derived from the
@@ -1670,10 +1652,10 @@ public partial class SkyController : Node3D
         // default falloff since they're far dimmer to begin with.
         float moonFogAtten = Mathf.Lerp(1f, 1f - fogMoonDim, fogForDisk);
         float moonDustAtten = Mathf.Lerp(1f, 1f - dustMoonDim, dustForDisk);
-        float effMoonDiskIntensity = moonDiskIntensity * moonFogAtten * moonDustAtten * moonDiskFade * skyLight;
+        float effMoonDiskIntensity = moonDiskIntensity * moonFogAtten * moonDustAtten * moonDiskFade;
         float starFogAtten = Mathf.Lerp(1f, 1f - fogStarDim, fogForDisk);
         float starDustAtten = Mathf.Lerp(1f, 1f - dustStarDim, dustForDisk);
-        float effStarIntensity = starIntensity * starFogAtten * starDustAtten * skyLight;
+        float effStarIntensity = starIntensity * starFogAtten * starDustAtten;
 
         // --- Global uniforms ---------------------------------------------
         RenderingServer.GlobalShaderParameterSet("sun_color", ColorToVec3(_palette.SunTint));
@@ -2023,12 +2005,8 @@ public partial class SkyController : Node3D
         // surrounding water that was lit by dim moonlight only).
         // Both terms feeding it bottom out well above zero (the 0.18 base, and
         // lightLevel's 0.2 clamp), so the floor has to be driven to zero from
-        // outside or foam glows white on black water. It rides SkyLight — the
-        // nightfall curve the scene's own light rides — NOT Illumination alone:
-        // Illumination is a saturating gate that holds near 1 through most of
-        // nightfall, which left this floor ABOVE the actual light level and made
-        // the shoreline read as an emissive band brighter than the water beside
-        // it. Illumination stays on as the "no light at all" backstop.
+        // outside or foam glows white on black water; Illumination is that "no
+        // light at all" backstop.
         // Hard ceiling: foam is lit by the same sky as the water beside it, so the
         // floor must never exceed what that sky is actually delivering, or foam
         // reads as a light source. Compare against the DIMMEST channel of the
@@ -2038,7 +2016,7 @@ public partial class SkyController : Node3D
         float primaryMinChannel = CurrentPrimaryIntensity * Mathf.Min(
             _palette.SunTint.R, Mathf.Min(_palette.SunTint.G, _palette.SunTint.B));
         float effFoamMinLight = Mathf.Min(
-            (0.18f + 0.45f * lightLevel * clarity) * _palette.SkyLight * _palette.Illumination,
+            (0.18f + 0.45f * lightLevel * clarity) * _palette.Illumination,
             primaryMinChannel);
         RenderingServer.GlobalShaderParameterSet("foam_min_light", effFoamMinLight);
         RenderingServer.GlobalShaderParameterSet("foam_depth", foamDepth);

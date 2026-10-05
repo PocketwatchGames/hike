@@ -14,10 +14,10 @@ public readonly record struct WorldOrigin(string WorldFile, string GeneratorPath
 
 // A save is the party WAKING AT A CAMPFIRE AT SUNRISE. It is written at that
 // moment (GameClient.AutosaveAtWake) and a load reproduces it, so everything a
-// sleep-to-sunrise resets — health, transient effects, mobs, dropped loot,
-// the leader / spell pick — is never saved: the load re-derives it the way a
-// real wake does. The day's rolls (weather, well-rested) are seeded from
-// RunSeed + DayNumber, so they come back identical with nothing else stored.
+// rest resets — health, transient effects, mobs, dropped loot, the leader /
+// spell pick — is never saved: the load re-derives it the way a real wake does.
+// The day's rolls (weather, well-rested) are seeded from RunSeed + the day, so
+// they come back identical with nothing else stored.
 //
 // Layout: the HEADER (which world, the run seed, the clock, the campfire) is
 // read before any world exists; then the resource table every reference in the
@@ -28,7 +28,7 @@ public static class SaveGame
 {
 	// Anything that isn't exactly this version is rejected — pre-release saves
 	// are discarded, never upgraded (CLAUDE.md "Priorities").
-	private const int SAVE_VERSION = 17;
+	private const int SAVE_VERSION = 18;
 
 	public static string GlobalPath(string path) => ProjectSettings.GlobalizePath(path);
 
@@ -88,7 +88,7 @@ public static class SaveGame
 			w.Write(worldState.Origin.GeneratorPath ?? "");
 			w.Write(worldState.Origin.Fingerprint ?? "");
 			w.Write(worldState.RunSeed);
-			w.Write(worldState.DayNumber);
+			w.Write(worldState.WorldClockDays);
 			w.Write(worldState.GameTimeMs);
 			w.Write(campfire.X);
 			w.Write(campfire.Y);
@@ -115,11 +115,11 @@ public static class SaveGame
 		r.ReadString();   // world name: for the profile screen, which reads it via ReadWorldName
 		var origin = new WorldOrigin(r.ReadString(), r.ReadString(), r.ReadString());
 		int runSeed = r.ReadInt32();
-		int dayNumber = r.ReadInt32();
+		double worldClockDays = r.ReadDouble();
 		ulong gameTimeMs = r.ReadUInt64();
 		var campfire = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
 		EntitySerializer.ReadPathTable table = EntitySerializer.ReadTable(r);
-		return new SaveFile(origin, runSeed, dayNumber, gameTimeMs, campfire, table, r);
+		return new SaveFile(origin, runSeed, worldClockDays, gameTimeMs, campfire, table, r);
 	}
 
 	// The name of the world a save plays, read off the header alone so a listing
@@ -258,7 +258,9 @@ public sealed class SaveFile
 {
 	public readonly WorldOrigin Origin;
 	public readonly int RunSeed;
-	public readonly int DayNumber;
+	// The in-world clock at the wake — a whole number, since every wake is a
+	// sunrise.
+	public readonly double WorldClockDays;
 	public readonly ulong GameTimeMs;
 	// Where the party wakes. The campfire here, if there is one, is lit.
 	public readonly Vector3 Campfire;
@@ -277,12 +279,12 @@ public sealed class SaveFile
 	// ReconcileStamps brings in line.
 	private readonly List<Vector3I> _savedChunks = new();
 
-	internal SaveFile(WorldOrigin origin, int runSeed, int dayNumber, ulong gameTimeMs, Vector3 campfire,
+	internal SaveFile(WorldOrigin origin, int runSeed, double worldClockDays, ulong gameTimeMs, Vector3 campfire,
 		EntitySerializer.ReadPathTable table, BinaryReader body)
 	{
 		Origin = origin;
 		RunSeed = runSeed;
-		DayNumber = dayNumber;
+		WorldClockDays = worldClockDays;
 		GameTimeMs = gameTimeMs;
 		Campfire = campfire;
 		_table = table;
@@ -345,9 +347,8 @@ public sealed class SaveFile
 	public void ApplyToWorld(WorldState worldState)
 	{
 		Step(1);
-		worldState.DayNumber = DayNumber;
+		worldState.WorldClockDays = WorldClockDays;
 		worldState.GameTimeMs = GameTimeMs;
-		worldState.TimeOfDay01 = WorldState.SunriseTimeOfDay01;
 		worldState.BeginRun(RunSeed);
 
 		// No fire at the anchor (a death before the party ever camped wakes at the

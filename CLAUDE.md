@@ -547,18 +547,19 @@ see [scripts/data/spawn/CLAUDE.md](scripts/data/spawn/CLAUDE.md).
 **A save is the party waking at a campfire at sunrise.** It is written at every
 sunrise wake (`GameClient.AutosaveAtWake`: camp sleep, pray-home, death wake)
 — there is no manual save — and a load reproduces that wake: it starts the world
-the header names (`WorldState.Origin`), sets the clock to sunrise of the saved day,
-lights the saved campfire, spawns the party there and opens the camp screen with
-the leader pick pending. So **nothing a sleep-to-sunrise resets is saved** (health,
-transient effects, mobs, dropped loot, weather, leader / spell pick): the load
-re-derives it the way a real wake does. Mid-day saves are a likely later extension.
+the header names (`WorldState.Origin`), sets the clock to the saved
+`WorldClockDays` (always a whole number — a sunrise), lights the saved campfire,
+spawns the party there and opens the camp screen with the leader pick pending. So
+**nothing a rest resets is saved** (health, transient effects, mobs, dropped loot,
+weather, leader / spell pick): the load re-derives it the way a real wake does.
+Mid-day saves are a likely later extension.
 
 The header is read before a world exists (`SaveGame.Read` → `SaveFile`), then
 EntitySerializer's shared resource table (so references resolve exactly as a
 `.hike`'s do, authoring-document forks by value), then the body, applied in three
 ordered steps at the points in `GameClient.Init` where what they restore exists.
 **A day's randomness is `WorldState.DailyRandom(salt)` — a pure function of the
-run seed (`RunSeed`, picked at New Game, in the header) and `DayNumber`** — so a
+run seed (`RunSeed`, picked at New Game, in the header) and the day** — so a
 load reproduces the day's weather and well-rested pick with no generator state
 saved; give any new per-day roll its own salt rather than a long-lived `Random`.
 Today the body carries the party (members rebuilt from their
@@ -585,19 +586,46 @@ against any other — re-baking the painted world invalidates saves. **A save th
 `SAVE_VERSION` is rejected, not upgraded** (see Priorities). `autoload 1` loads
 `savepath` straight from launch, the twin of `autostart`.
 
+### The Day Clock (`WorldState.WorldClockDays`, `Sim.cs`, `Sim.PartyLifecycle.cs`)
+
+**Time runs continuously; a night ends at dawn whether or not anyone sleeps.**
+`WorldClockDays` is the one in-world clock — days since the run's first sunrise,
+each whole number a sunrise, only ever increasing. `TimeOfDay01` and `DayNumber`
+are derived from it. Everything that advances it (the per-frame tick, a nap, the
+sleep skip, the `time_of_day` / `next_day` verbs) goes through
+`Sim.AdvanceWorldClockTo`, so no path can skip a dawn.
+
+Two events, and the split is the design:
+
+| Event | When | Owns |
+|---|---|---|
+| `Sim.OnDawn` | the clock crosses a sunrise — in play, a nap, or a skip | the day's weather roll, the fairy daily budget, world-script `OnDawn` |
+| `Sim.OnRest` | the party sleeps to sunrise, prays home, or wakes from a death | `ResetSpawns`, the well-rested draw, the leader + spell pick, "Return to Camp", world-script `OnRest` |
+
+- **A rest always ends at a sunrise** (`Sim.RestToSunrise`: skip, rolling that
+  dawn, then the rest work), which is why a save is still a sunrise wake.
+- **`DayNumber` times nothing.** Every in-world deadline is an absolute
+  `WorldClockDays` value: an `UntilTimeOfDay` effect (`expireAtTimeOfDay01`,
+  0 = dawn — fairy boons), each spoil cohort, the regrow deadline of berry trees,
+  forges, fountains and forage. The only reads of `DayNumber` are RNG seeds.
+- **Lanterns refill at a campfire** (`Sim.RefuelPartyLanterns`: camping there or
+  praying home to one) and at a fountain — never at a dawn or a sleep alone.
+- **A `[TimeOfDayCurve]` must read the same at 0 and 1** — the wrap is played,
+  not hidden behind a fade, so `resource_check` refuses a curve that would jump.
+
 ### Death (`GameClient.RespawnAtCampfire`, `scripts/Sim.DeathSacks.cs`)
 
 **No party member is ever lost, and there is no game over.** A death goes black,
 shows a Respawn prompt, and is then the same sunrise wake as any other: the
 fallen member's gear (`Inventory.TakeDeathDrop` — everything but the lantern) is
 left in a `DeathSack` where they fell (their last solid footing if they died in
-water or mid-air), the day rolls, the party wakes at the last campfire, the game
+water or mid-air), the party rests, wakes at the last campfire, the game
 autosaves, and the camp screen opens with the leader pick pending. Unbanked
 knowledge is kept. Walking back to the sack is the whole price.
 
 - **The sack is not dropped loot**, so `ResetSpawns` leaves it, and a save carries
   it through the chunk content diff like any entity. Opening it spills the
-  contents as ordinary dropped pickups — which the NEXT sunrise does sweep.
+  contents as ordinary dropped pickups — which the NEXT rest does sweep.
 - **Its grave marker is drawn from `Sim.DeathSacks`, not a node.** A sack is
   almost never resident while the map is open (the party wakes far away), so a
   child `LiveMapMarker` would vanish with its chunk. The index is derived from the
@@ -606,7 +634,7 @@ knowledge is kept. Walking back to the sack is the whole price.
 
 ### Scripting Variables — Quest Flags / World State (`scripts/data/scripting/`, `scripts/gameplay/scripting/`, `resources/data/worlds/shared/script_variables/`)
 
-A save-persisted bank of named `Bool`/`Int` variables that conditions/actions read and write **by name** to branch mob conversations and behaviors (quest flags, world state, counters). Read via `ScriptVarCondition`/`ScriptVarTransition`, write via `SetScriptVarAction`. Any spawn entry can be disabled by one (`disabledVariable`, checked centrally by `IInteractive.CanUse`), and a world's per-world C# logic is a `WorldScriptData` subclass whose hooks (`OnNewDay`, …) act through `WorldScriptApi`. See [scripts/gameplay/scripting/CLAUDE.md](scripts/gameplay/scripting/CLAUDE.md).
+A save-persisted bank of named `Bool`/`Int` variables that conditions/actions read and write **by name** to branch mob conversations and behaviors (quest flags, world state, counters). Read via `ScriptVarCondition`/`ScriptVarTransition`, write via `SetScriptVarAction`. Any spawn entry can be disabled by one (`disabledVariable`, checked centrally by `IInteractive.CanUse`), and a world's per-world C# logic is a `WorldScriptData` subclass whose hooks (`OnDawn`, `OnRest`, …) act through `WorldScriptApi`. See [scripts/gameplay/scripting/CLAUDE.md](scripts/gameplay/scripting/CLAUDE.md).
 
 ### CVars (`scripts/console/`, `scripts/CVars.cs`)
 
@@ -919,4 +947,4 @@ Run `dotnet run --project tools/validate_uids` to scan for missing `.cs.uid` sid
   - **`IsProcessing()` is not the whole story — check `intl`.** Godot runs `AnimationPlayer`, `Skeleton3D`, `AudioStreamPlayer3D`, `GpuParticles3D` and friends on a separate *internal* process channel that `IsProcessing()` does not report and no `Profiler.Sample` can wrap (there is no C# frame to wrap). That work lands in `process_ms` as pure `unaccounted_ms_avg`. The census's `intl` column is the only way to see it, and the only way to SIZE it is to switch it off and read the delta — hence the `debug_fx_audio` / `debug_fx_particles` / `debug_skeleton_internal` bisection cvars. Don't conclude a class is free because `proc` is 0.
   - **Shared per-frame inputs are resolved once, not per node.** `PixelSnap` read the camera's viewport, size, projection and basis *per instance* — identical values for all 141 of them, and every one a native crossing. Centralising the resolve and skipping instances whose input hasn't moved took it from the most expensive `_Process` section in the game to a rounding error. When N nodes all read the same camera/player/world value, one driver should read it and hand it down.
   - **Per-entity UI is pooled, not owned.** Giving every mob its own HUD subtree + `_Process` costs the full population to draw the handful on screen. `MobHudManager` is the pattern: one node ticks a managed loop over the entities, applies a cheap "would this draw anything" gate, and leases a pooled widget to the few that pass — order the gate so the expensive terms (anything folding stat modifiers, any transform read) run only for candidates that already passed the free ones.
-- **Timing: sim clock vs wall clock.** Pick the clock by whether a timer is *gameplay-authoritative*, NOT by which callback it sits in (`_Process` vs `_PhysicsProcess`). Anything that decides *when something happens in the world* — a despawn, a damage tick, becoming interactable, a telegraph firing, a cook job finishing — belongs on the **sim clock**: prefer a `GameTimeMs` deadline (`expireMs = Sim.GameTimeMs + seconds * 1000`, compare each tick), the pattern cooldowns / AI timers / traps already use. `GameTimeMs` advances in `Sim.Tick`, so it slows uniformly under slow-mo, is frame-rate independent, and survives save/load. Purely *presentational* timing — fades, bobs, spins, the death/HUD screens — stays on wall-clock `_Process` `delta` so slow-mo doesn't drag it and it stays smooth at render fps. Avoid accumulating a gameplay duration as `_ageSeconds += (float)delta` (especially on `_Process`); that's neither slowable nor frame-rate-independent. `Discoverable` is the reference split (perception on the sim side, sprite fade on `_Process`). **A DAY deadline is never polled.** Only `Sim.AdvanceToNextSunrise` moves `DayNumber`, so anything that expires or resets on a day (an `UntilSunrise` effect, spoilage, a daily budget) runs from the day roll itself — `Sim.OnNewDay`, `Player.ExpireForDay` — not from a tick. Polling it left a gap after the roll in which the wake's autosave recorded a forge upgrade the new day had already ended.
+- **Timing: sim clock vs wall clock.** Pick the clock by whether a timer is *gameplay-authoritative*, NOT by which callback it sits in (`_Process` vs `_PhysicsProcess`). Anything that decides *when something happens in the world* — a despawn, a damage tick, becoming interactable, a telegraph firing, a cook job finishing — belongs on the **sim clock**: prefer a `GameTimeMs` deadline (`expireMs = Sim.GameTimeMs + seconds * 1000`, compare each tick), the pattern cooldowns / AI timers / traps already use. `GameTimeMs` advances in `Sim.Tick`, so it slows uniformly under slow-mo, is frame-rate independent, and survives save/load. Purely *presentational* timing — fades, bobs, spins, the death/HUD screens — stays on wall-clock `_Process` `delta` so slow-mo doesn't drag it and it stays smooth at render fps. Avoid accumulating a gameplay duration as `_ageSeconds += (float)delta` (especially on `_Process`); that's neither slowable nor frame-rate-independent. `Discoverable` is the reference split (perception on the sim side, sprite fade on `_Process`). **An in-world deadline is a `WorldClockDays` value, not a day number** — an effect that ends at a time of day, spoilage, a station's regrow. Compare it against the clock (`StatusEffectState.IsExpiredAt`, `RegrowSimState.IsRegrown`). A member who isn't ticking (an idle party member) is expired by `Sim.SweepDeadlines`, which runs on the housekeeping interval and after every clock jump, so a wake's autosave never records something already over. Something that resets once per day hangs off `Sim.OnDawn`; once per night's sleep, `Sim.OnRest`.

@@ -22,9 +22,12 @@ using Godot.Collections;
 [GlobalClass]
 public partial class WorldScriptData : Resource
 {
-    // The day advanced at sunrise — every path that rolls it: a camp sleep, the
-    // death sleep-off, pray-home.
-    public virtual void OnNewDay(WorldScriptApi api, int day) { }
+    // The in-world clock crossed a sunrise — in play, a nap, or a sleep.
+    public virtual void OnDawn(WorldScriptApi api) { }
+
+    // The party rested: a camp sleep, pray-home, or the death wake. Fires after
+    // that sleep's own OnDawn.
+    public virtual void OnRest(WorldScriptApi api) { }
 
     // The day->night edge.
     public virtual void OnNightfall(WorldScriptApi api) { }
@@ -35,8 +38,8 @@ public partial class WorldScriptData : Resource
 
     public virtual void OnMobKilled(WorldScriptApi api, SpeciesData species, bool damagedByPlayer) { }
 
-    // Quest added at nightfall (Sim.OnNightfall) and cleared by sleeping to
-    // sunrise — "Return to Camp". A ReturnToCampQuestData. Null disables it.
+    // Quest added at nightfall (Sim.OnNightfall) and cleared by the party
+    // resting — "Return to Camp". A ReturnToCampQuestData. Null disables it.
     [Export] public QuestData returnToCampQuest;
 
     // Quests seeded into the log at the start of a fresh game (e.g. the Kunkun

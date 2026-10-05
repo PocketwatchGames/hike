@@ -305,7 +305,7 @@ public class Inventory
 			// Start the spoil clock on any not-yet-dated units. Already-dated
 			// cohorts (older units merged in earlier) keep their own deadline, so
 			// re-acquiring a partly-aged stack never resets it.
-			item.StampSpoilDay((_owner?.Sim?.DayNumber ?? 0) + item.data.spoilDays);
+			item.StampSpoilClock((_owner?.Sim?.WorldClockDays ?? 0.0) + item.data.spoilDays);
 		}
 	}
 
@@ -834,7 +834,7 @@ public class Inventory
 	public IReadOnlyList<ItemState> Backpack => _backpack;
 
 	// The equip slots a save carries, in wire order. The attuned spell is not one:
-	// a sunrise clears it (GameClient.OnNewDayRefreshNodes).
+	// every save is a wake, and a rest clears it (Sim.RestToSunrise).
 	private static readonly EInventorySlot[] SavedSlots =
 	{
 		EInventorySlot.Helmet, EInventorySlot.Armor, EInventorySlot.WeaponMelee,

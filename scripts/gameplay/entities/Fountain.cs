@@ -7,11 +7,11 @@ using Godot;
 // looks like.
 //
 // Ready = enabled (its placement's disabled gate, if any, is open) AND off cooldown (a
-// RegrowDay deadline, so it survives streaming and save/load). The scene
+// RegrowAtClock deadline, so it survives streaming and save/load). The scene
 // authors the ready look — nodes shown while ready (a fountain's water), and
 // optionally a light, a lit/doused material swap and a loop Fx (a cauldron's
-// fire). Both halves are event-driven: the day rollover and the script-variable
-// bank, never a per-frame poll.
+// fire). Both halves are event-driven: the sim's deadline sweep and the
+// script-variable bank, never a per-frame poll.
 [GlobalClass]
 public partial class Fountain : Node3D, IInteractive, IWorldEntity
 {
@@ -42,7 +42,7 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        _world.OnNewDay -= HandleNewDay;
+        _world.OnDeadlinesSwept -= HandleDeadlinesSwept;
         ScriptVariableBank vars = _world.WorldState?.SimState?.ScriptVars;
         if (vars != null)
         {
@@ -59,10 +59,10 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
 
     private bool IsOffCooldown()
     {
-        return _simState == null || _simState.IsRegrown(Sim.Current?.DayNumber ?? 0);
+        return _simState == null || _simState.IsRegrown(Sim.Current?.WorldClockDays ?? 0.0);
     }
 
-    private void HandleNewDay(int day)
+    private void HandleDeadlinesSwept()
     {
         ApplyReadyVisual(CanInteract(), fade: true);
     }
@@ -153,7 +153,7 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
         }
         if (_simState.CooldownDays > 0)
         {
-            _simState.RegrowDay = (Sim.Current?.DayNumber ?? 0) + _simState.CooldownDays;
+            _simState.StartRegrow(Sim.Current?.WorldClockDays ?? 0.0, _simState.CooldownDays);
             ApplyReadyVisual(false, fade: true);
         }
     }
@@ -177,7 +177,7 @@ public partial class Fountain : Node3D, IInteractive, IWorldEntity
         }
         // Snap to the spawned state — a fountain streaming in shouldn't fade up.
         instance.ApplyReadyVisual(instance.CanInteract(), fade: false);
-        sim.OnNewDay += instance.HandleNewDay;
+        sim.OnDeadlinesSwept += instance.HandleDeadlinesSwept;
         ScriptVariableBank vars = sim.WorldState?.SimState?.ScriptVars;
         if (vars != null)
         {

@@ -258,7 +258,12 @@ public static class WorldFile
     //      payload drops its own enabling variable, which the gate replaces.
     // v62: a status-effect instance carries its UntilSunrise deadline day, and
     //      the ItemState wire format drops the whole-item removeOnDay nothing set.
-    public const uint VERSION = 62;
+    // v63: every in-world deadline is an absolute WorldClockDays (double) rather
+    //      than a day number — a status effect's expiry, each spoil cohort, and
+    //      the regrow deadline of berry trees, forges, fountains and forage
+    //      spawners. The Forge payload gains its use count (Uses), which seeds
+    //      its offer in place of the day.
+    public const uint VERSION = 63;
 
     public struct IndexEntry
     {

@@ -111,6 +111,7 @@
 [ext_resource type="Resource" uid="uid://btwn5x5u68gc0" path="res://resources/data/test_scenarios/shockwave.tres" id="ts_shockwave"]
 [ext_resource type="Resource" uid="uid://plcmkh47xupzo" path="res://resources/data/test_scenarios/invisibility.tres" id="ts_invisibility"]
 [ext_resource type="Resource" path="res://resources/data/test_scenarios/caltrops.tres" id="ts_caltrops"]
+[ext_resource type="Resource" path="res://resources/data/test_scenarios/dawn.tres" id="ts_dawn"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -156,7 +157,6 @@ dayAmbientBase = 0.15
 ambientHumidityLift = 0.25
 nightAmbientBase = 0.05
 nightAmbientHumidityLift = 0.25
-nightfallFalloff = 1.0
 rippleWindRef = 30.0
 canopyDensity = 0.35
 nightSpawnMobs = Array[ExtResource("56_mobdesc_script")]([ExtResource("56_slime_cube"), ExtResource("56_slime_sphere")])
@@ -173,5 +173,5 @@ worldgenEnclosedAmbience = ExtResource("96_amb_ugl")
 thunderScheduler = ExtResource("11_thunder_distant")
 weatherLightning = ExtResource("12_lightning")
 rainVisionReduction = 0.35
-testScenarios = [ExtResource("ts_snow"), ExtResource("ts_shockwave"), ExtResource("ts_invisibility"), ExtResource("ts_caltrops")]
+testScenarios = [ExtResource("ts_snow"), ExtResource("ts_shockwave"), ExtResource("ts_invisibility"), ExtResource("ts_caltrops"), ExtResource("ts_dawn")]
 metadata/_custom_type_script = "uid://chvgahtb671mg"

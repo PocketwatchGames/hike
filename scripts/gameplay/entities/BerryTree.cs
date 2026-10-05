@@ -23,9 +23,9 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
     private BerryTreeSimState _interactiveState;
     private Sim _world;
 
-    // Bare while the world day is below the regrow deadline; ripe once reached.
+    // Bare until the in-world clock reaches the regrow deadline; ripe once reached.
     private bool IsRipe => _interactiveState == null
-        || _interactiveState.IsRegrown(_world?.DayNumber ?? 0);
+        || _interactiveState.IsRegrown(_world?.WorldClockDays ?? 0.0);
 
     public override void _Ready()
     {
@@ -39,13 +39,12 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
     {
         if (_world != null)
         {
-            _world.OnNewDay -= HandleNewDay;
+            _world.OnDeadlinesSwept -= HandleDeadlinesSwept;
         }
     }
 
-    // Bushes regrow at sunrise: re-show the fruit + re-arm the hurtbox once the
-    // day rolls past the regrow deadline.
-    private void HandleNewDay(int day)
+    // Re-show the fruit once the clock passes the regrow deadline.
+    private void HandleDeadlinesSwept()
     {
         ApplyRipeState(IsRipe);
     }
@@ -93,7 +92,7 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        _interactiveState.RegrowDay = _world.DayNumber + Mathf.Max(1, _regrowDays);
+        _interactiveState.StartRegrow(_world.WorldClockDays, Mathf.Max(1, _regrowDays));
         ApplyRipeState(false);
         EjectBerries();
     }
@@ -128,7 +127,7 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
         sim.AddChild(instance);
 
         instance.ApplyRipeState(instance.IsRipe);
-        sim.OnNewDay += instance.HandleNewDay;
+        sim.OnDeadlinesSwept += instance.HandleDeadlinesSwept;
 
         return instance;
     }

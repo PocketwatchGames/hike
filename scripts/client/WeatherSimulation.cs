@@ -93,50 +93,78 @@ public static class WeatherSimulation
         return dt > 0f ? -magnitude : magnitude;
     }
 
-    // Fraction [0, 1] of the day→night weather crossfade at `timeOfDay01`:
-    // 0 before the sunset window opens, ramping to 1 across it (centered on
-    // SunsetTimeOfDay01), then held at 1 through the night. `slopeShape` is the
-    // SmoothStep derivative normalized to a [0, 1] peak (matches the old handover
-    // shape), so the wind "frontal kick" reads a frame-rate-independent signal.
-    // Sunrise has NO crossfade — the night→day handover happened while the player
-    // slept, so a fresh day simply starts at the day slot.
-    public static float SunsetBlend(float timeOfDay01, SimData simData, out float slopeShape)
+    // Where the active weather sits among the pre-rolled slots at `timeOfDay01`:
+    // crossfading `from` → `to` by `blend`. Two windows of half-width
+    // varianceCrossfadeHalfWidth01: sunset (DAY → NIGHT) and dawn, which
+    // straddles the day boundary — before the wrap it runs tonight's NIGHT →
+    // tomorrow's DAY, after it last night → today's DAY, so the blend is
+    // continuous across the dawn roll. Outside both windows from == to.
+    // `slopeShape` is the SmoothStep derivative normalized to a [0, 1] peak, so
+    // the wind "frontal kick" reads a frame-rate-independent signal.
+    public static void ResolveSlots(WorldState ws, float timeOfDay01, SimData simData,
+        out WeatherSlot from, out WeatherSlot to, out float blend, out float slopeShape)
     {
         float hw = Mathf.Max(simData?.varianceCrossfadeHalfWidth01 ?? 0.05f, 1e-4f);
-        float a0 = (float)WorldState.SunsetTimeOfDay01 - hw;
-        float a1 = (float)WorldState.SunsetTimeOfDay01 + hw;
-        float blend = Mathf.SmoothStep(a0, a1, timeOfDay01);
-        if (timeOfDay01 > a0 && timeOfDay01 < a1)
+        float sunset = (float)WorldState.SunsetTimeOfDay01;
+        if (timeOfDay01 < hw)
         {
-            float x = timeOfDay01 - a0;
-            float w = a1 - a0;
-            // 6x(w-x)/w³ peaks at 1.5/w; ×(w²/1.5·2/w)… normalize to 4x(w-x)/w².
-            slopeShape = 4f * x * (w - x) / (w * w);
+            from = ws.PrevNightSlot;
+            to = ws.DaySlot;
+            blend = Window(timeOfDay01, hw, out slopeShape);
+        }
+        else if (timeOfDay01 < sunset - hw)
+        {
+            from = to = ws.DaySlot;
+            blend = 0f;
+            slopeShape = 0f;
+        }
+        else if (timeOfDay01 < sunset + hw)
+        {
+            from = ws.DaySlot;
+            to = ws.NightSlot;
+            blend = Window(timeOfDay01 - sunset, hw, out slopeShape);
+        }
+        else if (timeOfDay01 < 1f - hw)
+        {
+            from = to = ws.NightSlot;
+            blend = 0f;
+            slopeShape = 0f;
         }
         else
         {
-            slopeShape = 0f;
+            from = ws.NightSlot;
+            to = ws.NextDaySlot;
+            blend = Window(timeOfDay01 - 1f, hw, out slopeShape);
         }
-        return blend;
     }
 
-    // Compute the active (sunset-crossfaded) variance for the current frame from
-    // the day/night slots pre-rolled at sunrise (WorldState.RollDailyWeather).
-    // Before sunset the DAY slot is in effect; across the sunset window it
-    // crossfades to the NIGHT slot; after, the night slot holds until the next
-    // sleep re-rolls both. WeatherVarianceSlope carries the crossfade's signed
-    // slope (day→night delta × shape) for the wind transient — nonzero only at
-    // sunset. Channels are decoupled so a humid front needn't coincide with a
-    // temperature swing; humidity/cloud effects are wind-gated in Apply.
+    // SmoothStep across [-hw, hw] of `x`, plus its normalized slope shape.
+    private static float Window(float x, float hw, out float slopeShape)
+    {
+        float w = 2f * hw;
+        float t = Mathf.Clamp((x + hw) / w, 0f, 1f);
+        // 6t(1-t) peaks at 1.5; normalize to a [0, 1] peak as 4t(1-t).
+        slopeShape = 4f * t * (1f - t);
+        return t * t * (3f - 2f * t);
+    }
+
+    // Compute the active (crossfaded) variance for the current frame from the
+    // slots pre-rolled at each dawn (WorldState.RollDailyWeather).
+    // WeatherVarianceSlope carries the crossfade's signed slope (to − from ×
+    // shape) for the wind transient — nonzero only inside a window. Channels are
+    // decoupled so a humid front needn't coincide with a temperature swing;
+    // humidity/cloud effects are wind-gated in Apply.
     public static void UpdateVariance(WorldState ws, SimData simData)
     {
         if (ws == null || simData == null) { return; }
-        float blend = SunsetBlend((float)ws.TimeOfDay01, simData, out float slopeShape);
-        ws.WeatherVariance = Mathf.Lerp(ws.DayWeatherVariance, ws.NightWeatherVariance, blend);
-        ws.HumidityVariance = Mathf.Lerp(ws.DayHumidityVariance, ws.NightHumidityVariance, blend);
-        ws.CloudVariance = Mathf.Lerp(ws.DayCloudVariance, ws.NightCloudVariance, blend);
-        ws.LightningVariance = Mathf.Lerp(ws.DayLightningVariance, ws.NightLightningVariance, blend);
-        ws.WeatherVarianceSlope = (ws.NightWeatherVariance - ws.DayWeatherVariance) * slopeShape;
+        ResolveSlots(ws, (float)ws.TimeOfDay01, simData, out WeatherSlot from, out WeatherSlot to,
+            out float blend, out float slopeShape);
+        WeatherSlot active = WeatherSlot.Lerp(from, to, blend);
+        ws.WeatherVariance = active.Weather;
+        ws.HumidityVariance = active.Humidity;
+        ws.CloudVariance = active.Cloud;
+        ws.LightningVariance = active.Lightning;
+        ws.WeatherVarianceSlope = (to.Weather - from.Weather) * slopeShape;
     }
 
     // Rewrite weather fields in place using (zone, zone max,
@@ -157,23 +185,17 @@ public static class WeatherSimulation
             return;
         }
         float tod = (float)ws.TimeOfDay01;
-        float hw = Mathf.Max(simData?.varianceCrossfadeHalfWidth01 ?? 0.05f, 1e-4f);
-        // Destination = the slot we're settling INTO: the day slot before the
-        // sunset window opens, the night slot once it has — so the storm gate
-        // (destinationLightningAmount) reads the stable target rather than a
-        // mid-crossfade blip.
-        bool headingNight = tod >= (float)WorldState.SunsetTimeOfDay01 - hw;
-        float destWeather = headingNight ? ws.NightWeatherVariance : ws.DayWeatherVariance;
-        float destHumidity = headingNight ? ws.NightHumidityVariance : ws.DayHumidityVariance;
-        float destCloud = headingNight ? ws.NightCloudVariance : ws.DayCloudVariance;
-        float destLightning = headingNight ? ws.NightLightningVariance : ws.DayLightningVariance;
+        // Destination = the slot we're settling INTO (the crossfade's `to`), so
+        // the storm gate (destinationLightningAmount) reads the stable target
+        // rather than a mid-crossfade blip.
+        ResolveSlots(ws, tod, simData, out _, out WeatherSlot dest, out _, out _);
         // The inner overload's timeOfDay01 feeds only DiurnalCurve, which is
         // authored in orbit-phase (peak at noon = 0.5), so pass the remapped
         // phase rather than the raw day-clock tod.
         Apply(weather, zone, elevation, simData, (float)WorldState.OrbitPhase01(tod),
             ws.WeatherVariance, ws.WeatherVarianceSlope,
             ws.HumidityVariance, ws.CloudVariance, ws.LightningVariance,
-            destWeather, destHumidity, destCloud, destLightning);
+            dest.Weather, dest.Humidity, dest.Cloud, dest.Lightning);
     }
 
     // Fully-explicit overload used by the HUD weather widget. Lets the

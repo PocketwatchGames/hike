@@ -759,7 +759,7 @@ public static class EntitySerializer
                 WriteVec3(w, berry.WorldPosition);
                 WriteScene(w, berry.Scene);
                 w.Write(berry.BerryCount);
-                w.Write(berry.RegrowDay);
+                w.Write(berry.RegrowAtClock);
                 break;
 
             case ClimbableTreeSimState climbTree:
@@ -791,8 +791,9 @@ public static class EntitySerializer
                 WriteVec3(w, forge.WorldPosition);
                 WriteScene(w, forge.Scene);
                 w.Write(forge.Level);
-                w.Write(forge.RegrowDay);
+                w.Write(forge.RegrowAtClock);
                 w.Write((int)forge.Slot);
+                w.Write(forge.Uses);
                 break;
 
             case FountainSimState fountain:
@@ -805,7 +806,7 @@ public static class EntitySerializer
                     WriteResource(w, effect);
                 }
                 w.Write(fountain.CooldownDays);
-                w.Write(fountain.RegrowDay);
+                w.Write(fountain.RegrowAtClock);
                 break;
 
             case ForageSpawnerSimState forage:
@@ -814,7 +815,7 @@ public static class EntitySerializer
                 WriteScene(w, forage.Scene);
                 WriteResource(w, forage.Item);
                 w.Write(forage.RegrowDays);
-                w.Write(forage.RegrowDay);
+                w.Write(forage.RegrowAtClock);
                 break;
 
             case SafetyZoneSimState safety:
@@ -1242,9 +1243,9 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 int berryCount = r.ReadInt32();
-                int berryRegrowDay = r.ReadInt32();
+                double berryRegrowAt = r.ReadDouble();
                 var berry = new BerryTreeSimState(pos, scene, berryCount);
-                berry.RegrowDay = berryRegrowDay;
+                berry.RegrowAtClock = berryRegrowAt;
                 return berry;
             }
             case Tag.ClimbableTree:
@@ -1278,10 +1279,11 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 int level = r.ReadInt32();
-                int reactivateDay = r.ReadInt32();
+                double reactivateAt = r.ReadDouble();
                 var slot = (EUpgradeSlot)r.ReadInt32();
                 var forge = new ForgeSimState(pos, scene, level, slot);
-                forge.RegrowDay = reactivateDay;
+                forge.RegrowAtClock = reactivateAt;
+                forge.Uses = r.ReadInt32();
                 return forge;
             }
             case Tag.Fountain:
@@ -1295,7 +1297,7 @@ public static class EntitySerializer
                 }
                 int cooldownDays = r.ReadInt32();
                 var fountain = new FountainSimState(pos, scene, effects, cooldownDays);
-                fountain.RegrowDay = r.ReadInt32();
+                fountain.RegrowAtClock = r.ReadDouble();
                 return fountain;
             }
             case Tag.ForageSpawner:
@@ -1304,9 +1306,9 @@ public static class EntitySerializer
                 PackedScene scene = ReadScene(r);
                 var item = ReadResource<ItemData>(r);
                 int regrowDays = r.ReadInt32();
-                int regrowDay = r.ReadInt32();
+                double regrowAt = r.ReadDouble();
                 var forage = new ForageSpawnerSimState(pos, scene, item, regrowDays);
-                forage.RegrowDay = regrowDay;
+                forage.RegrowAtClock = regrowAt;
                 return forage;
             }
             case Tag.SafetyZone:
@@ -1654,7 +1656,7 @@ public static class EntitySerializer
     // then the item's status-effect instances, its boon menu, and its subclass
     // state (length-prefixed, see ItemState.WriteSubclassState).
     // The stack's units are stored as spoil cohorts — a count and each cohort's
-    // (units, removeOnDay) pair — so per-batch spoilage survives save/load; then
+    // (units, spoilAtClock) pair — so per-batch spoilage survives save/load; then
     // cooldownExpireMs, cooldownDurationMs, touched, level.
     private static void WriteItemState(BinaryWriter w, ItemState item)
     {
@@ -1667,9 +1669,9 @@ public static class EntitySerializer
         w.Write(item.CohortCount);
         for (int i = 0; i < item.CohortCount; i++)
         {
-            item.GetCohort(i, out int count, out int removeOnDay);
+            item.GetCohort(i, out int count, out double spoilAtClock);
             w.Write(count);
-            w.Write(removeOnDay);
+            w.Write(spoilAtClock);
         }
         w.Write(item.cooldownExpireMs);
         w.Write(item.cooldownDurationMs);
@@ -1718,10 +1720,10 @@ public static class EntitySerializer
             data = Resolve(slot) as ItemData;
         }
         int cohortCount = r.ReadInt32();
-        var cohorts = new (int count, int removeOnDay)[System.Math.Max(0, cohortCount)];
+        var cohorts = new (int count, double spoilAtClock)[System.Math.Max(0, cohortCount)];
         for (int i = 0; i < cohortCount; i++)
         {
-            cohorts[i] = (r.ReadInt32(), r.ReadInt32());
+            cohorts[i] = (r.ReadInt32(), r.ReadDouble());
         }
         ulong cooldownExpireMs = r.ReadUInt64();
         ulong cooldownDurationMs = r.ReadUInt64();
@@ -1753,7 +1755,7 @@ public static class EntitySerializer
         state.ClearCohorts();
         for (int i = 0; i < cohorts.Length; i++)
         {
-            state.AddUnits(cohorts[i].count, cohorts[i].removeOnDay);
+            state.AddUnits(cohorts[i].count, cohorts[i].spoilAtClock);
         }
         state.cooldownExpireMs = cooldownExpireMs;
         state.cooldownDurationMs = cooldownDurationMs;
@@ -1773,11 +1775,12 @@ public static class EntitySerializer
     }
 
     // One status-effect instance as the wire stores it: what Add needs to rebuild
-    // it, plus an UntilSunrise effect's deadline day. A millisecond timer is NOT
-    // stored - Add re-arms it from the load, so a Timed effect restarts its full
-    // window - but a day deadline is absolute and comes back exactly as written.
+    // it, plus an UntilTimeOfDay effect's clock deadline. A millisecond timer is
+    // NOT stored - Add re-arms it from the load, so a Timed effect restarts its
+    // full window - but a clock deadline is absolute and comes back exactly as
+    // written.
     public readonly record struct StatusEffectRecord(StatusEffectData Data, int Level, EUpgradeSlot AppliedSlot,
-        float Potency, HazardProfileData Hazard, EWeaponModScope Scope, int ChargeIndex, int ExpireDay)
+        float Potency, HazardProfileData Hazard, EWeaponModScope Scope, int ChargeIndex, double ExpireClockDays)
     {
         public StatusEffectState AddTo(StatusEffectController controller)
         {
@@ -1786,9 +1789,9 @@ public static class EntitySerializer
             {
                 state.weaponModScope = Scope;
                 state.weaponModChargeIndex = ChargeIndex;
-                if (ExpireDay != 0)
+                if (ExpireClockDays != 0.0)
                 {
-                    state.expireDay = ExpireDay;
+                    state.expireClockDays = ExpireClockDays;
                 }
             }
             return state;
@@ -1817,7 +1820,7 @@ public static class EntitySerializer
             WriteResource(w, state.hazardProfile);
             w.Write((int)state.weaponModScope);
             w.Write(state.weaponModChargeIndex);
-            w.Write(state.expireDay);
+            w.Write(state.expireClockDays);
         }
     }
 
@@ -1834,10 +1837,10 @@ public static class EntitySerializer
             var hazard = ReadResource<HazardProfileData>(r);
             var scope = (EWeaponModScope)r.ReadInt32();
             int chargeIndex = r.ReadInt32();
-            int expireDay = r.ReadInt32();
+            double expireClockDays = r.ReadDouble();
             if (data != null)
             {
-                records.Add(new StatusEffectRecord(data, level, slot, potency, hazard, scope, chargeIndex, expireDay));
+                records.Add(new StatusEffectRecord(data, level, slot, potency, hazard, scope, chargeIndex, expireClockDays));
             }
         }
         return records;

@@ -57,7 +57,7 @@ public partial class PositionalEmitterData : Resource
     // Time-of-day volume envelope, X = TimeOfDay01. Same shape /
     // semantics as AmbienceLayerData.timeOfDayVolume. Null = always
     // active (curve sample treated as 1.0).
-    [Export] public Curve timeOfDayVolume;
+    [Export, TimeOfDayCurve] public Curve timeOfDayVolume;
 
     // Master per-emitter volume scale, applied after the TOD curve.
     [Export(PropertyHint.Range, "-40,12,0.5")] public float volumeDb = 0f;

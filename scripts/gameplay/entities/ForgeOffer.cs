@@ -5,13 +5,14 @@ using Godot;
 // Carries just enough to draw the marker while the forge's chunk is unloaded.
 public readonly struct ForgeMarkerInfo
 {
-    public readonly int ReactivateDay;
+    // WorldClockDays deadline; 0 = ready.
+    public readonly double ReactivateAtClock;
     public readonly int Level;
     public readonly EUpgradeSlot Slot;
 
-    public ForgeMarkerInfo(int reactivateDay, int level, EUpgradeSlot slot)
+    public ForgeMarkerInfo(double reactivateAtClock, int level, EUpgradeSlot slot)
     {
-        ReactivateDay = reactivateDay;
+        ReactivateAtClock = reactivateAtClock;
         Level = level;
         Slot = slot;
     }
@@ -21,10 +22,9 @@ public readonly struct ForgeMarkerInfo
 // the offered slot's model) and the map-marker renderer (which draws the offered
 // slot's icon). Both MUST resolve identically, so the logic lives here once.
 //
-// A forge offers one upgrade per day, chosen from SimData.forgeUpgrades by hashing
-// (position, offer-day). The offer-day is the day the forge is next usable — today
-// while ready, tomorrow (its ReactivateDay) while inert — so the preview always
-// shows what the player will actually receive.
+// A forge offers one upgrade per use, chosen from SimData.forgeUpgrades by hashing
+// (position, uses so far), so the preview always shows what the player will
+// actually receive next.
 public static class ForgeOffer
 {
     // The equipment slots, indexed by the position hash below.
@@ -42,11 +42,11 @@ public static class ForgeOffer
         return Slots[SlotHash(worldPos) % Slots.Length];
     }
 
-    // Resolve the upgrade a forge with the given fixed `slot` offers on `today`:
-    // filter the pool to entries ELIGIBLE for the slot (their upgradeSlot flags
-    // include it), then pick one deterministically by (position, offer-day). Null
+    // Resolve the upgrade a forge with the given fixed `slot` offers on its next
+    // use: filter the pool to entries ELIGIBLE for the slot (their upgradeSlot
+    // flags include it), then pick one deterministically by (position, uses). Null
     // when nothing in the pool is eligible for the slot.
-    public static StatusEffectData Resolve(Godot.Collections.Array<StatusEffectData> pool, Vector3 worldPos, int today, int reactivateDay, EUpgradeSlot slot)
+    public static StatusEffectData Resolve(Godot.Collections.Array<StatusEffectData> pool, Vector3 worldPos, int uses, EUpgradeSlot slot)
     {
         if (pool == null || pool.Count == 0)
         {
@@ -66,8 +66,7 @@ public static class ForgeOffer
         {
             return null;
         }
-        int offerDay = Math.Max(today, reactivateDay);
-        int pick = OfferHash(worldPos, offerDay) % eligible;
+        int pick = OfferHash(worldPos, uses) % eligible;
         for (int i = 0; i < pool.Count; i++)
         {
             if (pool[i] == null || (pool[i].upgradeSlot & slot) == 0)
@@ -82,8 +81,8 @@ public static class ForgeOffer
         return null;
     }
 
-    // Day-independent position hash for the forge's fixed slot (distinct from
-    // OfferHash, which folds in the day to roll the offered upgrade).
+    // Use-independent position hash for the forge's fixed slot (distinct from
+    // OfferHash, which folds in the use count to roll the offered upgrade).
     public static int SlotHash(Vector3 pos)
     {
         unchecked
@@ -96,9 +95,9 @@ public static class ForgeOffer
         }
     }
 
-    // Stable non-negative hash of (position, day). Position is rounded to whole
+    // Stable non-negative hash of (position, uses). Position is rounded to whole
     // meters to match the marker key quantization.
-    public static int OfferHash(Vector3 pos, int day)
+    public static int OfferHash(Vector3 pos, int uses)
     {
         unchecked
         {
@@ -106,7 +105,7 @@ public static class ForgeOffer
             h = h * 31 + Mathf.RoundToInt(pos.X);
             h = h * 31 + Mathf.RoundToInt(pos.Y);
             h = h * 31 + Mathf.RoundToInt(pos.Z);
-            h = h * 31 + day;
+            h = h * 31 + uses;
             return h & 0x7fffffff;
         }
     }

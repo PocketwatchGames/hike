@@ -130,49 +130,52 @@ public class WorldState
     // AI timers, etc. survive save/load.
     public ulong GameTimeMs;
 
-    // Normalized time-of-day, in [0, 1], spanning a FULL 24-hour cycle:
-    // 0 = sunrise, 0.25 = noon, 0.5 = sunset, 0.75 = midnight, 1 = the next
-    // sunrise. Advanced by Sim.Tick scaled by SimData.DayLengthSeconds and the
-    // time_scale CVar, and CLAMPED at 1 — the cycle pauses on the threshold of
-    // sunrise and only a sleep starts the next day (see Sim.AdvanceToNextSunrise).
-    // The last quarter (midnight → sunrise) is played, not elided, but the sun
-    // never comes back up over it: the palette stays on its night colors and
-    // slides to black (see WeatherDerivation's nightfall pass).
-    // SkyController remaps this to the orbit phase (0.25 + tod) to drive the
-    // sun/moon arc. Seeded from SimData.InitialTimeOfDay at world creation.
-    public double TimeOfDay01;
+    // The in-world clock: days elapsed since the run's first sunrise, where each
+    // whole number IS a sunrise. Only ever increases - Sim advances it (Tick,
+    // naps, the sleep skip) and fires OnDawn each time it crosses a whole day.
+    // Every in-world deadline (an effect that ends at a time of day, spoilage,
+    // station regrow, a revive deadline) is an absolute value on this clock, so
+    // a deadline is just `WorldClockDays >= deadline`. Distinct from GameTimeMs,
+    // which is real sim time and ignores time_scale. Seeded from
+    // SimData.InitialTimeOfDay at world creation.
+    public double WorldClockDays;
+
+    // Normalized time-of-day, in [0, 1), spanning a FULL 24-hour cycle:
+    // 0 = sunrise, 0.25 = noon, 0.5 = sunset, 0.75 = midnight, wrapping back to
+    // 0 at the next sunrise. SkyController remaps this to the orbit phase
+    // (0.25 + tod) to drive the sun/moon arc.
+    public double TimeOfDay01 => WorldClockDays - Math.Floor(WorldClockDays);
+
+    // Whole days elapsed. Kept for future use; nothing in gameplay times itself
+    // by it - deadlines are WorldClockDays values. Its only reads are the
+    // per-day RNG seeds (DailyRandom), which want one integer per dawn.
+    public int DayNumber => (int)Math.Floor(WorldClockDays);
 
     // The single source of truth for the day's key normalized-time positions,
     // so spawn gating, the day/night refresh, weather, and ad-hoc checks all
     // agree. Evenly spaced because the clock is a true 24-hour cycle: 6am, 12pm,
-    // 6pm, 12am, 6am.
+    // 6pm, 12am.
     public const double SunriseTimeOfDay01 = 0.0;
     public const double NoonTimeOfDay01 = 0.25;
     public const double SunsetTimeOfDay01 = 0.5;
     public const double MidnightTimeOfDay01 = 0.75;
-    // Where the clock stops and waits for a sleep. Celestially the next
-    // sunrise, but the sun does not rise on it — the day ends here instead.
-    public const double EndOfDayTimeOfDay01 = 1.0;
 
-    // Night is everything from sunset onward, which now includes the post-
-    // midnight quarter up to the end-of-day hold.
+    // Night is sunset until the clock wraps at the next sunrise.
     public static bool IsNight(double timeOfDay01) => timeOfDay01 >= SunsetTimeOfDay01;
 
-    // Map the day clock [0,1] (0 = sunrise … 1 = the next sunrise) onto the
-    // celestial orbit phase (0.25 = sunrise, 0.5 = noon, 0.75 = sunset, 1.0/0 =
-    // midnight). The sun/moon arc math and the diurnal weather curve are written
-    // in orbit-phase terms, so anything driving them from TimeOfDay01 remaps
-    // through here. Wraps: the post-midnight quarter lands on phase [0, 0.25),
-    // where the moon descends to its setting point exactly as the clock hits 1.
+    // Map the day clock [0,1) (0 = sunrise) onto the celestial orbit phase
+    // (0.25 = sunrise, 0.5 = noon, 0.75 = sunset, 1.0/0 = midnight). The sun/moon
+    // arc math and the diurnal weather curve are written in orbit-phase terms,
+    // so anything driving them from TimeOfDay01 remaps through here.
     public static double OrbitPhase01(double timeOfDay01) => Mathf.PosMod(0.25 + timeOfDay01, 1.0);
 
-    // Explicit whole-day counter. Starts at 0 and is incremented ONLY by the
-    // sleep-to-sunrise path (Sim.AdvanceToNextSunrise) — the day cycle no
-    // longer rolls over on its own, so this can't be derived from the clock.
-    // Day deadlines (UntilSunrise effects, spoilage, forge cooldown) compare
-    // against this rather than projecting a wall-clock sunrise (there is no such
-    // time — the clock stops at the end of the day until the player sleeps).
-    public int DayNumber;
+    // The absolute clock value of the next time the day reaches `timeOfDay01`,
+    // strictly after now - the deadline for "until dawn", "until dusk", etc.
+    public double NextClockAt(double timeOfDay01)
+    {
+        double at = Math.Floor(WorldClockDays) + Mathf.PosMod(timeOfDay01, 1.0);
+        return at > WorldClockDays ? at : at + 1.0;
+    }
 
     // Sun direction (unit vector, the direction light travels). Written by
     // SkyController each frame from TimeOfDay01; read by
@@ -192,25 +195,25 @@ public class WorldState
     public Vector3 WindDirection = new Vector3(0.7f, 0f, 0.7f);
 
     // Per-day weather variance, in [0, 1]. 0 = stormy / unstable (cool),
-    // 1 = fair / stable (warm). Each day pre-rolls TWO weather states
-    // at sunrise (Sim.RollDailyWeather, on OnNewDay): a DAY slot (active
-    // sunrise → sunset) and a NIGHT slot (active sunset → the day's end), with a
-    // crossfade between them across the sunset window. Four independent
-    // channels each: WeatherVariance drives temperature (+wind transient via
-    // its sunset-crossfade slope); Humidity and Cloud are wind-gated advection
-    // channels; Lightning multiplies the storm gate. Both slots are known at
-    // sunrise so the HUD can forecast the day AND night icons up front. Lives
-    // on WorldState so a save/reload resumes the same forecast.
-    public float DayWeatherVariance = 0.5f, NightWeatherVariance = 0.5f;
-    public float DayHumidityVariance = 0.5f, NightHumidityVariance = 0.5f;
-    public float DayCloudVariance = 0.5f, NightCloudVariance = 0.5f;
-    public float DayLightningVariance = 0.5f, NightLightningVariance = 0.5f;
+    // 1 = fair / stable (warm). Each day rolls TWO weather states (a DAY slot,
+    // active sunrise -> sunset, and a NIGHT slot, active sunset -> the next
+    // sunrise), crossfaded at sunset and again at dawn. The dawn crossfade
+    // straddles the day boundary, so the neighbouring days' slots are held too:
+    // PrevNightSlot is last night (yesterday's NIGHT), NextDaySlot is tomorrow's
+    // DAY. All four come from DailyRandom, a pure function of (RunSeed, day), so
+    // they are re-derived on load rather than saved. WeatherSlot.Weather drives
+    // temperature (+wind transient via the crossfade slope); Humidity and Cloud
+    // are wind-gated advection channels; Lightning multiplies the storm gate.
+    public WeatherSlot PrevNightSlot = WeatherSlot.Neutral;
+    public WeatherSlot DaySlot = WeatherSlot.Neutral;
+    public WeatherSlot NightSlot = WeatherSlot.Neutral;
+    public WeatherSlot NextDaySlot = WeatherSlot.Neutral;
 
-    // Active (sunset-crossfaded) variance for the current frame — lerp(day,
-    // night, sunsetBlend), computed by WeatherSimulation.UpdateVariance and
-    // read by Apply. WeatherVarianceSlope is the per-day-fraction analytical
-    // slope of the sunset crossfade (nonzero only inside the sunset window),
-    // driving the wind "frontal kick".
+    // Active (crossfaded) variance for the current frame, computed from the
+    // slots by WeatherSimulation.UpdateVariance and read by Apply.
+    // WeatherVarianceSlope is the per-day-fraction analytical slope of the
+    // crossfade (nonzero only inside the sunset and dawn windows), driving the
+    // wind "frontal kick".
     public float WeatherVariance = 0.5f;
     public float HumidityVariance = 0.5f;
     public float CloudVariance = 0.5f;
@@ -328,11 +331,9 @@ public class WorldState
         // Seed the scripting-variable bank from the authored registry before
         // any save data loads; harmless when no registry is authored.
         SimState.ScriptVars.Initialize(simData?.scriptVariables);
-        TimeOfDay01 = simData?.initialTimeOfDay ?? 0.05f;
-        DayNumber = 0;
-        // Roll the first day's day + night weather slots. Subsequent days
-        // re-roll on the sleep-to-sunrise (Sim fires OnNewDay → RollDailyWeather).
-        // BeginRun rolls again once the run's seed is known.
+        WorldClockDays = simData?.initialTimeOfDay ?? 0.05f;
+        // Roll the first day's weather slots. Later days re-roll at each dawn
+        // (Sim.RollDawn). BeginRun rolls again once the run's seed is known.
         RollDailyWeather();
         SnapWeatherToDaySlot();
     }
@@ -348,17 +349,19 @@ public class WorldState
 
     // A day's randomness is a pure function of the run and the day, so a load
     // reproduces the day it woke into with no generator state saved.
-    public System.Random DailyRandom(int salt)
+    public System.Random DailyRandom(int salt) => DailyRandom(salt, DayNumber);
+
+    public System.Random DailyRandom(int salt, int day)
     {
-        return new System.Random(TerrainMath.DeriveSeed(TerrainMath.DeriveSeed(RunSeed, salt), DayNumber));
+        return new System.Random(TerrainMath.DeriveSeed(TerrainMath.DeriveSeed(RunSeed, salt), day));
     }
 
     private void SnapWeatherToDaySlot()
     {
-        WeatherVariance = DayWeatherVariance;
-        HumidityVariance = DayHumidityVariance;
-        CloudVariance = DayCloudVariance;
-        LightningVariance = DayLightningVariance;
+        WeatherVariance = DaySlot.Weather;
+        HumidityVariance = DaySlot.Humidity;
+        CloudVariance = DaySlot.Cloud;
+        LightningVariance = DaySlot.Lightning;
     }
 
     // Fit the vertical extent to the terrain worldgen just built. The heightmap
@@ -381,10 +384,6 @@ public class WorldState
         Max = new Vector3I(Max.X, maxChunkY, Max.Z);
     }
 
-    // Pre-roll a fresh DAY and NIGHT weather slot from WeatherRng. Called at
-    // world creation and on every sleep-to-sunrise (Sim.AdvanceToNextSunrise).
-    // Both slots are determined here so the HUD can forecast the whole day up
-    // front and the sunset crossfade has a fixed target.
     // Chart the named buried treasure onto the player's map. The single
     // implementation behind every source that hands out a map — the pickup
     // effect on a map item, a TreasureMapTeachable on a scroll / stone / NPC
@@ -411,17 +410,23 @@ public class WorldState
         return true;
     }
 
+    // Derive today's DAY and NIGHT slots plus the neighbours the dawn crossfade
+    // reaches into. Called at world creation, BeginRun, and every dawn
+    // (Sim.RollDawn). All slots are fixed for the day so the HUD can forecast
+    // up front and each crossfade has a stable target.
     public void RollDailyWeather()
     {
-        System.Random rng = DailyRandom(WEATHER_SALT);
-        DayWeatherVariance = rng.NextSingle();
-        DayHumidityVariance = rng.NextSingle();
-        DayCloudVariance = rng.NextSingle();
-        DayLightningVariance = rng.NextSingle();
-        NightWeatherVariance = rng.NextSingle();
-        NightHumidityVariance = rng.NextSingle();
-        NightCloudVariance = rng.NextSingle();
-        NightLightningVariance = rng.NextSingle();
+        int today = DayNumber;
+        RollWeatherSlots(today - 1, out _, out PrevNightSlot);
+        RollWeatherSlots(today, out DaySlot, out NightSlot);
+        RollWeatherSlots(today + 1, out NextDaySlot, out _);
+    }
+
+    private void RollWeatherSlots(int day, out WeatherSlot daySlot, out WeatherSlot nightSlot)
+    {
+        System.Random rng = DailyRandom(WEATHER_SALT, day);
+        daySlot = new WeatherSlot(rng.NextSingle(), rng.NextSingle(), rng.NextSingle(), rng.NextSingle());
+        nightSlot = new WeatherSlot(rng.NextSingle(), rng.NextSingle(), rng.NextSingle(), rng.NextSingle());
     }
 
     // World-coordinate accessors for cross-chunk light propagation
@@ -1822,5 +1827,34 @@ public class WorldState
     public void SetLightAmplitude(LightSource source, float amplitude)
     {
         LightEngine.SetAmplitude(this, source, amplitude);
+    }
+}
+
+// One pre-rolled weather state (see WorldState.DaySlot): four independent
+// variance channels in [0, 1], 0.5 = neutral.
+public readonly struct WeatherSlot
+{
+    public readonly float Weather;
+    public readonly float Humidity;
+    public readonly float Cloud;
+    public readonly float Lightning;
+
+    public static readonly WeatherSlot Neutral = new(0.5f, 0.5f, 0.5f, 0.5f);
+
+    public WeatherSlot(float weather, float humidity, float cloud, float lightning)
+    {
+        Weather = weather;
+        Humidity = humidity;
+        Cloud = cloud;
+        Lightning = lightning;
+    }
+
+    public static WeatherSlot Lerp(in WeatherSlot a, in WeatherSlot b, float t)
+    {
+        return new WeatherSlot(
+            Mathf.Lerp(a.Weather, b.Weather, t),
+            Mathf.Lerp(a.Humidity, b.Humidity, t),
+            Mathf.Lerp(a.Cloud, b.Cloud, t),
+            Mathf.Lerp(a.Lightning, b.Lightning, t));
     }
 }

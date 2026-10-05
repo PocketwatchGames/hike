@@ -37,8 +37,8 @@ public static class StatFormat
 	}
 
 	// Player-facing lifetime string for a status effect, dispatched by its
-	// EDurationType: "10s" for a Timed effect, "Until sunrise" for an
-	// UntilSunrise effect, empty for Persistent or a Timed effect with no fixed
+	// EDurationType: "10s" for a Timed effect, "Until sunrise" / "Until 18:00" for
+	// an UntilTimeOfDay effect, empty for Persistent or a Timed effect with no fixed
 	// duration (the arming system owns its lifetime — wet, etc.). Callers that
 	// emit a labeled row should skip it when this returns empty.
 	public static string Duration(StatusEffectData effect)
@@ -49,8 +49,10 @@ public static class StatFormat
 		}
 		switch (effect.durationType)
 		{
-			case EDurationType.UntilSunrise:
-				return Loc.Get(Loc.Keys.status_duration_until_sunrise);
+			case EDurationType.UntilTimeOfDay:
+				return Mathf.IsZeroApprox(Mathf.PosMod(effect.expireAtTimeOfDay01, 1f))
+					? Loc.Get(Loc.Keys.status_duration_until_sunrise)
+					: Loc.Format(Loc.Keys.status_duration_until_time, ClockTime(effect.expireAtTimeOfDay01));
 			case EDurationType.Timed:
 				return effect.duration > 0f ? Seconds(effect.duration) : string.Empty;
 			// Sustained (hot/cold) treats `duration` as a post-source grace window, not a
@@ -60,6 +62,19 @@ public static class StatFormat
 			default:
 				return string.Empty;
 		}
+	}
+
+	// Hours of the 24h clock at day-clock 0 (sunrise is 06:00).
+	private const int SunriseHour = 6;
+	private const int HoursPerDay = 24;
+	private const int MinutesPerHour = 60;
+
+	// A day-clock position (0 = sunrise) as a 24-hour "HH:MM".
+	public static string ClockTime(float timeOfDay01)
+	{
+		int minutes = Mathf.RoundToInt(Mathf.PosMod(timeOfDay01, 1f) * HoursPerDay * MinutesPerHour);
+		int total = (SunriseHour * MinutesPerHour + minutes) % (HoursPerDay * MinutesPerHour);
+		return $"{total / MinutesPerHour:00}:{total % MinutesPerHour:00}";
 	}
 
 	public static string Percent(float fraction)

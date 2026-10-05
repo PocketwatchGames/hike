@@ -739,9 +739,9 @@ public partial class GameClient : Node3D
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;
 		_world.onDiscoverableSpawned += OnDiscoverableSpawned;
-		// Sim rolls the roster day (meal reset + well-rested lottery) inside
-		// AdvanceToNextSunrise; the client only re-applies the per-member NODE effects.
-		_world.OnNewDay += OnNewDayRefreshNodes;
+		// The sim reaches every member node (idle ones included) for deadlines,
+		// lantern fuel and the rest-time refresh through this read-only view.
+		_world.BindPartyNodes(_partyPlayers);
 		sceneViewport.AddChild(_world);
 		// Sim.Initialize is the chunk-mesh sphere fill — fully synchronous
 		// today (~900 chunks). The bar can't tick during this; it stays
@@ -897,8 +897,8 @@ public partial class GameClient : Node3D
 	}
 
 	// A loaded save is a wake at sunrise, so it opens the way a real one leaves
-	// the player: in camp, with the day's leader still to pick (a sunrise resets
-	// it — Sim.AdvanceToNextSunrise). The camp screen takes the input gate.
+	// the player: in camp, with the day's leader still to pick (a rest resets
+	// it — Sim.RestToSunrise). The camp screen takes the input gate.
 	void WakeIntoCamp()
 	{
 		_world.Party?.RequireLeaderChoice();
@@ -2938,28 +2938,6 @@ public partial class GameClient : Node3D
 		else
 		{
 			InputSuppressed = false;
-		}
-	}
-
-	// Each sunrise Sim rolls the roster (meal reset + well-rested lottery, in
-	// Sim.AdvanceToNextSunrise); the client re-applies the resulting per-member NODE
-	// effects: the WellRested stat buff (the campfire glow follows the same flag,
-	// gated on sitting at the fire in Player.UpdateWellRestedFx) and a top-off of
-	// every carried lantern. A fountain is the only other refuel — a campfire
-	// deliberately isn't. It also clears every member's attuned spell — a new day
-	// resets the camp spell pick (the leader pick resets in Sim.RequireLeaderChoice),
-	// so the next camp re-attunes. Subscribed to Sim.OnNewDay, the only day-advance
-	// path, so this covers the camp sleep-to-sunrise, the death wake, and pray.
-	void OnNewDayRefreshNodes(int dayNumber)
-	{
-		for (int i = 0; i < _partyPlayers.Count; i++)
-		{
-			// First, so the refresh below and the wake's autosave never see what
-			// the new day has ended.
-			_partyPlayers[i]?.ExpireForDay(dayNumber);
-			_partyPlayers[i]?.RefreshWellRested();
-			_partyPlayers[i]?.RefuelLantern();
-			_partyPlayers[i]?.Inventory?.ClearAttunement();
 		}
 	}
 

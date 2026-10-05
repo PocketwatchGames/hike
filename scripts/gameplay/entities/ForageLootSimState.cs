@@ -23,7 +23,6 @@ public class ForageLootSimState : LootSimState
         {
             return;
         }
-        int today = Sim.Current?.DayNumber ?? 0;
-        _owner.RegrowDay = today + Mathf.Max(1, _owner.RegrowDays);
+        _owner.StartRegrow(Sim.Current?.WorldClockDays ?? 0.0, Mathf.Max(1, _owner.RegrowDays));
     }
 }

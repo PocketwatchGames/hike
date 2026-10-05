@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "dawn"
+description = "The small hours just before sunrise, sped up, to watch the clock wrap into a new day."
+commands = "// ~20s of real time to the wrap at 2x. Watch for: the sky brightening into a
+// real dawn, the HUD dial crossing night -> day, the weather crossfading
+// across the sunrise window, fairy boons ending at the wrap, and NO autosave
+// (a dawn is not a rest).
+time_of_day 0.93
+time_scale 2"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

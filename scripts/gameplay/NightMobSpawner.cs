@@ -134,16 +134,21 @@ public partial class NightMobSpawner : Node
     }
 
     // Danger [0,1] = max(time-of-day term, darkness dwell). The time term is
-    // pow(nightProgress, curve): 0 all day (nightProgress clamps to 0 before
-    // sunset), ramping to 1 at midnight and held there through the dark hours
-    // after it. The darkness dwell (Sim.DarknessDwell) supplies danger in dark
-    // places regardless of the hour.
+    // pow(nightProgress, curve). The darkness dwell (Sim.DarknessDwell) supplies
+    // danger in dark places regardless of the hour.
     private static float Danger(Sim sim, SimData data)
     {
-        float t = (float)((sim.WorldState.TimeOfDay01 - WorldState.SunsetTimeOfDay01)
-            / (WorldState.MidnightTimeOfDay01 - WorldState.SunsetTimeOfDay01));
-        float timeDanger = Mathf.Pow(Mathf.Clamp(t, 0f, 1f), data.nightTimeDangerCurve);
+        float timeDanger = Mathf.Pow(NightProgress(sim.WorldState.TimeOfDay01), data.nightTimeDangerCurve);
         return Mathf.Max(timeDanger, sim.DarknessDwell);
+    }
+
+    // 0 all day, ramping to 1 from sunset to midnight and back to 0 at dawn.
+    private static float NightProgress(double timeOfDay01)
+    {
+        double t = timeOfDay01 < WorldState.MidnightTimeOfDay01
+            ? (timeOfDay01 - WorldState.SunsetTimeOfDay01) / (WorldState.MidnightTimeOfDay01 - WorldState.SunsetTimeOfDay01)
+            : (1.0 - timeOfDay01) / (1.0 - WorldState.MidnightTimeOfDay01);
+        return Mathf.Clamp((float)t, 0f, 1f);
     }
 
     // Dump every input that feeds slime spawning plus the candidate `pool` size
@@ -152,9 +157,7 @@ public partial class NightMobSpawner : Node
     private void PrintDebug(Sim sim, SimData data, float danger, int target, int current, float interval, int pool)
     {
         double tod = sim.WorldState.TimeOfDay01;
-        float t = (float)((tod - WorldState.SunsetTimeOfDay01)
-            / (WorldState.MidnightTimeOfDay01 - WorldState.SunsetTimeOfDay01));
-        float timeDanger = Mathf.Pow(Mathf.Clamp(t, 0f, 1f), data.nightTimeDangerCurve);
+        float timeDanger = Mathf.Pow(NightProgress(tod), data.nightTimeDangerCurve);
         float total01 = sim.player?.visibilityLight ?? 1f;
         float darkTarget = data.nightDarkThreshold > 0f
             ? Mathf.Clamp((data.nightDarkThreshold - total01) / data.nightDarkThreshold, 0f, 1f)

@@ -6,12 +6,13 @@ public class ItemState
 	public virtual ItemData data => _data;
 	private readonly ItemData _data;
 
-	// Spoil cohorts: this stack's units grouped by the day they expire. One
+	// Spoil cohorts: this stack's units grouped by when they expire. One
 	// ItemState shows as ONE inventory stack regardless of when its units were
-	// acquired — perishables picked up on different days coexist as separate
+	// acquired — perishables picked up at different times coexist as separate
 	// cohorts here (a fresh batch merges with an older one instead of splitting the
-	// inventory) and are always consumed oldest-first. removeOnDay == 0 means "never
-	// spoils"; a kind either spoils or it doesn't, so multiple cohorts only ever
+	// inventory) and are always consumed oldest-first. spoilAtClock is a
+	// WorldState.WorldClockDays deadline; 0 means "never spoils"; a kind either
+	// spoils or it doesn't, so multiple cohorts only ever
 	// arise for perishables. stackCount is the summed total: NEVER mutate the count
 	// directly — go through the helpers below (SetCount / AddUnits / Consume /
 	// TransferTo / SplitOff / PruneExpired) so the ledger stays the single source of
@@ -19,7 +20,7 @@ public class ItemState
 	private struct SpoilCohort
 	{
 		public int count;
-		public int removeOnDay;
+		public double spoilAtClock;
 	}
 	private readonly List<SpoilCohort> _cohorts = new List<SpoilCohort>();
 
@@ -74,7 +75,7 @@ public class ItemState
 	public ItemState(ItemData d)
 	{
 		_data = d;
-		_cohorts.Add(new SpoilCohort { count = 1, removeOnDay = 0 });
+		_cohorts.Add(new SpoilCohort { count = 1, spoilAtClock = 0 });
 	}
 
 	// Total units across all spoil cohorts. Read-only — see the ledger note above.
@@ -113,20 +114,19 @@ public class ItemState
 		return _data.maxStack - stackCount;
 	}
 
-	// The soonest real spoil deadline across cohorts, or 0 if nothing here spoils.
-	// The expiry sweeps and the world-drop honor check read this; the inventory
-	// tooltip can surface "spoils day N" from it.
-	public int SoonestRemoveDay
+	// The soonest real spoil deadline across cohorts (a WorldClockDays value), or
+	// 0 if nothing here spoils.
+	public double SoonestSpoilClock
 	{
 		get
 		{
-			int soonest = 0;
+			double soonest = 0.0;
 			for (int i = 0; i < _cohorts.Count; i++)
 			{
-				int day = _cohorts[i].removeOnDay;
-				if (day != 0 && (soonest == 0 || day < soonest))
+				double at = _cohorts[i].spoilAtClock;
+				if (at != 0.0 && (soonest == 0.0 || at < soonest))
 				{
-					soonest = day;
+					soonest = at;
 				}
 			}
 			return soonest;
@@ -136,20 +136,20 @@ public class ItemState
 	// Replace the whole ledger with `count` never-spoiling units. For fresh
 	// construction and the spoil-agnostic staging UIs (merchant / cooking panels)
 	// that set an absolute count; a perishable gets its real deadline later, on
-	// acquisition, via StampSpoilDay. count <= 0 empties the stack.
+	// acquisition, via StampSpoilClock. count <= 0 empties the stack.
 	public void SetCount(int count)
 	{
 		_cohorts.Clear();
 		if (count > 0)
 		{
-			_cohorts.Add(new SpoilCohort { count = count, removeOnDay = 0 });
+			_cohorts.Add(new SpoilCohort { count = count, spoilAtClock = 0 });
 		}
 	}
 
-	// Add `count` units expiring on day `removeOnDay` (0 = never), merging into the
-	// matching-day cohort when one exists. The one way to grow a stack while
-	// preserving spoil bookkeeping.
-	public void AddUnits(int count, int removeOnDay)
+	// Add `count` units expiring at clock `spoilAtClock` (0 = never), merging into
+	// the cohort with that exact deadline when one exists. The one way to grow a
+	// stack while preserving spoil bookkeeping.
+	public void AddUnits(int count, double spoilAtClock)
 	{
 		if (count <= 0)
 		{
@@ -157,7 +157,7 @@ public class ItemState
 		}
 		for (int i = 0; i < _cohorts.Count; i++)
 		{
-			if (_cohorts[i].removeOnDay == removeOnDay)
+			if (_cohorts[i].spoilAtClock == spoilAtClock)
 			{
 				SpoilCohort c = _cohorts[i];
 				c.count += count;
@@ -165,16 +165,16 @@ public class ItemState
 				return;
 			}
 		}
-		_cohorts.Add(new SpoilCohort { count = count, removeOnDay = removeOnDay });
+		_cohorts.Add(new SpoilCohort { count = count, spoilAtClock = spoilAtClock });
 	}
 
-	// Stamp not-yet-dated units (removeOnDay == 0) with `day` — called on
-	// acquisition so a fresh perishable pickup's spoil clock starts. Already-dated
-	// cohorts (older units merged earlier) keep their own deadline. No-op for
-	// non-perishables (day <= 0).
-	public void StampSpoilDay(int day)
+	// Stamp not-yet-dated units (spoilAtClock == 0) with deadline `spoilAtClock`
+	// — called on acquisition so a fresh perishable pickup's spoil clock starts.
+	// Already-dated cohorts (older units merged earlier) keep their own deadline.
+	// No-op for a non-deadline (<= 0).
+	public void StampSpoilClock(double spoilAtClock)
 	{
-		if (day <= 0)
+		if (spoilAtClock <= 0.0)
 		{
 			return;
 		}
@@ -182,9 +182,9 @@ public class ItemState
 		for (int i = 0; i < _cohorts.Count; i++)
 		{
 			SpoilCohort c = _cohorts[i];
-			if (c.removeOnDay == 0)
+			if (c.spoilAtClock == 0.0)
 			{
-				c.removeOnDay = day;
+				c.spoilAtClock = spoilAtClock;
 				_cohorts[i] = c;
 				changed = true;
 			}
@@ -227,7 +227,7 @@ public class ItemState
 	}
 
 	// Move up to `maxUnits` oldest-first into `dest`, preserving each unit's spoil
-	// day. Returns units moved. Replaces the paired `dest.stackCount += n;
+	// deadline. Returns units moved. Replaces the paired `dest.stackCount += n;
 	// src.stackCount -= n` merge used when folding one stack into another.
 	public int TransferTo(ItemState dest, int maxUnits)
 	{
@@ -241,7 +241,7 @@ public class ItemState
 			int oldest = OldestIndex();
 			SpoilCohort c = _cohorts[oldest];
 			int take = System.Math.Min(maxUnits - moved, c.count);
-			dest.AddUnits(take, c.removeOnDay);
+			dest.AddUnits(take, c.spoilAtClock);
 			c.count -= take;
 			moved += take;
 			if (c.count <= 0)
@@ -257,7 +257,7 @@ public class ItemState
 	}
 
 	// Carve `count` units oldest-first into a fresh same-kind ItemState (copying
-	// touched / level and preserving spoil days). The source shrinks by whatever
+	// touched / level and preserving spoil deadlines). The source shrinks by whatever
 	// was available. Used by Drop and the backpack split gesture.
 	public ItemState SplitOff(int count)
 	{
@@ -270,15 +270,15 @@ public class ItemState
 	}
 
 	// Drop every cohort whose spoil deadline has passed; returns units lost. The
-	// stack survives until its LAST cohort expires, so a half-spoiled pile no
-	// longer vanishes whole at the day rollover. `today` is the sim DayNumber.
-	public int PruneExpired(int today)
+	// stack survives until its LAST cohort expires, so a half-spoiled pile loses
+	// only its old batch. `nowClock` is WorldState.WorldClockDays.
+	public int PruneExpired(double nowClock)
 	{
 		int lost = 0;
 		for (int i = _cohorts.Count - 1; i >= 0; i--)
 		{
-			int day = _cohorts[i].removeOnDay;
-			if (day != 0 && today >= day)
+			double at = _cohorts[i].spoilAtClock;
+			if (at != 0.0 && nowClock >= at)
 			{
 				lost += _cohorts[i].count;
 				_cohorts.RemoveAt(i);
@@ -289,12 +289,12 @@ public class ItemState
 
 	// --- Serialization hooks (EntitySerializer) ---
 	// Cohorts ARE the persisted spoil state. Write CohortCount then each
-	// (units, removeOnDay); read back by ClearCohorts() + AddUnits per pair.
+	// (units, spoilAtClock); read back by ClearCohorts() + AddUnits per pair.
 	public int CohortCount => _cohorts.Count;
-	public void GetCohort(int i, out int count, out int removeOnDay)
+	public void GetCohort(int i, out int count, out double spoilAtClock)
 	{
 		count = _cohorts[i].count;
-		removeOnDay = _cohorts[i].removeOnDay;
+		spoilAtClock = _cohorts[i].spoilAtClock;
 	}
 	public void ClearCohorts()
 	{
@@ -307,7 +307,7 @@ public class ItemState
 		int oldest = 0;
 		for (int i = 1; i < _cohorts.Count; i++)
 		{
-			if (SpoilOrder(_cohorts[i].removeOnDay) < SpoilOrder(_cohorts[oldest].removeOnDay))
+			if (SpoilOrder(_cohorts[i].spoilAtClock) < SpoilOrder(_cohorts[oldest].spoilAtClock))
 			{
 				oldest = i;
 			}
@@ -317,12 +317,12 @@ public class ItemState
 
 	// Ordering key for oldest-first: soonest real deadline first, never-spoil (0)
 	// last — so a never-spoiling unit is only consumed after all dated ones.
-	private static int SpoilOrder(int removeOnDay)
+	private static double SpoilOrder(double spoilAtClock)
 	{
-		return removeOnDay == 0 ? int.MaxValue : removeOnDay;
+		return spoilAtClock == 0.0 ? double.MaxValue : spoilAtClock;
 	}
 
-	// Merge cohorts that share a removeOnDay into one entry — keeps the ledger
+	// Merge cohorts that share a deadline into one entry — keeps the ledger
 	// minimal after a stamp folds day-0 units into an existing dated cohort.
 	private void Coalesce()
 	{
@@ -330,7 +330,7 @@ public class ItemState
 		{
 			for (int j = 0; j < i; j++)
 			{
-				if (_cohorts[i].removeOnDay == _cohorts[j].removeOnDay)
+				if (_cohorts[i].spoilAtClock == _cohorts[j].spoilAtClock)
 				{
 					SpoilCohort cj = _cohorts[j];
 					cj.count += _cohorts[i].count;

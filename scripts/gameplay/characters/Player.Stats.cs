@@ -562,15 +562,15 @@ public partial class Player : CharacterBody3D
 		weapon.blockArmor = Mathf.Min(max, weapon.blockArmor + speed * dt);
 	}
 
-	// Everything this member holds that day `today` ends: UntilSunrise status
-	// effects (a forge upgrade) and spoiled food cohorts in the inventory. Called
-	// once per member by the day roll (GameClient.OnNewDayRefreshNodes), before the
-	// wake's autosave — never polled, since nothing else moves DayNumber.
-	// Collect-then-remove so Inventory.Remove (which mutates slots and fires
-	// onChanged) isn't called mid-enumeration.
-	public void ExpireForDay(int today)
+	// Everything this member holds whose deadline has passed: status effects and
+	// spoiled food cohorts in the inventory. Run for every member by
+	// Sim.SweepDeadlines — idle members don't tick their own effects — so the
+	// wake's autosave never records what is already over. Collect-then-remove so
+	// Inventory.Remove (which mutates slots and fires onChanged) isn't called
+	// mid-enumeration.
+	public void ExpireDue(ulong nowMs, double nowClock)
 	{
-		_statusEffects.ExpireForDay(today);
+		_statusEffects.ExpireDue(nowMs, nowClock);
 		if (_inventory == null)
 		{
 			return;
@@ -580,7 +580,7 @@ public partial class Player : CharacterBody3D
 		{
 			// A half-spoiled pile loses only its old batch; the item is pulled once
 			// its last cohort is gone.
-			item.PruneExpired(today);
+			item.PruneExpired(nowClock);
 			if (item.stackCount <= 0)
 			{
 				(expired ??= new System.Collections.Generic.List<ItemState>()).Add(item);
@@ -596,7 +596,7 @@ public partial class Player : CharacterBody3D
 		}
 		// An expired equipped piece leaves its slot empty — backfill weapon/armor
 		// slots from the member's starting loadout so the player is never stranded
-		// barehanded or unarmored at sunrise.
+		// barehanded or unarmored.
 		RefillEmptyEquipmentFromStarting();
 	}
 

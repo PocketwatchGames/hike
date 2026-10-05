@@ -666,9 +666,11 @@ public partial class WorldEditor : Node3D
     // the sun arc, palette and weather from TimeOfDay01 in _Process), so
     // writing the clock is the entire implementation — the scene relights on
     // the next frame with no further plumbing.
+    // The editor runs no clock, so it may set the time of day within the current
+    // day directly — there are no deadlines or dawn listeners to keep consistent.
     private void ApplyTimeOfDay(float timeOfDay01)
     {
-        _worldState.TimeOfDay01 = Mathf.Clamp(timeOfDay01, 0f, 1f);
+        _worldState.WorldClockDays = _worldState.DayNumber + Mathf.Clamp(timeOfDay01, 0f, 0.9999f);
     }
 
     // Fills the Weather dropdown from the palette and forces the first preset.
@@ -3711,7 +3713,7 @@ public partial class WorldEditor : Node3D
         ws.Spawn = Vector3.Zero;
         // Author under a high sun. The default 0.0 is sunrise, which lights the
         // stub world too dimly to judge what you're building.
-        ws.TimeOfDay01 = WorldState.NoonTimeOfDay01;
+        ws.WorldClockDays = WorldState.NoonTimeOfDay01;
 
         // Same pairing as the scene path: occluders first, then light.
         FoliageStamper.Stamp(ws);

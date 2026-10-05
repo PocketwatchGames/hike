@@ -5,7 +5,7 @@ using System;
 // phase: the black ColorRect ramps from invisible to opaque and the World3D
 // + Ambience2D audio buses fade to silence. Once opaque, the "YOU DIED"
 // prompt + Respawn button hint appear and the screen accepts ui_accept.
-// On press GameClient runs the death wake (sack, day roll, campfire), the
+// On press GameClient runs the death wake (sack, rest, campfire), the
 // prompt hides, and the FadingIn phase ramps everything back up over
 // `fadeInSeconds`, then hands off to the wake's camp screen. InputSuppressed
 // is held on GameClient for the entire life of the screen.

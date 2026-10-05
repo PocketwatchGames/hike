@@ -547,7 +547,7 @@
 
         Godot.GD.Print("=== weather probe ===");
         Godot.GD.Print($"  time-of-day:    day={ws.DayNumber} tod={tod:F3}  diurnal={diurnal:F3}  slope={diurnalSlope:F3}  coolingRate={coolingRate:F3}");
-        Godot.GD.Print($"  {(WorldState.IsNight(tod) ? "NIGHT slot active" : "DAY slot active")} (day/night weather re-roll at each sleep-to-sunrise)");
+        Godot.GD.Print($"  {(WorldState.IsNight(tod) ? "NIGHT slot active" : "DAY slot active")} (weather slots re-roll at each dawn)");
         if (zone != null)
         {
             Godot.GD.Print($"  blended zone:   {zone.ResourcePath}");
@@ -597,9 +597,9 @@
 
         // FOG breakdown — the values that actually drive the volumetric
         // shader, plus the night-dimming diagnostic. fogPhaseScale is fed
-        // p.PrimaryIntensity, which is sun-side: it only drops after sunset
-        // via the nightfall SkyLight scale, not from the day→night blend.
-        // This shows how close night fog still is to full daytime density.
+        // p.PrimaryIntensity, which is sun-side and does not drop with the
+        // day→night blend. This shows how close night fog still is to full
+        // daytime density.
         DerivedPalette pal = sky.Palette;
         float fogIntensityReference = simData.fogIntensityReference;
         float fogIntensityFloor = simData.fogIntensityFloor;
@@ -647,17 +647,16 @@
         Godot.GD.Print($"  FOG NIGHT-DIMMING DIAGNOSTIC:");
         Godot.GD.Print($"    PrimaryIntensity (sun-side, used now) = {pal.PrimaryIntensity:F3}");
         Godot.GD.Print($"    NightPrimaryIntensity / NightT        = {pal.NightPrimaryIntensity:F3} / {pal.NightT:F3}");
-        Godot.GD.Print($"    SkyLight (nightfall, 1=sunset 0=midnight) = {pal.SkyLight:F3}");
         Godot.GD.Print($"    Illumination (0 = no light in open air)    = {pal.Illumination:F3}   (scales fog_color)");
         Godot.GD.Print($"    fogPhaseScale  CURRENT = {curPhaseScale:F3}   (1.0 = no night dimming)");
         Godot.GD.Print($"    fogPhaseScale  IF FIXED= {fixPhaseScale:F3}   (would scale fog by this/{curPhaseScale:F3} = {(curPhaseScale > 0 ? fixPhaseScale / curPhaseScale : 1f):F2}×)");
 
         Godot.GD.Print($"  VARIANCE  (day slot → night slot   |   currently active)");
-        Godot.GD.Print($"    weather    = {ws.DayWeatherVariance:F3} → {ws.NightWeatherVariance:F3}   |  {ws.WeatherVariance:F3}  slope={ws.WeatherVarianceSlope:F3}");
-        Godot.GD.Print($"    humidity   = {ws.DayHumidityVariance:F3} → {ws.NightHumidityVariance:F3}   |  {ws.HumidityVariance:F3}");
-        Godot.GD.Print($"    cloud      = {ws.DayCloudVariance:F3} → {ws.NightCloudVariance:F3}   |  {ws.CloudVariance:F3}");
-        Godot.GD.Print($"    lightning  = {ws.DayLightningVariance:F3} → {ws.NightLightningVariance:F3}   |  {ws.LightningVariance:F3}");
-        Godot.GD.Print($"    (cloud variance is INVERSE: low = cloudier; lightning variance reads through directly; day→night crossfades at sunset)");
+        Godot.GD.Print($"    weather    = {ws.DaySlot.Weather:F3} → {ws.NightSlot.Weather:F3}   |  {ws.WeatherVariance:F3}  slope={ws.WeatherVarianceSlope:F3}");
+        Godot.GD.Print($"    humidity   = {ws.DaySlot.Humidity:F3} → {ws.NightSlot.Humidity:F3}   |  {ws.HumidityVariance:F3}");
+        Godot.GD.Print($"    cloud      = {ws.DaySlot.Cloud:F3} → {ws.NightSlot.Cloud:F3}   |  {ws.CloudVariance:F3}");
+        Godot.GD.Print($"    lightning  = {ws.DaySlot.Lightning:F3} → {ws.NightSlot.Lightning:F3}   |  {ws.LightningVariance:F3}");
+        Godot.GD.Print($"    (cloud variance is INVERSE: low = cloudier; lightning variance reads through directly; crossfades at sunset and dawn)");
         Godot.GD.Print($"  LIGHTNING GATES (3 modes, max wins)  active mode: {winner}");
         Godot.GD.Print($"    WET        = {wetGate:F3}   (cloud × rain — warm humid w/ rain)");
         Godot.GD.Print($"    DRY        = {dryGate:F3}   (cloud × low-humidity × high-temp — desert virga)");
@@ -671,18 +670,15 @@
     // cooldowns, AI timers, etc. stay at real speed.
     public static CVarFloat timeScale = new CVarFloat("time_scale", 1f);
 
-    // Set/read the current normalized time-of-day on the active world.
-    // 0 = sunrise, 0.25 = noon, 0.5 = sunset, 0.75 = midnight, 1 = the next
-    // sunrise (where the clock pauses until a sleep). Clamped to [0, 1];
-    // setting via console jumps the sun/moon orbit immediately within the day.
+    // Jump the active world's clock FORWARD to the next time of day `v`
+    // (0 = sunrise, 0.25 = noon, 0.5 = sunset, 0.75 = midnight). The clock never
+    // runs backward, so an earlier time lands on tomorrow and rolls the dawn on
+    // the way — deadlines and the day's weather stay consistent.
     // NOTE: this only takes effect with a world loaded, so setting it from
     // cvars.txt or the command line is dropped — use the in-game console.
     public static CVarFloat timeOfDay = new CVarFloat("time_of_day", 0.05f, (cvar) =>
     {
-        WorldState ws = Sim.Current?.WorldState;
-        if (ws == null) { return; }
-        double v = System.Math.Clamp((double)((CVarFloat)cvar).Value, 0.0, 1.0);
-        ws.TimeOfDay01 = v;
+        Sim.Current?.AdvanceClockToTimeOfDay(((CVarFloat)cvar).Value);
     });
 
     // Swaps the MainCamera between authored framing presets (CameraAngleSettings)
@@ -2524,12 +2520,20 @@
     // spending from it. Reagent-costed interactives still charge.
     public static CVarBool freeSpells = new CVarBool("spells_free", false);
 
-    // `next_day` — roll straight to the next sunrise, firing OnNewDay (and so
-    // every world-script OnNewDay hook) without a camp sleep. Sim-only: no
-    // fade, no heal, and deliberately no autosave over the dev save.
+    // `next_day` — skip straight to the next sunrise, rolling the dawn (and so
+    // every world-script OnDawn hook) without resting. Sim-only: no fade, no
+    // heal, and deliberately no autosave over the dev save.
     public static CVar nextDay = new CVar("next_day", (cvar) =>
     {
-        Sim.Current?.AdvanceToNextSunrise();
+        Sim.Current?.AdvanceClockToTimeOfDay((float)WorldState.SunriseTimeOfDay01);
+    });
+
+    // `rest` — rest the party exactly as a camp sleep does (skip to sunrise, then
+    // the spawn reset, well-rested pick, leader + spell reset and OnRest) without
+    // the fade or the autosave.
+    public static CVar rest = new CVar("rest", (cvar) =>
+    {
+        Sim.Current?.PerformSleepAdvance(0.0, 0.0, toSunrise: true);
     });
 
     // Headless data-integrity check: `--headless -- "resource_check 1"` reports

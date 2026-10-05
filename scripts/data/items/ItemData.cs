@@ -22,12 +22,11 @@ public partial class ItemData : Resource
 
 	// In-world days this item keeps before it spoils. 0 = never spoils (the
 	// default). Perishables (meat, mushrooms) set this; on acquisition the deadline
-	// (DayNumber + spoilDays) is stamped onto the acquired units as a spoil cohort
-	// (ItemState.StampSpoilDay). A same-kind stack shows as ONE inventory pile
-	// regardless of when its units were gathered — batches gathered on different
-	// days coexist as cohorts and are consumed oldest-first — while the day roll
-	// (Player.ExpireForDay, SimState.PruneExpiredPerishables) sheds only the cohorts
-	// whose day has arrived. Dropped Loot never needs it: ResetSpawns sweeps it.
+	// (WorldClockDays + spoilDays) is stamped onto the acquired units as a spoil
+	// cohort (ItemState.StampSpoilClock). A same-kind stack shows as ONE inventory
+	// pile regardless of when its units were gathered — batches gathered at
+	// different times coexist as cohorts and are consumed oldest-first — while
+	// Sim.SweepDeadlines sheds only the cohorts whose deadline has passed. Dropped Loot never needs it: ResetSpawns sweeps it.
 	[Export(PropertyHint.Range, "0,60,1,or_greater")] public int spoilDays;
 	// Subjective worth of one unit. Mob.CalculatePersonalValue starts from this
 	// and lets per-mob preferences scale it (a vegetarian villager values a

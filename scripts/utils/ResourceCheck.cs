@@ -27,6 +27,10 @@ using System.Text;
 //   of, so "physical" is never inferred from an empty mask. Rides on the load
 //   sweep's loaded graph, since almost every DamageData is a [sub_resource]
 //   inside a weapon / mob / status file rather than a .tres of its own.
+//
+//   Day-clock curves — a Curve over TimeOfDay01 ([TimeOfDayCurve]) must read
+//   the same at 0 and 1. The clock wraps from 1 straight to 0 at sunrise in
+//   plain sight, so a mismatch is an audible / visible jump every dawn.
 public static class ResourceCheck
 {
     private const string ResourceRoot = "res://resources";
@@ -194,6 +198,7 @@ public static class ResourceCheck
             }
             loaded++;
             WalkForDamageTags(res, path, problems);
+            CheckTimeOfDayCurves(res, path, problems);
 
             string declared = DeclaredScriptClass(path);
             if (string.IsNullOrEmpty(declared))
@@ -209,6 +214,43 @@ public static class ResourceCheck
         }
 
         return loaded;
+    }
+
+    // --- pass 4: day-clock curves wrap ------------------------------------
+
+    // How far apart a [TimeOfDayCurve]'s two ends may sample before the dawn
+    // wrap counts as a jump.
+    private const float TimeOfDayWrapTolerance = 0.001f;
+
+    private static void CheckTimeOfDayCurves(Resource res, string path, List<string> problems)
+    {
+        for (Type t = res.GetType(); t != null && t != typeof(Resource); t = t.BaseType)
+        {
+            CheckTimeOfDayCurves(res, t, path, problems);
+        }
+    }
+
+    private static void CheckTimeOfDayCurves(Resource res, Type declaring, string path, List<string> problems)
+    {
+        foreach (MemberInfo m in ExportedMembers(declaring))
+        {
+            if (m.GetCustomAttribute<TimeOfDayCurveAttribute>() == null)
+            {
+                continue;
+            }
+            object value = m is FieldInfo f ? f.GetValue(res) : ((PropertyInfo)m).GetValue(res);
+            if (value is not Curve curve || curve.PointCount == 0)
+            {
+                continue;
+            }
+            float atStart = curve.Sample(0f);
+            float atEnd = curve.Sample(1f);
+            if (Mathf.Abs(atStart - atEnd) > TimeOfDayWrapTolerance)
+            {
+                problems.Add($"{path}: {m.Name} reads {atStart:0.###} at 0 but {atEnd:0.###} at 1 — "
+                    + "the day clock wraps 1 → 0 at sunrise, so this jumps every dawn");
+            }
+        }
     }
 
     // --- pass 3: damage-type tags ----------------------------------------
@@ -375,4 +417,12 @@ public static class ResourceCheck
         }
         da.ListDirEnd();
     }
+}
+
+// Marks an [Export] Curve whose X axis is the day clock (TimeOfDay01). The
+// clock wraps from 1 to 0 at every sunrise, so resource_check requires the
+// curve to read the same at both ends.
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+public sealed class TimeOfDayCurveAttribute : Attribute
+{
 }

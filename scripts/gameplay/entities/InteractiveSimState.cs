@@ -239,9 +239,9 @@ public class BerryTreeSimState : RegrowSimState
     // count across save/load.
     public int BerryCount;
 
-    // Inherited RegrowDay is the harvest deadline: bare (picked) while the world
-    // day is below it, ripe again once reached. A half-harvested forest stays
-    // half-harvested across save/load.
+    // Inherited RegrowAtClock is the harvest deadline: bare (picked) until the
+    // in-world clock reaches it, ripe again once reached. A half-harvested forest
+    // stays half-harvested across save/load.
     public BerryTreeSimState(Vector3 worldPosition, PackedScene scene, int berryCount)
         : base(worldPosition, scene)
     {
@@ -427,12 +427,17 @@ public class FireTrapSimState : EntitySimState
 }
 
 // Smithing forge (weapon/armor granting station). Distinct from the Campfire
-// cooking station — no lit state, no cook jobs. Inherited RegrowDay is the daily
-// cooldown deadline (stamped to DayNumber + 1 on use).
+// cooking station — no lit state, no cook jobs. Inherited RegrowAtClock is the
+// cooldown deadline (stamped on use).
 public class ForgeSimState : RegrowSimState
 {
     // Power tier stamped onto every item the forge mints (see ItemState.level).
     public int Level;
+
+    // Times the forge has been used. Seeds the offered upgrade (ForgeOffer.Resolve)
+    // so the offer changes only when the forge is used — the floating preview is
+    // always what the player will actually receive.
+    public int Uses;
 
     // Concrete upgrade slot this forge grants into — resolved at bake time from the
     // spawn entry (authored, or position-derived). Fixed for the forge's lifetime;
@@ -458,11 +463,11 @@ public class ForgeSimState : RegrowSimState
 }
 
 // Anything the player drinks from (see Fountain). The drink's effects, cooldown
-// and enabling flag are the placement's; RegrowDay is the only runtime state.
+// and enabling flag are the placement's; RegrowAtClock is the only runtime state.
 public class FountainSimState : RegrowSimState
 {
     public ItemEffect[] Effects;
-    // 0 = usable any number of times.
+    // In-world days before it can be drunk from again. 0 = usable any number of times.
     public int CooldownDays;
 
     public FountainSimState(Vector3 worldPosition, PackedScene scene, ItemEffect[] effects, int cooldownDays)
@@ -486,7 +491,7 @@ public class FountainSimState : RegrowSimState
 // Forageable resource node (mushroom patch, herb clump). A fixed, persistent
 // anchor that presents a pickup while ripe and re-grows it after RegrowDays. The
 // node owns nothing the player picks up directly — it spawns a transient Loot
-// (the mushroom) and re-arms via the inherited RegrowDay when that Loot is
+// (the mushroom) and re-arms via the inherited RegrowAtClock when that Loot is
 // collected, so Loot itself stays a dumb ephemeral pickup. Item + RegrowDays are
 // carried here (from ForageSpawnEntry) so one spawner scene serves every
 // forageable variant.

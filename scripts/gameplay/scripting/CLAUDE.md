@@ -34,7 +34,7 @@ Mod-friendly and quick to author, kept safe by a declared set + two-layer valida
 
 ## World scripts — logic per world
 
-`WorldScriptData` (the world's `WorldStartData.scriptData`) has virtual hooks — `OnNewDay`, `OnNightfall`, `OnVariableChanged`, `OnMobKilled` — that `Sim` calls (`Sim.WorldScript.cs`). A world that needs logic subclasses it (`scripts/world_scripts/TestWorldScript.cs`) and its `.tres` names the subclass.
+`WorldScriptData` (the world's `WorldStartData.scriptData`) has virtual hooks — `OnDawn`, `OnRest`, `OnNightfall`, `OnVariableChanged`, `OnMobKilled` — that `Sim` calls (`Sim.WorldScript.cs`). A world that needs logic subclasses it (`scripts/world_scripts/TestWorldScript.cs`) and its `.tres` names the subclass.
 
 - **A script holds no state.** It is a shared resource and nothing on it is saved; whatever it must remember goes in a script variable. `TestWorldScript`'s `town_gate_locked` is both the gate's disabled variable and its run-once guard.
 - **A script reaches the game only through `WorldScriptApi`** — variables, `OpenDoor` / `CloseDoor` by placement name. Add a verb there rather than handing out `Sim`; it is the surface a future data-driven trigger would share.

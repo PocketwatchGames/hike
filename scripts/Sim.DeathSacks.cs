@@ -62,7 +62,7 @@ public partial class Sim
     }
 
     // Spill the sack's contents as ordinary pickups and remove it for good. The
-    // pickups are dropped loot, so the next sunrise sweeps whatever is left lying.
+    // pickups are dropped loot, so the next rest sweeps whatever is left lying.
     public void OpenDeathSack(DeathSack node, DeathSackSimState sack)
     {
         if (sack == null)

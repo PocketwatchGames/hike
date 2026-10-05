@@ -34,18 +34,18 @@ public class SimState
     // this on camping, and cooking pulls ingredients from it. Persisted by SaveGame.
     public readonly List<ItemState> PartyMaterialStash = new();
 
-    // Age the shared party stashes at the sunrise day rollover: prune each stack's
-    // spoiled cohorts (meat, mushrooms) in place and drop any stack that empties,
-    // mirroring the backpack sweep in Player.ExpireForDay. Called from
-    // Sim.AdvanceToNextSunrise. The equipment stash is swept too for symmetry;
-    // equipment carries no perishable cohorts, so it's a no-op there.
-    public void PruneExpiredPerishables(int dayNumber)
+    // Age the shared party stashes: prune each stack's spoiled cohorts (meat,
+    // mushrooms) in place and drop any stack that empties, mirroring the backpack
+    // sweep in Player.ExpireDue. Called from Sim.SweepDeadlines. The equipment
+    // stash is swept too for symmetry; equipment carries no perishable cohorts,
+    // so it's a no-op there.
+    public void PruneExpiredPerishables(double nowClock)
     {
-        PruneExpiredStash(PartyMaterialStash, dayNumber);
-        PruneExpiredStash(PartyEquipmentStash, dayNumber);
+        PruneExpiredStash(PartyMaterialStash, nowClock);
+        PruneExpiredStash(PartyEquipmentStash, nowClock);
     }
 
-    private static void PruneExpiredStash(List<ItemState> stash, int dayNumber)
+    private static void PruneExpiredStash(List<ItemState> stash, double nowClock)
     {
         for (int i = stash.Count - 1; i >= 0; i--)
         {
@@ -56,7 +56,7 @@ public class SimState
             }
             // Spoiled food cohorts drop in place; the stack leaves the stash only
             // when it empties out.
-            item.PruneExpired(dayNumber);
+            item.PruneExpired(nowClock);
             if (item.stackCount <= 0)
             {
                 stash.RemoveAt(i);
@@ -125,7 +125,7 @@ public class SimState
     // / OnBirdsEyeReturnComplete.
     public Vector3? ActiveClimbTreePosition;
 
-    // Per-forge marker cache (reactivation day + level), keyed by quantized world
+    // Per-forge marker cache (reactivation deadline + level), keyed by quantized world
     // position, so the map can tint a forge marker ready/inert (see IsMarkerActive),
     // pick its slot icon, and stamp its level even while the forge's chunk is
     // unloaded. A forge registers itself here on stream-in and on use. Runtime
@@ -133,10 +133,11 @@ public class SimState
     // re-registers on stream-in.
     public readonly Dictionary<Vector3I, ForgeMarkerInfo> ForgeMarkers = new();
 
-    // Register a forge's reactivation day (0 = ready), level, and slot for map display.
-    public void SetForgeReactivate(Vector3 worldPos, int reactivateDay, int level, EUpgradeSlot slot)
+    // Register a forge's reactivation deadline (a WorldClockDays value, 0 = ready),
+    // level, and slot for map display.
+    public void SetForgeReactivate(Vector3 worldPos, double reactivateAtClock, int level, EUpgradeSlot slot)
     {
-        ForgeMarkers[MapMarkerRecord.KeyFor(worldPos)] = new ForgeMarkerInfo(reactivateDay, level, slot);
+        ForgeMarkers[MapMarkerRecord.KeyFor(worldPos)] = new ForgeMarkerInfo(reactivateAtClock, level, slot);
     }
 
     // Forge marker state for the map, if a forge is registered at this position.
@@ -545,7 +546,7 @@ public class SimState
     // stream-in, so a distant host still reads correctly.
     //   - Campfire: active = this is the world's single lit campfire.
     //   - Forge: active = usable (past its reactivation deadline; inert while on
-    //     its sunrise cooldown).
+    //     its cooldown).
     public bool IsMarkerActive(Vector3 worldPos)
     {
         Vector3I key = MapMarkerRecord.KeyFor(worldPos);
@@ -562,7 +563,7 @@ public class SimState
         }
         if (ForgeMarkers.TryGetValue(key, out ForgeMarkerInfo forge))
         {
-            return (Sim.Current?.DayNumber ?? 0) >= forge.ReactivateDay;
+            return (Sim.Current?.WorldClockDays ?? 0.0) >= forge.ReactivateAtClock;
         }
         // Knowledge stone: active (bright) while the party still has something to
         // learn from it; inactive (dim) once every concept it teaches is known in

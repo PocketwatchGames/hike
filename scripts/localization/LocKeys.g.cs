@@ -6,6 +6,7 @@ public static partial class Loc
 		weapon_name_prefix,
 		weapon_name_suffix,
 		status_duration_until_sunrise,
+		status_duration_until_time,
 		danger_nearby,
 		too_hurt_to_rest,
 		not_enough_health_to_revive,

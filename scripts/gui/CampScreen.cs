@@ -93,8 +93,8 @@ public partial class CampScreen : Control
 	bool _guidedMealPending;
 
 	// The sim-side party roster — source of the per-day leader pick (IsLeaderChosenToday,
-	// reset by the day-roll in Sim.RequireLeaderChoice). The reset lives in sim so it
-	// tracks the day-roll events (sleep / respawn / pray), not this UI.
+	// reset by a rest via Sim.RequireLeaderChoice). The reset lives in sim so it
+	// tracks the rest events (sleep / respawn / pray), not this UI.
 	Party SimParty => _player?.Sim?.WorldState?.SimState?.Party;
 
 	// Any alchemy spell is known — the Select-Spell button is only enabled when
@@ -417,11 +417,10 @@ public partial class CampScreen : Control
 	}
 
 	// Wake callback from GameClient.EndSleep: the input gate was handed back to us
-	// rather than released, so the player is still camping. A rest to sunrise rolled the
-	// day, so the sim reset the leader + spell pick (Sim.RequireLeaderChoice + the
-	// client's OnNewDay attunement clear) — the player must re-pick (guided flow, Leave
-	// disabled). A 1-hour nap rolls nothing, so the choice stands and we just re-bind the
-	// sleep view to refresh its health / time readout.
+	// rather than released, so the player is still camping. A rest to sunrise reset
+	// the leader + spell pick (Sim.RestToSunrise) — the player must re-pick (guided
+	// flow, Leave disabled). A 1-hour nap is not a rest, so the choice stands and we
+	// just re-bind the sleep view to refresh its health / time readout.
 	void RestoreFromSleep()
 	{
 		if (!_open)

@@ -16,9 +16,9 @@ public class Party
 	readonly List<PlayerState> _members = new();
 	int _activeIndex;
 
-	// Whether the day's leader has been committed at a campfire. The day-roll
-	// (Sim.AdvanceToNextSunrise: sleep-to-sunrise, the death "sleep off", pray-home)
-	// clears it via RequireLeaderChoice, so the next camp forces a fresh pick; the
+	// Whether the day's leader has been committed at a campfire. A rest
+	// (Sim.RestToSunrise: sleep-to-sunrise, the death wake, pray-home) clears it
+	// via RequireLeaderChoice, so the next camp forces a fresh pick; the
 	// camp commits it with MarkLeaderChosen. A plain same-day campfire visit leaves it
 	// set, so the player can back out without re-picking. Starts true — a new game
 	// already controls its starting member.
@@ -126,8 +126,8 @@ public class Party
 		return _members.Count - 1;
 	}
 
-	// Advance the daily rest bookkeeping and pick this day's "well rested" member.
-	// Called once per sunrise (Sim.OnNewDay). Clears yesterday's pick, ages every
+	// Advance the rest bookkeeping and pick this rest's "well rested" member.
+	// Called once per rest (Sim.RestToSunrise). Clears the last pick, ages every
 	// member's rest counter (the still-controlled member stays at 0 — they're
 	// being used, so they can never be their own well-rested pick), then draws one
 	// idle member weighted by how long they've rested. A freshly recruited member

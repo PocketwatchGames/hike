@@ -1347,9 +1347,9 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Refill every carried lantern's fuel to full. Called at each sunrise
-	// (GameClient.OnNewDayRefuelLanterns), on respawn, and at a fountain
-	// (Fountain LanternFuel) — NOT when merely visiting a campfire. Refuels
+	// Refill every carried lantern's fuel to full. Called at a campfire
+	// (Sim.RefuelPartyLanterns: camping there, or arriving home at one) and at a
+	// fountain (Fountain LanternFuel) — never by a dawn or a sleep alone. Refuels
 	// lanterns in any slot whether lit or not, so it's topped off before you
 	// set out.
 	public void RefuelLantern()

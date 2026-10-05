@@ -13,7 +13,7 @@ using Godot;
 // (ZoneData.canSpawnFairy) a roll against that zone's ZoneData.fairySpawnChance
 // decides whether a fairy actually appears. At most SimData.fairyMaxSpawnsPerDay
 // spawn in a day, and once the player has killed SimData.fairyKillStopCount of them
-// no more spawn until the next day. All per-day counters reset on Sim.OnNewDay.
+// no more spawn until the next day. All per-day counters reset on Sim.OnDawn.
 //
 // Spawns are TRANSIENT (Sim.SpawnMobTransient with ESpawnConditions.None — which
 // the off-condition cleanup ignores) — like the night gellies they live only near
@@ -57,7 +57,7 @@ public partial class FairySpawner : Node
     // chunk-unloaded) drop out as their node dies.
     private readonly List<(Mob mob, ulong expireMs)> _living = new();
 
-    // The World whose onMobKilled / OnNewDay we track. Bound in _Ready (this
+    // The World whose onMobKilled / OnDawn we track. Bound in _Ready (this
     // node is created by Sim.Initialize after Sim.Current is set) and dropped
     // in _ExitTree — no re-bind needed since a FairySpawner lives and dies with
     // its World.
@@ -70,7 +70,7 @@ public partial class FairySpawner : Node
         if (_subscribedWorld != null)
         {
             _subscribedWorld.onMobKilled += OnMobKilled;
-            _subscribedWorld.OnNewDay += OnNewDay;
+            _subscribedWorld.OnDawn += OnDawn;
         }
     }
 
@@ -79,12 +79,13 @@ public partial class FairySpawner : Node
         if (_subscribedWorld != null)
         {
             _subscribedWorld.onMobKilled -= OnMobKilled;
-            _subscribedWorld.OnNewDay -= OnNewDay;
+            _subscribedWorld.OnDawn -= OnDawn;
             _subscribedWorld = null;
         }
     }
 
-    private void OnNewDay(int dayNumber)
+    // A fairy day runs dawn to dawn — its boons expire at sunrise too.
+    private void OnDawn()
     {
         _decidedPeriod = 0;
         _pendingSpawn = false;
@@ -118,8 +119,8 @@ public partial class FairySpawner : Node
         }
 
         // Which day-period are we in? Equal slices of sunrise→midnight, not of the
-        // whole clock — the post-midnight hours are the dark run-out to the day's
-        // end, and a daytime spawner has no business making decisions in them.
+        // whole clock — the small hours belong to the night, and a daytime spawner
+        // has no business making decisions in them.
         int periods = Mathf.Max(1, data.fairyDayPeriods);
         int currentPeriod = Mathf.Clamp(
             Mathf.FloorToInt((float)(sim.WorldState.TimeOfDay01 / WorldState.MidnightTimeOfDay01) * periods),

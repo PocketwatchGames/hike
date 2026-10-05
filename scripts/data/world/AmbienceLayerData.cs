@@ -39,11 +39,12 @@ public partial class AmbienceLayerData : Resource
     [Export] public Curve pitchCurve;
 
     // Time-of-day envelope. X = TimeOfDay01 (0=sunrise, 0.25=noon, 0.5=sunset,
-    // 0.75=midnight, 1=the next sunrise), Y = additional volume multiplier.
+    // 0.75=midnight, 1=the next sunrise — must match 0), Y = additional volume
+    // multiplier.
     // Insect bed layers gate themselves entirely on this (high near dusk, low
     // at noon). Wind layers should leave this null (treated as flat 1.0) so
     // wind responds to sim, not clock.
-    [Export] public Curve timeOfDayVolume;
+    [Export, TimeOfDayCurve] public Curve timeOfDayVolume;
 
     // Optional secondary gate field. If set (anything other than the
     // sentinel `Constant` and a non-null gateCurve), the layer's output

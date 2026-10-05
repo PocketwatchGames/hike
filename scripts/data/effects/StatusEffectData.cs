@@ -19,9 +19,9 @@ public enum EBuildupBehavior
 //   Timed      — expires `duration` seconds after apply (0 = no auto-expiry; the
 //                arming system or explicit Remove owns lifetime, e.g. Wet).
 //   Persistent — never expires on its own; gameplay code calls Remove.
-//   UntilSunrise — expires at the next day roll (a sleep to sunrise), however
-//                long the party stays up. A day deadline, never a clock time:
-//                only the day roll moves DayNumber, so only it ends these.
+//   UntilTimeOfDay — expires the next time the in-world clock reaches
+//                `expireAtTimeOfDay01` (0 = dawn), whenever it was applied —
+//                a fairy boon lasts until sunrise however late it was granted.
 //   Sustained  — kept alive by an ongoing external condition that pauses the
 //                timer while it holds (body temperature in a hot/cold zone).
 //                `duration` is the grace window the effect lingers AFTER the
@@ -35,7 +35,7 @@ public enum EDurationType
 {
 	Timed = 0,
 	Persistent = 1,
-	UntilSunrise = 2,
+	UntilTimeOfDay = 2,
 	Sustained = 3,
 }
 
@@ -137,8 +137,12 @@ public partial class StatusEffectData : Resource
 		}
 	}
 
-	// How this effect's lifetime ends (Timed / Persistent / UntilSunrise / Sustained). See EDurationType.
+	// How this effect's lifetime ends (Timed / Persistent / UntilTimeOfDay / Sustained). See EDurationType.
 	[Export] public EDurationType durationType = EDurationType.Timed;
+
+	// UntilTimeOfDay: the time of day it ends at, on the day clock (0 = sunrise,
+	// 0.25 = noon, 0.5 = sunset, 0.75 = midnight).
+	[Export(PropertyHint.Range, "0,1,0.0001")] public float expireAtTimeOfDay01;
 
 	// Timed / Sustained: seconds the effect lasts. For Timed, seconds after apply (0 =
 	// the arming system owns lifetime, e.g. Wet lives off the wetness meter). For

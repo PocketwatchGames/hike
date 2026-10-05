@@ -509,8 +509,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // skipped span. Same path as the per-frame tick, just one coarse step.
     public void TickStatusEffects(float dt) => _statusEffects?.Tick(dt);
 
-    public void ExpireForDay(int day) => _statusEffects?.ExpireForDay(day);
-
     // Rolls up HitInfo.dot per-frame damage / heal into one onDamage / onHeal
     // invocation per second. Same shape as the player's accumulator — a fast
     // poison or burn zone shouldn't spawn a floating number every physics

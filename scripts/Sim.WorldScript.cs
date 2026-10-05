@@ -22,7 +22,8 @@ public partial class Sim
             return;
         }
         _scriptApi = new WorldScriptApi(this);
-        OnNewDay += day => _worldState.ScriptData?.OnNewDay(_scriptApi, day);
+        OnDawn += () => _worldState.ScriptData?.OnDawn(_scriptApi);
+        OnRest += () => _worldState.ScriptData?.OnRest(_scriptApi);
         OnNightfall += () => _worldState.ScriptData?.OnNightfall(_scriptApi);
         onMobKilled += (species, byPlayer) => _worldState.ScriptData?.OnMobKilled(_scriptApi, species, byPlayer);
         ScriptVariableBank vars = _worldState.SimState?.ScriptVars;

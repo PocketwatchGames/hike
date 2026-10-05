@@ -1023,7 +1023,7 @@ public class StatusEffectController
 			return null;
 		}
 		ulong now = _world?.GameTimeMs ?? 0;
-		int nowDay = _world?.DayNumber ?? 0;
+		WorldState worldState = _world?.WorldState;
 		// suppressStackFx: a many-stack effect (Webbed) fires its start/loop fx only
 		// on the first stack. Computed before the add so it's true for every later
 		// stack or timer-refresh while at least one instance is already live.
@@ -1062,7 +1062,7 @@ public class StatusEffectController
 			}
 			if (count >= data.maxStack && oldest != null)
 			{
-				oldest.ArmTimer(now, nowDay);
+				oldest.ArmTimer(now, worldState);
 				if (!suppressFx)
 				{
 					SpawnStartFx(data);
@@ -1070,7 +1070,7 @@ public class StatusEffectController
 				return oldest;
 			}
 		}
-		var state = new StatusEffectState(data, now, nowDay) { level = level, appliedUpgradeSlot = appliedSlot, potency = potency, hazardProfile = hazard };
+		var state = new StatusEffectState(data, now, worldState) { level = level, appliedUpgradeSlot = appliedSlot, potency = potency, hazardProfile = hazard };
 		_statusEffects.Add(state);
 		if (!suppressFx)
 		{
@@ -1268,16 +1268,15 @@ public class StatusEffectController
 		_buildups.Clear();
 	}
 
-	// The day roll's half of expiry: drop every UntilSunrise instance whose day has
-	// come. Run from the day roll itself (Sim.AdvanceToNextSunrise / OnNewDay), never
-	// from Tick — DayNumber moves nowhere else, and polling it per frame left a gap in
-	// which the wake's autosave recorded an effect the new day had already ended.
-	public void ExpireForDay(int day)
+	// Drop every instance whose deadline has passed, without ticking anything —
+	// for an actor that isn't ticking (an idle party member) after the clock has
+	// moved (Sim.SweepDeadlines). Tick does the same for an actor that is.
+	public void ExpireDue(ulong nowMs, double nowClockDays)
 	{
 		for (int i = _statusEffects.Count - 1; i >= 0; i--)
 		{
 			StatusEffectState s = _statusEffects[i];
-			if (s.IsExpiredOnDay(day))
+			if (s.IsExpiredAt(nowMs, nowClockDays))
 			{
 				_statusEffects.RemoveAt(i);
 				EndFx(s);
@@ -1293,6 +1292,7 @@ public class StatusEffectController
 	public void Tick(float dt)
 	{
 		ulong now = _world?.GameTimeMs ?? 0;
+		double nowClock = _world?.WorldClockDays ?? 0.0;
 		// Buildup decay — runs even when _statusEffects is empty so a meter
 		// charged by one stray hit still drains back to zero. After the
 		// decay delay elapses, drop `buildupRemovalSpeed` units/sec; 0 speed
@@ -1343,7 +1343,7 @@ public class StatusEffectController
 			DamageOverTimeData dot = s.data.dot;
 			if (dot == null)
 			{
-				if (s.IsExpiredAt(now))
+				if (s.IsExpiredAt(now, nowClock))
 				{
 					_statusEffects.RemoveAt(i);
 					EndFx(s);
@@ -1396,7 +1396,7 @@ public class StatusEffectController
 					_applyMaxHealthDelta(dot.maxHealthDrainPerSecond);
 				}
 			}
-			if (s.IsExpiredAt(now))
+			if (s.IsExpiredAt(now, nowClock))
 			{
 				// The damage tick above may have shifted or emptied the list (a
 				// kill cascade), so `i` can no longer point at `s` — remove by

@@ -9,9 +9,17 @@ using Godot;
 // the two never share a mutation.
 public partial class Sim
 {
-    // Salts the daily "well rested" draw (AdvanceToNextSunrise →
+    // Salts the "well rested" draw (RestToSunrise →
     // Party.AdvanceRestAndPickWellRested) off WorldState.DailyRandom.
     private const int WELL_RESTED_SALT = 0x4E57;
+
+    // Every party member's Player node, controlled or idle — the client's own
+    // list, bound read-only (BindPartyNodes) so the two can never drift. The sim
+    // reaches the idle members through it for what is theirs to keep: deadlines
+    // (idle members don't tick), lantern fuel, the rest-time refresh.
+    private IReadOnlyList<Player> _partyNodes;
+
+    public void BindPartyNodes(IReadOnlyList<Player> partyNodes) => _partyNodes = partyNodes;
 
     // The active roster, or null before it's built. Read access for the client (it
     // reads ActiveIndex / members to drive the party UI); all WRITES go through the
@@ -70,23 +78,96 @@ public partial class Sim
                 ItemStash.Add(stash, material);
             }
         }
+        RefuelPartyLanterns();
         return banked;
     }
 
-    // Sleep behind the client's fade. toSunrise rolls to the next day and full-heals
-    // the controlled member (a DoT can't chip or kill them in their sleep); otherwise
-    // a nap integrates effects over `hours` then heals a fraction. A surviving
-    // companion wakes at the player's side (one that died stays dead).
+    // Top off every carried lantern on every member. The campfire's refill: run
+    // by the campfire interaction (CommitCamp) and by arriving home at one
+    // (ReturnHomeToSunrise) — never by a dawn or a sleep alone.
+    private void RefuelPartyLanterns()
+    {
+        if (_partyNodes == null)
+        {
+            _player?.RefuelLantern();
+            return;
+        }
+        for (int i = 0; i < _partyNodes.Count; i++)
+        {
+            _partyNodes[i]?.RefuelLantern();
+        }
+    }
+
+    // A night's sleep: skip to sunrise (rolling that dawn), then everything a
+    // rest resets — the controlled member wakes healed with transient effects
+    // cleared (a DoT can't chip or kill them in their sleep), the well-rested
+    // draw, the leader and spell picks, and the world's encounters. The shared
+    // path behind sleep-to-sunrise, pray home and the death wake.
+    private void RestToSunrise()
+    {
+        if (_worldState == null)
+        {
+            return;
+        }
+        SkipToNextSunrise();
+        if (_player != null && !_player.IsDead)
+        {
+            _player.ClearTransientStatusEffects();
+            _player.Heal(_player.MaxHealth);
+        }
+        Party party = Party;
+        party?.AdvanceRestAndPickWellRested(_worldState.DailyRandom(WELL_RESTED_SALT));
+        // The next camp forces a fresh leader + spell choice.
+        party?.RequireLeaderChoice();
+        if (_partyNodes != null)
+        {
+            for (int i = 0; i < _partyNodes.Count; i++)
+            {
+                _partyNodes[i]?.RefreshWellRested();
+                _partyNodes[i]?.Inventory?.ClearAttunement();
+            }
+        }
+        OnRest?.Invoke();
+        CleanupOffConditionMobs();
+        ResetSpawns();
+    }
+
+    // Expire what the in-world clock has reached on the party: effects with a
+    // time-of-day deadline and spoiled food, on every member (idle members don't
+    // tick their own effects) and in the shared stashes. Runs on the housekeeping
+    // interval and after every clock jump, so a wake's autosave never records
+    // something already over. Mobs expire their own effects in Tick.
+    private void SweepDeadlines()
+    {
+        if (_worldState == null)
+        {
+            return;
+        }
+        ulong nowMs = _worldState.GameTimeMs;
+        double nowClock = _worldState.WorldClockDays;
+        if (_partyNodes == null)
+        {
+            _player?.ExpireDue(nowMs, nowClock);
+        }
+        else
+        {
+            for (int i = 0; i < _partyNodes.Count; i++)
+            {
+                _partyNodes[i]?.ExpireDue(nowMs, nowClock);
+            }
+        }
+        _worldState.SimState?.PruneExpiredPerishables(nowClock);
+        OnDeadlinesSwept?.Invoke();
+    }
+
+    // Sleep behind the client's fade. toSunrise is a rest (RestToSunrise);
+    // otherwise a nap integrates effects over `hours` then heals a fraction. A
+    // surviving companion wakes at the player's side (one that died stays dead).
     public void PerformSleepAdvance(double hours, double healFractionPerHour, bool toSunrise)
     {
         if (toSunrise)
         {
-            AdvanceToNextSunrise();
-            if (_player != null && !_player.IsDead)
-            {
-                _player.ClearTransientStatusEffects();
-                _player.Heal(_player.MaxHealth);
-            }
+            RestToSunrise();
         }
         else
         {
@@ -104,10 +185,10 @@ public partial class Sim
         }
     }
 
-    // Pray-return-home: teleport the controlled member to `pos`, sleep to the next
-    // sunrise (clear transient effects, full-heal, refuel lanterns), and recall a
-    // surviving companion. Deliberately does NOT bank — that's the cost of the free
-    // trip. The client keeps the camera reframe, campfire relight, and camp screen.
+    // Pray-return-home: teleport the controlled member to `pos` (their campfire),
+    // rest to the next sunrise, refill lanterns at the fire, and recall a surviving
+    // companion. Deliberately does NOT bank — that's the cost of the free trip. The
+    // client keeps the camera reframe, campfire relight, and camp screen.
     public void ReturnHomeToSunrise(Vector3 pos)
     {
         if (_player == null)
@@ -115,13 +196,8 @@ public partial class Sim
             return;
         }
         _player.TeleportTo(pos);
-        AdvanceToNextSunrise();
-        if (!_player.IsDead)
-        {
-            _player.ClearTransientStatusEffects();
-            _player.Heal(_player.MaxHealth);
-        }
-        _player.RefuelLantern();
+        RestToSunrise();
+        RefuelPartyLanterns();
         Companion?.RecallToPlayer(pos);
     }
 

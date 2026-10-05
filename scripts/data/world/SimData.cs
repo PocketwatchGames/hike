@@ -173,8 +173,8 @@ public partial class SimData : Resource
 
     // Upgrade pool a Forge draws its single offered upgrade from. Each entry is a
     // slot-locked StatusEffectData (upgradeSlot != None) applied at the forge's
-    // level and expiring at the next sunrise (author with durationType UntilSunrise).
-    // A given forge deterministically offers one of these per day. Centralized here
+    // level; each authors its own lifetime (durationType). A given forge
+    // deterministically offers one of these per use. Centralized here
     // so the pool is tuned in one place, mirroring the fairy-boon pool above.
     // Empty = the forge offers nothing.
     [Export] public Array<StatusEffectData> forgeUpgrades = new();
@@ -681,29 +681,13 @@ public partial class SimData : Resource
     // more ambient fill.
     [Export(PropertyHint.Range, "0,0.5,0.01")] public float nightAmbientHumidityLift = 0.05f;
 
-    [ExportSubgroup("Nightfall")]
-    // Time-of-day the slide into full darkness begins. The moonlit night holds
-    // its brightness up to here; from here to the end of the day (1 = where the
-    // sun would rise) the sky fades out and then stays out. Sits after midnight
-    // (0.75) by default so the dark stretch is the pre-dawn hours.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float nightfallStartTimeOfDay = 0.85f;
-    // Skylight decays across the NightfallStartTimeOfDay→end-of-day window as
-    //     skyLight = (1 - t)^NightfallFalloff
-    // where t is 0 at the window's start and 1 at the end of the day. 1 = linear;
-    // >1 dims fast then lingers dim; <1 holds the brightness and plunges at the
-    // end. Everything the sky lights rides this curve — ambient,
-    // sun/moon intensity, the dome, stars, the moon disk (and so its water
-    // reflection), moon shafts, and the water-foam light floor.
-    [Export(PropertyHint.Range, "0.1,4,0.05")] public float nightfallFalloff = 0.5f;
-    // Skylight remaining once the window has closed. 0 = utterly black, block
-    // lights only — raise it if pitch dark reads as unplayable rather than tense.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float nightfallSkylightFloor = 0f;
+    [ExportSubgroup("Illumination")]
     // Direct-light intensity at or above which the open air counts as FULLY
     // lit, for the palette's Illumination scalar (fog haze color, water-foam
     // light floor). Well under moonlight by default, so day / dusk / moonlit
     // night all read as fully lit and only the vanishing end ramps down. This
     // is what makes anything self-lit-looking go dark for ANY reason the light
-    // dies — nightfall, or an eclipse — instead of on a clock.
+    // dies — heavy weather, or an eclipse — instead of on a clock.
     [Export(PropertyHint.Range, "0.01,2,0.01")] public float skyLightReference = 0.35f;
 
     [ExportSubgroup("Water")]
@@ -1247,9 +1231,9 @@ public partial class SimData : Resource
     // Sim.DarknessDwell / NightMobSpawner.
 
     // Shapes the TIME term: pow(nightProgress, this), where nightProgress is 0 at
-    // sunset → 1 at midnight (and 0 all day, so daylight danger comes only from
-    // darkness). >1 keeps early night calm and ramps hard toward midnight; 1 =
-    // linear. The clock holds at midnight, so peak danger persists until sleep.
+    // sunset → 1 at midnight → 0 at dawn (and 0 all day, so daylight danger comes
+    // only from darkness). >1 keeps the evening and the small hours calm and
+    // peaks hard around midnight; 1 = linear.
     [Export(PropertyHint.Range, "0.25,6,0.05")] public float nightTimeDangerCurve = 2.5f;
 
     // DARKNESS term. Total perceived light [0,1] at the player at/below which the
@@ -1332,7 +1316,7 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "2,12,1")] public int fairyDayPeriods = 6;
 
     // Hard ceiling on fairies spawned in a single day, regardless of how many blocks
-    // roll successfully. Counters reset on the day rollover (sleep-to-sunrise).
+    // roll successfully. Counters reset at each dawn.
     [Export(PropertyHint.Range, "1,20,1")] public int fairyMaxSpawnsPerDay = 5;
 
     // Once the player has killed this many fairies in a day, no more spawn until the

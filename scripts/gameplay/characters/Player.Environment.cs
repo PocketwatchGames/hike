@@ -414,7 +414,7 @@ public partial class Player : CharacterBody3D
 		}
 		if (state != null && !state.IsTimed)
 		{
-			state.ArmTimer(_world?.GameTimeMs ?? 0, _world?.DayNumber ?? 0);
+			state.ArmTimer(_world?.GameTimeMs ?? 0, _world?.WorldState);
 		}
 	}
 }

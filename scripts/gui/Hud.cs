@@ -688,19 +688,19 @@ public partial class Hud : Control
 		}
 	}
 
-	// Drive the clock-face weather widget: container rotation, the day→night icon
-	// crossfade at sunset, icon selection from the pre-rolled day / night weather
+	// Drive the clock-face weather widget: container rotation, the day/night icon
+	// crossfades at sunset and dawn, icon selection from the pre-rolled weather
 	// slots, and an alpha-fade when the player is buried far enough underground
 	// that no sunlight reaches their voxel.
 	//
-	// Rotation: 135° at sunrise (tod 0) → -135° at midnight (tod 0.75) → -225° at
-	//   the day's end (tod 1) — one full turn, 15°/hour.
-
-	// Day icon alpha:  fades in [0, 2·halfWidth], holds 1 to sunsetStart, fades
-	//   out [sunsetStart, sunsetEnd], then 0 through the night.
-	// Night icon alpha: 0 until sunsetStart, ramps 0→1 across the sunset window,
-	//   holds 1 to the day's end. At a fresh sunrise both are ~0, so the previous day's
-	//   night icon is gone rather than lingering into the new day.
+	// Rotation: 135° at sunrise (tod 0) → -135° at midnight (tod 0.75) → back to
+	//   135° at the next sunrise — one full turn, 15°/hour.
+	//
+	// The icons crossfade over the same windows the weather itself does
+	// (WeatherSimulation.ResolveSlots): day → night across sunset, night → day
+	// across dawn. The dawn window straddles the wrap, so near it each icon shows
+	// the slot it is fading toward or away from — tomorrow's DAY before the wrap,
+	// last night's NIGHT after it.
 	void UpdateWeatherWidget(double delta)
 	{
 		if (_weatherContainer == null || _weatherDay == null || _weatherNight == null)
@@ -715,22 +715,22 @@ public partial class Hud : Control
 		}
 
 		float tod = (float)ws.TimeOfDay01;
-		float halfWidth = simData.varianceCrossfadeHalfWidth01;
-		float sunsetStart = (float)WorldState.SunsetTimeOfDay01 - halfWidth;
-		float sunsetEnd = (float)WorldState.SunsetTimeOfDay01 + halfWidth;
-		float sunriseFadeEnd = 2f * halfWidth;
+		float halfWidth = Mathf.Max(simData.varianceCrossfadeHalfWidth01, 1e-4f);
+		float sunset = (float)WorldState.SunsetTimeOfDay01;
 
-		// Celestial dial: sweep the icons with the actual sun. The day runs
-		// sunrise (tod 0) → the next sunrise (tod 1) and the orbit spans a full
-		// turn over it, so the container rotates 135° → -225° (still 15°/hour,
-		// and still -135° at midnight).
+		// Celestial dial: sweep the icons with the actual sun, one full turn a day.
 		_weatherContainer.RotationDegrees = 135f - 360f * tod;
-		// Day icon fades in from sunrise and out at sunset; the night icon is
-		// absent until sunset, then fades in and holds through midnight. At a fresh
-		// sunrise (tod ≈ 0) both start at ~0 — the previous day's night icon is
-		// already gone, and the new day's icon fades up from nothing.
-		float dayAlpha = ComputeDayIconAlpha(tod, 0f, sunriseFadeEnd, sunsetStart, sunsetEnd);
-		float nightAlpha = Mathf.Clamp((tod - sunsetStart) / Mathf.Max(sunsetEnd - sunsetStart, 1e-4f), 0f, 1f);
+		// Crossfade progress through each window: 0 before it, 1 after. The dawn
+		// window is measured from the nearest sunrise, so it runs continuously
+		// across the wrap.
+		bool morning = tod < sunset;
+		float fromDawn = morning ? tod : tod - 1f;
+		float dawnT = Mathf.Clamp((fromDawn + halfWidth) / (2f * halfWidth), 0f, 1f);
+		float sunsetT = Mathf.Clamp((tod - (sunset - halfWidth)) / (2f * halfWidth), 0f, 1f);
+		float dayAlpha = morning ? Mathf.Min(dawnT, 1f - sunsetT) : Mathf.Max(1f - sunsetT, dawnT);
+		float nightAlpha = morning ? Mathf.Max(1f - dawnT, sunsetT) : Mathf.Min(sunsetT, 1f - dawnT);
+		WeatherSlot daySlot = tod >= 1f - halfWidth ? ws.NextDaySlot : ws.DaySlot;
+		WeatherSlot nightSlot = tod < halfWidth ? ws.PrevNightSlot : ws.NightSlot;
 
 		Vector3 pos = _player?.GlobalPosition ?? Vector3.Zero;
 		int sunBfs = ws.GetSunlightWorld(
@@ -763,15 +763,15 @@ public partial class Hud : Control
 		CopyWeather(_forecastEnvelope, _forecastDayPeak);
 		CopyWeather(_forecastEnvelope, _forecastNightTrough);
 
-		// Forecast source per icon: the day icon shows the pre-rolled DAY weather
-		// slot at the day plateau, the night icon the NIGHT slot at the night
-		// trough. Both slots are rolled at sunrise (WorldState.RollDailyWeather),
-		// so the whole day — and tonight — is known up front with no phase
-		// bookkeeping. Slope 0: the icon shows the steady-state plateau.
+		// Forecast source per icon: the day icon shows its DAY slot at the day
+		// plateau, the night icon its NIGHT slot at the night trough (slots chosen
+		// above). Every slot is rolled at dawn (WorldState.RollDailyWeather), so
+		// the whole day — and tonight — is known up front. Slope 0: the icon shows
+		// the steady-state plateau.
 		WeatherSimulation.ApplyAtDiurnal(_forecastDayPeak, _forecastZone, elevation, simData,
-			diurnal: 1f, ws.DayWeatherVariance, 0f, ws.DayHumidityVariance, ws.DayCloudVariance, ws.DayLightningVariance);
+			diurnal: 1f, daySlot.Weather, 0f, daySlot.Humidity, daySlot.Cloud, daySlot.Lightning);
 		WeatherSimulation.ApplyAtDiurnal(_forecastNightTrough, _forecastZone, elevation, simData,
-			diurnal: 0f, ws.NightWeatherVariance, 0f, ws.NightHumidityVariance, ws.NightCloudVariance, ws.NightLightningVariance);
+			diurnal: 0f, nightSlot.Weather, 0f, nightSlot.Humidity, nightSlot.Cloud, nightSlot.Lightning);
 
 		PlayerData pd = _player?.data;
 		int dayTemp = ClassifyTemp(_forecastDayPeak, pd, includeSun: true);
@@ -837,15 +837,6 @@ public partial class Hud : Control
 		dst.rainAmount = src.rainAmount;
 		dst.lightningAmount = src.lightningAmount;
 		dst.dustAmount = src.dustAmount;
-	}
-
-	static float ComputeDayIconAlpha(float tod, float fadeInStart, float fadeInEnd, float fadeOutStart, float fadeOutEnd)
-	{
-		if (tod < fadeInStart) { return 0f; }
-		if (tod < fadeInEnd) { return (tod - fadeInStart) / (fadeInEnd - fadeInStart); }
-		if (tod < fadeOutStart) { return 1f; }
-		if (tod < fadeOutEnd) { return 1f - (tod - fadeOutStart) / (fadeOutEnd - fadeOutStart); }
-		return 0f;
 	}
 
 	// Pushes the minimap's two-state crossfade snapshot into the shader

@@ -5,12 +5,11 @@ using Godot;
 // offering a single slot-locked "upgrade" (a StatusEffectData with a non-None
 // upgradeSlot) drawn from SimData.forgeUpgrades. Accepting applies the upgrade at
 // this forge's Level — evicting whatever occupies that slot — and the forge goes
-// inert until the next in-world sunrise (a sim-clock deadline persisted on the sim
-// state so the cooldown survives chunk streaming and save/load). The upgrade
-// effects are authored as sunrise-expiring (durationType UntilSunrise), so they last
-// exactly one day, matching the forge's daily re-arm.
+// inert for _cooldownDays of in-world time (a clock deadline persisted on the sim
+// state so the cooldown survives chunk streaming and save/load). Each upgrade
+// authors its own lifetime (durationType).
 //
-// The offered upgrade is chosen deterministically from (world position, day), so
+// The offered upgrade is chosen deterministically from (world position, uses), so
 // the model hovering over the forge always previews what the player will get.
 // Instead of a single orb, the forge floats the model of the offered slot (melee
 // sword / ranged bow / armor shield), glowing purple while ready and darkened once
@@ -29,6 +28,8 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     // Voxels above the forge origin at which the orb light is deposited, so the
     // glow centers on the hovering model rather than the pedestal base.
     [Export] private int _orbLightHeight = 3;
+    // In-world days a used forge stays inert before it can grant again.
+    [Export(PropertyHint.Range, "0,30,0.05,or_greater")] private float _cooldownDays = 1f;
 
     // Slot models — one per upgrade slot, only the offered slot's model is shown.
     // The pivot spins + bobs; the visible model swaps every descendant mesh's
@@ -87,7 +88,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     {
         if (_world != null)
         {
-            _world.OnNewDay -= HandleNewDay;
+            _world.OnDeadlinesSwept -= HandleDeadlinesSwept;
         }
         if (_discoverable != null)
         {
@@ -110,7 +111,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
 
     // Wall-clock spin + bob only — a purely presentational hover, so it stays
     // smooth at render fps and doesn't drag under slow-mo. Ready/inert state is
-    // event-driven (use + OnNewDay), not polled here.
+    // event-driven (use + OnDeadlinesSwept), not polled here.
     public override void _Process(double delta)
     {
         if (_modelPivot == null)
@@ -124,30 +125,27 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         _modelPivot.RotateY(Mathf.DegToRad(_spinDegreesPerSecond) * (float)delta);
     }
 
-    // The forge re-arms at sunrise; re-roll the offer (a new day picks a new
-    // upgrade) and re-evaluate the glow when the day rolls over.
-    private void HandleNewDay(int day)
+    // Relight once the clock passes the cooldown deadline.
+    private void HandleDeadlinesSwept()
     {
-        RefreshOffer();
         ApplyReadyVisual(CanInteract());
     }
 
-    // Pick the offered upgrade for the day the forge is next usable — today while
-    // ready, tomorrow while inert — so the floating model previews what you'll
-    // actually receive. Deterministic in (position, day) so it's stable across
-    // streaming / reload and changes only when the forge re-arms.
+    // Pick the offered upgrade the forge will grant on its next use, so the
+    // floating model previews what you'll actually receive. Deterministic in
+    // (position, uses), so it's stable across streaming / reload and changes only
+    // when the forge is used.
     private void RefreshOffer()
     {
-        int today = Sim.Current?.DayNumber ?? 0;
         _offeredUpgrade = _simState == null
             ? null
-            : ForgeOffer.Resolve(_world?.SimData?.forgeUpgrades, _simState.WorldPosition, today, _simState.RegrowDay, _simState.Slot);
+            : ForgeOffer.Resolve(_world?.SimData?.forgeUpgrades, _simState.WorldPosition, _simState.Uses, _simState.Slot);
         ApplyOfferModel();
     }
 
     // The forge's fixed slot (authored on the spawn entry, or position-derived),
-    // resolved at bake time onto ForgeSimState.Slot. The offered upgrade rolls daily
-    // among those eligible for it, but the slot — and thus the floating model / marker
+    // resolved at bake time onto ForgeSimState.Slot. The offered upgrade rolls per
+    // use among those eligible for it, but the slot — and thus the floating model / marker
     // icon — is constant for this forge.
     private EUpgradeSlot OfferedSlot => _simState?.Slot ?? EUpgradeSlot.None;
 
@@ -245,10 +243,8 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
 
     public bool CanInteract()
     {
-        // Inert until the day advances past the reactivation day (stamped to the
-        // next sleep-to-sunrise on use). 0 = ready.
-        int today = Sim.Current?.DayNumber ?? 0;
-        return _simState == null || today >= _simState.RegrowDay;
+        // Inert until the clock passes the cooldown deadline stamped on use.
+        return _simState == null || _simState.IsRegrown(Sim.Current?.WorldClockDays ?? 0.0);
     }
 
     public bool CanActorInteract(Player player)
@@ -295,12 +291,13 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        _simState.RegrowDay = (Sim.Current?.DayNumber ?? 0) + 1;
+        _simState.StartRegrow(Sim.Current?.WorldClockDays ?? 0.0, _cooldownDays);
+        _simState.Uses++;
         // Keep the map-marker tint cache current so the icon dims immediately and
         // stays dim while this chunk is unloaded.
-        _world?.WorldState?.SimState?.SetForgeReactivate(_simState.WorldPosition, _simState.RegrowDay, _simState.Level, _simState.Slot);
-        // Snuff the glow immediately and preview tomorrow's offer (darkened);
-        // HandleNewDay relights it at the next sunrise.
+        _world?.WorldState?.SimState?.SetForgeReactivate(_simState.WorldPosition, _simState.RegrowAtClock, _simState.Level, _simState.Slot);
+        // Snuff the glow immediately and preview the next offer (darkened);
+        // HandleDeadlinesSwept relights it once the cooldown passes.
         RefreshOffer();
         ApplyReadyVisual(false);
     }
@@ -319,15 +316,15 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         instance._light?.Initialize(sim.WorldState, sim, lightPos);
         // Register this forge's cooldown deadline so its map marker tints
         // ready/inert even while the chunk is unloaded (mirrors LitCampfire).
-        sim.WorldState?.SimState?.SetForgeReactivate(data.WorldPosition, data.RegrowDay, data.Level, data.Slot);
+        sim.WorldState?.SimState?.SetForgeReactivate(data.WorldPosition, data.RegrowAtClock, data.Level, data.Slot);
         sim.AddChild(instance);
         // Pick the pedestal for this forge's tier (bigger station at higher levels).
         instance.ApplyLevelPedestal();
         // Resolve the offered upgrade + model, then snap to the ready/inert state
-        // (no fade on stream-in) and relight on the sunrise rollover.
+        // (no fade on stream-in) and relight once the cooldown passes.
         instance.RefreshOffer();
         instance.ApplyReadyVisual(instance.CanInteract(), fade: false);
-        sim.OnNewDay += instance.HandleNewDay;
+        sim.OnDeadlinesSwept += instance.HandleDeadlinesSwept;
         // Relight the orb once the player discovers the forge (starts Hidden).
         if (instance._discoverable != null)
         {

@@ -37,13 +37,13 @@ public class StatusEffectState
 	public HazardProfileData hazardProfile;
 
 	// Game-time (ms) at which a Timed effect expires. 0 = no ms timer
-	// (Persistent, UntilSunrise, or a paused situational timer — see PauseTimer).
+	// (Persistent, UntilTimeOfDay, or a paused situational timer — see PauseTimer).
 	public ulong expireTimeMs;
 
-	// The DayNumber whose sunrise ends an UntilSunrise effect; 0 = none. Only the
-	// day roll moves DayNumber, so only the day roll expires these
-	// (StatusEffectController.ExpireForDay) — the per-frame Tick never looks.
-	public int expireDay;
+	// The in-world clock value (WorldState.WorldClockDays) at which an
+	// UntilTimeOfDay effect expires; 0 = none. Absolute, so it survives save/load
+	// exactly as written.
+	public double expireClockDays;
 
 	// Seconds since the last per-second damage tick. Counts up to 1.0, then
 	// the actor's TickStatusEffects applies one chunk of damagePerSecond and
@@ -81,24 +81,26 @@ public class StatusEffectState
 	// equals its slot).
 	public EUpgradeSlot appliedUpgradeSlot = EUpgradeSlot.None;
 
-	public StatusEffectState(StatusEffectData data, ulong nowMs, int nowDay)
+	public StatusEffectState(StatusEffectData data, ulong nowMs, WorldState world)
 	{
 		this.data = data;
-		ArmTimer(nowMs, nowDay);
+		ArmTimer(nowMs, world);
 	}
 
 	// True when this instance carries an active expiry of either kind. False for
 	// Persistent effects and paused situational timers.
-	public bool IsTimed => expireTimeMs != 0 || expireDay != 0;
+	public bool IsTimed => expireTimeMs != 0 || expireClockDays != 0.0;
 
 	// Whether the HUD should render a shrinking countdown bar: a plain Timed
-	// ms-expiry only. An UntilSunrise effect ends when the party chooses to sleep,
-	// not on the clock, so it shows as persistent (icon only, no bar).
+	// ms-expiry only. An UntilTimeOfDay effect reads as a time of day on its info
+	// panel instead (icon only, no bar).
 	public bool ShowsCountdownBar => expireTimeMs != 0;
 
-	public bool IsExpiredAt(ulong nowMs) => expireTimeMs != 0 && nowMs >= expireTimeMs;
-
-	public bool IsExpiredOnDay(int day) => expireDay != 0 && day >= expireDay;
+	public bool IsExpiredAt(ulong nowMs, double nowClockDays)
+	{
+		return (expireTimeMs != 0 && nowMs >= expireTimeMs)
+			|| (expireClockDays != 0.0 && nowClockDays >= expireClockDays);
+	}
 
 	// Fraction of a Timed effect's lifetime remaining in [0, 1] for the HUD bar;
 	// 1 when it carries no ms timer.
@@ -125,16 +127,18 @@ public class StatusEffectState
 	public void PauseTimer()
 	{
 		expireTimeMs = 0;
-		expireDay = 0;
+		expireClockDays = 0.0;
 	}
 
 	// (Re)arm the expiry per data.durationType. Timed → now + duration;
-	// UntilSunrise → the next day roll; Persistent (and Timed with duration 0) →
-	// no timer, so the arming system or explicit Remove owns lifetime.
-	public void ArmTimer(ulong nowMs, int nowDay)
+	// UntilTimeOfDay → the next time the clock reaches data.expireAtTimeOfDay01;
+	// Persistent (and Timed with duration 0) → no timer, so the arming system or
+	// explicit Remove owns lifetime. `world` is null off the sim (item-side
+	// controllers before a world exists), which arms no clock deadline.
+	public void ArmTimer(ulong nowMs, WorldState world)
 	{
 		expireTimeMs = 0;
-		expireDay = 0;
+		expireClockDays = 0.0;
 		if (data == null)
 		{
 			return;
@@ -151,8 +155,11 @@ public class StatusEffectState
 					expireTimeMs = nowMs + (ulong)(data.duration * 1000f);
 				}
 				break;
-			case EDurationType.UntilSunrise:
-				expireDay = nowDay + 1;
+			case EDurationType.UntilTimeOfDay:
+				if (world != null)
+				{
+					expireClockDays = world.NextClockAt(data.expireAtTimeOfDay01);
+				}
 				break;
 		}
 	}
