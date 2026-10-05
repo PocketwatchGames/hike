@@ -1489,8 +1489,7 @@ public partial class AimingReticle : Node3D
 		// land there so the visible width matches the cone width at where the
 		// shot would actually hit. When fully accurate (offset ≈ 0) the
 		// markers collapse onto the main line, so we hide them instead.
-		float spread01 = ComputeSpread01();
-		float halfAngle = ItemEventHandlers.MAX_SPREAD_HALF_ANGLE * spread01;
+		float halfAngle = ComputeSpreadHalfAngle();
 		float spreadOffset = Mathf.Tan(halfAngle) * lineLength;
 		bool showSpread = spreadOffset > 1e-3f;
 		if (_spreadLineLeft != null) { _spreadLineLeft.Visible = showSpread; }
@@ -1879,7 +1878,7 @@ public partial class AimingReticle : Node3D
 	// Resolve the right-hand weapon's currently-relevant tier — the in-flight
 	// selected tier during a Charging phase, otherwise tier 0 (what an
 	// immediate fire would produce). Returns null when no profile is
-	// equipped. Shared by ComputeSpread01 and ResolveActiveAimType so spread
+	// equipped. Shared by ComputeSpreadHalfAngle and ResolveActiveAimType so spread
 	// sampling and aim-mode resolution always agree on which tier is "current".
 	ItemAction ResolveActiveTier(out float chargeT)
 	{
@@ -1901,10 +1900,10 @@ public partial class AimingReticle : Node3D
 		return profile.chargedActions[0];
 	}
 
-	// Spread fraction in [0, 1] for the right-hand ranged weapon. While
+	// Spread half-angle (radians) for the right-hand ranged weapon. While
 	// charging that slot, samples the live charge fraction; otherwise samples
 	// the snap tier at chargeT=0 — what would happen on an immediate fire.
-	float ComputeSpread01()
+	float ComputeSpreadHalfAngle()
 	{
 		ItemAction tier = ResolveActiveTier(out float chargeT);
 		if (tier == null) { return 0f; }

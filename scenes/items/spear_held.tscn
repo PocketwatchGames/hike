@@ -1,0 +1,37 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://b7hwld3k9mxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_hw"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="model_lit_shader"]
+
+[sub_resource type="ShaderMaterial" id="Mat_shaft"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.23, 0.18745, 0.1449, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_shaft"]
+material = SubResource("Mat_shaft")
+top_radius = 0.025
+bottom_radius = 0.03
+height = 2.0
+
+[sub_resource type="ShaderMaterial" id="Mat_head"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.55, 0.57, 0.6, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_head"]
+material = SubResource("Mat_head")
+top_radius = 0.0
+bottom_radius = 0.055
+height = 0.28
+
+[node name="SpearHeld" type="Node3D"]
+script = ExtResource("1_hw")
+
+[node name="Shaft" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+mesh = SubResource("CylinderMesh_shaft")
+
+[node name="Head" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.69, 0)
+mesh = SubResource("CylinderMesh_head")

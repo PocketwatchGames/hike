@@ -1,0 +1,41 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://b7hwld3k9mxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_hw"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="model_lit_shader"]
+
+[sub_resource type="ShaderMaterial" id="Mat_wood"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.45, 0.32, 0.18, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_iron"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.4, 0.41, 0.44, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_stock"]
+material = SubResource("Mat_wood")
+size = Vector3(0.08, 0.08, 0.7)
+
+[sub_resource type="BoxMesh" id="BoxMesh_limbs"]
+material = SubResource("Mat_iron")
+size = Vector3(0.75, 0.04, 0.06)
+
+[sub_resource type="BoxMesh" id="BoxMesh_string"]
+material = SubResource("Mat_wood")
+size = Vector3(0.7, 0.015, 0.015)
+
+[node name="CrossbowHeld" type="Node3D"]
+script = ExtResource("1_hw")
+
+[node name="Stock" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.1)
+mesh = SubResource("BoxMesh_stock")
+
+[node name="Limbs" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.42)
+mesh = SubResource("BoxMesh_limbs")
+
+[node name="String" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.3)
+mesh = SubResource("BoxMesh_string")

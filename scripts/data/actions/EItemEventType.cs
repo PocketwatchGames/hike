@@ -9,6 +9,8 @@ public enum EItemEventType
 {
 	Melee = 1 << 0,
 	Hitscan = 1 << 1,
+	// Spends one ammo from the driving weapon — or, on a Projectile event, one
+	// per projectile launched (see DoProjectile).
 	UseAmmo = 1 << 2,
 	ApplyStatusEffect = 1 << 3,
 	DecrementStack = 1 << 4,

@@ -10,7 +10,7 @@ public static class ItemEventHandlers
 	// swept once per Active tick (see ActionRunner.TickSustainedMelee); a plain
 	// event sweeps once with both edge flags set, which is the identical path.
 	//
-	// `alreadyHit` is the activation's accumulated set of hurtbox instance ids —
+	// `alreadyHit` is this swing's accumulated set of hurtbox instance ids —
 	// a target it already contains is skipped, so a window can stay overlapping
 	// without re-damaging. `windowStart` gates the once-per-swing opening cues
 	// (the smear); `windowEnd` gates the whiff cue, which can only be judged
@@ -107,7 +107,7 @@ public static class ItemEventHandlers
 				{
 					continue;
 				}
-				// One hit per target per activation. Add() is the claim: a target
+				// One hit per target per swing. Add() is the claim: a target
 				// already struck by this swing (an earlier tick of the same
 				// window) is skipped outright.
 				if (!alreadyHit.Add(hurtBox.GetInstanceId()))
@@ -333,16 +333,15 @@ public static class ItemEventHandlers
 		// Range scales the event's authored hitScanRange (chargedRangeScale
 		// multiplier, lerp from 1 at chargeT=0 to chargedRangeScale at
 		// chargeT=1). Spread perturbs the aim direction uniformly within a
-		// cone whose half-angle = MAX_SPREAD_HALF_ANGLE * spreadFraction,
-		// with spread = accuracySpread01 / lerp(1, chargedAccuracyScale,
+		// cone whose half-angle = spreadDegrees / lerp(1, chargedAccuracyScale,
 		// chargeT) so holding tightens.
 		ItemAction tier = action.selectedTier;
 		float chargeT = action.chargeT;
 		float rangeScale = ItemAction.SampleRangeScale(tier, chargeT);
-		float spreadScale = ItemAction.SampleAccuracySpread(tier, chargeT);
+		float spreadHalfAngle = ItemAction.SampleAccuracySpread(tier, chargeT);
 
 		Vector3 origin = actor.ActorWorldPosition + Vector3.Up;
-		Vector3 direction = ApplySpread(AimForward(actor, action.context, origin), spreadScale);
+		Vector3 direction = ApplySpread(AimForward(actor, action.context, origin), spreadHalfAngle);
 		Vector3 rayEnd = origin + direction * ev.hitScanRange * rangeScale;
 
 		var spaceState = world3D.DirectSpaceState;
@@ -742,10 +741,10 @@ public static class ItemEventHandlers
 		};
 
 		// Flat shots recompute their spread per shot inside the launch loop below;
-		// arced lobs solve one launch velocity here and reuse it. flatSpreadScale
+		// arced lobs solve one launch velocity here and reuse it. flatSpreadHalfAngle
 		// is captured here so the loop can re-sample ApplySpread for a volley.
 		Vector3 velocity = Vector3.Zero;
-		float flatSpreadScale = 0f;
+		float flatSpreadHalfAngle = 0f;
 		float lifetime;
 		float gravity = 0f;
 		bool noCollide = false;
@@ -787,7 +786,7 @@ public static class ItemEventHandlers
 			// proportionally; speed stays constant so flight feel doesn't change.
 			// The actual launch velocity is sampled per shot in the loop below.
 			float chargeT = action.chargeT;
-			flatSpreadScale = ItemAction.SampleAccuracySpread(tier, chargeT);
+			flatSpreadHalfAngle = ItemAction.SampleAccuracySpread(tier, chargeT);
 			float rangeScale = ItemAction.SampleRangeScale(tier, chargeT);
 			lifetime = ev.projectileLifetimeSeconds * rangeScale;
 		}
@@ -870,12 +869,19 @@ public static class ItemEventHandlers
 		// re-samples the accuracy spread per shot so the shots spread out; an arced
 		// lob reuses the single solved launch velocity.
 		int projectileCount = Mathf.Max(1, ev.projectileCount);
+		// An ammo-spending launch fires what the magazine can pay for, one ammo
+		// per projectile. A weapon with no magazine (maxAmmo 0) fires the full count.
+		if ((ev.type & EItemEventType.UseAmmo) != 0 && firingWeapon != null && firingWeapon.data.maxAmmo > 0)
+		{
+			projectileCount = Mathf.Min(projectileCount, firingWeapon.ammo);
+			firingWeapon.ammo -= projectileCount;
+		}
 		for (int shot = 0; shot < projectileCount; shot++)
 		{
 			Vector3 shotVelocity = velocity;
 			if (!ev.projectileArcing)
 			{
-				Vector3 direction = ApplySpread(AimForward(actor, action.context, origin), flatSpreadScale);
+				Vector3 direction = ApplySpread(AimForward(actor, action.context, origin), flatSpreadHalfAngle);
 				shotVelocity = direction * ev.projectileSpeed;
 			}
 			Projectile.Launch(
@@ -1511,6 +1517,11 @@ public static class ItemEventHandlers
 
 	public static void DoUseAmmo(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
+		// A launch spends its own ammo, one per projectile it fires.
+		if ((ev.type & EItemEventType.Projectile) != 0)
+		{
+			return;
+		}
 		if (action.context.primaryItem is WeaponState weapon && weapon.ammo > 0)
 		{
 			weapon.ammo--;
@@ -1912,11 +1923,6 @@ public static class ItemEventHandlers
 		return hit;
 	}
 
-	// Maximum spread cone half-angle, in radians, when the tier's spread
-	// fraction is 1.0. Tuned so an early-release bow shot is visibly
-	// inaccurate without being absurd. Per-tier accuracySpread01 scales this.
-	public const float MAX_SPREAD_HALF_ANGLE = 0.18f;
-
 	// Height above the actor's feet that projectiles launch from (the chest). For
 	// arced lobs it's also the drop used so the hump bottoms out at foot level.
 	private const float ArcLaunchHeight = 1f;
@@ -2029,13 +2035,12 @@ public static class ItemEventHandlers
 		return actor.ActorForward;
 	}
 
-	private static Vector3 ApplySpread(Vector3 forward, float spread01)
+	private static Vector3 ApplySpread(Vector3 forward, float halfAngle)
 	{
-		if (spread01 <= 0f)
+		if (halfAngle <= 0f)
 		{
 			return forward;
 		}
-		float halfAngle = Mathf.Clamp(spread01, 0f, 1f) * MAX_SPREAD_HALF_ANGLE;
 		// Uniform jitter on a cone around the forward axis. Use the actor's
 		// up as the rotation axis for the random heading; the elevation jitter
 		// rotates around an in-plane perpendicular axis.

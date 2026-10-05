@@ -1,0 +1,229 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
+[ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/combat/DamageDataModifier.cs" id="1_modifier"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_r0ajr"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_sulc1"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_in4wh"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
+[ext_resource type="PackedScene" uid="uid://dowapbty01c52" path="res://scenes/fx/sword_hit_creature.tscn" id="7_hitcreature"]
+[ext_resource type="PackedScene" uid="uid://dumwm365p4c8f" path="res://scenes/fx/sword_kill.tscn" id="7_hitkill"]
+[ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/fx/sword_hit_solid.tscn" id="7_hitsolid"]
+[ext_resource type="PackedScene" uid="uid://dkxvi0v1okv8f" path="res://scenes/fx/sword_attack_heavy.tscn" id="8_atkheavy"]
+[ext_resource type="PackedScene" uid="uid://dkxvm42mjkv8f" path="res://scenes/fx/sword_attack_light.tscn" id="8_atklight"]
+[ext_resource type="PackedScene" uid="uid://dmlri0vh6oc8f" path="res://scenes/fx/sword_charge_head.tscn" id="8_chghead"]
+[ext_resource type="PackedScene" uid="uid://dmlrncbt6oc8f" path="res://scenes/fx/sword_charge_loop.tscn" id="8_chgloop"]
+[ext_resource type="PackedScene" uid="uid://dmlruv4p6oc8f" path="res://scenes/fx/sword_charge_tail.tscn" id="8_chgtail"]
+[ext_resource type="PackedScene" uid="uid://dao14hlapsltn" path="res://scenes/fx/club_smear_heavy.tscn" id="9_smearheavy"]
+[ext_resource type="PackedScene" uid="uid://ncybxa3beup5" path="res://scenes/fx/club_smear_light.tscn" id="9_smearlight"]
+[ext_resource type="Texture2D" uid="uid://bamasnw1w56u3" path="res://assets/textures/items/Sword.png" id="15_3a20y"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="16_eda6u"]
+[ext_resource type="PackedScene" path="res://scenes/items/sword_held.tscn" id="17_held"]
+[ext_resource type="Resource" uid="uid://bswd4n1msetq7" path="res://resources/data/characters/human/anim_sets/sword.tres" id="20_animset"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
+[ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="22_parryfx"]
+
+[sub_resource type="Resource" id="Resource_event_light"]
+script = ExtResource("3_event")
+type = 1088
+range = 3.0
+nearWidth = 0.8
+farWidth = 4.0
+smearEffect = ExtResource("9_smearlight")
+smearClockwise = false
+animDuration = 0.4
+motionForwardSpeed = 10.0
+motionDuration = 0.1
+motionFreezeGravity = false
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitsolid")
+impactLethalEffect = ExtResource("7_hitkill")
+
+[sub_resource type="Resource" id="Resource_prwqy"]
+script = ExtResource("3_event")
+time = 50
+type = 1
+range = 3.0
+nearWidth = 0.8
+farWidth = 4.0
+smearEffect = ExtResource("9_smearlight")
+smearClockwise = false
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitsolid")
+impactLethalEffect = ExtResource("7_hitkill")
+impactDecibels = 1.2
+metadata/_custom_type_script = "uid://cmw4pa3roleml"
+
+[sub_resource type="Resource" id="Resource_sword_swing1"]
+script = ExtResource("21_repeat")
+metadata/_custom_type_script = "uid://mdffi1hq8u6y"
+
+[sub_resource type="Resource" id="Resource_sword_swing2"]
+script = ExtResource("21_repeat")
+metadata/_custom_type_script = "uid://mdffi1hq8u6y"
+
+[sub_resource type="Resource" id="Resource_sword_swing3"]
+script = ExtResource("21_repeat")
+damageMultiplier = 2.0
+cooldownSeconds = 0.8
+releaseEffect = ExtResource("8_atkheavy")
+metadata/_custom_type_script = "uid://mdffi1hq8u6y"
+
+[sub_resource type="Resource" id="Resource_req_no_swim"]
+script = ExtResource("4_state")
+forbidSwimming = true
+
+[sub_resource type="Resource" id="Resource_charged_light"]
+script = ExtResource("4_charged")
+displayName = &"Slash"
+chargeTime = 0.5
+activeDurationSeconds = 0.6
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_light"), SubResource("Resource_prwqy")])
+comboWindowMs = 600
+repeatActionOverrides = Array[ExtResource("21_repeat")]([SubResource("Resource_sword_swing1"), SubResource("Resource_sword_swing2"), SubResource("Resource_sword_swing3")])
+requirements = Array[ExtResource("4_in4wh")]([SubResource("Resource_req_no_swim")])
+speedMultiplierActive = 0.0
+releaseEffect = ExtResource("8_atklight")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
+
+[sub_resource type="Resource" id="Resource_event_heavy_anim"]
+script = ExtResource("3_event")
+type = 66624
+animName = 20
+motionForwardSpeed = 15.0
+motionFreezeGravity = false
+cameraShakeMagnitude = 1.0
+cameraShakeDuration = 0.4
+
+[sub_resource type="Resource" id="Resource_event_heavy_hit"]
+script = ExtResource("3_event")
+time = 50
+type = 1
+range = 5.0
+nearWidth = 1.0
+farWidth = 8.0
+smearEffect = ExtResource("9_smearheavy")
+smearClockwise = false
+damageProfileKey = &"charged"
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitsolid")
+impactLethalEffect = ExtResource("7_hitkill")
+impactDecibels = 1.5
+
+[sub_resource type="Resource" id="Resource_charged_heavy"]
+script = ExtResource("4_charged")
+displayName = &"Cleave"
+activeDurationSeconds = 0.5
+cooldownSeconds = 0.7
+staminaCost = 1.0
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy_anim"), SubResource("Resource_event_heavy_hit")])
+requirements = Array[ExtResource("4_in4wh")]([SubResource("Resource_req_no_swim")])
+maxSpeedCharging = 1
+speedMultiplierActive = 0.0
+chargeStartEffect = ExtResource("8_chghead")
+chargeLoopEffect = ExtResource("8_chgloop")
+chargeCancelEffect = ExtResource("8_chgtail")
+releaseEffect = ExtResource("8_atkheavy")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("5_profile")
+chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_light"), SubResource("Resource_charged_heavy")])
+autoActivateAtMax = false
+queueable = true
+queueWindowSeconds = 0.25
+
+[sub_resource type="Resource" id="Resource_charged_mod_crit"]
+script = ExtResource("1_modifier")
+overrides = 512
+damageMultiplier = 3.0
+knockbackDistance = 8.0
+addBuildups = []
+
+[sub_resource type="Resource" id="Resource_charged_mod_backstab"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 512
+damageMultiplier = 2.0
+addBuildups = []
+
+[sub_resource type="Resource" id="Resource_charged_damage"]
+script = ExtResource("1_damage")
+tags = 3201
+healthDamage = 50.0
+critChance = 0.1
+damageVariance = 0.25
+hitstun = 0.5
+knockbackDistance = 6.0
+knockbackTime = 0.5
+buildups = []
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_charged_mod_crit"), SubResource("Resource_charged_mod_backstab")])
+
+[sub_resource type="Resource" id="Resource_parry"]
+script = ExtResource("1_damage")
+tags = 3201
+healthDamage = 30.0
+damageVariance = 0.25
+hitstun = 0.7
+knockbackDistance = 4.0
+knockbackTime = 0.4
+buildups = []
+modifiers = []
+
+[sub_resource type="Resource" id="Resource_mod_crit"]
+script = ExtResource("1_modifier")
+overrides = 512
+damageMultiplier = 3.0
+knockbackDistance = 4.0
+addBuildups = []
+
+[sub_resource type="Resource" id="Resource_mod_backstab"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 512
+damageMultiplier = 1.5
+addBuildups = []
+
+[sub_resource type="Resource" id="Resource_damage"]
+script = ExtResource("1_damage")
+tags = 3201
+healthDamage = 25.0
+critChance = 0.1
+damageVariance = 0.25
+hitstun = 0.25
+knockbackDistance = 2.0
+knockbackTime = 0.25
+buildups = []
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
+
+[resource]
+script = ExtResource("2_weapon")
+damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
+&"charged": SubResource("Resource_charged_damage"),
+&"parry": SubResource("Resource_parry"),
+&"primary": SubResource("Resource_damage")
+})
+actionProfile = SubResource("Resource_profile")
+animSet = ExtResource("20_animset")
+blockArmor = 350.0
+blockArmorRechargeDelay = 2.0
+parryTimeMs = 350
+maxParryDamage = 300.0
+parryDamageProfileKey = &"parry"
+parryEffect = ExtResource("22_parryfx")
+blockDecibels = 1.0
+parryDecibels = 1.2
+displayName = &"Sword"
+description = "A sturdy blade with a heavy charged slash."
+value = 80
+inventorySprite = ExtResource("15_3a20y")
+heldModel = ExtResource("17_held")

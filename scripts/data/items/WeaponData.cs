@@ -101,8 +101,9 @@ public partial class WeaponData : ItemData
 	// assist disabled — fire flat along the yaw. Melee weapons leave this 0.
 	[Export] public float pitchRangeDegrees = 0f;
 
-	// Half-angle (in degrees) of the horizontal auto-aim cone. While aiming,
-	// the player's yaw is gently pulled toward the best mob inside this cone
+	// Half-angle (in degrees) of the horizontal auto-aim cone. While aiming (or,
+	// for a melee weapon, while one of its attacks charges or swings), the
+	// player's yaw is gently pulled toward the best mob inside this cone
 	// after the stick-driven rotation lands — the cone falls off smoothly so
 	// the player can still rotate freely outside it (full 360° preserved).
 	// 0 = yaw assist disabled.

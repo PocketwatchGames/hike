@@ -134,7 +134,8 @@ public partial class ItemEvent : Resource
 	// Which axis motionForwardSpeed drives along. Facing (default) commits the
 	// motion to the actor's body yaw — correct for weapon lunges / recoils.
 	// Movement follows active move input (falling back to facing) so a dash
-	// can travel independent of facing. Mobs always lunge along facing and
+	// can travel independent of facing. Target lunges at the player's
+	// aim-assist pick and stops at it. Mobs always lunge along facing and
 	// ignore this.
 	[Export] public EMotionDirection motionDirection = EMotionDirection.Facing;
 
@@ -274,7 +275,7 @@ public partial class ItemEvent : Resource
 
 	// Projectile fields. Spawned by DoProjectile at the actor's position,
 	// flying along the actor's forward (with the tier's accuracy spread
-	// applied via accuracySpread01). Damage on impact is resolved from the
+	// applied via ItemAction.spreadDegrees). Damage on impact is resolved from the
 	// firing weapon's damageProfiles dict via `damageProfileKey`.
 	// Authored inline rather than via a ProjectileData sub-resource because
 	// brand-new [GlobalClass] C# Resources don't reliably bind to typed
@@ -304,7 +305,8 @@ public partial class ItemEvent : Resource
 	// How many projectiles this event launches per fire. >1 fans a flat volley
 	// out by re-sampling the tier's accuracy spread per shot (a twin-missile
 	// swing, a shotgun blast). Ignored for arced lobs (they reuse the single
-	// solved launch velocity). 1 (default) = a single shot.
+	// solved launch velocity). 1 (default) = a single shot. With UseAmmo, each
+	// projectile costs one ammo and a short magazine fires what it has left.
 	[Export] public int projectileCount = 1;
 	// Arcing projectile: a fixed-shape, COLLISION-RESPECTING lob. The firing tier
 	// uses Arced (ground-cursor) aim; the hump rises projectileArcRise meters

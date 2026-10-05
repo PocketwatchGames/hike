@@ -158,10 +158,11 @@ public partial class ItemAction : Resource
 	// (the ring there is the small lock-on dot / mob silhouette halo).
 	[Export] public float positionalAreaRadius = 1.5f;
 
-	// Press-time spread fraction in [0, 1] for ranged events on this tier.
-	// 0 = pinpoint, 1 = full MAX_SPREAD_HALF_ANGLE cone. Melee ignores it.
-	// Combined with `chargedAccuracyScale` below to model "hold to steady".
-	[Export] public float accuracySpread01 = 0f;
+	// Press-time spread for ranged events on this tier: the half-angle, in
+	// degrees, of the cone each shot scatters within (10 = up to 10° either
+	// side of the aim). 0 = pinpoint. Melee ignores it. Combined with
+	// `chargedAccuracyScale` below to model "hold to steady".
+	[Export(PropertyHint.Range, "0,45,0.5,or_greater")] public float spreadDegrees = 0f;
 	// Within-tier charge response on Hitscan / Projectile events. Each event
 	// authors its own base firing stats (hitScanRange, projectileSpeed,
 	// projectileLifetimeSeconds); these scalars only modulate the FRACTION
@@ -174,9 +175,9 @@ public partial class ItemAction : Resource
 	// (and max launch speed, reach / lifetime) grow as the hold charges. 1.0
 	// (default) = no within-tier ramp; the tier fires at its event's authored
 	// range regardless of hold length.
-	// `chargedAccuracyScale` DIVIDES `accuracySpread01` as `chargeT` runs
-	// 0 → 1: at chargeT=0 spread = accuracySpread01; at chargeT=1 spread
-	// = `accuracySpread01 / chargedAccuracyScale`. 1.0 (default) = no
+	// `chargedAccuracyScale` DIVIDES `spreadDegrees` as `chargeT` runs
+	// 0 → 1: at chargeT=0 spread = spreadDegrees; at chargeT=1 spread
+	// = `spreadDegrees / chargedAccuracyScale`. 1.0 (default) = no
 	// tightening from holding. Asymmetric (divide, not multiply) because
 	// accuracy improves toward zero — a multiplicative 0→1 ramp can't
 	// reach pinpoint while still allowing a non-zero press value.
@@ -282,8 +283,8 @@ public partial class ItemAction : Resource
 		return Mathf.Lerp(1f, tier.chargedRangeScale, Mathf.Clamp(chargeT, 0f, 1f));
 	}
 
-	// Resolved spread fraction at the given chargeT. Press value
-	// `accuracySpread01` is divided by the lerp(1, chargedAccuracyScale,
+	// Resolved spread half-angle, in RADIANS, at the given chargeT. Press value
+	// `spreadDegrees` is divided by the lerp(1, chargedAccuracyScale,
 	// chargeT) — so chargeT=0 returns the press value flat and chargeT=1
 	// returns press / chargedAccuracyScale. A divisor of 1 (default)
 	// leaves the press value unchanged across the whole hold.
@@ -291,8 +292,9 @@ public partial class ItemAction : Resource
 	{
 		if (tier == null) { return 0f; }
 		float divisor = Mathf.Lerp(1f, tier.chargedAccuracyScale, Mathf.Clamp(chargeT, 0f, 1f));
-		if (divisor <= 0f) { return tier.accuracySpread01; }
-		return tier.accuracySpread01 / divisor;
+		float spread = Mathf.DegToRad(tier.spreadDegrees);
+		if (divisor <= 0f) { return spread; }
+		return spread / divisor;
 	}
 
 	// Number of swings in this tier's repeat combo (0 = not a repeat tier).

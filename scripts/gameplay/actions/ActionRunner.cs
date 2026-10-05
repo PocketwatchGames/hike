@@ -39,12 +39,14 @@ public class ActionRunner
 	private GasCloud _channelZone;
 	private ulong _lastChannelDrainMs;
 
-	// Hurtbox instance ids already damaged by the in-flight activation's melee
-	// swings, and the melee windows still open. Both are owned by the runner
-	// (one allocation per actor rather than one per swing) and reset in
-	// EnterActive — so "the activation" is the scope a target can only be hit
-	// once within, and the next press starts clean.
-	private readonly System.Collections.Generic.HashSet<ulong> _meleeHits = new();
+	// Each melee event is one swing, and a target can be hit once per swing —
+	// so a timeline of several melee events (a flurry) strikes the same target
+	// several times, while a `meleeDuration` window never re-damages what it
+	// already overlaps. The hit sets are pooled on the runner and handed out per
+	// swing; every swing belongs to the activation, so EnterActive reclaims the
+	// whole pool at once.
+	private readonly System.Collections.Generic.List<System.Collections.Generic.HashSet<ulong>> _swingHitSets = new();
+	private int _swingHitSetsRented;
 	private readonly System.Collections.Generic.List<SustainedMelee> _sustainedMelee = new();
 	// Sweep buffers. DoMelee RE-ENTERS this runner — the swing it resolves can
 	// damage the swinging actor, and Mob.Hit calls TryInterrupt, which aborts the
@@ -68,6 +70,7 @@ public class ActionRunner
 	private struct SustainedMelee
 	{
 		public ItemEvent ev;
+		public System.Collections.Generic.HashSet<ulong> hits;
 		public ulong endMs;
 		public ulong lastSweepMs;
 		public bool started;
@@ -377,7 +380,7 @@ public class ActionRunner
 			bool last = now >= window.endMs;
 			if (!window.started || window.lastSweepMs != now || last)
 			{
-				ItemEventHandlers.DoMelee(_actor, window.ev, ref _action, _meleeHits, !window.started, last);
+				ItemEventHandlers.DoMelee(_actor, window.ev, ref _action, window.hits, !window.started, last);
 				// The swing ended inside its own sweep (interrupted by the damage it
 				// dealt, or replaced by a new activation) — every remaining window
 				// belongs to it and dies with it.
@@ -397,6 +400,17 @@ public class ActionRunner
 		_tickScratch.Clear();
 	}
 
+	private System.Collections.Generic.HashSet<ulong> RentSwingHitSet()
+	{
+		if (_swingHitSetsRented == _swingHitSets.Count)
+		{
+			_swingHitSets.Add(new System.Collections.Generic.HashSet<ulong>());
+		}
+		System.Collections.Generic.HashSet<ulong> hits = _swingHitSets[_swingHitSetsRented++];
+		hits.Clear();
+		return hits;
+	}
+
 	// Close every still-open window with a final sweep. Called from EndActive so
 	// a window authored past the tier's activeDurationSeconds still resolves its
 	// last tick and its whiff cue instead of vanishing. Aborts/interrupts drop
@@ -414,7 +428,7 @@ public class ActionRunner
 		for (int i = 0; i < _closeScratch.Count; i++)
 		{
 			SustainedMelee window = _closeScratch[i];
-			ItemEventHandlers.DoMelee(_actor, window.ev, ref _action, _meleeHits, !window.started, windowEnd: true);
+			ItemEventHandlers.DoMelee(_actor, window.ev, ref _action, window.hits, !window.started, windowEnd: true);
 			if (_activationId != activation || _action.phase != EActionPhase.Active)
 			{
 				break;
@@ -662,10 +676,8 @@ public class ActionRunner
 		_action.activateMs = now;
 		_action.endMs = now + (ulong)(tier.activeDurationSeconds * 1000f);
 		_action.lastEventIndex = -1;
-		// The activation is the melee dedupe scope: a target this swing already
-		// struck stays struck for the whole swing, and a fresh press can hit it
-		// again. Cleared before any t=0 event can register a window.
-		_meleeHits.Clear();
+		// Reclaimed before any t=0 event can rent one.
+		_swingHitSetsRented = 0;
 		_sustainedMelee.Clear();
 		_activationId++;
 		_action.chargeT = ComputeChargeT(_action.profile, tier, _action.selectedTierIndex, chargeElapsed);
@@ -964,11 +976,11 @@ public class ActionRunner
 			ulong meleeEndMs = _action.activateMs + ev.time + (ulong)(ev.meleeDuration * 1000f);
 			if (_action.phase == EActionPhase.Active && meleeEndMs > _actor.GameTimeMs)
 			{
-				_sustainedMelee.Add(new SustainedMelee { ev = ev, endMs = meleeEndMs });
+				_sustainedMelee.Add(new SustainedMelee { ev = ev, hits = RentSwingHitSet(), endMs = meleeEndMs });
 			}
 			else
 			{
-				ItemEventHandlers.DoMelee(_actor, ev, ref _action, _meleeHits, windowStart: true, windowEnd: true);
+				ItemEventHandlers.DoMelee(_actor, ev, ref _action, RentSwingHitSet(), windowStart: true, windowEnd: true);
 			}
 		}
 		if ((t & EItemEventType.Hitscan) != 0)

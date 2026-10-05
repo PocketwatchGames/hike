@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/data/worldmap/EntityPlacement.cs" id="2_4i2sm"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/climbable_tree.tres" id="3_iwr7h"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/chest.tres" id="4_mm4s5"]
+[ext_resource type="Resource" path="res://resources/data/items/weapons/knife.tres" id="5_4bsht"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/campfire.tres" id="5_iwr7h"]
 [ext_resource type="Resource" path="res://resources/data/items/loot/crown.tres" id="5_rimgo"]
 [ext_resource type="Script" path="res://scripts/data/items/ItemCountRange.cs" id="6_eflh0"]
@@ -106,15 +107,14 @@ script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 anchorXZ = Vector2i(-32, 8)
 
-[sub_resource type="Resource" id="Resource_5we37"]
+[sub_resource type="Resource" id="Resource_bx82r"]
 script = ExtResource("6_eflh0")
-item = ExtResource("5_rimgo")
-count = 3
+item = ExtResource("5_4bsht")
 
 [sub_resource type="Resource" id="Resource_xefb8"]
 script = ExtResource("8_f8a1f")
 scene = ExtResource("7_5uafj")
-lootItems = [SubResource("Resource_5we37")]
+lootItems = [SubResource("Resource_bx82r")]
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_mw5ge"]

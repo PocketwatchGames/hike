@@ -1,0 +1,115 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://cwm1b8d0uv4e0"]
+
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
+[ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/combat/DamageDataModifier.cs" id="1_modifier"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="5_ajm0v"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_m2l50"]
+[ext_resource type="PackedScene" uid="uid://dxxldcqs8hb6v" path="res://scenes/fx/bow_hit_creature.tscn" id="7_hitcreature"]
+[ext_resource type="PackedScene" uid="uid://dbkwlsxhbirtn" path="res://scenes/fx/bow_kill.tscn" id="7_hitkill"]
+[ext_resource type="PackedScene" uid="uid://dxx2ajycuaxpv" path="res://scenes/fx/bow_hit_solid.tscn" id="7_hitsolid"]
+[ext_resource type="PackedScene" uid="uid://c0vvhpnc8yctn" path="res://scenes/fx/bow_attack_heavy.tscn" id="8_atkheavy"]
+[ext_resource type="PackedScene" uid="uid://c2jrhpmsq2rtn" path="res://scenes/fx/bow_charge_head.tscn" id="8_chghead"]
+[ext_resource type="PackedScene" uid="uid://c2jrl015q2rtn" path="res://scenes/fx/bow_charge_loop.tscn" id="8_chgloop"]
+[ext_resource type="PackedScene" uid="uid://b3la8d0l81l6i" path="res://scenes/projectiles/crossbow_arrow.tscn" id="10_ajm0v"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="12_ow6j3"]
+[ext_resource type="Texture2D" uid="uid://wmrfxg0a1ihs" path="res://assets/textures/items/Crossbow.png" id="15_sprite"]
+[ext_resource type="Resource" uid="uid://bukfpnhl656fs" path="res://resources/data/items/loot/crossbow_arrow.tres" id="17_ajm0v"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="18_5rhbf"]
+[ext_resource type="PackedScene" path="res://scenes/items/crossbow_held.tscn" id="20_held"]
+[ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
+
+[sub_resource type="Resource" id="Resource_event_volley"]
+script = ExtResource("3_event")
+type = 8396868
+noiseDecibels = 0.2
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitsolid")
+impactLethalEffect = ExtResource("7_hitkill")
+impactDecibels = 0.4
+projectileScene = ExtResource("10_ajm0v")
+projectileSpeed = 24.0
+projectileLifetimeSeconds = 0.25
+projectileCount = 3
+
+[sub_resource type="Resource" id="Resource_req_no_swim"]
+script = ExtResource("4_state")
+forbidSwimming = true
+
+[sub_resource type="Resource" id="Resource_tier_volley"]
+script = ExtResource("4_charged")
+displayName = &"Volley"
+chargeTime = 1.0
+activeDurationSeconds = 0.25
+cooldownSeconds = 0.6
+useAmmo = true
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_volley")])
+requirements = Array[ExtResource("4_req")]([SubResource("Resource_req_no_swim")])
+positionalRange = 6.0
+positionalAreaRadius = 3.0
+spreadDegrees = 35.0
+chargedAccuracyScale = 5.0
+speedMultiplierActive = 0.5
+chargeStartEffect = ExtResource("8_chghead")
+chargeLoopEffect = ExtResource("8_chgloop")
+releaseEffect = ExtResource("8_atkheavy")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("5_profile")
+chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_tier_volley")])
+autoActivateAtMax = false
+queueWindowSeconds = 0.0
+
+[sub_resource type="Resource" id="Resource_mod_crit"]
+script = ExtResource("1_modifier")
+overrides = 512
+damageMultiplier = 3.0
+addBuildups = []
+
+[sub_resource type="Resource" id="Resource_mod_backstab"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 512
+damageMultiplier = 1.5
+addBuildups = []
+
+[sub_resource type="Resource" id="Resource_damage"]
+script = ExtResource("1_damage")
+tags = 2113
+healthDamage = 15.0
+critChance = 0.1
+damageVariance = 0.25
+hitstun = 0.2
+knockbackDistance = 0.5
+knockbackTime = 0.2
+buildups = []
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
+
+[resource]
+script = ExtResource("2_weapon")
+maxAmmo = 12
+rightHandSlot = true
+arrowLootData = ExtResource("17_ajm0v")
+ammoRechargeSeconds = 6.0
+damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
+&"primary": SubResource("Resource_damage")
+})
+pitchRangeDegrees = 85.0
+yawAssistDegrees = 60.0
+aimAssistStrength = 0.75
+actionProfile = SubResource("Resource_profile")
+wieldHand = 1
+animSet = ExtResource("21_animset")
+displayName = &"Crossbow"
+description = "Fires a fan of three bolts. Hold to tighten the spread."
+value = 80
+inventorySprite = ExtResource("15_sprite")
+heldModel = ExtResource("20_held")

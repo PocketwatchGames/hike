@@ -45,7 +45,19 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			return 0f;
 		}
 
-		for (int i = 0; i < tier.events.Count; i++)
+		// A melee tier reaches as far as its lunge carries the swing.
+		float lunge = 0f;
+		int eventCount = tier.events.Count;
+		for (int i = 0; i < eventCount; i++)
+		{
+			ItemEvent ev = tier.events[i];
+			if (ev != null && (ev.type & EItemEventType.ApplyMotion) != 0)
+			{
+				lunge += Mathf.Max(0f, ev.motionForwardSpeed) * ev.motionDuration;
+			}
+		}
+
+		for (int i = 0; i < eventCount; i++)
 		{
 			ItemEvent ev = tier.events[i];
 			if (ev == null)
@@ -68,7 +80,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			}
 			if ((ev.type & EItemEventType.Melee) != 0)
 			{
-				return ev.range;
+				return ev.range + lunge;
 			}
 		}
 		return 0f;
@@ -541,10 +553,16 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// _Ready; falls back to the body origin until then.
 	public Vector3 AimCenter => _hurtBoxShape != null ? _hurtBoxShape.GlobalPosition : GlobalPosition;
 	CollisionShape3D _hurtBoxShape;
-	// Updated each physics tick by UpdateAimAssist. Zero when not aiming with
-	// a ranged weapon that authored a pitch range; otherwise the smoothed
-	// elevation angle (radians, positive = up) toward the assist target.
+	// Updated each physics tick by UpdateAimAssist. Zero unless the assisting
+	// weapon authored a pitch range; otherwise the elevation angle (radians,
+	// positive = up) toward the assist target.
 	float _aimPitchRadians;
+	// The mob the assist is biasing toward this tick, null when none. Held
+	// unchanged while an action locks facing, so a committed lunge
+	// (EMotionDirection.Target) still drives at what was picked before it.
+	Mob _aimAssistTarget;
+
+	bool IsAimAssistTargetLive() => _aimAssistTarget != null && GodotObject.IsInstanceValid(_aimAssistTarget) && _aimAssistTarget.alive;
 
 	// Vertical chest-pivot offset above feet. Must match the +Up shift the
 	// hitscan and projectile handlers apply to ActorWorldPosition so the
@@ -554,7 +572,8 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// Reused across ticks to avoid allocating the candidate list every frame.
 	List<Mob> _aimAssistScratch;
 
-	// Per-physics-tick aim assist for ranged weapons. Stateless: every tick
+	// Per-physics-tick aim assist: the ranged weapon while aiming, the melee
+	// weapon while one of its actions charges or swings. Stateless: every tick
 	// reads the stick-driven yaw, picks the best mob inside the weapon's
 	// yaw + pitch cones (LOS-checked), and applies a static bias to yaw +
 	// pitch. Nothing accumulates across ticks — the effect is a pure
@@ -576,15 +595,31 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// before _runner.Tick reads ActorForward.
 	void UpdateAimAssist()
 	{
-		if (!_aiming)
+		EInventorySlot slot;
+		if (_aiming)
 		{
-			_aimPitchRadians = 0f;
+			slot = EInventorySlot.WeaponRanged;
+		}
+		else if (_runner != null && _runner.IsBusy
+			&& _runner.Current.context.sourceSlot == EInventorySlot.WeaponMelee
+			&& (_runner.Phase == EActionPhase.Charging || _runner.Phase == EActionPhase.Active))
+		{
+			slot = EInventorySlot.WeaponMelee;
+		}
+		else
+		{
+			ClearAimAssist();
 			return;
 		}
-		WeaponData weaponData = _inventory?.GetWeapon(EInventorySlot.WeaponRanged)?.data;
+		// The action owns facing — neither bias it nor re-pick.
+		if (_runner.LocksFacing)
+		{
+			return;
+		}
+		WeaponData weaponData = _inventory?.GetWeapon(slot)?.data;
 		if (weaponData == null)
 		{
-			_aimPitchRadians = 0f;
+			ClearAimAssist();
 			return;
 		}
 		float pitchRangeRad = Mathf.DegToRad(weaponData.pitchRangeDegrees);
@@ -593,14 +628,14 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		if (yawAssistRad <= 0f || strength <= 0f)
 		{
 			// Without a yaw cone or any strength there's no assist to apply.
-			_aimPitchRadians = 0f;
+			ClearAimAssist();
 			return;
 		}
-		float range = GetWeaponRange(EInventorySlot.WeaponRanged);
+		float range = GetWeaponRange(slot);
 		World3D world3D = GetWorld3D();
 		if (range <= 0f || world3D == null || _world?.MobSpatialHash == null)
 		{
-			_aimPitchRadians = 0f;
+			ClearAimAssist();
 			return;
 		}
 
@@ -696,9 +731,10 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			// No candidate in the cone → no bias at all. The next tick will
 			// re-evaluate; this is a pure spatial function of stickYaw and
 			// the world, no time-domain memory.
-			_aimPitchRadians = 0f;
+			ClearAimAssist();
 			return;
 		}
+		_aimAssistTarget = bestMob;
 
 		// Curve input: how far the stick yaw is OUTSIDE the target's
 		// silhouette. Inside the silhouette → 0 (max assist); at the cone
@@ -721,8 +757,15 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		// by the yaw-nudge strength would leave the aim line short of it with no
 		// way to finish the aim. Fade it in with cone proximity (t01) only, not
 		// `strength`, so it eases in as the player pans onto the target and
-		// reaches the true target pitch at full lock.
-		_aimPitchRadians = t01 * bestPitch;
+		// reaches the true target pitch at full lock. A weapon with no pitch
+		// range fires flat.
+		_aimPitchRadians = pitchRangeRad > 0f ? t01 * bestPitch : 0f;
+	}
+
+	void ClearAimAssist()
+	{
+		_aimPitchRadians = 0f;
+		_aimAssistTarget = null;
 	}
 	// Device-tagged aim input for the reticle's positional cursor, snapshotted
 	// once per reticle frame. The active device travels WITH the value so
@@ -827,20 +870,32 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// test, and speed-line emitter (all keyed off _dashDir as the true travel
 	// heading) correct. The dash state machine in _PhysicsProcess consumes
 	// these fields.
+	// Target drives at the aim-assist pick and turns the body onto it first, so
+	// a facing-locked lunge strikes where it is going; the duration is cut so
+	// the motion ends at the target's body edge (clearanceRadius) instead of
+	// carrying past it.
 	// `freezeGravity` is ignored: the player cannot leave the ground under their
 	// own power, so there is no dash hang to suppress gravity for. Mobs (fliers
 	// in particular) still honour it.
 	public void ApplyMotion(float forwardSpeed, float duration, bool freezeGravity, EMotionDirection direction)
 	{
-		Vector3 facing = new Vector3(Mathf.Sin(Rotation.Y), 0f, Mathf.Cos(Rotation.Y));
-		Vector3 dir;
+		Vector3 dir = new Vector3(Mathf.Sin(Rotation.Y), 0f, Mathf.Cos(Rotation.Y));
 		if (direction == EMotionDirection.Movement && _inputMove.LengthSquared() > 0f)
 		{
 			dir = _inputMove.Normalized();
 		}
-		else
+		else if (direction == EMotionDirection.Target && IsAimAssistTargetLive() && forwardSpeed > 0f)
 		{
-			dir = facing;
+			Vector3 toTarget = _aimAssistTarget.GlobalPosition - GlobalPosition;
+			toTarget.Y = 0f;
+			float dist = toTarget.Length();
+			if (dist > 0.001f)
+			{
+				dir = toTarget / dist;
+				Rotation = new Vector3(0f, Mathf.Atan2(dir.X, dir.Z), 0f);
+				float bodyRadius = _aimAssistTarget.mobData?.clearanceRadius ?? 0f;
+				duration = Mathf.Min(duration, Mathf.Max(0f, dist - bodyRadius) / forwardSpeed);
+			}
 		}
 		if (forwardSpeed < 0f)
 		{

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ArrowLootData" format=3 uid="uid://bukfpnhl656fs"]
+
+[ext_resource type="Texture2D" uid="uid://veyif8qgv1c6" path="res://assets/textures/items/CrossbowBolt.png" id="1_wh3x5"]
+[ext_resource type="Script" uid="uid://thkln2f8w7t7" path="res://scripts/data/items/ArrowLootData.cs" id="2_b1re3"]
+[ext_resource type="PackedScene" uid="uid://b3la8d0l81l6i" path="res://scenes/projectiles/crossbow_arrow.tscn" id="3_wh3x5"]
+
+[resource]
+script = ExtResource("2_b1re3")
+stuckModel = ExtResource("3_wh3x5")
+displayName = &"Arrow"
+inventorySprite = ExtResource("1_wh3x5")

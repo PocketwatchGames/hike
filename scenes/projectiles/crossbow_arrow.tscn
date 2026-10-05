@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://b3la8d0l81l6i"]
+
+[ext_resource type="Script" uid="uid://rmy8owd5hawv" path="res://scripts/gameplay/entities/Projectile.cs" id="1_toxrf"]
+[ext_resource type="PackedScene" uid="uid://dxr11valq1m5s" path="res://scenes/projectiles/arrow_model.tscn" id="2_i5p04"]
+[ext_resource type="PackedScene" uid="uid://b8wq3n7rvtak2" path="res://scenes/fx/arrow_trail.tscn" id="3_pihhc"]
+
+[node name="BowArrow" type="Node3D" unique_id=1342996802]
+script = ExtResource("1_toxrf")
+
+[node name="Model" parent="." unique_id=571566976 instance=ExtResource("2_i5p04")]
+transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.25, 0, 0, 0)
+
+[node name="Trail" parent="." unique_id=1277595200 instance=ExtResource("3_pihhc")]

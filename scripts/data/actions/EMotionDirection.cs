@@ -14,4 +14,8 @@ public enum EMotionDirection
 	// Drive along the actor's active move input, falling back to facing when
 	// there's none. Lets a dash go sideways / backward independent of facing.
 	Movement,
+	// Player only: drive at the melee aim-assist pick, ending the motion at
+	// the target's body instead of carrying past it — speed × duration is the
+	// REACH. No pick falls back to Facing at full reach.
+	Target,
 }
