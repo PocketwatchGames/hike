@@ -19,7 +19,7 @@ public partial class DiagnosticsOverlay : CanvasLayer
     private const int HitchProcessPriority = 1000;
 
     // Refresh cadence for the on-screen text. The profiler latches its own
-    // rolling window separately (see CVars.profileWindow); this is just how
+    // rolling window separately (see CVars.debugProfileWindow); this is just how
     // often we re-render the label string.
     private const double UpdateIntervalSeconds = 0.25;
 
@@ -30,14 +30,14 @@ public partial class DiagnosticsOverlay : CanvasLayer
     private RichTextLabel _label;
     private double _accum;
 
-    // Tracks whether we forced `profile` on while the overlay is visible so
+    // Tracks whether we forced `debug_profile` on while the overlay is visible so
     // we can restore the user's prior setting when it gets hidden again.
     private bool _forcedProfileOn;
     private bool _profilePriorState;
 
-    // Hitch detector. When CVars.hitchLog is true, we watch every frame's
+    // Hitch detector. When CVars.debugHitchLog is true, we watch every frame's
     // delta and dump the live profile table whenever delta exceeds the
-    // threshold. Independent of overlay visibility — set hitch_log=1 from
+    // threshold. Independent of overlay visibility — set debug_hitch_log=1 from
     // the console and let it run with the overlay hidden.
     private bool _hitchForcedProfileOn;
     private bool _hitchProfilePriorState;
@@ -45,7 +45,7 @@ public partial class DiagnosticsOverlay : CanvasLayer
 
     // Per-frame GC tracking. Sentinel -1 means "no baseline yet" — the next
     // frame seeds it and reports a delta of zero. Re-seeded on every enable
-    // of hitch_log so a long pause before enabling doesn't surface as a fake
+    // of debug_hitch_log so a long pause before enabling doesn't surface as a fake
     // collection on the first hitched frame.
     private int _prevGc0 = -1;
     private int _prevGc1 = -1;
@@ -117,7 +117,7 @@ public partial class DiagnosticsOverlay : CanvasLayer
         // hitches can be caught in the wild.
         UpdateHitchDetector(delta);
         // Unconditional (ahead of the Visible gate) so the profiler's per-frame
-        // maths is right even when the table is only read via `profile_dump`.
+        // maths is right even when the table is only read via `debug_profile_dump`.
         Profiler.MarkFrame();
 
         // debug_slopes pins the overlay visible so the slope readout shows
@@ -135,7 +135,7 @@ public partial class DiagnosticsOverlay : CanvasLayer
         }
         // Drive the profiler's rolling-window latch every frame while we're
         // visible. Cheap when profile is off; otherwise pegs LatchedTotal /
-        // LatchedCalls / LatchedWindowSec at CVars.profileWindow cadence so
+        // LatchedCalls / LatchedWindowSec at CVars.debugProfileWindow cadence so
         // the table below shows stable per-window averages.
         Profiler.Tick();
 
@@ -149,18 +149,18 @@ public partial class DiagnosticsOverlay : CanvasLayer
     }
 
     // Watches per-frame delta and dumps the profiler table whenever a frame
-    // exceeds CVars.hitchThresholdMs. Forces `profile` on while hitch_log
+    // exceeds CVars.debugHitchThresholdMs. Forces `debug_profile` on while debug_hitch_log
     // is enabled so the dumped table has live data; restores the prior
-    // setting when hitch_log is turned off. Resets the profiler after each
+    // setting when debug_hitch_log is turned off. Resets the profiler after each
     // dump so consecutive hitches don't bleed into each other.
     private void UpdateHitchDetector(double delta)
     {
-        bool enabled = CVars.hitchLog.Value;
+        bool enabled = CVars.debugHitchLog.Value;
 
         if (enabled && !_hitchForcedProfileOn)
         {
-            _hitchProfilePriorState = CVars.profile.Value;
-            CVars.profile.Value = true;
+            _hitchProfilePriorState = CVars.debugProfile.Value;
+            CVars.debugProfile.Value = true;
             _hitchForcedProfileOn = true;
             _hitchSkipFirstFrame = true;
             _prevGc0 = -1;
@@ -170,11 +170,11 @@ public partial class DiagnosticsOverlay : CanvasLayer
         else if (!enabled && _hitchForcedProfileOn)
         {
             // Don't stomp the user's setting if the F3 overlay also forced
-            // it on — only restore if hitch_log was the only thing holding
+            // it on — only restore if debug_hitch_log was the only thing holding
             // it on.
             if (!_forcedProfileOn)
             {
-                CVars.profile.Value = _hitchProfilePriorState;
+                CVars.debugProfile.Value = _hitchProfilePriorState;
             }
             _hitchForcedProfileOn = false;
         }
@@ -201,7 +201,7 @@ public partial class DiagnosticsOverlay : CanvasLayer
 
         // Skip the first frame after enabling — delta is the wall-clock gap
         // since the last _Process call, which may be huge if the game just
-        // unpaused or hitch_log just flipped on.
+        // unpaused or debug_hitch_log just flipped on.
         if (_hitchSkipFirstFrame)
         {
             _hitchSkipFirstFrame = false;
@@ -210,7 +210,7 @@ public partial class DiagnosticsOverlay : CanvasLayer
         }
 
         double frameMs = delta * 1000.0;
-        if (frameMs < CVars.hitchThresholdMs.Value)
+        if (frameMs < CVars.debugHitchThresholdMs.Value)
         {
             // Non-hitch frame: clear the accumulators so the NEXT frame starts
             // clean. With the overlay processing last (HitchProcessPriority),
@@ -348,7 +348,7 @@ public partial class DiagnosticsOverlay : CanvasLayer
         }
     }
 
-    // While the overlay is visible we force CVars.profile on so the table
+    // While the overlay is visible we force CVars.debugProfile on so the table
     // has live data — customers shouldn't need console access to see the
     // profile. When the overlay is hidden again we restore the prior CVar
     // value so headless / cvars.txt overrides keep working.
@@ -356,13 +356,13 @@ public partial class DiagnosticsOverlay : CanvasLayer
     {
         if (Visible && !_forcedProfileOn)
         {
-            _profilePriorState = CVars.profile.Value;
-            CVars.profile.Value = true;
+            _profilePriorState = CVars.debugProfile.Value;
+            CVars.debugProfile.Value = true;
             _forcedProfileOn = true;
         }
         else if (!Visible && _forcedProfileOn)
         {
-            CVars.profile.Value = _profilePriorState;
+            CVars.debugProfile.Value = _profilePriorState;
             _forcedProfileOn = false;
         }
     }

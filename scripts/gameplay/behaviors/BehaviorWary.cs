@@ -26,7 +26,7 @@ public partial class BehaviorWary : BehaviorBase
     public override void OnEnter(Mob me, ulong time)
     {
         _nextVocalizeMs = time;
-        if (CVars.companionDebug.Value)
+        if (CVars.debugCompanion.Value)
         {
             GD.Print($"[companion] Wary.OnEnter threat={me.ThreatTarget?.mobData?.displayName.ToString() ?? "null"}");
         }

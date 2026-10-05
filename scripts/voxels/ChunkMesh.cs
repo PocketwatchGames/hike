@@ -8,7 +8,7 @@ public partial class ChunkMesh : Node3D
 
     // DIAGNOSTIC (water-vanish investigation): true when this chunk built a
     // water surface mesh. Lets ChunkManager log streaming load/unload of
-    // water-bearing chunks behind the `chunk_water_log` CVar, to confirm
+    // water-bearing chunks behind the `debug_chunk_water_log` CVar, to confirm
     // whether an outdoor-water vanish coincides with the chunk streaming out.
     public bool HasWater { get; private set; }
 
@@ -62,7 +62,7 @@ public partial class ChunkMesh : Node3D
     // Baked-AO darkening strength pushed to the terrain shader's `ao_strength`
     // uniform (0 = AO off, 1 = authored, >1 exaggerates for verification).
     // Cached so a CVar set before the material exists still takes effect once
-    // EnsureMaterialsInitialized runs. See CVars.aoStrength.
+    // EnsureMaterialsInitialized runs. See CVars.debugAoStrength.
     private static float _aoStrength = 1f;
 
     public static void SetAoStrength(float value)
@@ -103,7 +103,7 @@ public partial class ChunkMesh : Node3D
     // Terrain atlas + wetness tuning (tile_uv_scale, tile_normal_strength, the
     // three blend sharpnesses, wet_displacement/roughness_min/chroma, concavity
     // pooling) is authored on resources/materials/terrain.tres rather than via
-    // CVars — see that material. ao_strength stays a CVar because it also feeds
+    // CVars — see that material. debug_ao_strength stays a CVar because it also feeds
     // the detail-sprite material (DetailEntry), keeping ground + props in lockstep.
 
     private const string TerrainMaterialPath = "res://resources/materials/terrain.tres";
@@ -721,11 +721,11 @@ public partial class ChunkMesh : Node3D
 
     // Running totals across every chunk built this session. Barriers are
     // invisible, so these are the only way to confirm they were generated at
-    // all, and to size their cost. Read with `ledge_barrier_stats`.
+    // all, and to size their cost. Read with `debug_ledge_barrier_stats`.
     public static int LedgeBarrierChunks;
     public static int LedgeBarrierFaces;
 
-    // Visible stand-in for the barriers, off unless `ledge_barrier_debug` is on.
+    // Visible stand-in for the barriers, off unless `debug_ledge_barrier` is on.
     // Invisible collision that silently lands in the wrong place looks exactly
     // like collision that does not exist — which cost two rounds of debugging
     // here — so being able to SEE where a barrier ended up is the difference
@@ -760,12 +760,12 @@ public partial class ChunkMesh : Node3D
         _ledgeBarrierVisual.Mesh = mesh;
         _ledgeBarrierVisual.MaterialOverride = _barrierDebugMaterial;
         _ledgeBarrierVisual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-        _ledgeBarrierVisual.Visible = CVars.ledgeBarrierDebug.Value;
+        _ledgeBarrierVisual.Visible = CVars.debugLedgeBarrier.Value;
         AddChild(_ledgeBarrierVisual);
         _barrierVisualChunks.Add(this);
     }
 
-    // Driven by the `ledge_barrier_debug` cvar's change callback, so toggling is
+    // Driven by the `debug_ledge_barrier` cvar's change callback, so toggling is
     // one pass over loaded chunks rather than a per-chunk _Process.
     public static void SetLedgeBarrierDebugVisible(bool visible)
     {
@@ -788,7 +788,7 @@ public partial class ChunkMesh : Node3D
     // Everything it touches is either a local, the immutable ChunkState, or the
     // caller's read-only voxel accessors. The Profiler is deliberately NOT used
     // in here — its section stack is main-thread state (see Profiler.Sample), so
-    // to profile the fill turn `chunk_parallel_fill` off and the whole build
+    // to profile the fill turn `debug_chunk_parallel_fill` off and the whole build
     // runs through Create on the main thread again.
     public static ChunkGeometry BuildGeometry(
         ChunkState data,

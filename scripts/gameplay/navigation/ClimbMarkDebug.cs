@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-// Console commands backing `climb_mark <height>` and `climb_probe`: stamp a
+// Console commands backing `debug_climb_mark <height>` and `debug_climb_probe`: stamp a
 // climbable face up the wall in front of the player, and explain gate by gate
 // why the climb probe accepted or refused it.
 //
@@ -16,7 +16,7 @@ public static class ClimbMarkDebug
     // feet, not below: one voxel down is the ground the player is standing on,
     // which is solid and would be mistaken for the wall.
     private const int ScanAbove = 3;
-    // How far up a column `climb_mark 0` walks looking for voxels to clear.
+    // How far up a column `debug_climb_mark 0` walks looking for voxels to clear.
     private const int ClearScanHeight = 48;
 
     public static void Apply(int height)
@@ -39,7 +39,7 @@ public static class ClimbMarkDebug
                 ws.SetOverlayFacesWorld(wall.X, y, wall.Z, 0);
                 cleared++;
             }
-            GD.Print($"[climb_mark] cleared {cleared} voxels at ({wall.X},{wall.Y},{wall.Z})");
+            GD.Print($"[debug_climb_mark] cleared {cleared} voxels at ({wall.X},{wall.Y},{wall.Z})");
             return;
         }
 
@@ -78,7 +78,7 @@ public static class ClimbMarkDebug
             Blocks.SetClimbableForDebug(id, true);
         }
 
-        GD.Print($"[climb_mark] {marked} voxels at ({wall.X},{wall.Y},{wall.Z}) face={face} "
+        GD.Print($"[debug_climb_mark] {marked} voxels at ({wall.X},{wall.Y},{wall.Z}) face={face} "
             + $"blocks=[{string.Join(",", blocks)}] climbable for this session");
     }
 
@@ -92,14 +92,14 @@ public static class ClimbMarkDebug
         WorldState ws = sim?.WorldState;
         if (player == null || ws == null)
         {
-            GD.Print("[climb_probe] no running game");
+            GD.Print("[debug_climb_probe] no running game");
             return;
         }
         PlayerData data = player.data;
         Vector3 p = player.GlobalPosition;
         Vector3 dir = player.BodyForwardForDebug();
 
-        GD.Print($"[climb_probe] pos=({p.X:F2},{p.Y:F2},{p.Z:F2}) "
+        GD.Print($"[debug_climb_probe] pos=({p.X:F2},{p.Y:F2},{p.Z:F2}) "
             + $"facing=({dir.X:F2},{dir.Z:F2}) grounded={player.IsGrounded} "
             + $"water={player.WaterStateForDebug()}");
         GD.Print($"  gates: attach={player.DescribeClimbGates(false)} "
@@ -173,7 +173,7 @@ public static class ClimbMarkDebug
         ws = sim?.WorldState;
         if (player == null || ws == null)
         {
-            GD.Print("[climb_mark] no running game");
+            GD.Print("[debug_climb_mark] no running game");
             return false;
         }
 
@@ -194,7 +194,7 @@ public static class ClimbMarkDebug
             }
         }
 
-        GD.Print($"[climb_mark] no wall in front of the player (looked at column ({x},{z}) "
+        GD.Print($"[debug_climb_mark] no wall in front of the player (looked at column ({x},{z}) "
             + $"from y={baseY} up {ScanAbove})");
         return false;
     }

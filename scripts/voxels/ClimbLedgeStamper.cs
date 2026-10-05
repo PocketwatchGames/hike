@@ -38,7 +38,7 @@ public static class ClimbLedgeStamper
         // Answering the authoring question "why is there no crust on THIS
         // ledge?" costs a second run of the rule per candidate, so it is only
         // counted when asked for.
-        _countSuppressed = CVars.climbDebug.Value;
+        _countSuppressed = CVars.debugClimb.Value;
         foreach (KeyValuePair<Vector3I, ChunkState> entry in world._chunks)
         {
             lips += StampChunk(world, entry.Key, entry.Value, isBlocked);
@@ -89,7 +89,7 @@ public static class ClimbLedgeStamper
     private const int MaxColliderReachVoxels = 8;
 
     // Lips the rock alone would have granted and a collider took away, counted
-    // under climb_debug. Diagnostic only — see Stamp.
+    // under debug_climb. Diagnostic only — see Stamp.
     private static bool _countSuppressed;
     private static long _suppressed;
 

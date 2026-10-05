@@ -462,6 +462,10 @@ public class StatusEffectController
 			{
 				continue;
 			}
+			if (CVars.debugBuildup.Value)
+			{
+				GD.Print($"[buildup] {_actor?.Name} {data.displayName}: woken by hit, meter cleared");
+			}
 			EndFx(_statusEffects[i]);
 			_statusEffects.RemoveAt(i);
 			if (_buildups.TryGetValue(data, out BuildupState bs))
@@ -685,7 +689,14 @@ public class StatusEffectController
 			return false;
 		}
 		float resistance = _buildupResistance?.Invoke(effect.tags) ?? 1f;
-		return AddBuildup(effect, amount * resistance, potency, hazard);
+		if (!CVars.debugBuildup.Value)
+		{
+			return AddBuildup(effect, amount * resistance, potency, hazard);
+		}
+		float before = GetBuildup(effect);
+		bool crossed = AddBuildup(effect, amount * resistance, potency, hazard);
+		GD.Print($"[buildup] {_actor?.Name} {effect.displayName}: +{amount:0.###} x resist {resistance:0.###} = {amount * resistance:0.###} | meter {before:0.###} -> {GetBuildup(effect):0.###}{(crossed ? " APPLIED" : "")}");
+		return crossed;
 	}
 
 	// Per-second damage a hazard-applied instance ticks, as a fraction of this

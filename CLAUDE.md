@@ -106,26 +106,26 @@ Godot ... --path . --headless -- "autostart 1" "autoplay 1"
 ### Reaching a Test Condition
 
 **The console can put the game into a condition; do not walk there.** Most of the
-~230 cvars either observe the running game (`debug_*`, `*_probe`) or set global
-state (`time_of_day`, `weather`) — these four place the player instead, and they
+~230 cvars either observe the running game (`debug_*`) or set global
+state (`time_of_day`, the `weather_*_force` overrides) — these four place the player instead, and they
 exist because time-to-condition was the dominant cost in every check, manual or
 automated:
 
 | Verb | Does |
 |---|---|
 | `tp <poi>` / `tp <x> <y> <z>` | move the living party; `tp ?` lists the world's points of interest |
-| `spawn <species> [count] [level]` | ring of **transient** mobs around the player; `spawn ?` lists species |
-| `give <item> [count]` | drop an item at the player's feet; `give ?` lists items |
+| `spawn_mob <species> [count] [level]` | ring of **transient** mobs around the player; `spawn_mob ?` lists species |
+| `spawn_loot <item> [count]` | drop an item at the player's feet; `spawn_loot ?` lists items |
 | `setup <name>` | run an authored scenario's command list; `setup ?` lists them |
 
 - **The listing argument is `?`, never a bare verb.** `CVarRegistry.ProcessCommand`
   answers a value-less cvar with its current value and never invokes the
   callback, so a bare `tp` prints `tp = ` and does nothing. (Same reason these
   are `CVarString` and not action cvars: an action cvar's argument is DISCARDED.)
-- **`spawn` is transient by design** (`Sim.SpawnMobTransient`). A debug spawn
+- **`spawn_mob` is transient by design** (`Sim.SpawnMobTransient`). A debug spawn
   recorded in `WorldState` would persist into the worldgen cache and
   re-materialize on every later run of that world.
-- **`give` drops rather than filling the backpack.** `Inventory.TryAdd` refuses
+- **`spawn_loot` drops rather than filling the backpack.** `Inventory.TryAdd` refuses
   non-materials, and potions / scrolls / fairy corpses do their real work in the
   world-pickup path — dropping exercises what the player actually does.
 - **A scenario is just a command list** (`TestScenarioData` on
@@ -138,7 +138,7 @@ automated:
   round trip — which is every run but a cache MISS.
 - **A launch line cannot call these directly.** CLI cvar args are processed in
   `Main._Ready`, before a world exists. Use the delayed driver:
-  `-- "autostart 1" "exec_delay 8" "exec tp lake; spawn drake_mountain 2"`
+  `-- "autostart 1" "exec_delay 8" "exec tp lake; spawn_mob drake_mountain 2"`
   (`exec` is a `;`-separated command line, run `exec_delay` seconds after the
   game scene comes up).
 
@@ -425,8 +425,8 @@ a tool is not the test; being read only by one is.
 `worlds/<name>/` belongs to `<name>`; `worlds/shared/` and every tree outside
 `worlds/` belong to no world. Every by-name lookup applies that one rule
 (`WorldScope`): the painter's property-panel pickers (keyed off the document's
-own path), `worldmap_check`, the console's `give` (keyed off the running
-world's `StartContentPath`), and the conversation importer's `give:` / `teach:`
+own path), `worldmap_check`, the console's `spawn_loot` (keyed off the running
+world's `StartContentPath`), and the conversation importer's `spawn_loot:` / `teach:`
 / language cells (keyed off the sheet's folder — a separate program, so it
 restates the rule in `ResourceIndex.Pick`). A world's own file shadows an
 unscoped one of the same name, another world's is never offered, and a context
@@ -591,7 +591,14 @@ A save-persisted bank of named `Bool`/`Int` variables that conditions/actions re
 
 ### CVars (`scripts/console/`, `scripts/CVars.cs`)
 
-Runtime configuration variables with an in-game console. Add new CVars as `public static` fields in `scripts/CVars.cs` using typed subclasses (`CVarBool`, `CVarInt`, `CVarFloat`, `CVarString`). The constructor auto-registers them. Read values via `.Value` (e.g., `CVars.language.Value`). Set via in-game console, `cvars.txt` config file (project root, runs at startup), or `.Value =` / `.Set()` in code. Action CVars (type `None`) take a callback instead of storing a value.
+Runtime configuration variables with an in-game console. Add new CVars as `public static` fields in `scripts/CVars.cs` using typed subclasses (`CVarBool`, `CVarInt`, `CVarFloat`, `CVarString`). The constructor auto-registers them.
+
+**Naming is by audience, and the PREFIX is what tab completion groups on:**
+
+- **Anything only a developer uses is `debug_<subsystem>_<what>`** — visualizers, logs, probes, dumps, bisection kill switches, live look-tuning knobs. The word `debug` never appears anywhere but the front (`debug_mob_path`, not `mob_debug_path` or `nav_grid_debug`), and the field is named to match (`CVars.debugMobPath`).
+- **A state word goes LAST**: `_enabled`, `_disabled`, `_visible`, `_force` (`debug_water_foam_disabled`, `weather_snow_force`). Never `disable_x` or `no_x`.
+- **Player options keep plain names** (`volume_music`, `mouse_sensitivity`, `sneak_hold`) — they are what a settings menu binds to.
+- **Things you put into the world are `spawn_*`** (`spawn_mob`, `spawn_loot`, `spawn_lightning`). The other console verbs keep short names (`tp`, `setup`, `setvar`, `exec`, `quit`), as do headless checks (`*_check`), authoring tools (`worldmap_*`, `subscene_*`, `world_*`, `autostart`), and cheats (`invisible`, `reveal_map`, …). Read values via `.Value` (e.g., `CVars.language.Value`). Set via in-game console, `cvars.txt` config file (project root, runs at startup), or `.Value =` / `.Set()` in code. Action CVars (type `None`) take a callback instead of storing a value.
 
 ### Localization (`scripts/localization/`, `resources/localization/`)
 
@@ -696,8 +703,8 @@ wants falls straight out of it:
   cell reads (`npcvar:customs`, `=true`, `!=true`, `=2`, `>=2`, `<2`; a bare
   name means `=true`); an action cell writes (`=true`, `=false`, `=<int>`,
   `+=<int>`).
-- **A gift is written inline too**: `give:<item> [count]` in an action cell,
-  spelled exactly like the console's `give` verb and resolving the item the same
+- **A gift is written inline too**: `spawn_loot:<item> [count]` in an action cell,
+  spelled exactly like the console's `spawn_loot` verb and resolving the item the same
   way — the basename of a `.tres` under `resources/data/items/`, or under the
   sheet's own `worlds/<world>/items/` (see "A world's own files" below). The importer
   emits the `DropLootAction` and its `ItemCount` / `ItemDescriptor`, so the
@@ -887,10 +894,10 @@ Run `dotnet run --project tools/validate_uids` to scan for missing `.cs.uid` sid
   - **Godot engine properties and methods on nodes/resources** — `GlobalPosition`, `Visible`, `LinearVelocity`, `AnimationPlayer.HasAnimation()`. Resolve once per tick into a local and reuse; don't let two call sites each walk the same transform.
   - **NOT plain `[Export]` fields on your own C# `Node`/`Resource` subclasses.** `[Export] public float visionRange` is an ordinary managed field — `[Export]` only affects the editor and serializer. Reading it is free, and the `[Export]`-everything conventions above stand unchanged.
 - **A read that costs something is a method, not a property.** A C# property reads like a field at the call site, so anything doing real work behind one — folding modifier lists, resolving a node transform, a line-of-sight query — gets sprinkled into per-tick code with no visible cost. Give those a verb name (`ComposeStat()`, `ShowsHudFeedbackAt()`) and reserve properties for genuine field forwarding (`health`, `alive`, `Level`). Related: **C# evaluates arguments eagerly**, so a cheap-looking call whose callee early-outs still pays for building its arguments — when the callee usually bails, expose the bail condition as a predicate the caller checks first (`DotHudAccumulator.WantsTick`).
-- **Per-mob work picks a tick band.** `Mob._PhysicsProcess` runs at 60 Hz for *every* resident mob, so anything added there is multiplied by the whole population (139 at spawn in the default world) and again by the physics-steps-per-rendered-frame ratio (3–4× at low fps). Adding a subsystem means choosing a band, not defaulting into the hot one: **hot** for anything that must stay frame-accurate or is visible at range (animation, steering, perception, the action runner); **cold** — inside the `if (runCold)` gate — for rate-based upkeep that only has to integrate correctly (wetness, sunburn, status/DoT timers, terrain speed). Cold subsystems receive `coldDt`, the accumulated delta since that mob's last cold tick, so totals are unchanged and only granularity coarsens; the gate is distance-based (`SimData.mobColdTickDistance`) with a per-mob phase offset so the work spreads across frames. `mob_cold_tick 0` disables it for A/B. Self-throttling accumulators (`PerceptionTickInterval`, `LightSampleInterval`) and the `SuspendAITimeMs` AI LOD are the same idea applied per-subsystem — either is fine, silently running at full rate for all mobs is not.
-- **Resident node count is a budget, and it is invisible to the C# Profiler.** Godot walks the tree to dispatch notifications and walks every `VisualInstance3D` to cull it (once per camera — this project runs several `SubViewport` passes), all *outside* any `Profiler.Sample` scope, so it lands in `unaccounted_ms_avg` and no section-level tuning touches it. **`node_census` in the console** (or `node_census_delay <sec>` for a headless run) dumps the whole tree bucketed by subtree / source scene / class, with the columns that actually cost: nodes in the process lists, `VisualInstance3D`s, and `CollisionObject3D`s. Read it before optimizing anything scene-shaped — a bucket with a big `total` and zeroes across those columns is cheap; a small bucket with a big `proc` is not. Two recurring shapes to avoid:
+- **Per-mob work picks a tick band.** `Mob._PhysicsProcess` runs at 60 Hz for *every* resident mob, so anything added there is multiplied by the whole population (139 at spawn in the default world) and again by the physics-steps-per-rendered-frame ratio (3–4× at low fps). Adding a subsystem means choosing a band, not defaulting into the hot one: **hot** for anything that must stay frame-accurate or is visible at range (animation, steering, perception, the action runner); **cold** — inside the `if (runCold)` gate — for rate-based upkeep that only has to integrate correctly (wetness, sunburn, status/DoT timers, terrain speed). Cold subsystems receive `coldDt`, the accumulated delta since that mob's last cold tick, so totals are unchanged and only granularity coarsens; the gate is distance-based (`SimData.mobColdTickDistance`) with a per-mob phase offset so the work spreads across frames. `debug_mob_cold_tick 0` disables it for A/B. Self-throttling accumulators (`PerceptionTickInterval`, `LightSampleInterval`) and the `SuspendAITimeMs` AI LOD are the same idea applied per-subsystem — either is fine, silently running at full rate for all mobs is not.
+- **Resident node count is a budget, and it is invisible to the C# Profiler.** Godot walks the tree to dispatch notifications and walks every `VisualInstance3D` to cull it (once per camera — this project runs several `SubViewport` passes), all *outside* any `Profiler.Sample` scope, so it lands in `unaccounted_ms_avg` and no section-level tuning touches it. **`debug_node_census` in the console** (or `debug_node_census_delay <sec>` for a headless run) dumps the whole tree bucketed by subtree / source scene / class, with the columns that actually cost: nodes in the process lists, `VisualInstance3D`s, and `CollisionObject3D`s. Read it before optimizing anything scene-shaped — a bucket with a big `total` and zeroes across those columns is cheap; a small bucket with a big `proc` is not. Two recurring shapes to avoid:
   - **Authoring-data nodes must not outlive their bake.** A `Node3D` that only carries `[Export]`s for a build step (`FoliageCluster`) is inert once consumed — free it at runtime (editor-gated, since that's where it's authored). It was 2545 nodes.
-  - **`IsProcessing()` is not the whole story — check `intl`.** Godot runs `AnimationPlayer`, `Skeleton3D`, `AudioStreamPlayer3D`, `GpuParticles3D` and friends on a separate *internal* process channel that `IsProcessing()` does not report and no `Profiler.Sample` can wrap (there is no C# frame to wrap). That work lands in `process_ms` as pure `unaccounted_ms_avg`. The census's `intl` column is the only way to see it, and the only way to SIZE it is to switch it off and read the delta — hence the `fx_audio` / `fx_particles` / `skeleton_internal` bisection cvars. Don't conclude a class is free because `proc` is 0.
+  - **`IsProcessing()` is not the whole story — check `intl`.** Godot runs `AnimationPlayer`, `Skeleton3D`, `AudioStreamPlayer3D`, `GpuParticles3D` and friends on a separate *internal* process channel that `IsProcessing()` does not report and no `Profiler.Sample` can wrap (there is no C# frame to wrap). That work lands in `process_ms` as pure `unaccounted_ms_avg`. The census's `intl` column is the only way to see it, and the only way to SIZE it is to switch it off and read the delta — hence the `debug_fx_audio` / `debug_fx_particles` / `debug_skeleton_internal` bisection cvars. Don't conclude a class is free because `proc` is 0.
   - **Shared per-frame inputs are resolved once, not per node.** `PixelSnap` read the camera's viewport, size, projection and basis *per instance* — identical values for all 141 of them, and every one a native crossing. Centralising the resolve and skipping instances whose input hasn't moved took it from the most expensive `_Process` section in the game to a rounding error. When N nodes all read the same camera/player/world value, one driver should read it and hand it down.
   - **Per-entity UI is pooled, not owned.** Giving every mob its own HUD subtree + `_Process` costs the full population to draw the handful on screen. `MobHudManager` is the pattern: one node ticks a managed loop over the entities, applies a cheap "would this draw anything" gate, and leases a pooled widget to the few that pass — order the gate so the expensive terms (anything folding stat modifiers, any transform read) run only for candidates that already passed the free ones.
 - **Timing: sim clock vs wall clock.** Pick the clock by whether a timer is *gameplay-authoritative*, NOT by which callback it sits in (`_Process` vs `_PhysicsProcess`). Anything that decides *when something happens in the world* — a despawn, a damage tick, becoming interactable, a telegraph firing, a cook job finishing — belongs on the **sim clock**: prefer a `GameTimeMs` deadline (`expireMs = Sim.GameTimeMs + seconds * 1000`, compare each tick), the pattern cooldowns / AI timers / traps already use. `GameTimeMs` advances in `Sim.Tick`, so it slows uniformly under slow-mo, is frame-rate independent, and survives save/load. Purely *presentational* timing — fades, bobs, spins, the death/HUD screens — stays on wall-clock `_Process` `delta` so slow-mo doesn't drag it and it stays smooth at render fps. Avoid accumulating a gameplay duration as `_ageSeconds += (float)delta` (especially on `_Process`); that's neither slowable nor frame-rate-independent. `Discoverable` is the reference split (perception on the sim side, sprite fade on `_Process`). **A DAY deadline is never polled.** Only `Sim.AdvanceToNextSunrise` moves `DayNumber`, so anything that expires or resets on a day (an `UntilSunrise` effect, spoilage, a daily budget) runs from the day roll itself — `Sim.OnNewDay`, `Player.ExpireForDay` — not from a tick. Polling it left a gap after the roll in which the wake's autosave recorded a forge upgrade the new day had already ended.

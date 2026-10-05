@@ -738,7 +738,7 @@ public partial class Minimap : Node3D
         _sliceAtlas.Flush();
     }
 
-    // Diagnostic (`minimap_probe`): print what the shader's height-derived terms
+    // Diagnostic (`debug_minimap_probe`): print what the shader's height-derived terms
     // see, at the world map's zoom. `screenWidthPixels` is the on-screen width the
     // world map panel occupies, used to convert per-texel rise into the fwidth the
     // contour anti-aliasing reads.
@@ -746,7 +746,7 @@ public partial class Minimap : Node3D
     {
         if (_textures == null)
         {
-            return "minimap_probe: no active world.";
+            return "debug_minimap_probe: no active world.";
         }
         // Matches WorldMapScreen.RenderWorldMap's framing.
         Vector2 extent = ExtentMeters;

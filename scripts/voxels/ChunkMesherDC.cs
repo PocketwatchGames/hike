@@ -13,7 +13,7 @@ using Godot;
 // deterministic function of int, so neighbouring chunks compute the
 // same vertex for a shared boundary cell.
 //
-// The sampling lattice is chosen by CVars.voxelCenterSampling. The `density`
+// The sampling lattice is chosen by CVars.debugVoxelCenterSampling. The `density`
 // array and all the cx/cy/cz "corner" indexing below address whichever
 // lattice is active: voxel corners (min-rule) or voxel centres (one sign per
 // voxel). Under centre sampling the lattice sits half a voxel further along
@@ -403,7 +403,7 @@ public static class ChunkMesherDC
 
         // Read once per chunk so a mid-build toggle can't split one mesh
         // across both lattices.
-        bool centerSampling = CVars.voxelCenterSampling.Value;
+        bool centerSampling = CVars.debugVoxelCenterSampling.Value;
         float latticeOffset = centerSampling ? 0.5f : 0f;
 
         var density = new sbyte[CORNER_DIM, CORNER_DIM, CORNER_DIM];
@@ -625,7 +625,7 @@ public static class ChunkMesherDC
                     // adjacent cells pushing toward each other invert the quad
                     // between them. Carving toward the solid can't: the coord
                     // moves off the boundary into the cell's interior.
-                    float roughAmount = Blocks.EdgeRoughness(dominant) * CVars.voxelEdgeRoughness.Value;
+                    float roughAmount = Blocks.EdgeRoughness(dominant) * CVars.debugVoxelEdgeRoughness.Value;
                     if (roughAmount > 0f)
                     {
                         // Corner counts give the outward normal for free: a
@@ -864,8 +864,8 @@ public static class ChunkMesherDC
         //
         // Read once per chunk so a mid-build toggle can't leave one mesh half
         // marked, same reason centerSampling is latched above. See
-        // CVars.climbLedgeMarks for what the modes mean.
-        int climbMarkMode = CVars.climbLedgeMarks.Value;
+        // CVars.debugClimbLedgeMarks for what the modes mean.
+        int climbMarkMode = CVars.debugClimbLedgeMarks.Value;
         if (climbMarkMode > 0 && collectClimbLips != null)
         {
             var lips = new List<ClimbLip>();
@@ -1352,7 +1352,7 @@ public static class ChunkMesherDC
     // ~1.0), and the measured banding spread is unchanged on 1-in-2 (0.008) and
     // slightly BETTER on 1-in-3 (0.031 -> 0.021). The tunnel guard improves,
     // 0.965 -> 1.000. Past ~0.99 ramps start banding again as genuine slope
-    // neighbours get rejected too. Re-measure with `mesher_wall_sweep`, which
+    // neighbours get rejected too. Re-measure with `debug_mesher_wall_sweep`, which
     // sweeps this against both edge orientations, before moving it.
     internal static float NORMAL_SMOOTH_MIN_DOT = 0.95f;
 

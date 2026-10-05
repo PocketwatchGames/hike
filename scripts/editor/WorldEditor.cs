@@ -318,7 +318,7 @@ public partial class WorldEditor : Node3D
     [Export(PropertyHint.Range, "1,512,1")] public int undoDepth = 128;
 
     [ExportGroup("Camera")]
-    // The editor runs its own framing rather than the game's camera_preset:
+    // The editor runs its own framing rather than the game's debug_camera_preset:
     // perspective, close in, and free to pitch. The shipping orthographic angle
     // is locked to one pitch, which can't get inside a room and look around it.
     [Export(PropertyHint.Range, "10,120,1")] public float cameraFov = 55f;
@@ -989,12 +989,12 @@ public partial class WorldEditor : Node3D
         CullProps(camera.Clip);
         _world.UpdateEntityLoading(_cursorPosition);
 
-        // Same `nav_grid` overlay the game draws around the player, centred on
+        // Same `debug_nav_grid` overlay the game draws around the player, centred on
         // the edit cursor instead — the editor has no player, so Sim's own call
         // never fires here. Ahead of the fly / over-UI bails below so it keeps
         // drawing while the view is being moved: it reads the cursor, not the
         // pick ray, and has nothing to do with what the pointer is over.
-        if (CVars.navGridDebug.Value)
+        if (CVars.debugNavGrid.Value)
         {
             NavGridDebug.Draw(_world, _cursorPosition);
         }
@@ -1097,7 +1097,7 @@ public partial class WorldEditor : Node3D
     private bool IsSelectMode => _tool == EEditorTool.Entity && _entityToolMode == EEditorEntityMode.Select;
 
     // Perspective and close in, with the pitch under free look. Applied after
-    // camera.Init, which seats whatever the game's camera_preset CVar says — the
+    // camera.Init, which seats whatever the game's debug_camera_preset CVar says — the
     // editor's framing is its own concern and mustn't ride on that setting.
     private void ApplyEditorCameraSettings()
     {
@@ -1263,7 +1263,7 @@ public partial class WorldEditor : Node3D
     // just be noise.
     private void DrawEntityHoverBox()
     {
-        bool debug = CVars.editorPickDebug.Value;
+        bool debug = CVars.debugEditorPick.Value;
         // Keycode vs physical matters here: a remapped layout can report Ctrl on
         // only one of them, which would make the whole feature look dead.
         bool ctrl = Input.IsKeyPressed(Key.Ctrl) || Input.IsPhysicalKeyPressed(Key.Ctrl);

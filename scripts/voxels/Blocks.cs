@@ -197,7 +197,7 @@ public static class Blocks
     // Read per voxel by the mesher's lip scan, hence the flattened table.
     public static int ClimbGrowthLayer(int id) => _climbGrowthLayer[id];
 
-    // Debug scaffolding for the `climb_mark` console command: makes an ordinary
+    // Debug scaffolding for the `debug_climb_mark` console command: makes an ordinary
     // wall climbable for the running session so surface climbing can be played
     // before an ivy overlay is authored. Not persisted anywhere — the authored
     // path is BlockData.climbable, reached through an overlay.

@@ -1,7 +1,7 @@
 using System;
 
-// An item gift parsed out of a sheet's action cell: `give:<item> [count]`,
-// spelled exactly the way the console's `give` verb is, and resolving the item
+// An item gift parsed out of a sheet's action cell: `spawn_loot:<item> [count]`,
+// spelled exactly the way the console's `spawn_loot` verb is, and resolving the item
 // the same way — by the basename of a .tres under resources/data/items/, or
 // under this world's own worlds/<world>/items/.
 //
@@ -13,30 +13,30 @@ using System;
 // An authored .tres is still the answer when the gift is not anonymous — when it
 // carries ItemDescriptor mods or a level (a Fragile bomb), or when several items
 // together are one named concept worth reusing across NPCs.
-class GiveRef
+class SpawnLootRef
 {
 	public ResRef Item;
 	public int Count = 1;
 }
 
-static class GiveCell
+static class SpawnLootCell
 {
-	const string Prefix = "give:";
+	const string Prefix = "spawn_loot:";
 
 	// True when the cell token is the inline gift form rather than the name of
-	// an authored .tres. Note that `give_lantern` is NOT this: the separator is
-	// the colon, so an authored action may still be named give_something.
-	public static bool IsGiveToken(string token)
+	// an authored .tres. Note that `spawn_loot_lantern` is NOT this: the separator is
+	// the colon, so an authored action may still be named spawn_loot_something.
+	public static bool IsSpawnLootToken(string token)
 	{
 		return token.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase);
 	}
 
-	public static GiveRef Parse(string token, ResourceIndex index, string world, SheetRow row, Report report)
+	public static SpawnLootRef Parse(string token, ResourceIndex index, string world, SheetRow row, Report report)
 	{
 		string body = token.Substring(Prefix.Length).Trim();
 		if (body.Length == 0)
 		{
-			report.Error(row, $"'{token}' names no item - say 'give:lantern'");
+			report.Error(row, $"'{token}' names no item - say 'spawn_loot:lantern'");
 			return null;
 		}
 
@@ -56,9 +56,9 @@ static class GiveCell
 		ResRef item = index.Item(world, parts[0]);
 		if (item == null)
 		{
-			report.Error(row, $"unknown item '{parts[0]}' - no .tres by that basename under resources/data/items/ or worlds/{world}/items/ (the same names `give ?` lists in the console)");
+			report.Error(row, $"unknown item '{parts[0]}' - no .tres by that basename under resources/data/items/ or worlds/{world}/items/ (the same names `spawn_loot ?` lists in the console)");
 			return null;
 		}
-		return new GiveRef { Item = item, Count = count };
+		return new SpawnLootRef { Item = item, Count = count };
 	}
 }

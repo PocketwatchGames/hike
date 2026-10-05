@@ -217,7 +217,7 @@ public partial class ConversationController : Control
 		float branchComp = primary != null
 			? ConversationVisibility.ComputeBranchComprehension(primary, lang, _ctx.player, grammarWeight)
 			: 1f;
-		bool debug = CVars.conversationDebug.Value;
+		bool debug = CVars.debugConversation.Value;
 		for (int i = 0; i < group.responses.Count; i++)
 		{
 			ConversationResponse r = group.responses[i];

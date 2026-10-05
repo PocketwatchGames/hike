@@ -367,14 +367,14 @@ public partial class Sim
         if (TryFindCompanionRescuePosition(chunk, out Vector3 target))
         {
             _companionFarSeconds = 0f;
-            if (CVars.companionDebug.Value)
+            if (CVars.debugCompanion.Value)
             {
                 float dist = _companion.GlobalPosition.DistanceTo(_player.GlobalPosition);
                 GD.Print($"[companion] leash RESCUE ({reason}): pet at chunk {chunk} (dist {dist:F1}m) -> teleport to {target} (crumbs={_playerPositionHistory.Count})");
             }
             _companion.Teleport(target, fadeIn: true);
         }
-        else if (CVars.companionDebug.Value)
+        else if (CVars.debugCompanion.Value)
         {
             float dist = _companion.GlobalPosition.DistanceTo(_player.GlobalPosition);
             GD.Print($"[companion] leash STRANDED ({reason}): pet at chunk {chunk} (dist {dist:F1}m) but NO valid rescue crumb found (crumbs={_playerPositionHistory.Count}) — pet stays put");
@@ -777,14 +777,14 @@ public partial class Sim
     // authored radius around its interactive.
     private const float DangerDebugRadius = 40f;
 
-    // danger_debug: every half-second, dump each dangerous hostile within the
+    // debug_danger: every half-second, dump each dangerous hostile within the
     // debug radius of the player with the exact factors the danger scan reads —
     // distance, behavior, composed flags, IsEngaging, and clear-line-to-player —
     // so a stuck "Danger Nearby" can be pinned to a specific mob and the clause
     // (engaging vs in-sight) holding it.
     private void DebugDangerScan(double delta)
     {
-        if (!CVars.dangerDebug.Value)
+        if (!CVars.debugDanger.Value)
         {
             return;
         }

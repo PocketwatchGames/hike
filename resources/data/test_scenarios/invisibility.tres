@@ -8,8 +8,8 @@ scenarioName = "invisibility"
 description = "Invisibility scroll, two casts of reagents, and goblins to slip past."
 commands = "// No verb attunes a spell: read the scroll, then attune Invisibility at a campfire.
 // Let the goblins lock on first, then cast: they should lose you but stay alert.
-give scroll_invisibility
-give mushroom_purple 4
-give spider_legs 2
-spawn goblin_forest 3"
+spawn_loot scroll_invisibility
+spawn_loot mushroom_purple 4
+spawn_loot spider_legs 2
+spawn_mob goblin_forest 3"
 metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

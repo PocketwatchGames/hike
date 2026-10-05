@@ -44,7 +44,7 @@ public partial class Player : CharacterBody3D
 	public void EnterSafetyZone(SafetyZone zone)
 	{
 		_safeZoneCount++;
-		if (CVars.safetyDebug.Value)
+		if (CVars.debugSafety.Value)
 		{
 			GD.Print($"[safety] player entered zone, count={_safeZoneCount} IsSafe={IsSafe}");
 		}
@@ -56,7 +56,7 @@ public partial class Player : CharacterBody3D
 		{
 			_safeZoneCount--;
 		}
-		if (CVars.safetyDebug.Value)
+		if (CVars.debugSafety.Value)
 		{
 			GD.Print($"[safety] player exited zone, count={_safeZoneCount} IsSafe={IsSafe}");
 		}

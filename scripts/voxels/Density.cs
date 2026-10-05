@@ -4,7 +4,7 @@ using System;
 // (what to draw); Density tells the mesher where surfaces lie. Not stored —
 // recomputing is cheap and keeps Voxels[] as the single source of truth.
 //
-// Two lattices, selected by CVars.voxelCenterSampling:
+// Two lattices, selected by CVars.debugVoxelCenterSampling:
 //   CornerDensity — samples at voxel CORNERS via the min-rule. Dilates the
 //     solid phase by one voxel, so 1-voxel-thin AIR (doorways, slits, narrow
 //     tunnels) has no sign change anywhere and vanishes.

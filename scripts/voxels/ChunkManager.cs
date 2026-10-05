@@ -205,7 +205,8 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("light_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _lightMap.Texture);
         ShaderGlobals.Register("light_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.Origin);
         ShaderGlobals.Register("light_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.InvSize);
-        ShaderGlobals.Register("light_falloff_exp", RenderingServer.GlobalShaderParameterType.Float, 2f);
+        // Bootstrap from project.godot — SkyController.Apply pushes its authored value every frame.
+        ShaderGlobals.ResetToProjectDefault("light_falloff_exp");
         ShaderGlobals.Register("light_sample_offset", RenderingServer.GlobalShaderParameterType.Float, 0.5f);
         // Night-vision degree for the screenspace effect in
         // shaders/post_process.gdshader. Seeded to 0 (off, exact no-op);
@@ -224,19 +225,19 @@ public partial class ChunkManager : Node3D
         // cvars.txt override at startup is honored before the first tree
         // material compiles. Subsequent live edits push via the OnChanged
         // callbacks in CVars.cs.
-        ShaderGlobals.Register("tree_wind_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.treeWind.Value);
-        ShaderGlobals.Register("tree_sphere_normal_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.treeSphereNormal.Value);
-        ShaderGlobals.Register("tree_detail_noise_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.treeDetailNoise.Value);
-        ShaderGlobals.Register("tree_silhouette_breakup_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.treeSilhouetteBreakup.Value);
+        ShaderGlobals.Register("tree_wind_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.debugTreeWind.Value);
+        ShaderGlobals.Register("tree_sphere_normal_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.debugTreeSphereNormal.Value);
+        ShaderGlobals.Register("tree_detail_noise_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.debugTreeDetailNoise.Value);
+        ShaderGlobals.Register("tree_silhouette_breakup_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.debugTreeSilhouetteBreakup.Value);
         // Contact/directional AO darkening strength for 3D model props (trunks,
         // rocks, chests, statues) — consumed by model_lit.gdshader. Global so a
         // single CVar drives every model_lit material at once.
-        ShaderGlobals.Register("model_ao_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.modelAo.Value);
-        // Ceiling-cap pipeline debug mode (CVars.clipDebug). Seeded here so
+        ShaderGlobals.Register("model_ao_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.debugModelAo.Value);
+        // Ceiling-cap pipeline debug mode (CVars.debugClip). Seeded here so
         // every shader that reads it (clip_cap, water_clip_cap, voxel_water,
         // voxel_water_backface) compiles cleanly before the first frame.
-        ShaderGlobals.Register("clip_debug_mode", RenderingServer.GlobalShaderParameterType.Int, CVars.clipDebug.Value);
-        ShaderGlobals.Register("water_hide", RenderingServer.GlobalShaderParameterType.Bool, CVars.waterHide.Value);
+        ShaderGlobals.Register("clip_debug_mode", RenderingServer.GlobalShaderParameterType.Int, CVars.debugClip.Value);
+        ShaderGlobals.Register("water_hide", RenderingServer.GlobalShaderParameterType.Bool, CVars.debugWaterHide.Value);
         // block_light_shadow_* globals (the projector's coverage texture,
         // its world→UV matrix, and the on/off flag) are seeded by
         // BlockLightShadowProjector._Ready, which also runs before the
@@ -277,9 +278,9 @@ public partial class ChunkManager : Node3D
         _windAttractor.Size = _windMap.WindowWorldSize * 0.5f;
         RepositionWindAttractor();
         // Strength is the m/s² acceleration applied at peak signed wind (RGB
-        // = 0 or 255). Defaults small because particles have low damping;
-        // tunable live via CVars.particleWindStrength (polled in _Process).
-        _windAttractor.Strength = WindGen.WIND_VELOCITY_SCALE * CVars.particleWindStrength.Value;
+        // = 0 or 255); SkyController.particleWindStrength drives it through
+        // SetParticleWindStrength each frame.
+        _windAttractor.Strength = 0f;
         AddChild(_windAttractor);
         // Water-current subgrid — same UVW convention as wind_map / light_map.
         // Declared in project.godot with a PlaceholderTexture3D so the editor
@@ -288,16 +289,17 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("water_current_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _waterCurrentMap.Texture);
         ShaderGlobals.Register("water_current_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _waterCurrentMap.Origin);
         ShaderGlobals.Register("water_current_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, _waterCurrentMap.InvSize);
-        ShaderGlobals.Register("water_current_speed", RenderingServer.GlobalShaderParameterType.Float, CVars.waterCurrentSpeed.Value);
-        ShaderGlobals.Register("water_current_phase_period", RenderingServer.GlobalShaderParameterType.Float, CVars.waterCurrentPhasePeriod.Value);
-        ShaderGlobals.Register("water_currents_enabled", RenderingServer.GlobalShaderParameterType.Bool, CVars.waterCurrentsEnabled.Value);
+        ShaderGlobals.Register("water_current_speed", RenderingServer.GlobalShaderParameterType.Float, _worldData.SimData.waterCurrentSpeed);
+        // Bootstrap from project.godot — SkyController.Apply pushes its authored value every frame.
+        ShaderGlobals.ResetToProjectDefault("water_current_phase_period");
+        ShaderGlobals.Register("water_currents_enabled", RenderingServer.GlobalShaderParameterType.Bool, CVars.debugWaterCurrentsEnabled.Value);
         // Day/night-driven sun controls. Intensity is overall brightness;
         // color is the RGB tint (warm at dawn/dusk, cool at noon, etc.).
         // Both default to "noon" values; the day/night sim will write them.
         // Bootstrap value — SkyController.Apply overwrites this every frame
         // with the day/night-blended CurrentPrimaryIntensity.
         ShaderGlobals.Register("sun_intensity", RenderingServer.GlobalShaderParameterType.Float, 2f);
-        ShaderGlobals.Register("sun_color", RenderingServer.GlobalShaderParameterType.Vec3, CVars.SunColor);
+        ShaderGlobals.ResetToProjectDefault("sun_color");
 
         // Bird's-eye overlook fog reveal (fog_volumetric.gdshader). The curtain
         // hides any ground beyond overlook_reveal_radius (XZ distance from
@@ -327,8 +329,8 @@ public partial class ChunkManager : Node3D
             _fogMaterial.SetShaderParameter("fog_map", _fogMap.Texture);
             _fogMaterial.SetShaderParameter("fog_map_origin", _fogMap.Origin);
             _fogMaterial.SetShaderParameter("fog_map_inv_size", _fogMap.InvSize);
-            _fogMaterial.SetShaderParameter("debug_mode", CVars.fogDebug.Value);
-            _fogMaterial.SetShaderParameter("fog_enabled", CVars.fogEnabled.Value);
+            _fogMaterial.SetShaderParameter("debug_mode", CVars.debugFog.Value);
+            _fogMaterial.SetShaderParameter("fog_enabled", CVars.debugFogEnabled.Value);
             // water_level is tracked per frame in _Process (UpdateFogWaterLevel);
             // NO_WATER_PLANE until the first probe, so a world with no water
             // near the player is never clamped against one.
@@ -460,12 +462,15 @@ public partial class ChunkManager : Node3D
             DrainWindChunkDirty();
             _windMap.Flush(_worldData);
         }
+    }
 
+    // Scales the wind-map vector field driving the global particle attractor.
+    // Pushed every frame by SkyController.Apply from its authored value.
+    public void SetParticleWindStrength(float strength)
+    {
         if (_windAttractor != null)
         {
-            // Live re-poll so tuning particle_wind_strength via the in-game
-            // console takes effect immediately. Cheap: just a float assignment.
-            _windAttractor.Strength = WindGen.WIND_VELOCITY_SCALE * CVars.particleWindStrength.Value;
+            _windAttractor.Strength = WindGen.WIND_VELOCITY_SCALE * strength;
         }
     }
 
@@ -678,7 +683,7 @@ public partial class ChunkManager : Node3D
     }
 
     // Requeue every loaded chunk. For cvars that change mesh geometry globally
-    // (voxel_center_sampling). The queue is rate-limited per frame, so a large
+    // (debug_voxel_center_sampling). The queue is rate-limited per frame, so a large
     // resident world trickles in over several seconds rather than hitching.
     public void RebuildAllChunkMeshes()
     {
@@ -833,7 +838,7 @@ public partial class ChunkManager : Node3D
                 }
                 onChunkUnloaded?.Invoke(coord);
                 ChunkMesh evicting = _loadedChunks[coord];
-                if (CVars.chunkWaterLog.Value && evicting.HasWater)
+                if (CVars.debugChunkWaterLog.Value && evicting.HasWater)
                 {
                     GD.Print($"[water_log] UNLOAD water chunk {coord} tod={_worldData.TimeOfDay01:F3} loaded={_loadedChunks.Count - 1}");
                 }
@@ -850,7 +855,7 @@ public partial class ChunkManager : Node3D
         // already loaded and does nothing. Safe here and NOT in general: this
         // runs before the player exists, so nothing is editing voxels or
         // touching the chunk dictionary while the workers read it.
-        if (_initialLoadPending && CVars.chunkParallelFill.Value)
+        if (_initialLoadPending && CVars.debugChunkParallelFill.Value)
         {
             FillInParallel(desired);
         }
@@ -1052,7 +1057,7 @@ public partial class ChunkManager : Node3D
         ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetBlockWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, _worldData.CollectClimbLipsWorld, buildCollision: !visualOnly, buildDetails: !visualOnly, outOfLightWindow: visualOnly);
         AddChild(mesh);
         _loadedChunks[coord] = mesh;
-        if (CVars.chunkWaterLog.Value && mesh.HasWater)
+        if (CVars.debugChunkWaterLog.Value && mesh.HasWater)
         {
             GD.Print($"[water_log] LOAD   water chunk {coord} tod={_worldData.TimeOfDay01:F3} loaded={_loadedChunks.Count}");
         }

@@ -34,7 +34,7 @@ public partial class Fx : Node3D
 	public static int ActiveAudioCount => _activeAudio;
 	public static int ActiveParticlesCount => _activeParticles;
 	// Per-scene active count, keyed by SceneFilePath. Surfaced by the
-	// `fx_dump` console action so an unexpectedly large per-scene total
+	// `debug_fx_dump` console action so an unexpectedly large per-scene total
 	// can be spotted at a glance — leaks present as a single scene's
 	// count climbing without bound, expected steady states (one anim
 	// loop per mob, one torch loop per chaser) read as round numbers.
@@ -78,8 +78,8 @@ public partial class Fx : Node3D
 	{
 		using var _prof = Profiler.Sample("Fx.Ready");
 		EnsureMonitorsRegistered();
-		bool audioEnabled = CVars.fxAudio.Value;
-		bool particlesEnabled = CVars.fxParticles.Value;
+		bool audioEnabled = CVars.debugFxAudio.Value;
+		bool particlesEnabled = CVars.debugFxParticles.Value;
 		foreach (var c in GetChildren())
 		{
 			if (c is GpuParticles3D p)
@@ -105,7 +105,7 @@ public partial class Fx : Node3D
 				{
 					a.Play();
 				}
-				if (CVars.audioLog.Value)
+				if (CVars.debugAudioLog.Value)
 				{
 					string streamPath = a.Stream?.ResourcePath ?? "<inline>";
 					GD.Print($"[audio] t={Time.GetTicksMsec()}ms scene={Name} stream={streamPath}");
@@ -140,7 +140,7 @@ public partial class Fx : Node3D
 		var entries = new List<KeyValuePair<string, int>>(_activeByScene);
 		entries.Sort((a, b) => b.Value.CompareTo(a.Value));
 		var sb = new System.Text.StringBuilder();
-		sb.Append("[fx_dump] total=").Append(_activeFx)
+		sb.Append("[debug_fx_dump] total=").Append(_activeFx)
 		  .Append(" audio=").Append(_activeAudio)
 		  .Append(" particles=").Append(_activeParticles)
 		  .Append('\n');

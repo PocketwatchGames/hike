@@ -5,7 +5,7 @@ using Godot;
 
 // Load-time instrumentation for the entity spawn drain and the chunk-mesh
 // fill: per-entity-type cost split into CreateEntity (scene instantiation) vs
-// RegisterEntity (OnSpawned + bookkeeping). Off unless `spawn_cost_profile 1`
+// RegisterEntity (OnSpawned + bookkeeping). Off unless `debug_spawn_cost_profile 1`
 // is set before the world loads — the timestamps are per entity, and the dump
 // is a screenful.
 public static class SpawnCostProfile
@@ -19,7 +19,7 @@ public static class SpawnCostProfile
 
     private static readonly Dictionary<string, Entry> _byType = new();
 
-    public static bool Enabled => CVars.spawnCostProfile.Value;
+    public static bool Enabled => CVars.debugSpawnCostProfile.Value;
 
     // Timestamp for a Record/RecordOther pair. Returns 0 while profiling is
     // off so a call site costs nothing but the flag read.

@@ -278,7 +278,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // stain projector covers a radius around the player regardless of camera facing,
     // so a pinned silhouette can leave the frame while its blob stays on visible
     // ground). Zero when MobData.groundShadowRadius is 0.
-    public float GroundShadowAlpha => CVars.mobShadows.Value ? _visibility * (1f - _silhouette) : 0f;
+    public float GroundShadowAlpha => CVars.debugMobShadows.Value ? _visibility * (1f - _silhouette) : 0f;
     // The persistent sim state backing this mob. Exposed so Sim's companion
     // chunk-unload rescue can re-file the state under a new chunk (see
     // Sim.RescueCompanion / WorldState.MoveEntityToChunk).
@@ -439,7 +439,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
     // Whether this mob currently has line-of-sight to the player on its own
     // perception slot (mob→player). Distinct from playerCanSee, which is the
-    // player→mob direction. Diagnostics-only accessor (danger_debug).
+    // player→mob direction. Diagnostics-only accessor (debug_danger).
     public bool CanSeePlayer => _simState.PerceptionTargets[0].canSee;
 
     // Per-mob per-frame perception breakdowns for the debug HUD overlay.
@@ -645,7 +645,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private bool _gravityScaleCaptured;
     private bool _gravityScaleSwimActive;
     private bool _impulseApplied;
-    // Tracks the last observed mob_physics CVar value so the bisection
+    // Tracks the last observed debug_mob_physics CVar value so the bisection
     // toggle's force-freeze / force-unfreeze block only fires on actual
     // CVar transitions, not every physics tick. Without this, the block
     // unconditionally undoes the per-mob auto-freeze every tick (auto-
@@ -799,7 +799,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     // Spawn one footstep + footprint at the current foot position, fired from
     // the model's foot-contact method track. Skip while
-    // in water (the wading ripple covers it). The mob_footstep_fx CVar gates
+    // in water (the wading ripple covers it). The debug_mob_footstep_fx CVar gates
     // the audible/visible FX puff for perf bisection; the perception gate
     // suppresses footsteps the player has no awareness of. Footprints are
     // always laid (subject to the discoverability gate) regardless of CVar.
@@ -825,7 +825,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         EGroundType ground = GroundTypeResolver.Resolve(ws, pos);
         bool perceived = _simState.PlayerPerception > 0f;
-        if (perceived && CVars.mobFootstepFx.Value)
+        if (perceived && CVars.debugMobFootstepFx.Value)
         {
             FootstepEmitter.Emit(_world, pos, ground, _footstepEffects);
         }
@@ -1985,7 +1985,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // — every swap tears down + spawns a fresh Fx (instantiate, AddChild,
         // wire audio + particles).
         using var _profSwap = Profiler.Sample("Mob.UpdateAnimLoop.Swap");
-        if (!CVars.mobAnimLoopFx.Value)
+        if (!CVars.debugMobAnimLoopFx.Value)
         {
             _animLoopScene = scene;
             return;
@@ -2727,9 +2727,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _visibility = Mathf.MoveToward(_visibility, targetVisibility, step);
         _silhouette = Mathf.MoveToward(_silhouette, targetSilhouette, step);
 
-        bool meshVisibleTarget = _visibility > 0f && CVars.mobVisible.Value;
-        bool hudVisibleTarget = CVars.mobHud.Value;
-        bool castsShadowTarget = _visibility > 0f && CVars.mobShadows.Value;
+        bool meshVisibleTarget = _visibility > 0f && CVars.debugMobVisible.Value;
+        bool hudVisibleTarget = CVars.debugMobHud.Value;
+        bool castsShadowTarget = _visibility > 0f && CVars.debugMobShadows.Value;
 
         // Push to Godot only when something actually changed. Each setter is
         // a managed→native marshal that pushes uniform updates / dirties the
@@ -2749,7 +2749,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _statusEffects?.SetLoopFxVisible(meshVisibleTarget && withinVisibleTime);
         // Animation cull + cost diagnostic. freezable = not rendered AND in a
         // stationary loop (no footstep events to miss). mob_anim 0 freezes EVERY
-        // mob (measures the total animation-cost ceiling); mob_anim_cull gates the
+        // mob (measures the total animation-cost ceiling); debug_mob_anim_cull gates the
         // idle-only cull. The counters report how many mobs each frame are
         // actually frozen vs still animating, so the cull's reach is visible.
         // Freeze the skeleton (static pose → Godot skips the per-frame GPU
@@ -2759,10 +2759,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // contact — so a discovered-but-occluded/offscreen mob, drawn as a static
         // memory silhouette, stops skinning. That's exactly the wasted work
         // Godot's frustum-only culling leaves in (it skins every in-frustum
-        // visible mesh, occluded or not). mob_pose_distance optionally also
+        // visible mesh, occluded or not). debug_mob_pose_distance optionally also
         // freezes still-in-sight mobs past a radius.
         bool tooFarToPose = false;
-        float poseDist = CVars.mobPoseDistance.Value;
+        float poseDist = CVars.debugMobPoseDistance.Value;
         if (poseDist > 0f && _world?.player != null)
         {
             tooFarToPose = (GlobalPosition - _world.player.GlobalPosition).LengthSquared() > poseDist * poseDist;
@@ -2778,7 +2778,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // mob keep skinning.
         bool fullyRemembered = _silhouette >= 1f;
         bool fading = _silhouette > 0f && _silhouette < 1f;
-        bool animProcessTarget = !CVars.mobAnimCull.Value
+        bool animProcessTarget = !CVars.debugMobAnimCull.Value
             || (!tooFarToPose && (withinVisibleTime || fading));
         // Per-frame census → readable gauges (mob_count / mob_anim_active /
         // mob_anim_frozen). The first mob each process frame publishes the prior
@@ -2870,7 +2870,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
 
-        // mob_physics is a profiling bisection toggle — when off, freeze the
+        // debug_mob_physics is a profiling bisection toggle — when off, freeze the
         // body and zero its layer/mask so Jolt's broadphase and contact
         // resolver see nothing. Tracks the CVar live so you can flip it
         // mid-session and watch _PhysicsProcess time change.
@@ -2880,7 +2880,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // a per-tick "if CVar is on, unfreeze" block would undo it on the
         // very next tick. Only enforce the CVar's intent when it actually
         // changes; the auto-freeze owns the Freeze state outside transitions.
-        bool physicsEnabled = CVars.mobPhysics.Value;
+        bool physicsEnabled = CVars.debugMobPhysics.Value;
         if (physicsEnabled != _lastMobPhysicsCvar)
         {
             if (physicsEnabled)
@@ -2902,11 +2902,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
 
-        // mob_ai is the finer half of the same bisection: skip the C# tick
+        // debug_mob_ai is the finer half of the same bisection: skip the C# tick
         // below but leave the body live in Jolt, so the frame-time delta from
-        // here attributes to C# and the remaining delta down to mob_physics 0
+        // here attributes to C# and the remaining delta down to debug_mob_physics 0
         // attributes to Jolt. See the CVar comment for the arithmetic.
-        if (!CVars.mobAI.Value)
+        if (!CVars.debugMobAi.Value)
         {
             return;
         }
@@ -2921,7 +2921,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // can still be on screen, and throttling those reads as stutter.
         float coldDt = (float)delta;
         bool runCold = true;
-        if (CVars.mobColdTick.Value && !IsEngaging && _world?.player != null)
+        if (CVars.debugMobColdTick.Value && !IsEngaging && _world?.player != null)
         {
             SimData coldSimData = _world.SimData;
             float coldDistance = coldSimData?.mobColdTickDistance ?? 30f;
@@ -3139,7 +3139,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Visualizes aiOutput.pathTarget (the single contract every
             // behavior writes to move the mob) so any new behavior shows
             // up here for free without its own debug code.
-            if (CVars.mobDebugPath.Value)
+            if (CVars.debugMobPath.Value)
             {
                 DrawPathDebug(aiOutput.pathTarget);
             }
@@ -3408,7 +3408,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     Rotation = new Vector3(currentRot.X, currentRot.Y + step, currentRot.Z);
                 }
 
-                if (CVars.mobDebugYaw.Value)
+                if (CVars.debugMobYaw.Value)
                 {
                     GD.Print($"[yaw] {Name} target={targetYaw.Value:F3} cur={currentRot.Y:F3} delta={yawDelta:F3} step={step:F3} behavior={_curBehavior}");
                 }
@@ -3599,7 +3599,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
 
     // Whether the mob had footing last tick, and the surface it was standing on.
-    // Only meaningful while mob_fall_trace is on.
+    // Only meaningful while debug_mob_fall_trace is on.
     private bool _fallTraceHadFooting = true;
     private float _fallTraceLastFootingY;
 
@@ -3615,7 +3615,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // body outside steering entirely (knockback / dart / a push).
     private void TickFallTrace()
     {
-        if (!CVars.mobFallTrace.Value)
+        if (!CVars.debugMobFallTrace.Value)
         {
             return;
         }
@@ -3681,7 +3681,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     + $" goal=({nav.Goal.X:F1},{nav.Goal.Y:F1},{nav.Goal.Z:F1})"));
     }
 
-    // mob_stuck_trace / debug_mob_behavior: a mob whose navigator still has a
+    // debug_mob_stuck_trace / debug_mob_behavior: a mob whose navigator still has a
     // goal it hasn't reached while its body sits still. The navigator has no
     // stuck detection of its own (IsBlocked is only a planning failure), so
     // this is the one place a wedge is named — with what the body is touching
@@ -3718,7 +3718,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     private void TickStuckTrace()
     {
-        bool trace = CVars.mobStuckTrace.Value;
+        bool trace = CVars.debugMobStuckTrace.Value;
         if (!trace && !CVars.debugMobBehavior.Value)
         {
             _stuckStartMs = 0;
@@ -4017,7 +4017,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         CollisionMask = want ? (CollisionMask | bit) : (CollisionMask & ~bit);
     }
 
-    // How deep mob_fall_trace looks for the bottom of a drop it is reporting.
+    // How deep debug_mob_fall_trace looks for the bottom of a drop it is reporting.
     // Report-only; nothing decides anything on it.
     private const float DeepFallProbe = 64f;
 
@@ -4117,7 +4117,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private Vector3 SlideAlongContacts(Vector3 dir)
     {
         int count = _slideNormalCount;
-        if (count == 0 || !CVars.mobSlide.Value)
+        if (count == 0 || !CVars.debugMobSlide.Value)
         {
             return dir;
         }
@@ -4263,7 +4263,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _exitingWater = true;
     }
 
-    // Diagnostic probe (companion_debug): reports what's directly ahead in
+    // Diagnostic probe (debug_companion): reports what's directly ahead in
     // `dir` using the same two rays TryStepUp uses. obstacleAhead = something at
     // ankle height blocks forward motion; wallAbove = the space at
     // maxStepHeight+margin is ALSO blocked, i.e. a wall the step-up refuses
@@ -4663,6 +4663,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 _statusEffects.TriggerOnDamaged(hit, this);
             }
+        }
+        else if (CVars.debugBuildup.Value && hit.buildups != null)
+        {
+            GD.Print($"[buildup] {Name}: lethal hit ({incoming:0.#} vs {health:0.#} hp), buildups skipped");
         }
 
         // Hitstun + knockback: stack on top of any buildup handling above so a
@@ -5892,7 +5896,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _foliageCollisions.Remove(foliage);
     }
 
-    // mob_debug_path. Lifted slightly off the surface so paths don't z-fight
+    // debug_mob_path. Lifted slightly off the surface so paths don't z-fight
     // with the ground mesh on flat terrain. Single-frame lifetime — relies on
     // this method being called every physics tick to stay on screen.
     private void DrawPathDebug(Vector3? pathTarget)

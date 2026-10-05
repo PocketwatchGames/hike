@@ -397,6 +397,6 @@ public partial class MusicManager : Node
 
     private static void Log(string msg)
     {
-        if (CVars.musicDebug.Value) { GD.Print($"[Music] {msg}"); }
+        if (CVars.debugMusic.Value) { GD.Print($"[Music] {msg}"); }
     }
 }

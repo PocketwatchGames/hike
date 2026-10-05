@@ -36,7 +36,7 @@ public partial class NightMobSpawner : Node
     // authored huge. The window still covers the smaller of this and the radius.
     private const int MaxWindowHalfExtent = 40;
 
-    // Seconds between night_spawn_debug status dumps.
+    // Seconds between debug_night_spawn status dumps.
     private const double DebugIntervalSeconds = 1.0;
 
     // A standable, dark-enough spawn spot collected from the nav-grid window, with
@@ -87,12 +87,12 @@ public partial class NightMobSpawner : Node
         int target = Mathf.RoundToInt(data.nightSpawnMaxPopulation * danger);
         int current = CountLiveNightMobs(sim, data);
 
-        // Periodic diagnostics — the status dump (night_spawn_debug) and/or the
-        // in-world overlay of every valid spawn spot (night_spawn_draw). Both run
+        // Periodic diagnostics — the status dump (debug_night_spawn) and/or the
+        // in-world overlay of every valid spawn spot (debug_night_spawn_draw). Both run
         // regardless of whether anything spawns, so a "why aren't they spawning
         // here / why on the surface not in the cave?" can be seen directly. Shares
         // one throttled collect for both.
-        if (CVars.nightSpawnDebug.Value || CVars.nightSpawnDraw.Value)
+        if (CVars.debugNightSpawn.Value || CVars.debugNightSpawnDraw.Value)
         {
             _debugTimer -= delta;
             if (_debugTimer <= 0.0)
@@ -103,11 +103,11 @@ public partial class NightMobSpawner : Node
                 {
                     CollectSpawnCandidates(sim, data, new TraversalProfile(probeMob), player.GlobalPosition);
                 }
-                if (CVars.nightSpawnDebug.Value)
+                if (CVars.debugNightSpawn.Value)
                 {
                     PrintDebug(sim, data, danger, target, current, interval, probeMob != null ? _candidates.Count : 0);
                 }
-                if (CVars.nightSpawnDraw.Value)
+                if (CVars.debugNightSpawnDraw.Value)
                 {
                     DrawSpawnCandidates(data, player.GlobalPosition);
                 }
@@ -148,7 +148,7 @@ public partial class NightMobSpawner : Node
 
     // Dump every input that feeds slime spawning plus the candidate `pool` size
     // (collected by the caller), and a one-word reason nothing is spawning, so the
-    // mechanic can be diagnosed. Toggle with `night_spawn_debug 1`.
+    // mechanic can be diagnosed. Toggle with `debug_night_spawn 1`.
     private void PrintDebug(Sim sim, SimData data, float danger, int target, int current, float interval, int pool)
     {
         double tod = sim.WorldState.TimeOfDay01;
@@ -187,8 +187,8 @@ public partial class NightMobSpawner : Node
             $"interval={interval:F1} timer={_timeUntilNext:F1} | standable={_standable.Count} pool={pool} | {reason}");
     }
 
-    // In-world overlay of the last collected spawn search, so "where are the valid
-    // spawns?" is answerable at a glance (toggle `night_spawn_draw 1`). Persists
+    // In-world overlay of the last collected spawn search, so "debug_where are the valid
+    // spawns?" is answerable at a glance (toggle `debug_night_spawn_draw 1`). Persists
     // one debug interval so it doesn't flicker. Reads _standable / _candidates
     // populated by the shared CollectSpawnCandidates call in _Process.
     //   • gray box   = standable ground found in range (pre light-gate)
@@ -253,7 +253,7 @@ public partial class NightMobSpawner : Node
             }
         }
 
-        if (CVars.nightSpawnLog.Value)
+        if (CVars.debugNightSpawnLog.Value)
         {
             GD.Print($"[nightspawn] danger={danger:F2} dwell={sim.DarknessDwell:F2} block={sim.PlayerBlockLight01:F2} target={target} current={current} pool={_candidates.Count + spawned} spawned={spawned} level={level}");
         }

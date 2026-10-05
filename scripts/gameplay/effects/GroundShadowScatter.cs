@@ -73,7 +73,7 @@ public partial class GroundShadowScatter : Node3D
 
         // Master off (the stain projector itself stops rendering, so emitting is
         // wasted): park the MultiMesh empty and skip the rebuild.
-        if (!CVars.groundStain.Value)
+        if (!CVars.debugGroundStain.Value)
         {
             if (_mm != null && _mm.VisibleInstanceCount != 0)
             {
@@ -96,7 +96,7 @@ public partial class GroundShadowScatter : Node3D
         float dirShadow = SkyController.Current?.DirectionalShadowStrength ?? 0f;
         float daylightFade = simData?.groundShadowDaylightFade ?? 1f;
         float mobMaster = simData?.mobShadowAlpha ?? 0f;
-        bool mobShadows = CVars.mobShadows.Value;
+        bool mobShadows = CVars.debugMobShadows.Value;
 
         // InstanceCount is allocated once at Capacity (in TryInit); the live count
         // varies almost every frame as casters enter/leave range and fade, so we

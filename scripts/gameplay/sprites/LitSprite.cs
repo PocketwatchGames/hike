@@ -584,7 +584,7 @@ public partial class LitSprite : SpriteBase
         {
             return;
         }
-        if (!CVars.spriteReflections.Value)
+        if (!CVars.debugSpriteReflections.Value)
         {
             if (_reflection.Visible)
             {

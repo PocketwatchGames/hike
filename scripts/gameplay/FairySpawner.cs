@@ -160,7 +160,7 @@ public partial class FairySpawner : Node
                 float dayLengthSec = Mathf.Max(1f, data.dayLengthSeconds);
                 ulong lifetimeMs = (ulong)(Mathf.Max(0.001f, data.fairyLifetimeDayFraction) * dayLengthSec * 1000f);
                 _living.Add((spawned, sim.GameTimeMs + lifetimeMs));
-                if (CVars.fairySpawnLog.Value)
+                if (CVars.debugFairySpawnLog.Value)
                 {
                     GD.Print($"[fairyspawn] spawned day={sim.DayNumber} period={currentPeriod} " +
                         $"count={_spawnedToday}/{data.fairyMaxSpawnsPerDay} killed={_killedToday} " +
@@ -218,7 +218,7 @@ public partial class FairySpawner : Node
             }
             if (!mob.IsPerceivedByPlayer)
             {
-                if (CVars.fairySpawnLog.Value)
+                if (CVars.debugFairySpawnLog.Value)
                 {
                     GD.Print($"[fairyspawn] lifetime despawn day={sim.DayNumber} living={_living.Count - 1}");
                 }

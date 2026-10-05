@@ -3,7 +3,7 @@ using Godot;
 // Debug overlay that renders the mob-navigability grid around a point so a
 // designer can see exactly which columns the pathfinder considers standable —
 // the canonical tool for diagnosing "the player can walk in there but the mob
-// won't path there." Gated by the `nav_grid` CVar; the game draws it around the
+// won't path there." Gated by the `debug_nav_grid` CVar; the game draws it around the
 // player from Sim._Process, the world editor around its edit cursor (there is no
 // player there, so Sim's call bails before reaching this).
 //

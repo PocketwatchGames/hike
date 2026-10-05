@@ -21,7 +21,7 @@ public sealed class WorldGen
     // detected automatically by content-hashing and don't require a bump.
     public const int WORLDGEN_VERSION = 136;
 
-    // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
+    // Bitmask flags for the debug_worldgen_skip CVar — see CVars.debugWorldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
     // SKIP_ALL turns the prop pass off entirely.
     public const int SKIP_DETAILS = 1;       // painted detail-sprite scatter
@@ -62,10 +62,10 @@ public sealed class WorldGen
     private readonly Dictionary<string, List<PathHint>> _pathHintsByPlacement = new();
     private readonly List<PathHint> _pathHints = new();
 
-    // The most recent run, for the `worldgen_debug` console command — the one
+    // The most recent run, for the `debug_worldgen` console command — the one
     // caller that wants a dump without holding the run that made the world.
     //
-    // Main sets it ONLY when CVars.worldgenKeepDebugData is on, because a run
+    // Main sets it ONLY when CVars.debugWorldgenKeepData is on, because a run
     // pins its height field and its terrain generator (~2 MB of scratch at the
     // default world size) for as long as anything references it, and that is
     // generator scaffolding outliving the world it produced. Off by default, so
@@ -394,10 +394,10 @@ public sealed class WorldGen
             genData.climbMinCliffHeight, true);
 
         // Detail-sprite scatter and prop / mob / loot spawning are gated by
-        // the worldgen_skip CVar (bitmask — see SKIP_* flags). Each category is
+        // the debug_worldgen_skip CVar (bitmask — see SKIP_* flags). Each category is
         // checked independently so e.g. setting just "details" strips grass
         // blades without affecting trees or mobs.
-        int skipFlags = CVars.worldgenSkip.Value;
+        int skipFlags = CVars.debugWorldgenSkip.Value;
 
         GenerateAllProps(ws, genData, noise.Grass, noise.Forest, heightMap, skipFlags, worldSeed);
 
@@ -497,9 +497,9 @@ public sealed class WorldGen
             RiverFlow = heightMap,
         });
 
-        if (!string.IsNullOrWhiteSpace(CVars.gradeDebug.Value))
+        if (!string.IsNullOrWhiteSpace(CVars.debugGrade.Value))
         {
-            GradeDebug.Dump(CVars.gradeDebug.Value, ws,
+            GradeDebug.Dump(CVars.debugGrade.Value, ws,
                 (x, z) => heightMap.GetSurface(x, z),
                 (x, z) => heightMap.IsGrade(x, z, genData.finish.maxGradeStep));
         }
@@ -2209,7 +2209,7 @@ public sealed class WorldGen
                     // scene, not a fact about the terrain — say so, because the
                     // gates are all silent and the author would otherwise be
                     // left staring at an empty room.
-                    GD.PushWarning($"WorldGen: '{variant.poolTag}' marker at {position} in '{placement.path}' rejected {row.entry.GetType().Name} — needs {row.entry.minSpacing}m clear of other entities and a floor its body can stand on (check it with `nav_grid`).");
+                    GD.PushWarning($"WorldGen: '{variant.poolTag}' marker at {position} in '{placement.path}' rejected {row.entry.GetType().Name} — needs {row.entry.minSpacing}m clear of other entities and a floor its body can stand on (check it with `debug_nav_grid`).");
                 }
             }
         }
@@ -2324,7 +2324,7 @@ public sealed class WorldGen
     private ITerrainGenerator _lastTerrainGen;
 
     // Writes three PPM images (plateau, height, ramp mask) and a stats text
-    // file to `dir`. Called from the `worldgen_debug` console command and
+    // file to `dir`. Called from the `debug_worldgen` console command and
     // from the headless auto-dump path in Main.
     // Terrain-only generate: exactly what BuildHeightMap needs, and nothing
     // else. The full Generate runs chunk fill, lighting, fog, props, mobs,
@@ -2375,7 +2375,7 @@ public sealed class WorldGen
     {
         if (!_lastHeightMap.HasValue)
         {
-            GD.PrintErr("worldgen_debug: no world has been generated yet.");
+            GD.PrintErr("debug_worldgen: no world has been generated yet.");
             return;
         }
         HeightMap hm = _lastHeightMap.Value;
@@ -2635,7 +2635,7 @@ public sealed class WorldGen
         // view and cannot show any of it.
         _lastTerrainGen?.DumpDiagnostics(dir);
 
-        GD.Print($"worldgen_debug: wrote {dir}/stats.txt, plateau.ppm, height.ppm, ramp.ppm,"
+        GD.Print($"debug_worldgen: wrote {dir}/stats.txt, plateau.ppm, height.ppm, ramp.ppm,"
             + " hillshade.ppm, height.bin, plateau.bin"
             + (hm.Water != null ? ", water.bin" : ""));
     }

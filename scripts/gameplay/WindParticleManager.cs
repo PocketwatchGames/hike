@@ -126,18 +126,18 @@ public partial class WindParticleManager : Node3D
             return;
         }
 
-        float forced = CVars.windForce.Value;
+        float forced = CVars.weatherWindForce.Value;
         float wind = forced >= 0f ? forced : sky.Weather.windSpeed;
         float rain = sky.Weather.rainAmount;
         // Wind is the base requirement for every kind. Rain additionally
         // suppresses leaves and sand (wet ground / soggy leaves don't blow),
         // but NOT foam — wind whips up whitecaps in a storm too, so foam stays
         // active whenever it's windy.
-        bool windActive = CVars.fxParticles.Value && wind > WindThreshold;
+        bool windActive = CVars.debugFxParticles.Value && wind > WindThreshold;
         if (!windActive)
         {
             DebugLog(dt, $"idle: wind={wind:0.0} <= threshold={WindThreshold} "
-                       + $"(fxParticles={CVars.fxParticles.Value}, sources={_leafSources.Count})");
+                       + $"(fxParticles={CVars.debugFxParticles.Value}, sources={_leafSources.Count})");
             ParkAll();
             return;
         }
@@ -187,7 +187,7 @@ public partial class WindParticleManager : Node3D
         if (wind > FoamWindThreshold) { CollectLeased(_foamPool, _burstScratch, false); }
         FireBursts(_burstScratch, ref _globalBudget, baseRate, rainDamp, dt);
 
-        if (CVars.windParticleDebug.Value)
+        if (CVars.debugWindParticle.Value)
         {
             int leaf = 0;
             foreach (var kv in _leafPools) { leaf += CountLeased(kv.Value); }
@@ -229,10 +229,10 @@ public partial class WindParticleManager : Node3D
 
     private float _dbgAccum;
 
-    // Throttled debug line (once/sec) gated on the wind_particle_debug CVar.
+    // Throttled debug line (once/sec) gated on the debug_wind_particle CVar.
     private void DebugLog(float dt, string msg)
     {
-        if (!CVars.windParticleDebug.Value) { _dbgAccum = 0f; return; }
+        if (!CVars.debugWindParticle.Value) { _dbgAccum = 0f; return; }
         _dbgAccum += dt;
         if (_dbgAccum < 1f) { return; }
         _dbgAccum = 0f;

@@ -283,7 +283,7 @@ public partial class WorldPropScatter : Node3D
         {
             bucket.Mmi.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
         }
-        bucket.Mmi.Visible = CVars.propsVisible.Value;
+        bucket.Mmi.Visible = CVars.debugPropsVisible.Value;
 
         // Single CVar subscription per bucket (lives for world's lifetime).
         Bucket b = bucket;
@@ -294,7 +294,7 @@ public partial class WorldPropScatter : Node3D
                 b.Mmi.Visible = ((CVarBool)cvar).Value;
             }
         };
-        CVars.propsVisible.OnChanged += bucket.OnVisibilityChanged;
+        CVars.debugPropsVisible.OnChanged += bucket.OnVisibilityChanged;
 
         AddChild(bucket.Mmi);
         _buckets[key] = bucket;
@@ -393,7 +393,7 @@ public partial class WorldPropScatter : Node3D
     }
 
     // Console-friendly summary of every active bucket — hooked up by the
-    // `props_stats` CVar action so the user can verify eviction is working.
+    // `debug_props_stats` CVar action so the user can verify eviction is working.
     // Per-bucket: pass, atlas label, forward-offset quantum, member count
     // (sprites currently registered) and live multimesh InstanceCount (the
     // last-rebuilt count; if Members > InstanceCount the bucket is dirty
@@ -444,7 +444,7 @@ public partial class WorldPropScatter : Node3D
         {
             if (bucket.OnVisibilityChanged != null)
             {
-                CVars.propsVisible.OnChanged -= bucket.OnVisibilityChanged;
+                CVars.debugPropsVisible.OnChanged -= bucket.OnVisibilityChanged;
             }
         }
         _buckets.Clear();

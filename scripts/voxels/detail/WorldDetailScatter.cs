@@ -145,7 +145,7 @@ public partial class WorldDetailScatter : Node3D
         bucket.Mmi.Name = MULTIMESH_NAME_PREFIX + (entry.texture != null ? entry.texture.ResourceName : "unnamed");
         bucket.Mmi.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
         bucket.Mmi.MaterialOverride = entry.GetMaterial();
-        bucket.Mmi.Visible = CVars.detailsVisible.Value;
+        bucket.Mmi.Visible = CVars.debugDetailsVisible.Value;
 
         // One CVar subscription per bucket. The bucket lives for the world's
         // lifetime, so no per-chunk subscribe/unsubscribe churn.
@@ -157,7 +157,7 @@ public partial class WorldDetailScatter : Node3D
                 b.Mmi.Visible = ((CVarBool)cvar).Value;
             }
         };
-        CVars.detailsVisible.OnChanged += bucket.OnVisibilityChanged;
+        CVars.debugDetailsVisible.OnChanged += bucket.OnVisibilityChanged;
 
         AddChild(bucket.Mmi);
         _buckets[entry] = bucket;
@@ -214,7 +214,7 @@ public partial class WorldDetailScatter : Node3D
         {
             if (bucket.OnVisibilityChanged != null)
             {
-                CVars.detailsVisible.OnChanged -= bucket.OnVisibilityChanged;
+                CVars.debugDetailsVisible.OnChanged -= bucket.OnVisibilityChanged;
             }
         }
         _buckets.Clear();

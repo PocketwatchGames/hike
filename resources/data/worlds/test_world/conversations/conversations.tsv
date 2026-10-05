@@ -1,5 +1,5 @@
 character	name	description	player	conversation key	goto	language	condition	action	text
-intro_dying_		Dying Man		greeting				kill_speaker;give:lantern	[lang:common]Sanctuary...[/lang] you must find it. My family, they are in the capital. Please, find the [lang:common]Sanctuary[/lang]. For them. [lang:common]Sanctuary.[/lang]
+intro_dying_		Dying Man		greeting				kill_speaker;spawn_loot:lantern	[lang:common]Sanctuary...[/lang] you must find it. My family, they are in the capital. Please, find the [lang:common]Sanctuary[/lang]. For them. [lang:common]Sanctuary.[/lang]
 intro_guard_		Resting Watchman		greeting	real				Are you… real?
 			x	real	help				Yes. I was told you were injured. Can I help?
 				help					I nearly lost my leg to a night drake. Unless you have unseen powers, I doubt you can help.
@@ -22,7 +22,7 @@ intro_librarian_	Ulga	Crone		greeting	language				Ah, come in, come in!
 				mud		common			Yes… it is the fault of governance by a clairvoyant. All visions of doom and no civic planning.
 					city				Tragic… the old city center sank, taking with it our primordial inheritance.
 			x	city	treasure		npcvar:map=false		The old city?
-				treasure	topics			give:map_city_center;npcvar:map=true	Yes yes. I have some old maps here that could help you if you plan to go that way.
+				treasure	topics			spawn_loot:map_city_center;npcvar:map=true	Yes yes. I have some old maps here that could help you if you plan to go that way.
 intro_mayor_		Seer		greeting	topics				Hello, traveler.
 				speak_common	topics	common			No. Ulga.
 				shipwreck	topics				We saw the shipwreck from the coast. There are rarely survivors on these shores. The mist swallows them.
@@ -49,7 +49,7 @@ intro_watchman		Watchman		entry	greeting_busy		npcvar:customs=true
 			x	whittlebone	sanctuary	common			A man on the shore kept saying “Sanctuary”. Do you know what this is?
 			x	whittlebone	customs	common			Whittlebone?
 				sanctuary	whittlebone	common			The ramblings of a dying man? No. But you could ask Ulga, the crone in the broken house to the south.
-				customs	whittlebone	common		give:scroll_vyeshal_vocab_1_2;npcvar:customs=true	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now. Not many speak common tongue though. You’d do best to learn our customs. Here, take this.
+				customs	whittlebone	common		spawn_loot:scroll_vyeshal_vocab_1_2;npcvar:customs=true	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now. Not many speak common tongue though. You’d do best to learn our customs. Here, take this.
 				greeting_busy		common			I am busy now, commoner. I must watch the sea.
 swamp_witch		Swamp Witch		greeting	shop				Oooh what’s this come crawlin outta the mud I see?
 									Come a little closer tadpole! Do ya have anything shiny?

@@ -68,7 +68,7 @@ public partial class WeatherLightningSpawner : Node
         }
         TrySpawnStrike(data, intensity);
         _timeUntilNext = SampleInterval(data, intensity);
-        if (CVars.lightningLog.Value)
+        if (CVars.debugLightningLog.Value)
         {
             GD.Print($"[lightning] intensity={intensity:F3} dest={destIntensity:F3} next_interval={_timeUntilNext:F1}s");
         }
@@ -94,14 +94,14 @@ public partial class WeatherLightningSpawner : Node
 
         if (!sim.TryFindGroundByRaycast(query2d, out Vector3 groundPos, GROUND_RAY_HEIGHT_OFFSET, GROUND_RAY_DEPTH_OFFSET))
         {
-            if (CVars.lightningLog.Value)
+            if (CVars.debugLightningLog.Value)
             {
                 GD.Print($"[lightning] skip: no ground at ({query2d.X:F1}, {query2d.Y:F1}, {query2d.Z:F1})");
             }
             return;
         }
         LightningStrike.Create(sim, groundPos, data);
-        if (CVars.lightningLog.Value)
+        if (CVars.debugLightningLog.Value)
         {
             GD.Print($"[lightning] FIRE at ({groundPos.X:F1}, {groundPos.Y:F1}, {groundPos.Z:F1}) (intensity={intensity:F3})");
         }

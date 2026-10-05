@@ -1152,7 +1152,7 @@ public class WorldState
     }
 
     // Trilinearly-sampled water current at a world position, in world m/s.
-    // Storage is normalized to [-1, 1] per axis; CVars.waterCurrentSpeed
+    // Storage is normalized to [-1, 1] per axis; SimData.waterCurrentSpeed
     // scales it to m/s, matching the water shader's drift integration so
     // gameplay physics agrees with the visible surface flow. Y is always
     // 0 — currents are 2D in the XZ plane.
@@ -1185,7 +1185,7 @@ public class WorldState
         Vector2 c0 = c00 * (1f - ty) + c10 * ty;
         Vector2 c1 = c01 * (1f - ty) + c11 * ty;
         Vector2 c = c0 * (1f - tz) + c1 * tz;
-        float speed = CVars.waterCurrentSpeed.Value;
+        float speed = SimData.waterCurrentSpeed;
         return new Vector3(c.X * speed, 0f, c.Y * speed);
     }
 
@@ -1416,7 +1416,7 @@ public class WorldState
     // Block-id census over every resident chunk, most common first. Answers
     // "did this material actually get placed?" — the question no amount of
     // reading the catalog or the atlas can settle, and the one that catches a
-    // worldgen pass silently writing the wrong block. See CVars.worldHistogram.
+    // worldgen pass silently writing the wrong block. See CVars.debugWorldHistogram.
     public string DescribeBlockHistogram()
     {
         var counts = new long[BlockCatalog.MAX_BLOCKS];
@@ -1446,7 +1446,7 @@ public class WorldState
         order.Sort((a, b) => counts[b].CompareTo(counts[a]));
 
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"[world_histogram] {_chunks.Count} chunks, {total} non-air voxels");
+        sb.AppendLine($"[debug_world_histogram] {_chunks.Count} chunks, {total} non-air voxels");
         foreach (int id in order)
         {
             BlockData block = BlockCatalog.Active.GetById(id);

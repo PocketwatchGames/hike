@@ -4,7 +4,7 @@
     public static CVarString savePath = new CVarString("savepath", "user://savegame.dat");
     public static CVarString language = new CVarString("language", "");
     public static CVar version = new CVar("version", (cvar) => Godot.GD.Print(Version.Full));
-    public static CVarBool ceilingCap = new CVarBool("ceiling_cap", true);
+    public static CVarBool debugCeilingCap = new CVarBool("debug_ceiling_cap", true);
 
     // Master scale for the dark-adaptation ("night eyes") effect — lit shaders
     // lift dim surfaces and blow out bright ones based on the player's eye
@@ -47,12 +47,12 @@
 
     // Logs MusicManager piece transitions (which top-level track crossfades in,
     // and why) so dynamic-music issues can be diagnosed from console.
-    public static CVarBool musicDebug = new CVarBool("music_debug", false);
+    public static CVarBool debugMusic = new CVarBool("debug_music", false);
 
     // Logs safety-zone events — player enter/exit of a zone (IsSafe flips) and
     // mob Retreat behavior entries — so pacify / disengage issues can be
     // diagnosed from console.
-    public static CVarBool safetyDebug = new CVarBool("safety_debug", false);
+    public static CVarBool debugSafety = new CVarBool("debug_safety", false);
 
     // Logs every stage of the world editor's entity pick — mode, Ctrl detection,
     // how many entities were considered / visible / had usable bounds / were hit
@@ -60,7 +60,7 @@
     // so a Ctrl-hover that draws no box can be traced to the stage that dropped
     // it rather than guessed at. Also draws a fixed test box at the cursor, which
     // isolates "DebugDraw doesn't render here" from "the pick found nothing".
-    public static CVarBool editorPickDebug = new CVarBool("editor_pick_debug", false);
+    public static CVarBool debugEditorPick = new CVarBool("debug_editor_pick", false);
 
     // Outlines the world editor's invisible voxel markers around the edit
     // cursor — cyan for Opening (doorway / window void), orange for Barrier
@@ -74,7 +74,12 @@
     // the interactive danger gate reads (Sim.FindDanger) — distance, behavior,
     // composed EBehaviorFlags, IsEngaging, and clear-line-to-player — so a stuck
     // "Danger Nearby" with nothing on screen can be traced to the exact mob.
-    public static CVarBool dangerDebug = new CVarBool("danger_debug", false);
+    public static CVarBool debugDanger = new CVarBool("debug_danger", false);
+
+    // Debug: prints every combat buildup contribution (raw amount, receiver
+    // resistance, meter before/after, whether it crossed), every hit-wake that
+    // clears an incapacitating effect, and every buildup skipped by a lethal hit.
+    public static CVarBool debugBuildup = new CVarBool("debug_buildup", false);
 
     // Debug: drops a Treasure Map as loot at the player's feet so the pickup →
     // reveal → dig flow can be exercised without hunting zone chests.
@@ -96,7 +101,7 @@
     // When true, draws the off-screen cap-mask SubViewport texture as a
     // fullscreen overlay so you can see exactly what the cap shader is
     // sampling. White pixels = "cap should draw here", black = "no cap".
-    public static CVarBool capMaskDebug = new CVarBool("cap_mask_debug", false, (cvar) =>
+    public static CVarBool debugCapMask = new CVarBool("debug_cap_mask", false, (cvar) =>
     {
         var client = GameClient.Current;
         if (client != null && client.camera != null)
@@ -114,7 +119,7 @@
     //   8  = interactives (loot + chests, including cave pocket variants)
     //   15 = everything (all four categories)
     // Combine with bitwise OR; e.g. 3 = details + props. Default 0 = no skip.
-    public static CVarInt worldgenSkip = new CVarInt("worldgen_skip", 0);
+    public static CVarInt debugWorldgenSkip = new CVarInt("debug_worldgen_skip", 0);
 
     // When true, WorldGen.Generate output is cached to user://worldgen_cache
     // and reused on subsequent boots with the same WorldGenData fingerprint.
@@ -191,7 +196,7 @@
     // rather than one at a time (ChunkMesh.BuildGeometry / Realize). Off is the
     // A/B, and is also how you PROFILE the fill: the per-section timers are
     // main-thread state, so the sections inside a parallel build record nothing.
-    public static CVarBool chunkParallelFill = new CVarBool("chunk_parallel_fill", true);
+    public static CVarBool debugChunkParallelFill = new CVarBool("debug_chunk_parallel_fill", true);
 
     // Mesher sampling lattice (see Density.cs / ChunkMesherDC.cs).
     //   false — voxel CORNERS, min-rule. Dilates the solid phase by one voxel,
@@ -203,7 +208,7 @@
     // Toggling requeues every loaded chunk. Flat Y-snapped ground is unchanged
     // between the two; slopes, inside corners, and anything currently welded
     // shut by the dilation will move.
-    public static CVarBool voxelCenterSampling = new CVarBool("voxel_center_sampling", true, (cvar) =>
+    public static CVarBool debugVoxelCenterSampling = new CVarBool("debug_voxel_center_sampling", true, (cvar) =>
     {
         Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
     });
@@ -211,7 +216,7 @@
     // Global multiplier on every block's authored BlockSurfaceData.edgeRoughness, for
     // dialling the look in live. 0 disables the carve entirely and restores
     // ruler-straight authored surfaces. Requeues every loaded chunk.
-    public static CVarFloat voxelEdgeRoughness = new CVarFloat("voxel_edge_roughness", 1f, (cvar) =>
+    public static CVarFloat debugVoxelEdgeRoughness = new CVarFloat("debug_voxel_edge_roughness", 1f, (cvar) =>
     {
         Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
     });
@@ -223,14 +228,14 @@
     // all lip: measured normal.y 0.24 with these off, 0.61 with them on, against
     // a wallBand that starts at 0.3–0.4). Neither touches the emitted geometry,
     // silhouette or collision; the cliff face is vertical either way.
-    // Requeues every loaded chunk. Measure with mesher_probe / mesher_sweep.
-    public static CVarInt mesherVertRelax = new CVarInt("mesher_vert_relax", 2, (cvar) =>
+    // Requeues every loaded chunk. Measure with debug_mesher_probe / debug_mesher_sweep.
+    public static CVarInt debugMesherVertRelax = new CVarInt("debug_mesher_vert_relax", 2, (cvar) =>
     {
         ChunkMesherDC.VERT_RELAX_ITERATIONS = ((CVarInt)cvar).Value;
         Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
     });
 
-    public static CVarInt mesherNormalSmooth = new CVarInt("mesher_normal_smooth", 1, (cvar) =>
+    public static CVarInt debugMesherNormalSmooth = new CVarInt("debug_mesher_normal_smooth", 1, (cvar) =>
     {
         ChunkMesherDC.NORMAL_SMOOTH_ITERATIONS = ((CVarInt)cvar).Value;
         Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
@@ -245,7 +250,7 @@
     // slightly better. Keep in sync with
     // ChunkMesherDC.NORMAL_SMOOTH_MIN_DOT — this callback only fires on a SET,
     // so the field's own initializer is what a fresh session runs with.
-    public static CVarFloat mesherNormalMinDot = new CVarFloat("mesher_normal_min_dot", 0.95f, (cvar) =>
+    public static CVarFloat debugMesherNormalMinDot = new CVarFloat("debug_mesher_normal_min_dot", 0.95f, (cvar) =>
     {
         ChunkMesherDC.NORMAL_SMOOTH_MIN_DOT = ((CVarFloat)cvar).Value;
         Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
@@ -253,38 +258,38 @@
 
     // How strongly a cell keeps its own normal versus its neighbours'. Higher
     // preserves more local shape.
-    public static CVarFloat mesherNormalSelfWeight = new CVarFloat("mesher_normal_self_weight", 2f, (cvar) =>
+    public static CVarFloat debugMesherNormalSelfWeight = new CVarFloat("debug_mesher_normal_self_weight", 2f, (cvar) =>
     {
         ChunkMesherDC.NORMAL_SMOOTH_SELF_WEIGHT = ((CVarFloat)cvar).Value;
         Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
     });
 
-    public static CVar mesherProbe = new CVar("mesher_probe", (cvar) => MesherProbe.Run());
-    public static CVar mesherSweep = new CVar("mesher_sweep", (cvar) => MesherProbe.Sweep());
-    public static CVar mesherWallSweep = new CVar("mesher_wall_sweep", (cvar) => MesherProbe.WallSweep());
-    public static CVar mesherStepTexture = new CVar("mesher_step_texture", (cvar) => MesherProbe.StepTexture());
-    public static CVar mesherProbeMaterial = new CVar("mesher_probe_material", (cvar) => MesherProbe.MaterialRegistration());
+    public static CVar debugMesherProbe = new CVar("debug_mesher_probe", (cvar) => MesherProbe.Run());
+    public static CVar debugMesherSweep = new CVar("debug_mesher_sweep", (cvar) => MesherProbe.Sweep());
+    public static CVar debugMesherWallSweep = new CVar("debug_mesher_wall_sweep", (cvar) => MesherProbe.WallSweep());
+    public static CVar debugMesherStepTexture = new CVar("debug_mesher_step_texture", (cvar) => MesherProbe.StepTexture());
+    public static CVar debugMesherProbeMaterial = new CVar("debug_mesher_probe_material", (cvar) => MesherProbe.MaterialRegistration());
 
     // Dump the shape-channel decision for a patch of world so a stepped slope
     // can be traced to either the stamping pass or the grade rule itself.
-    // Usage: grade_debug "<worldX> <worldZ>"
-    public static CVarString gradeDebug = new CVarString("grade_debug", "", (cvar) => GradeDebug.Dump(((CVarString)cvar).Value));
+    // Usage: debug_grade "<worldX> <worldZ>"
+    public static CVarString debugGrade = new CVarString("debug_grade", "", (cvar) => GradeDebug.Dump(((CVarString)cvar).Value));
 
     // Dump the water-current field as an arrow grid around the player:
-    // `water_current_probe`. Reads through the same trilinear sample the shader
+    // `debug_water_current_probe`. Reads through the same trilinear sample the shader
     // does, so it says whether "the river doesn't flow right" is a worldgen
     // problem or a rendering one. An ACTION cvar, not a string one — the
     // console only Executes on a bare name for CVarType.None; for every other
     // type a bare name just prints the value and the callback never fires.
-    public static CVar waterCurrentProbe = new CVar("water_current_probe", (cvar) => CurrentDebug.Dump());
+    public static CVar debugWaterCurrentProbe = new CVar("debug_water_current_probe", (cvar) => CurrentDebug.Dump());
     // Console: what water the LOADED world is actually made of, and what the zone
     // under the player authors. The four reasons you see no scum are
     // indistinguishable on screen — see WaterTypeDebug.
-    public static CVar waterTypeProbe = new CVar("water_type_probe", (cvar) => WaterTypeDebug.Dump());
+    public static CVar debugWaterTypeProbe = new CVar("debug_water_type_probe", (cvar) => WaterTypeDebug.Dump());
 
     // Debug: cycle control to the next party member. Exercises the party-switch
     // path (GameClient.SwitchControlTo) before the camp Select-Character UI lands.
-    public static CVar partyNext = new CVar("party_next", (cvar) => GameClient.Current?.SwitchToNextPartyMember());
+    public static CVar debugPartyNext = new CVar("debug_party_next", (cvar) => GameClient.Current?.SwitchToNextPartyMember());
 
     // Detaches the game camera from the player and lets WASD + right-mouse-look
     // fly it freely. Disables pixel snapping while active so mouse-look is smooth.
@@ -308,7 +313,7 @@
     // with ledge barriers excluded, and how the step-down resolved. An
     // invisible stop looks the same whether it is a barrier, terrain, a prop or
     // the step-down handing the tick back; this separates them in one line.
-    public static CVarBool moveBlockDebug = new CVarBool("move_block_debug", false);
+    public static CVarBool debugMoveBlock = new CVarBool("debug_move_block", false);
 
     // Draw a translucent wireframe sphere at every AreaBurst blast
     // (status-effect impact/dash bursts, etc.) for one frame. Off by default —
@@ -377,13 +382,13 @@
     // visible when the stable per-key roll is below the score. Condition-
     // gated responses are still hidden in debug since they're not a
     // language-comprehension affair.
-    public static CVarBool conversationDebug = new CVarBool("conversation_debug", false);
+    public static CVarBool debugConversation = new CVarBool("debug_conversation", false);
 
     // Fog shader debug mode (see shaders/fog_volumetric.gdshader):
     //   0 = normal fog render
     //   1 = visualize reconstructed surface world Y as grayscale
     //   2 = visualize fog_map density sampled at surface
-    public static CVarInt fogDebug = new CVarInt("fog_debug", 0, (cvar) =>
+    public static CVarInt debugFog = new CVarInt("debug_fog", 0, (cvar) =>
     {
         Sim.Current?.SetFogDebugMode(((CVarInt)cvar).Value);
     });
@@ -391,7 +396,7 @@
     // Gates AUTHORED voxel fog contribution only (fog_map). Dust + shafts
     // + halos keep working when this is off — they come from dust_density
     // and block-light accumulation which are independent of the fog_map.
-    public static CVarBool fogEnabled = new CVarBool("fog_enabled", true, (cvar) =>
+    public static CVarBool debugFogEnabled = new CVarBool("debug_fog_enabled", true, (cvar) =>
     {
         Sim.Current?.SetFogEnabled(((CVarBool)cvar).Value);
     });
@@ -411,15 +416,7 @@
     // separating "is this dark band shaft-shaped or haze-shaped?" — toggle
     // it and look at the same scene. Implemented by SkyController as a
     // gate on `sun_shaft_intensity` pushed to the fog material.
-    public static CVarBool sunShafts = new CVarBool("sun_shafts", true);
-
-    // TEST: fade the sun-wash DARKENING out where the air column has
-    // (near-)zero sunlight. The darkening is wash×(1-lit_frac), so it's
-    // maximal in fully-shadowed air — this gates it by
-    // smoothstep(0, value, lit_frac) so genuinely lightless areas get no
-    // wash. 0 = off (current behaviour); ~0.08 = fade out below ~8% lit.
-    // Pushed to the fog material as `shaft_light_floor`.
-    public static CVarFloat shaftLightFloor = new CVarFloat("shaft_light_floor", 0f);
+    public static CVarBool debugSunShafts = new CVarBool("debug_sun_shafts", true);
 
     // Atmospheric visual state — sky dome, clouds, sun tint, fog haze,
     // inscatter shafts, animated dust — is derived each frame by
@@ -435,7 +432,7 @@
     // emerges from the gated variance system). Affects every Apply
     // call including the HUD's forecast objects, so the thunder icon
     // also lights up while the override is on.
-    public static CVarFloat forceLightning = new CVarFloat("force_lightning", 0f, (cvar) =>
+    public static CVarFloat weatherLightningForce = new CVarFloat("weather_lightning_force", 0f, (cvar) =>
     {
         float v = ((CVarFloat)cvar).Value;
         WeatherSimulation.ForceLightningOverride = v > 0f ? (float?)v : null;
@@ -443,10 +440,10 @@
 
     // Debug: force the precipitation AMOUNT (0..1), overriding the simulated
     // weather's rainAmount. < 0 = off (use real weather). Same rationale as
-    // wind_force below: WeatherSimulation.Apply rewrites the channel every
+    // weather_wind_force below: WeatherSimulation.Apply rewrites the channel every
     // frame, so the console cannot otherwise hold a value long enough to look
-    // at. Pair with snow_force to get a downpour or a whiteout on demand.
-    public static CVarFloat precipForce = new CVarFloat("precip_force", -1f);
+    // at. Pair with weather_snow_force to get a downpour or a whiteout on demand.
+    public static CVarFloat weatherPrecipForce = new CVarFloat("weather_precip_force", -1f);
 
     // Debug: force the rain/snow phase, bypassing BOTH gates that normally
     // decide it (the zone's authored ZoneData.snowCover and the air
@@ -458,19 +455,19 @@
     // warm, there is no precipitation at all, or the particle path is broken.
     // Forcing the phase separates the last one from the first three without
     // regenerating a world or waiting on the clock.
-    public static CVarFloat snowForce = new CVarFloat("snow_force", -1f);
+    public static CVarFloat weatherSnowForce = new CVarFloat("weather_snow_force", -1f);
 
     // Debug: force the wind speed (m/s) that WindParticleManager gates on,
     // overriding the simulated weather wind (which WeatherSimulation.Apply
     // rewrites every frame, so the console can't otherwise hold a value).
-    // < 0 = off (use real weather). Set e.g. `wind_force 20` to make leaves /
-    // sand / foam emit regardless of the current calm; `wind_force -1` to clear.
-    public static CVarFloat windForce = new CVarFloat("wind_force", -1f);
+    // < 0 = off (use real weather). Set e.g. `weather_wind_force 20` to make leaves /
+    // sand / foam emit regardless of the current calm; `weather_wind_force -1` to clear.
+    public static CVarFloat weatherWindForce = new CVarFloat("weather_wind_force", -1f);
 
     // Debug: when true, WindParticleManager prints a once-per-second status
     // line (wind, rain, gate state, leased emitter count) so you can see
     // whether the system is activating and why not.
-    public static CVarBool windParticleDebug = new CVarBool("wind_particle_debug", false);
+    public static CVarBool debugWindParticle = new CVarBool("debug_wind_particle", false);
 
     // Debug: spawn a single damaging lightning strike at a random
     // position in the weather-lightning spawn annulus around the
@@ -479,14 +476,14 @@
     // flash, screen overlay, radial damage) without waiting for a
     // storm to roll in. Uses Sim.Current.SimData.weatherLightning
     // — wire it in the resource for this to do anything.
-    public static CVar strikeLightning = new CVar("strike_lightning", (cvar) =>
+    public static CVar spawnLightning = new CVar("spawn_lightning", (cvar) =>
     {
         Sim sim = Sim.Current;
         Player player = sim?.player;
         LightningData data = sim?.SimData?.weatherLightning;
         if (sim == null || player == null || data == null)
         {
-            Godot.GD.PushWarning("strike_lightning: need a running world, player, and SimData.weatherLightning");
+            Godot.GD.PushWarning("spawn_lightning: need a running world, player, and SimData.weatherLightning");
             return;
         }
         var rng = new Godot.RandomNumberGenerator();
@@ -508,13 +505,13 @@
     // triples and the lightning-gate breakdown. Use to diagnose why a
     // thunderstorm isn't firing — the print shows whether the bottleneck
     // is low simCloud, low simRain, or a fair lightningVariance roll.
-    public static CVar weatherProbe = new CVar("weather", (cvar) =>
+    public static CVar debugWeather = new CVar("debug_weather", (cvar) =>
     {
         WorldState ws = Sim.Current?.WorldState;
         SkyController sky = SkyController.Current;
         if (ws == null || sky == null)
         {
-            Godot.GD.Print("weather: no active world / sky.");
+            Godot.GD.Print("debug_weather: no active world / sky.");
             return;
         }
         WeatherData w = sky.Weather;
@@ -522,7 +519,7 @@
         SimData simData = ws.SimData;
         if (w == null || simData == null)
         {
-            Godot.GD.Print("weather: world/sim not initialized.");
+            Godot.GD.Print("debug_weather: world/sim not initialized.");
             return;
         }
 
@@ -572,9 +569,9 @@
         Godot.GD.Print($"  PRECIPITATION PHASE:");
         Godot.GD.Print($"    zone snowCover = {zone?.snowCover ?? 0f:F3}  (blended; 0 here means snow can NEVER fall)");
         Godot.GD.Print($"    cold gate      = {coldGate:F3}  ({w.airTemperature:F1}°F across {simData.snowTempColdF:F0}..{simData.snowTempWarmF:F0}°F)");
-        Godot.GD.Print($"    snowFraction   = {phasePal.SnowFraction:F3}{(CVars.snowForce.Value >= 0f ? "  [FORCED]" : "")}");
+        Godot.GD.Print($"    snowFraction   = {phasePal.SnowFraction:F3}{(CVars.weatherSnowForce.Value >= 0f ? "  [FORCED]" : "")}");
         Godot.GD.Print($"    rainIntensity  = {phasePal.RainIntensity:F3}  (tier {phasePal.RainTier})");
-        Godot.GD.Print($"    snowIntensity  = {phasePal.SnowIntensity:F3}{(CVars.precipForce.Value >= 0f ? "  [precip FORCED]" : "")}");
+        Godot.GD.Print($"    snowIntensity  = {phasePal.SnowIntensity:F3}{(CVars.weatherPrecipForce.Value >= 0f ? "  [precip FORCED]" : "")}");
 
         // WATER OPTICS — the chain from the authored zone colour to what the
         // shader actually scatters. Worth printing in full because every step
@@ -693,7 +690,7 @@
     // 3 = free-look orbit (mouse / right stick drive yaw & pitch). Applied to the
     // live camera only on change, so any inspector live-tuning of the resulting
     // pitch/distance/fov sticks between swaps.
-    public static CVarInt cameraPreset = new CVarInt("camera_preset", 0, (cvar) =>
+    public static CVarInt debugCameraPreset = new CVarInt("debug_camera_preset", 0, (cvar) =>
     {
         var client = GameClient.Current;
         if (client != null && client.camera != null)
@@ -702,12 +699,7 @@
         }
     });
 
-    // Post-process. Vignette cvars feed the post_process canvas_item shader;
-    // GameClient pushes them each frame. Pixel-art scale controls the chunky
-    // pixel size (linear); 1 disables chunking.
-    public static CVarFloat vignetteRadius = new CVarFloat("vignette_radius", 0.55f);
-    public static CVarFloat vignetteSoftness = new CVarFloat("vignette_softness", 0.45f);
-    public static CVarFloat vignetteStrength = new CVarFloat("vignette_strength", 0.5f);
+    // Pixel-art scale: the chunky pixel size (linear); 1 disables chunking.
     public static CVarInt pixelScale = new CVarInt("pixel_scale", 4);
 
     // Gates the directional motion blur in post_process.gdshader. When false,
@@ -745,14 +737,14 @@
 
     // When true, Mob._PhysicsProcess prints yaw/angular-velocity diagnostics
     // each frame for alive mobs. Used to diagnose yaw oscillation.
-    public static CVarBool mobDebugYaw = new CVarBool("mob_debug_yaw", false);
+    public static CVarBool debugMobYaw = new CVarBool("debug_mob_yaw", false);
 
     // When true, Fx prints a line each time it starts an audio
     // player — scene name, stream resource path, and a wall-clock timestamp.
     // Use to diagnose unexpected rapid-fire SFX (e.g. a per-frame land sound
     // when running into a mob): rapid repeats of the same scene name in the
     // log identify the culprit.
-    public static CVarBool audioLog = new CVarBool("audio_log", false);
+    public static CVarBool debugAudioLog = new CVarBool("debug_audio_log", false);
 
     // Player audio volumes (linear 0..1, 1 = unity gain), applied as bus
     // volume_db via AudioVolume. master scales everything; music scales the
@@ -779,14 +771,14 @@
     //   [lightning] intensity=0.18 interval=8.2s
     //   [lightning] FIRE at (12.3, 4.0, -6.1) (intensity=0.21)
     //   [lightning] skip: no ground at (12.3, 0.0, -6.1)
-    public static CVarBool lightningLog = new CVarBool("lightning_log", false);
+    public static CVarBool debugLightningLog = new CVarBool("debug_lightning_log", false);
 
     // When true, prints a line each NightMobSpawner spawn cycle with the current
     // population target (which ramps toward midnight), the live count, and how
     // many mobs it spawned. Use to verify the density ramp and that mobs are
     // finding unlit ground to spawn on. Lines look like:
     //   [nightspawn] target=6 current=4 spawned=2
-    public static CVarBool nightSpawnLog = new CVarBool("night_spawn_log", false);
+    public static CVarBool debugNightSpawnLog = new CVarBool("debug_night_spawn_log", false);
 
     // When true, prints a full NightMobSpawner status line once a second — every
     // input to slime spawning (time of day, the darkness dwell + what it's easing
@@ -796,33 +788,33 @@
     // is spawning. Use to diagnose "why aren't gellies appearing here?" — e.g. a
     // large positive dyAvg means the ground ray is catching terrain above a cave
     // instead of its floor.
-    public static CVarBool nightSpawnDebug = new CVarBool("night_spawn_debug", false);
+    public static CVarBool debugNightSpawn = new CVarBool("debug_night_spawn", false);
 
     // When true, draws the NightMobSpawner's search in-world (DebugDraw): a gray
     // slab on every standable spot found around the player, a red→green slab on
     // each VALID candidate (green = darker = higher spawn weight), and a cyan cross
     // at the player. Each slab's height is its spawn Y, so it shows at a glance
     // whether the search is finding the cave floor you're on or the surface above.
-    public static CVarBool nightSpawnDraw = new CVarBool("night_spawn_draw", false);
+    public static CVarBool debugNightSpawnDraw = new CVarBool("debug_night_spawn_draw", false);
 
     // When true, prints a line each time the ambient FairySpawner spawns a fairy —
     // the day/period, the running daily count vs the cap, and how many fairies the
     // player has killed today. Use to verify the day-block cadence and per-zone gate.
-    public static CVarBool fairySpawnLog = new CVarBool("fairy_spawn_log", false);
+    public static CVarBool debugFairySpawnLog = new CVarBool("debug_fairy_spawn_log", false);
 
     // When true, prints companion-follow / breadcrumb-rescue diagnostics:
     // BehaviorWanderFollow logs (throttled) its phase, distance-to-player,
     // chosen destination and leg speed; Sim.TickCompanionLeash logs each
     // time the pet goes non-resident and whether a rescue crumb was found.
     // Use to diagnose the dog getting left behind / failing to catch up.
-    public static CVarBool companionDebug = new CVarBool("companion_debug", false);
+    public static CVarBool debugCompanion = new CVarBool("debug_companion", false);
 
     // When true, draws each alive mob's navigation state via DebugDraw: the
     // waypoints still ahead (green polyline, grey for ones already passed), the
     // steer point the body is chasing (yellow line + sphere — orange when it is
     // steering straight at the goal with no path), and the navigator's goal
     // (red sphere). Off by default; toggle from the in-game console.
-    public static CVarBool mobDebugPath = new CVarBool("mob_debug_path", false);
+    public static CVarBool debugMobPath = new CVarBool("debug_mob_path", false);
 
     // Log a mob that wants to move but whose body has stood still for 1s: the
     // navigator's whole state, every collider the body capsule is touching
@@ -831,12 +823,12 @@
     // grid's verdict vs a fresh uncached sample (STALE when they differ) and
     // the raw path-blocker bit. A second line reports what released it. The
     // tool for "mobs snag on bushes and rocks".
-    public static CVarBool mobStuckTrace = new CVarBool("mob_stuck_trace", false);
+    public static CVarBool debugMobStuckTrace = new CVarBool("debug_mob_stuck_trace", false);
 
     // Ground-steering collide-and-slide: a mob pressed against a wall, prop or
     // another body steers along it instead of into it. Off = the old straight
     // push, for A/B against snagging.
-    public static CVarBool mobSlide = new CVarBool("mob_slide", true);
+    public static CVarBool debugMobSlide = new CVarBool("debug_mob_slide", true);
 
     // When true, draws the mob-navigability grid in an 8m radius around the
     // player via DebugDraw — green square = standable dry cell (at its surface
@@ -852,19 +844,19 @@
     // pathfinder sees — the canonical tool for diagnosing "the mob won't path
     // there but the player can walk there." Falls back to a default ground-
     // walker profile when no mob is loaded. Off by default; toggle from the
-    // in-game console (`nav_grid 1`).
-    public static CVarBool navGridDebug = new CVarBool("nav_grid", false);
+    // in-game console (`debug_nav_grid 1`).
+    public static CVarBool debugNavGrid = new CVarBool("debug_nav_grid", false);
 
     // Draw the generated ledge barriers as translucent orange quads. They are
     // invisible collision, so this is the only way to see WHERE one ended up —
     // a barrier in the wrong place is indistinguishable from a missing one.
-    public static CVarBool ledgeBarrierDebug = new CVarBool("ledge_barrier_debug", false,
+    public static CVarBool debugLedgeBarrier = new CVarBool("debug_ledge_barrier", false,
         (cvar) => ChunkMesh.SetLedgeBarrierDebugVisible(((CVarBool)cvar).Value));
 
     // Console command: how many chunks generated ledge barriers and how many
     // faces they cost. The barriers are invisible, so this is the only way to
     // confirm generation ran and to size it.
-    public static CVar ledgeBarrierStats = new CVar("ledge_barrier_stats", (cvar) =>
+    public static CVar debugLedgeBarrierStats = new CVar("debug_ledge_barrier_stats", (cvar) =>
     {
         Godot.GD.Print($"[ledge_barrier] chunks={ChunkMesh.LedgeBarrierChunks} "
             + $"faces={ChunkMesh.LedgeBarrierFaces}");
@@ -886,24 +878,24 @@
     // Console command: dump the walkability sampler's view of the 3x3 columns
     // around the player, alongside the raw voxel stack, with a verdict for every
     // air-over-solid candidate. Answers which gate discarded a surface the
-    // player is demonstrably standing on — which the nav_grid overlay cannot,
+    // player is demonstrably standing on — which the debug_nav_grid overlay cannot,
     // since it draws the conclusion rather than the reasoning.
-    public static CVar navColumn = new CVar("nav_column", (cvar) => NavColumnDebug.Dump());
+    public static CVar debugNavColumn = new CVar("debug_nav_column", (cvar) => NavColumnDebug.Dump());
 
     // Console command: print how far every prop within 20m stands above the
     // drawn terrain under it (terrain collision is the drawn mesh), with a
     // histogram. Flat ground should read ~+0.0; a prop floating over the grass
     // reads as the gap.
-    public static CVar propSeatProbe = new CVar("prop_seat_probe", (cvar) => PropInstance.ProbeSeats());
+    public static CVar debugPropSeatProbe = new CVar("debug_prop_seat_probe", (cvar) => PropInstance.ProbeSeats());
 
     // Log every mantle start and completion, with the resolved landing and rise.
     // Dumps the last ~2.5s of position ownership when the player ends up with no
     // world beneath them — the only way to see what caused a fall-through, since
     // it is always noticed after the fact.
-    public static CVarBool fallTrace = new CVarBool("fall_trace", false);
-    public static CVarBool mantleDebug = new CVarBool("mantle_debug", false);
+    public static CVarBool debugFallTrace = new CVarBool("debug_fall_trace", false);
+    public static CVarBool debugMantle = new CVarBool("debug_mantle", false);
 
-    // The mob-side analogue of fall_trace, and the tool for "which behavior
+    // The mob-side analogue of debug_fall_trace, and the tool for "which behavior
     // walked this mob off a cliff".
     //
     // Prints one line the tick a mob's footing drops away by more than its own
@@ -913,30 +905,30 @@
     // by the time a falling mob is noticed the navigator has repathed and the
     // behavior may already have changed, so nothing about the airborne body
     // still says how it got there.
-    public static CVarBool mobFallTrace = new CVarBool("mob_fall_trace", false);
+    public static CVarBool debugMobFallTrace = new CVarBool("debug_mob_fall_trace", false);
 
-    // Console command: `climb_mark <height>` stamps a climbable face up the wall
-    // the player is looking at, `climb_mark 0` clears it. Test scaffolding until
+    // Console command: `debug_climb_mark <height>` stamps a climbable face up the wall
+    // the player is looking at, `debug_climb_mark 0` clears it. Test scaffolding until
     // the editor grows a face-paint tool — it writes the real OverlayFaces
     // channel, but it also flips the wall block climbable for the session
     // (see Blocks.SetClimbableForDebug) because no ivy overlay is authored yet.
-    public static CVarInt climbMark = new CVarInt("climb_mark", 0,
+    public static CVarInt debugClimbMark = new CVarInt("debug_climb_mark", 0,
         (cvar) => ClimbMarkDebug.Apply(((CVarInt)cvar).Value));
 
     // Log climb attach and release.
-    public static CVarBool climbDebug = new CVarBool("climb_debug", false);
+    public static CVarBool debugClimb = new CVarBool("debug_climb", false);
 
 
     // Console command: the nearest coiled rope explains, gate by gate, why it
     // does or does not offer to drop. A coil that resolves no drop shows no
     // prompt at all, so this is the only way to tell a mis-aimed one from a
     // broken one.
-    public static CVar ropeProbe = new CVar("rope_probe", (cvar) => CoiledRope.Probe());
+    public static CVar debugRopeProbe = new CVar("debug_rope_probe", (cvar) => CoiledRope.Probe());
 
     // Console command: walk the climb probe's gates for the wall in front of the
     // player and print each verdict. "It won't attach" is always one specific
     // gate; this names it instead of leaving it to bisection.
-    public static CVar climbProbe = new CVar("climb_probe", (cvar) => ClimbMarkDebug.Probe());
+    public static CVar debugClimbProbe = new CVar("debug_climb_probe", (cvar) => ClimbMarkDebug.Probe());
 
     // When true, MobHUD shows a two-line text overlay over each visible mob
     // breaking down PLAYER-perceives-MOB. Top line: V/H/S sense deltas
@@ -979,12 +971,12 @@
     // are authored in absolute meters, so a change to the world's vertical extent
     // can silently stop them working — this says by how much, and what
     // contour_interval the current terrain wants.
-    public static CVar minimapProbe = new CVar("minimap_probe", (cvar) =>
+    public static CVar debugMinimapProbe = new CVar("debug_minimap_probe", (cvar) =>
     {
         Minimap minimap = Sim.Current?.Minimap;
         if (minimap == null)
         {
-            Godot.GD.Print("minimap_probe: no active world.");
+            Godot.GD.Print("debug_minimap_probe: no active world.");
             return;
         }
         float screenWidth = GameClient.Current?.GetViewport()?.GetVisibleRect().Size.Y ?? 1080f;
@@ -1011,27 +1003,27 @@
     // playerRemembers, and whether _torch / MobData.torch are populated. Use
     // when goblins fail to light their torches to see which gating step is
     // blocking the spawn.
-    public static CVarBool mobDebugTorch = new CVarBool("mob_debug_torch", false);
+    public static CVarBool debugMobTorch = new CVarBool("debug_mob_torch", false);
 
-    // Generic CPU section profiler. While `profile` is true, code sections
+    // Generic CPU section profiler. While `debug_profile` is true, code sections
     // wrapped in Profiler.Section.Begin/End record per-section call count,
     // total time, max single call, and approximate per-frame cost. Run
-    // `profile_dump` from the in-game console to print a table and reset
+    // `debug_profile_dump` from the in-game console to print a table and reset
     // the accumulators. The mob hot path (`Mob.*` sections) is the first
     // thing wired up — useful for finding which part of mob update is
     // dominating the frame at high mob counts.
     // Both edges reset accumulators. Turning ON starts a fresh window;
     // turning OFF clears stale numbers so they don't leak into the next
-    // session. Use `profile_dump` if you want to print before clearing.
-    public static CVarBool profile = new CVarBool("profile", false, (cvar) =>
+    // session. Use `debug_profile_dump` if you want to print before clearing.
+    public static CVarBool debugProfile = new CVarBool("debug_profile", false, (cvar) =>
     {
         Profiler.Reset();
     });
 
     // Console action: prints the current per-section totals and resets the
-    // accumulators. Run `profile_dump` to take a snapshot, then again later
+    // accumulators. Run `debug_profile_dump` to take a snapshot, then again later
     // to see the delta over a window.
-    public static CVar profileDump = new CVar("profile_dump", (cvar) =>
+    public static CVar debugProfileDump = new CVar("debug_profile_dump", (cvar) =>
     {
         Profiler.DumpAndReset();
     });
@@ -1039,32 +1031,32 @@
     // Per-entity-type cost of the world-load entity drain plus the chunk-mesh
     // fill, printed once as a table when the loading screen finishes. Must be
     // set before the world loads to catch anything:
-    //   -- "spawn_cost_profile 1" "autostart 1"
-    public static CVarBool spawnCostProfile = new CVarBool("spawn_cost_profile", false);
+    //   -- "debug_spawn_cost_profile 1" "autostart 1"
+    public static CVarBool debugSpawnCostProfile = new CVarBool("debug_spawn_cost_profile", false);
 
     // Console action: walks the whole scene tree and prints what the resident
     // nodes are, bucketed by subtree / source scene / class, with the columns
     // that actually cost frame time (nodes in the process lists, culled
     // VisualInstance3Ds, Jolt colliders). Explains the gap between the F3
     // overlay's node_count and render_objects.
-    public static CVar nodeCensus = new CVar("node_census", (cvar) =>
+    public static CVar debugNodeCensus = new CVar("debug_node_census", (cvar) =>
     {
         NodeCensus.Run();
     });
 
-    // node_tree <substring> → prints the full subtree of the first node whose
-    // name or source scene matches, with per-node cost flags. node_census says
+    // debug_node_tree <substring> → prints the full subtree of the first node whose
+    // name or source scene matches, with per-node cost flags. debug_node_census says
     // which scene is heavy per instance; this says what's inside it.
-    public static CVarString nodeTree = new CVarString("node_tree", "", (cvar) =>
+    public static CVarString debugNodeTree = new CVarString("debug_node_tree", "", (cvar) =>
     {
         NodeCensus.DumpSubtree(((CVarString)cvar).Value);
     });
 
-    // Seconds after the game scene starts at which to auto-run `node_census`
+    // Seconds after the game scene starts at which to auto-run `debug_node_census`
     // once. 0 = never. Exists so a headless run (which has no console) can
     // capture a census once the world has settled:
-    //   -- "autostart 1" "node_census_delay 20"
-    public static CVarFloat nodeCensusDelay = new CVarFloat("node_census_delay", 0f);
+    //   -- "autostart 1" "debug_node_census_delay 20"
+    public static CVarFloat debugNodeCensusDelay = new CVarFloat("debug_node_census_delay", 0f);
 
     // Console action: re-stitches the voxel terrain atlas from its source art,
     // the headless twin of the editor's "Rebuild Atlas" button. Needs no world
@@ -1084,55 +1076,55 @@
     // Console action: dumps a block-id census of the loaded world, most common
     // first. The check for "is this material actually being placed?" — reading
     // the catalog and the atlas only proves the material COULD render.
-    public static CVar worldHistogram = new CVar("world_histogram", (cvar) =>
+    public static CVar debugWorldHistogram = new CVar("debug_world_histogram", (cvar) =>
     {
         if (Sim.Current?.WorldState == null)
         {
-            Godot.GD.PrintErr("world_histogram: no active world (start a game first).");
+            Godot.GD.PrintErr("debug_world_histogram: no active world (start a game first).");
             return;
         }
         Godot.GD.Print(Sim.Current.WorldState.DescribeBlockHistogram());
     });
 
-    // Seconds after the game scene loads to run world_histogram once, for
+    // Seconds after the game scene loads to run debug_world_histogram once, for
     // unattended runs with no console to type into. Same slot as
-    // node_census_delay:
-    //   -- "autostart 1" "world_histogram_delay 20"
-    public static CVarFloat worldHistogramDelay = new CVarFloat("world_histogram_delay", 0f);
+    // debug_node_census_delay:
+    //   -- "autostart 1" "debug_world_histogram_delay 20"
+    public static CVarFloat debugWorldHistogramDelay = new CVarFloat("debug_world_histogram_delay", 0f);
 
     // Console action: prints the active Fx instance count broken down by
     // source scene. Pair with the `fx_active` engine monitor to identify
     // which scenes account for the headline number — climbing per-scene
     // counts across repeated invocations indicate a leak.
-    public static CVar fxDump = new CVar("fx_dump", (cvar) =>
+    public static CVar debugFxDump = new CVar("debug_fx_dump", (cvar) =>
     {
         Fx.DumpActiveByScene();
     });
 
     // Rolling window length (seconds) for the on-screen overlay and the
-    // Godot custom monitors. Every `profile_window` seconds the live
+    // Godot custom monitors. Every `debug_profile_window` seconds the live
     // accumulators latch into a "previous window" snapshot that the overlay
     // reads, then reset. Smaller = more responsive table, more churn.
     // Larger = more stable averages, slower reaction to scene changes.
-    public static CVarFloat profileWindow = new CVarFloat("profile_window", 1f);
+    public static CVarFloat debugProfileWindow = new CVarFloat("debug_profile_window", 1f);
 
     // Cutoff: sections that contribute less than this many ms per frame are
     // hidden from the F3 overlay's profiler table. They still tick and update
     // their custom monitors — they're just suppressed from the on-screen
     // table so it stays short enough to scan. Only applies to the latched
-    // overlay path; `profile_dump` and the hitch logger always show every
+    // overlay path; `debug_profile_dump` and the hitch logger always show every
     // section. Set to 0 to disable the filter.
-    public static CVarFloat profileMinPerFrameMs = new CVarFloat("profile_min_per_frame_ms", 0.05f);
+    public static CVarFloat debugProfileMinPerFrameMs = new CVarFloat("debug_profile_min_per_frame_ms", 0.05f);
 
-    // Hitch logger. While `hitch_log` is true, DiagnosticsOverlay watches
-    // per-frame delta and, whenever a frame exceeds `hitch_threshold_ms`,
+    // Hitch logger. While `debug_hitch_log` is true, DiagnosticsOverlay watches
+    // per-frame delta and, whenever a frame exceeds `debug_hitch_threshold_ms`,
     // prints the frame time + a Profiler section snapshot to GD.Print and
     // resets the accumulators so the next hitch starts from a clean slate.
-    // Forces `profile` on while enabled so the section table has live data.
+    // Forces `debug_profile` on while enabled so the section table has live data.
     // Always-on (does NOT require the F3 overlay to be visible) so hitches
     // can be caught in the wild without the overlay covering the screen.
-    public static CVarBool hitchLog = new CVarBool("hitch_log", false);
-    public static CVarFloat hitchThresholdMs = new CVarFloat("hitch_threshold_ms", 50f);
+    public static CVarBool debugHitchLog = new CVarBool("debug_hitch_log", false);
+    public static CVarFloat debugHitchThresholdMs = new CVarFloat("debug_hitch_threshold_ms", 50f);
 
     // Bisection toggles for mob render / physics cost. Mob C# work is cheap;
     // when fps tanks at high mob density the cost is in render submission
@@ -1140,59 +1132,59 @@
     // both of which happen outside any C# section. Toggle these to find out
     // which side is dominating.
     //
-    // mob_shadows 0 → every Mob's LitSprite stops casting shadows. If fps
+    // debug_mob_shadows 0 → every Mob's LitSprite stops casting shadows. If fps
     //                 recovers, shadow-map draws are the cost (each sprite
     //                 doubles as a shadow-pass draw call).
-    public static CVarBool mobShadows = new CVarBool("mob_shadows", true);
+    public static CVarBool debugMobShadows = new CVarBool("debug_mob_shadows", true);
 
-    // mob_physics 0 → every Mob freezes, its CollisionLayer/Mask go to 0 (so
+    // debug_mob_physics 0 → every Mob freezes, its CollisionLayer/Mask go to 0 (so
     //                 the broadphase and contact resolver see nothing), AND its
     //                 C# _PhysicsProcess tick is skipped. This is the "mobs cost
     //                 nothing" floor — it does NOT on its own tell you whether
-    //                 the cost was Jolt or C#. Pair it with mob_ai below.
-    public static CVarBool mobPhysics = new CVarBool("mob_physics", true);
+    //                 the cost was Jolt or C#. Pair it with debug_mob_ai below.
+    public static CVarBool debugMobPhysics = new CVarBool("debug_mob_physics", true);
 
-    // mob_ai 0 → skip only the C# half of Mob._PhysicsProcess (perception,
+    // debug_mob_ai 0 → skip only the C# half of Mob._PhysicsProcess (perception,
     //            status/environment ticks, TickAI, the action runner, steering,
     //            animation) while leaving the RigidBody live and unfrozen in
     //            Jolt. This is the finer half of the mob bisection; the two
     //            toggles decompose mob cost:
     //
-    //              baseline    - (mob_ai 0)      = C# per-mob tick cost
-    //              (mob_ai 0)  - (mob_physics 0) = Jolt body cost
+    //              baseline    - (debug_mob_ai 0)      = C# per-mob tick cost
+    //              (debug_mob_ai 0)  - (debug_mob_physics 0) = Jolt body cost
     //
     //            Caveat: with AI off nothing commands the mobs, so Jolt sleeps
     //            most of them within a second or two. The Jolt number this
     //            yields is the resting-body floor, not the cost of a moving
     //            crowd — read it as a lower bound.
-    public static CVarBool mobAI = new CVarBool("mob_ai", true);
+    public static CVarBool debugMobAi = new CVarBool("debug_mob_ai", true);
 
-    // mob_cold_tick 0 → every mob runs its full upkeep every physics tick,
+    // debug_mob_cold_tick 0 → every mob runs its full upkeep every physics tick,
     //                   disabling the distance-based cold band
     //                   (SimData.mobColdTickDistance). Bisection toggle for
     //                   measuring what the LOD is actually worth, and the first
     //                   thing to flip if a distant mob misbehaves.
-    public static CVarBool mobColdTick = new CVarBool("mob_cold_tick", true);
+    public static CVarBool debugMobColdTick = new CVarBool("debug_mob_cold_tick", true);
 
-    // mob_visible 0 → every Mob's mesh subtree is hidden (visible = false).
+    // debug_mob_visible 0 → every Mob's mesh subtree is hidden (visible = false).
     //                 The sprite, its shadow proxy, water reflection child,
     //                 and AO decal stop submitting to the renderer. The
     //                 HudAnchor is a sibling and is NOT affected — use the
-    //                 separate `mob_hud` toggle for that. If fps recovers
+    //                 separate `debug_mob_hud` toggle for that. If fps recovers
     //                 when this is off, mob render submission for the body
     //                 sprite chain is the dominant cost.
-    public static CVarBool mobVisible = new CVarBool("mob_visible", true);
+    public static CVarBool debugMobVisible = new CVarBool("debug_mob_visible", true);
 
-    // mob_hud 0 → every Mob's HudAnchor (which holds the perception meter,
+    // debug_mob_hud 0 → every Mob's HudAnchor (which holds the perception meter,
     //              health bar etc.) is hidden. The HUD has its own
     //              visibility contract — it appears while the player is
     //              perceiving but hasn't yet fully discovered the mob — so
-    //              this is a separate bisection toggle from mob_visible.
+    //              this is a separate bisection toggle from debug_mob_visible.
     //              Run with this off to measure how much frame time the
     //              floating HUDs cost vs. the mob bodies themselves.
-    public static CVarBool mobHud = new CVarBool("mob_hud", true);
+    public static CVarBool debugMobHud = new CVarBool("debug_mob_hud", true);
 
-    // mob_footstep_fx 0 → suppress per-stride footstep one-shots from every
+    // debug_mob_footstep_fx 0 → suppress per-stride footstep one-shots from every
     //                     Mob (the dust-puff + footstep audio). Water-enter
     //                     splash, water/tall-grass loops, and the per-mob
     //                     idle/run/swim audio loops are all unaffected so
@@ -1200,43 +1192,43 @@
     //                     specifically. If fps recovers when this is off,
     //                     Fx.Create + the spawned particle/audio churn is
     //                     where the budget is going.
-    public static CVarBool mobFootstepFx = new CVarBool("mob_footstep_fx", true);
+    public static CVarBool debugMobFootstepFx = new CVarBool("debug_mob_footstep_fx", true);
 
-    // mob_anim_loop_fx 0 → no Mob spawns the idle/run/swim anim-loop Fx
+    // debug_mob_anim_loop_fx 0 → no Mob spawns the idle/run/swim anim-loop Fx
     //                      (the persistent breathing / footfall audio +
     //                      particle loop tied to the current animation
     //                      state). Existing loops are left to wind down on
     //                      their next state transition. Useful for measuring
     //                      how much of the steady-state cost comes from the
     //                      always-on per-mob audio bed.
-    public static CVarBool mobAnimLoopFx = new CVarBool("mob_anim_loop_fx", true);
+    public static CVarBool debugMobAnimLoopFx = new CVarBool("debug_mob_anim_loop_fx", true);
 
-    // mob_anim_cull 1 (default) → mobs the player can't currently see (no active
+    // debug_mob_anim_cull 1 (default) → mobs the player can't currently see (no active
     //              line of sight — drawn as memory silhouettes) freeze their
     //              skeletal pose, so Godot skips their per-frame GPU re-skin (the
     //              dominant visible-mob cost). Skinning then scales with VISIBLE
     //              mob count, not total. 0 = every mob animates. The
     //              mob_anim_frozen / mob_anim_active gauges show the split.
-    public static CVarBool mobAnimCull = new CVarBool("mob_anim_cull", true);
+    public static CVarBool debugMobAnimCull = new CVarBool("debug_mob_anim_cull", true);
 
-    // mob_pose_distance > 0 → optional extra animation LOD on top of the LOS cull:
+    // debug_mob_pose_distance > 0 → optional extra animation LOD on top of the LOS cull:
     //              in-sight mobs farther than this many metres also freeze (a
     //              distant moving mob holds its pose — slight moonwalk). 0 = off.
-    public static CVarFloat mobPoseDistance = new CVarFloat("mob_pose_distance", 0f);
+    public static CVarFloat debugMobPoseDistance = new CVarFloat("debug_mob_pose_distance", 0f);
 
-    // fx_audio 0     → no Fx instance starts its AudioStreamPlayer3D
+    // debug_fx_audio 0     → no Fx instance starts its AudioStreamPlayer3D
     //                  children. Particles still play. Distinguishes the
     //                  cost of audio mixing / 3D positional attenuation
     //                  from the cost of particle simulation + draw.
-    public static CVarBool fxAudio = new CVarBool("fx_audio", true);
+    public static CVarBool debugFxAudio = new CVarBool("debug_fx_audio", true);
 
-    // fx_particles 0 → no Fx instance enables emission on its
+    // debug_fx_particles 0 → no Fx instance enables emission on its
     //                  GpuParticles3D children. Audio still plays. Use
-    //                  with fx_audio to bisect the cost of every Fx into
+    //                  with debug_fx_audio to bisect the cost of every Fx into
     //                  audio vs particles.
-    public static CVarBool fxParticles = new CVarBool("fx_particles", true);
+    public static CVarBool debugFxParticles = new CVarBool("debug_fx_particles", true);
 
-    // skeleton_internal 0 → SetProcessInternal(false) on every Skeleton3D in the
+    // debug_skeleton_internal 0 → SetProcessInternal(false) on every Skeleton3D in the
     //                       tree. Skeleton3D does its per-frame pose/skin work on
     //                       Godot's INTERNAL process channel, which no
     //                       Profiler.Sample can wrap and which IsProcessing()
@@ -1246,10 +1238,10 @@
     //                       freeze while it's off; that IS the tell that the work
     //                       is real. Purely a bisection toggle — the fix, if this
     //                       measures big, is to gate skeletons the way
-    //                       mob_anim_cull already gates AnimationPlayers (139
+    //                       debug_mob_anim_cull already gates AnimationPlayers (139
     //                       resident mobs, only ~2 animating, yet 119 skeletons
     //                       were still ticking internally).
-    public static CVarBool skeletonInternal = new CVarBool("skeleton_internal", true, (cvar) =>
+    public static CVarBool debugSkeletonInternal = new CVarBool("debug_skeleton_internal", true, (cvar) =>
     {
         SkeletonProbe.SetInternalProcessing(((CVarBool)cvar).Value);
     });
@@ -1258,11 +1250,11 @@
     //           scenes/fx/motes.tscn, 4000 particles) hides itself, so
     //           the renderer skips its per-particle simulation + draw-pass
     //           shader (which samples light_map/cloud several times per speck).
-    //           NOT covered by fx_particles — motes are a standalone scene
+    //           NOT covered by debug_fx_particles — motes are a standalone scene
     //           node, not an Fx. Bisection toggle for the mote cost.
-    public static CVarBool motes = new CVarBool("motes", true);
+    public static CVarBool debugMotes = new CVarBool("debug_motes", true);
 
-    // sprite_reflections 0 → every LitSprite hides its water-reflection
+    // debug_sprite_reflections 0 → every LitSprite hides its water-reflection
     //                        child and skips UpdateReflection's water lookup.
     //                        Bisection toggle for the LitSprite.UpdateReflection
     //                        section — at high mob density the reflection
@@ -1274,64 +1266,64 @@
     //                        attribute frame time to the reflection path
     //                        without recompiling).
     //                        This is the CPU gate — no node, no lookup. Its
-    //                        pair `sprite_reflection_visible` is the RENDER gate
+    //                        pair `debug_sprite_reflection_visible` is the RENDER gate
     //                        (nodes and per-frame work stay, the tint goes to
     //                        zero so they draw invisible). Use this one to
     //                        measure CPU cost, that one to kill the look.
-    public static CVarBool spriteReflections = new CVarBool("sprite_reflections", true);
+    public static CVarBool debugSpriteReflections = new CVarBool("debug_sprite_reflections", true);
 
-    // props_visible 0 → every PropInstance in the world hides itself.
+    // debug_props_visible 0 → every PropInstance in the world hides itself.
     //                   Static decorations (trees, barrels, grass, etc.)
     //                   are usually the largest contributor to draw counts;
     //                   toggling this off lets you attribute the
     //                   `render_draw_calls` / `process_ms` numbers between
     //                   mobs vs props vs everything else (terrain, HUD,
-    //                   decals). Compose with mob_visible to isolate each
+    //                   decals). Compose with debug_mob_visible to isolate each
     //                   bucket. The toggle drives PropInstance.Visible
     //                   directly so the renderer skips submission entirely.
-    public static CVarBool propsVisible = new CVarBool("props_visible", true);
+    public static CVarBool debugPropsVisible = new CVarBool("debug_props_visible", true);
 
     // Action CVar — dumps WorldPropScatter bucket stats to the console for
     // verifying chunk-eviction is working. Shows per-bucket member count
     // (sprites currently registered) vs the live MultiMesh InstanceCount;
-    // mismatches mean a rebuild is pending. Type `props_stats` in the
+    // mismatches mean a rebuild is pending. Type `debug_props_stats` in the
     // in-game console after walking around to see counts rise/fall.
-    public static CVar propsStats = new CVar("props_stats", (cvar) =>
+    public static CVar debugPropsStats = new CVar("debug_props_stats", (cvar) =>
     {
         if (Sim.Current == null || Sim.Current.PropScatter == null)
         {
-            Godot.GD.Print("props_stats: no active world.");
+            Godot.GD.Print("debug_props_stats: no active world.");
             return;
         }
         Godot.GD.Print(Sim.Current.PropScatter.FormatStats());
     });
 
-    // details_visible 0 → every per-chunk detail-sprite scatter
+    // debug_details_visible 0 → every per-chunk detail-sprite scatter
     //                     (MultiMeshInstance3D from ChunkDetailScatter, used
     //                     for grass blades / flowers / pebbles painted on
     //                     terrain) hides itself. These are separate from
-    //                     props_visible, which only covers PropInstance and
-    //                     TallGrass. Run with details_visible=0 to see how
+    //                     debug_props_visible, which only covers PropInstance and
+    //                     TallGrass. Run with debug_details_visible=0 to see how
     //                     many draw calls the painted scatter contributes.
-    public static CVarBool detailsVisible = new CVarBool("details_visible", true);
+    public static CVarBool debugDetailsVisible = new CVarBool("debug_details_visible", true);
 
     // Log per-chunk active cell / quad counts from the DC mesher.
-    public static CVarBool dcDebug = new CVarBool("dc_debug", false, (cvar) =>
+    public static CVarBool debugDc = new CVarBool("debug_dc", false, (cvar) =>
     {
         ChunkMesherDC.DebugLog = ((CVarBool)cvar).Value;
     });
 
     // Per-axis emission gates for the DC mesher. Used to isolate which axis's
     // quads are wound incorrectly when debugging winding artifacts.
-    public static CVarBool dcEmitX = new CVarBool("dc_emit_x", true, (cvar) =>
+    public static CVarBool debugDcEmitX = new CVarBool("debug_dc_emit_x", true, (cvar) =>
     {
         ChunkMesherDC.EmitX = ((CVarBool)cvar).Value;
     });
-    public static CVarBool dcEmitY = new CVarBool("dc_emit_y", true, (cvar) =>
+    public static CVarBool debugDcEmitY = new CVarBool("debug_dc_emit_y", true, (cvar) =>
     {
         ChunkMesherDC.EmitY = ((CVarBool)cvar).Value;
     });
-    public static CVarBool dcEmitZ = new CVarBool("dc_emit_z", true, (cvar) =>
+    public static CVarBool debugDcEmitZ = new CVarBool("debug_dc_emit_z", true, (cvar) =>
     {
         ChunkMesherDC.EmitZ = ((CVarBool)cvar).Value;
     });
@@ -1341,7 +1333,7 @@
     // this scales how hard it darkens the diffuse. 0 = off (reproduces the
     // pre-AO look), 1 = authored, >1 exaggerates so you can confirm the bake
     // is landing where you expect. No regen needed — it's a live shader push.
-    public static CVarFloat aoStrength = new CVarFloat("ao_strength", 1f, (cvar) =>
+    public static CVarFloat debugAoStrength = new CVarFloat("debug_ao_strength", 1f, (cvar) =>
     {
         ChunkMesh.SetAoStrength(((CVarFloat)cvar).Value);
     });
@@ -1352,7 +1344,7 @@
     // so model_lit reconstructs it in-shader from the model's base height and
     // downward-facing normals. 0 = off (pre-AO look), 1 = authored, >1
     // exaggerates so you can confirm where it lands. Live shader push, no regen.
-    public static CVarFloat modelAo = new CVarFloat("model_ao", 1f, (cvar) =>
+    public static CVarFloat debugModelAo = new CVarFloat("debug_model_ao", 1f, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("model_ao_strength", ((CVarFloat)cvar).Value);
     });
@@ -1377,7 +1369,7 @@
     // actually holds. -1 = off. The point is time-to-condition: judging a scum
     // film otherwise means regenerating a world and walking to water that
     // happened to be stamped with it. `block_check` lists the ids.
-    public static CVarInt waterFilmForce = new CVarInt("water_film_force", -1, (cvar) =>
+    public static CVarInt debugWaterFilmForce = new CVarInt("debug_water_film_force", -1, (cvar) =>
     {
         ChunkMesh.SetWaterFilmForceBlock(((CVarInt)cvar).Value);
     });
@@ -1407,7 +1399,7 @@
     //   2 = full rise. Both rows, for maximum coverage before trimming.
     // Changing this requeues every loaded chunk; the mark is baked, not resolved
     // at draw time.
-    public static CVarInt climbLedgeMarks = new CVarInt("climb_ledge_marks", 1, (cvar) =>
+    public static CVarInt debugClimbLedgeMarks = new CVarInt("debug_climb_ledge_marks", 1, (cvar) =>
     {
         Sim.Current?.ChunkManager?.RebuildAllChunkMeshes();
     });
@@ -1465,14 +1457,14 @@
     // block_lit, shadows, cloud), but the per-pixel NdotL darkening goes
     // away. If the sprite suddenly matches terrain brightness when this
     // is on, the tint path is the culprit.
-    public static CVarBool debugNoTint = new CVarBool("debug_no_tint", false, (cvar) =>
+    public static CVarBool debugTintDisabled = new CVarBool("debug_tint_disabled", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("debug_no_tint", ((CVarBool)cvar).Value);
     });
 
     // Force cloud_dim to 1.0 everywhere — rules out cloud shadow as a
     // source of brightness mismatch between sprites and terrain.
-    public static CVarBool debugNoCloud = new CVarBool("debug_no_cloud", false, (cvar) =>
+    public static CVarBool debugCloudDisabled = new CVarBool("debug_cloud_disabled", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("debug_no_cloud", ((CVarBool)cvar).Value);
     });
@@ -1482,7 +1474,7 @@
     // on slopes, terrain not" mismatch: detail_normal biases the terrain
     // normal back toward up on ground-facing faces, effectively hiding
     // slopes from the tint path.
-    public static CVarBool debugNoDetailNormal = new CVarBool("debug_no_detail_normal", false, (cvar) =>
+    public static CVarBool debugDetailNormalDisabled = new CVarBool("debug_detail_normal_disabled", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("debug_no_detail_normal", ((CVarBool)cvar).Value);
     });
@@ -1494,7 +1486,7 @@
     // nothing from the albedo texture in the way: if a sprite reads brighter
     // / dimmer than the terrain at its base with this on, the discrepancy
     // is in the lighting math, not the source texture. Pair with
-    // debug_no_tint to also strip the fill_a/fill_b directional tints.
+    // debug_tint_disabled to also strip the fill_a/fill_b directional tints.
     public static CVarBool debugWhiteAlbedo = new CVarBool("debug_white_albedo", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("debug_white_albedo", ((CVarBool)cvar).Value);
@@ -1522,13 +1514,13 @@
     // far horizontally out of the wall into open sunlit air, so the top of every
     // cliff gains a lit band exactly as wide as the offset. Kept as a diagnostic
     // — it is what proved the banding comes from solid texels in the footprint.
-    public static CVarFloat lightSampleOffset = new CVarFloat("light_sample_offset", 0.5f, (cvar) =>
+    public static CVarFloat debugLightSampleOffset = new CVarFloat("debug_light_sample_offset", 0.5f, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("light_sample_offset", ((CVarFloat)cvar).Value);
     });
 
     // Baked per-vertex ambient occlusion (COLOR.a -> ao_factor). Off = 1.0.
-    public static CVarBool debugNoAo = new CVarBool("debug_no_ao", false, (cvar) =>
+    public static CVarBool debugAoDisabled = new CVarBool("debug_ao_disabled", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("debug_no_ao", ((CVarBool)cvar).Value);
     });
@@ -1536,19 +1528,19 @@
     // The BAKED sun mask (lightmap R channel). Off keeps sun intensity/color
     // but drops the per-voxel visibility term, so banding that survives this
     // does not come from the sunlight volume.
-    public static CVarBool debugNoSun = new CVarBool("debug_no_sun", false, (cvar) =>
+    public static CVarBool debugSunDisabled = new CVarBool("debug_sun_disabled", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("debug_no_sun", ((CVarBool)cvar).Value);
     });
 
     // Block light (lightmap GBA) plus its shadow projector. Off = 0.
-    public static CVarBool debugNoBlockLight = new CVarBool("debug_no_block_light", false, (cvar) =>
+    public static CVarBool debugBlockLightDisabled = new CVarBool("debug_block_light_disabled", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("debug_no_block_light", ((CVarBool)cvar).Value);
     });
 
     // Wetness: sky reflection, puddles and footstep ripple rims.
-    public static CVarBool debugNoWet = new CVarBool("debug_no_wet", false, (cvar) =>
+    public static CVarBool debugWetDisabled = new CVarBool("debug_wet_disabled", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("debug_no_wet", ((CVarBool)cvar).Value);
     });
@@ -1586,7 +1578,7 @@
 
     // Eye adaptation gain, which is a per-fragment function of local
     // illuminance and so can turn a gentle light gradient into a visible step.
-    public static CVarBool debugNoEyeAdapt = new CVarBool("debug_no_eye_adapt", false, (cvar) =>
+    public static CVarBool debugEyeAdaptDisabled = new CVarBool("debug_eye_adapt_disabled", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("debug_no_eye_adapt", ((CVarBool)cvar).Value);
     });
@@ -1655,7 +1647,7 @@
     //   19 = foam mask (greyscale coverage, not colour)
     //   20 = water_alpha (white = opaque water, black = see-through)
     //   21 = surface film mask (white = scum/algae, black = bare water)
-    public static CVarInt waterDebug = new CVarInt("water_debug", 0, (cvar) =>
+    public static CVarInt debugWater = new CVarInt("debug_water", 0, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("water_debug_mode", ((CVarInt)cvar).Value);
     });
@@ -1664,14 +1656,14 @@
     // surface rolling off its lip (`surfaceness`), so nothing on screen says
     // which one you are looking at — and that is exactly the question when a
     // fall looks wrong against water. Spray is neither: it is Fx particles,
-    // isolate that with `fx_particles 0`.
+    // isolate that with `debug_fx_particles 0`.
     //   0 = normal
     //   1 = the falling half only. It discards, so the hidden half stops
     //       writing depth and stops occluding the pool as well.
     //   2 = the surface half only (the brink).
     //   3 = surfaceness, flat and opaque: RED falling, GREEN surface — shows
     //       where a given fall hands over from one to the other.
-    public static CVarInt waterfallDebug = new CVarInt("waterfall_debug", 0, (cvar) =>
+    public static CVarInt debugWaterfall = new CVarInt("debug_waterfall", 0, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("waterfall_debug", ((CVarInt)cvar).Value);
     });
@@ -1710,11 +1702,11 @@
     //       plan view, this is the elevation. The ceiling cap stands down in
     //       this mode so it can't paint black over the diagnostic. Terrain
     //       only — roofs are model props and still cut away normally, so pair
-    //       with `props_visible 0` if one is in the way.
+    //       with `debug_props_visible 0` if one is in the way.
     // For inspecting the ceiling cap's mask coverage directly (the
-    // SubViewport-rendered black/white silhouette), use `cap_mask_debug 1`
+    // SubViewport-rendered black/white silhouette), use `debug_cap_mask 1`
     // instead — that draws the mask texture as a fullscreen overlay.
-    public static CVarInt clipDebug = new CVarInt("clip_debug", 0, (cvar) =>
+    public static CVarInt debugClip = new CVarInt("debug_clip", 0, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("clip_debug_mode", ((CVarInt)cvar).Value);
     });
@@ -1727,12 +1719,12 @@
     // so lit shaders skip the texture sample entirely and write block_lit
     // to EMISSION at full strength. Rendering is byte-identical to
     // pre-feature when off — the low-spec graphics-settings toggle.
-    public static CVarBool blockLightShadow = new CVarBool("block_light_shadow", true, (cvar) =>
+    public static CVarBool debugBlockLightShadow = new CVarBool("debug_block_light_shadow", true, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("block_light_shadow_enabled", ((CVarBool)cvar).Value);
     });
 
-    // cap_mask_pass 0 / outline_mask_pass 0 -> stop the matching off-screen
+    // debug_cap_mask_pass 0 / debug_outline_mask_pass 0 -> stop the matching off-screen
     // SubViewport rendering (UpdateMode.Disabled). Both otherwise run
     // UpdateMode.Always, so each is a FULL scene cull every frame across every
     // VisualInstance3D in the world — the same population the main camera culls,
@@ -1742,18 +1734,18 @@
     //
     // Expect breakage while off: the ceiling cutaway freezes on a stale mask and
     // the selection outline disappears. These size the pass; they are not
-    // ship-off switches. Pair with block_light_shadow / ground_stain to bisect
+    // ship-off switches. Pair with debug_block_light_shadow / debug_ground_stain to bisect
     // the whole off-screen-pass budget against frame_ms_avg.
-    public static CVarBool capMaskPass = new CVarBool("cap_mask_pass", true, (cvar) =>
+    public static CVarBool debugCapMaskPass = new CVarBool("debug_cap_mask_pass", true, (cvar) =>
     {
         GameClient.Current?.camera?.SetCapMaskPassEnabled(((CVarBool)cvar).Value);
     });
-    public static CVarBool outlineMaskPass = new CVarBool("outline_mask_pass", true, (cvar) =>
+    public static CVarBool debugOutlineMaskPass = new CVarBool("debug_outline_mask_pass", true, (cvar) =>
     {
         GameClient.Current?.camera?.SetOutlineMaskPassEnabled(((CVarBool)cvar).Value);
     });
 
-    // clip_iris_debug N -> draw the cutaway's PROBE RING around the player.
+    // debug_clip_iris N -> draw the cutaway's PROBE RING around the player.
     // Draws only; the ring runs whether or not this is on.
     //   0  off
     //   1  the ring: a marker per sample, a stem up to the ceiling it found, and
@@ -1774,29 +1766,29 @@
     // Read the stems first. The base is a quantile over them, so a base that
     // twitches while you stand still is a spread problem in the ring, not a
     // tuning problem — and the stems show the spread directly.
-    public static CVarInt clipIrisDebug = new CVarInt("clip_iris_debug", 0);
+    public static CVarInt debugClipIris = new CVarInt("debug_clip_iris", 0);
 
-    // clip_iris_dump 1 -> print the ring's decision at the player once a second:
+    // debug_clip_iris_dump 1 -> print the ring's decision at the player once a second:
     // resolved base, the seed it picked, and the weighted occlusion share. The
     // companion to the drawing for anything that has to be read as a number.
-    public static CVarBool clipIrisDump = new CVarBool("clip_iris_dump", false);
+    public static CVarBool debugClipIrisDump = new CVarBool("debug_clip_iris_dump", false);
 
 
-    // ground_stain 0 -> the GroundStainProjector stops rendering and the lit
+    // debug_ground_stain 0 -> the GroundStainProjector stops rendering and the lit
     // ground shaders branch around the stain sample, so scorch/footprint/blood
     // marks vanish and terrain renders byte-identical to pre-feature. Perf
     // bisection toggle + a quick way to confirm a visual issue is the stain
     // layer vs the underlying terrain.
-    public static CVarBool groundStain = new CVarBool("ground_stain", true, (cvar) =>
+    public static CVarBool debugGroundStain = new CVarBool("debug_ground_stain", true, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("ground_stain_enabled", ((CVarBool)cvar).Value);
     });
 
     // Discards every voxel_water fragment when set. Lets you check the
     // terrain stencil + cap pipeline without water front faces in the
-    // way — particularly useful with `clip_debug 13` to see which screen
+    // way — particularly useful with `debug_clip 13` to see which screen
     // pixels get stencil writes vs which are bare scene.
-    public static CVarBool waterHide = new CVarBool("water_hide", false, (cvar) =>
+    public static CVarBool debugWaterHide = new CVarBool("debug_water_hide", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("water_hide", ((CVarBool)cvar).Value);
     });
@@ -1808,7 +1800,7 @@
     // "LOAD"), the cause is the chunk streaming out — not the water shader/mesh.
     // If the water vanishes with NO unload line, the chunk stayed resident and
     // the cause is water-specific (shader/material/mesh), not streaming.
-    public static CVarBool chunkWaterLog = new CVarBool("chunk_water_log", false);
+    public static CVarBool debugChunkWaterLog = new CVarBool("debug_chunk_water_log", false);
 
     // Debug visualizer for sprite_prop_reflection_multimesh.gdshader. Replaces
     // the reflection sprite's ALBEDO with diagnostic values to track down
@@ -1831,7 +1823,7 @@
     //       but the rendered reflection still looks unrippled, the
     //       integer floor(sxy + jitter) clamp is eating the displacement.
     //   7 = ripple_strength as a flat shade.
-    public static CVarInt reflectionDebug = new CVarInt("reflection_debug", 0, (cvar) =>
+    public static CVarInt debugReflection = new CVarInt("debug_reflection", 0, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("reflection_debug_mode", ((CVarInt)cvar).Value);
     });
@@ -1842,18 +1834,18 @@
     // which also releases water_alpha (foam otherwise forces it to 1 at the
     // shore, making the band fully opaque). Use it to answer "is the bright
     // shoreline foam at all?" in one step, rather than reading it off
-    // `water_debug 17`/`19`.
-    public static CVarBool waterDisableFoam = new CVarBool("water_disable_foam", false, (cvar) =>
+    // `debug_water 17`/`19`.
+    public static CVarBool debugWaterFoamDisabled = new CVarBool("debug_water_foam_disabled", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("water_disable_foam", ((CVarBool)cvar).Value);
     });
 
-    // Force the water surface to use a flat +Y normal — disables the
-    // ripple texture's contribution to the shading normal. Reflections
-    // become a perfect mirror of the sky/world in that view direction.
-    // Use with water_debug 1 to check if ripples are scattering the
-    // reflection away from the sun.
-    public static CVarBool waterDisableRipples = new CVarBool("water_disable_ripples", false, (cvar) =>
+    // Force the water surface to use a flat +Y normal — the shader skips the
+    // ripple texture and SkyController pushes a zero ripple strength, so
+    // reflections become a perfect mirror. Geometry is untouched — pair with
+    // debug_water_waves_disabled to strip both. Use with debug_water 1 to check
+    // if ripples are scattering the reflection away from the sun.
+    public static CVarBool debugWaterRipplesDisabled = new CVarBool("debug_water_ripples_disabled", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("water_disable_ripples", ((CVarBool)cvar).Value);
     });
@@ -1861,50 +1853,22 @@
     // Master toggle for per-cell water currents. When false, the water
     // shader skips the current sample entirely and ripple_normal falls
     // back to the wind-only single-sample path.
-    public static CVarBool waterCurrentsEnabled = new CVarBool("water_currents_enabled", true, (cvar) =>
+    public static CVarBool debugWaterCurrentsEnabled = new CVarBool("debug_water_currents_enabled", true, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("water_currents_enabled", ((CVarBool)cvar).Value);
     });
 
-    // World m/s of surface drift at the maximum stored current value
-    // (signed 1.0). Storage is normalized to [-1, 1] so this CVar tunes
-    // the global magnitude without re-baking chunks.
-    public static CVarFloat waterCurrentSpeed = new CVarFloat("water_current_speed", 1.0f, (cvar) =>
-    {
-        Godot.RenderingServer.GlobalShaderParameterSet("water_current_speed", ((CVarFloat)cvar).Value);
-    });
-
-    // Seconds-per-cycle for the ripple texture's two-phase scroll. Longer
-    // = less obvious "lerp wobble" between phases, but more visible UV
-    // stretching mid-phase. Sub-second values pump too fast; ~2s reads
-    // as continuous drift.
-    public static CVarFloat waterCurrentPhasePeriod = new CVarFloat("water_current_phase_period", 2.0f, (cvar) =>
-    {
-        Godot.RenderingServer.GlobalShaderParameterSet("water_current_phase_period", ((CVarFloat)cvar).Value);
-    });
-
-    // Multiplier on the wind-map vector field driving the global
-    // GpuParticlesAttractorVectorField3D. The attractor's force scales by
-    // wind_velocity_scale × this, so each particle's existing `damping`
-    // (drag coefficient) determines its steady-state response — low-damping
-    // particles (embers, dust) drift far in wind and high-damping particles
-    // (blood, debris) barely budge — physically intuitive without any
-    // per-effect authoring. Polled each frame by ChunkManager so live
-    // tweaks via the in-game console take effect immediately. 0 = wind has
-    // no effect on particles.
-    public static CVarFloat particleWindStrength = new CVarFloat("particle_wind_strength", 0.15f);
-
-    // sprite_reflection_visible 0 → the global reflection_tint that
+    // debug_sprite_reflection_visible 0 → the global reflection_tint that
     //                            sprite_reflection.gdshader multiplies its
     //                            output by goes to zero, so sprite-based water
     //                            reflections draw invisible. The reflection
     //                            nodes and their per-frame update still exist
     //                            and still cost CPU — this is the RENDER gate,
-    //                            matching mob_visible / props_visible. Use
-    //                            `sprite_reflections` (above) for the CPU gate
+    //                            matching debug_mob_visible / debug_props_visible. Use
+    //                            `debug_sprite_reflections` (above) for the CPU gate
     //                            that skips the work entirely. Useful for
     //                            isolating render bugs or as a low-end setting.
-    public static CVarBool spriteReflectionVisible = new CVarBool("sprite_reflection_visible", true, (cvar) =>
+    public static CVarBool debugSpriteReflectionVisible = new CVarBool("debug_sprite_reflection_visible", true, (cvar) =>
     {
         // The actual reflection_tint value is pushed every frame by
         // SkyController.Apply(); checking this flag there gates the push.
@@ -1918,12 +1882,7 @@
     //
     // Wave amplitude is derived from wind and pushed every frame by
     // SkyController.Apply(), so the gate lives there, not in this callback.
-    public static CVarBool waterWavesDisabled = new CVarBool("water_waves_disabled", false, (cvar) => { });
-
-    // Zero the ripple NORMAL perturbation (the small-scale surface chop that
-    // bends reflections and specular). Geometry is untouched — pair with
-    // water_waves_disabled to strip both.
-    public static CVarBool waterRipplesDisabled = new CVarBool("water_ripples_disabled", false, (cvar) => { });
+    public static CVarBool debugWaterWavesDisabled = new CVarBool("debug_water_waves_disabled", false, (cvar) => { });
 
     // Render the sun disk as a pure magenta circle in the sky (and thus in
     // the water reflection), bypassing cloud occlusion, sun tint, intensity
@@ -1932,17 +1891,9 @@
     // correct and any invisibility in normal mode is a tint/cloud/intensity
     // issue. If no magenta appears anywhere, the refl direction never meets
     // sun_disk_outer at the current settings.
-    public static CVarBool skyDebugSunDisk = new CVarBool("sky_debug_sun_disk", false, (cvar) =>
+    public static CVarBool debugSkySunDisk = new CVarBool("debug_sky_sun_disk", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("sky_debug_sun_disk", ((CVarBool)cvar).Value);
-    });
-
-    // Power applied to the lightmap value in voxel/sprite/water shaders.
-    // 1.0 = linear (raw BFS value), >1 darkens the mid-range so dim sunlight
-    // bleed reads as proper darkness while bright areas stay bright.
-    public static CVarFloat lightFalloffExp = new CVarFloat("light_falloff_exp", 2f, (cvar) =>
-    {
-        Godot.RenderingServer.GlobalShaderParameterSet("light_falloff_exp", ((CVarFloat)cvar).Value);
     });
 
     // Three independent gates for the tree_lit shader (the maple/canopy tree
@@ -1952,54 +1903,36 @@
     // any compile-time switches — toggling any of them at runtime is a single
     // RenderingServer push and a uniform branch in the shader.
     //
-    // tree_wind 0 → canopy verts stop swaying in the vertex shader (still
+    // debug_tree_wind 0 → canopy verts stop swaying in the vertex shader (still
     // displaced by zero, which is free; the work that's gone is the sin/cos
     // pair and the mask multiply).
-    public static CVarFloat treeWind = new CVarFloat("tree_wind", 1f, (cvar) =>
+    public static CVarFloat debugTreeWind = new CVarFloat("debug_tree_wind", 1f, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("tree_wind_strength", ((CVarFloat)cvar).Value);
     });
-    // tree_sphere_normal 0 → canopy shading uses the real (faceted) mesh
+    // debug_tree_sphere_normal 0 → canopy shading uses the real (faceted) mesh
     // normal instead of a radial-from-canopy-center fake. The crown reads as
     // a low-poly polyhedron rather than a soft blob.
-    public static CVarFloat treeSphereNormal = new CVarFloat("tree_sphere_normal", 1f, (cvar) =>
+    public static CVarFloat debugTreeSphereNormal = new CVarFloat("debug_tree_sphere_normal", 1f, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("tree_sphere_normal_strength", ((CVarFloat)cvar).Value);
     });
-    // tree_detail_noise 0 → canopy albedo isn't modulated by the per-pixel
+    // debug_tree_detail_noise 0 → canopy albedo isn't modulated by the per-pixel
     // 3D value-noise; surfaces revert to the flat atlas color.
-    public static CVarFloat treeDetailNoise = new CVarFloat("tree_detail_noise", 1f, (cvar) =>
+    public static CVarFloat debugTreeDetailNoise = new CVarFloat("debug_tree_detail_noise", 1f, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("tree_detail_noise_strength", ((CVarFloat)cvar).Value);
     });
-    // tree_silhouette_breakup 0 → no canopy pixels are discarded; the
+    // debug_tree_silhouette_breakup 0 → no canopy pixels are discarded; the
     // polygonal silhouette is solid. 1 → the authored amount
     // (silhouette_breakup_amount in tree_lit.gdshader, default 0.12) is
     // applied, punching ~12% of canopy pixels out along the noise's dark
     // spots. Slides up past 1 (engine doesn't clamp) for progressive
     // seasonal leaf loss — at high values the canopy thins to almost
     // nothing.
-    public static CVarFloat treeSilhouetteBreakup = new CVarFloat("tree_silhouette_breakup", 1f, (cvar) =>
+    public static CVarFloat debugTreeSilhouetteBreakup = new CVarFloat("debug_tree_silhouette_breakup", 1f, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("tree_silhouette_breakup_strength", ((CVarFloat)cvar).Value);
-    });
-
-    // RGB tint applied to the sun visibility mask. Parsed from "r g b" floats;
-    // the shader sees a vec3.
-    private static Godot.Vector3 _sunColorValue = new Godot.Vector3(1f, 0.96f, 0.88f);
-    public static Godot.Vector3 SunColor => _sunColorValue;
-    public static CVarString sunColor = new CVarString("sun_color", "1 0.96 0.88", (cvar) =>
-    {
-        string s = ((CVarString)cvar).Value.Trim();
-        string[] parts = s.Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 3
-            && float.TryParse(parts[0], out float r)
-            && float.TryParse(parts[1], out float g)
-            && float.TryParse(parts[2], out float b))
-        {
-            _sunColorValue = new Godot.Vector3(r, g, b);
-            Godot.RenderingServer.GlobalShaderParameterSet("sun_color", _sunColorValue);
-        }
     });
 
     // When set to "x y z", the ChunkMesh only builds that single chunk (others
@@ -2026,11 +1959,11 @@
     // Prints the voxel + light state at the player's current voxel and the
     // 5 voxels above it. Use to verify whether a "dark" cave actually has 0
     // sunlight (or is being lit by lateral BFS through some opening).
-    public static CVar lightProbe = new CVar("light_probe", (cvar) =>
+    public static CVar debugLightProbe = new CVar("debug_light_probe", (cvar) =>
     {
         if (Sim.Current == null || Sim.Current.player == null)
         {
-            Godot.GD.Print("light_probe: no active world / player.");
+            Godot.GD.Print("debug_light_probe: no active world / player.");
             return;
         }
         Godot.Vector3 p = Sim.Current.player.GlobalPosition;
@@ -2038,7 +1971,7 @@
         int py = Godot.Mathf.FloorToInt(p.Y);
         int pz = Godot.Mathf.FloorToInt(p.Z);
         WorldState ws = Sim.Current.WorldState;
-        Godot.GD.Print($"light_probe at ({px},{py},{pz}):");
+        Godot.GD.Print($"debug_light_probe at ({px},{py},{pz}):");
         for (int dy = 0; dy <= 5; dy++)
         {
             int wy = py + dy;
@@ -2053,11 +1986,11 @@
     // any column where the air voxel directly above the player's Y is sunlit
     // (sun > 0). Use to locate the opening that's leaking sunlight into a
     // supposedly-sealed cave.
-    public static CVar lightLeak = new CVar("light_leak", (cvar) =>
+    public static CVar debugLightLeak = new CVar("debug_light_leak", (cvar) =>
     {
         if (Sim.Current == null || Sim.Current.player == null)
         {
-            Godot.GD.Print("light_leak: no active world / player.");
+            Godot.GD.Print("debug_light_leak: no active world / player.");
             return;
         }
         Godot.Vector3 p = Sim.Current.player.GlobalPosition;
@@ -2067,7 +2000,7 @@
         WorldState ws = Sim.Current.WorldState;
         const int RADIUS = 15;
         int playerSun = ws.GetSunlightWorld(px, py, pz);
-        Godot.GD.Print($"light_leak around ({px},{py},{pz}) playerSun={playerSun}: scanning air at y={py} with sun > player.sun, sorted by distance");
+        Godot.GD.Print($"debug_light_leak around ({px},{py},{pz}) playerSun={playerSun}: scanning air at y={py} with sun > player.sun, sorted by distance");
         var hits = new System.Collections.Generic.List<(int dist, int wx, int wz, int sun)>();
         for (int dx = -RADIUS; dx <= RADIUS; dx++)
         {
@@ -2097,34 +2030,34 @@
     // position, broken into base + sun contribution. Mirrors what
     // GameClient.SampleAirTemperature returns each frame so you can verify
     // weather / sun-shading / fog interactions match the gameplay sample.
-    public static CVar tempProbe = new CVar("temp", (cvar) =>
+    public static CVar debugTemp = new CVar("debug_temp", (cvar) =>
     {
         if (Sim.Current == null || Sim.Current.player == null)
         {
-            Godot.GD.Print("temp: no active world / player.");
+            Godot.GD.Print("debug_temp: no active world / player.");
             return;
         }
         GameClient client = GameClient.Current;
         if (client == null)
         {
-            Godot.GD.Print("temp: no active GameClient.");
+            Godot.GD.Print("debug_temp: no active GameClient.");
             return;
         }
         Godot.Vector3 p = Sim.Current.player.GlobalPosition;
         Sim.AirTemperatureSample s = Sim.Current.SampleAirTemperatureBreakdown(p);
         Godot.GD.Print(
-            $"temp at ({p.X:F1}, {p.Y:F1}, {p.Z:F1}): {s.Total:F1}°F\n" +
+            $"debug_temp at ({p.X:F1}, {p.Y:F1}, {p.Z:F1}): {s.Total:F1}°F\n" +
             $"  air        = {s.air:F1}°F\n" +
             $"  sun        = +{s.SunContribution:F1}°F  (sunT {s.sunTemperature:F1} × sunFactor {s.sunFactor:F2} × skyTransmission {s.skyTransmission:F2} × sunMask {s.sunMask:F2})\n" +
             $"  cloudCover = {s.cloudCover:F2}   fog = {s.fog:F2}");
     });
 
     // Prints the player's current world position and chunk coord.
-    public static CVar whereAmI = new CVar("where", (cvar) =>
+    public static CVar debugWhere = new CVar("debug_where", (cvar) =>
     {
         if (Sim.Current == null || Sim.Current.player == null)
         {
-            Godot.GD.Print("where: no active world / player.");
+            Godot.GD.Print("debug_where: no active world / player.");
             return;
         }
         Godot.Vector3 p = Sim.Current.player.GlobalPosition;
@@ -2136,15 +2069,15 @@
     // startup (bypassing the main menu), dumps plateau/height/ramp PPMs +
     // stats.txt to this directory, and quits. Use with `--headless` for a
     // fast-feedback debugging loop over the height-field algorithm.
-    public static CVarString worldgenDebugDump = new CVarString("worldgen_debug_dump", "");
+    public static CVarString debugWorldgenDump = new CVarString("debug_worldgen_dump", "");
 
     // As above, but runs ONLY the terrain approach — no chunks, lighting, fog,
     // props, mobs, subscenes or roads. Same stats.txt and images out (plus the
     // raw int16 fields), in a fraction of the time, because none of those
     // passes change the height field. This is the loop for tuning a
-    // TerrainGenData; use worldgen_debug_dump when you need what the later
+    // TerrainGenData; use debug_worldgen_dump when you need what the later
     // passes did to the world (road regrading, in particular).
-    public static CVarString worldgenTerrainDump = new CVarString("worldgen_terrain_dump", "");
+    public static CVarString debugWorldgenTerrainDump = new CVarString("debug_worldgen_terrain_dump", "");
 
     // When true, Main loads every .gdshader so the engine parses it, then quits
     // without starting a game. Pair with `--headless` for a ~4s "do the shaders
@@ -2174,16 +2107,16 @@
     // Useful when a game is already running and you want a snapshot without
     // restarting.
     // Whether a finished Generate keeps its height field and terrain generator
-    // alive for `worldgen_debug` to dump. Off by default: that is ~2MB of
+    // alive for `debug_worldgen` to dump. Off by default: that is ~2MB of
     // generator scratch pinned for the whole session after the world it made has
     // been handed off. Turn it on before generating when you want the dump.
-    public static CVarBool worldgenKeepDebugData = new CVarBool("worldgen_keep_debug_data", false);
+    public static CVarBool debugWorldgenKeepData = new CVarBool("debug_worldgen_keep_data", false);
 
-    public static CVar worldgenDebug = new CVar("worldgen_debug", (cvar) =>
+    public static CVar debugWorldgen = new CVar("debug_worldgen", (cvar) =>
     {
         if (WorldGen.LastRun == null)
         {
-            Godot.GD.Print("worldgen_debug: no run retained. Set worldgen_keep_debug_data 1 before generating.");
+            Godot.GD.Print("debug_worldgen: no run retained. Set debug_worldgen_keep_data 1 before generating.");
             return;
         }
         WorldGen.LastRun.DumpDebug(Godot.ProjectSettings.GlobalizePath("user://worldgen_debug"));
@@ -2551,17 +2484,17 @@
         DebugVerbs.Teleport(((CVarString)cvar).Value);
     });
 
-    // `spawn <species> [count] [level]` — ring of transient mobs around the
-    // player. Bare `spawn` lists the known species names.
-    public static CVarString spawnMob = new CVarString("spawn", "", (cvar) =>
+    // `spawn_mob <species> [count] [level]` — ring of transient mobs around the
+    // player. Bare `spawn_mob` lists the known species names.
+    public static CVarString spawnMob = new CVarString("spawn_mob", "", (cvar) =>
     {
         DebugVerbs.Spawn(((CVarString)cvar).Value);
     });
 
-    // `give <item> [count]` — drop an item at the player's feet (the world
+    // `spawn_loot <item> [count]` — drop an item at the player's feet (the world
     // pickup path, which is where several item kinds do their real work). Bare
-    // `give` lists the known item names.
-    public static CVarString giveItem = new CVarString("give", "", (cvar) =>
+    // `spawn_loot` lists the known item names.
+    public static CVarString spawnLoot = new CVarString("spawn_loot", "", (cvar) =>
     {
         DebugVerbs.Give(((CVarString)cvar).Value);
     });

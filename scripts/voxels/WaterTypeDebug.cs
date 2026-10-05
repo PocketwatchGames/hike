@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Godot;
 
 // Diagnostic: what water the LOADED world is actually made of.
-// Console: `water_type_probe`.
+// Console: `debug_water_type_probe`.
 //
 // Exists because "I see no scum" has three unrelated causes and the rendered
 // surface cannot tell them apart: nothing was painted here, the water is real

@@ -13,7 +13,7 @@ using Godot;
 //
 //   SUBMERGED — read off the committed TERRAIN mesh: any vertex below the
 //     waterline. Lattice-agnostic on purpose (the answer must not depend on
-//     voxel_center_sampling) and it is the drawn geometry, not the voxel grid.
+//     debug_voxel_center_sampling) and it is the drawn geometry, not the voxel grid.
 //   COVERED   — read off the committed WATER mesh: an upward-facing quad at the
 //     waterline over that column's footprint.
 //
@@ -37,7 +37,7 @@ public static class WaterShoreCheck
     public static void RunAndQuit(SceneTree tree)
     {
         Blocks.Bind();
-        GD.Print($"[water_shore_check] voxel_center_sampling = {CVars.voxelCenterSampling.Value}");
+        GD.Print($"[water_shore_check] debug_voxel_center_sampling = {CVars.debugVoxelCenterSampling.Value}");
         // Both shore shapes are run against both Shape channels, because they
         // fail differently and only one of them was ever the reported bug.
         // BENCHED is worldgen's Y-snapped plateau: the terrace lands exactly on

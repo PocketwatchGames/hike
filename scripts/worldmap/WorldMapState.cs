@@ -2584,7 +2584,7 @@ public class WorldMapState
     // Where a painted prop's base sits, in world Y.
     //
     // A flat column's drawn top IS the surface voxel's top face; the terrain
-    // collision is the drawn mesh, and prop_seat_probe reads a painted prop's
+    // collision is the drawn mesh, and debug_prop_seat_probe reads a painted prop's
     // seat against it in-game. A prop seated higher floats, and every prop's
     // height counts against the 1.5 m sightline from the bodies' feet. On a GRADE the mesher averages the cell's edge crossings instead, so the
     // drawn surface runs as a plane through the column and the flat anchor

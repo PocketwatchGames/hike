@@ -8,11 +8,11 @@ scenarioName = "snow"
 description = "Whiteout snowfall on the spot, bypassing the zone and temperature gates."
 commands = "// Force both halves of the snow gate plus the precipitation amount,
 // so this works anywhere rather than only in a zone authored with snowCover.
-// Drop precip_force to 0.3 for light snow; snow_force 0.5 gives sleet.
-precip_force 1
-snow_force 1
+// Drop weather_precip_force to 0.3 for light snow; weather_snow_force 0.5 gives sleet.
+weather_precip_force 1
+weather_snow_force 1
 // Wind is what separates heavy snow from a blizzard - the flakes take roughly
 // 3x a raindrop's tilt from the same wind (RainEffect.snowWindTiltScale).
-wind_force 28
+weather_wind_force 28
 time_of_day 0.25"
 metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

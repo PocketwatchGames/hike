@@ -43,7 +43,7 @@ public partial class Player : CharacterBody3D
 	private Vector3 _mantleTo;
 	// Whether the in-flight mantle ends on a water surface.
 	private bool _mantleOntoWater;
-	// Throttle for the per-tick `mantle_debug` trace.
+	// Throttle for the per-tick `debug_mantle` trace.
 	private ulong _mantleLogLastMs;
 
 	// The traversal available from where the player stands — a ledge to mantle,
@@ -334,7 +334,7 @@ public partial class Player : CharacterBody3D
 		return new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
 	}
 
-	// BodyForward for the climb_mark console command, which has to aim at the
+	// BodyForward for the debug_climb_mark console command, which has to aim at the
 	// same wall the climb probe would.
 	public Vector3 BodyForwardForDebug() => BodyForward();
 
@@ -355,7 +355,7 @@ public partial class Player : CharacterBody3D
 	// leads with the forward carry so the player steps off the edge and then
 	// lowers, rather than sinking through the ledge they are standing on.
 
-	// --- Fall-through tripwire (`fall_trace`) -------------------------------
+	// --- Fall-through tripwire (`debug_fall_trace`) -------------------------------
 	// Records what owned the player's position each tick and dumps the last
 	// couple of seconds the moment the body ends up somewhere with no world
 	// under it at all. Exists because falling through the map is only ever seen
@@ -391,7 +391,7 @@ public partial class Player : CharacterBody3D
 	{
 		string owner = _fallTraceOwner ?? (_grounded ? "grounded" : "air");
 		_fallTraceOwner = null;
-		if (!CVars.fallTrace.Value || _fallTraceFired)
+		if (!CVars.debugFallTrace.Value || _fallTraceFired)
 		{
 			return;
 		}
@@ -429,7 +429,7 @@ public partial class Player : CharacterBody3D
 		}
 
 		_fallTraceFired = true;
-		GD.Print($"[fall_trace] NO WORLD BELOW at ({from.X:F2},{from.Y:F2},{from.Z:F2})"
+		GD.Print($"[debug_fall_trace] NO WORLD BELOW at ({from.X:F2},{from.Y:F2},{from.Z:F2})"
 			+ $" — last {_fallTraceCount} ticks, oldest first:");
 		int start = (_fallTraceNext - _fallTraceCount + FallTraceLength) % FallTraceLength;
 		for (int k = 0; k < _fallTraceCount; k++)
@@ -505,7 +505,7 @@ public partial class Player : CharacterBody3D
 		// plain dash instead of burying the player.
 		if (!TryClearLanding(ref candidate))
 		{
-			if (CVars.mantleDebug.Value)
+			if (CVars.debugMantle.Value)
 			{
 				GD.Print($"[mantle] refused — landing ({candidate.landing.X:F2},"
 					+ $"{candidate.landing.Y:F2},{candidate.landing.Z:F2}) is not clear");
@@ -530,7 +530,7 @@ public partial class Player : CharacterBody3D
 		PlayOneShot(EAnimation.Jump);
 		SpawnWorldEffect(_mantleFx);
 
-		if (CVars.mantleDebug.Value)
+		if (CVars.debugMantle.Value)
 		{
 			GD.Print($"[mantle] start t0={_mantleStartMs} t1={_mantleEndMs} "
 				+ $"from=({_mantleFrom.X:F2},{_mantleFrom.Y:F2},{_mantleFrom.Z:F2}) "
@@ -565,7 +565,7 @@ public partial class Player : CharacterBody3D
 		Velocity = Vector3.Zero;
 		FallTraceMark("mantle");
 
-		if (CVars.mantleDebug.Value && now - _mantleLogLastMs >= 100)
+		if (CVars.debugMantle.Value && now - _mantleLogLastMs >= 100)
 		{
 			_mantleLogLastMs = now;
 			GD.Print($"[mantle] tick now={now} t={t:F3} pos=({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2})");
@@ -579,7 +579,7 @@ public partial class Player : CharacterBody3D
 			// it grounded costs a tick of standing on the surface — long enough to
 			// fire a landing sound — before UpdateWaterState takes it back.
 			_grounded = !_mantleOntoWater;
-			if (CVars.mantleDebug.Value)
+			if (CVars.debugMantle.Value)
 			{
 				GD.Print($"[mantle] complete at ({GlobalPosition.X:F2},{GlobalPosition.Y:F2},{GlobalPosition.Z:F2})");
 			}
@@ -623,7 +623,7 @@ public partial class Player : CharacterBody3D
 		public readonly Vector3 Landing;
 		// Null when the hold is the world's own rock.
 		public readonly ClimbableSurface Surface;
-		// For the `climb_debug` trace only.
+		// For the `debug_climb` trace only.
 		public readonly string How;
 
 		public ClimbHold(Vector3 normal, Vector3 landing, ClimbableSurface surface, string how)
@@ -891,7 +891,7 @@ public partial class Player : CharacterBody3D
 		// backing over a lip lowers the body, walking onto a face holds a grip.
 		_climbAnimSign = ClimbCarrySign(_climbFrom.Y, landing.Y);
 
-		if (CVars.climbDebug.Value)
+		if (CVars.debugClimb.Value)
 		{
 			GD.Print($"[climb] attach ({hold.How}) "
 				+ $"n=({hold.Normal.X:F2},{hold.Normal.Y:F2},{hold.Normal.Z:F2}) "
@@ -1020,13 +1020,13 @@ public partial class Player : CharacterBody3D
 	// from the eye that there is still climbable rock to hold, and adopt its
 	// normal. Failing that last step the whole move is rolled back — better to
 	// stick for a tick than to slide off into the air.
-	// Throttle for the per-tick `climb_debug` trace. 60 Hz of multi-line output
+	// Throttle for the per-tick `debug_climb` trace. 60 Hz of multi-line output
 	// buries the one tick that matters.
 	private ulong _climbTraceLastMs;
 
 	private bool ClimbTracing()
 	{
-		if (!CVars.climbDebug.Value || _world == null)
+		if (!CVars.debugClimb.Value || _world == null)
 		{
 			return false;
 		}
@@ -1564,7 +1564,7 @@ public partial class Player : CharacterBody3D
 		_climbEndMs = 0;
 		_grounded = false;
 		Velocity = Vector3.Zero;
-		if (CVars.climbDebug.Value)
+		if (CVars.debugClimb.Value)
 		{
 			GD.Print("[climb] released into a fall");
 		}
@@ -1572,7 +1572,7 @@ public partial class Player : CharacterBody3D
 
 	private void BeginClimbExit(Vector3 landing)
 	{
-		if (CVars.climbDebug.Value)
+		if (CVars.debugClimb.Value)
 		{
 			GD.Print($"[climb] release to=({landing.X:F2},{landing.Y:F2},{landing.Z:F2})");
 		}
@@ -1592,7 +1592,7 @@ public partial class Player : CharacterBody3D
 	// only exit from a face that leads nowhere.
 	private bool TryReleaseClimb()
 	{
-		bool trace = CVars.climbDebug.Value;
+		bool trace = CVars.debugClimb.Value;
 
 		// Mid-transition presses are swallowed, not queued. The carry owns position
 		// for its span, and cutting it short leaves the body inside the wall it was

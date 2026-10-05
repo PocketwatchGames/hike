@@ -1,6 +1,6 @@
 // Which WORLD a resource belongs to, read off where it sits: anything under
 // resources/data/worlds/<name>/ is that world's own — its items, its
-// conversations — and is offered by name (a picker, `give`, a sheet cell) only
+// conversations — and is offered by name (a picker, `spawn_loot`, a sheet cell) only
 // while working in that world. worlds/shared/ and every tree outside worlds/
 // belong to no world and are offered everywhere.
 //
@@ -13,7 +13,7 @@
 // the list and cannot be picked by accident.
 //
 // tools/conversation_import applies the same rule on its own (it cannot
-// reference this assembly): a sheet's `give:` resolves items/, then
+// reference this assembly): a sheet's `spawn_loot:` resolves items/, then
 // worlds/shared/items/, then its own world's items/.
 public static class WorldScope
 {

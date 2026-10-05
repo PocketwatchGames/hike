@@ -28,7 +28,7 @@ public static class WeatherSimulation
     // Debug override: when set, Apply writes this value to
     // weather.lightningAmount after the normal gates+variance
     // computation, bypassing the cloud/rain thresholds and the
-    // variance multiplier. Used by the `force_lightning` CVar to
+    // variance multiplier. Used by the `weather_lightning_force` CVar to
     // immediately trigger the audio scheduler, visual flash, and HUD
     // thunder icon without waiting on a favorable variance roll.
     // null = no override (normal sim behavior). Affects every Apply

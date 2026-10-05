@@ -17,7 +17,7 @@ class TresWriter
 
 	readonly List<ResRef> _externals = new List<ResRef>();
 	readonly Dictionary<string, string> _externalIds = new Dictionary<string, string>(StringComparer.Ordinal);
-	// Inline cells (npcvar: / var: / give: / teach:) become sub-resources rather
+	// Inline cells (npcvar: / var: / spawn_loot: / teach:) become sub-resources rather
 	// than named files, so they need ids of their own. Reset per character alongside
 	// the rest.
 	readonly StringBuilder _inlineSubResources = new StringBuilder();
@@ -174,7 +174,7 @@ class TresWriter
 		{
 			return;
 		}
-		if (GiveCell.IsGiveToken(name))
+		if (SpawnLootCell.IsSpawnLootToken(name))
 		{
 			_report.Error(row, $"'{name}' hands over an item - that is an action, not a condition");
 			return;
@@ -246,9 +246,9 @@ class TresWriter
 		var ids = new List<string>();
 		foreach (string name in names)
 		{
-			if (GiveCell.IsGiveToken(name))
+			if (SpawnLootCell.IsSpawnLootToken(name))
 			{
-				GiveRef gift = GiveCell.Parse(name, _index, character.World, row, _report);
+				SpawnLootRef gift = SpawnLootCell.Parse(name, _index, character.World, row, _report);
 				if (gift != null)
 				{
 					ids.Add($"SubResource(\"{AppendGift(gift)}\")");
@@ -297,7 +297,7 @@ class TresWriter
 	// Written flat here because there is nothing to author: the item's name and
 	// a count are the whole content, and anything richer (mods, a level) has
 	// earned an authored .tres of its own.
-	string AppendGift(GiveRef gift)
+	string AppendGift(SpawnLootRef gift)
 	{
 		string descriptorId = NextInlineId();
 		_inlineSubResources.AppendLine($"[sub_resource type=\"Resource\" id=\"{descriptorId}\"]");

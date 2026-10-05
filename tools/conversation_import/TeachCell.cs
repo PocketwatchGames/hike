@@ -120,7 +120,7 @@ static class TeachCell
 				reference.Property = "item";
 				reference.Prefix = "Item";
 				reference.Target = index.Item(world, name);
-				where = $"no .tres by that basename under resources/data/items/ or worlds/{world}/items/ (the same names `give ?` lists in the console)";
+				where = $"no .tres by that basename under resources/data/items/ or worlds/{world}/items/ (the same names `spawn_loot ?` lists in the console)";
 				break;
 			case "bestiary":
 				reference.Teachable = "MobTeachable";

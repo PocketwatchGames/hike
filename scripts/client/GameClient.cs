@@ -1249,7 +1249,7 @@ public partial class GameClient : Node3D
 	}
 
 	// Immediate switch to a specific member: mark active + transfer control now.
-	// Used by the `party_next` debug command.
+	// Used by the `debug_party_next` debug command.
 	public void SwitchControlTo(int index)
 	{
 		if (SetPartyActive(index))
@@ -1258,7 +1258,7 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	// Debug helper (party_next console command): cycle control to the next
+	// Debug helper (debug_party_next console command): cycle control to the next
 	// member. No-op for a solo party.
 	public void SwitchToNextPartyMember()
 	{
@@ -1575,7 +1575,7 @@ public partial class GameClient : Node3D
 		bool supported = _player.IsGrounded || _player.IsInWater || _player.IsMounted
 			|| _player.Climbing || _player.Mantling;
 		_clipIris.Tick(Sim.Current, playerPos, supported, camera, (float)deltaSeconds);
-		ClipIrisDebug.Draw(_clipIris, playerPos, (ClipIrisDebug.ELevel)CVars.clipIrisDebug.Value);
+		ClipIrisDebug.Draw(_clipIris, playerPos, (ClipIrisDebug.ELevel)CVars.debugClipIris.Value);
 
 		camera.SetClip(_clipIris.BaseClipY, playerPos);
 
@@ -1596,7 +1596,7 @@ public partial class GameClient : Node3D
 		}
 		camera.UpdateIrisCap(iris, _clipIris.IrisClipY, _clipIris.IrisCenter);
 
-		if (!CVars.clipIrisDump.Value)
+		if (!CVars.debugClipIrisDump.Value)
 		{
 			return;
 		}
@@ -1641,7 +1641,7 @@ public partial class GameClient : Node3D
 	}
 
 	// One-shot scene-tree census for unattended runs, which have no console to
-	// type `node_census` into. See CVars.nodeCensusDelay.
+	// type `debug_node_census` into. See CVars.debugNodeCensusDelay.
 	private double _nodeCensusElapsed;
 	private bool _nodeCensusDone;
 
@@ -1683,7 +1683,7 @@ public partial class GameClient : Node3D
 
 	private void TickNodeCensusDelay(double deltaTime)
 	{
-		float delay = CVars.nodeCensusDelay.Value;
+		float delay = CVars.debugNodeCensusDelay.Value;
 		if (_nodeCensusDone || delay <= 0f)
 		{
 			return;
@@ -1694,12 +1694,12 @@ public partial class GameClient : Node3D
 			_nodeCensusDone = true;
 			NodeCensus.Run();
 			// Same unattended-diagnostic slot: a headless run can ask for one
-			// subtree dump alongside the census by setting node_tree on the CLI.
-			NodeCensus.DumpSubtree(CVars.nodeTree.Value);
+			// subtree dump alongside the census by setting debug_node_tree on the CLI.
+			NodeCensus.DumpSubtree(CVars.debugNodeTree.Value);
 			// The two reports answer halves of the same question — what is
 			// resident, and what it costs — so an unattended run that asked for
 			// one and enabled profiling gets both.
-			if (CVars.profile.Value)
+			if (CVars.debugProfile.Value)
 			{
 				Profiler.DumpAndReset();
 			}
@@ -1714,7 +1714,7 @@ public partial class GameClient : Node3D
 
 	private void TickWorldHistogramDelay(double deltaTime)
 	{
-		float delay = CVars.worldHistogramDelay.Value;
+		float delay = CVars.debugWorldHistogramDelay.Value;
 		if (_worldHistogramDone || delay <= 0f)
 		{
 			return;

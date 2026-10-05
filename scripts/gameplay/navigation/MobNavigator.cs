@@ -149,7 +149,7 @@ public class MobNavigator
     // rules the navigator itself paths by.
     public TraversalProfile Profile => _profile;
 
-    // Diagnostic surface for mob_fall_trace. A mob that ends up somewhere its
+    // Diagnostic surface for debug_mob_fall_trace. A mob that ends up somewhere its
     // own pathfinder would never have sent it got there one of three ways, and
     // these separate them: the route allowed the drop, there was no route at
     // all, or the steer point was moved after the route was checked.
@@ -587,7 +587,7 @@ public class MobNavigator
         return i >= 0 && i < size && j >= 0 && j < size;
     }
 
-    // mob_stuck_trace: the column at `worldPos` as this mob's resident grid
+    // debug_mob_stuck_trace: the column at `worldPos` as this mob's resident grid
     // saw it, beside a fresh uncached sample and the raw path-blocker cell.
     // grid≠fresh means the shared cache is stale (a prop registered after the
     // entry was sampled); walkable with blk=1 cannot happen, so a walkable

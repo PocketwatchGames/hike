@@ -8,7 +8,7 @@ using Godot;
 // IsProcessing() doesn't even report it — NodeCensus needs IsProcessingInternal()
 // to see it at all. So it lands squarely in the profiler's unaccounted_ms_avg,
 // and the only way to size it is to turn it off and read the delta in
-// process_ms. See CVars.skeletonInternal.
+// process_ms. See CVars.debugSkeletonInternal.
 //
 // Poses freeze while internal processing is off. That is expected and is the
 // point — a frozen pose with no change in process_ms means skeletons weren't the
@@ -21,12 +21,12 @@ public static class SkeletonProbe
         Node root = tree?.Root;
         if (root == null)
         {
-            GD.Print("skeleton_internal: no scene tree.");
+            GD.Print("debug_skeleton_internal: no scene tree.");
             return;
         }
         int touched = 0;
         Walk(root, enabled, ref touched);
-        GD.Print($"skeleton_internal {(enabled ? 1 : 0)}: {touched} Skeleton3D(s) updated.");
+        GD.Print($"debug_skeleton_internal {(enabled ? 1 : 0)}: {touched} Skeleton3D(s) updated.");
     }
 
     private static void Walk(Node node, bool enabled, ref int touched)

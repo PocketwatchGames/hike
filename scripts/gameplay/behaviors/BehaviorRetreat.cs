@@ -37,7 +37,7 @@ public partial class BehaviorRetreat : BehaviorBase
         {
             me.LeavePerch();
         }
-        if (CVars.safetyDebug.Value)
+        if (CVars.debugSafety.Value)
         {
             GD.Print($"[safety] Retreat.OnEnter mob={me.mobData?.displayName} justHit={justHit}");
         }

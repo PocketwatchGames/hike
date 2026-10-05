@@ -596,7 +596,7 @@ public partial class Sim : Node3D
         DrainSpawnQueue();
         UpdateEntityLoading(_player.GlobalPosition);
 
-        if (CVars.navGridDebug.Value)
+        if (CVars.debugNavGrid.Value)
         {
             NavGridDebug.Draw(this, _player.GlobalPosition, _player.TraversalProfileForQuery());
         }

@@ -6,7 +6,7 @@ using Godot;
 // branch) where the handover actually happens.
 //
 // A plain one-item gift does not need an authored .tres at all: a conversation
-// sheet writes `give:<item> [count]` in the action cell and the importer emits
+// sheet writes `spawn_loot:<item> [count]` in the action cell and the importer emits
 // one of these. Author a .tres when the gift carries ItemDescriptor mods or a
 // level, or bundles several items as one reusable named concept.
 //

@@ -203,9 +203,9 @@ public partial class Roof : Node3D, IWorldEntity
     // alongside the rest of the prop pass. Subscription lifetime tracks the node.
     public override void _Ready()
     {
-        Visible = CVars.propsVisible.Value;
-        CVars.propsVisible.OnChanged += OnPropsVisibleChanged;
-        TreeExiting += () => CVars.propsVisible.OnChanged -= OnPropsVisibleChanged;
+        Visible = CVars.debugPropsVisible.Value;
+        CVars.debugPropsVisible.OnChanged += OnPropsVisibleChanged;
+        TreeExiting += () => CVars.debugPropsVisible.OnChanged -= OnPropsVisibleChanged;
     }
 
     private void OnPropsVisibleChanged(CVar cvar)

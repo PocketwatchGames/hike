@@ -13,7 +13,7 @@ A sibling of the `BlockLightShadowProjector` pattern:
 - **`voxel_clip.gdshader`** samples it via `apply_ground_stain(base, world_vertex)` (from `ground_stain.gdshaderinc`) **immediately after `base` is computed, BEFORE the ALBEDO/EMISSION split** — so a stain darkens/tints both channels and reads in every lighting condition. The RT is a transparent `SubViewport` (premultiplied color), so the composite is `base*(1 - a*strength) + premult_rgb*strength`, not a plain `mix`.
 - The shader hook is a strict **no-op when unstained** (`ground_stain_enabled` false, or the fragment is outside the projector frustum / has zero coverage) → terrain is byte-identical to pre-feature. **Do not "fix" decal visibility by restructuring the ALBEDO/EMISSION lighting** (e.g. moving ambient/block light into `light()` so a `Decal` can darken it) — that path silently darkens all terrain and was reverted; the stain layer exists precisely to avoid touching the lighting model.
 
-Per-mark intensity comes from the mark's own texture/tint alpha; `GroundStainProjector.strength` (and the `ground_stain` CVar) is the shared master. New globals follow the `ShaderGlobals` rules in the root CLAUDE.md (declared in `project.godot` + the texture seeded via `Register`).
+Per-mark intensity comes from the mark's own texture/tint alpha; `GroundStainProjector.strength` (and the `debug_ground_stain` CVar) is the shared master. New globals follow the `ShaderGlobals` rules in the root CLAUDE.md (declared in `project.godot` + the texture seeded via `Register`).
 
 ## Adding a new stain type
 

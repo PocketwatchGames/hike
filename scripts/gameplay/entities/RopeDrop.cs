@@ -14,7 +14,7 @@ using Godot;
 // Every exit names the gate it failed, because every one of them looks identical
 // from the game: a coil that resolves nothing offers no prompt at all, so
 // "aimed at a wall", "edge too far", "drop too short" and "feature broken" are
-// one symptom. `rope_probe` prints these (CoiledRope.Probe).
+// one symptom. `debug_rope_probe` prints these (CoiledRope.Probe).
 public static class RopeDrop
 {
     // How far above and below its seat to look for the ground the coil rests on.

@@ -97,7 +97,7 @@ public partial class Mob
     private ulong _curBehaviorStartMs;
     private readonly System.Collections.Generic.Dictionary<StringName, BehaviorBase> _behaviors = new();
 
-    // Current behavior node name — diagnostics only (e.g. danger_debug).
+    // Current behavior node name — diagnostics only (e.g. debug_danger).
     // Empty until InitBehaviors runs.
     public StringName CurrentBehaviorName => _curBehavior;
 

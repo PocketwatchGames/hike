@@ -38,11 +38,11 @@ using System.Text;
 // CONSOLE:
 //   profile 1            enable sampling
 //   profile 0            disable sampling
-//   profile_dump         print the table to the log
+//   debug_profile_dump         print the table to the log
 //
 // IN-GAME OVERLAY:
 //   F3 toggles DiagnosticsOverlay, which forces profile=1 while visible and
-//   shows the same table (auto-refreshing every `profile_window` seconds).
+//   shows the same table (auto-refreshing every `debug_profile_window` seconds).
 //   Customers running shipping builds do NOT see the table — PROFILE is not
 //   defined there, so all sections read 0 and the overlay just shows fps and
 //   the engine monitors.
@@ -70,16 +70,16 @@ using System.Text;
 // Main-thread only: sections write into per-section fields without locking.
 public static class Profiler
 {
-    public static bool Enabled => CVars.profile.Value;
+    public static bool Enabled => CVars.debugProfile.Value;
 
     // Which window a table render reports over. The three readout paths each
     // want a different span:
     //   Live       - the live accumulators since the last latch/reset. Hitch
     //                log uses this so each [HITCH] dump reflects recent frames.
     //   Latched    - the last full rolling window. F3 overlay uses this so
-    //                on-screen numbers update once per `profile_window`.
-    //   Cumulative - everything since the last manual Reset (`profile 1` /
-    //                `profile_dump`). Independent of the overlay's per-window
+    //                on-screen numbers update once per `debug_profile_window`.
+    //   Cumulative - everything since the last manual Reset (`debug_profile 1` /
+    //                `debug_profile_dump`). Independent of the overlay's per-window
     //                latch, so a manual dump reports the full time you waited
     //                even while the overlay is also running and latching.
     public enum View
@@ -250,8 +250,8 @@ public static class Profiler
         _framesThisWindow++;
     }
 
-    // Start of the Cumulative window. Stamped only by Reset (i.e. `profile 1`
-    // and `profile_dump`), never by the overlay's per-window LatchAndReset, so
+    // Start of the Cumulative window. Stamped only by Reset (i.e. `debug_profile 1`
+    // and `debug_profile_dump`), never by the overlay's per-window LatchAndReset, so
     // a manual dump reports the full span since you enabled profiling
     // regardless of whether the overlay is running.
     private static long _manualWindowStartTicks;
@@ -286,7 +286,7 @@ public static class Profiler
     private static int _windowGcBaseline2;
 
     // GC baseline for the Cumulative view — seeded only on Reset, so the manual
-    // dump reports collections since `profile 1` rather than since the
+    // dump reports collections since `debug_profile 1` rather than since the
     // overlay's last window roll.
     private static int _manualGcBaseline0;
     private static int _manualGcBaseline1;
@@ -414,9 +414,9 @@ public static class Profiler
     }
 
     // Periodic latch + reset. Called from DiagnosticsOverlay._Process every
-    // frame; auto-resets the live accumulators every `profile_window` seconds
+    // frame; auto-resets the live accumulators every `debug_profile_window` seconds
     // so the table and custom monitors show the cost of the LAST window
-    // rather than cumulative-since-startup. Manual `profile_dump` continues
+    // rather than cumulative-since-startup. Manual `debug_profile_dump` continues
     // to work — it prints the live (post-last-latch) state and clears it.
     [Conditional("PROFILE")]
     public static void Tick()
@@ -432,7 +432,7 @@ public static class Profiler
             return;
         }
         double elapsedSec = (now - _windowStartTicks) / (double)Stopwatch.Frequency;
-        double windowSec = CVars.profileWindow.Value;
+        double windowSec = CVars.debugProfileWindow.Value;
         if (windowSec <= 0.0 || elapsedSec < windowSec)
         {
             return;
@@ -495,8 +495,8 @@ public static class Profiler
         _windowStartTicks = now;
     }
 
-    // Manual dump (console `profile_dump`) reports the Cumulative view so the
-    // window spans the full time since `profile 1` even while the overlay is
+    // Manual dump (console `debug_profile_dump`) reports the Cumulative view so the
+    // window spans the full time since `debug_profile 1` even while the overlay is
     // running and latching.
     public static void Dump()
     {
@@ -548,7 +548,7 @@ public static class Profiler
         // stays scannable. Manual dump / hitch dump path (useLatched=false)
         // always shows everything — those are one-shot debug snapshots where
         // missing rows would be confusing.
-        double minPerFrameMs = view == View.Latched ? CVars.profileMinPerFrameMs.Value : 0.0;
+        double minPerFrameMs = view == View.Latched ? CVars.debugProfileMinPerFrameMs.Value : 0.0;
 
         for (int i = 0; i < _sections.Count; i++)
         {
@@ -677,7 +677,7 @@ public static class Profiler
         // or mob profiles vary too much for sharing. hits/misses ride the
         // ordinary counter path below, so they honour the requested view — they
         // used to print a latched value that only advanced while the F3 overlay
-        // was open, and so read 0 from every console `profile_dump`.
+        // was open, and so read 0 from every console `debug_profile_dump`.
         sb.Append("  ").Append("walkability_cache_entries".PadRight(32)).Append(SharedWalkabilityCache.EntryCount.ToString().PadLeft(12)).Append('\n');
         // GC collections in the current window. Gen0 churn that climbs into
         // the dozens-per-window is the smoking gun for per-frame allocations

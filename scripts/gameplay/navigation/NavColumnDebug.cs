@@ -4,7 +4,7 @@ using System.Text;
 // Console dump of what the walkability sampler sees in and around the player's
 // column, next to the raw voxel stack it is derived from.
 //
-// Exists to answer one question the nav_grid overlay cannot: when the field
+// Exists to answer one question the debug_nav_grid overlay cannot: when the field
 // reports a surface metres below where the player is demonstrably standing,
 // WHICH gate discarded the real one. The overlay draws the conclusion; this
 // prints the reasoning.
@@ -29,7 +29,7 @@ public static class NavColumnDebug
         WorldState ws = sim?.WorldState;
         if (player == null || ws == null)
         {
-            GD.Print("[nav_column] no running game");
+            GD.Print("[debug_nav_column] no running game");
             return;
         }
 
@@ -39,7 +39,7 @@ public static class NavColumnDebug
         int pz = Mathf.FloorToInt(p.Z);
         int anchorY = Mathf.FloorToInt(p.Y);
 
-        GD.Print($"[nav_column] player=({p.X:F2},{p.Y:F2},{p.Z:F2}) cell=({px},{pz}) "
+        GD.Print($"[debug_nav_column] player=({p.X:F2},{p.Y:F2},{p.Z:F2}) cell=({px},{pz}) "
             + $"grounded={player.IsGrounded} "
             + $"profile(step={profile.maxStepHeight} clearance={profile.clearanceRadius:F2} "
             + $"headroom={profile.verticalClearance} swimDepth={profile.swimDepthThreshold:F1})");
@@ -54,7 +54,7 @@ public static class NavColumnDebug
                 bool isPlayerColumn = dx == 0 && dz == 0;
 
                 WalkabilityGrid.SampleColumn(ws, sim, profile, wx, anchorY, wz, column, 0);
-                GD.Print($"[nav_column] ({wx},{wz}){(isPlayerColumn ? "  <-- PLAYER" : "")}");
+                GD.Print($"[debug_nav_column] ({wx},{wz}){(isPlayerColumn ? "  <-- PLAYER" : "")}");
                 GD.Print($"    voxels {VoxelStrip(ws, wx, wz, anchorY)}");
                 GD.Print($"    stored {StoredLayers(column)}");
                 GD.Print($"    candidates:");

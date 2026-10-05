@@ -48,7 +48,7 @@ public partial class BehaviorWanderFollow : BehaviorBase
     // so the whimper rides out on AIOutput as intent only.
     private bool _whimperPending;
 
-    // Throttle for companion_debug logging (~once per second). Diagnostic only.
+    // Throttle for debug_companion logging (~once per second). Diagnostic only.
     private ulong _nextDebugMs;
     private Vector3 _lastDebugPos;
     private bool _hasLastDebugPos;
@@ -122,7 +122,7 @@ public partial class BehaviorWanderFollow : BehaviorBase
                 break;
         }
 
-        if (CVars.companionDebug.Value && time >= _nextDebugMs)
+        if (CVars.debugCompanion.Value && time >= _nextDebugMs)
         {
             _nextDebugMs = time + 1000;
             Vector3 pos = me.GlobalPosition;

@@ -543,7 +543,7 @@ public class MinimapTextures
         return idx < outdoor.Length && outdoor[idx] > threshold;
     }
 
-    // Diagnostic (`minimap_probe`): what the shader's height-derived terms
+    // Diagnostic (`debug_minimap_probe`): what the shader's height-derived terms
     // actually see. The contour pass and the plateau banding are both authored in
     // absolute meters, so they silently stop working when the world's vertical
     // extent changes out from under them — these are the numbers that say by how
@@ -589,7 +589,7 @@ public class MinimapTextures
         }
         if (stamped == 0)
         {
-            return "minimap_probe: outdoor heightmap is empty (no chunk has stamped a surface).";
+            return "debug_minimap_probe: outdoor heightmap is empty (no chunk has stamped a surface).";
         }
         float avgDelta = (float)deltaSum / stamped;
         // fwidth(h0) the contour AA reads, from the average and worst per-texel rise.

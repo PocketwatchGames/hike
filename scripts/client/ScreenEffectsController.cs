@@ -16,6 +16,13 @@ public partial class ScreenEffectsController : Node
 	// scene, weather lightning, etc. Mirrors GameCamera.Current.
 	public static ScreenEffectsController Current { get; private set; }
 
+	[ExportGroup("Vignette")]
+	// Screen-UV distance from centre where darkening begins, and the width of the
+	// ramp from there to full strength.
+	[Export(PropertyHint.Range, "0,1.5,0.01")] public float vignetteRadius = 0.55f;
+	[Export(PropertyHint.Range, "0,1.5,0.01")] public float vignetteSoftness = 0.45f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float vignetteStrength = 0.5f;
+
 	[ExportGroup("Screen Flash")]
 	// Default fade time (peak → 0) for a triggered flash when the caller doesn't
 	// pass its own. The channel is colorless here — callers pick the color, so
@@ -209,9 +216,9 @@ public partial class ScreenEffectsController : Node
 		GameCamera camera = client?.camera;
 		Player player = client?.Player;
 
-		postProcessMaterial.SetShaderParameter("vignette_radius", CVars.vignetteRadius.Value);
-		postProcessMaterial.SetShaderParameter("vignette_softness", CVars.vignetteSoftness.Value);
-		postProcessMaterial.SetShaderParameter("vignette_strength", CVars.vignetteStrength.Value);
+		postProcessMaterial.SetShaderParameter("vignette_radius", vignetteRadius);
+		postProcessMaterial.SetShaderParameter("vignette_softness", vignetteSoftness);
+		postProcessMaterial.SetShaderParameter("vignette_strength", vignetteStrength);
 
 		// Directional motion blur is the camera rotation (Q/E spin) only,
 		// gated by the rotationBlur CVar. The bird's-eye zoom-out and the slow-mo

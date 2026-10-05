@@ -42,7 +42,7 @@ public static class NodeCensus
         Node root = tree?.Root;
         if (root == null)
         {
-            GD.Print("node_census: no scene tree.");
+            GD.Print("debug_node_census: no scene tree.");
             return;
         }
 
@@ -79,7 +79,7 @@ public static class NodeCensus
     // contains `filter`, one line per node with its class and the same cost flags
     // the tables use. The census says WHICH scene is heavy per instance; this
     // says WHAT is in it, which is what you need before pruning. Driven by the
-    // `node_tree <substring>` cvar.
+    // `debug_node_tree <substring>` cvar.
     public static void DumpSubtree(string filter)
     {
         if (string.IsNullOrWhiteSpace(filter))
@@ -90,13 +90,13 @@ public static class NodeCensus
         Node root = tree?.Root;
         if (root == null)
         {
-            GD.Print("node_tree: no scene tree.");
+            GD.Print("debug_node_tree: no scene tree.");
             return;
         }
         Node match = FindFirst(root, filter);
         if (match == null)
         {
-            GD.Print($"node_tree: nothing matching '{filter}'.");
+            GD.Print($"debug_node_tree: nothing matching '{filter}'.");
             return;
         }
         var sb = new StringBuilder();

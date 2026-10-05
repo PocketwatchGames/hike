@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="WeaponData" format=3]
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://b2xagryodlpr5"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
 [ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/combat/DamageDataModifier.cs" id="1_modifier"]
@@ -48,9 +48,9 @@ impactLethalEffect = ExtResource("7_hitkill")
 script = ExtResource("3_event")
 time = 50
 type = 1
-range = 3.0
+range = 4.0
 nearWidth = 0.8
-farWidth = 4.0
+farWidth = 3.0
 smearEffect = ExtResource("9_smearlight")
 smearClockwise = false
 impactEnvironmentEffect = ExtResource("7_hitsolid")
@@ -83,7 +83,7 @@ forbidSwimming = true
 script = ExtResource("4_charged")
 displayName = &"Slash"
 chargeTime = 0.5
-activeDurationSeconds = 0.6
+activeDurationSeconds = 0.5
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light"), SubResource("Resource_prwqy")])
 comboWindowMs = 600
 repeatActionOverrides = Array[ExtResource("21_repeat")]([SubResource("Resource_sword_swing1"), SubResource("Resource_sword_swing2"), SubResource("Resource_sword_swing3")])
@@ -106,9 +106,9 @@ cameraShakeDuration = 0.4
 script = ExtResource("3_event")
 time = 50
 type = 1
-range = 5.0
+range = 6.0
 nearWidth = 1.0
-farWidth = 8.0
+farWidth = 3.0
 smearEffect = ExtResource("9_smearheavy")
 smearClockwise = false
 damageProfileKey = &"charged"
@@ -159,11 +159,12 @@ addBuildups = []
 [sub_resource type="Resource" id="Resource_charged_damage"]
 script = ExtResource("1_damage")
 tags = 3201
-healthDamage = 50.0
+healthDamage = 60.0
+armorPenetration = 0.1
 critChance = 0.1
 damageVariance = 0.25
 hitstun = 0.5
-knockbackDistance = 6.0
+knockbackDistance = 1.0
 knockbackTime = 0.5
 buildups = []
 modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_charged_mod_crit"), SubResource("Resource_charged_mod_backstab")])
@@ -171,10 +172,11 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_charged_mod_
 [sub_resource type="Resource" id="Resource_parry"]
 script = ExtResource("1_damage")
 tags = 3201
-healthDamage = 30.0
+healthDamage = 40.0
+armorPenetration = 0.1
 damageVariance = 0.25
 hitstun = 0.7
-knockbackDistance = 4.0
+knockbackDistance = 1.0
 knockbackTime = 0.4
 buildups = []
 modifiers = []
@@ -196,11 +198,12 @@ addBuildups = []
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
 tags = 3201
-healthDamage = 25.0
+healthDamage = 30.0
+armorPenetration = 0.1
 critChance = 0.1
 damageVariance = 0.25
 hitstun = 0.25
-knockbackDistance = 2.0
+knockbackDistance = 1.0
 knockbackTime = 0.25
 buildups = []
 modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])

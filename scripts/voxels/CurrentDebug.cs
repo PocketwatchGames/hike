@@ -3,7 +3,7 @@ using System.Text;
 using Godot;
 
 // Diagnostic: dump the water-current field as an arrow grid around the player.
-// Console: `water_current_probe`.
+// Console: `debug_water_current_probe`.
 //
 // Exists because every question about flow so far — "is it uniform?", "does it
 // follow the channel?", "why is there nothing mid-river?" — has been argued from

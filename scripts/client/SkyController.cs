@@ -223,7 +223,18 @@ public partial class SkyController : Node3D
     [Export] public float fillBPitchDegrees = 50f;
     [Export] public float fillBYawOffsetDegrees = -90f;
 
+    [ExportGroup("Lighting")]
+    // Power applied to the lightmap value in the voxel / sprite / water shaders
+    // (`light_falloff_exp`). 1 = linear BFS value; >1 darkens the mid-range so
+    // dim sunlight bleed reads as darkness while bright areas stay bright.
+    [Export(PropertyHint.Range, "0.5,4,0.05")] public float lightFalloffExp = 2f;
+
     [ExportGroup("Water")]
+    // Seconds per cycle of the ripple texture's two-phase current scroll
+    // (`water_current_phase_period`). Longer hides the phase-lerp wobble but
+    // stretches the UVs more mid-phase; under ~1s it visibly pumps.
+    [Export(PropertyHint.Range, "0.5,8,0.1")] public float waterCurrentPhasePeriod = 2f;
+
     [ExportSubgroup("Depth")]
     // Base world-unit distance over which water's alpha ramps from the
     // authored surface value up toward 1.0. Larger = more transparent at
@@ -526,6 +537,11 @@ public partial class SkyController : Node3D
     // shaders alike via the shared wind_phase global. Default 0.1 gives
     // roughly +1 Hz at a 10 m/s gust — noticeable without becoming jittery.
     [Export(PropertyHint.Range, "0,1,0.01")] public float windFrequencyPerMps = 0.1f;
+    // Scale on the wind-map vector field driving the global particle
+    // attractor. Each particle's own `damping` sets its response, so embers
+    // and dust drift far while blood and debris barely budge. 0 = wind has no
+    // effect on particles.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float particleWindStrength = 0.15f;
 
     [ExportGroup("Clouds")]
     // Cloud spatial tiling (authored). Separate from the weather-driven
@@ -646,6 +662,10 @@ public partial class SkyController : Node3D
     // Bounded warm tint added in the lit gaps (sun/dust color in the beams).
     // The only additive term — keep small.
     [Export(PropertyHint.Range, "0,1,0.01")] public float washTintStrength = 0.15f;
+    // Fades the wash DARKENING out where the air column has (near-)zero
+    // sunlight: smoothstep(0, value, lit_frac), so genuinely lightless areas
+    // get no wash. 0 = off; ~0.08 fades it out below ~8% lit.
+    [Export(PropertyHint.Range, "0,0.5,0.005")] public float shaftLightFloor = 0f;
 
     [ExportSubgroup("Shaping")]
     [Export(PropertyHint.Range, "0,0.5,0.01")] public float shaftGroundFade = 0.2f;
@@ -1657,6 +1677,9 @@ public partial class SkyController : Node3D
 
         // --- Global uniforms ---------------------------------------------
         RenderingServer.GlobalShaderParameterSet("sun_color", ColorToVec3(_palette.SunTint));
+        RenderingServer.GlobalShaderParameterSet("light_falloff_exp", lightFalloffExp);
+        RenderingServer.GlobalShaderParameterSet("water_current_phase_period", waterCurrentPhasePeriod);
+        Sim.Current?.ChunkManager?.SetParticleWindStrength(particleWindStrength);
         RenderingServer.GlobalShaderParameterSet("sun_ambient", _palette.Ambient);
         RenderingServer.GlobalShaderParameterSet("sun_intensity", CurrentPrimaryIntensity);
         RenderingServer.GlobalShaderParameterSet("fill_a_color", ColorToVec3(_palette.FillA));
@@ -1806,10 +1829,10 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("ripple_scale_b", effRippleScaleB);
         RenderingServer.GlobalShaderParameterSet("ripple_offset_a", rippleOffsetA);
         RenderingServer.GlobalShaderParameterSet("ripple_offset_b", rippleOffsetB);
-        // CVar `water_ripples_disabled` zeroes the ripple normal perturbation
+        // CVar `debug_water_ripples_disabled` zeroes the ripple normal perturbation
         // without touching geometry.
         RenderingServer.GlobalShaderParameterSet("ripple_strength",
-            CVars.waterRipplesDisabled.Value ? 0f : _palette.RippleStrength);
+            CVars.debugWaterRipplesDisabled.Value ? 0f : _palette.RippleStrength);
         RenderingServer.GlobalShaderParameterSet("ripple_pixel_size", effRipplePx);
         RenderingServer.GlobalShaderParameterSet("water_ripple_count", _dynamicRippleCount);
         RenderingServer.GlobalShaderParameterSet("water_ripple_speed", dynamicRippleSpeed);
@@ -1901,17 +1924,17 @@ public partial class SkyController : Node3D
         // Sprite reflection brightness — the same air-clarity factors as the
         // sky reflection (humidity, fog, cloud cover), plus muddiness and a
         // light-level term so dim scenes don't paint bright mirror copies
-        // of upright objects on dark water. CVar `sprite_reflection_visible` 0
+        // of upright objects on dark water. CVar `debug_sprite_reflection_visible` 0
         // forces the tint to zero, killing the visible effect without touching
         // any LitSprite reflection nodes (they keep updating — see the
-        // `sprite_reflections` CVar for the CPU-side gate). Note the CVar is
+        // `debug_sprite_reflections` CVar for the CPU-side gate). Note the CVar is
         // distinct from this class's `spriteReflectionTint` export, which is
         // the authored strength it scales.
         // Muddiness damps THIS but not the sky reflection above, and the
         // asymmetry is the point: these are flipped sprites rendered UNDER the
         // surface, so a silty column genuinely hides them, where a real surface
         // reflection sits on top of it.
-        float effSpriteReflTint = CVars.spriteReflectionVisible.Value
+        float effSpriteReflTint = CVars.debugSpriteReflectionVisible.Value
             ? spriteReflectionTint * reflectionClarity * lightLevel * Mathf.Lerp(1f, 0.1f, muddy)
             : 0f;
         RenderingServer.GlobalShaderParameterSet("reflection_tint", effSpriteReflTint);
@@ -1919,11 +1942,11 @@ public partial class SkyController : Node3D
         // (already wind+rain damped in WeatherDerivation), so calm water
         // produces a near-rigid mirror and choppy water visibly distorts.
         RenderingServer.GlobalShaderParameterSet("reflection_pixel_jitter_max", spriteReflectionPixelJitter);
-        // CVar `water_waves_disabled` flattens the surface by zeroing the
+        // CVar `debug_water_waves_disabled` flattens the surface by zeroing the
         // amplitude the vertex shader displaces by, leaving colour, ripple
         // normals and reflections intact.
         RenderingServer.GlobalShaderParameterSet("water_wave_amp",
-            CVars.waterWavesDisabled.Value ? 0f : effWaveAmp);
+            CVars.debugWaterWavesDisabled.Value ? 0f : effWaveAmp);
         RenderingServer.GlobalShaderParameterSet("water_wave_length", Mathf.Max(waveLength, 0.1f));
         RenderingServer.GlobalShaderParameterSet("water_wave_gate_scale", waveGateScale);
         RenderingServer.GlobalShaderParameterSet("water_wave_phase", wavePhase);
@@ -2078,7 +2101,7 @@ public partial class SkyController : Node3D
         // authored-fog shaft boost on the same curve.
         float shaftDayFactor = sunShaftFactor + moonBeamScale * moonShaftFactor;
         float effShaftIntensity = washIntensity * shaftDayFactor;
-        if (!CVars.sunShafts.Value)
+        if (!CVars.debugSunShafts.Value)
         {
             effShaftIntensity = 0f;
             shaftDayFactor = 0f;
@@ -2131,7 +2154,7 @@ public partial class SkyController : Node3D
             fogMaterial.SetShaderParameter("shaft_day_factor", shaftDayFactor);
             fogMaterial.SetShaderParameter("wash_shadow_darkness", washShadowDarkness);
             fogMaterial.SetShaderParameter("wash_tint_strength", washTintStrength);
-            fogMaterial.SetShaderParameter("shaft_light_floor", CVars.shaftLightFloor.Value);
+            fogMaterial.SetShaderParameter("shaft_light_floor", shaftLightFloor);
 
             float shaftSharpnessBlend = Mathf.Max(sunShaftFactor, moonShaftFactor);
             float effCloudShaftSharpness = Mathf.Lerp(cloudShaftSharpnessLowSunFloor, cloudShaftSharpness, shaftSharpnessBlend);
@@ -2189,7 +2212,7 @@ public partial class SkyController : Node3D
         float shaftPresence = Mathf.Clamp(sunShaftFactor + moonShaftFactor, 0f, 1f);
         // "Not dusty → sparse" to "dusty → full" ramp on the raw dust level.
         float wash = Mathf.SmoothStep(moteDustRampMin, moteDustRampMax, dust) * shaftPresence;
-        if (!CVars.sunShafts.Value) { wash = 0f; }
+        if (!CVars.debugSunShafts.Value) { wash = 0f; }
         motes.SetIntensity(wash);
 
         if (motes.MoteMatRuntime != null)

@@ -94,7 +94,7 @@ staircase rather than a ramp, and the player does not climb it. The pass
 re-derives the shape channel from
 the FINISHED voxels — a surface whose neighbours are within `maxGradeStep` on
 either axis becomes `SharpAxes.None` and meshes as a real plane. Measured with
-`mesher_probe`: 1-in-1 gives normal.y 0.707 (45 degrees) dead flat across the
+`debug_mesher_probe`: 1-in-1 gives normal.y 0.707 (45 degrees) dead flat across the
 face, 1-in-2 gives 0.894 (26.6) and 1-in-3 gives 0.948 (18.4). `maxGradeStep`
 is 1 and no `.tres` overrides it, so this reaches ONE-voxel steps only — a
 2-voxel step is not a grade, stays a crisp wall, and gets a `LedgeBarrier` on

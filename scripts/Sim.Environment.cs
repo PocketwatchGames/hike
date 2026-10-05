@@ -4,7 +4,7 @@ using Godot;
 // over the current weather (SkyController) and the voxel sunlight BFS
 // (WorldState). Live on Sim, not the client, because the sim (Player
 // thermal/wetness, perception, scent) is the primary consumer; the debug
-// `temp` CVar reads the breakdown too. See Sim.cs for the file split.
+// `debug_temp` CVar reads the breakdown too. See Sim.cs for the file split.
 public partial class Sim
 {
     // Sample wind speed in m/s at `worldPos`. Returns 0 when the voxel sun
@@ -28,7 +28,7 @@ public partial class Sim
         return wind;
     }
 
-    // Per-component breakdown of the air-temperature sample. The `temp`
+    // Per-component breakdown of the air-temperature sample. The `debug_temp`
     // console CVar prints these so weather / lighting / occlusion can be
     // inspected independently. Final temperature is `Total`.
     public struct AirTemperatureSample

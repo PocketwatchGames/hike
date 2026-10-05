@@ -1,11 +1,11 @@
 using Godot;
 using System.Collections.Generic;
 
-// Implementations behind the `tp` / `spawn` / `give` / `setup` console verbs.
+// Implementations behind the `tp` / `spawn_mob` / `spawn_loot` / `setup` console verbs.
 //
 // These exist to collapse time-to-condition: the rest of the console observes
 // the running game (the `debug_*` draws, the `*_probe` dumps) or sets global
-// state (`time_of_day`, `weather`), but nothing put the player at a specific
+// state (`time_of_day`, the `weather_*_force` overrides), but nothing put the player at a specific
 // place with specific company, so reaching a test condition meant walking there
 // in real time. That cost is paid on every manual check and every automated one.
 //
@@ -167,14 +167,14 @@ public static class DebugVerbs
         Player player = sim?.player;
         if (sim == null || player == null)
         {
-            GD.PrintErr("spawn: no running game.");
+            GD.PrintErr("spawn_mob: no running game.");
             return;
         }
 
         string[] tokens = Tokenize(arg);
         if (tokens.Length == 0 || tokens[0] == ListToken)
         {
-            GD.Print("spawn: usage `spawn <species> [count] [level]`. Known: "
+            GD.Print("spawn_mob: usage `spawn_mob <species> [count] [level]`. Known: "
                 + string.Join(", ", DebugContentIndex.Names(DebugContentIndex.Species)));
             return;
         }
@@ -182,7 +182,7 @@ public static class DebugVerbs
         SpeciesData species = DebugContentIndex.Resolve<SpeciesData>(DebugContentIndex.Species, tokens[0], out string error);
         if (species == null)
         {
-            GD.PrintErr($"spawn: {error}. `spawn ?` lists the known species.");
+            GD.PrintErr($"spawn_mob: {error}. `spawn_mob ?` lists the known species.");
             return;
         }
 
@@ -208,9 +208,9 @@ public static class DebugVerbs
 
         if (spawned < count)
         {
-            GD.PrintErr($"spawn: only {spawned}/{count} placed — the rest had no resident chunk (move away from a world edge).");
+            GD.PrintErr($"spawn_mob: only {spawned}/{count} placed — the rest had no resident chunk (move away from a world edge).");
         }
-        GD.Print($"spawn: {spawned}x {species.ResourcePath.GetFile()} at level {level}");
+        GD.Print($"spawn_mob: {spawned}x {species.ResourcePath.GetFile()} at level {level}");
     }
 
     // --- give -----------------------------------------------------------
@@ -221,7 +221,7 @@ public static class DebugVerbs
         Player player = sim?.player;
         if (sim == null || player == null)
         {
-            GD.PrintErr("give: no running game.");
+            GD.PrintErr("spawn_loot: no running game.");
             return;
         }
 
@@ -232,7 +232,7 @@ public static class DebugVerbs
         string[] tokens = Tokenize(arg);
         if (tokens.Length == 0 || tokens[0] == ListToken)
         {
-            GD.Print("give: usage `give <item> [count]`. Known: "
+            GD.Print("spawn_loot: usage `spawn_loot <item> [count]`. Known: "
                 + string.Join(", ", DebugContentIndex.Names(items)));
             return;
         }
@@ -240,7 +240,7 @@ public static class DebugVerbs
         ItemData data = DebugContentIndex.Resolve<ItemData>(items, tokens[0], out string error);
         if (data == null)
         {
-            GD.PrintErr($"give: {error}. `give ?` lists the known items.");
+            GD.PrintErr($"spawn_loot: {error}. `spawn_loot ?` lists the known items.");
             return;
         }
 
@@ -248,7 +248,7 @@ public static class DebugVerbs
         ItemState state = data.CreateState();
         if (state == null)
         {
-            GD.PrintErr($"give: '{tokens[0]}' produced no item state.");
+            GD.PrintErr($"spawn_loot: '{tokens[0]}' produced no item state.");
             return;
         }
         if (count > 1)
@@ -261,7 +261,7 @@ public static class DebugVerbs
         // scrolls, fairy corpses) do their real work in the world-pickup path.
         // Dropping exercises what the player actually does.
         sim.SpawnLoot(player.GlobalPosition + Vector3.Up * 0.5f, GiveImpulse, state);
-        GD.Print($"give: {count}x {data.ResourcePath.GetFile()} dropped at your feet");
+        GD.Print($"spawn_loot: {count}x {data.ResourcePath.GetFile()} dropped at your feet");
     }
 
     // --- all_spells -----------------------------------------------------

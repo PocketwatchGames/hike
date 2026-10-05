@@ -1,10 +1,12 @@
-[gd_resource type="Resource" script_class="WeaponData" format=3]
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://bnvdmrek88i4h"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
 [ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/combat/DamageDataModifier.cs" id="1_modifier"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_l34x3"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_kxvtc"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
@@ -19,6 +21,7 @@
 [ext_resource type="PackedScene" uid="uid://ncybxa3beup5" path="res://scenes/fx/club_smear_light.tscn" id="9_smear"]
 [ext_resource type="Texture2D" uid="uid://i4dm87uorjoi" path="res://assets/textures/items/Spear.png" id="15_sprite"]
 [ext_resource type="PackedScene" path="res://scenes/items/spear_held.tscn" id="17_held"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="19_60qp3"]
 [ext_resource type="Resource" uid="uid://ctqy5r6q3jmsx" path="res://resources/data/characters/human/anim_sets/knife.tres" id="20_animset"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
 [ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="22_parryfx"]
@@ -64,7 +67,7 @@ forbidSwimming = true
 script = ExtResource("4_charged")
 displayName = &"Thrust"
 chargeTime = 0.6
-activeDurationSeconds = 0.5
+activeDurationSeconds = 0.4
 events = Array[ExtResource("3_event")]([SubResource("Resource_thrust_anim"), SubResource("Resource_thrust_hit")])
 comboWindowMs = 500
 repeatActionOverrides = Array[ExtResource("21_repeat")]([SubResource("Resource_thrust1"), SubResource("Resource_thrust2"), SubResource("Resource_thrust3")])
@@ -128,30 +131,6 @@ autoActivateAtMax = false
 queueable = true
 queueWindowSeconds = 0.25
 
-[sub_resource type="Resource" id="Resource_mod_crit"]
-script = ExtResource("1_modifier")
-overrides = 512
-damageMultiplier = 3.0
-addBuildups = []
-
-[sub_resource type="Resource" id="Resource_mod_backstab"]
-script = ExtResource("1_modifier")
-trigger = 2
-overrides = 512
-damageMultiplier = 2.0
-addBuildups = []
-
-[sub_resource type="Resource" id="Resource_damage"]
-script = ExtResource("1_damage")
-tags = 2193
-healthDamage = 22.0
-armorPenetration = 0.4
-critChance = 0.1
-damageVariance = 0.2
-hitstun = 0.2
-buildups = []
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
-
 [sub_resource type="Resource" id="Resource_charged_mod_crit"]
 script = ExtResource("1_modifier")
 overrides = 512
@@ -187,6 +166,30 @@ damageVariance = 0.25
 hitstun = 0.3
 buildups = []
 modifiers = []
+
+[sub_resource type="Resource" id="Resource_mod_crit"]
+script = ExtResource("1_modifier")
+overrides = 512
+damageMultiplier = 3.0
+addBuildups = []
+
+[sub_resource type="Resource" id="Resource_mod_backstab"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 512
+damageMultiplier = 2.0
+addBuildups = []
+
+[sub_resource type="Resource" id="Resource_damage"]
+script = ExtResource("1_damage")
+tags = 2193
+healthDamage = 22.0
+armorPenetration = 0.4
+critChance = 0.1
+damageVariance = 0.2
+hitstun = 0.2
+buildups = []
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
 
 [resource]
 script = ExtResource("2_weapon")

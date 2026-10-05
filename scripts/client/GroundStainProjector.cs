@@ -19,7 +19,7 @@ using Godot;
 // (float) globals — see _Process. mat4 globals don't round-trip through
 // project.godot's [shader_globals] section reliably in Godot 4.6.
 //
-// CVar `ground_stain` is the on/off toggle. When off the SubViewport stops
+// CVar `debug_ground_stain` is the on/off toggle. When off the SubViewport stops
 // rendering and the lit shaders branch around the sample (see
 // `ground_stain_enabled` global) so rendering is byte-identical to pre-feature.
 //
@@ -88,13 +88,13 @@ public partial class GroundStainProjector : Node3D
         // race standalone-launch shader compile — see CLAUDE.md.)
         ShaderGlobals.Register("ground_stain_tex", RenderingServer.GlobalShaderParameterType.Sampler2D, viewport.GetTexture());
 
-        CVars.groundStain.OnChanged += OnGroundStainChanged;
-        ApplyEnabled(CVars.groundStain.Value);
+        CVars.debugGroundStain.OnChanged += OnGroundStainChanged;
+        ApplyEnabled(CVars.debugGroundStain.Value);
     }
 
     public override void _ExitTree()
     {
-        CVars.groundStain.OnChanged -= OnGroundStainChanged;
+        CVars.debugGroundStain.OnChanged -= OnGroundStainChanged;
         // Unbind the SubViewport texture before it dies with this node.
         ShaderGlobals.ResetToProjectDefault("ground_stain_tex");
     }
@@ -107,7 +107,7 @@ public partial class GroundStainProjector : Node3D
     public override void _Process(double delta)
     {
         using var _prof = Profiler.Sample("GroundStainProjector.Process");
-        if (Engine.IsEditorHint() || !CVars.groundStain.Value)
+        if (Engine.IsEditorHint() || !CVars.debugGroundStain.Value)
         {
             return;
         }

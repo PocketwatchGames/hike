@@ -102,14 +102,14 @@ the ledge barriers 1.8s, the water mesher 0.8s, the detail scatter 0.2s — agai
   bought no measurable time on its own — the marshaling was not the bottleneck,
   the mesher's arithmetic is — it is there for the thread boundary.
 - **The parallel fill is the INITIAL fill only** (`ChunkManager.FillInParallel`,
-  `chunk_parallel_fill`). It is safe there because the player does not exist yet:
+  `debug_chunk_parallel_fill`). It is safe there because the player does not exist yet:
   nothing is editing voxels or touching the chunk dictionary while the workers
   read it. Per-frame streaming loads stay synchronous, and they are 1–4 chunks.
 - **It loads the SPHERE set only**, exactly what the uncapped initial pass loaded.
   Pulling the frustum-extension chunks forward would change what is resident at
   spawn, not just how fast it got there.
 - **Do not call `Profiler.Sample` inside `BuildGeometry`.** Its section stack is
-  main-thread state. To profile the fill, `chunk_parallel_fill 0` puts the whole
+  main-thread state. To profile the fill, `debug_chunk_parallel_fill 0` puts the whole
   build back on the main thread through `Create`.
 - **Anything added to the mesher must stay pure** — no `GD.Load`, no Godot object
   construction, and above all no static counters. A `public static long`

@@ -2,7 +2,7 @@ using Godot;
 using System.Collections.Generic;
 
 // Lazily-built name -> res:// path index over the authored content roots, so the
-// `spawn` / `give` console verbs can name content the way an author does
+// `spawn_mob` / `spawn_loot` console verbs can name content the way an author does
 // ("goblin_forest", "berry") instead of by path.
 //
 // This is a dev harness, like HeadlessBot — not gameplay code. The "never
@@ -130,7 +130,7 @@ public static class DebugContentIndex
         return null;
     }
 
-    // Every indexed name, sorted — for a bare `spawn` / `give` listing.
+    // Every indexed name, sorted — for a bare `spawn_mob` / `spawn_loot` listing.
     public static List<string> Names(Dictionary<string, string> index)
     {
         var names = new List<string>(index.Keys);

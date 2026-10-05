@@ -223,8 +223,8 @@ public partial class GameCamera : Camera3D
 	// VisualInstance3D in the world — and the outline mask usually has nothing in
 	// it at all. Disabling breaks the effect it feeds (the ceiling cutaway goes
 	// stale, the selection outline vanishes); that is expected, these exist to
-	// size the pass, not to ship off. Driven by the cap_mask_pass /
-	// outline_mask_pass cvars.
+	// size the pass, not to ship off. Driven by the debug_cap_mask_pass /
+	// debug_outline_mask_pass cvars.
 	public void SetCapMaskPassEnabled(bool enabled)
 	{
 		if (_capMaskViewport != null)
@@ -380,7 +380,7 @@ public partial class GameCamera : Camera3D
 	public bool ManualClipMode { get; set; } = false;
 
 	// Writes an angle preset's framing into the live camera fields. Called only
-	// on a camera_preset CVar change (and once at Init) — never per frame — so
+	// on a debug_camera_preset CVar change (and once at Init) — never per frame — so
 	// editing pitchDegrees / distance / Fov in the inspector while the game runs
 	// sticks until the next preset swap, leaving live tuning intact.
 	public void ApplyAngleSettings(CameraAngleSettings settings)
@@ -405,7 +405,7 @@ public partial class GameCamera : Camera3D
 	public void Init(Node parent)
 	{
 		Current = this;
-		ApplyAngleSettings(CameraAngleSettings.FromPreset(CVars.cameraPreset.Value));
+		ApplyAngleSettings(CameraAngleSettings.FromPreset(CVars.debugCameraPreset.Value));
 
 		// Main camera only sees the main scene layer; the cap-mask geometry
 		// (added per-chunk on CapMaskLayer) is invisible here.
@@ -452,7 +452,7 @@ public partial class GameCamera : Camera3D
 		_capMaskCamera.Environment = maskEnv;
 		_capMaskViewport.AddChild(_capMaskCamera);
 
-		// Debug overlay: drives the `cap_mask_debug` CVar. When toggled on,
+		// Debug overlay: drives the `debug_cap_mask` CVar. When toggled on,
 		// draws the SubViewport's texture as a full-screen TextureRect so
 		// the mask is directly visible on top of the game.
 		_capMaskDebugLayer = new CanvasLayer();
@@ -1208,7 +1208,7 @@ public partial class GameCamera : Camera3D
 		float effectiveClip = Mathf.Min(_clip, _clipPrev);
 		if (effectiveClip < float.PositiveInfinity)
 		{
-			_clipCapPlane.Visible = CVars.ceilingCap.Value;
+			_clipCapPlane.Visible = CVars.debugCeilingCap.Value;
 			_clipCapPlane.GlobalPosition = new Vector3(centerPos.X, effectiveClip - capPlaneYBias, centerPos.Z);
 			_waterCapPlane.Visible = true;
 			_waterCapPlane.GlobalPosition = new Vector3(centerPos.X, effectiveClip - capPlaneYBias, centerPos.Z);
@@ -1313,7 +1313,7 @@ public partial class GameCamera : Camera3D
 		{
 			return;
 		}
-		bool show = active && CVars.ceilingCap.Value && targetY < float.PositiveInfinity;
+		bool show = active && CVars.debugCeilingCap.Value && targetY < float.PositiveInfinity;
 		_irisCapPlane.Visible = show;
 		if (show)
 		{
@@ -1323,7 +1323,7 @@ public partial class GameCamera : Camera3D
 }
 
 // A swappable bundle of camera framing settings for A/B testing angles, selected
-// by the camera_preset CVar and pushed into the live camera by
+// by the debug_camera_preset CVar and pushed into the live camera by
 // GameCamera.ApplyAngleSettings only on change — never per frame — so the fields
 // it writes stay live-tunable in the editor between swaps.
 public struct CameraAngleSettings

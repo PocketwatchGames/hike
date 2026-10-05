@@ -65,7 +65,7 @@ public partial class CoiledRope : Node3D, IInteractive, IWorldEntity
     // which one is the route. This exists because the failure is silent: a coil
     // that resolves nothing shows no prompt at all, so a 90-degree slip and a
     // broken feature look alike. Turn it on if that trade is worth it; either
-    // way `rope_probe` reports which facings would work, so a mis-aimed coil is
+    // way `debug_rope_probe` reports which facings would work, so a mis-aimed coil is
     // a five-second diagnosis.
     [Export] private bool _autoAimAtNearestEdge = false;
 
@@ -82,7 +82,7 @@ public partial class CoiledRope : Node3D, IInteractive, IWorldEntity
     private bool _dropResolved;
     private bool _dropValid;
     private RopeDrop.Result _drop;
-    // Why the drop did or did not resolve, for `rope_probe`. A coil that
+    // Why the drop did or did not resolve, for `debug_rope_probe`. A coil that
     // resolves nothing shows no prompt at all, so without this every cause —
     // aimed at a wall, edge out of reach, drop too short — is one symptom.
     private string _dropReason = "not resolved yet";
@@ -302,11 +302,11 @@ public partial class CoiledRope : Node3D, IInteractive, IWorldEntity
         return true;
     }
 
-    // Console `rope_probe`: walks the whole pipeline from authored state to
+    // Console `debug_rope_probe`: walks the whole pipeline from authored state to
     // interact prompt and reports each stage, because a rope that does not
     // highlight looks identical whether it never spawned, spawned without its
     // script, sits outside the interact area, or simply resolves no drop.
-    // Mirrors climb_probe and nav_column: the answer is never "it does not
+    // Mirrors debug_climb_probe and debug_nav_column: the answer is never "it does not
     // work", it is one stage, and this names it.
     public static void Probe()
     {
@@ -315,12 +315,12 @@ public partial class CoiledRope : Node3D, IInteractive, IWorldEntity
         WorldState ws = sim?.WorldState;
         if (sim == null || ws == null)
         {
-            GD.Print("[rope_probe] no running game");
+            GD.Print("[debug_rope_probe] no running game");
             return;
         }
 
         // --- A: what the world says was authored --------------------------
-        GD.Print("[rope_probe] === A: authored sim states ===");
+        GD.Print("[debug_rope_probe] === A: authored sim states ===");
         var states = new System.Collections.Generic.List<CoiledRopeSimState>();
         foreach (System.Collections.Generic.List<EntitySimState> bucket in ws._entities.Values)
         {
@@ -349,7 +349,7 @@ public partial class CoiledRope : Node3D, IInteractive, IWorldEntity
         }
 
         // --- B: what actually spawned -------------------------------------
-        GD.Print("[rope_probe] === B: spawned nodes ===");
+        GD.Print("[debug_rope_probe] === B: spawned nodes ===");
         var nodes = new System.Collections.Generic.List<CoiledRope>();
         foreach (CoiledRope r in sim.GetEntities<CoiledRope>())
         {
@@ -378,7 +378,7 @@ public partial class CoiledRope : Node3D, IInteractive, IWorldEntity
             + $"({Mathf.FloorToInt(p.X)},{Mathf.FloorToInt(p.Y)},{Mathf.FloorToInt(p.Z)})");
 
         // --- C: is the scene wired -----------------------------------------
-        GD.Print("[rope_probe] === C: scene wiring ===");
+        GD.Print("[debug_rope_probe] === C: scene wiring ===");
         GD.Print($"  hudNode={(rope2._hudNode != null ? "ok" : "NULL")} "
             + $"actions={(rope2._actions?.Count ?? -1)} "
             + $"coilVisual={(rope2._coilVisual != null ? "ok" : "NULL")} "
@@ -400,7 +400,7 @@ public partial class CoiledRope : Node3D, IInteractive, IWorldEntity
         }
 
         // --- D: does the player see it -------------------------------------
-        GD.Print("[rope_probe] === D: discovery ===");
+        GD.Print("[debug_rope_probe] === D: discovery ===");
         if (player == null)
         {
             GD.Print("  no player (editor mode?) — the interact HUD does not exist here.");
@@ -433,7 +433,7 @@ public partial class CoiledRope : Node3D, IInteractive, IWorldEntity
         }
 
         // --- E: the gate ----------------------------------------------------
-        GD.Print("[rope_probe] === E: gate ===");
+        GD.Print("[debug_rope_probe] === E: gate ===");
         Vector3 facing = rope2.GlobalBasis.Z;
         Vector3I outStep = VoxelFaces.Delta(VoxelFaces.Opposite(ClimbProbe.FacingBack(facing)));
         // Asked fresh, so a cached refusal cannot make the probe disagree with
@@ -452,7 +452,7 @@ public partial class CoiledRope : Node3D, IInteractive, IWorldEntity
         // "No edge that way" is true but not actionable on its own: the author
         // still has to work out which way to turn it, or whether this spot has
         // a drop at all. Both answers are one query each, so give them.
-        GD.Print("[rope_probe] === F: every facing from this spot ===");
+        GD.Print("[debug_rope_probe] === F: every facing from this spot ===");
         Vector3I current = outStep;
         var probes = new Vector3[]
         {
@@ -488,11 +488,11 @@ public partial class CoiledRope : Node3D, IInteractive, IWorldEntity
         int cz = Mathf.FloorToInt(coil.Z);
         if (!TryGroundTop(ws, cx, Mathf.FloorToInt(coil.Y), cz, ScanUp, ScanDown, out int coilTop))
         {
-            GD.Print("[rope_probe] height map: no ground under the coil");
+            GD.Print("[debug_rope_probe] height map: no ground under the coil");
             return;
         }
 
-        GD.Print($"[rope_probe] ground around the coil (top y={coilTop}); "
+        GD.Print($"[debug_rope_probe] ground around the coil (top y={coilTop}); "
             + "'C'=coil  '.'=level  '+'=higher  1-9=metres down  '*'=10+ down  '#'=no ground");
         GD.Print($"  -X {new string(' ', Radius * 2 - 2)}+X   (rows run -Z at top to +Z at bottom)");
         for (int dz = -Radius; dz <= Radius; dz++)

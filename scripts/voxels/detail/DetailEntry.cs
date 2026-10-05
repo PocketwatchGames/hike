@@ -116,11 +116,11 @@ public partial class DetailEntry : Resource
         mat.SetShaderParameter("wind_strength", windStrength);
         mat.SetShaderParameter("wet_strength", wetStrength);
         // Match the terrain's baked-AO darkening strength so sheltered grass
-        // darkens in lockstep with the ground (CVars.aoStrength also feeds the
+        // darkens in lockstep with the ground (CVars.debugAoStrength also feeds the
         // terrain material via ChunkMesh.SetAoStrength). Read at material-build
         // time — a live CVar change re-tints terrain immediately but grass only
         // after a re-scatter (chunk reload), which is fine for this tuning knob.
-        mat.SetShaderParameter("ao_strength", CVars.aoStrength.Value);
+        mat.SetShaderParameter("ao_strength", CVars.debugAoStrength.Value);
         _materialCache = mat;
         return mat;
     }

@@ -121,6 +121,12 @@ public partial class SimData : Resource
     // before the effect existed.
     [Export] public WaterfallData waterfalls;
 
+    // World m/s of surface drift at the maximum stored water current (signed
+    // 1.0 — the bake stores currents normalized to [-1, 1]). Read by the sim's
+    // drift physics (WorldState.SampleWaterCurrent) and pushed to the water
+    // shader as `water_current_speed`, so bodies drift with the visible flow.
+    [Export(PropertyHint.Range, "0,5,0.05")] public float waterCurrentSpeed = 1f;
+
     // Anti-cheese for safety zones: while the player stands in any safety zone
     // (Player.IsSafe), every wounded hostile regenerates this fraction of its
     // max health per second toward full, so the player can't pop in and out of
@@ -1212,7 +1218,7 @@ public partial class SimData : Resource
     // mobColdTickIntervalSeconds instead of every physics tick. Deliberately
     // excludes animation and steering: at this range a mob can still be on
     // screen, and throttling those reads as stutter (the same reason
-    // mob_pose_distance defaults to off).
+    // debug_mob_pose_distance defaults to off).
     [Export(PropertyHint.Range, "0,200,1")] public float mobColdTickDistance = 30f;
     // Cold-band period. Every skipped tick's delta accumulates and is handed to
     // the subsystems when they do run, so rate-based effects integrate to the

@@ -2315,7 +2315,7 @@ public partial class Player : CharacterBody3D
 					// ledge barriers (LedgeBarrierMesher), and they deliberately
 					// leave a bank unguarded because wading in is allowed.
 					FallTraceMark("stepdown-open");
-					if (CVars.moveBlockDebug.Value)
+					if (CVars.debugMoveBlock.Value)
 					{
 						LogStepDownOutcome("open", stepDownResult, stepDownDistance);
 					}
@@ -2335,7 +2335,7 @@ public partial class Player : CharacterBody3D
 					// grounded is deliberate too: going airborne here made the
 					// land sound fire every other tick while running into a mob.
 					FallTraceMark("stepdown-revert");
-					if (CVars.moveBlockDebug.Value)
+					if (CVars.debugMoveBlock.Value)
 					{
 						LogStepDownOutcome("revert", stepDownResult, stepDownDistance);
 					}
@@ -2357,7 +2357,7 @@ public partial class Player : CharacterBody3D
 					// water, so the sweep stopped finding floor while the ray
 					// still found the bank.
 					FallTraceMark("stepdown-steep");
-					if (CVars.moveBlockDebug.Value)
+					if (CVars.debugMoveBlock.Value)
 					{
 						LogStepDownOutcome("steep", stepDownResult, stepDownDistance);
 					}
@@ -2382,7 +2382,7 @@ public partial class Player : CharacterBody3D
 				// makes it; without it here, a capsule the step-up lift pressed
 				// into a doorway jamb was read as having walked off a ledge and
 				// went airborne with the floor still under it.
-				if (CVars.moveBlockDebug.Value)
+				if (CVars.debugMoveBlock.Value)
 				{
 					LogStepDownOutcome("nohit", stepDownResult, stepDownDistance);
 				}
@@ -2548,7 +2548,7 @@ public partial class Player : CharacterBody3D
 		Godot.Collections.Dictionary hit = space.IntersectRay(query);
 		if (hit.Count == 0)
 		{
-			if (CVars.moveBlockDebug.Value)
+			if (CVars.debugMoveBlock.Value)
 			{
 				LogOpenFloorProbe(space, query, from, to);
 			}
@@ -2676,7 +2676,7 @@ public partial class Player : CharacterBody3D
 		float reach = Mathf.Max(dir.Length() * dt, data.stepProbeReach);
 		Vector3 motion = dir.Normalized() * reach;
 		bool blocked = TestMove(GlobalTransform, motion);
-		if (blocked && CVars.moveBlockDebug.Value)
+		if (blocked && CVars.debugMoveBlock.Value)
 		{
 			LogFlatMoveBlocker(motion);
 		}

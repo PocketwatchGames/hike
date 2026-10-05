@@ -67,11 +67,11 @@ public partial class Main : Node
 		AddChild(new ConsoleUI());
 		AddChild(new DiagnosticsOverlay());
 
-		// Headless debug path: if `worldgen_debug_dump` is set, generate the
+		// Headless debug path: if `debug_worldgen_dump` is set, generate the
 		// default world, dump height-field diagnostics to that directory, and
 		// quit. Lets the world-gen algorithm be iterated on without the rest
 		// of the game ever coming up.
-		string debugDumpDir = CVars.worldgenDebugDump.Value;
+		string debugDumpDir = CVars.debugWorldgenDump.Value;
 		if (!string.IsNullOrEmpty(debugDumpDir))
 		{
 			// Generate reads the flat block tables (Blocks.IsSolid and friends)
@@ -91,7 +91,7 @@ public partial class Main : Node
 		// Same dump, terrain only — no chunks, lighting, props or roads. None of
 		// those change the height field, so this is the loop for iterating on a
 		// TerrainGenData.
-		string terrainDumpDir = CVars.worldgenTerrainDump.Value;
+		string terrainDumpDir = CVars.debugWorldgenTerrainDump.Value;
 		if (!string.IsNullOrEmpty(terrainDumpDir))
 		{
 			var terrainRun = new WorldGen(defaultWorldGenData, DEFAULT_WORLD_SEED);
@@ -382,7 +382,7 @@ public partial class Main : Node
 				// console dump might ask for it — see WorldGen.LastRun.
 				var run = new WorldGen(genData, DEFAULT_WORLD_SEED);
 				worldState = await RunOffThread(() => run.Generate(DEFAULT_WORLD_SIZE));
-				WorldGen.LastRun = CVars.worldgenKeepDebugData.Value ? run : null;
+				WorldGen.LastRun = CVars.debugWorldgenKeepData.Value ? run : null;
 				// WorldGen sets ws.Spawn from genData.playerSpawnPosition (surface-
 				// resolved); read it back so the player lands at the authored start
 				// area, mirroring the file/cache paths above.

@@ -2,7 +2,7 @@ using System;
 using Godot;
 
 // TEMPORARY diagnostic: dump the shape-channel decision for a patch of world.
-// Console: `grade_debug "<x> <z>"` (world voxel coords, player position is fine).
+// Console: `debug_grade "<x> <z>"` (world voxel coords, player position is fine).
 //
 // Prints aligned grids so the stage that diverges is visible directly:
 //   H     — live surface height (topmost solid), as a height ramp relative to
@@ -30,7 +30,7 @@ public static class GradeDebug
         string[] parts = (arg ?? "").Trim('"').Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length < 2 || !int.TryParse(parts[0], out int cx) || !int.TryParse(parts[1], out int cz))
         {
-            GD.Print("[grade] usage: grade_debug \"<worldX> <worldZ>\"");
+            GD.Print("[grade] usage: debug_grade \"<worldX> <worldZ>\"");
             return;
         }
         ws ??= Sim.Current?.WorldState;

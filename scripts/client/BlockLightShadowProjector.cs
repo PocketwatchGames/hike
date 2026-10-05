@@ -14,7 +14,7 @@ using Godot;
 // through project.godot's [shader_globals] section reliably in Godot
 // 4.6.
 //
-// CVar `block_light_shadow` is the on/off toggle. When off the SubViewport
+// CVar `debug_block_light_shadow` is the on/off toggle. When off the SubViewport
 // stops rendering and the lit shaders branch around the sample (see
 // `block_light_shadow_enabled` global) so rendering is byte-identical to
 // pre-feature.
@@ -123,13 +123,13 @@ public partial class BlockLightShadowProjector : Node3D
         // The CVar's own callback already pushes block_light_shadow_enabled
         // for the lit shaders' uniform branch — this listener piggybacks
         // so the viewport's render-target update mode also tracks state.
-        CVars.blockLightShadow.OnChanged += OnBlockLightShadowChanged;
-        ApplyEnabled(CVars.blockLightShadow.Value);
+        CVars.debugBlockLightShadow.OnChanged += OnBlockLightShadowChanged;
+        ApplyEnabled(CVars.debugBlockLightShadow.Value);
     }
 
     public override void _ExitTree()
     {
-        CVars.blockLightShadow.OnChanged -= OnBlockLightShadowChanged;
+        CVars.debugBlockLightShadow.OnChanged -= OnBlockLightShadowChanged;
         // Unbind the SubViewport texture before it dies with this node.
         ShaderGlobals.ResetToProjectDefault("block_light_shadow_tex");
     }
@@ -142,7 +142,7 @@ public partial class BlockLightShadowProjector : Node3D
     public override void _Process(double delta)
     {
         using var _prof = Profiler.Sample("BlockLightShadowProjector.Process");
-        if (Engine.IsEditorHint() || !CVars.blockLightShadow.Value)
+        if (Engine.IsEditorHint() || !CVars.debugBlockLightShadow.Value)
         {
             return;
         }

@@ -514,11 +514,11 @@ approach inherits them.
 
 ## Verifying an approach
 
-**Do not boot the game to judge terrain.** `worldgen_debug_dump` runs the whole
+**Do not boot the game to judge terrain.** `debug_worldgen_dump` runs the whole
 generate headless and quits, in ~35 s:
 
 ```bash
-Godot ... --path . --headless -- "worldgen_debug_dump user://wg_test"
+Godot ... --path . --headless -- "debug_worldgen_dump user://wg_test"
 ```
 
 It writes `stats.txt` plus `hillshade.ppm` (relief-shaded, red = walls, cyan =
@@ -533,9 +533,9 @@ sizes (the check for one-column puddles, which no coverage figure shows), the
 surface-level histogram (**every level must be a lattice multiple** — an odd one
 is a bug in the approach, not a tuning problem) and the depth histogram.
 
-**A heightfield dump cannot show carving.** `worldgen_terrain_dump` is the fast
+**A heightfield dump cannot show carving.** `debug_worldgen_terrain_dump` is the fast
 (~5 s) loop for tuning surface shape and is blind to caves by construction. For
-anything hollowed, run the full `worldgen_debug_dump`: the cellular approach's
+anything hollowed, run the full `debug_worldgen_dump`: the cellular approach's
 `DumpDiagnostics` writes `carve_slices.txt` (vertical slices through each cave
 mouth and bridge, as text, because "is this ceiling a multiple of 4" is a
 question about digits) and its passes log their own invariants — headroom, roof

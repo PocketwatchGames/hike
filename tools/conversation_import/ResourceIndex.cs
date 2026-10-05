@@ -38,7 +38,7 @@ class ResRef
 // becomes available to authors by existing.
 //
 // Every by-name table is WORLD-SCOPED, the same rule the game's pickers and the
-// console's `give` apply (scripts/authoring/WorldScope.cs): a file under
+// console's `spawn_loot` apply (scripts/authoring/WorldScope.cs): a file under
 // worlds/<name>/ may be named only by <name>'s sheet, and shadows an unscoped
 // file of the same name there. So a table keeps every file carrying a name, and
 // the lookup picks.
@@ -61,8 +61,8 @@ class ResourceIndex
 	// rather than a gate that is silently always false at runtime. The npcvars
 	// the sheets declare themselves are NOT in here - they are generated.
 	readonly HashSet<string> _authoredVariables = new HashSet<string>(StringComparer.Ordinal);
-	// Item basename -> the .tres, for the inline `give:` / `teach:item` cells.
-	// Scanned from the same roots the console's `give` verb scans (items/ and
+	// Item basename -> the .tres, for the inline `spawn_loot:` / `teach:item` cells.
+	// Scanned from the same roots the console's `spawn_loot` verb scans (items/ and
 	// every worlds/<name>/items/), so the two name items identically. Exact
 	// match only - no substring convenience here, a build-time reference should
 	// say what it means.

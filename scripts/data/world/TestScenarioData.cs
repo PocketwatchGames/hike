@@ -5,7 +5,7 @@ using Godot;
 //
 // A scenario is deliberately just a command list rather than a set of typed
 // fields. Every knob worth reaching already exists as a cvar (`time_of_day`,
-// `weather`, `tp`, `spawn`, `give`, the whole `debug_*` family), so authoring a
+// `weather_*_force`, `tp`, `spawn_mob`, `spawn_loot`, the whole `debug_*` family), so authoring a
 // new scenario costs one resource and no code, and a scenario automatically
 // picks up any cvar added later. Lines run top to bottom through
 // CVarRegistry.ProcessCommand — the same path the console types into.

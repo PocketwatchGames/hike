@@ -210,7 +210,7 @@ public partial class MoteEffect : Node3D
         // renderer skips their simulation + draw-pass shader entirely, and skip
         // the per-frame param pushes below. Hidden (not just non-emitting) so
         // the cost drops immediately rather than after the 10s lifetime drains.
-        if (moteParticles != null && !CVars.motes.Value)
+        if (moteParticles != null && !CVars.debugMotes.Value)
         {
             if (moteParticles.Visible)
             {

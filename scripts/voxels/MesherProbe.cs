@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-// TEMPORARY diagnostic for voxel_center_sampling.
+// TEMPORARY diagnostic for debug_voxel_center_sampling.
 //   ramp   — normal.y along a 45° worldgen-style ramp. Alternation here is what
 //            shows up as lighting banding (N·L follows the normal directly, so
 //            it bands even when the material pick is stable).
@@ -25,7 +25,7 @@ public static class MesherProbe
     public static void Run()
     {
         EnsureBound();
-        GD.Print($"[probe] === voxel_center_sampling = {CVars.voxelCenterSampling.Value} ===");
+        GD.Print($"[probe] === debug_voxel_center_sampling = {CVars.debugVoxelCenterSampling.Value} ===");
         RUN = 1; Ramp();
         RUN = 2; Ramp();
         RUN = 3; Ramp();
@@ -689,16 +689,16 @@ public static class MesherProbe
     // first carrying terrain 2, so those two X values bracket the seam.
     public static void MaterialRegistration()
     {
-        GD.Print($"[matreg] === voxel_center_sampling = {CVars.voxelCenterSampling.Value} ===");
+        GD.Print($"[matreg] === debug_voxel_center_sampling = {CVars.debugVoxelCenterSampling.Value} ===");
         // Edge roughness carves vertices off the plane by a per-cell hash, which
         // would drop them from the flat-surface filters below.
-        float rough = CVars.voxelEdgeRoughness.Value;
-        CVars.voxelEdgeRoughness.Value = 0f;
+        float rough = CVars.debugVoxelEdgeRoughness.Value;
+        CVars.debugVoxelEdgeRoughness.Value = 0f;
         FlatTerrainSplit();
         FlatTileSplit();
         WallOnGround();
         BuildingCrossSection();
-        CVars.voxelEdgeRoughness.Value = rough;
+        CVars.debugVoxelEdgeRoughness.Value = rough;
     }
 
     // Same measurement on the TILE channel: flat ground, Terrain for x<8 and

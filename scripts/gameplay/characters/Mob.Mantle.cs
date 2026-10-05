@@ -119,9 +119,9 @@ public partial class Mob
         // verb is, and so the runner reports the mob busy for its duration.
         _runner?.TryStart(action, new ActionContext());
 
-        // Shares the player's mantle_debug switch — it is the same move, and the
+        // Shares the player's debug_mantle switch — it is the same move, and the
         // two traces are most useful read side by side.
-        if (CVars.mantleDebug.Value)
+        if (CVars.debugMantle.Value)
         {
             GD.Print($"[mantle] {_simState.Species?.ResourcePath ?? "mob"} "
                 + $"{(rise > 0f ? "up" : "down")} rise={rise:F2} dur={duration:F2} "

@@ -59,9 +59,9 @@ public static class WeatherDerivation
         float cloudCover = weather?.cloudCover ?? 0f;
         float humidity = weather?.humidity ?? 0.5f;
         float rainAmount = weather?.rainAmount ?? 0f;
-        // `precip_force` overrides the simulated amount before anything reads
+        // `weather_precip_force` overrides the simulated amount before anything reads
         // it, so fog, ripples and the falling particles all agree.
-        float forcedPrecip = CVars.precipForce.Value;
+        float forcedPrecip = CVars.weatherPrecipForce.Value;
         if (forcedPrecip >= 0f)
         {
             rainAmount = Mathf.Clamp(forcedPrecip, 0f, 1f);
@@ -548,8 +548,8 @@ public static class WeatherDerivation
         float zoneSnowGate = Mathf.Clamp(zone?.snowCover ?? 0f, 0f, 1f);
         p.SnowFraction = zoneSnowGate * coldGate;
 
-        // `snow_force` overrides both gates at once — see the CVar's comment.
-        float forced = CVars.snowForce.Value;
+        // `weather_snow_force` overrides both gates at once — see the CVar's comment.
+        float forced = CVars.weatherSnowForce.Value;
         if (forced >= 0f)
         {
             p.SnowFraction = Mathf.Clamp(forced, 0f, 1f);

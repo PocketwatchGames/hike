@@ -268,7 +268,7 @@ region's edge. Measured on the merged test map: 95 such columns, then 0.
 
 `PropSeatY(px, pz)`. A flat column's drawn top is the surface voxel's top face —
 `PropSurfaceLift` 1.0 over the topmost solid voxel. Terrain collision is built
-from the drawn mesh, so `prop_seat_probe` (console) checks this in-game: a
+from the drawn mesh, so `debug_prop_seat_probe` (console) checks this in-game: a
 painted prop on flat ground should read `+0.00`. On a grade the mesher averages
 the cell's edge crossings instead, so the surface runs as a plane through the
 column and the flat anchor floats a prop off its downhill side.
@@ -387,7 +387,7 @@ reservations**, and 16 pairs of anything-against-a-tree, all of them last-resort
 seal placements inside the barrier band. The band is packed on purpose — that is
 what a barrier is — so props there do stand closer than they reserve.
 
-Resident node count is the game's known FPS ceiling (`node_census`), so those
+Resident node count is the game's known FPS ceiling (`debug_node_census`), so those
 numbers are the budget this system spends.
 
 ## Open
