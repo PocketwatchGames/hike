@@ -414,7 +414,7 @@ public partial class GameClient : Node3D
 	// so subscribers get death reliably without racing the deferred player
 	// spawn the way subscribing to the player directly would.
 	public Action<Player> onPlayerDied;
-	// Fired by RespawnPlayer after a death respawn (distinct from onPlayerSpawned,
+	// Fired by RespawnAtCampfire after a death respawn (distinct from onPlayerSpawned,
 	// which fires once on the initial spawn — the player object is reused on
 	// respawn, so re-running onPlayerSpawned subscribers would double-bind). Music
 	// uses it to leave the death track for the current time-of-day ambient.
@@ -448,9 +448,6 @@ public partial class GameClient : Node3D
 	public Action<List<BoonData>, Action<BoonData>> startUpgradeSelection;
 	public Action<bool> onPauseToggled;
 	public Action onQuitToMenu;
-	// Total party wipe: Main restarts the run from the last autosave. Distinct
-	// from onQuitToMenu, which ends the session.
-	public Action onLoadLastSave;
 
 	// The named region the player is currently within, or null on unnamed /
 	// border terrain. Border chunks (RegionIndex points at a Regions[] entry
@@ -585,15 +582,9 @@ public partial class GameClient : Node3D
 	// CVars.debugSkyLight. Frame-rate independent; counts deltaTime in
 	// _Process and snaps the line whenever it crosses one second.
 	double _debugSkyLightAccum;
-	// Where the player was first placed — reused for respawn so the camera
-	// snap and player teleport always land at the same authored / world-file
-	// spawn point. WorldState.Spawn is the same value today, but holding
-	// our own copy keeps respawn intact if a future save-load path mutates
-	// WorldState.Spawn for a different purpose.
-	Vector3 _spawnPosition;
 	// The campfire the party is anchored to — the starting campfire until the
-	// player camps somewhere new (CampScreen.Open → NotifyCampedAt). On a party
-	// member's death the survivors gather here and the fade-in frames it.
+	// player camps somewhere new (CampScreen.Open → NotifyCampedAt). A death wakes
+	// the party here.
 	Vector3 _lastCampfirePosition;
 	// The campfire the party camps / respawns at is always the world's single lit fire:
 	// lighting one is the only way to camp, and it douses every other, so SimState.LitCampfire
@@ -623,17 +614,13 @@ public partial class GameClient : Node3D
 	[Export] public BirdsEyeController birdsEye;
 
 	// Cinematic slow-motion + zoom on player death. Triggered in
-	// OnPlayerDiedInternal, released in RespawnPlayer; ticked in _Process.
+	// OnPlayerDiedInternal, released in RespawnAtCampfire; ticked in _Process.
 	[Export] public SlowMotionController slowMotion;
 	// Wall-clock deadline (Time.GetTicksMsec) to auto-release the finisher
 	// slow-mo, or 0 when none is pending. Wall-clock so the slow-mo it sets
 	// doesn't stretch its own hold. Cleared on death so the death cam (held
 	// until respawn) isn't released early by a leftover victory timer.
 	ulong _victorySlowMoReleaseMs;
-
-	// The member that just fell, held from OnPlayerDiedInternal until the death
-	// blackout relocates its body; null outside that window.
-	Player _fallenBody;
 
 	// Wall-clock stamp for the post-process pass. The screen effects are
 	// presentation, so they run on real time — the slow-mo death cam's
@@ -707,11 +694,10 @@ public partial class GameClient : Node3D
 	// and start a run with another world's content.
 	//
 	// `save` non-null is a Load Game: the party wakes at the save's campfire instead
-	// of the world spawn (which stays the respawn point), and the run state it
+	// of the world spawn, and the run state it
 	// carries is applied once the party exists.
 	public async void Init(Vector3 playerPosition, WorldState worldState, LoadingScreen loadingScreen = null, SaveFile save = null)
 	{
-		_spawnPosition = playerPosition;
 		if (save != null)
 		{
 			save.ApplyToWorld(worldState);
@@ -756,9 +742,6 @@ public partial class GameClient : Node3D
 		// Sim rolls the roster day (meal reset + well-rested lottery) inside
 		// AdvanceToNextSunrise; the client only re-applies the per-member NODE effects.
 		_world.OnNewDay += OnNewDayRefreshNodes;
-		// Sim detects revive-deadline expiry and drops the roster entry; we free the
-		// corpse node (those Player nodes are GameClient's).
-		_world.onPartyMemberExpired += OnPartyMemberExpired;
 		sceneViewport.AddChild(_world);
 		// Sim.Initialize is the chunk-mesh sphere fill — fully synchronous
 		// today (~900 chunks). The bar can't tick during this; it stays
@@ -923,7 +906,7 @@ public partial class GameClient : Node3D
 	}
 
 	// Every sunrise wake writes the save — there is no other save point. Called at
-	// the end of each wake path (camp sleep, pray-home, death sleep-off), after
+	// the end of each wake path (camp sleep, pray-home, death wake), after
 	// the whole wake has settled. A failure is reported, never fatal: the previous
 	// save is untouched (SaveGame.Save writes beside and moves over).
 	void AutosaveAtWake()
@@ -981,22 +964,20 @@ public partial class GameClient : Node3D
 		return anchor + new Vector3(Mathf.Cos(a) * partyRingRadius, 0f, Mathf.Sin(a) * partyRingRadius);
 	}
 
-	// Teleport the living party to the campfire anchor: the controlled member at
-	// the center (room to sit), the other survivors spread evenly around it. Dead
-	// members are left where they fell (their body is the revivable corpse).
-	// Used by the death flow to gather survivors, and by the camp Select-Character
-	// confirm to re-center the newly-controlled member.
+	// Teleport the party to the campfire anchor: the controlled member at the
+	// center (room to sit), the others spread evenly around it. Used by the death
+	// wake and whenever the camp screen opens.
 	public void GatherPartyAt(Vector3 anchor)
 	{
 		int ringCount = 0;
 		foreach (Player p in _partyPlayers)
 		{
-			if (IsLiving(p) && p != _player) { ringCount++; }
+			if (p != null && p != _player) { ringCount++; }
 		}
 		int slot = 0;
 		foreach (Player p in _partyPlayers)
 		{
-			if (!IsLiving(p)) { continue; }
+			if (p == null) { continue; }
 			if (p == _player)
 			{
 				p.TeleportTo(anchor);
@@ -1008,11 +989,6 @@ public partial class GameClient : Node3D
 			}
 		}
 	}
-
-	// A spawned, living party node (its member isn't fallen). A dead member's Player
-	// node lingers where it fell as the revivable corpse, so gather/ring math skips it.
-	// Aliveness reads the node's own PlayerState, so no roster-index alignment is assumed.
-	static bool IsLiving(Player p) => p != null && p.Member is { IsDead: false };
 
 	// The Player node hosting a given roster member, or null. Identity lookup — used
 	// where control follows the roster's active member without assuming _partyPlayers
@@ -1218,8 +1194,8 @@ public partial class GameClient : Node3D
 	//
 	// transferBelt: on a deliberate campfire character switch the attuned alchemy
 	// spell travels with the player (moves from the outgoing member to the incoming
-	// one). Left false for the death-respawn switch, where each survivor keeps their
-	// own attunement.
+	// one). Left false for a debug switch, where each member keeps their own
+	// attunement.
 	public void SyncControlToActive(bool transferBelt = false)
 	{
 		// Follow the roster's active member by identity, not index — no assumption that
@@ -2914,76 +2890,55 @@ public partial class GameClient : Node3D
 		// dies — snap framing intent back to the player for the death cam.
 		camera?.ClearFocus();
 
-		// The fallen member's body stays where it died as a revivable corpse: Sim marks
-		// the member dead; we make its node an inactive (dead-pose) standing body and
-		// enable its revive interactive so a surviving member can bring it back.
-		_world?.MarkMemberDead(player?.Member);
-		player?.SetActive(false);
-		player?.SetCorpseInteractable(true);
-		// Relocated at the blackout below, not here — the death cam is still on
-		// the body through the fade-out.
-		_fallenBody = player;
-
-		bool anySurvivors = (_world?.Party?.AliveCount ?? 0) > 0;
+		// The body lies where it fell through the fade-out; the wake happens once the
+		// screen is black (RespawnAtCampfire).
 		if (deathScreen != null)
 		{
-			deathScreen.Show(this, anySurvivors
-				? DeathScreen.EDeathOutcome.PartySelect
-				: DeathScreen.EDeathOutcome.GameOver);
-		}
-		else if (anySurvivors)
-		{
-			// No screen wired (tests): resolve immediately so input isn't stranded.
-			OnDeathBlackout();
-			OpenDeathPartySelect();
+			deathScreen.Show(this);
 		}
 		else
 		{
-			EndRunAtGameOver();
+			// No screen wired (tests): resolve immediately so input isn't stranded.
+			RespawnAtCampfire();
+			OnRespawnRevealed();
 		}
 	}
 
-	// Total party wipe, resolved once the death screen is done with it: the run
-	// resumes from the last autosave (the party's last sunrise wake). A wipe
-	// before that profile ever saved has nothing to resume, so the run ends.
-	public void EndRunAtGameOver()
+	// The death wake, run behind the black death screen. The fallen member's gear
+	// goes into a sack where they died, then they wake at the last campfire at the
+	// next sunrise with the rest of the party — the same wake a camp sleep, a pray
+	// or a loaded save ends in. No member is ever lost; the sack is the price.
+	public void RespawnAtCampfire()
 	{
-		if (onLoadLastSave != null && SaveGame.Exists(CVars.savePath.Value))
-		{
-			onLoadLastSave.Invoke();
-			return;
-		}
-		QuitToMenu();
-	}
-
-	// Called by DeathScreen once the screen is fully black (party-select outcome):
-	// hand control to the first surviving member, gather the survivors at the last
-	// campfire, and frame it. The dead member's body is left behind as a corpse.
-	public void OnDeathBlackout()
-	{
-		int alive = _world?.Party?.FirstAliveIndex() ?? -1;
-		if (alive < 0)
+		if (_player == null || _world == null)
 		{
 			return;
 		}
-		// A body that died in water or in mid-air goes back to the last ground its
-		// owner stood on — done under the black screen so the move is never seen,
-		// and before the day roll, which can retire the member outright.
-		_fallenBody?.ReturnBodyToLastGroundedPosition();
-		_fallenBody = null;
-		// Hand control to a living member FIRST — the death time-skip early-outs on a
-		// dead controlled member, so a survivor must be driving before we roll the day.
-		_world.SetPartyActive(alive);
-		SyncControlToActive();
-		// "Sleep off" the death: Sim advances to the next sunrise, grants the newly-
-		// fallen member their one-day revive grace, and retires anyone whose deadline
-		// the skip just passed.
-		_world.ResolveDeathDayRoll();
+		_world.DropDeathSack(_player.DeathSackPosition(), _player.Inventory);
+		_world.RespawnAtSunrise(_lastCampfirePosition);
 		GatherPartyAt(_lastCampfirePosition);
 		camera?.SetInitialPosition(_lastCampfirePosition);
+		// Ease back to real time + the resting zoom under the fade-in.
 		slowMotion?.Release();
+		// Clear the death wind-down so the heartbeat goes fully idle; a fresh
+		// low-health episode will re-engage it from scratch.
 		screenEffects?.ResetOnRespawn();
+		onPlayerRespawned?.Invoke(_player);
 		AutosaveAtWake();
+	}
+
+	// Called by DeathScreen once its fade-in has revealed the campfire: open camp
+	// with the day's leader to pick, which takes the input gate from here.
+	public void OnRespawnRevealed()
+	{
+		if (campScreen != null)
+		{
+			WakeIntoCamp();
+		}
+		else
+		{
+			InputSuppressed = false;
+		}
 	}
 
 	// Each sunrise Sim rolls the roster (meal reset + well-rested lottery, in
@@ -2994,7 +2949,7 @@ public partial class GameClient : Node3D
 	// deliberately isn't. It also clears every member's attuned spell — a new day
 	// resets the camp spell pick (the leader pick resets in Sim.RequireLeaderChoice),
 	// so the next camp re-attunes. Subscribed to Sim.OnNewDay, the only day-advance
-	// path, so this covers the camp sleep-to-sunrise, the death time-skip, and pray.
+	// path, so this covers the camp sleep-to-sunrise, the death wake, and pray.
 	void OnNewDayRefreshNodes(int dayNumber)
 	{
 		for (int i = 0; i < _partyPlayers.Count; i++)
@@ -3006,91 +2961,6 @@ public partial class GameClient : Node3D
 			_partyPlayers[i]?.RefuelLantern();
 			_partyPlayers[i]?.Inventory?.ClearAttunement();
 		}
-	}
-
-	// Sim retired this fallen member (its revive deadline lapsed) and already dropped
-	// it from the roster; we free the matching corpse Player node. Resolved by member
-	// identity — the node still carries its Member reference after the roster removal —
-	// so no roster-index alignment is assumed. Only dead members are ever reported, so
-	// the controlled member is never destroyed.
-	void OnPartyMemberExpired(PlayerState member)
-	{
-		Player corpse = PlayerFor(member);
-		if (corpse == null)
-		{
-			return;
-		}
-		_partyPlayers.Remove(corpse);
-		corpse.QueueFree();
-	}
-
-	// Called by DeathScreen after the fade-in reveals the campfire (party-select
-	// outcome): open the camp Select-Character screen, locked to the party tab, so
-	// the player must pick who to control. It manages its own input gating and
-	// transfers control to the chosen survivor on close.
-	public void OpenDeathPartySelect()
-	{
-		if (campScreen != null)
-		{
-			// CampScreen reads the lit fire live, so cooking enables itself once the respawn
-			// fire streams in (or stays disabled if the player has no lit fire at all).
-			campScreen.OpenPartySelect(_player, _lastCampfirePosition);
-		}
-		else
-		{
-			// No camp screen wired: just release input on the auto-picked survivor.
-			InputSuppressed = false;
-		}
-	}
-
-	// Resolution of a party member's Revive interactive (Player corpse → Complete).
-	// The revive fx already played via the action's completion event; here we
-	// restore the member and relocate them to the campfire as a selectable,
-	// standing (not controlled) party member.
-	public void RevivePartyMember(Player corpse)
-	{
-		if (corpse?.Member == null || !corpse.Member.IsDead)
-		{
-			return;
-		}
-		// Sim restores the member: it folds the fallen member's un-banked field
-		// knowledge back into the reviving (active) member's provisional store and
-		// clears the death flags.
-		_world?.ReviveMember(_player?.Member, corpse.Member);
-		corpse.SetCorpseInteractable(false);
-		corpse.Respawn(_lastCampfirePosition);
-		corpse.SetActive(false);
-	}
-
-	// Called from DeathScreen when the player accepts the respawn prompt.
-	// Resets player pools / status effects, hard-teleports to the spawn
-	// point, and snaps the camera so the first frame of the fade-in already
-	// shows the spawn position rather than tween-lerping from the death
-	// site. Input stays suppressed by DeathScreen until its fade-in
-	// completes.
-	public void RespawnPlayer()
-	{
-		if (_player == null)
-		{
-			return;
-		}
-		// Sim resets the controlled member's pools/effects, teleports them to spawn,
-		// refills their lanterns (this path doesn't roll the day, so the sunrise refuel
-		// won't fire), and recalls a surviving companion to the spawn point at full
-		// health (one that died stays dead). We snap the camera and ease slow-mo back.
-		_world?.RespawnControlledPlayer(_spawnPosition);
-		camera.SetInitialPosition(_spawnPosition);
-
-		// Ease back to real time + the resting zoom. The ease-out plays under the
-		// DeathScreen fade-in (revealing from black).
-		slowMotion?.Release();
-
-		// Clear the death wind-down so the heartbeat goes fully idle (health is
-		// restored, so the overlay ramp is 0); a fresh low-health episode will
-		// re-engage it from scratch.
-		screenEffects?.ResetOnRespawn();
-
-		onPlayerRespawned?.Invoke(_player);
 	}
 
 	// True while the player is dead — read by SleepOverlay to decide whether to

@@ -6,10 +6,10 @@ using Godot;
 // banking. The moving/ephemeral counterpart to MapMarker (which charts STATIC
 // landmarks discovered by exploration and recorded into Knowledge).
 //
-// Authored as a child node in an entity scene (a talkable NPC, the player's
-// grave), carrying its own icon + tint so the two travel together, per-scene.
+// Authored as a child node in an entity scene (a talkable NPC),
+// carrying its own icon + tint so the two travel together, per-scene.
 // The owning entity assigns ActiveCondition to gate when it draws (NPC alive &
-// un-recruited, party member dead). Position tracks the parent since it's a
+// un-recruited). Position tracks the parent since it's a
 // child. The node self-registers with World on _Ready and unregisters on
 // TreeExiting; the map overlays iterate the registry each redraw and draw the
 // markers whose IsActive is currently true.
@@ -21,8 +21,8 @@ public partial class LiveMapMarker : Node3D
     // Tint applied to the icon.
     [Export] public Color modulate = Colors.White;
 
-    // Live gate supplied by the owning entity (e.g. NPC alive & talkable, party
-    // member dead). Null => draw whenever an icon is set.
+    // Live gate supplied by the owning entity (e.g. NPC alive & talkable).
+    // Null => draw whenever an icon is set.
     public Func<bool> ActiveCondition;
 
     public bool IsActive => icon != null && (ActiveCondition == null || ActiveCondition());

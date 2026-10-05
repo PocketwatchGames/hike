@@ -37,7 +37,8 @@
 [ext_resource type="Resource" uid="uid://d0g2rl1qf7pcn" path="res://resources/data/status_effects/boons/boon_night_vision.tres" id="29_boon_night_vision"]
 [ext_resource type="Resource" uid="uid://3jjnm78vuj6c" path="res://resources/data/status_effects/boons/boon_ranged_seeking.tres" id="29_boon_ranged_seeking"]
 [ext_resource type="Resource" path="res://resources/data/status_effects/boons/boon_poison_thorns.tres" id="29_boon_poison_thorns"]
-[ext_resource type="Resource" uid="uid://c3jy0q0qdvu5v" path="res://resources/data/actions/party_revive_action.tres" id="30_party_revive"]
+[ext_resource type="PackedScene" uid="uid://7qwfofftls9uv" path="res://scenes/interactives/death_sack.tscn" id="30_death_sack"]
+[ext_resource type="Texture2D" uid="uid://dxt67iud2lt3s" path="res://assets/textures/map_markers/grave.png" id="30_grave_icon"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="37_statuseffect_script"]
 [ext_resource type="Resource" uid="uid://x2ypc0w32g55" path="res://resources/data/status_effects/upgrades/upgrade_melee_honed.tres" id="37_up_melee"]
 [ext_resource type="Resource" uid="uid://dip6luoqgngdn" path="res://resources/data/status_effects/upgrades/upgrade_ranged_keen.tres" id="38_up_ranged"]
@@ -136,7 +137,8 @@ forgeRangedIcon = ExtResource("42_icon_ranged")
 forgeArmorIcon = ExtResource("43_icon_armor")
 talkAction = ExtResource("13_talk_action")
 giveItemAction = ExtResource("14_give_action")
-partyReviveAction = ExtResource("30_party_revive")
+deathSackScene = ExtResource("30_death_sack")
+deathSackMarkerIcon = ExtResource("30_grave_icon")
 languages = Array[ExtResource("3_lang_script")]([ExtResource("3_lang_common"), ExtResource("3_lang_muddish"), ExtResource("3_lang_vyeshal")])
 commonTongue = ExtResource("3_lang_common")
 sunMaxElevationDegrees = 65.0

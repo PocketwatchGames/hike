@@ -545,7 +545,7 @@ see [scripts/data/spawn/CLAUDE.md](scripts/data/spawn/CLAUDE.md).
 ### Save/Load System (`scripts/SaveGame.cs`)
 
 **A save is the party waking at a campfire at sunrise.** It is written at every
-sunrise wake (`GameClient.AutosaveAtWake`: camp sleep, pray-home, death sleep-off)
+sunrise wake (`GameClient.AutosaveAtWake`: camp sleep, pray-home, death wake)
 — there is no manual save — and a load reproduces that wake: it starts the world
 the header names (`WorldState.Origin`), sets the clock to sunrise of the saved day,
 lights the saved campfire, spawns the party there and opens the camp screen with
@@ -565,7 +565,7 @@ Today the body carries the party (members rebuilt from their
 `PlayerState.Template` plus runtime fields and provisional knowledge), the party
 knowledge and map chart, both stashes, each member's node state
 (`Player.WriteMemberSave`: inventory, effects acquired in play that outlast the
-dawn, non-transient buildups, health, a fallen member's corpse position),
+dawn, non-transient buildups, health),
 script variables, the quest log and treasure maps. **What a spawn re-derives is
 never saved** — traits, the well-rested buff and buildup-armed instances come back
 from the member and the restored meters, and saving them too would double them.
@@ -584,6 +584,25 @@ re-stamps their entity-owned voxels (a door left open) with an incremental relig
 against any other — re-baking the painted world invalidates saves. **A save that is not exactly
 `SAVE_VERSION` is rejected, not upgraded** (see Priorities). `autoload 1` loads
 `savepath` straight from launch, the twin of `autostart`.
+
+### Death (`GameClient.RespawnAtCampfire`, `scripts/Sim.DeathSacks.cs`)
+
+**No party member is ever lost, and there is no game over.** A death goes black,
+shows a Respawn prompt, and is then the same sunrise wake as any other: the
+fallen member's gear (`Inventory.TakeDeathDrop` — everything but the lantern) is
+left in a `DeathSack` where they fell (their last solid footing if they died in
+water or mid-air), the day rolls, the party wakes at the last campfire, the game
+autosaves, and the camp screen opens with the leader pick pending. Unbanked
+knowledge is kept. Walking back to the sack is the whole price.
+
+- **The sack is not dropped loot**, so `ResetSpawns` leaves it, and a save carries
+  it through the chunk content diff like any entity. Opening it spills the
+  contents as ordinary dropped pickups — which the NEXT sunrise does sweep.
+- **Its grave marker is drawn from `Sim.DeathSacks`, not a node.** A sack is
+  almost never resident while the map is open (the party wakes far away), so a
+  child `LiveMapMarker` would vanish with its chunk. The index is derived from the
+  entity buckets in `Sim.Initialize` and kept by `DropDeathSack` / `OpenDeathSack`;
+  any new path that adds or removes a sack must go through those.
 
 ### Scripting Variables — Quest Flags / World State (`scripts/data/scripting/`, `scripts/gameplay/scripting/`, `resources/data/worlds/shared/script_variables/`)
 

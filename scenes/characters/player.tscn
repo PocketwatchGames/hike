@@ -40,9 +40,6 @@
 [ext_resource type="PackedScene" uid="uid://cypanyqryd22f" path="res://scenes/characters/player_model_male.tscn" id="41_modelmale"]
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="42_18mi3"]
 [ext_resource type="PackedScene" uid="uid://dqv7n2wk8rmpc" path="res://scenes/fx/dig_scoop.tscn" id="42_digscoop"]
-[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="43_corpsebox"]
-[ext_resource type="Script" uid="uid://btmjrrxy7m26w" path="res://scripts/gameplay/minimap/LiveMapMarker.cs" id="44_livemarker"]
-[ext_resource type="Texture2D" uid="uid://dxt67iud2lt3s" path="res://assets/textures/map_markers/grave.png" id="45_graveicon"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="50_iaction"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="51_ievent"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="52_areq"]
@@ -74,7 +71,7 @@ rejectMessage = &"danger_nearby"
 
 [sub_resource type="Resource" id="Resource_pray_action"]
 script = ExtResource("50_iaction")
-verb = 11
+verb = 10
 displayName = &"Pray"
 completionEvents = Array[ExtResource("51_ievent")]([SubResource("Resource_pray_event")])
 durationSeconds = 3.0
@@ -103,7 +100,7 @@ requireGrounded = true
 
 [sub_resource type="Resource" id="Resource_dig_action"]
 script = ExtResource("50_iaction")
-verb = 12
+verb = 11
 displayName = &"Dig"
 interactEvents = Array[ExtResource("51_ievent")]([SubResource("Resource_dig_event_anim")])
 completionEvents = Array[ExtResource("51_ievent")]([SubResource("Resource_dig_event_dig")])
@@ -117,9 +114,6 @@ radius = 0.25
 height = 1.5
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_6w7gq"]
-radius = 1.0
-
-[sub_resource type="SphereShape3D" id="SphereShape3D_corpse"]
 radius = 1.0
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_attract"]
@@ -141,11 +135,9 @@ height = 0.12
 radial_segments = 12
 rings = 6
 
-[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("_corpseInteractiveBox", "_liveMapMarker", "_movementCollision", "interactArea", "_pickupAttractArea", "hudAnchor", "_hurtBox", "_audioListener", "_aimingReticle", "_lanternHealLight")]
+[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("_movementCollision", "interactArea", "_pickupAttractArea", "hudAnchor", "_hurtBox", "_audioListener", "_aimingReticle", "_lanternHealLight")]
 floor_max_angle = 1.0471976
 script = ExtResource("1_kqtwu")
-_corpseInteractiveBox = NodePath("CorpseInteractiveBox")
-_liveMapMarker = NodePath("LiveMapMarker")
 data = ExtResource("2_6eyoc")
 _movementCollision = NodePath("MovementCollision")
 interactArea = NodePath("Area3D")
@@ -233,18 +225,6 @@ script = ExtResource("5_7vyk4")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("CapsuleShape3D_1uit0")
 
-[node name="CorpseInteractiveBox" type="Area3D" parent="." unique_id=811223344 node_paths=PackedStringArray("_interactiveNode")]
-collision_layer = 4
-collision_mask = 0
-monitoring = false
-monitorable = false
-script = ExtResource("43_corpsebox")
-_interactiveNode = NodePath("..")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="CorpseInteractiveBox" unique_id=811223345]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
-shape = SubResource("SphereShape3D_corpse")
-
 [node name="PickupAttractArea" type="Area3D" parent="." unique_id=811223360]
 collision_layer = 0
 collision_mask = 8
@@ -302,7 +282,3 @@ omni_range = 7.0
 [node name="HudAnchor" type="Node3D" parent="." unique_id=1151412001]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.0131006, 0)
 
-[node name="LiveMapMarker" type="Node3D" parent="." unique_id=1151412002]
-script = ExtResource("44_livemarker")
-icon = ExtResource("45_graveicon")
-modulate = Color(1, 0.85, 0.2, 1)

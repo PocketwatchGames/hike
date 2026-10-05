@@ -166,11 +166,10 @@ public partial class MapMarkerOverlay : Control
         return Mathf.Clamp((maxDist - px.DistanceTo(center)) / Mathf.Max(band, 1f), 0f, 1f);
     }
 
-    // Live entity markers (talkable NPCs, fallen party members): drawn at each
-    // entity's CURRENT position every redraw, always visible — no fog-reveal gate,
-    // so they show on both the minimap and world map the instant the entity
-    // exists. Sourced from the live World registry rather than the party's chart
-    // the static markers above come from.
+    // Live markers (talkable NPCs, death sacks): drawn at each one's CURRENT
+    // position every redraw, always visible — no fog-reveal gate, so they show on
+    // both the minimap and world map the instant they exist. Sourced from the live
+    // Sim rather than the party's chart the static markers above come from.
     private void DrawLiveMarkers(Vector2 center, Vector2 panel, float diameter, float radiusSq, float counterRot)
     {
         Sim sim = _gameClient?.Sim;
@@ -178,7 +177,6 @@ public partial class MapMarkerOverlay : Control
         {
             return;
         }
-        float half = IconSize * 0.5f;
         System.Collections.Generic.IReadOnlyList<LiveMapMarker> markers = sim.LiveMapMarkers;
         for (int i = 0; i < markers.Count; i++)
         {
@@ -187,28 +185,43 @@ public partial class MapMarkerOverlay : Control
             {
                 continue;
             }
-            Texture2D tex = marker.Icon;
-            if (tex == null)
-            {
-                continue;
-            }
-            Vector3 wp = marker.WorldPosition;
-            Vector2 worldOffset = new Vector2(wp.X - _centerWorldXZ.X, wp.Z - _centerWorldXZ.Y);
-            if (worldOffset.LengthSquared() > radiusSq)
-            {
-                continue;
-            }
-            Vector2 px = center + (worldOffset / diameter).Rotated(-_mapRotation) * panel;
-            float edgeFade = CircleEdgeFade(px, center, panel);
-            if (edgeFade <= 0f)
-            {
-                continue;
-            }
-            Color modulate = marker.Modulate;
-            modulate.A *= edgeFade;
-            DrawSetTransform(px, counterRot, Vector2.One);
-            DrawTextureRect(tex, new Rect2(-half, -half, IconSize, IconSize), false, modulate);
+            DrawLiveIcon(marker.Icon, marker.Modulate, marker.WorldPosition, center, panel, diameter, radiusSq, counterRot);
         }
+        // A sack is rarely resident while the map is open, so its grave is drawn
+        // from the sim's index rather than a node-registered LiveMapMarker.
+        Texture2D graveIcon = sim.SimData?.deathSackMarkerIcon;
+        if (graveIcon != null)
+        {
+            Color graveTint = sim.SimData.deathSackMarkerTint;
+            System.Collections.Generic.IReadOnlyList<DeathSackSimState> sacks = sim.DeathSacks;
+            for (int i = 0; i < sacks.Count; i++)
+            {
+                DrawLiveIcon(graveIcon, graveTint, sacks[i].WorldPosition, center, panel, diameter, radiusSq, counterRot);
+            }
+        }
+    }
+
+    private void DrawLiveIcon(Texture2D tex, Color modulate, Vector3 wp, Vector2 center, Vector2 panel, float diameter, float radiusSq, float counterRot)
+    {
+        if (tex == null)
+        {
+            return;
+        }
+        Vector2 worldOffset = new Vector2(wp.X - _centerWorldXZ.X, wp.Z - _centerWorldXZ.Y);
+        if (worldOffset.LengthSquared() > radiusSq)
+        {
+            return;
+        }
+        Vector2 px = center + (worldOffset / diameter).Rotated(-_mapRotation) * panel;
+        float edgeFade = CircleEdgeFade(px, center, panel);
+        if (edgeFade <= 0f)
+        {
+            return;
+        }
+        modulate.A *= edgeFade;
+        float half = IconSize * 0.5f;
+        DrawSetTransform(px, counterRot, Vector2.One);
+        DrawTextureRect(tex, new Rect2(-half, -half, IconSize, IconSize), false, modulate);
     }
 
     // Draws one marker centered at the current canvas origin (set via

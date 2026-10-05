@@ -22,7 +22,6 @@ public partial class ConditionalModifierData : Resource
 
 	// Free parameter interpreted per-condition: for StaminaBelowFraction it's the
 	// stamina fraction [0,1] the current value must fall below (0.25 = "under 25%").
-	// Conditions that take no argument (PartyMemberFallen) ignore it.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float parameter = 0.25f;
 
 	// Composed (multiplicatively or additively, per each entry's stat) into the

@@ -6,7 +6,7 @@ using Godot;
 // the current/target/remaining values; QuestState.ComposeText renders them.
 public enum EQuestProgress
 {
-    // Objective text only ("Rescue Misha!", "Return to Camp").
+    // Objective text only ("Return to Camp").
     None,
     // Title + " (X/Y)".
     Counter,
@@ -28,7 +28,7 @@ public enum EQuestProgress
 public partial class QuestData : Resource
 {
     // Localization key for the objective text. Formatted by the runtime — most
-    // quests just Loc.Get it, but a quest with a placeholder (Rescue's "%0")
+    // quests just Loc.Get it, but a quest with a placeholder ("%0")
     // Loc.Formats it with its runtime args. Kept as a StringName so it can be
     // authored as data (see Loc.Get(StringName)).
     [Export] public StringName textKey;

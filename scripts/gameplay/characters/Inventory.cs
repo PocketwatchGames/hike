@@ -807,6 +807,27 @@ public class Inventory
 		return drained;
 	}
 
+	// Remove everything the member carries but the lantern and return it, for the
+	// death sack (Sim.DropDeathSack). The lantern stays so the wake at the campfire
+	// isn't blind. Goes through Remove, so a weapon forfeits its loose arrows as on
+	// any other exit.
+	public List<ItemState> TakeDeathDrop()
+	{
+		var taken = new List<ItemState>();
+		foreach (ItemState item in EnumerateAll())
+		{
+			if (item != _lantern)
+			{
+				taken.Add(item);
+			}
+		}
+		foreach (ItemState item in taken)
+		{
+			Remove(item);
+		}
+		return taken;
+	}
+
 	// Sparse view: Backpack[i] is the item at slot i, or null if empty. Count
 	// is the array length (backpackCapacity), NOT the non-null occupancy —
 	// use BackpackCount for that.

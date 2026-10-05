@@ -5,10 +5,10 @@ using System;
 // phase: the black ColorRect ramps from invisible to opaque and the World3D
 // + Ambience2D audio buses fade to silence. Once opaque, the "YOU DIED"
 // prompt + Respawn button hint appear and the screen accepts ui_accept.
-// On press the player is respawned (camera teleport handled by GameClient),
-// the prompt hides, and the FadingIn phase ramps everything back up over
-// `fadeInSeconds`. InputSuppressed is held on GameClient for the entire
-// life of the screen so gameplay input is rejected throughout.
+// On press GameClient runs the death wake (sack, day roll, campfire), the
+// prompt hides, and the FadingIn phase ramps everything back up over
+// `fadeInSeconds`, then hands off to the wake's camp screen. InputSuppressed
+// is held on GameClient for the entire life of the screen.
 [GlobalClass]
 public partial class DeathScreen : Control
 {
@@ -30,22 +30,7 @@ public partial class DeathScreen : Control
 		FadingIn,
 	}
 
-	// What the death screen resolves to when the fade completes:
-	//  Respawn     — legacy: fade to black, prompt, respawn the same player.
-	//  PartySelect — a party member fell but survivors remain: at black, gather
-	//                survivors at the last campfire and hand control off; fade in
-	//                and open the Select-Character screen (no prompt).
-	//  GameOver    — total party wipe: prompt, then resume the run from the
-	//                last autosave (or the main menu if there is none).
-	public enum EDeathOutcome
-	{
-		Respawn,
-		PartySelect,
-		GameOver,
-	}
-
 	GameClient _gameClient;
-	EDeathOutcome _outcome = EDeathOutcome.Respawn;
 	EState _state = EState.Hidden;
 	float _darkness;
 	// Wall-clock stamp for the fade. _Process delta is scaled by Engine.TimeScale,
@@ -77,16 +62,13 @@ public partial class DeathScreen : Control
 		MouseFilter = MouseFilterEnum.Ignore;
 	}
 
-	public void Show(GameClient gameClient) => Show(gameClient, EDeathOutcome.Respawn);
-
-	public void Show(GameClient gameClient, EDeathOutcome outcome)
+	public void Show(GameClient gameClient)
 	{
 		if (_state != EState.Hidden)
 		{
 			return;
 		}
 		_gameClient = gameClient;
-		_outcome = outcome;
 		Visible = true;
 		_darkness = 0f;
 		_state = EState.FadingOut;
@@ -95,9 +77,6 @@ public partial class DeathScreen : Control
 		{
 			promptRoot.Visible = false;
 		}
-		// GameOver (total wipe) is the only outcome that still shows a prompt; its
-		// button reloads the last save rather than respawning.
-		respawnHint?.SetHint("ui_accept", outcome == EDeathOutcome.GameOver ? "Continue" : "Respawn");
 		CaptureAudioBaseline();
 	}
 
@@ -123,20 +102,10 @@ public partial class DeathScreen : Control
 				ApplyDarkness();
 				if (_darkness >= 1f)
 				{
-					if (_outcome == EDeathOutcome.PartySelect)
+					_state = EState.Prompt;
+					if (promptRoot != null)
 					{
-						// No prompt: gather survivors + hand off control while
-						// black, then fade back in on the campfire.
-						_gameClient?.OnDeathBlackout();
-						_state = EState.FadingIn;
-					}
-					else
-					{
-						_state = EState.Prompt;
-						if (promptRoot != null)
-						{
-							promptRoot.Visible = true;
-						}
+						promptRoot.Visible = true;
 					}
 				}
 				break;
@@ -164,25 +133,7 @@ public partial class DeathScreen : Control
 		if (e.IsActionPressed("ui_accept"))
 		{
 			GetViewport().SetInputAsHandled();
-			if (_outcome == EDeathOutcome.GameOver)
-			{
-				// Total party wipe: restart from the last save (or, failing
-				// that, the menu) from black. Either way this screen goes away
-				// with the scene, so it never fades back in — and the scene is
-				// freed deferred, so stop accepting input now or a second press
-				// starts a second load.
-				_state = EState.Hidden;
-				if (promptRoot != null)
-				{
-					promptRoot.Visible = false;
-				}
-				RestoreAudioBaseline();
-				_gameClient?.EndRunAtGameOver();
-			}
-			else
-			{
-				BeginRespawn();
-			}
+			BeginRespawn();
 		}
 	}
 
@@ -192,10 +143,10 @@ public partial class DeathScreen : Control
 		{
 			return;
 		}
-		// Player teleport + camera snap happen synchronously here so the first
-		// frame of the fade-in already shows the spawn point. Input stays
-		// suppressed by GameClient for the full fade-in window.
-		_gameClient.RespawnPlayer();
+		// The whole wake happens synchronously here so the first frame of the
+		// fade-in already shows the campfire. Input stays suppressed by
+		// GameClient for the full fade-in window.
+		_gameClient.RespawnAtCampfire();
 		if (promptRoot != null)
 		{
 			promptRoot.Visible = false;
@@ -210,16 +161,8 @@ public partial class DeathScreen : Control
 		ApplyDarkness();
 		Visible = false;
 		RestoreAudioBaseline();
-		if (_outcome == EDeathOutcome.PartySelect)
-		{
-			// The campfire is revealed — hand off to the forced Select-Character
-			// screen, which owns input gating from here until the player picks.
-			_gameClient?.OpenDeathPartySelect();
-		}
-		else if (_gameClient != null)
-		{
-			_gameClient.InputSuppressed = false;
-		}
+		// The campfire is revealed — the camp screen takes the input gate from here.
+		_gameClient?.OnRespawnRevealed();
 	}
 
 	void ApplyDarkness()

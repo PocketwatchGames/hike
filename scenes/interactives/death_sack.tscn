@@ -1,0 +1,52 @@
+[gd_scene format=3 uid="uid://btngxx2s27asr"]
+
+[ext_resource type="Script" uid="uid://enyredofm8rw4" path="res://scripts/gameplay/entities/DeathSack.cs" id="1_sack"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="2_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Texture2D" uid="uid://74scss48uag0" path="res://assets/textures/interactions/open.png" id="4_open"]
+[ext_resource type="PackedScene" uid="uid://mjlru2fr7241" path="res://scenes/fx/chest_open.tscn" id="5_openfx"]
+[ext_resource type="PackedScene" uid="uid://cafx1ijxevh1w" path="res://assets/models/furniture/SM_Gen_Prop_Sack_01.fbx" id="6_model"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="7_ibox"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="8_meshhl"]
+
+[sub_resource type="Resource" id="Resource_sack_event_open"]
+script = ExtResource("3_event")
+type = 256
+fx = ExtResource("5_openfx")
+
+[sub_resource type="Resource" id="Resource_sack_action_open"]
+script = ExtResource("2_action")
+displayName = &"Open"
+icon = ExtResource("4_open")
+completionEvents = Array[ExtResource("3_event")]([SubResource("Resource_sack_event_open")])
+durationSeconds = 1.0
+locksMovement = true
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(1.5, 1.2, 1.5)
+
+[node name="DeathSack" type="Node3D" node_paths=PackedStringArray("_hudNode")]
+script = ExtResource("1_sack")
+_hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("2_action")]([SubResource("Resource_sack_action_open")])
+
+[node name="Model" type="Node3D" parent="." instance=ExtResource("6_model")]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0)
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("7_ibox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("8_meshhl")
+_collectFrom = NodePath("../Model")
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)

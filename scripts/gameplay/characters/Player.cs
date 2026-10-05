@@ -700,10 +700,6 @@ public partial class Player : CharacterBody3D
 	public void WriteMemberSave(System.IO.BinaryWriter w)
 	{
 		w.Write(_health);
-		Vector3 position = GlobalPosition;
-		w.Write(position.X);
-		w.Write(position.Y);
-		w.Write(position.Z);
 		_inventory.Serialize(w);
 		EntitySerializer.WriteStatusEffects(w, EnumerateAcquiredEffects());
 		var buildups = new List<(StatusEffectData data, float amount)>();
@@ -723,11 +719,10 @@ public partial class Player : CharacterBody3D
 	}
 
 	// The inverse, on a freshly spawned node (its traits / well-rested buff are
-	// already applied). A fallen member comes back as the corpse it was.
+	// already applied).
 	public void RestoreMemberSave(System.IO.BinaryReader r)
 	{
 		float health = r.ReadSingle();
-		var position = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
 		_inventory.Restore(r);
 		List<EntitySerializer.StatusEffectRecord> effects = EntitySerializer.ReadStatusEffects(r);
 		int buildupCount = r.ReadInt32();
@@ -749,15 +744,6 @@ public partial class Player : CharacterBody3D
 		}
 		RecalculateMaxArmor();
 		_armor = MaxArmor;
-
-		if (Member is { IsDead: true })
-		{
-			TeleportTo(position);
-			_health = 0f;
-			SetCorpseInteractable(true);
-			PlayOneShot(EAnimation.Die);
-			return;
-		}
 		_health = Mathf.Clamp(health, 1f, MaxHealth);
 	}
 
@@ -1382,12 +1368,6 @@ public partial class Player : CharacterBody3D
 	{
 		_world = sim;
 		Member = member;
-		// Grave marker (authored into player.tscn) self-registers; gate its draw
-		// on this party member being dead.
-		if (_liveMapMarker != null)
-		{
-			_liveMapMarker.ActiveCondition = () => Member is { IsDead: true };
-		}
 		GlobalPosition = position;
 		Rotation = rotation;
 		_grounded = false;

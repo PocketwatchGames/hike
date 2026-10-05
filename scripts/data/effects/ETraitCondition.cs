@@ -8,8 +8,4 @@ public enum ETraitCondition
 	// Current stamina is below ConditionalModifierData.parameter (a fraction of max
 	// stamina). Drives Runs Hot's low-stamina damage spike.
 	StaminaBelowFraction = 0,
-
-	// At least one party member has fallen (PlayerState.IsDead) and awaits rescue.
-	// Drives Empathetic's stamina boost. Ignores `parameter`.
-	PartyMemberFallen = 1,
 }

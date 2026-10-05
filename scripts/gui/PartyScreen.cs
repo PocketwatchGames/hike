@@ -175,13 +175,7 @@ public partial class PartyScreen : Control
 	Player MemberAt(int index) =>
 		(_members != null && index >= 0 && index < _members.Count) ? _members[index] : null;
 
-	// A fallen member is a corpse out in the field, not a candidate here — only
-	// living members can be highlighted / selected.
-	bool IsSelectable(int index)
-	{
-		Player p = MemberAt(index);
-		return p != null && p.Member is not { IsDead: true };
-	}
+	bool IsSelectable(int index) => MemberAt(index) != null;
 
 	// Mark the highlighted member as the roster's active member (control
 	// transfers on camp exit). Re-selecting the current active is a harmless

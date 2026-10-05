@@ -210,8 +210,8 @@ public partial class Sim
     // Full reset of the world's mobs to their authored spawn state, without
     // touching the voxel/chunk streaming — the world snaps back to a pristine set
     // of encounters. Gated on ROLLING OVER TO A NEW DAY: driven only from
-    // AdvanceToNextSunrise, which fires on sleep-to-sunrise and on the death "sleep
-    // off the fallen member" day-roll (GameClient.OnDeathBlackout). A short nap
+    // AdvanceToNextSunrise, which fires on sleep-to-sunrise, pray-home and the
+    // death wake (GameClient.RespawnAtCampfire). A short nap
     // (AdvanceTime) and a pure teleport both leave spawns untouched. Mobs return to
     // their spawn posts at full health, unaware, and any the player had killed revive.
     //

@@ -526,6 +526,25 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	private bool _diedOffGround;
+	private Vector3 _deathPosition;
+
+	// Where this member's death sack goes: where they fell, or — if they died in
+	// water or mid-air — the last spot they stood on, so the sack doesn't sink,
+	// float off, or land somewhere the party can't walk to.
+	public Vector3 DeathSackPosition()
+	{
+		if (!_diedOffGround)
+		{
+			return _deathPosition;
+		}
+		// Newest history entry — the closest grounded spot to where they died.
+		// (The stuck recovery deliberately reaches back to the OLDEST entry
+		// instead; it needs distance from the edge tile that wedged the player.)
+		int newest = (_safeGroundedHistoryWriteIdx + SafeGroundedHistorySize - 1) % SafeGroundedHistorySize;
+		return _safeGroundedHistory[newest];
+	}
+
 	// Common bookkeeping on the alive→dead transition. Cancels any in-flight
 	// action (weapon charge / consumable / interactive), tears down dash and
 	// sprint, drops sneak / aim / hitstun-driven knockback, releases the
@@ -535,10 +554,11 @@ public partial class Player : CharacterBody3D
 	// (latched by the caller) holds the pose.
 	private void HandleDeath()
 	{
-		// Where the body ends up is decided here, while the death conditions are
-		// still true; the relocation itself waits for the blackout
-		// (ReturnBodyToLastGroundedPosition).
+		// Latched here, while the death conditions are still true — by the time the
+		// sack is dropped a body that died mid-air may have landed somewhere
+		// unreachable, and the water state may have changed as it sank.
 		_diedOffGround = !_grounded || _waterState != EWaterState.None;
+		_deathPosition = GlobalPosition;
 		_runner?.TryAbort();
 		_pendingWeaponPressSlot = null;
 		_pendingWeaponPressActionName = null;
@@ -562,9 +582,9 @@ public partial class Player : CharacterBody3D
 		_inputMove = Vector3.Zero;
 		_inputLook = Vector3.Zero;
 		// A member that died while concealed (the tree-climb bird's-eye hides the
-		// model subtree) must still leave a VISIBLE corpse so it can be found and
-		// revived — the bird's-eye fly-down that would normally restore the model
-		// never completes once the death sequence takes over. Restore it here.
+		// model subtree) must still be visible for the death cam — the bird's-eye
+		// fly-down that would normally restore the model never completes once the
+		// death sequence takes over. Restore it here.
 		if (_hidden)
 		{
 			_hidden = false;

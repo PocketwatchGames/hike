@@ -166,7 +166,7 @@ public class SimState
     // WorldState constructor calls Initialize) and serialized by SaveGame.
     public readonly ScriptVariableBank ScriptVars = new();
 
-    // The run's active quests (Rescue, hunt counters, Return to Camp, language
+    // The run's active quests (hunt counters, Return to Camp, language
     // learning). World-scope like ScriptVars — GameClient ticks it and feeds it
     // triggers, the HUD surfaces it, and SaveGame serializes it (v4). See QuestLog.
     public readonly QuestLog QuestLog = new();

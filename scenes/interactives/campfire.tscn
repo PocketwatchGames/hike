@@ -41,7 +41,7 @@ rejectMessage = &"danger_nearby"
 
 [sub_resource type="Resource" id="Resource_campfire_action_camp"]
 script = ExtResource("5_yf2vb")
-verb = 10
+verb = 9
 displayName = &"Camp"
 icon = ExtResource("30_sleep")
 completionEvents = Array[ExtResource("6_xn81r")]([SubResource("Resource_torch_event_open")])

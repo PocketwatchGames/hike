@@ -49,7 +49,7 @@ public abstract class QuestState
     public virtual void OnEnd() { }
 
     // Poll-driven status update on the sim clock. Quests watching derived state
-    // (Rescue's corpse, Learn's component count) resolve completion here; purely
+    // (Learn's component count) resolve completion here; purely
     // event-driven ones (Return to Camp) can leave it empty.
     public virtual void Tick(ulong nowMs) { }
 
@@ -70,7 +70,7 @@ public abstract class QuestState
     }
 
     // The objective line without any progress suffix. Base reads the authored
-    // loc key; a quest with a placeholder (Rescue's "%0") overrides to Loc.Format.
+    // loc key; a quest with a placeholder ("%0") overrides to Loc.Format.
     protected virtual string GetTitle() => Data != null ? Loc.Get(Data.textKey) : string.Empty;
 
     // Progress inputs — each subclass overrides only the ones its display mode

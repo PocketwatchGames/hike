@@ -39,6 +39,7 @@ public static class EntitySerializer
         PathHint = 27,
         Waterfall = 28,
         CoiledRope = 29,
+        DeathSack = 30,
     }
 
     // How much of the Roof payload a stream carries. Containers map their own
@@ -687,6 +688,13 @@ public static class EntitySerializer
                 WriteItemList(w, chest.Contents);
                 break;
 
+            case DeathSackSimState sack:
+                w.Write((byte)Tag.DeathSack);
+                WriteVec3(w, sack.WorldPosition);
+                WriteScene(w, sack.Scene);
+                WriteItemList(w, sack.Contents);
+                break;
+
             case TrapSimState trap:
                 w.Write((byte)Tag.Trap);
                 WriteVec3(w, trap.WorldPosition);
@@ -1163,6 +1171,14 @@ public static class EntitySerializer
                     chest.Contents.Add(contents[i]);
                 }
                 return chest;
+            }
+            case Tag.DeathSack:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                var sack = new DeathSackSimState(pos, scene);
+                sack.Contents.AddRange(ReadItemList(r));
+                return sack;
             }
             case Tag.Trap:
             {

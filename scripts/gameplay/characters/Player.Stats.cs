@@ -215,9 +215,6 @@ public partial class Player : CharacterBody3D
 				float max = MaxStamina;
 				_evaluatingStaminaCondition = false;
 				return max > 0f && _stamina < max * parameter;
-			case ETraitCondition.PartyMemberFallen:
-				Party party = _world?.WorldState?.SimState?.Party;
-				return party != null && party.AliveCount < party.Count;
 			default:
 				return false;
 		}

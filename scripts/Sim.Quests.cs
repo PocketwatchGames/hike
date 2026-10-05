@@ -29,7 +29,6 @@ public partial class Sim
             }
         }
 
-        SpawnRescueQuests(sim, log);
         log.Tick(_worldState.GameTimeMs, sim.ScriptVars);
     }
 
@@ -45,27 +44,6 @@ public partial class Sim
             if (data != null)
             {
                 log.Add(data.CreateRuntime());
-            }
-        }
-    }
-
-    // A fallen member with no active rescue quest gets one — polled from the sim
-    // roster (PlayerState.IsDead) rather than a client death event.
-    void SpawnRescueQuests(SimState sim, QuestLog log)
-    {
-        QuestData rescueData = _worldState?.ScriptData?.rescueQuest;
-        Party party = sim.Party;
-        if (rescueData == null || party == null)
-        {
-            return;
-        }
-        for (int i = 0; i < party.Members.Count; i++)
-        {
-            PlayerState m = party.Members[i];
-            if (m != null && m.IsDead && !log.HasRescueFor(m) && rescueData.CreateRuntime() is RescueQuest quest)
-            {
-                quest.SetTarget(m);
-                log.Add(quest);
             }
         }
     }

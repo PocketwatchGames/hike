@@ -5,7 +5,7 @@ using Godot;
 
 // The run's active quests, owned by SimState so they persist with the rest
 // of player progression (SaveGame v4). GameClient ticks the log each frame and
-// feeds it triggers (death -> Rescue, nightfall -> Return to Camp); the HUD
+// feeds it triggers (nightfall -> Return to Camp); the HUD
 // subscribes to onQuestAdded / onQuestRemoved to surface widgets. Quests
 // self-report terminal status in Tick and the log drops them the moment they do.
 public class QuestLog
@@ -36,24 +36,6 @@ public class QuestLog
         }
         quest.OnEnd();
         onQuestRemoved?.Invoke(quest);
-    }
-
-    // True if the log already holds a rescue quest for this member — avoids
-    // stacking a duplicate "Rescue X!" if the death path fires twice.
-    public bool HasRescueFor(PlayerState member)
-    {
-        if (member == null)
-        {
-            return false;
-        }
-        for (int i = 0; i < _quests.Count; i++)
-        {
-            if (_quests[i] is RescueQuest rq && rq.TargetMember == member)
-            {
-                return true;
-            }
-        }
-        return false;
     }
 
     public bool HasQuestOfType<T>() where T : QuestState

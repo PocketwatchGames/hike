@@ -556,9 +556,6 @@ public partial class Main : Node
 			_currentScreen.QueueFree();
 			StartMainMenu();
 		};
-		// Total party wipe: restart the run from the last autosave, taking the
-		// same path the menu's Load row does (LoadGame frees this screen itself).
-		(_currentScreen as GameClient).onLoadLastSave += () => LoadGame(CVars.savePath.Value);
 	}
 
 	// Runs `work` on a thread-pool thread and yields the main thread each

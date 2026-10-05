@@ -35,11 +35,6 @@ public partial class WorldScriptData : Resource
 
     public virtual void OnMobKilled(WorldScriptApi api, SpeciesData species, bool damagedByPlayer) { }
 
-    // Quest surfaced when a party member dies — "Rescue <name>!" — cleared when
-    // they're revived or their corpse is destroyed. A RescueQuestData. Null
-    // disables the rescue quest in this world.
-    [Export] public QuestData rescueQuest;
-
     // Quest added at nightfall (Sim.OnNightfall) and cleared by sleeping to
     // sunrise — "Return to Camp". A ReturnToCampQuestData. Null disables it.
     [Export] public QuestData returnToCampQuest;

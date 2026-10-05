@@ -210,6 +210,7 @@ public partial class Sim : Node3D
         _lastEntityChunkCoord = WorldToChunkCoord(spawnPosition);
         _wasNight = WorldState.IsNight(worldState.TimeOfDay01);
         _fadeProbe = new FoliageCutawayProbe(worldState);
+        IndexDeathSacks();
 
         // "Return to Camp" is added on the dusk edge; sleeping to sunrise clears it.
         OnNightfall += AddReturnToCampQuest;
@@ -391,10 +392,6 @@ public partial class Sim : Node3D
 
         _heatField?.Tick();
 
-        // Retire any fallen member whose revive deadline the day cycle just passed
-        // (client frees the body via onPartyMemberExpired), before quests tick so a
-        // same-frame retirement fails that member's rescue quest this frame.
-        CheckReviveDeadlines();
         TickQuests();
     }
 

@@ -43,66 +43,8 @@ public class Party
 	public PlayerState Active =>
 		_activeIndex >= 0 && _activeIndex < _members.Count ? _members[_activeIndex] : null;
 
-	// Living (not fallen) members. Used by the death flow: a total wipe (0 alive)
-	// ends the run; otherwise the player picks a survivor to control.
-	public int AliveCount
-	{
-		get
-		{
-			int n = 0;
-			for (int i = 0; i < _members.Count; i++)
-			{
-				if (_members[i] != null && !_members[i].IsDead) { n++; }
-			}
-			return n;
-		}
-	}
-
-	// Index of the first living member, or -1 if the whole party is dead.
-	public int FirstAliveIndex()
-	{
-		for (int i = 0; i < _members.Count; i++)
-		{
-			if (_members[i] != null && !_members[i].IsDead) { return i; }
-		}
-		return -1;
-	}
-
-	public bool IsAlive(int index) => this[index] is { IsDead: false };
-
-	// Permanently remove a member (their un-revived body was destroyed). Keeps the
-	// active index pointing at the same member by shifting it when an earlier slot
-	// is removed. Only dead members are ever removed, so the active (living,
-	// controlled) member is never the one dropped.
-	public void RemoveAt(int index)
-	{
-		if (index < 0 || index >= _members.Count)
-		{
-			return;
-		}
-		_members.RemoveAt(index);
-		if (index < _activeIndex)
-		{
-			_activeIndex--;
-		}
-		if (_activeIndex >= _members.Count)
-		{
-			_activeIndex = _members.Count > 0 ? _members.Count - 1 : 0;
-		}
-	}
-
 	public PlayerState this[int index] =>
 		index >= 0 && index < _members.Count ? _members[index] : null;
-
-	// Remove a member by reference (their un-revived body expired). Resolves to the
-	// index form so the active-index shift is handled identically — the caller
-	// (Sim.CheckReviveDeadlines) holds the PlayerState, not an index, so roster
-	// shifts between detection and removal can't misfire.
-	public void Remove(PlayerState member)
-	{
-		int i = _members.IndexOf(member);
-		if (i >= 0) { RemoveAt(i); }
-	}
 
 	// Build a runtime party by DEEP-cloning each authored template so the live
 	// roster is independent of the .tres (a member's vitals / inventory evolve
@@ -162,7 +104,7 @@ public class Party
 				party._members.Add(member);
 			}
 		}
-		party._activeIndex = active != null ? party._members.IndexOf(active) : System.Math.Max(0, party.FirstAliveIndex());
+		party._activeIndex = active != null ? party._members.IndexOf(active) : 0;
 		party.Knowledge.Deserialize(r);
 		party.Chart.Deserialize(r);
 		savedOrder = loaded;
@@ -186,7 +128,7 @@ public class Party
 
 	// Advance the daily rest bookkeeping and pick this day's "well rested" member.
 	// Called once per sunrise (Sim.OnNewDay). Clears yesterday's pick, ages every
-	// living member's rest counter (the still-controlled member stays at 0 — they're
+	// member's rest counter (the still-controlled member stays at 0 — they're
 	// being used, so they can never be their own well-rested pick), then draws one
 	// idle member weighted by how long they've rested. A freshly recruited member
 	// (ForceWellRestedNextDay) wins outright. Returns the winner, or null if nobody
@@ -203,18 +145,18 @@ public class Party
 		for (int i = 0; i < _members.Count; i++)
 		{
 			PlayerState m = _members[i];
-			if (m != null && !m.IsDead) { m.RestDays++; }
+			if (m != null) { m.RestDays++; }
 		}
 		if (Active != null) { Active.RestDays = 0; }
 
 		// 3. A forced (freshly recruited) member wins outright; otherwise draw from
-		//    idle living members, weighting by rest days so the longest-rested is
+		//    idle members, weighting by rest days so the longest-rested is
 		//    likeliest. The controlled member (RestDays 0) is never in the pool.
 		PlayerState winner = null;
 		for (int i = 0; i < _members.Count; i++)
 		{
 			PlayerState m = _members[i];
-			if (m != null && !m.IsDead && m.ForceWellRestedNextDay)
+			if (m != null && m.ForceWellRestedNextDay)
 			{
 				winner = m;
 				break;
@@ -226,7 +168,7 @@ public class Party
 			for (int i = 0; i < _members.Count; i++)
 			{
 				PlayerState m = _members[i];
-				if (m == null || m.IsDead || m.RestDays < 1) { continue; }
+				if (m == null || m.RestDays < 1) { continue; }
 				totalWeight += m.RestDays;
 			}
 			if (totalWeight > 0)
@@ -235,7 +177,7 @@ public class Party
 				for (int i = 0; i < _members.Count; i++)
 				{
 					PlayerState m = _members[i];
-					if (m == null || m.IsDead || m.RestDays < 1) { continue; }
+					if (m == null || m.RestDays < 1) { continue; }
 					roll -= m.RestDays;
 					if (roll < 0) { winner = m; break; }
 				}

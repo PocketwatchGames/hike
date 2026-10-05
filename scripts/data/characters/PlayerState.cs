@@ -115,25 +115,10 @@ public partial class PlayerState : Resource
 	// character was active, not yet banked into the shared party pool. Combined
 	// with Party.Knowledge on every "do we know X?" read (see SimState /
 	// Player) and folded into the party pool when the player camps
-	// (Party.BankActive). Survives death/revive because it lives here on the
-	// PlayerState; lost only when the member is permanently destroyed. Field
-	// initializer gives each cloned member its own store (same as the runtime
-	// fields below).
+	// (Party.BankActive). Survives death because it lives here on the
+	// PlayerState. Field initializer gives each cloned member its own store (same
+	// as the runtime fields below).
 	public readonly Knowledge Knowledge = new();
-
-	// Runtime (not authored): true once this member has died in the field. A dead
-	// member is not selectable and can't be controlled; their Player body remains
-	// where it fell as a revivable corpse until another member revives them, at
-	// which point this clears and they respawn at the campfire. Reset per run
-	// because the runtime Party is a fresh clone of the templates.
-	public bool IsDead;
-
-	// Runtime (not authored): the Sim.DayNumber by which a fallen member must be
-	// revived. Set to the day AFTER the one they wake at (one full day of grace);
-	// once DayNumber reaches it un-revived (i.e. the party sleeps to that sunrise),
-	// the member is destroyed permanently. 0 = no pending deadline (alive, or not
-	// yet assigned).
-	public int ReviveByDay;
 
 	// Runtime (not authored): days since this member was last the active
 	// (controlled) character — the "rest" counter the well-rested lottery weights
@@ -180,8 +165,6 @@ public partial class PlayerState : Resource
 	public void WriteRuntime(BinaryWriter w)
 	{
 		EntitySerializer.WriteRef(w, Template);
-		w.Write(IsDead);
-		w.Write(ReviveByDay);
 		w.Write(RestDays);
 		w.Write(ForceWellRestedNextDay);
 		w.Write(IsWellRested);
@@ -192,8 +175,6 @@ public partial class PlayerState : Resource
 	public static PlayerState ReadRuntime(BinaryReader r)
 	{
 		PlayerState template = EntitySerializer.ReadRef<PlayerState>(r);
-		bool isDead = r.ReadBoolean();
-		int reviveByDay = r.ReadInt32();
 		int restDays = r.ReadInt32();
 		bool forceWellRested = r.ReadBoolean();
 		bool isWellRested = r.ReadBoolean();
@@ -204,8 +185,6 @@ public partial class PlayerState : Resource
 			return null;
 		}
 		PlayerState member = FromTemplate(template);
-		member.IsDead = isDead;
-		member.ReviveByDay = reviveByDay;
 		member.RestDays = restDays;
 		member.ForceWellRestedNextDay = forceWellRested;
 		member.IsWellRested = isWellRested;

@@ -32,7 +32,7 @@ public partial class Sim
     // set it scans for reveal-driven discovery at its reveal cadence.
     public Action<MapMarker> onMapMarkerSpawned;
     public Action<MapMarker> onMapMarkerRemoved;
-    // Live map markers (NPCs, fallen party members) drawn at their current
+    // Live map markers (NPCs) drawn at their current
     // position, always visible. Entities register on spawn / unregister on
     // removal; the map overlays iterate this each redraw. Unlike MapMarker these
     // are NOT recorded into Knowledge — they track the live entity, not a

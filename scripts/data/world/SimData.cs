@@ -249,11 +249,13 @@ public partial class SimData : Resource
     [Export] public InteractiveAction giveItemAction;
     [Export] public InteractiveAction tradeAction;
 
-    // Shared interactive verb surfaced on a fallen party member's body (see
-    // Player corpse interactive). Reviving a party member — walk up and
-    // interact; the completion event's fx plays and the member respawns at the
-    // campfire. Null disables party revival.
-    [Export] public InteractiveAction partyReviveAction;
+    // The sack a fallen member's gear is left in (DeathSack). Null leaves the
+    // gear on the member, with an error.
+    [Export] public PackedScene deathSackScene;
+    // The grave the minimap and world map draw at every unopened death sack,
+    // always visible, with no fog-of-war gate.
+    [Export] public Texture2D deathSackMarkerIcon;
+    [Export] public Color deathSackMarkerTint = new Color(1f, 0.85f, 0.2f);
 
     // Master language registry. An inline [lang:<id>] span in authored text
     // resolves its token against this list (see LanguageText), so a language

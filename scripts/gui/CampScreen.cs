@@ -82,10 +82,6 @@ public partial class CampScreen : Control
 	// so the panel reads "No character selected" and Leave stays disabled until the
 	// player chooses.
 	bool _characterChosen;
-	// Forced death Select-Character: the controlled character is a corpse, so the
-	// pick transfers control immediately (not deferred to camp close) and backing
-	// out of the party view is disallowed until a survivor is chosen.
-	bool _deathSelect;
 	// The last spell the player attuned this run — used to pre-highlight their
 	// previous pick on the Select-Spell screen after a night's rest clears the
 	// active attunement.
@@ -148,25 +144,10 @@ public partial class CampScreen : Control
 		if (_leaveButton != null) { _leaveButton.Pressed -= OnLeaveButton; }
 	}
 
+	// The arrival bank / material transfer is done up front by
+	// GameClient.EnterCampWithFade before this screen opens. The lit fire (if any)
+	// is read live, so cooking enables itself once a wake's fire streams back in.
 	public void Open(Player player, Vector3 campfirePosition)
-	{
-		// Camping anchors the party to this campfire (a later death gathers
-		// survivors here). The arrival bank / material transfer is done up front by
-		// GameClient.EnterCampWithFade before this screen opens.
-		OpenInternal(player, campfirePosition, deathSelect: false);
-	}
-
-	// Forced Select-Character screen after a party member's death: opens at the last
-	// campfire straight into the party view, locked there until the player picks a
-	// surviving member to control. Driven by GameClient.OpenDeathPartySelect. The lit
-	// fire (if any) is read live, so cooking is available without leaving and re-entering
-	// camp — even while its chunk is still streaming back in.
-	public void OpenPartySelect(Player controlledSurvivor, Vector3 campfirePosition)
-	{
-		OpenInternal(controlledSurvivor, campfirePosition, deathSelect: true);
-	}
-
-	void OpenInternal(Player player, Vector3 campfirePosition, bool deathSelect)
 	{
 		if (_open)
 		{
@@ -174,11 +155,9 @@ public partial class CampScreen : Control
 		}
 		_player = player;
 		_campfirePosition = campfirePosition;
-		_deathSelect = deathSelect;
 		// A plain campfire visit keeps whoever is controlled + their attuned spell; only
-		// a new day (Sim.RequireLeaderChoice) or a death resets the pick. The death
-		// select always forces a survivor pick.
-		_characterChosen = !deathSelect && (SimParty?.IsLeaderChosenToday ?? true);
+		// a new day (Sim.RequireLeaderChoice) resets the pick.
+		_characterChosen = SimParty?.IsLeaderChosenToday ?? true;
 		_gameClient = GameClient.Current;
 		if (_gameClient != null)
 		{
@@ -192,9 +171,7 @@ public partial class CampScreen : Control
 		_player?.ClearInteractive();
 		_player?.EnterCamp();
 		MusicManager.Instance?.SetCamping(true);
-		// Seat the living party around the fire (the death select gathers itself once
-		// the player picks a survivor, so skip it there).
-		if (!deathSelect) { _gameClient?.GatherPartyAt(campfirePosition); }
+		_gameClient?.GatherPartyAt(campfirePosition);
 		// Lower-pitch zoomed-in framing focused on the campfire (with a transition
 		// blur) and hold the day/night clock while resting.
 		_gameClient?.camera?.SetCampMode(true, campfirePosition);
@@ -273,12 +250,10 @@ public partial class CampScreen : Control
 		// Apply the Select-Character choice: control transfers to the roster's active
 		// member (no-op if unchanged). Runs after camp teardown so it repoints the
 		// follow camera / HUD to the new member. A deliberate switch carries the
-		// attuned spell to the new character; the death-respawn switch (handled in
-		// OnCharacterChosen) already transferred control.
+		// attuned spell to the new character.
 		_gameClient?.SyncControlToActive(transferBelt: true);
 		Input.MouseMode = Input.MouseModeEnum.Captured;
 		_player = null;
-		_deathSelect = false;
 		_characterChosen = false;
 	}
 
@@ -329,7 +304,7 @@ public partial class CampScreen : Control
 				break;
 			case ECampView.Party:
 				// Selecting marks the roster's active member (control transfers on camp
-				// close, or immediately in the death select) and returns to the hub.
+				// close) and returns to the hub.
 				_partyScreen?.Open(_gameClient, OnCharacterChosen);
 				break;
 			case ECampView.Spell:
@@ -388,22 +363,10 @@ public partial class CampScreen : Control
 		if (_leaveButton != null) { _leaveButton.Disabled = !_characterChosen; }
 	}
 
-	// PartyScreen pick callback. Marks the character chosen for this camp; if the
-	// controlled character was a corpse (death select) control transfers to the pick
-	// now (the corpse can't stay controlled), otherwise it defers to camp close.
-	// Runs the guided flow for the pick (see below).
+	// PartyScreen pick callback. Marks the character chosen for this camp; control
+	// transfers on camp close. Runs the guided flow for the pick (see below).
 	void OnCharacterChosen()
 	{
-		if (_deathSelect && _gameClient != null)
-		{
-			_player?.ExitCamp();
-			_gameClient.SyncControlToActive();
-			_player = _gameClient.Player;
-			_player?.EnterCamp();
-			_gameClient.GatherPartyAt(_campfirePosition);
-			_gameClient.camera?.SetCampMode(true, _campfirePosition);
-		}
-		_deathSelect = false;
 		_characterChosen = true;
 		SimParty?.MarkLeaderChosen();
 		// Selecting a member AT the campfire commits their provisional field knowledge to
@@ -677,12 +640,7 @@ public partial class CampScreen : Control
 		{
 			if (_view != ECampView.Root)
 			{
-				// Back out of a sub-screen to the hub — unless a death select still
-				// owes a survivor pick (there's no committed character to leave with).
-				if (!(_view == ECampView.Party && _deathSelect))
-				{
-					ShowView(ECampView.Root);
-				}
+				ShowView(ECampView.Root);
 			}
 			else
 			{
