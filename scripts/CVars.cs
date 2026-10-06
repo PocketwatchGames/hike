@@ -81,23 +81,6 @@
     // clears an incapacitating effect, and every buildup skipped by a lethal hit.
     public static CVarBool debugBuildup = new CVarBool("debug_buildup", false);
 
-    // Debug: drops a Treasure Map as loot at the player's feet so the pickup →
-    // reveal → dig flow can be exercised without hunting zone chests.
-    public static CVar spawnTreasureMap = new CVar("spawn_treasure_map", (cvar) =>
-    {
-        Sim sim = Sim.Current;
-        Player player = sim?.player;
-        if (sim == null || player == null)
-        {
-            return;
-        }
-        ItemData map = Godot.GD.Load<ItemData>("res://resources/data/items/consumables/treasure_map_hub.tres");
-        if (map != null)
-        {
-            sim.SpawnLoot(player.GlobalPosition + Godot.Vector3.Up * 0.5f, Godot.Vector3.Up * 2.5f, map);
-        }
-    });
-
     // When true, draws the off-screen cap-mask SubViewport texture as a
     // fullscreen overlay so you can see exactly what the cap shader is
     // sampling. White pixels = "cap should draw here", black = "no cap".
@@ -2509,16 +2492,12 @@
         DebugVerbs.SetVar(((CVarString)cvar).Value);
     });
 
-    // `spells_all` — learn every spell on SimData.spells and stock the party
-    // material stash with enough reagents to cast each one several times.
+    // `spells_all` — learn every spell on SimData.spells and put a full stack of
+    // charges of each in the backpack (as far as it fits).
     public static CVar allSpells = new CVar("spells_all", (cvar) =>
     {
         DebugVerbs.AllSpells();
     });
-
-    // Debug: attuned spells cast without reagents — neither gated on the pool nor
-    // spending from it. Reagent-costed interactives still charge.
-    public static CVarBool freeSpells = new CVarBool("spells_free", false);
 
     // `next_day` — skip straight to the next sunrise, rolling the dawn (and so
     // every world-script OnDawn hook) without resting. Sim-only: no fade, no
@@ -2529,7 +2508,7 @@
     });
 
     // `rest` — rest the party exactly as a camp sleep does (skip to sunrise, then
-    // the spawn reset, well-rested pick, leader + spell reset and OnRest) without
+    // the spawn reset, well-rested pick, pet dismissal and OnRest) without
     // the fade or the autosave.
     public static CVar rest = new CVar("rest", (cvar) =>
     {

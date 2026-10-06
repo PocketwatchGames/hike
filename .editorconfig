@@ -114,7 +114,7 @@ dotnet_style_namespace_match_folder = true:suggestion
 # HK009  a spawned EntitySimState never seated on the placement's facing
 #
 # Baseline at time of writing (files, not occurrences):
-#   HK001: 7
+#   HK001: 6
 #   HK002: 26
 #   HK003: 1
 #   HK004: 1
@@ -150,9 +150,6 @@ dotnet_diagnostic.HK002.severity = warning
 
 [addons/data_ed/FlagsPropertyEditor.cs]
 dotnet_diagnostic.HK002.severity = warning
-
-[scripts/CVars.cs]
-dotnet_diagnostic.HK001.severity = warning
 
 [scripts/Main.cs]
 dotnet_diagnostic.HK002.severity = warning

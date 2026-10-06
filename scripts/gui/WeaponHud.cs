@@ -8,6 +8,10 @@ public partial class WeaponHud : BoxContainer
 	[Export] Control _ammoGroup;
 	[Export] ProgressBar _ammoProgress;
 	[Export] Label _ammoText;
+	// Optional hotbar overlays: shown on the hotbar cursor's slot, and on an
+	// item that is currently equipped.
+	[Export] CanvasItem _selectedMarker;
+	[Export] CanvasItem _equippedMarker;
 
 	// Alpha applied to the guard gauge while the player isn't charging this
 	// weapon — the guard is dormant, so it reads as a faint ghost rather than
@@ -16,24 +20,22 @@ public partial class WeaponHud : BoxContainer
 
 	ItemState _item;
 
-	// Externally-supplied count to show in the ammo readout, overriding the
-	// weapon-ammo / stackCount logic. Used for an attuned alchemy spell, whose
-	// "ammo" is a dynamic castable-count derived from the party reagent pool
-	// (Player.GetSpellAmmo) rather than anything on the ItemState. Negative =
-	// no override (fall back to the normal counter).
-	int _countOverride = -1;
-
 	public void SetItem(ItemState item)
 	{
 		_item = item;
 		Refresh(0, false);
 	}
 
-	// Set (>= 0) or clear (< 0) the count-override for this widget. The HUD pushes
-	// the live spell ammo here each frame for the consumable slot.
-	public void SetCountOverride(int count)
+	public void SetHotbarState(bool selected, bool equipped)
 	{
-		_countOverride = count;
+		if (_selectedMarker != null)
+		{
+			_selectedMarker.Visible = selected;
+		}
+		if (_equippedMarker != null)
+		{
+			_equippedMarker.Visible = equipped;
+		}
 	}
 
 	public void Tick(ulong nowMs, bool charging)
@@ -61,15 +63,6 @@ public partial class WeaponHud : BoxContainer
 
 	void UpdateCounter(ulong nowMs)
 	{
-		// Attuned-spell castable count (pushed by the HUD each frame) wins over the
-		// weapon-ammo / stackCount readouts.
-		if (_countOverride >= 0)
-		{
-			_ammoGroup.Visible = true;
-			_ammoText.Text = _countOverride.ToString();
-			_ammoProgress.Value = 0;
-			return;
-		}
 		if (_item is WeaponState weapon && weapon.data is WeaponData weaponData && weaponData.maxAmmo > 0)
 		{
 			_ammoGroup.Visible = true;

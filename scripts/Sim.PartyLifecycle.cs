@@ -63,21 +63,11 @@ public partial class Sim
     public bool SetPartyActive(int index) => Party?.SetActive(index) ?? false;
 
     // Commit a camp stop: bank the active member's provisional field knowledge into
-    // the permanent party pool and drain their carried materials into the shared
-    // stash. Returns the banked knowledge categories so the client can announce them;
+    // the permanent party pool. Returns the banked knowledge categories so the client can announce them;
     // the map-reveal bookkeeping stays client-side (it's presentation).
     public EKnowledgeCategory CommitCamp()
     {
         EKnowledgeCategory banked = _worldState?.SimState?.BankActiveKnowledge() ?? EKnowledgeCategory.None;
-        List<ItemState> stash = _worldState?.SimState?.PartyMaterialStash;
-        Inventory inv = _player?.Inventory;
-        if (inv != null && stash != null)
-        {
-            foreach (ItemState material in inv.DrainBackpack())
-            {
-                ItemStash.Add(stash, material);
-            }
-        }
         RefuelPartyLanterns();
         return banked;
     }
@@ -101,7 +91,7 @@ public partial class Sim
     // A night's sleep: skip to sunrise (rolling that dawn), then everything a
     // rest resets — the controlled member wakes healed with transient effects
     // cleared (a DoT can't chip or kill them in their sleep), the well-rested
-    // draw, the leader and spell picks, and the world's encounters. The shared
+    // draw, summoned pets, and the world's encounters. The shared
     // path behind sleep-to-sunrise, pray home and the death wake.
     private void RestToSunrise()
     {
@@ -117,14 +107,12 @@ public partial class Sim
         }
         Party party = Party;
         party?.AdvanceRestAndPickWellRested(_worldState.DailyRandom(WELL_RESTED_SALT));
-        // The next camp forces a fresh leader + spell choice.
-        party?.RequireLeaderChoice();
         if (_partyNodes != null)
         {
             for (int i = 0; i < _partyNodes.Count; i++)
             {
                 _partyNodes[i]?.RefreshWellRested();
-                _partyNodes[i]?.Inventory?.ClearAttunement();
+                _partyNodes[i]?.DismissPet();
             }
         }
         OnRest?.Invoke();

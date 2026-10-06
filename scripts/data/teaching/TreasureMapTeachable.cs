@@ -1,26 +1,48 @@
 using Godot;
 
-// Charts a named buried treasure onto the player's map — the TeachableConcept
-// form of a treasure map, so a map can be granted by any teaching source (a
-// scroll, a knowledge stone, an NPC's TeachAction) and not only by picking up a
-// map item. RevealTreasureMapEffect is the item-shaped counterpart; both route
-// through WorldState.RevealTreasureMap so the lookup and dedup rules are shared.
+// Charts a named buried treasure onto the player's map. A treasure map item is a
+// ScrollData carrying this concept; a knowledge stone or an NPC's TeachAction can
+// grant the same chart. The link to the treasure is fixed when the world is
+// built — the treasure is buried under a name (a zone's treasureName, or a named
+// buried spot in the painter) and this concept's treasureName matches it — so a
+// given map always points at the same treasure.
 [GlobalClass]
 public partial class TreasureMapTeachable : TeachableConcept
 {
     // Name of the treasure to chart — a zone's ZoneGenData.treasureName, or the
-    // name a buried spot was given in the painter. The same key
-    // RevealTreasureMapEffect uses.
+    // name a buried spot was given in the painter.
     [Export] public string treasureName = "";
 
-    // Player-facing name of the map, used for the "Scroll of <name>" title when
-    // this concept is a scroll's payload. Authored here because a treasure spot
-    // is a worldgen string, not a named Data resource to derive a name from.
-    [Export] public string conceptName = "";
+    // Player-facing name of the map ("Treasure Map", "Map of the Old City").
+    // Authored here because a treasure spot is a worldgen string, not a named
+    // Data resource to derive a name from.
+    [Export] public string mapName = "";
 
     public override string GetDisplayName()
     {
-        return conceptName;
+        return mapName;
+    }
+
+    // A map is already an object — its scroll is titled by the map's own name.
+    public override string ScrollTitle()
+    {
+        return mapName;
+    }
+
+    // The first map the player ever picks up opens the world map on itself, so
+    // they learn where maps live. Pickup only: a stone or an NPC charting a map
+    // mid-conversation must not throw the world map over it.
+    public override void OnLearnedFromScroll(Player player)
+    {
+        WorldState ws = player?.Sim?.WorldState;
+        StringName flag = ws?.SimData?.foundFirstMapVariable;
+        if (flag is null || flag.IsEmpty || ws.SimState.ScriptVars.GetBool(flag))
+        {
+            return;
+        }
+        ws.SimState.ScriptVars.SetBool(flag, true);
+        // RevealTreasureMap appends, so the new map is the last one.
+        GameClient.Current?.OpenTreasureMap(ws.SimState.TreasureMaps[^1]);
     }
 
     public override bool Teach(Player player)

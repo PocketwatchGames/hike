@@ -2,9 +2,8 @@ using Godot;
 
 // One named outfit on the shared polysplit player rig: the MeshInstance3D parts
 // to show for each body type. Registered under a key in PlayerData.outfits;
-// PlayerState.outfit (the class look) and ArmorData.outfit (worn armor) refer
-// to entries by key, so rig mesh names are authored once here rather than on
-// every character and item.
+// ArmorData.outfit (worn armor) refers to entries by key, so rig mesh names are
+// authored once here rather than on every item.
 //
 // Split by gender because the two rigs prefix their parts differently (Female
 // F_, Male M_) and the outfits don't map by a simple prefix swap (the Male Mage

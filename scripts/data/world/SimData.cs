@@ -29,10 +29,9 @@ public partial class SimData : Resource
     // RecipeData reference. Adding a recipe = adding it here.
     [Export] public Array<RecipeData> recipes = new();
 
-    // Master alchemy-spell library. The alchemy campfire screen iterates this to
-    // list the spells the player can attune, filtered to those currently known
-    // (SimState.IsSpellKnown → Knowledge.KnownSpells). Each SpellData owns its
-    // reagent cost; which spells start known is authored on
+    // Master alchemy-spell library, filtered to those currently known by the
+    // almanac's spell tab (SimState.IsSpellKnown → Knowledge.KnownSpells). Each
+    // SpellData owns its reagent cost; which spells start known is authored on
     // WorldStartData.initialKnowledge (SpellTeachable). Adding a spell = adding it here.
     [Export] public Array<SpellData> spells = new();
 
@@ -54,7 +53,7 @@ public partial class SimData : Resource
     [Export] public Array<ScriptVariableRegistry> scriptVariables = new();
 
     // Bool flag set when the player picks up their first treasure map
-    // (RevealTreasureMapEffect). While it is false a map pickup opens the world
+    // (TreasureMapTeachable). While it is false a map pickup opens the world
     // map on the new map. Blank = never auto-open.
     [Export] public StringName foundFirstMapVariable;
 

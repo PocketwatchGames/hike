@@ -25,6 +25,20 @@ public partial class TeachableConcept : Resource
         return string.Empty;
     }
 
+    // Identified name of a scroll carrying this concept. A concept whose name
+    // already reads as an object (a treasure map) overrides it to stand alone.
+    public virtual string ScrollTitle()
+    {
+        string name = GetDisplayName();
+        return string.IsNullOrEmpty(name) ? string.Empty : $"Scroll of {name}";
+    }
+
+    // Runs after a scroll carrying this concept is picked up and newly teaches
+    // it — not when a stone or an NPC teaches the same concept.
+    public virtual void OnLearnedFromScroll(Player player)
+    {
+    }
+
     // Apply this concept's grant to `player`. Returns true only when the call
     // produced a new addition (newly-learned component, newly-discovered
     // recipe, newly-revealed region) — false on a re-teach. Callers gate

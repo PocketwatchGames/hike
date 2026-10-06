@@ -76,14 +76,14 @@ public partial class Player : CharacterBody3D
 		_health = Mathf.Min(MaxHealth, _health + refund);
 	}
 
-	// Sums the hosted member's innate class armor with maxArmor across every
-	// equipped armor slot. Current armor is capped at the new max — unequipping
+	// Sums maxArmor across the equipped armor slots — armor is gear, never
+	// innate. Current armor is capped at the new max — unequipping
 	// a piece can only shrink the available pool, it never grants free armor.
 	// Increases leave the current value alone so the recharge logic owns the
 	// climb back up to the new max.
 	private void RecalculateMaxArmor()
 	{
-		float total = Member?.maxArmor ?? 0f;
+		float total = 0f;
 		if (_inventory != null)
 		{
 			AccumulateArmor(EInventorySlot.Helmet, ref total);
@@ -351,7 +351,7 @@ public partial class Player : CharacterBody3D
 		// A "guard" is a melee weapon that can either soak damage passively
 		// (blockArmor) or parry (maxParryDamage). Either qualifies, so a knife
 		// with no passive block still guards for the sake of the parry.
-		if (_inventory?.GetEquipped(EInventorySlot.WeaponMelee) is WeaponState weapon
+		if (_inventory?.GetEquipped(EInventorySlot.WeaponLeft) is WeaponState weapon
 			&& weapon.data != null
 			&& (weapon.data.blockArmor > 0f || WeaponCanParry(weapon.data)))
 		{
@@ -386,7 +386,7 @@ public partial class Player : CharacterBody3D
 	{
 		get
 		{
-			if (_inventory?.GetEquipped(EInventorySlot.WeaponMelee) is WeaponState weapon
+			if (_inventory?.GetEquipped(EInventorySlot.WeaponLeft) is WeaponState weapon
 				&& WeaponCanParry(weapon.data))
 			{
 				return IsGuardReadyToParry(weapon);
@@ -417,7 +417,7 @@ public partial class Player : CharacterBody3D
 		{
 			SpawnWorldEffect(_blockStartFx);
 		}
-		if (_inventory?.GetEquipped(EInventorySlot.WeaponMelee) is WeaponState weapon
+		if (_inventory?.GetEquipped(EInventorySlot.WeaponLeft) is WeaponState weapon
 			&& WeaponCanParry(weapon.data))
 		{
 			_parryDeadlineMs = (_world?.GameTimeMs ?? 0) + (ulong)weapon.data.parryTimeMs;
@@ -455,7 +455,7 @@ public partial class Player : CharacterBody3D
 		{
 			return 0f;
 		}
-		return weapon.data.maxParryDamage * weapon.DamageMultiplier * OutgoingLevelScale(EInventorySlot.WeaponMelee);
+		return weapon.data.maxParryDamage * weapon.DamageMultiplier * OutgoingLevelScale(EInventorySlot.WeaponLeft);
 	}
 
 	// Whether `weapon`'s guard is off its recharge cooldown and so free to
@@ -536,8 +536,8 @@ public partial class Player : CharacterBody3D
 	private void TickBlockArmor(float dt)
 	{
 		ulong now = _world?.GameTimeMs ?? 0;
-		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponMelee) as WeaponState, now, dt);
-		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponRanged) as WeaponState, now, dt);
+		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState, now, dt);
+		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponRight) as WeaponState, now, dt);
 	}
 
 	private static void TickWeaponBlockArmor(WeaponState weapon, ulong now, float dt)
@@ -621,8 +621,8 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponMelee) as WeaponState, now);
-		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponRanged) as WeaponState, now);
+		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState, now);
+		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponRight) as WeaponState, now);
 		// Unequipped weapons keep their recharge timers running so a holstered
 		// bow still reclaims its outstanding arrows (and a stashed bomb still
 		// refills). Equipped weapons live in the slot pointers only — they're

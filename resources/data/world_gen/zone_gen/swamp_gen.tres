@@ -14,7 +14,7 @@
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="92_health"]
 [ext_resource type="Resource" uid="uid://dqvfmgixf4hns" path="res://resources/data/items/consumables/lantern_oil.tres" id="93_oil"]
-[ext_resource type="Resource" uid="uid://2pu5xrui7a5a" path="res://resources/data/items/consumables/treasure_map_swamp.tres" id="96_map"]
+[ext_resource type="Resource" uid="uid://2pu5xrui7a5a" path="res://resources/data/items/scrolls/treasure_map_swamp.tres" id="96_map"]
 [ext_resource type="Resource" uid="uid://4efn43odde5i" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_3.tres" id="97_spot"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/campfire.tres" id="e_campfire"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab1.tres" id="e_knowledge_stone"]

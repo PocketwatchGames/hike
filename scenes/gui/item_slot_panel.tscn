@@ -7,7 +7,7 @@
 [ext_resource type="Texture2D" uid="uid://clv3byf0k0up5" path="res://assets/textures/gui/item_button_hover.png" id="4_fb484"]
 [ext_resource type="Texture2D" uid="uid://c6brfyavs14am" path="res://assets/textures/gui/item_button_focused.png" id="5_w7sa8"]
 
-[node name="ItemSlotPanel" type="PanelContainer" unique_id=982744505 node_paths=PackedStringArray("_button", "_itemTexture", "_slotBackground", "_stackLabel", "_stackContainer", "_ghostOverlay", "_statusContainer")]
+[node name="ItemSlotPanel" type="PanelContainer" unique_id=982744505 node_paths=PackedStringArray("_button", "_itemTexture", "_slotBackground", "_stackLabel", "_stackContainer", "_ghostOverlay", "_statusContainer", "_equippedMarker")]
 custom_minimum_size = Vector2(80, 80)
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -19,6 +19,7 @@ _stackLabel = NodePath("MarginContainer/PanelContainer/MarginContainer/Label")
 _stackContainer = NodePath("MarginContainer/PanelContainer")
 _ghostOverlay = NodePath("GhostOverlay")
 _statusContainer = NodePath("MarginContainer/StatusContainer")
+_equippedMarker = NodePath("Equipped")
 _statusIconScene = ExtResource("2_fb484")
 
 [node name="EmptyTexture" type="TextureRect" parent="." unique_id=1680811436]
@@ -31,6 +32,15 @@ stretch_mode = 5
 [node name="ItemTexture" type="TextureRect" parent="." unique_id=1677166803]
 layout_mode = 2
 texture = ExtResource("2_a5bqt")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Equipped" type="TextureRect" parent="."]
+visible = false
+modulate = Color(1, 0.78, 0.25, 1)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("5_w7sa8")
 expand_mode = 1
 stretch_mode = 5
 

@@ -39,10 +39,6 @@ public partial class PlayerState : Resource
 	[Export] public int hairStyle;
 	// Class icon, shown wherever the member's class is presented.
 	[Export] public Texture2D icon;
-	// The class outfit shown on the 3D model — a key into PlayerData.outfits,
-	// the central mesh-name registry. Covers body and (optionally) head; empty
-	// = bare body. Equipped armor with its own outfit still overrides per slot.
-	[Export] public StringName outfit;
 
 	[ExportGroup("Stats")]
 	// The character sheet, folded into the shared stat-compose pipeline when
@@ -57,18 +53,16 @@ public partial class PlayerState : Resource
 	//   stealth          — quiets the player's emissions (Noise + Scent); higher = stealthier.
 	//   fortitude        — resists incoming combat status buildup (folds into EStat.FortitudeResistance); higher = more resistant.
 	[Export] public float health = 1f;
-	// Innate max-armor pool granted by the class. Summed with any equipped
-	// armor in Player.RecalculateMaxArmor.
-	[Export] public float maxArmor;
 	[Export(PropertyHint.Range, "0,10,1")] public float stamina = 3f;
 	[Export] public float fortitude = 1f;
 	[Export] public float strength = 1f;
 	[Export] public float perception = 1f;
 	[Export] public float stealth = 1f;
 
-	// Passive stat modifications, folded into every stat compose alongside
-	// PlayerData, equipped-armor, and status-effect modifiers (see
-	// ArmorData.modifiers for authoring examples).
+	// Passive stat modifications intrinsic to the character, folded into every
+	// stat compose alongside PlayerData, equipped-armor, and status-effect
+	// modifiers. What armor grants belongs on the ArmorData, not here — a member
+	// starts in their armor through equippedInventory.
 	[Export] public Array<Modifier> modifiers;
 	// Managed read-mirror of `modifiers` — see MobData.ModifiersFlat. Unlike the
 	// *Data mirrors this one re-checks the source reference, because PlayerState

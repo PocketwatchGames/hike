@@ -168,8 +168,8 @@ public partial class PartyScreen : Control
 		member?.SetHighlighted(true);
 		_playerStatsPanel?.SetPlayer(member);
 		Inventory inv = member?.Inventory;
-		_meleePanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponMelee), forceIdentified: true);
-		_rangedPanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponRanged), forceIdentified: true);
+		_meleePanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponLeft), forceIdentified: true);
+		_rangedPanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponRight), forceIdentified: true);
 	}
 
 	Player MemberAt(int index) =>

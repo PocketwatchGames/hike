@@ -46,20 +46,18 @@ public partial class Player : CharacterBody3D
 		_animator.SetMeshRecolor(_hairStyleMeshes, data.GetHairColor(member?.hairColor ?? 0));
 	}
 
-	// Recompose the visible mesh set from the class outfit and equipped armor,
-	// and push it to the model. No-op before the model animator or inventory
-	// exists. Per-slot precedence: equipped armor's outfit → class outfit →
-	// bare head (styled hair) / bare body.
+	// Recompose the visible mesh set from the equipped armor and push it to the
+	// model. No-op before the model animator or inventory exists. Per slot: the
+	// equipped armor's outfit, else bare head (styled hair) / bare body.
 	private void UpdateArmorVisual()
 	{
 		if (_animator == null || _inventory == null)
 		{
 			return;
 		}
-		OutfitData classOutfit = data?.GetOutfit(Member?.outfit);
 		List<string> visible = new(_animator.baseMeshNames);
-		AppendSlotMeshes(EInventorySlot.Helmet, FirstNonEmpty(classOutfit?.GetHeadMeshNames(_gender), _hairStyleMeshes), visible);
-		AppendSlotMeshes(EInventorySlot.Armor, FirstNonEmpty(classOutfit?.GetBodyMeshNames(_gender), _animator.bareBodyMeshNames), visible);
+		AppendSlotMeshes(EInventorySlot.Helmet, _hairStyleMeshes, visible);
+		AppendSlotMeshes(EInventorySlot.Armor, _animator.bareBodyMeshNames, visible);
 		_animator.SetVisibleMeshes(visible.ToArray());
 	}
 
@@ -86,10 +84,5 @@ public partial class Player : CharacterBody3D
 	private string[] SlotMeshes(OutfitData outfit, EInventorySlot slot)
 	{
 		return slot == EInventorySlot.Helmet ? outfit.GetHeadMeshNames(_gender) : outfit.GetBodyMeshNames(_gender);
-	}
-
-	private static string[] FirstNonEmpty(string[] preferred, string[] fallback)
-	{
-		return preferred is { Length: > 0 } ? preferred : fallback;
 	}
 }

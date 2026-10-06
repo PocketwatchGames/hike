@@ -475,8 +475,6 @@ public partial class MerchantScreen : Control
 			return InventoryScreen.EquipCompatible(destEquip, _selectedItem) ? "Equip" : string.Empty;
 		}
 		if (destBackpack) { return "Unequip"; }
-		if (sourceEquip == EInventorySlot.Equipment && destEquip == EInventorySlot.Equipment) { return "Move"; }
-		if (InventoryScreen.CanSwapEquipSlots(sourceEquip, destEquip, _selectedItem, _player?.Inventory)) { return "Move"; }
 		return string.Empty;
 	}
 
@@ -855,34 +853,15 @@ public partial class MerchantScreen : Control
 		}
 		if (sourceBackpack)
 		{
-			// The Equipment slot is the attuned alchemy spell (set at the alchemy
-			// campfire screen, not here) — not a drop target for carried items.
-			if (destEquip == EInventorySlot.Equipment)
-			{
-				return false;
-			}
 			if (InventoryScreen.EquipCompatible(destEquip, _selectedItem))
 			{
-				return inv.TryEquip(_selectedItem, destEquip);
+				return inv.Equip(_selectedItem);
 			}
 			return false;
 		}
 		if (destBackpack)
 		{
-			// The attuned spell can't be moved out to the backpack.
-			if (sourceEquip == EInventorySlot.Equipment)
-			{
-				return false;
-			}
-			return inv.TryUnequip(sourceEquip);
-		}
-		if (sourceEquip == EInventorySlot.Equipment || destEquip == EInventorySlot.Equipment)
-		{
-			return false;
-		}
-		if (InventoryScreen.CanSwapEquipSlots(sourceEquip, destEquip, _selectedItem, inv))
-		{
-			return inv.TrySwapEquipSlots(sourceEquip, destEquip);
+			return inv.Unequip(sourceEquip);
 		}
 		return false;
 	}
@@ -1570,7 +1549,7 @@ public partial class MerchantScreen : Control
 		{
 			verb = EActionVerb.Use,
 			primaryItem = item,
-			sourceSlot = EInventorySlot.Equipment,
+			sourceSlot = EInventorySlot.None,
 		});
 	}
 

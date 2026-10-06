@@ -426,6 +426,9 @@ public partial class PlayerData : Resource
 	// inventory_panel.tscn — every data slot has to be visible, or items can
 	// land in an un-rendered slot and appear to vanish.
 	[Export] public int backpackCapacity = 12;
+	// The first this-many backpack slots are the HUD hotbar the player cycles
+	// through and uses from the field (Inventory.CycleHotbar / Player.UseHotbarSelection).
+	[Export(PropertyHint.Range, "1,16,1")] public int hotbarSize = 8;
 
 	[ExportGroup("Combat")]
 	[Export] public float maxHealth = 1000f;
@@ -685,9 +688,8 @@ public partial class PlayerData : Resource
 
 	[ExportGroup("Appearance")]
 	// Central outfit registry: every named outfit's rig mesh sets, keyed by the
-	// StringName that PlayerState.outfit (the class look) and ArmorData.outfit
-	// (worn armor) reference. Mesh names are authored once here — no character
-	// or item carries raw rig part names.
+	// StringName that ArmorData.outfit (worn armor) references. Mesh names are
+	// authored once here — no item carries raw rig part names.
 	[Export] public Godot.Collections.Dictionary<StringName, OutfitData> outfits = new();
 
 	// Registry lookup. Null for a missing / empty key — the compositor then

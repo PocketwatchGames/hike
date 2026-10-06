@@ -34,7 +34,7 @@ public class Knowledge
     public readonly HashSet<RecipeData> DiscoveredRecipes = new();
     // Learned alchemy spells — the single "known" axis for the spell list (a spell
     // is cast, never identified as a physical item, so it has no separate output-
-    // identification step the way a cooked recipe does). Gates SpellSelectionPanel.
+    // identification step the way a cooked recipe does). Gates spell crafting.
     public readonly HashSet<SpellData> KnownSpells = new();
     // Per-species bestiary discovery — the set of species this store has charted.
     // Unioned across party+individual on read and on merge.

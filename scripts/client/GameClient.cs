@@ -897,11 +897,9 @@ public partial class GameClient : Node3D
 	}
 
 	// A loaded save is a wake at sunrise, so it opens the way a real one leaves
-	// the player: in camp, with the day's leader still to pick (a rest resets
-	// it — Sim.RestToSunrise). The camp screen takes the input gate.
+	// the player: in camp. The camp screen takes the input gate.
 	void WakeIntoCamp()
 	{
-		_world.Party?.RequireLeaderChoice();
 		campScreen?.Open(_player, _lastCampfirePosition);
 	}
 
@@ -1191,12 +1189,7 @@ public partial class GameClient : Node3D
 	// controlled member goes inactive (idles where it stands). No-op if that
 	// member is already controlled. Called on camp exit after a Select-Character
 	// choice, and by SwitchControlTo for the immediate debug switch.
-	//
-	// transferBelt: on a deliberate campfire character switch the attuned alchemy
-	// spell travels with the player (moves from the outgoing member to the incoming
-	// one). Left false for a debug switch, where each member keeps their own
-	// attunement.
-	public void SyncControlToActive(bool transferBelt = false)
+	public void SyncControlToActive()
 	{
 		// Follow the roster's active member by identity, not index — no assumption that
 		// _partyPlayers stays aligned with the roster.
@@ -1210,11 +1203,6 @@ public partial class GameClient : Node3D
 		{
 			UnsubscribePlayerEvents(outgoing);
 			outgoing.SetActive(false);
-			// Carry the attuned spell to the new character before the HUD rebinds.
-			if (transferBelt)
-			{
-				outgoing.Inventory?.TransferAttunementTo(target.Inventory);
-			}
 		}
 		SubscribePlayerEvents(target);
 		target.SetActive(true);
@@ -2273,6 +2261,13 @@ public partial class GameClient : Node3D
 		if (e.IsActionPressed("Map") && almanacScreen != null)
 		{
 			almanacScreen.Open(AlmanacScreen.EAlmanacTab.WorldMap, this);
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+
+		if (e.IsActionPressed("Inventory") && almanacScreen != null)
+		{
+			almanacScreen.Open(AlmanacScreen.EAlmanacTab.Inventory, this);
 			GetViewport().SetInputAsHandled();
 			return;
 		}

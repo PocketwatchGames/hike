@@ -8,8 +8,8 @@ using Godot;
 // bindings for the handful of actions whose defaults live in code rather than
 // in project.godot.
 //
-// THIS CODE OWNS the bindings for Interact / InteractCancel / Dash / Lantern /
-// UseItem / Sneak: it overwrites whatever project.godot authored for them on
+// THIS CODE OWNS the bindings for Interact / InteractCancel / Dash / UseItem /
+// Sneak: it overwrites whatever project.godot authored for them on
 // startup. Edit the set here, not the editor's Input Map, or your change is
 // silently undone.
 // If player-facing rebinding lands later, this becomes the supplier of defaults
@@ -19,7 +19,6 @@ public static class InputBindings
     private const string Interact = "Interact";
     private const string InteractCancel = "InteractCancel";
     private const string Dash = "Dash";
-    private const string Lantern = "Lantern";
     private const string UseItem = "UseItem";
     private const string Sneak = "Sneak";
 
@@ -40,7 +39,6 @@ public static class InputBindings
         // Player.ProcessInput only lets it consume the frame when there is
         // something to abort, so an ordinary interact press still falls through.
         SetBindings(InteractCancel, Key.Escape, JoyButton.B);
-        SetBindings(Lantern, Key.Q, JoyButton.RightShoulder);
         SetBindings(UseItem, Key.Ctrl, JoyButton.Y);
         SetBindings(Sneak, Key.Shift, JoyAxis.TriggerLeft);
     }

@@ -13,7 +13,7 @@
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="92_health"]
 [ext_resource type="Resource" uid="uid://dqvfmgixf4hns" path="res://resources/data/items/consumables/lantern_oil.tres" id="93_oil"]
-[ext_resource type="Resource" uid="uid://smswabvm3hey" path="res://resources/data/items/consumables/treasure_map_mountain.tres" id="96_map"]
+[ext_resource type="Resource" uid="uid://smswabvm3hey" path="res://resources/data/items/scrolls/treasure_map_mountain.tres" id="96_map"]
 [ext_resource type="Resource" uid="uid://hd0caw8a62wt" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_1.tres" id="97_spot"]
 [ext_resource type="Resource" uid="uid://cdgwwdoxj3xkk" path="res://resources/data/world_gen/foliage_gen/mountain.tres" id="F_foliage"]
 [ext_resource type="Script" uid="uid://38wffcrscjmc" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="mountain_gen_zoneterrain"]

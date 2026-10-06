@@ -12,7 +12,7 @@
 [ext_resource type="Resource" uid="uid://c8lt1k3vpx7di" path="res://resources/data/world_authoring/zones/swamp_fire.tres" id="17_1xuj7"]
 [ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
-[ext_resource type="Resource" uid="uid://ikft0bki0wpe" path="res://resources/data/items/consumables/treasure_map_swamp_fire.tres" id="96_map"]
+[ext_resource type="Resource" uid="uid://ikft0bki0wpe" path="res://resources/data/items/scrolls/treasure_map_swamp_fire.tres" id="96_map"]
 [ext_resource type="Resource" uid="uid://hd0caw8a62wt" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_1.tres" id="97_spot"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/campfire.tres" id="e_campfire"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab1.tres" id="e_knowledge_stone"]

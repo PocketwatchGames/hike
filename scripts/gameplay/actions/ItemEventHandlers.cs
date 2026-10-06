@@ -1355,7 +1355,7 @@ public static class ItemEventHandlers
 	// act where the caster stands, even when a stale ranged cursor is still valid.
 	public static Vector3 ResolveAimPoint(IActionActor actor, in ActionContext context)
 	{
-		if (context.sourceSlot == EInventorySlot.WeaponRanged
+		if (context.sourceSlot == EInventorySlot.WeaponRight
 			&& actor is Player player && player.AimingReticle != null && player.AimingReticle.HasAimWorldPosition)
 		{
 			return player.AimingReticle.AimWorldPosition;
@@ -1674,21 +1674,7 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		Player castPlayer = actor as Player;
-		Inventory inv = castPlayer?.Inventory;
-		// Alchemy spell cast: the attuned cast instance is not a stack. Casting
-		// spends one cast's worth of reagents from the party pool (backpack + stash)
-		// and the instance persists — it is never removed, so this returns before
-		// the identify/decrement/remove path below.
-		if (inv != null && inv.AttunedSpell != null && item == inv.GetActiveConsumable())
-		{
-			// SpendReagents notifies the inventory itself on a successful spend.
-			if (!CVars.freeSpells.Value)
-			{
-				castPlayer.SpendReagents(inv.AttunedSpell.reagents);
-			}
-			return;
-		}
+		Inventory inv = (actor as Player)?.Inventory;
 		// Reveal the item's real name on first successful use. Decrement is
 		// the canonical "actually consumed" hook — only consumables flow
 		// through here, and only ones whose timeline reached this event.
@@ -1794,9 +1780,9 @@ public static class ItemEventHandlers
 	// set, region discovery set, ...). First-learn fx gates on concept.Teach
 	// returning true, matching DoLearnLanguage's silent-on-re-teach contract.
 	//
-	// The concept is the event-authored ref (`ev.concept`). Scrolls no longer
-	// route through here — a found scroll teaches its concept directly on
-	// world-pickup (ScrollData.ApplyOnPickup) — so this handler serves only
+	// The concept is the event-authored ref (`ev.concept`). Scrolls don't
+	// route through here — a scroll teaches its concept directly when read from
+	// the hotbar (ScrollData.UseOn) — so this handler serves only
 	// sources that author a LearnConcept event with an explicit concept (NPC
 	// dialogue, future teaching interactives).
 	public static void DoLearnConcept(IActionActor actor, ItemEvent ev, ref PlayerAction action)

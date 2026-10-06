@@ -22,6 +22,12 @@ public partial class AlmanacScreen : Control
 	[Export] SpellScreen _spellScreen;
 	[Export] ButtonHint _tabLeftButtonHint;
 	[Export] ButtonHint _tabRightButtonHint;
+	// Contextual action hints along the bottom. Only the inventory tab has
+	// actions, and it drives them itself (InventoryScreen.BindActionHints);
+	// every other tab shows none.
+	[Export] ButtonHint _buttonHintA;
+	[Export] ButtonHint _buttonHintX;
+	[Export] ButtonHint _buttonHintY;
 	[Export] Control _inventoryTab;
 	[Export] Control _worldMapTab;
 	[Export] Control _bestiaryTab;
@@ -38,6 +44,7 @@ public partial class AlmanacScreen : Control
 		UpdateTab(_bestiaryScreen, _bestiaryTab, false);
 		UpdateTab(_spellScreen, _spellTab, false);
 
+		_inventoryScreen?.BindActionHints(_buttonHintA, _buttonHintX, _buttonHintY);
 		_tabLeftButtonHint?.SetHint("TabLeft", string.Empty);
 		_tabRightButtonHint?.SetHint("TabRight", string.Empty);
 
@@ -98,6 +105,9 @@ public partial class AlmanacScreen : Control
 	public void ShowTab(EAlmanacTab tab)
 	{
 		_curTab = tab;
+		// Hidden before the tabs switch: showing the inventory tab is what lets it
+		// put its own hints back up.
+		HideActionHints();
 		UpdateTab(_inventoryScreen, _inventoryTab, tab == EAlmanacTab.Inventory);
 		UpdateTab(_worldMapScreen, _worldMapTab, tab == EAlmanacTab.WorldMap);
 		UpdateTab(_bestiaryScreen, _bestiaryTab, tab == EAlmanacTab.Bestiary);
@@ -108,6 +118,13 @@ public partial class AlmanacScreen : Control
 		{
 			_gameClient?.Sim?.Minimap?.StartChartReveal();
 		}
+	}
+
+	void HideActionHints()
+	{
+		if (_buttonHintA != null) { _buttonHintA.Visible = false; }
+		if (_buttonHintX != null) { _buttonHintX.Visible = false; }
+		if (_buttonHintY != null) { _buttonHintY.Visible = false; }
 	}
 
 	static void UpdateTab(Control screen, Control tab, bool active)
@@ -129,7 +146,7 @@ public partial class AlmanacScreen : Control
 		{
 			return;
 		}
-		if (e.IsActionPressed("ui_cancel") || e.IsActionPressed("Map"))
+		if (e.IsActionPressed("ui_cancel") || e.IsActionPressed("Map") || e.IsActionPressed("Inventory"))
 		{
 			Close();
 			GetViewport().SetInputAsHandled();

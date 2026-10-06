@@ -117,8 +117,8 @@ public partial class Player : CharacterBody3D
 	// resets it regardless of which slot is mid-combo (or if unarmed).
 	private void ResetWeaponCombos()
 	{
-		_inventory?.GetWeapon(EInventorySlot.WeaponMelee)?.ResetCombo();
-		_inventory?.GetWeapon(EInventorySlot.WeaponRanged)?.ResetCombo();
+		_inventory?.GetWeapon(EInventorySlot.WeaponLeft)?.ResetCombo();
+		_inventory?.GetWeapon(EInventorySlot.WeaponRight)?.ResetCombo();
 		_unarmedWeapon?.ResetCombo();
 	}
 
@@ -436,7 +436,7 @@ public partial class Player : CharacterBody3D
 		// level and the Melee forge upgrade's curve fold into damage, and the upgrade
 		// curve rides potency so any status it applies ticks harder — mirroring
 		// ResolveHit / DoProjectile, which this direct mob.Hit path bypasses.
-		float levelScale = OutgoingLevelScale(EInventorySlot.WeaponMelee);
+		float levelScale = OutgoingLevelScale(EInventorySlot.WeaponLeft);
 		parryHit.healthDamage *= weapon.DamageMultiplier * levelScale;
 		parryHit.potency = levelScale;
 		mob.Hit(parryHit);

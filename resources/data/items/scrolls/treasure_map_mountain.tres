@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ScrollData" format=3 uid="uid://smswabvm3hey"]
+
+[ext_resource type="Script" uid="uid://b8udvxvx1n3ug" path="res://scripts/data/items/ScrollData.cs" id="1_scroll"]
+[ext_resource type="Script" uid="uid://jlnw7063fkor4" path="res://scripts/data/teaching/TreasureMapTeachable.cs" id="2_map"]
+[ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="3_icon"]
+
+[sub_resource type="Resource" id="Concept"]
+script = ExtResource("2_map")
+treasureName = "mountain"
+mapName = "Treasure Map"
+
+[resource]
+script = ExtResource("1_scroll")
+concept = SubResource("Concept")
+unidentifiedDisplayName = &"Weathered Map"
+description = "An old map marked with an X. It charts where a treasure lies buried — go and dig it up."
+value = 15
+inventorySprite = ExtResource("3_icon")

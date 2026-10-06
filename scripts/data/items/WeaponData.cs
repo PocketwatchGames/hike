@@ -27,9 +27,9 @@ public partial class WeaponData : ItemData
 	// Independent of whether the weapon bears ammo (maxAmmo) and of the visual
 	// wieldHand below.
 	[Export] public bool rightHandSlot = false;
-	public EInventorySlot CanonicalSlot => rightHandSlot ? EInventorySlot.WeaponRanged : EInventorySlot.WeaponMelee;
+	public EInventorySlot CanonicalSlot => rightHandSlot ? EInventorySlot.WeaponRight : EInventorySlot.WeaponLeft;
 
-	protected override EItemCategory ComputeCategory() => rightHandSlot ? EItemCategory.WeaponRanged : EItemCategory.WeaponMelee;
+	protected override EItemCategory ComputeCategory() => rightHandSlot ? EItemCategory.WeaponRight : EItemCategory.WeaponLeft;
 
 	// How this weapon delivers its attacks. A capability set — a weapon may
 	// carry several bits (a melee weapon with a charged throw). Gates which

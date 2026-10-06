@@ -15,6 +15,8 @@ public partial class ItemSlotPanel : PanelContainer
 	// commit. Authored hidden in the scene; null safely no-ops in SetGhost.
 	[Export] private TextureRect _ghostOverlay;
 	[Export] private Control _statusContainer;
+	// Optional overlay shown while the slot's item is equipped.
+	[Export] private CanvasItem _equippedMarker;
 	// Scene instantiated per armed effect on the item — typically
 	// scenes/gui/status_effect_icon.tscn (or a sized-down variant for the
 	// slot grid). Root must be a StatusEffectIcon; we drive it via
@@ -182,6 +184,14 @@ public partial class ItemSlotPanel : PanelContainer
 		Texture2D tex = item?.data?.inventorySprite;
 		_ghostOverlay.Texture = tex;
 		_ghostOverlay.Visible = tex != null;
+	}
+
+	public void SetEquipped(bool equipped)
+	{
+		if (_equippedMarker != null)
+		{
+			_equippedMarker.Visible = equipped;
+		}
 	}
 
 	// Dim this slot's icon to signal "the item here has been picked up by

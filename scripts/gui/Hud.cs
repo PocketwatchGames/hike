@@ -16,14 +16,17 @@ public partial class Hud : Control
 	// Scene used for the transient over-the-player notification — bare icon
 	// only, no count, no progress bar. See StatusEffectIcon for the animation.
 	[Export] PackedScene _statusEffectIconScene;
-	[Export] WeaponHud _weaponLeftHud;
-	[Export] WeaponHud _weaponRightHud;
-	[Export] WeaponHud _consumableHud;
-	[Export] WeaponHud _lanternHud;
-	[Export] ButtonHint _weaponLeftButtonHint;
-	[Export] ButtonHint _weaponRightButtonHint;
-	[Export] ButtonHint _consumableButtonHint;
-	[Export] ButtonHint _lanternHint;
+	// The hotbar strip, in display order. The FILLED hotbar entries
+	// (Inventory.GetHotbarEntries) are packed into the leading widgets and the
+	// rest hidden, so wire PlayerData.hotbarSize of them.
+	[Export] Godot.Collections.Array<WeaponHud> _hotbarSlots = new();
+	// Optional button hints beside the strip.
+	[Export] ButtonHint _hotbarUseHint;
+	[Export] ButtonHint _hotbarCycleLeftHint;
+	[Export] ButtonHint _hotbarCycleRightHint;
+	// One per hotbar widget, same order: the direct-select key (SelectItem1..N)
+	// for that position. Keyboard/mouse only — the pad cycles instead.
+	[Export] Godot.Collections.Array<ButtonHint> _hotbarSelectHints = new();
 	[Export] Control _staminaContainer;
 	[Export] PackedScene _staminaBarScene;
 	// Persistent strip parent — usually an HBoxContainer above the health bar.
@@ -92,6 +95,10 @@ public partial class Hud : Control
 	float _lightningFlashFadeRate;
 	Player _player;
 	Inventory _inventory;
+	// Managed mirror of _hotbarSlots (read per frame) and the current packing.
+	WeaponHud[] _hotbarSlotsFlat = System.Array.Empty<WeaponHud>();
+	ButtonHint[] _hotbarSelectHintsFlat = System.Array.Empty<ButtonHint>();
+	readonly List<int> _hotbarEntries = new();
 	// One pip per unit of max stamina (1 unit = 1 dash), instanced from
 	// _staminaBarScene into _staminaContainer. Filled left to right, so the
 	// recharging unit reads as a partial fill on the first non-full pip.
@@ -247,12 +254,18 @@ public partial class Hud : Control
 		{
 			_dialoguePanel.gameClient = gameClient;
 		}
-		_weaponLeftButtonHint.SetHint("AttackContextSensitive", "AttackMelee", string.Empty, string.Empty);
-		_weaponRightButtonHint.SetHint("AttackContextSensitive", "AttackRanged", "Aim", string.Empty);
-		_consumableButtonHint.SetHint("UseItem", string.Empty);
-		// Consumable quick-select: gamepad shows the wheel button
-		// (ConsumableCycleRight); keyboard shows the direct hotbar key range.
-		_lanternHint.SetHint("Lantern", string.Empty);
+		_hotbarUseHint?.SetHint("UseItem", string.Empty);
+		_hotbarCycleLeftHint?.SetHint("ConsumableCycleLeft", string.Empty);
+		_hotbarCycleRightHint?.SetHint("ConsumableCycleRight", string.Empty);
+		_hotbarSlotsFlat = new WeaponHud[_hotbarSlots.Count];
+		_hotbarSlots.CopyTo(_hotbarSlotsFlat, 0);
+		_hotbarSelectHintsFlat = new ButtonHint[_hotbarSelectHints.Count];
+		_hotbarSelectHints.CopyTo(_hotbarSelectHintsFlat, 0);
+		for (int i = 0; i < _hotbarSelectHintsFlat.Length; i++)
+		{
+			_hotbarSelectHintsFlat[i]?.SetHint(Player.HotbarSelectAction(i), string.Empty);
+		}
+		InputDevice.OnChanged += OnInputDeviceChanged;
 		_buttonHintTurnLeft.SetHint("CameraLeft", string.Empty);
 		_buttonHintTurnRight.SetHint("CameraRight", string.Empty);
 		_buttonHintIndoors.SetHint("CameraDown", string.Empty);
@@ -312,6 +325,7 @@ public partial class Hud : Control
 	public override void _ExitTree()
 	{
 		if (Current == this) { Current = null; }
+		InputDevice.OnChanged -= OnInputDeviceChanged;
 		if (gameClient != null)
 		{
 			gameClient.onPlayerSpawned -= OnPlayerSpawned;
@@ -319,8 +333,7 @@ public partial class Hud : Control
 		}
 		if (_inventory != null)
 		{
-			_inventory.onSlotChanged -= OnInventorySlotChanged;
-			_inventory.onConsumableChanged -= OnConsumableChanged;
+			_inventory.onChanged -= RefreshHotbar;
 		}
 		UnbindQuests();
 	}
@@ -440,8 +453,7 @@ public partial class Hud : Control
 	{
 		if (_inventory != null)
 		{
-			_inventory.onSlotChanged -= OnInventorySlotChanged;
-			_inventory.onConsumableChanged -= OnConsumableChanged;
+			_inventory.onChanged -= RefreshHotbar;
 		}
 		OnPlayerSpawned(player);
 	}
@@ -450,12 +462,8 @@ public partial class Hud : Control
 	{
 		_player = player;
 		_inventory = player.Inventory;
-		_inventory.onSlotChanged += OnInventorySlotChanged;
-		_inventory.onConsumableChanged += OnConsumableChanged;
-		RefreshSlot(EInventorySlot.WeaponMelee);
-		RefreshSlot(EInventorySlot.WeaponRanged);
-		RefreshSlot(EInventorySlot.Equipment);
-		RefreshSlot(EInventorySlot.Lantern);
+		_inventory.onChanged += RefreshHotbar;
+		RefreshHotbar();
 		// Seed the diff baseline so persistent effects already on the player
 		// at spawn (saved game restore, scripted intro state) don't all fire
 		// notifications on the first tick after spawn.
@@ -531,38 +539,52 @@ public partial class Hud : Control
 		}
 	}
 
-	void OnInventorySlotChanged(EInventorySlot slot)
+	static void SetVisible(CanvasItem item, bool visible)
 	{
-		RefreshSlot(slot);
-	}
-
-	void OnConsumableChanged()
-	{
-		RefreshSlot(EInventorySlot.Equipment);
-	}
-
-	void RefreshSlot(EInventorySlot slot)
-	{
-		ItemState item = _inventory?.GetEquipped(slot);
-		switch (slot)
+		if (item != null)
 		{
-			case EInventorySlot.WeaponMelee:
-				_weaponLeftHud.SetItem(item);
-				_weaponLeftButtonHint.Visible = item != null;
-				break;
-			case EInventorySlot.WeaponRanged:
-				_weaponRightHud.SetItem(item);
-				_weaponRightButtonHint.Visible = item != null;
-				break;
-			case EInventorySlot.Equipment:
-				_consumableHud.SetItem(item);
-				_consumableButtonHint.Visible = item != null;
-				break;
-			case EInventorySlot.Lantern:
-				_lanternHud.SetItem(item);
-				_lanternHint.Visible = item != null;
-				break;
+			item.Visible = visible;
 		}
+	}
+
+	// Repack the filled hotbar entries into the leading widgets. Runs on every
+	// inventory change (which includes a selection move), not per frame.
+	void RefreshHotbar()
+	{
+		_hotbarEntries.Clear();
+		_inventory?.GetHotbarEntries(_hotbarEntries);
+		int selected = _inventory?.SelectedHotbarIndex ?? -1;
+		bool keyboard = InputDevice.Current == InputDevice.EDevice.KeyboardMouse;
+		for (int i = 0; i < _hotbarSlotsFlat.Length; i++)
+		{
+			WeaponHud widget = _hotbarSlotsFlat[i];
+			if (widget == null)
+			{
+				continue;
+			}
+			bool filled = i < _hotbarEntries.Count;
+			widget.Visible = filled;
+			if (i < _hotbarSelectHintsFlat.Length)
+			{
+				SetVisible(_hotbarSelectHintsFlat[i], filled && keyboard);
+			}
+			if (!filled)
+			{
+				widget.SetItem(null);
+				continue;
+			}
+			ItemState item = _inventory.Backpack[_hotbarEntries[i]];
+			widget.SetItem(item);
+			widget.SetHotbarState(_hotbarEntries[i] == selected, _inventory.IsEquipped(item));
+		}
+		SetVisible(_hotbarUseHint, _hotbarEntries.Count > 0);
+		SetVisible(_hotbarCycleLeftHint, _hotbarEntries.Count > 1 && !keyboard);
+		SetVisible(_hotbarCycleRightHint, _hotbarEntries.Count > 1 && !keyboard);
+	}
+
+	void OnInputDeviceChanged(InputDevice.EDevice device)
+	{
+		RefreshHotbar();
 	}
 
 	public override void _Process(double delta)
@@ -607,20 +629,14 @@ public partial class Hud : Control
 		UpdateStaminaPips();
 
 		ulong now = gameClient.Sim?.GameTimeMs ?? 0;
-		_weaponLeftHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponMelee));
-		_weaponRightHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponRanged));
-		// The attuned spell's "ammo" is the live castable-count from the party
-		// reagent pool; push it as a count-override (negative clears it when nothing
-		// is attuned, falling back to the normal counter for any other consumable).
-		_consumableHud.SetCountOverride(_inventory?.AttunedSpell != null ? _player.GetSpellAmmo() : -1);
-		_consumableHud.Tick(now, IsSlotCharging(EInventorySlot.Equipment));
-		_lanternHud.Tick(now, false);
+		for (int i = 0; i < _hotbarSlotsFlat.Length && i < _hotbarEntries.Count; i++)
+		{
+			_hotbarSlotsFlat[i]?.Tick(now, IsCharging(_inventory.Backpack[_hotbarEntries[i]]));
+		}
 
 		UpdateStatusEffects(now);
 
-		_weaponLeftButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponMelee, now));
-		_weaponRightButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponRanged, now));
-		_consumableButtonHint.SetProgress(GetChargeProgress(EInventorySlot.Equipment, now));
+		_hotbarUseHint?.SetProgress(GetChargeProgress(_inventory?.SelectedHotbarItem, now));
 
 		if (gameClient.camera.RotationDegrees.Y != _mapRotation)
 		{
@@ -1113,11 +1129,11 @@ public partial class Hud : Control
 		}
 	}
 
-	// Whether the player is actively charging the weapon equipped in `slot`.
-	// Drives each WeaponHud's charge-gauge fill for its slot.
-	bool IsSlotCharging(EInventorySlot slot)
+	// Whether the player is actively charging an action driven by `item`.
+	// Drives each WeaponHud's charge-gauge fill.
+	bool IsCharging(ItemState item)
 	{
-		if (_player?.Runner == null || !_player.Runner.IsBusy)
+		if (item == null || _player?.Runner == null || !_player.Runner.IsBusy)
 		{
 			return false;
 		}
@@ -1125,7 +1141,7 @@ public partial class Hud : Control
 		{
 			return false;
 		}
-		return _player.Runner.Current.context.sourceSlot == slot;
+		return _player.Runner.Current.context.primaryItem == item;
 	}
 
 	// Drive the block-guard bar. The pool shown is the equipped melee weapon's
@@ -1187,7 +1203,7 @@ public partial class Hud : Control
 	WeaponState SelectBlockArmorWeapon(out bool active)
 	{
 		active = false;
-		WeaponState melee = _inventory?.GetEquipped(EInventorySlot.WeaponMelee) as WeaponState;
+		WeaponState melee = _inventory?.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState;
 		if (melee?.data == null || melee.data.blockArmor <= 0f)
 		{
 			return null;
@@ -1201,9 +1217,8 @@ public partial class Hud : Control
 	// the selected tier, resets when the next tier takes over, then fills
 	// again. A tier with chargeTime = 0 (snap fire) reports 1 immediately.
 	// Cooldown is shown by WeaponHud, not here.
-	float GetChargeProgress(EInventorySlot slot, ulong nowMs)
+	float GetChargeProgress(ItemState item, ulong nowMs)
 	{
-		ItemState item = _inventory?.GetEquipped(slot);
 		if (item == null || _player == null || _player.Runner == null)
 		{
 			return 0f;

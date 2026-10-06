@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 
-// Helpers for the party stash lists (SimState.PartyMaterialStash /
-// PartyEquipmentStash) — uncapped List<ItemState> stores shared across the party.
+// Helpers for the party stash list (SimState.PartyStash) — an uncapped
+// List<ItemState> store shared across the party.
 public static class ItemStash
 {
 	// Add an item to a stash list, merging into an existing same-kind stack (for

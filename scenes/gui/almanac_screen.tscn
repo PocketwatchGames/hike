@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="4_idb3r"]
 [ext_resource type="PackedScene" uid="uid://c0s173tq07vqh" path="res://scenes/gui/spell_screen.tscn" id="5_7ewlq"]
 
-[node name="AlmanacScreen" type="Control" unique_id=1182491772 node_paths=PackedStringArray("_inventoryScreen", "_worldMapScreen", "_bestiaryScreen", "_spellScreen", "_tabLeftButtonHint", "_tabRightButtonHint", "_inventoryTab", "_worldMapTab", "_bestiaryTab", "_spellTab")]
+[node name="AlmanacScreen" type="Control" unique_id=1182491772 node_paths=PackedStringArray("_inventoryScreen", "_worldMapScreen", "_bestiaryScreen", "_spellScreen", "_tabLeftButtonHint", "_tabRightButtonHint", "_buttonHintA", "_buttonHintX", "_buttonHintY", "_inventoryTab", "_worldMapTab", "_bestiaryTab", "_spellTab")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -21,6 +21,9 @@ _bestiaryScreen = NodePath("MarginContainer2/BestiaryScreen")
 _spellScreen = NodePath("MarginContainer2/SpellScreen")
 _tabLeftButtonHint = NodePath("MarginContainer/HBoxContainer/TabLeft")
 _tabRightButtonHint = NodePath("MarginContainer/HBoxContainer/TabRight")
+_buttonHintA = NodePath("MarginContainer3/HBoxContainer2/ButtonHintA")
+_buttonHintX = NodePath("MarginContainer3/HBoxContainer2/ButtonHintX")
+_buttonHintY = NodePath("MarginContainer3/HBoxContainer2/ButtonHintY")
 _inventoryTab = NodePath("MarginContainer/HBoxContainer/InventoryTab")
 _worldMapTab = NodePath("MarginContainer/HBoxContainer/WorldMapTab")
 _bestiaryTab = NodePath("MarginContainer/HBoxContainer/BestiaryTab")
@@ -121,3 +124,27 @@ text = "Spells"
 [node name="TabRight" parent="MarginContainer/HBoxContainer" unique_id=143488523 instance=ExtResource("4_idb3r")]
 layout_mode = 2
 InputAction = "TabRight"
+
+[node name="MarginContainer3" type="MarginContainer" parent="." unique_id=38898090]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/margin_bottom = 20
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="MarginContainer3" unique_id=718323161]
+layout_mode = 2
+size_flags_vertical = 8
+alignment = 1
+
+[node name="ButtonHintA" parent="MarginContainer3/HBoxContainer2" unique_id=509441122 instance=ExtResource("4_idb3r")]
+layout_mode = 2
+
+[node name="ButtonHintX" parent="MarginContainer3/HBoxContainer2" unique_id=958019262 instance=ExtResource("4_idb3r")]
+layout_mode = 2
+
+[node name="ButtonHintY" parent="MarginContainer3/HBoxContainer2" unique_id=557692158 instance=ExtResource("4_idb3r")]
+layout_mode = 2

@@ -12,7 +12,7 @@
 [ext_resource type="Resource" uid="uid://xbjl27pt7p61" path="res://resources/data/world_authoring/zones/swamp_highlands.tres" id="14_cpg00"]
 [ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
-[ext_resource type="Resource" uid="uid://8dvmhkjhd6ma" path="res://resources/data/items/consumables/treasure_map_swamp_highlands.tres" id="96_map"]
+[ext_resource type="Resource" uid="uid://8dvmhkjhd6ma" path="res://resources/data/items/scrolls/treasure_map_swamp_highlands.tres" id="96_map"]
 [ext_resource type="Resource" uid="uid://fxpkjyqvrcjf" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_4.tres" id="97_spot"]
 [ext_resource type="Resource" uid="uid://558a5fhxihqs" path="res://resources/data/world_gen/foliage_gen/swamp_highlands.tres" id="F_foliage"]
 [ext_resource type="Script" uid="uid://bhy5xnkiybhbv" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]

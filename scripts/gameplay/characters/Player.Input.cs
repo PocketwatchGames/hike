@@ -150,10 +150,24 @@ public partial class Player : CharacterBody3D
 		HideSelfPrompt();
 	}
 
+	// Direct-select keys for the hotbar's shown positions, in order. Must match
+	// the SelectItemN actions in project.godot.
+	static readonly StringName[] HotbarSelectActions =
+	{
+		"SelectItem1", "SelectItem2", "SelectItem3", "SelectItem4",
+		"SelectItem5", "SelectItem6", "SelectItem7", "SelectItem8",
+	};
+
+	// The direct-select action for hotbar position `entry`, or empty past the last.
+	public static string HotbarSelectAction(int entry)
+	{
+		return entry >= 0 && entry < HotbarSelectActions.Length ? HotbarSelectActions[entry] : string.Empty;
+	}
+
 	static readonly Dictionary<EInventorySlot, string> _weaponActions = new()
 	{
-		{ EInventorySlot.WeaponMelee, "AttackMelee" },
-		{ EInventorySlot.WeaponRanged, "AttackRanged" }
+		{ EInventorySlot.WeaponLeft, "AttackMelee" },
+		{ EInventorySlot.WeaponRight, "AttackRanged" }
 	};
 	// Zero the cached input vectors so _PhysicsProcess stops applying the
 	// last-known stick deflection while gameplay input is suppressed (e.g.
@@ -342,22 +356,28 @@ public partial class Player : CharacterBody3D
 		}
 		_wasSneaking = _sneaking;
 
+		if (Input.IsActionJustPressed("ConsumableCycleLeft"))
+		{
+			_inventory?.CycleHotbar(-1);
+		}
+		if (Input.IsActionJustPressed("ConsumableCycleRight"))
+		{
+			_inventory?.CycleHotbar(1);
+		}
+		for (int i = 0; i < HotbarSelectActions.Length; i++)
+		{
+			if (Input.IsActionJustPressed(HotbarSelectActions[i]))
+			{
+				_inventory?.SelectHotbarEntry(i);
+			}
+		}
 		if (Input.IsActionJustPressed("UseItem"))
 		{
-			TryUseActiveConsumable();
+			UseHotbarSelection();
 		}
 		if (Input.IsActionJustReleased("UseItem"))
 		{
-			ReleaseUseConsumable();
-		}
-
-		if (Input.IsActionJustPressed("Lantern"))
-		{
-			TryUseLantern();
-		}
-		if (Input.IsActionJustReleased("Lantern"))
-		{
-			ReleaseUseLantern();
+			ReleaseHotbarUse();
 		}
 
 		// Dash is only ever a dash. Every traversal — mantling a ledge, taking
@@ -462,8 +482,8 @@ public partial class Player : CharacterBody3D
 		if (Input.IsActionJustPressed("AttackContextSensitive"))
 		{
 			EInventorySlot slot = Input.IsActionPressed("Aim")
-				? EInventorySlot.WeaponRanged
-				: EInventorySlot.WeaponMelee;
+				? EInventorySlot.WeaponRight
+				: EInventorySlot.WeaponLeft;
 			_contextSensitiveAttackSlot = slot;
 			TryStartWeaponAction(slot, "AttackContextSensitive");
 		}

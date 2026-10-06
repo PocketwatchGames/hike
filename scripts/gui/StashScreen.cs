@@ -1,16 +1,10 @@
 using Godot;
 using System.Collections.Generic;
 
-// Stash tab of the camp screen. Left = the party equipment stash
-// (SimState.PartyEquipmentStash, a BackpackPanel over that list); right =
-// the controlled member's equip slots (InventoryPanel). Tap a stash item to
-// equip it into its category slot — a piece already worn there is displaced back
-// into the stash. Tap an equipped EQUIPMENT hotbar item to send it back to the
-// stash; weapons / armor / helmets can't be unequipped (they only change by
-// being replaced), so tapping them is a no-op.
-//
-// Mutations land directly on the shared PartyEquipmentStash list (the live
-// SimState store), so they persist across chunk eviction and save/load.
+// Stash tab of the camp screen. Left = the party stash (SimState.PartyStash, a
+// BackpackPanel over that list); right = the controlled member's inventory
+// (InventoryPanel). Tap a stash item to take it into the backpack. Not opened by
+// anything at the moment — the stash is due a rework into a traditional stash.
 [GlobalClass]
 public partial class StashScreen : Control
 {
@@ -96,8 +90,8 @@ public partial class StashScreen : Control
 		_itemInfoPanelInventory?.SetItem(null);
 	}
 
-	// Tap a stash item → equip it. A displaced occupant returns to the stash via
-	// the Inventory equip path, so we refresh the whole list afterward.
+	// Tap a stash item → take it into the backpack, equipped when its slot is
+	// free (Player.TakeItem).
 	void OnStashTap(int index, ItemSlotPanel panel)
 	{
 		if (_stash == null || _player?.Inventory == null || index < 0 || index >= _stash.Count)
@@ -113,30 +107,13 @@ public partial class StashScreen : Control
 		{
 			return;
 		}
-		// The item now lives in a slot — pull it out of the stash list. (Any
-		// displaced piece was already pushed back onto the list by Inventory.)
 		_stash.Remove(item);
 		RefreshStash();
 	}
 
 	bool EquipFromStash(ItemState item)
 	{
-		Inventory inv = _player.Inventory;
-		switch (item.data.Category)
-		{
-			case EItemCategory.WeaponMelee:
-			case EItemCategory.WeaponRanged:
-			case EItemCategory.Armor:
-			case EItemCategory.Helmet:
-				return inv.TryEquip(item, item.data.EquipSlotKind);
-			case EItemCategory.Equipment:
-				// The single consumable slot is the attuned alchemy spell (set at the
-				// alchemy campfire screen), not a stash-equip target — Equipment-category
-				// items (cooked dishes, etc.) stay in the stash.
-				return false;
-			default:
-				return false;
-		}
+		return _player.TakeItem(item);
 	}
 
 	// ---- Equip-slot side (unequip) ----------------------------------------
@@ -148,8 +125,7 @@ public partial class StashScreen : Control
 	}
 
 	// Tap an equipped item → nothing here is stashable now: weapons / armor /
-	// helmets are permanent until replaced, and the Equipment "slot" is the attuned
-	// alchemy spell (managed at the alchemy campfire screen, not sent to the stash).
+	// helmets are permanent until replaced.
 	void OnInventoryPrimaryTap(ItemSlotPanel panel, ItemState item)
 	{
 	}

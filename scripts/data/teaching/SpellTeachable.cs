@@ -1,8 +1,7 @@
 using Godot;
 
-// Teaches an alchemy spell — records it into SimState.KnownSpells so it
-// shows up on the alchemy campfire screen (and can be attuned) before the player
-// has ever cast it. LearnSpell also silently identifies the spell so the button
+// Teaches an alchemy spell — records it into SimState.KnownSpells before the
+// player has ever cast it. LearnSpell also silently identifies the spell so the button
 // reads with its real name instead of "Unknown Potion".
 //
 // This is the spell analog of RecipeTeachable: used as an "I know this spell"

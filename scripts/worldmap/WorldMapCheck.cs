@@ -807,8 +807,8 @@ public static class WorldMapCheck
     // someone stands in the world: the bake keeps the FIRST of two equal names,
     // and a map naming a treasure nobody buried charts nothing.
     //
-    // Treasures are listed with the map items that chart them, found by loading
-    // every ConsumableData / ScrollData — few, and only here. A map reached some
+    // Treasures are listed with the map scrolls that chart them, found by loading
+    // every ScrollData — few, and only here. A map reached some
     // other way (a knowledge stone's TreasureMapTeachable) is not seen.
     private static void ReportNames(System.Text.StringBuilder sb, EntityPlacement[] entities, string world)
     {
@@ -882,20 +882,6 @@ public static class WorldMapCheck
                 maps[treasure] = items;
             }
             items.Add(path.GetFile().GetBaseName());
-        }
-        foreach (string path in ResourceTypeIndex.Candidates(typeof(ConsumableData), world))
-        {
-            if (ResourceLoader.Load<ConsumableData>(path) is not { } item || item.effects == null)
-            {
-                continue;
-            }
-            foreach (ItemEffect effect in item.effects)
-            {
-                if (effect is RevealTreasureMapEffect reveal)
-                {
-                    Add(reveal.treasureName, path);
-                }
-            }
         }
         foreach (string path in ResourceTypeIndex.Candidates(typeof(ScrollData), world))
         {

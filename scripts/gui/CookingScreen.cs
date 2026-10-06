@@ -3,10 +3,8 @@ using System;
 using System.Collections.Generic;
 
 // Cook tab of the camp screen. Left = the forge's experimentation slots + commit
-// button (CookingPanel); center = the party MATERIAL stash (BackpackPanel over
-// SimState.PartyMaterialStash), the ingredient source. Materials the party
-// carried in are drained into that stash on camping (GameClient.NotifyCampedAt),
-// so cooking always pulls from it, never from a carried backpack.
+// button (CookingPanel); center = the cook's backpack (BackpackPanel over
+// Inventory.Backpack), whose materials are the ingredient source.
 //
 // Cooking is INSTANT and per-character — there is no cook job or timer. Eating a
 // meal applies its recipe's status effect to the chosen character (replacing any
@@ -20,7 +18,7 @@ using System.Collections.Generic;
 public partial class CookingScreen : Control
 {
 	[Export] public GameClient gameClient;
-	// Ingredient source: the party material stash.
+	// The cook's backpack, slot for slot; only its materials can be cooked.
 	[Export] private BackpackPanel _backpackPanel;
 	[Export] private CookingPanel _cookingPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
@@ -161,14 +159,12 @@ public partial class CookingScreen : Control
 		}
 	}
 
-	// ---- Party stash accessors --------------------------------------------
-
 	SimState WorldSim => _player?.Sim?.WorldState?.SimState;
-	List<ItemState> MaterialStash => WorldSim?.PartyMaterialStash;
+	Inventory CookInventory => _player?.Inventory;
 
 	void RefreshMaterials()
 	{
-		_backpackPanel?.Refresh(MaterialStash);
+		_backpackPanel?.Refresh(CookInventory?.Backpack);
 	}
 
 	void RefreshRecipeList()
@@ -183,7 +179,8 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		_cookingPanel.RefreshRecipes(simData.recipes, worldSim, MaterialStash, _forge.CampfireType);
+		var materials = new List<ItemState>(_player.CarriedMaterials());
+		_cookingPanel.RefreshRecipes(simData.recipes, worldSim, materials, _forge.CampfireType);
 	}
 
 	// ---- Material side (add to cooking slots) ------------------------------
@@ -198,17 +195,17 @@ public partial class CookingScreen : Control
 		CookMaterial(index, 1);
 	}
 
-	// Move up to `count` units of the material at stash `index` into the cooking
-	// slots.
+	// Move up to `count` units of the material at backpack `index` into the
+	// cooking slots.
 	void CookMaterial(int index, int count)
 	{
-		List<ItemState> stash = MaterialStash;
-		if (stash == null || index < 0 || index >= stash.Count || _cookingPanel == null)
+		Inventory inv = CookInventory;
+		if (inv == null || index < 0 || index >= inv.Backpack.Count || _cookingPanel == null)
 		{
 			return;
 		}
-		ItemState src = stash[index];
-		if (src?.data == null)
+		ItemState src = inv.Backpack[index];
+		if (src?.data == null || !src.data.IsMaterial)
 		{
 			return;
 		}
@@ -221,14 +218,18 @@ public partial class CookingScreen : Control
 		src.Consume(placed);
 		if (src.stackCount <= 0)
 		{
-			stash.RemoveAt(index);
+			inv.Remove(src);
+		}
+		else
+		{
+			inv.NotifyChanged();
 		}
 		RefreshMaterials();
 		RefreshRecipeList();
 		UpdatePrimaryHint();
 	}
 
-	// ---- Cooking side (return to material stash) ---------------------------
+	// ---- Cooking side (return to the backpack) ------------------------------
 
 	void OnCookingFocusChanged(ItemSlotPanel panel, ItemState item)
 	{
@@ -246,14 +247,14 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		ItemStash.Add(MaterialStash, removed);
+		ReturnToBackpack(removed);
 		RefreshMaterials();
 		RefreshRecipeList();
 		UpdatePrimaryHint();
 	}
 
 	// Recipe list tap: eat this discovered recipe now — pay its reagents from the
-	// stash and apply its effect to the chosen character — then return to the hub.
+	// backpack and apply its effect to the chosen character — then return to the hub.
 	// An unaffordable recipe's button is disabled upstream, so a spend that still
 	// fails here just declines silently.
 	void OnRecipeSelected(RecipeData recipe)
@@ -263,7 +264,7 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		if (!worldSim.TrySpendMaterials(recipe.inputs))
+		if (_player == null || !_player.SpendReagents(recipe.inputs))
 		{
 			return;
 		}
@@ -357,8 +358,8 @@ public partial class CookingScreen : Control
 		return false;
 	}
 
-	// Pull the experimentation slots back into the material stash on close so
-	// nothing is silently lost.
+	// Pull the experimentation slots back into the backpack on close so nothing
+	// is silently lost.
 	void ReturnInputs()
 	{
 		if (_cookingPanel == null || _forge == null)
@@ -368,8 +369,24 @@ public partial class CookingScreen : Control
 		List<ItemState> drained = _cookingPanel.DrainInputs();
 		for (int i = 0; i < drained.Count; i++)
 		{
-			ItemStash.Add(MaterialStash, drained[i]);
+			ReturnToBackpack(drained[i]);
 		}
 		RefreshMaterials();
+	}
+
+	// The units came out of this backpack, so they fit back unless it was
+	// rearranged meanwhile; any that don't are dropped at the cook's feet.
+	void ReturnToBackpack(ItemState item)
+	{
+		Inventory inv = CookInventory;
+		if (inv == null || item == null)
+		{
+			return;
+		}
+		int wanted = item.stackCount;
+		if (inv.TryAdd(item) < wanted)
+		{
+			_player.Sim?.DropItem(item, _player.GlobalPosition + Vector3.Up * 0.5f, Vector3.Zero, requireInteract: true);
+		}
 	}
 }

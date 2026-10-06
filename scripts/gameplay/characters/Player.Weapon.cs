@@ -187,7 +187,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			return weapon;
 		}
-		if (slot == EInventorySlot.WeaponMelee && data?.unarmedWeapon != null)
+		if (slot == EInventorySlot.WeaponLeft && data?.unarmedWeapon != null)
 		{
 			_unarmedWeapon ??= new WeaponState(data.unarmedWeapon);
 			return _unarmedWeapon;
@@ -286,8 +286,8 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		// onto the weapon item — see StatusEffectController.SetWielderUpgradeSource.
 		EUpgradeSlot upgradeSlot = slot switch
 		{
-			EInventorySlot.WeaponMelee => EUpgradeSlot.Melee,
-			EInventorySlot.WeaponRanged => EUpgradeSlot.Ranged,
+			EInventorySlot.WeaponLeft => EUpgradeSlot.Melee,
+			EInventorySlot.WeaponRight => EUpgradeSlot.Ranged,
 			_ => EUpgradeSlot.None,
 		};
 		weapon.statusEffects?.SetWielderUpgradeSource(_statusEffects, upgradeSlot);
@@ -329,89 +329,73 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		_runner.OnInputReleased();
 	}
 
-	void TryUseActiveConsumable()
-	{
-		// Same as TryStartWeaponAction — consumable use is an overt action
-		// that ends the movement burst.
-		CancelDash();
-		if (_runner == null || _runner.IsBusy)
-		{
-			return;
-		}
-		ItemState item = _inventory?.GetActiveConsumable();
-		if (item == null || item.data is not SpellData spell)
-		{
-			return;
-		}
-		ItemActionProfile profile = spell.actionProfile;
-		if (profile == null)
-		{
-			return;
-		}
-		// Recipe-backed alchemy spell: refuse the cast when the party reagent pool
-		// can't afford it (the analog of a weapon's ammo gate). Only gate spells that
-		// actually cost reagents — a reagentless spell casts freely.
-		SpellData attuned = _inventory.AttunedSpell;
-		if (attuned != null && attuned.reagents.Count > 0 && !CVars.freeSpells.Value && GetSpellAmmo() <= 0)
-		{
-			return;
-		}
+	// The item whose timeline a UseItem press started, so the release reaches
+	// it even if the hotbar selection has moved on since.
+	ItemState _hotbarUseItem;
 
-		var context = new ActionContext
+	// UseItem on the hotbar selection. An item with an action timeline (the
+	// lantern: a tap toggles the light, a full hold reaches its fuel-costed heal)
+	// runs it — but gear must be equipped to be used, so the first press on an
+	// unequipped lantern equips it. An instant-use item (a potion) is spent
+	// on the spot. Any other gear toggles equipped.
+	void UseHotbarSelection()
+	{
+		ItemState item = _inventory?.SelectedHotbarItem;
+		if (item?.data == null || _runner == null || _runner.IsBusy)
 		{
-			verb = EActionVerb.Use,
-			primaryItem = item,
-			sourceSlot = EInventorySlot.Equipment,
-		};
-		_runner.TryStart(profile, context);
+			return;
+		}
+		EInventorySlot? equippedSlot = _inventory.GetEquippedSlot(item);
+		if (item.data is IUsableItem usable && usable.ActionProfile != null
+			&& (equippedSlot.HasValue || !item.data.IsEquippable))
+		{
+			CancelDash();
+			var context = new ActionContext
+			{
+				verb = EActionVerb.Use,
+				primaryItem = item,
+				sourceSlot = equippedSlot ?? EInventorySlot.None,
+			};
+			if (_runner.TryStart(usable.ActionProfile, context))
+			{
+				_hotbarUseItem = item;
+			}
+			return;
+		}
+		if (item.data is IInstantUseItem)
+		{
+			CancelDash();
+			UseInstantItem(item);
+			return;
+		}
+		if (item.data.IsEquippable)
+		{
+			_inventory.ToggleEquip(item);
+		}
 	}
 
-	void ReleaseUseConsumable()
+	// Spend one unit of an instant-use item (potion, scroll) on this member —
+	// the shared path for the hotbar and the inventory screen. False when the
+	// item isn't one, or its payload declined to be spent.
+	public bool UseInstantItem(ItemState item)
 	{
-		if (_runner == null || !_runner.IsBusy)
+		if (item?.data is not IInstantUseItem instant || _inventory == null || !_inventory.Contains(item))
 		{
-			return;
+			return false;
 		}
-		if (_runner.Current.context.sourceSlot != EInventorySlot.Equipment)
+		if (!instant.UseOn(this))
 		{
-			return;
+			return false;
 		}
-		_runner.OnInputReleased();
+		ItemEventHandlers.ConsumeOneFromStack(this, item);
+		return true;
 	}
 
-	// Drive the lantern's action from its dedicated slot — the Lantern input's
-	// counterpart to TryUseActiveConsumable. Runs the lantern's charge profile
-	// through the runner: a quick tap fires the low tier (toggle the light,
-	// refused by the same HasFuel gate the manual douse uses), while a full hold
-	// reaches the fuel-costed heal tier that auto-casts when charged.
-	void TryUseLantern()
+	void ReleaseHotbarUse()
 	{
-		CancelDash();
-		if (_runner == null || _runner.IsBusy)
-		{
-			return;
-		}
-		ItemState item = _inventory?.GetEquipped(EInventorySlot.Lantern);
-		if (item?.data is not LanternData lanternData || lanternData.actionProfile == null)
-		{
-			return;
-		}
-		var context = new ActionContext
-		{
-			verb = EActionVerb.Use,
-			primaryItem = item,
-			sourceSlot = EInventorySlot.Lantern,
-		};
-		_runner.TryStart(lanternData.actionProfile, context);
-	}
-
-	void ReleaseUseLantern()
-	{
-		if (_runner == null || !_runner.IsBusy)
-		{
-			return;
-		}
-		if (_runner.Current.context.sourceSlot != EInventorySlot.Lantern)
+		ItemState item = _hotbarUseItem;
+		_hotbarUseItem = null;
+		if (item == null || _runner == null || !_runner.IsBusy || _runner.Current.context.primaryItem != item)
 		{
 			return;
 		}
@@ -598,13 +582,13 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		EInventorySlot slot;
 		if (_aiming)
 		{
-			slot = EInventorySlot.WeaponRanged;
+			slot = EInventorySlot.WeaponRight;
 		}
 		else if (_runner != null && _runner.IsBusy
-			&& _runner.Current.context.sourceSlot == EInventorySlot.WeaponMelee
+			&& _runner.Current.context.sourceSlot == EInventorySlot.WeaponLeft
 			&& (_runner.Phase == EActionPhase.Charging || _runner.Phase == EActionPhase.Active))
 		{
-			slot = EInventorySlot.WeaponMelee;
+			slot = EInventorySlot.WeaponLeft;
 		}
 		else
 		{
@@ -823,8 +807,8 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	{
 		EUpgradeSlot upgradeSlot = slot switch
 		{
-			EInventorySlot.WeaponMelee => EUpgradeSlot.Melee,
-			EInventorySlot.WeaponRanged => EUpgradeSlot.Ranged,
+			EInventorySlot.WeaponLeft => EUpgradeSlot.Melee,
+			EInventorySlot.WeaponRight => EUpgradeSlot.Ranged,
 			_ => EUpgradeSlot.None,
 		};
 		if (upgradeSlot == EUpgradeSlot.None)

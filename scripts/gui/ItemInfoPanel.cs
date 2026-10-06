@@ -189,7 +189,7 @@ public partial class ItemInfoPanel : PanelContainer
 			case ArmorState armor:
 				AddStats(StatList.ArmorStats(armor));
 				break;
-			case SpellState:
+			case { data: SpellData }:
 			case LanternState:
 				if (item.data is IUsableItem usable)
 				{

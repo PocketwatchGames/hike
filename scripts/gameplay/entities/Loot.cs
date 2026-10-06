@@ -558,7 +558,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			return false;
 		}
-		return player.Inventory.CanFullyAdd(data, _simState.Item?.stackCount ?? 1);
+		return player.CanTake(data, _simState.Item?.stackCount ?? 1);
 	}
 
 	// Clear straight-line path from the loot up to the player's chest. Masks Solid
@@ -872,7 +872,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			return false;
 		}
-		return player.Inventory.CanFullyAdd(data, _simState.Item?.stackCount ?? 1);
+		return player.CanTake(data, _simState.Item?.stackCount ?? 1);
 	}
 
 	public bool CanInteract() => !_pickedUp && (!IsTimedEmergent || _emergeState == EmergeState.Visible);
@@ -913,25 +913,14 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			return true;
 		}
-		// An apply-on-pickup item (potion drunk, scroll read) runs its effect on
-		// interact and never deposits, so the backpack-fit gate doesn't apply.
-		if (AppliesOnPickup)
+		// Only allow interact when the whole stack fits; otherwise the action would
+		// run to completion and silently fail.
+		ItemData data = _simState?.Item?.data ?? _simState?.Data;
+		if (data == null)
 		{
 			return true;
 		}
-		// If the loot carries an item, only allow interact when there's space;
-		// otherwise the action would run to completion and silently fail. An
-		// equippable never touches the backpack — it goes to its slot and evicts
-		// whatever was there — so a full backpack only blocks materials.
-		if (_simState?.Item != null && player.Inventory.BackpackCount >= player.Inventory.BackpackCapacity)
-		{
-			ItemData data = _simState.Item.data ?? _simState.Data;
-			if (data == null || !data.IsSlotEquippable)
-			{
-				return false;
-			}
-		}
-		return true;
+		return player.CanTake(data, _simState.Item?.stackCount ?? 1);
 	}
 
 	public Array<InteractiveAction> GetActions(Player player)
@@ -961,13 +950,6 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			return;
 		}
-		// An apply-on-pickup item (potion / scroll) drinks/reads on the spot
-		// instead of depositing — like the boon path, this never enters the
-		// inventory.
-		if (TryApplyOnPickup(_picker))
-		{
-			return;
-		}
 		FinalizePickup();
 	}
 
@@ -975,15 +957,6 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 	// of depositing an item (the fairy corpse — possibleBoons composed onto its
 	// state at spawn, see Sim.ComposeFairyBoons).
 	private bool OffersBoons => _simState?.Item != null && _simState.Item.possibleBoons.Count > 0;
-
-	// The apply-on-pickup payload carried by this loot (potion / scroll), or
-	// null. Resolved off the composed Item if present, else the raw Data for
-	// world-spawned loot that carries no pre-built state.
-	private IApplyOnPickup PickupPayload => (_simState?.Item?.data ?? _simState?.Data) as IApplyOnPickup;
-
-	// True when interacting drinks/reads the item on the spot instead of
-	// depositing it (see IApplyOnPickup).
-	private bool AppliesOnPickup => PickupPayload != null;
 
 	// Open the boon-pick screen for `player` in place of an inventory deposit.
 	// The corpse is spent only if a boon is chosen — the completion callback then
@@ -1014,26 +987,6 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 			ApplyStatusEffect.ApplyBoon(player, chosen);
 			RemovePickedUp();
 		});
-		return true;
-	}
-
-	// Apply an apply-on-pickup item's payload (potion drunk, scroll read) to
-	// `player` in place of an inventory deposit, then remove the loot. Returns
-	// false when this loot carries no such payload so the caller falls back to
-	// the normal deposit. Mirrors TryOfferBoons — the item never enters the
-	// inventory. The payload decides whether the pickup is spent (removed) or
-	// left in place to retry.
-	private bool TryApplyOnPickup(Player player)
-	{
-		IApplyOnPickup payload = PickupPayload;
-		if (payload == null || player == null)
-		{
-			return false;
-		}
-		if (payload.ApplyOnPickup(player, GlobalPosition))
-		{
-			RemovePickedUp();
-		}
 		return true;
 	}
 
@@ -1121,9 +1074,8 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			return false;
 		}
-		// Where the item lands is the player's decision, not the loot's: materials
-		// go to the backpack, equippables straight into their slot (displacing the
-		// occupant onto the ground). A refusal leaves the pile in the world.
+		// Where the item lands is the player's decision, not the loot's. A refusal
+		// leaves the pile in the world.
 		return player.TakeItem(toAdd);
 	}
 

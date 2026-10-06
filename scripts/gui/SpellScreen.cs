@@ -4,10 +4,9 @@ using Godot.Collections;
 // Spell tab rendered inside AlmanacScreen. Lists every spell the player has
 // learned this run (SimState.IsSpellKnown → Knowledge.KnownSpells) — one row
 // per known spell. Focusing a row populates the item info panel with the spell
-// and the reagent slots with the spell's per-cast reagent cost.
+// and the reagent slots with the spell's reagent cost.
 //
-// View only — spells are learned out in the world (scrolls / teaching) and
-// attuned at the alchemy campfire, not from this screen. The Almanac wrapper
+// View only — spells are learned out in the world (scrolls / teaching). The Almanac wrapper
 // owns InputSuppressed / hud-visibility / ui_cancel handling; this screen just
 // rebuilds when its tab is shown.
 [GlobalClass]

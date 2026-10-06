@@ -2,13 +2,12 @@
 
 [ext_resource type="Script" uid="uid://ch1bcra4yc4s3" path="res://scripts/gui/InventoryScreen.cs" id="1_7a5n3"]
 [ext_resource type="PackedScene" uid="uid://dhquaxn2wsyge" path="res://scenes/gui/player_stats_panel.tscn" id="3_aue6y"]
-[ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="4_j245h"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="4_wawlv"]
 [ext_resource type="Script" uid="uid://c6fma23i8hjb3" path="res://scripts/gui/BackpackPanel.cs" id="5_vc0ui"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="6_bkslt"]
 [ext_resource type="PackedScene" uid="uid://cuf7l233ji6eh" path="res://scenes/gui/item_detail_panel.tscn" id="6_jm11f"]
 
-[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_meleePanel", "_rangedPanel", "_spellPanel", "_backpackPanel", "_highlightPanel")]
+[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_meleePanel", "_rangedPanel", "_backpackPanel", "_highlightPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -17,11 +16,10 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_7a5n3")
 _statsPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/PlayerStats")
-_meleePanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/MeleePanel")
-_rangedPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/RangedPanel")
-_spellPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/SpellPanel")
+_meleePanel = NodePath("")
+_rangedPanel = NodePath("")
 _backpackPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel")
-_highlightPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/ItemInfoPanel")
+_highlightPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/ItemInfoPanel")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=2000139086]
 layout_mode = 1
@@ -89,7 +87,7 @@ _slots = [NodePath("GridContainer/Backpack1"), NodePath("GridContainer/Backpack2
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
-columns = 4
+columns = 8
 
 [node name="Backpack1" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=1213629422 instance=ExtResource("6_bkslt")]
 layout_mode = 2
@@ -163,10 +161,6 @@ layout_mode = 2
 [node name="Backpack24" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel/GridContainer" unique_id=798065555 instance=ExtResource("6_bkslt")]
 layout_mode = 2
 
-[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer" unique_id=638608018 node_paths=PackedStringArray("_reagentSlots") instance=ExtResource("6_jm11f")]
-layout_mode = 2
-_reagentSlots = []
-
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1484389953]
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
@@ -176,13 +170,6 @@ size_flags_vertical = 4
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=508680546]
 layout_mode = 2
 
-[node name="MeleePanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=2122417689 instance=ExtResource("4_j245h")]
+[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=638608018 node_paths=PackedStringArray("_reagentSlots") instance=ExtResource("6_jm11f")]
 layout_mode = 2
-_showDetails = false
-
-[node name="RangedPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=393433198 instance=ExtResource("4_j245h")]
-layout_mode = 2
-_showDetails = false
-
-[node name="SpellPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=238001155 instance=ExtResource("4_j245h")]
-layout_mode = 2
+_reagentSlots = []

@@ -5,10 +5,8 @@
 [resource]
 script = ExtResource("1_s")
 scenarioName = "shockwave"
-description = "Shockwave scroll, three casts of reagents, and a ring of goblins to knock back."
-commands = "// No verb attunes a spell: read the scroll, then attune Shockwave at a campfire.
-spawn_loot scroll_shockwave
-spawn_loot goblin_meat 3
-spawn_loot mushroom_gold 6
+description = "Shockwave scroll, three charges, and a ring of goblins to knock back."
+commands = "spawn_loot scroll_shockwave
+spawn_loot shockwave 3
 spawn_mob goblin_forest 4"
 metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

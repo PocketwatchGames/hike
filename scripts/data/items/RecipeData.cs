@@ -4,7 +4,7 @@ using Godot.Collections;
 // A cooking recipe IS the thing it produces: a named day-long buff with a
 // reagent cost — there is no output item. Eating it at the cookpot (picking it
 // from the list, or a successful experimental cook) consumes `inputs` from the
-// party material stash and applies `statusEffects` to the chosen character
+// cook's backpack and applies `statusEffects` to the chosen character
 // immediately, replacing whatever meal they last ate (the effects are marked
 // EEffectCategory.Meal). Author them UntilTimeOfDay (or Timed) for how long
 // the buff should last — food poisoning, say, is a short Timed one.

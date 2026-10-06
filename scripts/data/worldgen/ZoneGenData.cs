@@ -210,7 +210,7 @@ public partial class ZoneGenData : Resource
     [Export] public ItemCountRange[] distributedLoot = System.Array.Empty<ItemCountRange>();
 
     // World-unique name for this zone's one buried treasure. A treasure map
-    // (RevealTreasureMapEffect.treasureName) points at the spot by this name, so
+    // (TreasureMapTeachable.treasureName) points at the spot by this name, so
     // the map->treasure link is fixed at authoring/worldgen, not resolved
     // dynamically. Empty = this zone has no treasure. Set treasureSpot too.
     [Export] public string treasureName = "";

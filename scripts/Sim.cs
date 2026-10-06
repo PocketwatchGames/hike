@@ -36,7 +36,7 @@ public partial class Sim : Node3D
 
     // Fired when the party rests (sleep to sunrise, pray home, the death wake),
     // after the skip's own OnDawn. What a night's sleep resets — spawns, the
-    // well-rested pick, the leader and spell picks — runs here, not at dawn: a
+    // well-rested pick, summoned pets — runs here, not at dawn: a
     // party that stays up through a sunrise keeps its day.
     public event Action OnRest;
 

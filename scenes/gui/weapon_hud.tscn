@@ -1,8 +1,10 @@
 [gd_scene format=3 uid="uid://dy8owtvikxnqf"]
 
 [ext_resource type="Script" uid="uid://c7pjuf5dv31v1" path="res://scripts/gui/WeaponHud.cs" id="1_06rsg"]
+[ext_resource type="Texture2D" uid="uid://c6brfyavs14am" path="res://assets/textures/gui/item_button_focused.png" id="2_qf7mk"]
+[ext_resource type="Texture2D" uid="uid://ci5kswtk3206n" path="res://assets/textures/gui/item_button_pressed.png" id="3_6sirm"]
 
-[node name="WeaponHud" type="BoxContainer" unique_id=150891526 node_paths=PackedStringArray("_cooldownBar", "_icon", "_ammoGroup", "_ammoProgress", "_ammoText")]
+[node name="WeaponHud" type="BoxContainer" unique_id=150891526 node_paths=PackedStringArray("_cooldownBar", "_icon", "_ammoGroup", "_ammoProgress", "_ammoText", "_selectedMarker", "_equippedMarker")]
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -22,6 +24,8 @@ _icon = NodePath("VBoxContainer/PanelContainer/Icon")
 _ammoGroup = NodePath("VBoxContainer/PanelContainer/AmmoContainer")
 _ammoProgress = NodePath("VBoxContainer/PanelContainer/AmmoContainer/AmmoBar")
 _ammoText = NodePath("VBoxContainer/PanelContainer/AmmoContainer/AmmoBar/Ammo")
+_selectedMarker = NodePath("VBoxContainer/PanelContainer/MarginContainer/Selected")
+_equippedMarker = NodePath("VBoxContainer/PanelContainer/Equipped")
 metadata/_custom_type_script = "uid://c7pjuf5dv31v1"
 
 [node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1947861846]
@@ -68,3 +72,18 @@ theme_override_font_sizes/font_size = 14
 text = "99"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="Equipped" type="TextureRect" parent="VBoxContainer/PanelContainer" unique_id=863207641]
+layout_mode = 2
+texture = ExtResource("2_qf7mk")
+
+[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/PanelContainer" unique_id=1761517610]
+layout_mode = 2
+theme_override_constants/margin_left = -3
+theme_override_constants/margin_top = -3
+theme_override_constants/margin_right = -3
+theme_override_constants/margin_bottom = -3
+
+[node name="Selected" type="TextureRect" parent="VBoxContainer/PanelContainer/MarginContainer" unique_id=1048397384]
+layout_mode = 2
+texture = ExtResource("3_6sirm")

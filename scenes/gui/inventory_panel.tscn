@@ -6,16 +6,14 @@
 [ext_resource type="Texture2D" uid="uid://6a8fdtc3s2sy" path="res://assets/textures/gui/inventory_bg_body.png" id="5_0ygo7"]
 [ext_resource type="Script" uid="uid://b8m03p4f7q2nk" path="res://scripts/gui/InventoryPanel.cs" id="5_panel"]
 [ext_resource type="Texture2D" uid="uid://gcw65djqyj64" path="res://assets/textures/gui/inventory_bg_right_hand.png" id="6_2xylm"]
-[ext_resource type="Texture2D" uid="uid://cl2pe70xguhi5" path="res://assets/textures/gui/inventory_bg_consumable.png" id="7_htin2"]
 
-[node name="Inventory" type="HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_armorHeadPanel", "_armorBodyPanel", "_weaponLeftPanel", "_weaponRightPanel", "_consumablePanels", "_backpackPanels")]
+[node name="Inventory" type="HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_armorHeadPanel", "_armorBodyPanel", "_weaponLeftPanel", "_weaponRightPanel", "_backpackPanels")]
 theme_override_constants/separation = 100
 script = ExtResource("5_panel")
 _armorHeadPanel = NodePath("Equipment/VBoxContainer/HBoxContainer/Head")
 _armorBodyPanel = NodePath("Equipment/VBoxContainer/HBoxContainer3/Body")
 _weaponLeftPanel = NodePath("Equipment/VBoxContainer/HBoxContainer3/WeaponLeft")
 _weaponRightPanel = NodePath("Equipment/VBoxContainer/HBoxContainer3/WeaponRight")
-_consumablePanels = [NodePath("Equipment/VBoxContainer/HBoxContainer4/Consumable1"), NodePath("Equipment/VBoxContainer/HBoxContainer4/Consumable2"), NodePath("Equipment/VBoxContainer/HBoxContainer4/Consumable3")]
 _backpackPanels = [NodePath(""), NodePath(""), NodePath(""), NodePath(""), NodePath(""), NodePath(""), NodePath(""), NodePath(""), NodePath(""), NodePath(""), NodePath(""), NodePath("")]
 
 [node name="Equipment" type="MarginContainer" parent="." unique_id=659057288]
@@ -51,18 +49,3 @@ BackgroundTexture = ExtResource("5_0ygo7")
 layout_mode = 2
 BackgroundTexture = ExtResource("6_2xylm")
 
-[node name="HBoxContainer4" type="HBoxContainer" parent="Equipment/VBoxContainer" unique_id=574760090]
-layout_mode = 2
-alignment = 1
-
-[node name="Consumable1" parent="Equipment/VBoxContainer/HBoxContainer4" unique_id=661065185 instance=ExtResource("1_ovktt")]
-layout_mode = 2
-BackgroundTexture = ExtResource("7_htin2")
-
-[node name="Consumable2" parent="Equipment/VBoxContainer/HBoxContainer4" unique_id=1866558077 instance=ExtResource("1_ovktt")]
-layout_mode = 2
-BackgroundTexture = ExtResource("7_htin2")
-
-[node name="Consumable3" parent="Equipment/VBoxContainer/HBoxContainer4" unique_id=203541355 instance=ExtResource("1_ovktt")]
-layout_mode = 2
-BackgroundTexture = ExtResource("7_htin2")

@@ -2,9 +2,9 @@
 
 [ext_resource type="Texture2D" uid="uid://whcsmapxod45" path="res://assets/textures/items/Armor.png" id="1_sprite"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
-[ext_resource type="Script" uid="uid://11t1a8dvp0j6n" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
-[ext_resource type="Script" uid="uid://ouzgtnkbomf4q" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
+[ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
 
 [sub_resource type="Resource" id="m_pen"]
 script = ExtResource("tagmod_1")

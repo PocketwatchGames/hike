@@ -23,26 +23,18 @@ using Godot;
 // it is one permanent Party.Chart, written directly.
 public class SimState
 {
-    // Party equipment stash — the shared store of weapons / armor / helmets /
-    // equipment the party reaches from the Stash tab of any campfire's camp screen
-    // (there is no physical chest). Gear is equipped into slots from here, and a
-    // piece displaced by equipping-over returns here. Persisted by SaveGame.
-    public readonly List<ItemState> PartyEquipmentStash = new();
+    // The party's shared stash: one store for every kind of item, beside each
+    // member's backpack. Nothing reads from it yet — cooking and spells draw only
+    // from the backpack — and the only thing that writes to it is a starting
+    // loadout too big for the backpack. Persisted by SaveGame.
+    public readonly List<ItemState> PartyStash = new();
 
-    // Party material stash — the shared store of crafting materials (loot, meat,
-    // ingredients). The controlled member's carried material backpack drains into
-    // this on camping, and cooking pulls ingredients from it. Persisted by SaveGame.
-    public readonly List<ItemState> PartyMaterialStash = new();
-
-    // Age the shared party stashes: prune each stack's spoiled cohorts (meat,
-    // mushrooms) in place and drop any stack that empties, mirroring the backpack
-    // sweep in Player.ExpireDue. Called from Sim.SweepDeadlines. The equipment
-    // stash is swept too for symmetry; equipment carries no perishable cohorts,
-    // so it's a no-op there.
+    // Age the stash: prune each stack's spoiled cohorts (meat, mushrooms) in place
+    // and drop any stack that empties, mirroring the backpack sweep in
+    // Player.ExpireDue. Called from Sim.SweepDeadlines.
     public void PruneExpiredPerishables(double nowClock)
     {
-        PruneExpiredStash(PartyMaterialStash, nowClock);
-        PruneExpiredStash(PartyEquipmentStash, nowClock);
+        PruneExpiredStash(PartyStash, nowClock);
     }
 
     private static void PruneExpiredStash(List<ItemState> stash, double nowClock)
@@ -78,46 +70,6 @@ public class SimState
     // serialized: each campfire's own Active bit already records its lit state,
     // and this reference is re-established as the lit campfire streams in.
     public CampfireSimState LitCampfire;
-
-    // Spend one full `inputs` cost from the party material stash. All-or-nothing:
-    // returns false (spending nothing) when the stash can't cover the cost.
-    // Matches reagents up each stack's ItemData.parent chain, the same identity
-    // rule Cooking.TryMatch / CountAffordable use.
-    public bool TrySpendMaterials(IReadOnlyList<RecipeInput> inputs)
-    {
-        if (inputs == null || inputs.Count == 0)
-        {
-            return false;
-        }
-        if (Cooking.CountAffordable(inputs, PartyMaterialStash) <= 0)
-        {
-            return false;
-        }
-        for (int i = 0; i < inputs.Count; i++)
-        {
-            RecipeInput r = inputs[i];
-            if (r?.item == null || r.count <= 0)
-            {
-                continue;
-            }
-            int need = r.count;
-            for (int s = PartyMaterialStash.Count - 1; s >= 0 && need > 0; s--)
-            {
-                ItemState stack = PartyMaterialStash[s];
-                if (stack?.data == null || stack.stackCount <= 0 || !Cooking.Satisfies(stack.data, r.item))
-                {
-                    continue;
-                }
-                int take = stack.Consume(need);
-                need -= take;
-                if (stack.stackCount <= 0)
-                {
-                    PartyMaterialStash.RemoveAt(s);
-                }
-            }
-        }
-        return true;
-    }
 
     // World position of the climbable tree the player is currently perched in, or
     // null when not climbing. Drives the active (red) tint on that tree's map
@@ -236,18 +188,16 @@ public class SimState
         return false;
     }
 
-    // Both party stashes, inside a shared EntitySerializer table (SaveGame). An
+    // The party stash, inside a shared EntitySerializer table (SaveGame). An
     // item whose ItemData no longer exists reads back null and is dropped.
     public void SerializeStashes(BinaryWriter w)
     {
-        WriteStash(w, PartyEquipmentStash);
-        WriteStash(w, PartyMaterialStash);
+        WriteStash(w, PartyStash);
     }
 
     public void DeserializeStashes(BinaryReader r)
     {
-        ReadStash(r, PartyEquipmentStash);
-        ReadStash(r, PartyMaterialStash);
+        ReadStash(r, PartyStash);
     }
 
     private static void WriteStash(BinaryWriter w, List<ItemState> stash)

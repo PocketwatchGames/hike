@@ -19,7 +19,6 @@ public partial class InventoryPanel : Control
 	[Export] private ItemSlotPanel _armorBodyPanel;
 	[Export] private ItemSlotPanel _weaponLeftPanel;
 	[Export] private ItemSlotPanel _weaponRightPanel;
-	[Export] private Array<ItemSlotPanel> _consumablePanels;
 	// Optional in-panel backpack grid. The material-carrying screens (inventory /
 	// stash / cooking) render the backpack with a SEPARATE BackpackPanel and leave
 	// this empty, so InventoryPanel here is just the equip-slot cluster; the legacy
@@ -118,7 +117,6 @@ public partial class InventoryPanel : Control
 		WirePanel(_armorBodyPanel);
 		WirePanel(_weaponLeftPanel);
 		WirePanel(_weaponRightPanel);
-		WirePanels(_consumablePanels);
 		WirePanels(_backpackPanels);
 
 		// Seed every hint with its bound action's glyph. The screen overrides
@@ -134,7 +132,6 @@ public partial class InventoryPanel : Control
 		if (_inventory != null)
 		{
 			_inventory.onSlotChanged -= OnInventoryChanged;
-			_inventory.onConsumableChanged -= OnConsumableChanged;
 			_inventory.onChanged -= OnInventoryGenericChanged;
 		}
 	}
@@ -151,7 +148,6 @@ public partial class InventoryPanel : Control
 		if (_inventory != null)
 		{
 			_inventory.onSlotChanged -= OnInventoryChanged;
-			_inventory.onConsumableChanged -= OnConsumableChanged;
 			_inventory.onChanged -= OnInventoryGenericChanged;
 		}
 		_player = player;
@@ -159,7 +155,6 @@ public partial class InventoryPanel : Control
 		if (_inventory != null)
 		{
 			_inventory.onSlotChanged += OnInventoryChanged;
-			_inventory.onConsumableChanged += OnConsumableChanged;
 			// Generic pulse fires for stack-count mutations (e.g. consumable
 			// Use's DecrementStack event) that the slot signals don't cover.
 			_inventory.onChanged += OnInventoryGenericChanged;
@@ -186,7 +181,6 @@ public partial class InventoryPanel : Control
 		if (_inventory != null)
 		{
 			_inventory.onSlotChanged -= OnInventoryChanged;
-			_inventory.onConsumableChanged -= OnConsumableChanged;
 			_inventory.onChanged -= OnInventoryGenericChanged;
 		}
 		_inventory = null;
@@ -222,7 +216,6 @@ public partial class InventoryPanel : Control
 	}
 
 	void OnInventoryChanged(EInventorySlot _) => RefreshAll();
-	void OnConsumableChanged() => RefreshAll();
 	void OnInventoryGenericChanged() => RefreshAll();
 
 	public void RefreshAll()
@@ -234,19 +227,9 @@ public partial class InventoryPanel : Control
 
 		_armorHeadPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.Helmet));
 		_armorBodyPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.Armor));
-		_weaponLeftPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.WeaponMelee));
-		_weaponRightPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.WeaponRanged));
+		_weaponLeftPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.WeaponLeft));
+		_weaponRightPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.WeaponRight));
 
-		if (_consumablePanels != null)
-		{
-			// The single consumable slot now holds the attuned alchemy spell's cast
-			// instance (shown in the first panel); any further panels stay empty.
-			ItemState attuned = _inventory.GetActiveConsumable();
-			for (int i = 0; i < _consumablePanels.Count; i++)
-			{
-				_consumablePanels[i]?.SetItem(i == 0 ? attuned : null);
-			}
-		}
 		if (_backpackPanels != null)
 		{
 			IReadOnlyList<ItemState> backpack = _inventory.Backpack;
@@ -346,7 +329,6 @@ public partial class InventoryPanel : Control
 		_armorBodyPanel?.SetFocusable(focusable);
 		_weaponLeftPanel?.SetFocusable(focusable);
 		_weaponRightPanel?.SetFocusable(focusable);
-		ApplyFocusable(_consumablePanels, focusable);
 		ApplyFocusable(_backpackPanels, focusable);
 	}
 
@@ -387,29 +369,16 @@ public partial class InventoryPanel : Control
 		return panel != null && _backpackPanels != null && _backpackPanels.Contains(panel);
 	}
 
-	// Resolve a panel to its EInventorySlot identity (Helmet, Armor, WeaponMelee,
-	// WeaponRanged, Equipment, or None for backpack). For Equipment, the slot is
-	// shared across the hotbar — use GetConsumableIndex to get the specific
-	// position.
+	// Resolve a panel to its EInventorySlot identity (Helmet, Armor, WeaponLeft,
+	// WeaponRight, or None for backpack).
 	public EInventorySlot GetEquipSlotKind(ItemSlotPanel panel)
 	{
 		if (panel == null) { return EInventorySlot.None; }
 		if (panel == _armorHeadPanel) { return EInventorySlot.Helmet; }
 		if (panel == _armorBodyPanel) { return EInventorySlot.Armor; }
-		if (panel == _weaponLeftPanel) { return EInventorySlot.WeaponMelee; }
-		if (panel == _weaponRightPanel) { return EInventorySlot.WeaponRanged; }
-		if (_consumablePanels != null && _consumablePanels.Contains(panel))
-		{
-			return EInventorySlot.Equipment;
-		}
+		if (panel == _weaponLeftPanel) { return EInventorySlot.WeaponLeft; }
+		if (panel == _weaponRightPanel) { return EInventorySlot.WeaponRight; }
 		return EInventorySlot.None;
-	}
-
-	// Hotbar index for a consumable panel, -1 for any other panel kind.
-	public int GetConsumableIndex(ItemSlotPanel panel)
-	{
-		if (panel == null || _consumablePanels == null) { return -1; }
-		return _consumablePanels.IndexOf(panel);
 	}
 
 	// Backpack index for a backpack panel, -1 for any other panel kind. The
@@ -459,24 +428,12 @@ public partial class InventoryPanel : Control
 				case ArmorData armor:
 					return armor.armorSlot == EInventorySlot.Helmet ? _armorHeadPanel : _armorBodyPanel;
 				case WeaponData weapon:
-					return weapon.CanonicalSlot == EInventorySlot.WeaponRanged ? _weaponRightPanel : _weaponLeftPanel;
-				case SpellData:
-					return FindFirstEmptyConsumablePanel() ?? (_consumablePanels?.Count > 0 ? _consumablePanels[0] : null);
+					return weapon.CanonicalSlot == EInventorySlot.WeaponRight ? _weaponRightPanel : _weaponLeftPanel;
 			}
 			return null;
 		}
 		// Source is an equip slot — autotarget the first backpack position.
 		return GetFirstBackpackPanel();
-	}
-
-	ItemSlotPanel FindFirstEmptyConsumablePanel()
-	{
-		if (_consumablePanels == null) { return null; }
-		foreach (ItemSlotPanel p in _consumablePanels)
-		{
-			if (p != null && p.Item == null) { return p; }
-		}
-		return null;
 	}
 
 	// Walks every slot the panel manages so callers can apply ghost / dim
@@ -488,13 +445,6 @@ public partial class InventoryPanel : Control
 		if (_armorBodyPanel != null) { yield return _armorBodyPanel; }
 		if (_weaponLeftPanel != null) { yield return _weaponLeftPanel; }
 		if (_weaponRightPanel != null) { yield return _weaponRightPanel; }
-		if (_consumablePanels != null)
-		{
-			foreach (ItemSlotPanel p in _consumablePanels)
-			{
-				if (p != null) { yield return p; }
-			}
-		}
 		if (_backpackPanels != null)
 		{
 			foreach (ItemSlotPanel p in _backpackPanels)

@@ -439,7 +439,8 @@ public partial class Player : CharacterBody3D
 
 		PackedScene itemModel = null;
 		if (_runner != null && _runner.IsBusy
-			&& _runner.Current.context.sourceSlot == EInventorySlot.Equipment)
+			&& _runner.Current.context.verb == EActionVerb.Use
+			&& _runner.Current.context.sourceSlot == EInventorySlot.None)
 		{
 			itemModel = _runner.Current.context.primaryItem?.data?.heldModel;
 		}
@@ -456,7 +457,7 @@ public partial class Player : CharacterBody3D
 		// melee weapon equipped leaves the existing held model untouched.
 		if (_aiming)
 		{
-			WeaponState ranged = _inventory?.GetWeapon(EInventorySlot.WeaponRanged);
+			WeaponState ranged = _inventory?.GetWeapon(EInventorySlot.WeaponRight);
 			PackedScene rangedModel = ranged?.data?.heldModel;
 			if (rangedModel != null)
 			{

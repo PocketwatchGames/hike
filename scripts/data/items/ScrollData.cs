@@ -1,15 +1,11 @@
 using Godot;
 
-// A found scroll — read on the spot when picked up out of the world (a chest
-// drop, ground loot) rather than carried. Reading grants a single
-// TeachableConcept. Authoring is one line in the .tres: assign `concept` and the
-// scroll's display name is auto-derived from it (e.g. "Scroll of <region name>",
-// "Scroll of <recipe output>", "Scroll of <language>").
-//
-// Applies on pickup (IApplyOnPickup) rather than through a consumable Use
-// timeline — the concept is self-contained (Teach), so the scroll doesn't need
-// to be a ConsumableData. Its knowledge-stone sibling (KnowledgeStone) grants
-// the same concepts via its own Complete; this is the loot-shaped counterpart.
+// A found scroll, read the moment it is picked up (IApplyOnPickup) rather than
+// carried. Reading grants a single TeachableConcept. Authoring is one line in
+// the .tres: assign `concept` and the scroll's display name is derived from it
+// (TeachableConcept.ScrollTitle: "Scroll of <region name>", "Scroll of
+// <language>", or a treasure map's own name). Its knowledge-stone sibling
+// (KnowledgeStone) grants the same concepts via its own Complete.
 //
 // Read-side: SimState.GetItemDisplayName routes through here so the info panel
 // and cook-discovery announcement stay in sync with the (post-identification)
@@ -23,22 +19,25 @@ public partial class ScrollData : ItemData, IApplyOnPickup
 	// newly grants its concept (a re-read of an already-known scroll is silent).
 	[Export] public PackedScene learnEffect;
 
-	// Equipment (not Material) so field pickup requires an interact instead of
-	// auto-grabbing on contact — reading is a deliberate action.
-	protected override EItemCategory ComputeCategory() => EItemCategory.Equipment;
+	// Not a Material, so a field pickup takes an interact — reading is deliberate.
+	protected override EItemCategory ComputeCategory() => EItemCategory.Usable;
 
-	public bool ApplyOnPickup(Player player, Vector3 worldPosition)
+	public bool ApplyOnPickup(Player player)
 	{
 		if (player == null || concept == null)
 		{
-			// No concept to grant: still consume the scroll so a misauthored one
+			// No concept to grant: still spend the scroll so a misauthored one
 			// doesn't become an un-pickable blocker in the world.
 			return true;
 		}
 		// Teach returns true only on a new grant, so the fx gates on first learn.
-		if (concept.Teach(player) && learnEffect != null)
+		if (concept.Teach(player))
 		{
-			Fx.Create(learnEffect, player, Vector3.Zero);
+			if (learnEffect != null)
+			{
+				Fx.Create(learnEffect, player, Vector3.Zero);
+			}
+			concept.OnLearnedFromScroll(player);
 		}
 		return true;
 	}
@@ -53,13 +52,7 @@ public partial class ScrollData : ItemData, IApplyOnPickup
 		{
 			return displayName.ToString();
 		}
-		string conceptName = concept.GetDisplayName();
-		if (string.IsNullOrEmpty(conceptName))
-		{
-			return displayName.ToString();
-		}
-		// Hardcoded format — same StringName-as-display-text convention used
-		// elsewhere (RegionData / ItemData displayName).
-		return $"Scroll of {conceptName}";
+		string title = concept.ScrollTitle();
+		return string.IsNullOrEmpty(title) ? displayName.ToString() : title;
 	}
 }

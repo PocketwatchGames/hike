@@ -1,18 +1,13 @@
 // The equip slots an item can occupy. Member ORDER is wire-stable — the values
 // are stored as ints in .tres (ArmorData.armorSlot, WeaponModData.onAttackSlot),
-// so rename in place but never reorder. Equipment is the 3-slot active hotbar
-// (potions / food / torches); the backpack (materials) has no slot here.
+// so rename in place but never reorder.
 public enum EInventorySlot
 {
 	None,
 	Helmet,
 	Armor,
-	WeaponMelee,
-	WeaponRanged,
-	Equipment,
-	// Dedicated single slot for the player's lantern — a LanternData carried by
-	// every character, toggled with the Lantern input and never allowed into the
-	// Equipment hotbar.
+	WeaponLeft,
+	WeaponRight,
 	Lantern,
 	Count
 }

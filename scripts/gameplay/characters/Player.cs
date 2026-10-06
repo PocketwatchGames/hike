@@ -1083,89 +1083,95 @@ public partial class Player : CharacterBody3D
 
 
 
-	// Reconciles the player's carried torch against the current inventory. The
-	// selected consumable, if a torch, is shown in-hand; otherwise any lit torch
-	// in another slot is shown stowed on the back so it keeps lighting (the torch
-	// can live in the active hotbar slot OR any other slot — a lit torch in the
-	// backpack still lights the area). The HeldTorch prop carries its own world
-	// light, so setting the prop + lit state is all the player does; placement
-	// (hand vs back vs hidden) is HeldItemVisual's job. Called from the
-	// ToggleMovingLight handler and any time the inventory changes.
+	// Reconciles the player's carried lantern against the current inventory. The
+	// HeldTorch prop carries its own world light, so setting the prop + lit state
+	// is all the player does; placement (hand vs back vs hidden) is
+	// HeldItemVisual's job. Called from the ToggleMovingLight handler and any time
+	// the inventory changes.
 	public void RefreshCarriedLight()
 	{
 		RefreshCarriedTorchVisual();
 	}
 
-	private void OnConsumableChanged()
+	// ---- Summoned pet --------------------------------------------------------
+
+	// The one pet this member has summoned (SummonPetEffect). Owned by the caster
+	// rather than the spell item, so it outlives the stack that summoned it.
+	// Dismissed by a rest (Sim.RestToSunrise) — so no save ever holds one — and
+	// replaced when a different pet is summoned. Cleared on its own if the pet
+	// leaves the tree by any other path (death cleanup, eviction).
+	public Mob SummonedPet { get; private set; }
+
+	public void AdoptPet(Mob pet)
 	{
-		RefreshCarriedTorchVisual();
+		SummonedPet = pet;
+		if (pet == null)
+		{
+			return;
+		}
+		pet.TreeExiting += () =>
+		{
+			if (SummonedPet == pet)
+			{
+				SummonedPet = null;
+			}
+		};
 	}
 
-	// ---- Alchemy spell reagents --------------------------------------------
-
-	// The reagent pool an attuned spell draws from: the player's carried backpack
-	// materials plus the shared party material stash (no physical chest — the
-	// stash is always logically reachable). Backpack first so on-hand reagents are
-	// spent before the banked stash. Read-only; used for the castable-count.
-	public System.Collections.Generic.IEnumerable<ItemState> CombinedMaterialPool()
+	// Remove the owned pet from the world, live or dead.
+	public void DismissPet()
 	{
-		if (_inventory != null)
+		Mob pet = SummonedPet;
+		SummonedPet = null;
+		if (pet != null && GodotObject.IsInstanceValid(pet))
 		{
-			IReadOnlyList<ItemState> backpack = _inventory.Backpack;
-			for (int i = 0; i < backpack.Count; i++)
-			{
-				ItemState s = backpack[i];
-				if (s?.data != null && s.data.IsMaterial && s.stackCount > 0)
-				{
-					yield return s;
-				}
-			}
-		}
-		System.Collections.Generic.List<ItemState> stash = _world?.WorldState?.SimState?.PartyMaterialStash;
-		if (stash != null)
-		{
-			for (int i = 0; i < stash.Count; i++)
-			{
-				ItemState s = stash[i];
-				if (s?.data != null && s.stackCount > 0)
-				{
-					yield return s;
-				}
-			}
+			pet.Despawn();
 		}
 	}
 
-	// How many casts the currently attuned spell can afford from the combined
-	// reagent pool — the spell slot's dynamic "ammo". 0 when nothing is attuned.
-	public int GetSpellAmmo()
+	// ---- Reagents ----------------------------------------------------------
+
+	// The reagent pool reagent-costed interactives and cooking draw from:
+	// the materials in this member's backpack. Read-only.
+	public System.Collections.Generic.IEnumerable<ItemState> CarriedMaterials()
 	{
-		SpellData spell = _inventory?.AttunedSpell;
-		return spell == null ? 0 : Cooking.CountAffordable(spell.reagents, CombinedMaterialPool());
+		if (_inventory == null)
+		{
+			yield break;
+		}
+		IReadOnlyList<ItemState> backpack = _inventory.Backpack;
+		for (int i = 0; i < backpack.Count; i++)
+		{
+			ItemState s = backpack[i];
+			if (s?.data != null && s.data.IsMaterial && s.stackCount > 0)
+			{
+				yield return s;
+			}
+		}
 	}
 
 	// IActionActor — non-mutating peek used to gate a reagent-costed interactive
 	// (InteractiveAction.reagents) at press. An empty cost is trivially affordable;
-	// otherwise the combined backpack + party-stash pool must cover one full cost.
+	// otherwise the carried materials must cover one full cost.
 	public bool HasReagents(IReadOnlyList<RecipeInput> reagents)
 	{
 		if (reagents == null || reagents.Count == 0)
 		{
 			return true;
 		}
-		return Cooking.CountAffordable(reagents, CombinedMaterialPool()) > 0;
+		return Cooking.CountAffordable(reagents, CarriedMaterials()) > 0;
 	}
 
-	// Spend one cast's worth of reagents from the pool, backpack-first then the
-	// party stash. Returns false (spending nothing) if the pool can't cover the
-	// full cost — the cast is gated on GetSpellAmmo upstream, so this is a
-	// backstop. Called from the cast timeline's consume event.
+	// Spend one full cost from the carried materials — a spell cast, a
+	// reagent-costed interactive, a cooked recipe. Returns false (spending
+	// nothing) if they can't cover it.
 	public bool SpendReagents(IReadOnlyList<RecipeInput> reagents)
 	{
 		if (reagents == null || reagents.Count == 0)
 		{
 			return false;
 		}
-		if (Cooking.CountAffordable(reagents, CombinedMaterialPool()) <= 0)
+		if (Cooking.CountAffordable(reagents, CarriedMaterials()) <= 0)
 		{
 			return false;
 		}
@@ -1176,42 +1182,13 @@ public partial class Player : CharacterBody3D
 			{
 				continue;
 			}
-			int need = r.count - _inventory.SpendMaterial(r.item, r.count);
-			if (need > 0)
-			{
-				SpendFromMaterialStash(r.item, need);
-			}
+			_inventory.SpendMaterial(r.item, r.count);
 		}
 		// Refresh any inventory-backed UI (backpack rows, spell ammo, forge counts)
 		// now that pool stacks changed. Callers used to fire this themselves; folding
 		// it in keeps every spend path — spell cast and interactive completion — in sync.
 		_inventory?.NotifyChanged();
 		return true;
-	}
-
-	// Deduct up to `count` of a reagent from the shared party material stash,
-	// matching up the item's parent chain and pruning emptied stacks.
-	private void SpendFromMaterialStash(ItemData reagentItem, int count)
-	{
-		System.Collections.Generic.List<ItemState> stash = _world?.WorldState?.SimState?.PartyMaterialStash;
-		if (stash == null || reagentItem == null || count <= 0)
-		{
-			return;
-		}
-		for (int i = stash.Count - 1; i >= 0 && count > 0; i--)
-		{
-			ItemState s = stash[i];
-			if (s?.data == null || s.stackCount <= 0 || !Cooking.Satisfies(s.data, reagentItem))
-			{
-				continue;
-			}
-			int take = s.Consume(count);
-			count -= take;
-			if (s.stackCount <= 0)
-			{
-				stash.RemoveAt(i);
-			}
-		}
 	}
 
 	// See RefreshCarriedLight. The light rides the held torch (HeldTorch.movingLightScene),
@@ -1222,38 +1199,13 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		ItemState active = _inventory?.GetActiveConsumable();
-		if (active?.data is LanternData activeLantern)
-		{
-			// Selected lantern: held in hand (HeldItemVisual stows it on the back on
-			// its own if a weapon / item is also drawn), lit per its active state.
-			bool lit = active is LanternState cs && cs.isActive;
-			_heldVisual.SetTorch(activeLantern.heldLanternScene, inHand: true);
-			_heldVisual.SetTorchLit(lit, this);
-			return;
-		}
-		// No lantern selected — a lit lantern in any other slot stays visible (stowed)
-		// and lighting.
-		LanternData litLantern = FindLitLantern();
+		// Only the equipped lantern is ever lit (Inventory.SetSlot snuffs one on
+		// unequip); it shows stowed while lit.
+		LanternData litLantern = _inventory?.GetEquipped(EInventorySlot.Lantern) is LanternState { isActive: true } lantern
+			? lantern.data
+			: null;
 		_heldVisual.SetTorch(litLantern?.heldLanternScene, inHand: false);
 		_heldVisual.SetTorchLit(litLantern != null, this);
-	}
-
-	// First lit (isActive) lantern consumable anywhere in inventory, or null.
-	private LanternData FindLitLantern()
-	{
-		if (_inventory == null)
-		{
-			return null;
-		}
-		foreach (ItemState item in _inventory.EnumerateAll())
-		{
-			if (item is LanternState cs && cs.isActive)
-			{
-				return cs.data;
-			}
-		}
-		return null;
 	}
 
 	// Environment-driven counterpart to the manual ToggleMovingLight douse:
@@ -1385,9 +1337,6 @@ public partial class Player : CharacterBody3D
 		_inventory = new Inventory(this, data);
 		_inventory.onSlotChanged += OnInventorySlotChanged;
 		_inventory.onChanged += RefreshCarriedLight;
-		// Selecting a different consumable swaps what's shown in hand, so the
-		// held-torch prop has to refresh even when the inventory contents don't.
-		_inventory.onConsumableChanged += OnConsumableChanged;
 		_runner = new ActionRunner(this);
 		_statusEffects = new StatusEffectController(this, sim, ApplyStatusHealthDelta, ComposeBuildupResistance, conditionActive: EvaluateTraitCondition, maxHealth: () => MaxHealth);
 		_scent = new ScentEmitter(this, sim, data.scentStrength, data.scentDecayRate,
@@ -1568,71 +1517,78 @@ public partial class Player : CharacterBody3D
 		UpdateWellRestedFx();
 	}
 
+	// Whether TakeItem would accept `count` of `data` — the gate a pickup checks
+	// before committing. An apply-on-pickup item never needs backpack room.
+	public bool CanTake(ItemData data, int count)
+	{
+		if (_inventory == null || data == null)
+		{
+			return false;
+		}
+		return data is IApplyOnPickup || _inventory.CanFullyAdd(data, count);
+	}
+
 	// Take ownership of an item from outside the inventory (a field pickup, a
-	// gift, a forged piece): materials go to the backpack, equippables straight
-	// into their slot. False means the player did NOT take it — the caller must
-	// leave it where it is, since a half-taken stack would vanish.
+	// gift, a forged piece): it goes into the backpack, and a piece of gear is
+	// equipped too when its slot is empty. An apply-on-pickup item (a scroll) is
+	// applied instead and never enters the backpack. False means the player did
+	// NOT take it — the caller must leave it where it is, since a half-taken
+	// stack would vanish.
 	public bool TakeItem(ItemState item)
 	{
 		if (_inventory == null || item?.data == null)
 		{
 			return false;
 		}
-		if (item.data.IsMaterial)
+		if (item.data is IApplyOnPickup onPickup)
 		{
-			// Partial adds refuse the whole take — the leftover units have nowhere
-			// to go, and the caller (loot) would remove the pile regardless.
-			int wanted = item.stackCount;
-			return _inventory.TryAdd(item) >= wanted;
+			return onPickup.ApplyOnPickup(this);
 		}
-		return EquipItem(item);
+		// Partial adds refuse the whole take — the leftover units have nowhere
+		// to go, and the caller (loot) would remove the pile regardless.
+		if (!_inventory.CanFullyAdd(item.data, item.stackCount))
+		{
+			return false;
+		}
+		_inventory.TryAdd(item);
+		EquipIfSlotEmpty(item);
+		return true;
 	}
 
-	// Equip an item into its canonical slot; any current occupant is dropped on
-	// the ground where the swap happened. Returns false for a non-equippable item.
-	// Ephemeral expiry is armed by Inventory on acquisition.
-	public bool EquipItem(ItemState item)
+	// Equip an owned piece of gear when nothing holds its slot yet.
+	private void EquipIfSlotEmpty(ItemState item)
 	{
-		if (_inventory == null || item?.data == null)
+		if (item?.data != null && item.data.IsEquippable
+			&& _inventory.GetEquipped(item.data.EquipSlotKind) == null)
 		{
-			return false;
+			_inventory.Equip(item);
 		}
-		if (!item.data.IsSlotEquippable)
-		{
-			return false;
-		}
-		return _inventory.TryEquip(item, item.data.EquipSlotKind);
 	}
 
-	// Seed one entry of this member's authored equipped loadout. Unlike a field
-	// pickup this never displaces: the first entry for a slot wins and any further
-	// one goes to the party equipment stash, so a loadout authored with two melee
-	// weapons neither drops litter at the spawn point nor loses the spare.
+	// Seed one entry of this member's authored equipped loadout: into the
+	// backpack, equipped when its slot is still free — so a loadout authored with
+	// two melee weapons carries the spare unequipped. One that doesn't fit goes to
+	// the party stash rather than being lost.
 	private void SeedStartingItem(ItemState item)
 	{
 		if (item?.data == null)
 		{
 			return;
 		}
-		if (item.data.IsMaterial)
+		int wanted = item.stackCount;
+		if (_inventory.TryAdd(item) < wanted)
 		{
-			_inventory.TryAdd(item);
+			_inventory.PushToStash(item);
 			return;
 		}
-		if (item.data.IsSlotEquippable && _inventory.GetEquipped(item.data.EquipSlotKind) == null)
-		{
-			_inventory.TryEquip(item, item.data.EquipSlotKind);
-			return;
-		}
-		_inventory.PushToEquipmentStash(item);
+		EquipIfSlotEmpty(item);
 	}
 
-	// Backfill empty weapon/armor slots from this member's starting loadout so the
-	// player is never left barehanded or unarmored — e.g. after an equipped piece
-	// is destroyed. Levels are composed (not earned), so there's no per-item
-	// progress to preserve: always regenerate the piece fresh from the template.
-	// Any stray copy displaced into the backpack is dropped first so regeneration
-	// can't leave a duplicate behind.
+	// Regenerate any starting weapon/armor this member no longer OWNS — e.g. an
+	// equipped piece was destroyed — so the player is never left barehanded or
+	// unarmored for good. A starting piece that is merely unequipped was put away
+	// on purpose and is left alone. Levels are composed (not earned), so there's no
+	// per-item progress to preserve: always regenerate the piece fresh.
 	private void RefillEmptyEquipmentFromStarting()
 	{
 		if (_inventory == null || Member?.equippedInventory == null)
@@ -1642,41 +1598,30 @@ public partial class Player : CharacterBody3D
 		foreach (ItemCount ic in Member.equippedInventory)
 		{
 			ItemData template = ic?.descriptor?.item;
-			if (template == null || !template.IsSlotEquippable)
+			if (template == null || !template.IsEquippable || OwnsItemOf(template))
 			{
 				continue;
-			}
-			EInventorySlot slot = template.EquipSlotKind;
-			if (_inventory.GetEquipped(slot) != null)
-			{
-				continue;
-			}
-			for (ItemState stray = FindBackpackItem(template); stray != null; stray = FindBackpackItem(template))
-			{
-				_inventory.Remove(stray);
 			}
 			ItemState fresh = ic.descriptor.CreateState();
-			if (fresh == null)
+			if (fresh == null || _inventory.TryAdd(fresh) <= 0)
 			{
 				continue;
 			}
-			_inventory.TryEquip(fresh, slot);
+			EquipIfSlotEmpty(fresh);
 		}
 	}
 
-	// First backpack item backed by `data`, or null. Used to purge a displaced
-	// starting piece before regenerating it, so refill can't leave a duplicate.
-	private ItemState FindBackpackItem(ItemData data)
+	private bool OwnsItemOf(ItemData data)
 	{
 		System.Collections.Generic.IReadOnlyList<ItemState> backpack = _inventory.Backpack;
 		for (int i = 0; i < backpack.Count; i++)
 		{
 			if (backpack[i]?.data == data)
 			{
-				return backpack[i];
+				return true;
 			}
 		}
-		return null;
+		return false;
 	}
 
 	private void OnInventorySlotChanged(EInventorySlot slot)
@@ -1856,7 +1801,7 @@ public partial class Player : CharacterBody3D
 		bool chargingRightWeapon = _runner != null
 			&& _runner.IsBusy
 			&& _runner.Phase == EActionPhase.Charging
-			&& _runner.Current.context.sourceSlot == EInventorySlot.WeaponRanged;
+			&& _runner.Current.context.sourceSlot == EInventorySlot.WeaponRight;
 		_aiming = canLook
 			&& (Input.IsActionPressed("Aim")
 				|| (_inputLook != Vector3.Zero && InputDevice.Current == InputDevice.EDevice.Gamepad)

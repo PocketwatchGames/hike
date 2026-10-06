@@ -1,20 +1,18 @@
-[gd_resource type="Resource" script_class="ConsumableData" format=3]
+[gd_resource type="Resource" script_class="ScrollData" format=3]
 
-[ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_map"]
-[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
-[ext_resource type="Script" uid="uid://ctvbtmbcpwhgo" path="res://scripts/data/effects/RevealTreasureMapEffect.cs" id="3_reveal"]
-[ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="5_icon"]
+[ext_resource type="Script" uid="uid://b8udvxvx1n3ug" path="res://scripts/data/items/ScrollData.cs" id="1_scroll"]
+[ext_resource type="Script" uid="uid://jlnw7063fkor4" path="res://scripts/data/teaching/TreasureMapTeachable.cs" id="2_map"]
+[ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="3_icon"]
 
-[sub_resource type="Resource" id="Effect"]
-script = ExtResource("3_reveal")
+[sub_resource type="Resource" id="Concept"]
+script = ExtResource("2_map")
 treasureName = "city_center"
-metadata/_custom_type_script = "uid://ctvbtmbcpwhgo"
+mapName = "Map of the Old City"
 
 [resource]
-script = ExtResource("1_map")
-effects = Array[ExtResource("2_effect")]([SubResource("Effect")])
-displayName = &"Map of the Old City"
+script = ExtResource("1_scroll")
+concept = SubResource("Concept")
 unidentifiedDisplayName = &"Weathered Map"
 description = "One of the librarian's old maps, drawn before Whittlebone's city center sank into the mud. Something is marked there with an X."
 value = 15
-inventorySprite = ExtResource("5_icon")
+inventorySprite = ExtResource("3_icon")

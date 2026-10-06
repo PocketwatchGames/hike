@@ -385,9 +385,8 @@ public class WorldState
     }
 
     // Chart the named buried treasure onto the player's map. The single
-    // implementation behind every source that hands out a map — the pickup
-    // effect on a map item, a TreasureMapTeachable on a scroll / stone / NPC
-    // conversation. Returns true only on a NEW chart, so callers gate their
+    // implementation behind every source that hands out a map — a
+    // TreasureMapTeachable on a scroll / stone / NPC conversation. Returns true only on a NEW chart, so callers gate their
     // "you got something" fx on it.
     //
     // Answers false when the name isn't in TreasureSpots — already dug up, or

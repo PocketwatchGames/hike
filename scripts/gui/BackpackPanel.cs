@@ -2,8 +2,8 @@ using Godot;
 using Godot.Collections;
 using System.Collections.Generic;
 
-// Reusable slot-grid view over a flat list of items — the material backpack, the
-// party material stash, and the party equipment stash all render through this.
+// Reusable slot-grid view over a flat list of items — a member's backpack and
+// the party stash both render through this.
 // The panel owns NO verb behaviour: it wires each ItemSlotPanel's raw
 // focus/press events and forwards them with the slot's grid index, so the
 // controlling screen (InventoryScreen / StashScreen / CookingScreen) drives

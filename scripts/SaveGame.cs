@@ -14,8 +14,8 @@ public readonly record struct WorldOrigin(string WorldFile, string GeneratorPath
 
 // A save is the party WAKING AT A CAMPFIRE AT SUNRISE. It is written at that
 // moment (GameClient.AutosaveAtWake) and a load reproduces it, so everything a
-// rest resets — health, transient effects, mobs, dropped loot, the leader /
-// spell pick — is never saved: the load re-derives it the way a real wake does.
+// rest resets — health, transient effects, mobs, dropped loot, summoned pets
+// — is never saved: the load re-derives it the way a real wake does.
 // The day's rolls (weather, well-rested) are seeded from RunSeed + the day, so
 // they come back identical with nothing else stored.
 //
@@ -28,7 +28,7 @@ public static class SaveGame
 {
 	// Anything that isn't exactly this version is rejected — pre-release saves
 	// are discarded, never upgraded (CLAUDE.md "Priorities").
-	private const int SAVE_VERSION = 18;
+	private const int SAVE_VERSION = 21;
 
 	public static string GlobalPath(string path) => ProjectSettings.GlobalizePath(path);
 

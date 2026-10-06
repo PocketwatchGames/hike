@@ -125,9 +125,10 @@ automated:
 - **`spawn_mob` is transient by design** (`Sim.SpawnMobTransient`). A debug spawn
   recorded in `WorldState` would persist into the worldgen cache and
   re-materialize on every later run of that world.
-- **`spawn_loot` drops rather than filling the backpack.** `Inventory.TryAdd` refuses
-  non-materials, and potions / scrolls / fairy corpses do their real work in the
-  world-pickup path — dropping exercises what the player actually does.
+- **`spawn_loot` drops rather than filling the backpack.** The world-pickup path
+  is what the player actually does — gear auto-equips into an empty slot there
+  (`Player.TakeItem`), and a fairy corpse opens its boon pick there — so dropping
+  exercises it.
 - **A scenario is just a command list** (`TestScenarioData` on
   `SimData.testScenarios`), so authoring one costs a resource and no code, and it
   picks up any cvar added later. **Author one per feature as you build it**; they
@@ -549,9 +550,9 @@ sunrise wake (`GameClient.AutosaveAtWake`: camp sleep, pray-home, death wake)
 — there is no manual save — and a load reproduces that wake: it starts the world
 the header names (`WorldState.Origin`), sets the clock to the saved
 `WorldClockDays` (always a whole number — a sunrise), lights the saved campfire,
-spawns the party there and opens the camp screen with the leader pick pending. So
+spawns the party there and opens the camp screen. So
 **nothing a rest resets is saved** (health, transient effects, mobs, dropped loot,
-weather, leader / spell pick): the load re-derives it the way a real wake does.
+weather): the load re-derives it the way a real wake does.
 Mid-day saves are a likely later extension.
 
 The header is read before a world exists (`SaveGame.Read` → `SaveFile`), then
@@ -564,7 +565,7 @@ load reproduces the day's weather and well-rested pick with no generator state
 saved; give any new per-day roll its own salt rather than a long-lived `Random`.
 Today the body carries the party (members rebuilt from their
 `PlayerState.Template` plus runtime fields and provisional knowledge), the party
-knowledge and map chart, both stashes, each member's node state
+knowledge and map chart, the party stash, each member's node state
 (`Player.WriteMemberSave`: inventory, effects acquired in play that outlast the
 dawn, non-transient buildups, health),
 script variables, the quest log and treasure maps. **What a spawn re-derives is
@@ -600,7 +601,7 @@ Two events, and the split is the design:
 | Event | When | Owns |
 |---|---|---|
 | `Sim.OnDawn` | the clock crosses a sunrise — in play, a nap, or a skip | the day's weather roll, the fairy daily budget, world-script `OnDawn` |
-| `Sim.OnRest` | the party sleeps to sunrise, prays home, or wakes from a death | `ResetSpawns`, the well-rested draw, the leader + spell pick, "Return to Camp", world-script `OnRest` |
+| `Sim.OnRest` | the party sleeps to sunrise, prays home, or wakes from a death | `ResetSpawns`, the well-rested draw, pet dismissal, "Return to Camp", world-script `OnRest` |
 
 - **A rest always ends at a sunrise** (`Sim.RestToSunrise`: skip, rolling that
   dawn, then the rest work), which is why a save is still a sunrise wake.
@@ -620,7 +621,7 @@ shows a Respawn prompt, and is then the same sunrise wake as any other: the
 fallen member's gear (`Inventory.TakeDeathDrop` — everything but the lantern) is
 left in a `DeathSack` where they fell (their last solid footing if they died in
 water or mid-air), the party rests, wakes at the last campfire, the game
-autosaves, and the camp screen opens with the leader pick pending. Unbanked
+autosaves, and the camp screen opens. Unbanked
 knowledge is kept. Walking back to the sack is the whole price.
 
 - **The sack is not dropped loot**, so `ResetSpawns` leaves it, and a save carries

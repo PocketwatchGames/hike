@@ -85,27 +85,23 @@ public partial class ItemData : Resource
 	// ArrowLootData override.
 	protected virtual EItemCategory ComputeCategory() => EItemCategory.Material;
 
-	// Materials are the only items the carried backpack holds; everything else
-	// lives in an equip slot, a party stash, or (ammo) is reclaimed on pickup.
+	// A cooking / spell reagent; picked up on contact, and placed past the hotbar.
 	public bool IsMaterial => Category == EItemCategory.Material;
 
-	// True when this item occupies one of the equip slots (weapon/armor/helmet/
-	// equipment). Materials and ammo are false.
+	// Ammo never enters the inventory — a pickup reclaims it into its weapon.
+	public bool IsCarriable => Category != EItemCategory.Ammo;
+
+	// True when this item fills one of the equip slots — weapon, armor, helmet,
+	// lantern. Equipping never moves it out of the backpack.
 	public bool IsEquippable => EquipSlotKind != EInventorySlot.None;
 
-	// True when this item fills one of the SINGULAR equip slots directly — weapon,
-	// armor, helmet, lantern. The Equipment slot is the attuned alchemy spell,
-	// which is attuned at a campfire rather than equipped, so it is false here.
-	public bool IsSlotEquippable => EquipSlotKind != EInventorySlot.None && EquipSlotKind != EInventorySlot.Equipment;
-
-	// The equip slot this item's category maps to, or None (materials, ammo).
+	// The equip slot this item's category maps to, or None.
 	public EInventorySlot EquipSlotKind => Category switch
 	{
-		EItemCategory.WeaponMelee => EInventorySlot.WeaponMelee,
-		EItemCategory.WeaponRanged => EInventorySlot.WeaponRanged,
+		EItemCategory.WeaponLeft => EInventorySlot.WeaponLeft,
+		EItemCategory.WeaponRight => EInventorySlot.WeaponRight,
 		EItemCategory.Armor => EInventorySlot.Armor,
 		EItemCategory.Helmet => EInventorySlot.Helmet,
-		EItemCategory.Equipment => EInventorySlot.Equipment,
 		EItemCategory.Lantern => EInventorySlot.Lantern,
 		_ => EInventorySlot.None,
 	};

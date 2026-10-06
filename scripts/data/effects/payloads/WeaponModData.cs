@@ -137,7 +137,7 @@ public partial class WeaponModData : Resource
 	// weapon-composed mod (the Seeking sword) ignores it, scoped already by living
 	// on one weapon. None = any slot. Default WeaponLeft. Ignored when
 	// onAttackEvent is null.
-	[Export] public EInventorySlot onAttackSlot = EInventorySlot.WeaponMelee;
+	[Export] public EInventorySlot onAttackSlot = EInventorySlot.WeaponLeft;
 
 	// Fired at the corpse of each creature a hit from this weapon kills — the
 	// "Explosive Corpse" mod drops a fused bomb there. Dispatched at a point

@@ -5,10 +5,8 @@
 [resource]
 script = ExtResource("1_s")
 scenarioName = "caltrops"
-description = "Caltrops scroll, three casts of reagents, and a ring of goblins to lure through the spikes."
-commands = "// No verb attunes a spell: read the scroll, then attune Caltrops at a campfire.
-spawn_loot scroll_caltrops
-spawn_loot spider_legs 6
-spawn_loot mushroom_black 3
+description = "Caltrops scroll, three charges, and a ring of goblins to lure through the spikes."
+commands = "spawn_loot scroll_caltrops
+spawn_loot caltrops 3
 spawn_mob goblin_forest 4"
 metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

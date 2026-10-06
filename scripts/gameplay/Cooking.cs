@@ -197,13 +197,12 @@ public static class Cooking
 		return total;
 	}
 
-	// How many times a flat reagent cost can be paid from `pool` — the alchemy
-	// spell "ammo". For each reagent, the affordable count is floor(available /
+	// How many times a flat reagent cost can be paid from `pool`. For each reagent, the affordable count is floor(available /
 	// count); the spell can be cast the minimum of those across all reagents.
 	// Availability sums the stackCount of every pool stack whose item (up its
 	// parent chain) matches the reagent, so a reagent naming a parent species
 	// meat is paid by any descendant — the same identity rule TryMatch uses.
-	// Empty / null reagents (or a null pool) yields 0: nothing to attune costs.
+	// Empty / null reagents (or a null pool) yields 0.
 	public static int CountAffordable(IReadOnlyList<RecipeInput> reagents, System.Collections.Generic.IEnumerable<ItemState> pool)
 	{
 		if (reagents == null || reagents.Count == 0 || pool == null)

@@ -156,7 +156,7 @@ public class CampfireSimState : EntitySimState
 
     // Persistent experimentation inputs. Campfire reads/writes through this
     // array so contents survive CookingScreen open/close; closing the screen
-    // returns them to the party material stash.
+    // returns them to the cook's backpack.
     public ItemState[] CampfireSlots = new ItemState[CampfireSlotCount];
 
     public CampfireSimState(Vector3 worldPosition, PackedScene scene)
