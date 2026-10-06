@@ -4,10 +4,10 @@
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="2_w6lr8"]
 [ext_resource type="Texture2D" uid="uid://cxu0m67ovyyb3" path="res://assets/textures/gui/chest.png" id="3_w6lr8"]
 [ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="4_8n8os"]
-[ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="5_nmwrw"]
+[ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="5_count"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="6_11unt"]
 
-[node name="StashScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_playerInventory", "_stashPanel", "_itemInfoPanelStash", "_itemInfoPanelInventory")]
+[node name="StashScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_stashPanel", "_backpackPanel", "_itemInfoPanel", "_countPanel", "_hintSelect", "_hintSend", "_hintDrop", "_hintUse")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -15,10 +15,14 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_8n8os")
-_playerInventory = NodePath("MarginContainer/HBoxContainer/Inventory")
-_stashPanel = NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/BackpackPanel")
-_itemInfoPanelStash = NodePath("MarginContainer/HBoxContainer/MarginContainer2/ItemInfoPanel")
-_itemInfoPanelInventory = NodePath("MarginContainer/HBoxContainer/MarginContainer/ItemInfoPanel")
+_stashPanel = NodePath("MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Left/VBoxContainer/PanelContainer2/BackpackPanel")
+_backpackPanel = NodePath("MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Right/VBoxContainer/PanelContainer2/BackpackPanel")
+_itemInfoPanel = NodePath("MarginContainer/VBoxContainer/HBoxContainer/MarginContainer/ItemInfoPanel")
+_countPanel = NodePath("MarginContainer/MarginContainer2/ItemCountPanel")
+_hintSelect = NodePath("MarginContainer/ButtonHints/ButtonHintA")
+_hintSend = NodePath("MarginContainer/ButtonHints/ButtonHintSend")
+_hintDrop = NodePath("MarginContainer/ButtonHints/ButtonHintDrop")
+_hintUse = NodePath("MarginContainer/ButtonHints/ButtonHintUse")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1234338051]
 layout_mode = 1
@@ -28,32 +32,33 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=744828462]
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=1848383191]
+layout_mode = 2
+alignment = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=744828462]
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_constants/separation = 30
 
-[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=698736516]
-custom_minimum_size = Vector2(500, 0)
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/HBoxContainer" unique_id=42591577]
 layout_mode = 2
 
-[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer2" unique_id=638608018 instance=ExtResource("2_w6lr8")]
+[node name="Right" type="VBoxContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer" unique_id=1873506868]
 layout_mode = 2
-
-[node name="Left" type="VBoxContainer" parent="MarginContainer/HBoxContainer" unique_id=2066187763]
-layout_mode = 2
+size_flags_horizontal = 4
 size_flags_vertical = 4
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/Left" unique_id=1972152947]
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Right" unique_id=2093923723]
 layout_mode = 2
 
-[node name="PanelContainer" type="PanelContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer" unique_id=1571593874]
+[node name="PanelContainer" type="PanelContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Right/VBoxContainer" unique_id=1698138987]
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer" unique_id=2051244182]
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Right/VBoxContainer/PanelContainer" unique_id=1295514202]
 layout_mode = 2
 
-[node name="TextureRect" type="TextureRect" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer" unique_id=1836554744]
+[node name="TextureRect" type="TextureRect" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Right/VBoxContainer/PanelContainer/HBoxContainer" unique_id=402749446]
 texture_filter = 1
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
@@ -61,7 +66,7 @@ size_flags_horizontal = 0
 size_flags_vertical = 0
 texture = ExtResource("3_w6lr8")
 
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer" unique_id=1272889941]
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Right/VBoxContainer/PanelContainer/HBoxContainer" unique_id=372577097]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/margin_left = 5
@@ -69,29 +74,73 @@ theme_override_constants/margin_top = 5
 theme_override_constants/margin_right = 5
 theme_override_constants/margin_bottom = 5
 
-[node name="NPCNameLabel" type="Label" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer/MarginContainer" unique_id=816469419]
+[node name="NPCNameLabel" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Right/VBoxContainer/PanelContainer/HBoxContainer/MarginContainer" unique_id=1291023025]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Backpack"
+
+[node name="PanelContainer2" type="PanelContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Right/VBoxContainer" unique_id=1811567316]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="BackpackPanel" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Right/VBoxContainer/PanelContainer2" unique_id=518559378 instance=ExtResource("4_8n8os")]
+layout_mode = 2
+
+[node name="Left" type="VBoxContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer" unique_id=2066187763]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Left" unique_id=1972152947]
+layout_mode = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Left/VBoxContainer" unique_id=1571593874]
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Left/VBoxContainer/PanelContainer" unique_id=2051244182]
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer" unique_id=1836554744]
+texture_filter = 1
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+texture = ExtResource("3_w6lr8")
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer" unique_id=1272889941]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="NPCNameLabel" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer/MarginContainer" unique_id=816469419]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Stash"
 
-[node name="PanelContainer2" type="PanelContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer" unique_id=1115328942]
+[node name="PanelContainer2" type="PanelContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Left/VBoxContainer" unique_id=1115328942]
 layout_mode = 2
 size_flags_horizontal = 4
 
-[node name="BackpackPanel" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2" unique_id=1913399409 instance=ExtResource("4_8n8os")]
+[node name="BackpackPanel" parent="MarginContainer/VBoxContainer/HBoxContainer/VBoxContainer/Left/VBoxContainer/PanelContainer2" unique_id=1913399409 instance=ExtResource("4_8n8os")]
 layout_mode = 2
 
-[node name="Inventory" parent="MarginContainer/HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintPrimary", "_buttonHintSecondary", "_buttonHintTertiary") instance=ExtResource("5_nmwrw")]
-layout_mode = 2
-_buttonHintPrimary = NodePath("../../ButtonHints/ButtonHintA")
-_buttonHintSecondary = NodePath("../../ButtonHints/ButtonHintX")
-_buttonHintTertiary = NodePath("../../ButtonHints/ButtonHintY")
-
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1591214073]
-custom_minimum_size = Vector2(500, 0)
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer/HBoxContainer" unique_id=809053745]
+custom_minimum_size = Vector2(0, 200)
 layout_mode = 2
 
-[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=859788769 instance=ExtResource("2_w6lr8")]
+[node name="ItemInfoPanel" parent="MarginContainer/VBoxContainer/HBoxContainer/MarginContainer" unique_id=638608018 instance=ExtResource("2_w6lr8")]
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/VBoxContainer" unique_id=2055428021]
+layout_mode = 2
+
+[node name="MarginContainer3" type="MarginContainer" parent="MarginContainer/VBoxContainer" unique_id=1037099468]
+custom_minimum_size = Vector2(0, 200)
 layout_mode = 2
 
 [node name="ButtonHints" type="HBoxContainer" parent="MarginContainer" unique_id=2079712473]
@@ -104,17 +153,25 @@ alignment = 1
 layout_mode = 2
 ActionName = "Equip"
 
-[node name="ButtonHintX" parent="MarginContainer/ButtonHints" unique_id=1569462573 instance=ExtResource("6_11unt")]
+[node name="ButtonHintDrop" parent="MarginContainer/ButtonHints" unique_id=1569462573 instance=ExtResource("6_11unt")]
 layout_mode = 2
 ActionName = "Drop"
-InputAction = "X"
+InputAction = "MenuTertiary"
 
-[node name="ButtonHintY" parent="MarginContainer/ButtonHints" unique_id=1972863320 instance=ExtResource("6_11unt")]
+[node name="ButtonHintUse" parent="MarginContainer/ButtonHints" unique_id=1972863320 instance=ExtResource("6_11unt")]
 layout_mode = 2
 ActionName = "Use"
-InputAction = "Y"
+InputAction = "MenuSecondary"
+
+[node name="ButtonHintSend" parent="MarginContainer/ButtonHints" unique_id=2122492858 instance=ExtResource("6_11unt")]
+layout_mode = 2
+ActionName = "Stash"
+InputAction = "MenuQuaternary"
 
 [node name="MarginContainer2" type="MarginContainer" parent="MarginContainer" unique_id=112741701]
 layout_mode = 2
 theme_override_constants/margin_bottom = 100
 
+[node name="ItemCountPanel" parent="MarginContainer/MarginContainer2" unique_id=256445145 instance=ExtResource("5_count")]
+layout_mode = 2
+size_flags_vertical = 8

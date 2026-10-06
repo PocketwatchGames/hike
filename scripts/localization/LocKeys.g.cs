@@ -37,6 +37,14 @@ public static partial class Loc
 		profile_new_game,
 		profile_delete,
 		profile_delete_confirm,
-		profile_unreadable
+		profile_unreadable,
+		stash_select,
+		stash_place,
+		stash_take,
+		stash_store,
+		stash_pick_how_many,
+		stash_send_how_many,
+		stash_drop,
+		item_drop_how_many
 	}
 }

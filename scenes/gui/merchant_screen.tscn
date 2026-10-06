@@ -6,9 +6,9 @@
 [ext_resource type="Texture2D" uid="uid://hbuua0cpeohi" path="res://assets/textures/portraits/fairy.png" id="3_pl1cs"]
 [ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="4_pl1cs"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="5_fvgyx"]
-[ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/drop_count_panel.tscn" id="6_32vq5"]
+[ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="6_32vq5"]
 
-[node name="MerchantScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_merchantPortrait", "_merchantNameLabel", "_merchantConversationLabel", "_merchantInventoryPanel", "_givePanel", "_getPanel", "_tradeButton", "_playerInventory", "_merchantInventorySlotPanels", "_giveSlotPanels", "_getSlotPanels", "_dropCountPanel", "_itemInfoPanelGive", "_itemInfoPanelGet")]
+[node name="MerchantScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_merchantPortrait", "_merchantNameLabel", "_merchantConversationLabel", "_merchantInventoryPanel", "_givePanel", "_getPanel", "_tradeButton", "_playerInventory", "_merchantInventorySlotPanels", "_giveSlotPanels", "_getSlotPanels", "_countPanel", "_itemInfoPanelGive", "_itemInfoPanelGet")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -27,7 +27,7 @@ _playerInventory = NodePath("MarginContainer/HBoxContainer/Inventory")
 _merchantInventorySlotPanels = [NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel2"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel3"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel4"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel5"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel6"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel7"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel8"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel9")]
 _giveSlotPanels = [NodePath("MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer/GridContainer/ItemSlotPanel"), NodePath("MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer/GridContainer/ItemSlotPanel2"), NodePath("MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer/GridContainer/ItemSlotPanel3")]
 _getSlotPanels = [NodePath("MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer/GridContainer/ItemSlotPanel"), NodePath("MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer/GridContainer/ItemSlotPanel2"), NodePath("MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer/GridContainer/ItemSlotPanel3")]
-_dropCountPanel = NodePath("MarginContainer/MarginContainer2/DropCountPanel")
+_countPanel = NodePath("MarginContainer/MarginContainer2/ItemCountPanel")
 _itemInfoPanelGive = NodePath("MarginContainer/HBoxContainer/MarginContainer/ItemInfoPanel")
 _itemInfoPanelGet = NodePath("MarginContainer/HBoxContainer/MarginContainer2/ItemInfoPanel")
 
@@ -216,8 +216,8 @@ layout_mode = 2
 [node name="Inventory" parent="MarginContainer/HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintPrimary", "_buttonHintSecondary", "_buttonHintTertiary") instance=ExtResource("4_pl1cs")]
 layout_mode = 2
 _buttonHintPrimary = NodePath("../../ButtonHints/ButtonHintA")
-_buttonHintSecondary = NodePath("../../ButtonHints/ButtonHintX")
-_buttonHintTertiary = NodePath("../../ButtonHints/ButtonHintY")
+_buttonHintSecondary = NodePath("../../ButtonHints/ButtonHintDrop")
+_buttonHintTertiary = NodePath("../../ButtonHints/ButtonHintUse")
 
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1591214073]
 custom_minimum_size = Vector2(500, 0)
@@ -236,20 +236,20 @@ alignment = 1
 layout_mode = 2
 ActionName = "Equip"
 
-[node name="ButtonHintX" parent="MarginContainer/ButtonHints" unique_id=199762041 instance=ExtResource("5_fvgyx")]
+[node name="ButtonHintDrop" parent="MarginContainer/ButtonHints" unique_id=199762041 instance=ExtResource("5_fvgyx")]
 layout_mode = 2
 ActionName = "Drop"
-InputAction = "X"
+InputAction = "MenuTertiary"
 
-[node name="ButtonHintY" parent="MarginContainer/ButtonHints" unique_id=1997220129 instance=ExtResource("5_fvgyx")]
+[node name="ButtonHintUse" parent="MarginContainer/ButtonHints" unique_id=1997220129 instance=ExtResource("5_fvgyx")]
 layout_mode = 2
 ActionName = "Use"
-InputAction = "Y"
+InputAction = "MenuSecondary"
 
 [node name="MarginContainer2" type="MarginContainer" parent="MarginContainer" unique_id=112741701]
 layout_mode = 2
 theme_override_constants/margin_bottom = 100
 
-[node name="DropCountPanel" parent="MarginContainer/MarginContainer2" unique_id=256445145 instance=ExtResource("6_32vq5")]
+[node name="ItemCountPanel" parent="MarginContainer/MarginContainer2" unique_id=256445145 instance=ExtResource("6_32vq5")]
 layout_mode = 2
 size_flags_vertical = 8

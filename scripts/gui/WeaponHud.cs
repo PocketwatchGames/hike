@@ -19,6 +19,7 @@ public partial class WeaponHud : BoxContainer
 	const float BlockArmorIdleAlpha = 0.25f;
 
 	ItemState _item;
+	bool _equipped;
 
 	public void SetItem(ItemState item)
 	{
@@ -28,6 +29,8 @@ public partial class WeaponHud : BoxContainer
 
 	public void SetHotbarState(bool selected, bool equipped)
 	{
+		_equipped = equipped;
+		UpdateIcon();
 		if (_selectedMarker != null)
 		{
 			_selectedMarker.Visible = selected;
@@ -53,12 +56,7 @@ public partial class WeaponHud : BoxContainer
 
 	void UpdateIcon()
 	{
-		if (_item is LanternState lantern && lantern.isActive && lantern.data.activeSprite != null)
-		{
-			_icon.Texture = lantern.data.activeSprite;
-			return;
-		}
-		_icon.Texture = _item?.data?.inventorySprite;
+		_icon.Texture = _item?.data?.SlotIcon(_equipped);
 	}
 
 	void UpdateCounter(ulong nowMs)

@@ -89,8 +89,7 @@ public partial class ItemEvent : Resource
 	// idle mid-attack while still movement-locked.
 	[Export] public float animDuration;
 
-	// ToggleMovingLight: no extra fields. Handler flips LanternState.isActive
-	// on the action's primaryItem and attaches/detaches a MovingLight.
+	// Unequip: no extra fields.
 
 	// OpenInteractive: handler calls Complete() on context.primaryInteractive
 	// and (if `fx` is non-null) spawns a one-shot at the interactive's node

@@ -1,31 +1,25 @@
 // Carryable-lantern runtime state. Distinct from TorchSimState, which is the
-// world-placed torch prop. A LanternState lives in the player's Lantern slot;
-// when its isActive is true the player emits a MovingLight regardless of slot.
-// Only the explicit ToggleMovingLight event handler — bound to the lantern's
-// Use action — changes isActive. Slot switches, drops, and pickups leave it
-// untouched, so a lit lantern stays lit until the player turns it off.
+// world-placed torch prop. A lantern is lit exactly while it is equipped, so
+// there is no lit state of its own: the Use tap unequips it, and water, heavy
+// rain or an empty tank unequip it too (Player.DouseCarriedLantern /
+// TickLanternFuel). An empty lantern can't be equipped (Inventory.Equip).
 public class LanternState : ItemState
 {
 	public override LanternData data => _lanternData;
 	private readonly LanternData _lanternData;
 
-	// Lit/unlit toggle — the carried lantern emits light while true.
-	public bool isActive;
-
-	// Remaining burn budget, in sim-ms. Counts down only while lit
-	// (Player.TickLanternFuel) and is refilled to full at each sunrise, on respawn,
-	// or at a fountain (Refuel). Ignored entirely when the lantern has unlimited fuel.
+	// Remaining burn budget, in sim-ms. Counts down only while equipped
+	// (Player.TickLanternFuel) and is refilled at a campfire or a fountain
+	// (Refuel). Ignored entirely when the lantern has unlimited fuel.
 	public long FuelRemainingMs;
 
 	public override void WriteSubclassState(System.IO.BinaryWriter w)
 	{
-		w.Write(isActive);
 		w.Write(FuelRemainingMs);
 	}
 
 	public override void ReadSubclassState(System.IO.BinaryReader r)
 	{
-		isActive = r.ReadBoolean();
 		FuelRemainingMs = r.ReadInt64();
 	}
 
@@ -45,29 +39,11 @@ public class LanternState : ItemState
 		FuelRemainingMs = _lanternData.BurnTimeMs;
 	}
 
-	// Spend `elapsedMs` of the fuel budget while lit. Returns true on the tick
-	// the tank runs dry, so the caller can extinguish the flame. No-op (returns
-	// false) for unlimited lanterns or ones already empty.
-	public bool BurnFuel(long elapsedMs)
-	{
-		if (!_lanternData.HasLimitedFuel || FuelRemainingMs <= 0)
-		{
-			return false;
-		}
-		FuelRemainingMs -= elapsedMs;
-		if (FuelRemainingMs <= 0)
-		{
-			FuelRemainingMs = 0;
-			return true;
-		}
-		return false;
-	}
-
-	// Discrete one-shot spend for a fuel-costed action (a lantern spell cast),
-	// as opposed to BurnFuel's continuous while-lit drain. Spends up to `ms`,
-	// clamping the tank at 0 — a near-empty lantern still pays what it can and
-	// bottoms out rather than going negative. No-op for unlimited lanterns.
-	public void SpendFuel(long ms)
+	// Spends up to `ms` of the fuel budget, clamping the tank at 0 — the
+	// continuous while-lit burn, and a fuel-costed action (a lantern spell
+	// cast), where a near-empty lantern still pays what it can and bottoms out.
+	// No-op for unlimited lanterns.
+	public void BurnFuel(long ms)
 	{
 		if (!_lanternData.HasLimitedFuel)
 		{

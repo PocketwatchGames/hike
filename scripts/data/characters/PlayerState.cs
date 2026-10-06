@@ -94,14 +94,15 @@ public partial class PlayerState : Resource
 	// single-character loadout) so each party member carries their own gear.
 	// Player.Initialize seeds these into the member's inventory at spawn.
 
-	// Items spawned already equipped. Each is added to the inventory and then
-	// auto-moved into its matching slot (armor → armorSlot, weapons →
+	// Items spawned already equipped — the only path that equips without the
+	// player choosing to (a pickup never does). Each is added to the inventory and
+	// then moved into its matching slot (armor → armorSlot, weapons →
 	// CanonicalSlot); if the slot is taken or the item isn't equippable it stays
 	// in the backpack.
 	[Export] public ItemCount[] equippedInventory = System.Array.Empty<ItemCount>();
 
 	// Items added to the backpack at spawn. Each entry's count is split into
-	// maxStack-sized stacks. No equip / hotbar placement.
+	// maxStack-sized stacks. Carried unequipped, gear included.
 	[Export] public ItemCount[] startingInventory = System.Array.Empty<ItemCount>();
 
 	// Runtime (not authored): this member's PROVISIONAL individual knowledge —

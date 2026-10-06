@@ -1704,25 +1704,18 @@ public static class ItemEventHandlers
 		inv?.Remove(item);
 	}
 
-	public static void DoToggleMovingLight(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	public static void DoUnequip(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		if (actor is not Player player)
 		{
 			return;
 		}
-		if (action.context.primaryItem is not LanternState lantern)
+		Inventory inventory = player.Inventory;
+		EInventorySlot? slot = inventory?.GetEquippedSlot(action.context.primaryItem);
+		if (slot.HasValue)
 		{
-			return;
+			inventory.Unequip(slot.Value);
 		}
-		// A fuel-empty lantern can't be relit — fuel only comes back at a sunrise,
-		// on respawn, or at a fountain. Refuse the light half of the toggle;
-		// dousing is always allowed.
-		if (!lantern.isActive && !lantern.HasFuel)
-		{
-			return;
-		}
-		lantern.isActive = !lantern.isActive;
-		player.RefreshCarriedLight();
 	}
 
 	public static void DoOpenInteractive(IActionActor actor, ItemEvent ev, ref PlayerAction action)

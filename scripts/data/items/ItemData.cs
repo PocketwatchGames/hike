@@ -35,6 +35,11 @@ public partial class ItemData : Resource
 	[Export] public int value = 0;
 	[Export] public Texture2D inventorySprite;
 
+	// The icon an item slot draws. Every slot widget asks this rather than
+	// reading inventorySprite, so an item whose look depends on being equipped
+	// (a lit lantern) reads the same everywhere.
+	public virtual Texture2D SlotIcon(bool equipped) => inventorySprite;
+
 	// Coarse classification flags driving mob taste preferences — a dog values
 	// Meat, a villager dislikes Gross. An item can carry several (a roast is
 	// Meat | Food). See EItemType and MobData.itemPreferences.

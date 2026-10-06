@@ -123,7 +123,7 @@ public class WorldState
     // entity property — discovered regions today, quest progress and world
     // flags later. Lives here so the save layer can serialize one cohesive
     // bag of player-progression state alongside the chunk delta layer.
-    public SimState SimState = new();
+    public SimState SimState;
 
     // Persistent simulation clock in milliseconds. Advanced by Sim.Tick while
     // unpaused; serialized with the rest of the world state so cooldowns,
@@ -328,6 +328,7 @@ public class WorldState
         Max = max;
         SimData = simData;
         Terrains = terrains ?? TerrainPalette.Empty;
+        SimState = new SimState(simData?.partyStashCapacity ?? 0);
         // Seed the scripting-variable bank from the authored registry before
         // any save data loads; harmless when no registry is authored.
         SimState.ScriptVars.Initialize(simData?.scriptVariables);

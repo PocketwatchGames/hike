@@ -198,7 +198,7 @@ public class ChestSimState : EntitySimState
     // directly — the runtime Chest node holds a reference to this SimState,
     // so direct mutation persists without any sync-back hook.
     // Subclass-specific ItemState fields (WeaponState.ammo,
-    // LanternState.isActive) are NOT preserved — items round-trip through
+    // LanternState fuel) are NOT preserved — items round-trip through
     // ItemData.CreateState(), resetting to authored defaults. Lift this when
     // player Inventory persistence lands.
     public readonly List<ItemState> Contents = new();

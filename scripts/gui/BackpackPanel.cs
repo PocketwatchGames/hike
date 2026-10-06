@@ -24,38 +24,68 @@ public partial class BackpackPanel : Control
 	public IReadOnlyList<ItemSlotPanel> Slots => _slots;
 	public int SlotCount => _slots?.Count ?? 0;
 
+	// Optional: the slot scene and the container more slots are added to when a
+	// list is longer than the authored grid (the party stash's capacity is data).
+	// Without them a longer list is reported, never silently clipped.
+	[Export] private PackedScene _slotScene;
+	[Export] private Container _slotContainer;
+
 	public override void _Ready()
 	{
 		if (_slots == null)
 		{
+			_slots = new();
+		}
+		int count = _slots.Count;
+		for (int i = 0; i < count; i++)
+		{
+			WireSlot(i, _slots[i]);
+		}
+	}
+
+	void WireSlot(int index, ItemSlotPanel panel)
+	{
+		if (panel == null)
+		{
 			return;
 		}
-		for (int i = 0; i < _slots.Count; i++)
+		panel.onFocusEntered += p => onSlotFocused?.Invoke(index, p);
+		panel.onButtonDown += p => onSlotButtonDown?.Invoke(index, p);
+		panel.onButtonUp += p => onSlotButtonUp?.Invoke(index, p);
+	}
+
+	// Grow the grid to at least `count` slots.
+	void EnsureSlots(int count)
+	{
+		if (_slots.Count >= count)
 		{
-			ItemSlotPanel panel = _slots[i];
-			if (panel == null)
-			{
-				continue;
-			}
-			int index = i;
-			panel.onFocusEntered += p => onSlotFocused?.Invoke(index, p);
-			panel.onButtonDown += p => onSlotButtonDown?.Invoke(index, p);
-			panel.onButtonUp += p => onSlotButtonUp?.Invoke(index, p);
+			return;
+		}
+		if (_slotScene == null || _slotContainer == null)
+		{
+			GD.PushError($"BackpackPanel '{Name}': {count} items but only {_slots.Count} slots, and no slot scene to add more — the rest are hidden.");
+			return;
+		}
+		for (int i = _slots.Count; i < count; i++)
+		{
+			ItemSlotPanel panel = _slotScene.Instantiate<ItemSlotPanel>();
+			_slotContainer.AddChild(panel);
+			_slots.Add(panel);
+			WireSlot(i, panel);
 		}
 	}
 
 	// Repaint every slot from `items` (slot i shows items[i], or empty past the
-	// list's end). The list may be sparse (backpack, with null holes) or dense
-	// (a stash list) — the panel just indexes it positionally. `stackCounts`, when
+	// list's end); the grid grows to fit a longer list. The list may be sparse
+	// (a backpack or the stash, with null holes) or dense — the panel just indexes
+	// it positionally. `stackCounts`, when
 	// given, supplies the badge count per slot for views whose rows don't map 1:1
 	// onto a single stack (the almanac's merged carried + stash materials).
 	public void Refresh(IReadOnlyList<ItemState> items, IReadOnlyList<int> stackCounts = null)
 	{
-		if (_slots == null)
-		{
-			return;
-		}
-		for (int i = 0; i < _slots.Count; i++)
+		EnsureSlots(items?.Count ?? 0);
+		int slotCount = _slots.Count;
+		for (int i = 0; i < slotCount; i++)
 		{
 			ItemState item = (items != null && i < items.Count) ? items[i] : null;
 			int count = (stackCounts != null && i < stackCounts.Count) ? stackCounts[i] : -1;

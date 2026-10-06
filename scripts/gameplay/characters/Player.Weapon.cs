@@ -334,7 +334,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	ItemState _hotbarUseItem;
 
 	// UseItem on the hotbar selection. An item with an action timeline (the
-	// lantern: a tap toggles the light, a full hold reaches its fuel-costed heal)
+	// lantern: a tap puts it out, a full hold reaches its fuel-costed heal)
 	// runs it — but gear must be equipped to be used, so the first press on an
 	// unequipped lantern equips it. An instant-use item (a potion) is spent
 	// on the spot. Any other gear toggles equipped.

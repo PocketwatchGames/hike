@@ -34,3 +34,11 @@ profile_new_game	New Game
 profile_delete	Delete
 profile_delete_confirm	Confirm Delete?
 profile_unreadable	Unreadable Save
+stash_select	Select
+stash_place	Place
+stash_take	Take
+stash_store	Stash
+stash_pick_how_many	Pick up how many?
+stash_send_how_many	Move how many?
+stash_drop	Drop
+item_drop_how_many	Drop how many?

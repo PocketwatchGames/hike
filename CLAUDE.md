@@ -126,7 +126,7 @@ automated:
   recorded in `WorldState` would persist into the worldgen cache and
   re-materialize on every later run of that world.
 - **`spawn_loot` drops rather than filling the backpack.** The world-pickup path
-  is what the player actually does — gear auto-equips into an empty slot there
+  is what the player actually does — a scroll applies on pickup there
   (`Player.TakeItem`), and a fairy corpse opens its boon pick there — so dropping
   exercises it.
 - **A scenario is just a command list** (`TestScenarioData` on

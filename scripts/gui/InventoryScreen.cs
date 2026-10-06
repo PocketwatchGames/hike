@@ -7,8 +7,8 @@ using System.Collections.Generic;
 // grid. The backpack is editable:
 //   A  — select the highlighted item; with one selected, move it to the
 //        highlighted slot (swapping with whatever is there). Cancel deselects.
-//   Y  — use / equip / unequip the highlighted item, per its kind and state.
-//   X  — hold to drop the highlighted item at the member's feet.
+//   X  — use / equip / unequip the highlighted item, per its kind and state.
+//   Y  — hold to drop the highlighted item at the member's feet.
 // The three button hints belong to AlmanacScreen, which hands them over
 // (BindActionHints) and hides them on every other tab.
 [GlobalClass]
@@ -19,14 +19,16 @@ public partial class InventoryScreen : Control
 	[Export] private ItemInfoPanel _rangedPanel;
 	[Export] private BackpackPanel _backpackPanel;
 	[Export] private ItemInfoPanel _highlightPanel;
-	// How long X must be held before the highlighted item drops.
+	// Asks how many when a hold-to-drop lands on a stack.
+	[Export] private ItemCountPanel _countPanel;
+	// How long Y must be held before the highlighted item drops.
 	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _dropHoldSeconds = 0.6f;
 
 	// A's glyph follows the primary-verb convention of the other inventory-style
 	// screens; the press itself arrives as the slot button's own activation.
 	const string SelectAction = "ui_select";
-	const string UseAction = "MenuTertiary";
-	const string DropAction = "MenuSecondary";
+	const string UseAction = "MenuSecondary";
+	const string DropAction = "MenuTertiary";
 
 	GameClient _gameClient;
 	Player _player;
@@ -136,7 +138,7 @@ public partial class InventoryScreen : Control
 	}
 
 	// A on a slot (or a click): pick up the item there, or put the picked-up one
-	// down here — TrySwapInBackpack covers both an empty slot and a swap.
+	// down here — onto an empty slot, into a matching stack, or swapping.
 	void OnSlotActivated(int index, ItemSlotPanel panel)
 	{
 		Inventory inv = Inv;
@@ -154,9 +156,10 @@ public partial class InventoryScreen : Control
 		}
 		int from = _selectedIndex;
 		SetSelection(-1);
-		if (from != index)
+		ItemState moving = ItemAt(from);
+		if (moving != null)
 		{
-			inv.TrySwapInBackpack(from, index);
+			inv.MoveWithin(from, index, moving.stackCount);
 		}
 	}
 
@@ -183,29 +186,16 @@ public partial class InventoryScreen : Control
 
 	public override void _Process(double delta)
 	{
-		if (!IsVisibleInTree())
+		if (!IsVisibleInTree() || (_countPanel != null && _countPanel.IsOpen))
 		{
 			return;
 		}
 		TickDropHold((float)delta);
 	}
 
-	// Y: use an instant item (potion, scroll), else equip / unequip gear.
 	void UseFocused()
 	{
-		ItemState item = ItemAt(_focusedIndex);
-		if (item?.data == null || _player == null)
-		{
-			return;
-		}
-		if (item.data is IInstantUseItem)
-		{
-			_player.UseInstantItem(item);
-		}
-		else if (item.data.IsEquippable)
-		{
-			Inv.ToggleEquip(item);
-		}
+		UseOrToggleEquip(_player, ItemAt(_focusedIndex));
 	}
 
 	void TickDropHold(float dt)
@@ -227,7 +217,15 @@ public partial class InventoryScreen : Control
 			_dropFired = true;
 			_dropHeld = 0f;
 			_hintDrop?.SetProgress(0f);
-			Inv.Drop(item);
+			if (item.stackCount > 1 && _countPanel != null)
+			{
+				Inventory inv = Inv;
+				_countPanel.Open(item.stackCount, count => inv.Drop(item, count), prompt: Loc.Get(Loc.Keys.item_drop_how_many));
+			}
+			else
+			{
+				Inv.Drop(item);
+			}
 		}
 	}
 
@@ -275,25 +273,8 @@ public partial class InventoryScreen : Control
 			return;
 		}
 		ShowHint(_hintSelect, SelectAction, focused != null ? "Select" : null);
-		ShowHint(_hintUse, UseAction, UseVerb(focused));
+		ShowHint(_hintUse, UseAction, UseVerb(Inv, focused));
 		ShowHint(_hintDrop, DropAction, focused != null ? "Drop" : null);
-	}
-
-	string UseVerb(ItemState item)
-	{
-		if (item?.data == null)
-		{
-			return null;
-		}
-		if (item.data is IInstantUseItem)
-		{
-			return "Use";
-		}
-		if (item.data.IsEquippable)
-		{
-			return Inv.IsEquipped(item) ? "Unequip" : "Equip";
-		}
-		return null;
 	}
 
 	// A null label hides the hint.
@@ -348,7 +329,43 @@ public partial class InventoryScreen : Control
 		UpdateHints();
 	}
 
-	// ---- Equip-compat helpers, shared with MerchantScreen ------------------
+	// ---- Item verbs, shared with StashScreen and MerchantScreen -------------
+
+	// The Y verb: use an instant item (potion, scroll) on the member, else equip /
+	// unequip gear. Does nothing for an item with no verb (a material).
+	public static void UseOrToggleEquip(Player player, ItemState item)
+	{
+		if (item?.data == null || player?.Inventory == null)
+		{
+			return;
+		}
+		if (item.data is IInstantUseItem)
+		{
+			player.UseInstantItem(item);
+		}
+		else if (item.data.IsEquippable)
+		{
+			player.Inventory.ToggleEquip(item);
+		}
+	}
+
+	// The Y hint's label for `item`, null when it has no verb.
+	public static string UseVerb(Inventory inv, ItemState item)
+	{
+		if (item?.data == null || inv == null)
+		{
+			return null;
+		}
+		if (item.data is IInstantUseItem)
+		{
+			return "Use";
+		}
+		if (item.data.IsEquippable)
+		{
+			return inv.IsEquipped(item) ? "Unequip" : "Equip";
+		}
+		return null;
+	}
 
 	// True when `item` may equip into `destSlot` — its category's slot matches.
 	public static bool EquipCompatible(EInventorySlot destSlot, ItemState item)

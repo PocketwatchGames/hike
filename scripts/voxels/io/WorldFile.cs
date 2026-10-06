@@ -263,7 +263,9 @@ public static class WorldFile
     //      the regrow deadline of berry trees, forges, fountains and forage
     //      spawners. The Forge payload gains its use count (Uses), which seeds
     //      its offer in place of the day.
-    public const uint VERSION = 63;
+    // v64: a lantern's subclass state is its fuel alone — lit is no longer
+    //      stored, because a lantern is lit exactly while it is equipped.
+    public const uint VERSION = 64;
 
     public struct IndexEntry
     {

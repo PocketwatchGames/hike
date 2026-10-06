@@ -6,8 +6,9 @@
 [ext_resource type="Script" uid="uid://c6fma23i8hjb3" path="res://scripts/gui/BackpackPanel.cs" id="5_vc0ui"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="6_bkslt"]
 [ext_resource type="PackedScene" uid="uid://cuf7l233ji6eh" path="res://scenes/gui/item_detail_panel.tscn" id="6_jm11f"]
+[ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="7_count"]
 
-[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_meleePanel", "_rangedPanel", "_backpackPanel", "_highlightPanel")]
+[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_meleePanel", "_rangedPanel", "_backpackPanel", "_highlightPanel", "_countPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,6 +21,7 @@ _meleePanel = NodePath("")
 _rangedPanel = NodePath("")
 _backpackPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer/BackpackPanel")
 _highlightPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/ItemInfoPanel")
+_countPanel = NodePath("MarginContainer/ItemCountPanel")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=2000139086]
 layout_mode = 1
@@ -41,17 +43,17 @@ visible = false
 layout_mode = 2
 ActionName = "Equip"
 
-[node name="ButtonHintX" parent="MarginContainer/ButtonHints" unique_id=1258403697 instance=ExtResource("4_wawlv")]
+[node name="ButtonHintDrop" parent="MarginContainer/ButtonHints" unique_id=1258403697 instance=ExtResource("4_wawlv")]
 visible = false
 layout_mode = 2
 ActionName = "Drop"
-InputAction = "X"
+InputAction = "MenuTertiary"
 
-[node name="ButtonHintY" parent="MarginContainer/ButtonHints" unique_id=2009547151 instance=ExtResource("4_wawlv")]
+[node name="ButtonHintUse" parent="MarginContainer/ButtonHints" unique_id=2009547151 instance=ExtResource("4_wawlv")]
 visible = false
 layout_mode = 2
 ActionName = "Use"
-InputAction = "Y"
+InputAction = "MenuSecondary"
 
 [node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=270012993]
 layout_mode = 2
@@ -173,3 +175,6 @@ layout_mode = 2
 [node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=638608018 node_paths=PackedStringArray("_reagentSlots") instance=ExtResource("6_jm11f")]
 layout_mode = 2
 _reagentSlots = []
+
+[node name="ItemCountPanel" parent="MarginContainer" unique_id=256445145 instance=ExtResource("7_count")]
+layout_mode = 2

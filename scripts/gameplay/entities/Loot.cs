@@ -527,8 +527,8 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		}
 	}
 
-	// Whether this loot should fly to `player`: a depositable material whose whole
-	// stack currently fits, not flagged interact-only, and the player is the active
+	// Whether this loot should fly to `player`: a material topping up a stack the
+	// player already holds (TopsUpHeldStack), not flagged interact-only, and the player is the active
 	// (controlled) member. Re-checked every seek tick so it drops the instant the
 	// backpack fills or control switches away.
 	private bool IsMagnetEligible(Player player)
@@ -553,8 +553,16 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			return false;
 		}
+		return TopsUpHeldStack(player);
+	}
+
+	// The one rule for collecting a deposited item without pressing interact: a
+	// stackable material the player ALREADY carries a stack of, whose whole stack
+	// fits. A kind the player doesn't hold yet is always a deliberate pickup.
+	private bool TopsUpHeldStack(Player player)
+	{
 		ItemData data = _simState.Item?.data ?? _simState.Data;
-		if (data == null || !data.IsMaterial)
+		if (data == null || !data.IsMaterial || !player.Inventory.HoldsStackOf(data))
 		{
 			return false;
 		}
@@ -835,10 +843,9 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		FinalizePickup();
 	}
 
-	// Materials always auto-pickup on contact, provided the whole stack fits —
-	// a fresh material claims a new backpack slot, it no longer has to top off
-	// an existing stack. Non-materials (weapons / armor) never auto-pickup from
-	// the field; they fall through to the press-to-interact path.
+	// Auto-pickup on contact only tops up a material stack the player already
+	// carries (TopsUpHeldStack); everything else falls through to the
+	// press-to-interact path.
 	private bool CanAutoPickup(Player player)
 	{
 		if (_simState == null || _simState.RequireInteract)
@@ -867,12 +874,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 			return true;
 		}
 
-		ItemData data = _simState.Item?.data ?? _simState.Data;
-		if (data == null || !data.IsMaterial)
-		{
-			return false;
-		}
-		return player.CanTake(data, _simState.Item?.stackCount ?? 1);
+		return TopsUpHeldStack(player);
 	}
 
 	public bool CanInteract() => !_pickedUp && (!IsTimedEmergent || _emergeState == EmergeState.Visible);

@@ -663,7 +663,7 @@ public class ActionRunner
 			// to empty is extinguished by Player.TickLanternFuel next tick.
 			if (tier.fuelCost > 0f && _action.context.primaryItem is LanternState lantern)
 			{
-				lantern.SpendFuel((long)(tier.fuelCost * 1000f));
+				lantern.BurnFuel((long)(tier.fuelCost * 1000f));
 			}
 		}
 		FireChargeEndEvents();
@@ -1006,9 +1006,9 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoUseAmmo(_actor, ev, ref _action);
 		}
-		if ((t & EItemEventType.ToggleMovingLight) != 0)
+		if ((t & EItemEventType.Unequip) != 0)
 		{
-			ItemEventHandlers.DoToggleMovingLight(_actor, ev, ref _action);
+			ItemEventHandlers.DoUnequip(_actor, ev, ref _action);
 		}
 		if ((t & EItemEventType.LearnLanguage) != 0)
 		{

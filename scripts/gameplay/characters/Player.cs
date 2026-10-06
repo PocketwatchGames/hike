@@ -1083,16 +1083,6 @@ public partial class Player : CharacterBody3D
 
 
 
-	// Reconciles the player's carried lantern against the current inventory. The
-	// HeldTorch prop carries its own world light, so setting the prop + lit state
-	// is all the player does; placement (hand vs back vs hidden) is
-	// HeldItemVisual's job. Called from the ToggleMovingLight handler and any time
-	// the inventory changes.
-	public void RefreshCarriedLight()
-	{
-		RefreshCarriedTorchVisual();
-	}
-
 	// ---- Summoned pet --------------------------------------------------------
 
 	// The one pet this member has summoned (SummonPetEffect). Owned by the caster
@@ -1191,36 +1181,43 @@ public partial class Player : CharacterBody3D
 		return true;
 	}
 
-	// See RefreshCarriedLight. The light rides the held torch (HeldTorch.movingLightScene),
-	// parented to the player root via the lightParent passed here.
-	private void RefreshCarriedTorchVisual()
+	// Shows the equipped lantern's prop, lit — a lantern is lit exactly while it
+	// is equipped. The HeldTorch prop carries its own world light; placement is
+	// HeldItemVisual's job. Runs on every inventory change.
+	private void RefreshCarriedLight()
 	{
 		if (_heldVisual == null)
 		{
 			return;
 		}
-		// Only the equipped lantern is ever lit (Inventory.SetSlot snuffs one on
-		// unequip); it shows stowed while lit.
-		LanternData litLantern = _inventory?.GetEquipped(EInventorySlot.Lantern) is LanternState { isActive: true } lantern
-			? lantern.data
-			: null;
-		_heldVisual.SetTorch(litLantern?.heldLanternScene, inHand: false);
-		_heldVisual.SetTorchLit(litLantern != null, this);
+		LanternData lantern = EquippedLantern()?.data;
+		_heldVisual.SetTorch(lantern?.heldLanternScene, inHand: false);
+		_heldVisual.SetTorchLit(lantern != null, this);
 	}
 
-	// Environment-driven counterpart to the manual ToggleMovingLight douse:
-	// a carried lantern can't survive being plunged underwater or stand up to
-	// heavy rain, so swimming (over the head) or rain past the douse threshold
-	// clears every active carried lantern and reconciles the MovingLight (which
-	// fires its authored off-cue). Mirrors DoToggleMovingLight's douse half but
-	// is one-way — isActive is only ever set false here, so the flame never
-	// auto-relights when conditions ease; the player relights manually. Wading
-	// in shallows keeps a lantern lit (only EWaterState.Swimming counts).
-	// Idempotent: once cleared, the next tick finds nothing active, so running
-	// every physics frame is a no-op.
+	private LanternState EquippedLantern()
+	{
+		return _inventory?.GetEquipped(EInventorySlot.Lantern) as LanternState;
+	}
+
+	// Puts the lantern out by circumstance (water, rain, an empty tank) rather
+	// than by the player's hand, so it plays the lantern's douse cue on top of
+	// the light's own off-cue.
+	private void DouseLantern(LanternState lantern)
+	{
+		_inventory.Unequip(EInventorySlot.Lantern);
+		if (lantern.data.douseEffectScene != null)
+		{
+			Fx.Create(lantern.data.douseEffectScene, this, Vector3.Up * SkyExposureProbeHeight);
+		}
+	}
+
+	// Swimming (over the head) or rain past the douse threshold puts the lantern
+	// out. Wading in shallows keeps it lit (only Swimming counts).
 	private void DouseCarriedLantern()
 	{
-		if (_inventory == null || data == null) { return; }
+		LanternState lantern = EquippedLantern();
+		if (lantern == null || data == null) { return; }
 
 		bool douse = IsSwimming;
 		if (!douse)
@@ -1231,28 +1228,9 @@ public partial class Player : CharacterBody3D
 			float rainIntensity = SkyController.Current?.Palette.RainIntensity ?? 0f;
 			douse = RainExposure01() > 0f && rainIntensity >= data.lanternDouseRainThreshold;
 		}
-		if (!douse) { return; }
-
-		bool dousedAny = false;
-		PackedScene douseFx = null;
-		foreach (ItemState item in _inventory.EnumerateAll())
+		if (douse)
 		{
-			if (item is LanternState cs && cs.isActive)
-			{
-				cs.isActive = false;
-				dousedAny = true;
-				// Fire one wet-douse cue per event (the player only carries one
-				// visible light), from the first doused lantern that authors one.
-				douseFx ??= cs.data.douseEffectScene;
-			}
-		}
-		if (dousedAny)
-		{
-			RefreshCarriedLight();
-			if (douseFx != null)
-			{
-				Fx.Create(douseFx, this, Vector3.Up * SkyExposureProbeHeight);
-			}
+			DouseLantern(lantern);
 		}
 	}
 
@@ -1261,41 +1239,22 @@ public partial class Player : CharacterBody3D
 	// under slow-mo). Reset to 0 = "first tick, nothing to spend yet".
 	private ulong _lastLanternFuelTickMs;
 
-	// Burns down the fuel of every lit carried lantern on the sim clock; a lantern
-	// whose tank empties this tick is extinguished (and won't relight until it's
-	// refueled at sunrise/respawn/a fountain — see DoToggleMovingLight's HasFuel
-	// gate). Unlimited lanterns (burnTimeSeconds <= 0) never drain, so this is a
-	// no-op for them.
+	// Burns down the equipped lantern's fuel on the sim clock and puts it out when
+	// the tank empties — by this tick's burn, or a spell cast's fuel cost since
+	// the last tick. Unlimited lanterns never drain.
 	private void TickLanternFuel()
 	{
-		if (_inventory == null) { return; }
 		ulong now = _world?.GameTimeMs ?? 0;
 		ulong last = _lastLanternFuelTickMs;
 		_lastLanternFuelTickMs = now;
 		if (last == 0 || now <= last) { return; }
-		long elapsedMs = (long)(now - last);
 
-		bool extinguishedAny = false;
-		PackedScene douseFx = null;
-		foreach (ItemState item in _inventory.EnumerateAll())
+		LanternState lantern = EquippedLantern();
+		if (lantern == null) { return; }
+		lantern.BurnFuel((long)(now - last));
+		if (!lantern.HasFuel)
 		{
-			// Extinguish a lit lantern when its tank empties — either drained by this
-			// tick's burn (BurnFuel true) or already at 0 from a discrete spell-cast
-			// spend (SpendFuel) since the last tick (!HasFuel).
-			if (item is LanternState lantern && lantern.isActive && (lantern.BurnFuel(elapsedMs) || !lantern.HasFuel))
-			{
-				lantern.isActive = false;
-				extinguishedAny = true;
-				douseFx ??= (lantern.data as LanternData)?.douseEffectScene;
-			}
-		}
-		if (extinguishedAny)
-		{
-			RefreshCarriedLight();
-			if (douseFx != null)
-			{
-				Fx.Create(douseFx, this, Vector3.Up * SkyExposureProbeHeight);
-			}
+			DouseLantern(lantern);
 		}
 	}
 
@@ -1528,10 +1487,25 @@ public partial class Player : CharacterBody3D
 		return data is IApplyOnPickup || _inventory.CanFullyAdd(data, count);
 	}
 
+	// Toss a detached stack (out of the backpack or the stash) just in front of
+	// this member. It lands interact-only, so walking over it doesn't pick it
+	// straight back up.
+	public void DropAtFeet(ItemState item)
+	{
+		if (item?.data == null || item.stackCount <= 0)
+		{
+			return;
+		}
+		Vector3 pos = GlobalPosition + Vector3.Up * 0.5f;
+		Vector3 forward = -GlobalTransform.Basis.Z;
+		Vector3 impulse = forward * 2f + Vector3.Up * 1.5f;
+		Sim?.DropItem(item, pos, impulse, requireInteract: true);
+	}
+
 	// Take ownership of an item from outside the inventory (a field pickup, a
-	// gift, a forged piece): it goes into the backpack, and a piece of gear is
-	// equipped too when its slot is empty. An apply-on-pickup item (a scroll) is
-	// applied instead and never enters the backpack. False means the player did
+	// gift, a forged piece): it goes into the backpack, never equipped — gear is
+	// put on deliberately. An apply-on-pickup item (a scroll) is applied instead
+	// and never enters the backpack. False means the player did
 	// NOT take it — the caller must leave it where it is, since a half-taken
 	// stack would vanish.
 	public bool TakeItem(ItemState item)
@@ -1551,18 +1525,7 @@ public partial class Player : CharacterBody3D
 			return false;
 		}
 		_inventory.TryAdd(item);
-		EquipIfSlotEmpty(item);
 		return true;
-	}
-
-	// Equip an owned piece of gear when nothing holds its slot yet.
-	private void EquipIfSlotEmpty(ItemState item)
-	{
-		if (item?.data != null && item.data.IsEquippable
-			&& _inventory.GetEquipped(item.data.EquipSlotKind) == null)
-		{
-			_inventory.Equip(item);
-		}
 	}
 
 	// Seed one entry of this member's authored equipped loadout: into the
@@ -1578,50 +1541,17 @@ public partial class Player : CharacterBody3D
 		int wanted = item.stackCount;
 		if (_inventory.TryAdd(item) < wanted)
 		{
-			_inventory.PushToStash(item);
+			ItemState unplaced = _inventory.PushToStash(item);
+			if (unplaced != null)
+			{
+				GD.PushError($"Player: no room in the backpack or the party stash for starting item '{unplaced.data.ResourcePath}' — it is lost.");
+			}
 			return;
 		}
-		EquipIfSlotEmpty(item);
-	}
-
-	// Regenerate any starting weapon/armor this member no longer OWNS — e.g. an
-	// equipped piece was destroyed — so the player is never left barehanded or
-	// unarmored for good. A starting piece that is merely unequipped was put away
-	// on purpose and is left alone. Levels are composed (not earned), so there's no
-	// per-item progress to preserve: always regenerate the piece fresh.
-	private void RefillEmptyEquipmentFromStarting()
-	{
-		if (_inventory == null || Member?.equippedInventory == null)
+		if (item.data.IsEquippable && _inventory.GetEquipped(item.data.EquipSlotKind) == null)
 		{
-			return;
+			_inventory.Equip(item);
 		}
-		foreach (ItemCount ic in Member.equippedInventory)
-		{
-			ItemData template = ic?.descriptor?.item;
-			if (template == null || !template.IsEquippable || OwnsItemOf(template))
-			{
-				continue;
-			}
-			ItemState fresh = ic.descriptor.CreateState();
-			if (fresh == null || _inventory.TryAdd(fresh) <= 0)
-			{
-				continue;
-			}
-			EquipIfSlotEmpty(fresh);
-		}
-	}
-
-	private bool OwnsItemOf(ItemData data)
-	{
-		System.Collections.Generic.IReadOnlyList<ItemState> backpack = _inventory.Backpack;
-		for (int i = 0; i < backpack.Count; i++)
-		{
-			if (backpack[i]?.data == data)
-			{
-				return true;
-			}
-		}
-		return false;
 	}
 
 	private void OnInventorySlotChanged(EInventorySlot slot)

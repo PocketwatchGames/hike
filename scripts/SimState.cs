@@ -23,37 +23,23 @@ using Godot;
 // it is one permanent Party.Chart, written directly.
 public class SimState
 {
-    // The party's shared stash: one store for every kind of item, beside each
-    // member's backpack. Nothing reads from it yet — cooking and spells draw only
-    // from the backpack — and the only thing that writes to it is a starting
-    // loadout too big for the backpack. Persisted by SaveGame.
-    public readonly List<ItemState> PartyStash = new();
+    // The party's shared stash: a grid of SimData.partyStashCapacity slots beside
+    // each member's backpack, filled at camp (StashScreen) and by a starting
+    // loadout too big for the backpack. Cooking and spells draw only from the
+    // backpack. Persisted by SaveGame.
+    public readonly ItemGrid PartyStash;
+
+    public SimState(int partyStashCapacity)
+    {
+        PartyStash = new ItemGrid(partyStashCapacity);
+    }
 
     // Age the stash: prune each stack's spoiled cohorts (meat, mushrooms) in place
-    // and drop any stack that empties, mirroring the backpack sweep in
+    // and free any slot that empties, mirroring the backpack sweep in
     // Player.ExpireDue. Called from Sim.SweepDeadlines.
     public void PruneExpiredPerishables(double nowClock)
     {
-        PruneExpiredStash(PartyStash, nowClock);
-    }
-
-    private static void PruneExpiredStash(List<ItemState> stash, double nowClock)
-    {
-        for (int i = stash.Count - 1; i >= 0; i--)
-        {
-            ItemState item = stash[i];
-            if (item == null)
-            {
-                continue;
-            }
-            // Spoiled food cohorts drop in place; the stack leaves the stash only
-            // when it empties out.
-            item.PruneExpired(nowClock);
-            if (item.stackCount <= 0)
-            {
-                stash.RemoveAt(i);
-            }
-        }
+        PartyStash.PruneExpired(nowClock);
     }
 
     // The player's party roster — the characters they can switch between. Built
@@ -188,37 +174,21 @@ public class SimState
         return false;
     }
 
-    // The party stash, inside a shared EntitySerializer table (SaveGame). An
-    // item whose ItemData no longer exists reads back null and is dropped.
+    // The party stash, inside a shared EntitySerializer table (SaveGame), slot by
+    // slot so its layout survives. If the authored capacity shrank, what no
+    // longer has a slot packs into the gaps; past that it is lost, loudly.
     public void SerializeStashes(BinaryWriter w)
     {
-        WriteStash(w, PartyStash);
+        PartyStash.Serialize(w);
     }
 
     public void DeserializeStashes(BinaryReader r)
     {
-        ReadStash(r, PartyStash);
-    }
-
-    private static void WriteStash(BinaryWriter w, List<ItemState> stash)
-    {
-        w.Write(stash.Count);
-        foreach (ItemState item in stash)
+        foreach (ItemState item in PartyStash.Restore(r))
         {
-            EntitySerializer.WriteItem(w, item);
-        }
-    }
-
-    private static void ReadStash(BinaryReader r, List<ItemState> stash)
-    {
-        stash.Clear();
-        int count = r.ReadInt32();
-        for (int i = 0; i < count; i++)
-        {
-            ItemState item = EntitySerializer.ReadItem(r);
-            if (item != null)
+            if (PartyStash.Add(item) != null)
             {
-                stash.Add(item);
+                GD.PushError($"SimState: no stash room for saved '{item.data?.ResourcePath}' — it is lost.");
             }
         }
     }

@@ -36,7 +36,7 @@ public partial class MerchantScreen : Control
 	[Export] private Array<ItemSlotPanel> _merchantInventorySlotPanels;
 	[Export] private Array<ItemSlotPanel> _giveSlotPanels;
 	[Export] private Array<ItemSlotPanel> _getSlotPanels;
-	[Export] private DropCountPanel _dropCountPanel;
+	[Export] private ItemCountPanel _countPanel;
 	[Export] private ItemInfoPanel _itemInfoPanelGive;
 	[Export] private ItemInfoPanel _itemInfoPanelGet;
 
@@ -102,10 +102,6 @@ public partial class MerchantScreen : Control
 		WireSlotPanels(_merchantInventorySlotPanels, EFocusedPanel.MerchantInventory);
 		WireSlotPanels(_giveSlotPanels, EFocusedPanel.Give);
 		WireSlotPanels(_getSlotPanels, EFocusedPanel.Get);
-		if (_dropCountPanel != null)
-		{
-			_dropCountPanel.Visible = false;
-		}
 		if (_tradeButton != null)
 		{
 			_tradeButton.Pressed += OnTradeButtonPressed;
@@ -211,7 +207,8 @@ public partial class MerchantScreen : Control
 			return;
 		}
 		ReturnStagedItemsToInventory();
-		CloseCountPicker();
+		_countPanel?.Dismiss();
+		ReleaseHoldLock();
 		ClearSelection();
 		_playerInventory?.Unbind();
 		Visible = false;
@@ -849,7 +846,7 @@ public partial class MerchantScreen : Control
 			int srcIdx = _playerInventory.GetBackpackPanelIndex(_selectedSource);
 			int dstIdx = _playerInventory.GetBackpackPanelIndex(dest);
 			if (srcIdx < 0 || dstIdx < 0) { return false; }
-			return inv.TrySwapInBackpack(srcIdx, dstIdx);
+			return inv.MoveWithin(srcIdx, dstIdx, _selectedAmount);
 		}
 		if (sourceBackpack)
 		{
@@ -868,95 +865,47 @@ public partial class MerchantScreen : Control
 
 	// -------------------------------------------------------------------
 	// Count picker plumbing — shared between select-mode and instant-mode.
+	// The picker takes all input while it is up; the inventory panel's hold
+	// timers stay locked too, since they poll the input state directly.
 	// -------------------------------------------------------------------
 
 	void OpenSelectCountPicker(ItemSlotPanel panel, ItemState item, EFocusedPanel category, int index)
 	{
-		if (_dropCountPanel == null || item == null) { return; }
-		LockSlotsFocus();
-		_dropCountPanel.Visible = true;
-		_dropCountPanel.Init(
-			maxCount: item.stackCount,
-			onConfirm: count =>
-			{
-				CloseCountPicker();
-				if (count > 0)
-				{
-					EnterSelectMode(panel, item, count, category, index);
-				}
-			},
-			onCancel: CloseCountPicker,
-			prompt: "Select how many?");
+		if (item == null) { return; }
+		OpenCountPicker(item.stackCount, count => EnterSelectMode(panel, item, count, category, index), "Select how many?");
 	}
 
 	void OpenInstantMoveCountPicker(ItemState item, Action<int> apply, string prompt)
 	{
-		if (_dropCountPanel == null || item == null) { return; }
-		LockSlotsFocus();
-		_dropCountPanel.Visible = true;
-		_dropCountPanel.Init(
-			maxCount: item.stackCount,
+		if (item == null) { return; }
+		OpenCountPicker(item.stackCount, apply, prompt);
+	}
+
+	void OpenCountPicker(int maxCount, Action<int> apply, string prompt)
+	{
+		if (_countPanel == null)
+		{
+			ReleaseHoldLock();
+			return;
+		}
+		if (_playerInventory != null) { _playerInventory.HoldLocked = true; }
+		_countPanel.Open(
+			maxCount,
 			onConfirm: count =>
 			{
-				CloseCountPicker();
+				ReleaseHoldLock();
 				if (count > 0)
 				{
 					apply(count);
 				}
 			},
-			onCancel: CloseCountPicker,
+			onCancel: ReleaseHoldLock,
 			prompt: prompt);
 	}
 
-	void CloseCountPicker()
+	void ReleaseHoldLock()
 	{
-		if (_dropCountPanel != null)
-		{
-			_dropCountPanel.Visible = false;
-		}
-		if (_playerInventory != null)
-		{
-			_playerInventory.HoldLocked = false;
-			_playerInventory.SetSlotsFocusable(true);
-		}
-		SetMerchantSlotsFocusable(true);
-		if (_focusedSlot != null)
-		{
-			_focusedSlot.GrabFocus();
-		}
-		else
-		{
-			_playerInventory?.RestoreFocus();
-		}
-	}
-
-	void LockSlotsFocus()
-	{
-		if (_playerInventory != null)
-		{
-			_playerInventory.SetSlotsFocusable(false);
-			_playerInventory.HoldLocked = true;
-		}
-		SetMerchantSlotsFocusable(false);
-	}
-
-	void SetMerchantSlotsFocusable(bool focusable)
-	{
-		ApplyFocusable(_merchantInventorySlotPanels, focusable);
-		ApplyFocusable(_giveSlotPanels, focusable);
-		ApplyFocusable(_getSlotPanels, focusable);
-	}
-
-	static void ApplyFocusable(Array<ItemSlotPanel> panels, bool focusable)
-	{
-		if (panels == null)
-		{
-			return;
-		}
-		foreach (ItemSlotPanel panel in panels)
-		{
-			panel?.SetFocusable(focusable);
-		}
+		if (_playerInventory != null) { _playerInventory.HoldLocked = false; }
 	}
 
 	// -------------------------------------------------------------------
@@ -1500,33 +1449,19 @@ public partial class MerchantScreen : Control
 
 	void OnInventorySecondaryHoldComplete(ItemSlotPanel panel, ItemState item)
 	{
-		if (InSelectMode || item == null || _dropCountPanel == null || _playerInventory == null)
-		{
-			if (_playerInventory != null) { _playerInventory.HoldLocked = false; }
-			return;
-		}
 		Inventory inv = _player?.Inventory;
-		if (inv == null)
+		if (InSelectMode || item == null || inv == null)
 		{
+			ReleaseHoldLock();
 			return;
 		}
 		if (item.stackCount <= 1)
 		{
 			inv.Drop(item, 1);
-			_playerInventory.HoldLocked = false;
+			ReleaseHoldLock();
 			return;
 		}
-		LockSlotsFocus();
-		_dropCountPanel.Visible = true;
-		_dropCountPanel.Init(
-			maxCount: item.stackCount,
-			onConfirm: count =>
-			{
-				CloseCountPicker();
-				if (count > 0) { inv.Drop(item, count); }
-			},
-			onCancel: CloseCountPicker,
-			prompt: "Drop how many?");
+		OpenCountPicker(item.stackCount, count => inv.Drop(item, count), "Drop how many?");
 	}
 
 	void OnInventoryTertiaryPressed(ItemSlotPanel panel, ItemState item)

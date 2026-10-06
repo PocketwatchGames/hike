@@ -67,7 +67,7 @@ public partial class ItemAction : Resource
 	// activates, drawn from the driving item's fuel tank. Unlike stamina/blood,
 	// the gate is "has ANY fuel left" (> 0), not "can afford the full cost" — a
 	// near-empty lantern still casts and the spend clamps the tank at 0 (see
-	// LanternState.SpendFuel). 0 (default) = no fuel cost. Only meaningful when the
+	// LanternState.BurnFuel). 0 (default) = no fuel cost. Only meaningful when the
 	// driving item (context.primaryItem) is a fuel-bearing consumable (a lantern).
 	[Export] public float fuelCost = 0f;
 

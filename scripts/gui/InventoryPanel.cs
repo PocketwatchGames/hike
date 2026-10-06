@@ -29,12 +29,12 @@ public partial class InventoryPanel : Control
 	[Export] private ButtonHint _buttonHintTertiary;
 
 	// Input actions surfaced as button-hint glyphs. The Primary action drives
-	// ui_select tap/hold detection through ButtonDown/ButtonUp on each slot;
-	// Secondary uses a custom action with tap/hold semantics (drop); Tertiary
-	// uses a custom action with press/release semantics (use).
+	// ui_select tap/hold detection through ButtonDown/ButtonUp on each slot; the
+	// Secondary verb (drop) is a polled tap/hold on _dropAction; the Tertiary verb
+	// (use) is a press/release on _useAction.
 	[Export] private StringName _primaryAction = "ui_select";
-	[Export] private StringName _secondaryAction = "MenuSecondary";
-	[Export] private StringName _tertiaryAction = "MenuTertiary";
+	[Export] private StringName _dropAction = "MenuTertiary";
+	[Export] private StringName _useAction = "MenuSecondary";
 
 	// Fires whenever the focused slot's currently-displayed ItemState changes —
 	// either because focus moved to a different slot, or because the focused
@@ -62,8 +62,8 @@ public partial class InventoryPanel : Control
 	public ButtonHint ButtonHintTertiary => _buttonHintTertiary;
 
 	public StringName PrimaryAction => _primaryAction;
-	public StringName SecondaryAction => _secondaryAction;
-	public StringName TertiaryAction => _tertiaryAction;
+	public StringName SecondaryAction => _dropAction;
+	public StringName TertiaryAction => _useAction;
 
 	public ItemSlotPanel FocusedPanel => _focused;
 	public ItemState FocusedItem => _focused?.Item;
@@ -123,8 +123,8 @@ public partial class InventoryPanel : Control
 		// `ActionName` per-context (Equip / Cook / Use / Drop) but the glyph
 		// stays driven by the same input action regardless of the label.
 		_buttonHintPrimary?.SetHint(_primaryAction, _buttonHintPrimary.ActionName);
-		_buttonHintSecondary?.SetHint(_secondaryAction, _buttonHintSecondary.ActionName);
-		_buttonHintTertiary?.SetHint(_tertiaryAction, _buttonHintTertiary.ActionName);
+		_buttonHintSecondary?.SetHint(_dropAction, _buttonHintSecondary.ActionName);
+		_buttonHintTertiary?.SetHint(_useAction, _buttonHintTertiary.ActionName);
 	}
 
 	public override void _ExitTree()
@@ -164,7 +164,7 @@ public partial class InventoryPanel : Control
 		// Interact (open) and Drop (here), the press that opened the screen
 		// still reads as Drop. Latch awaiting-release so the tick below
 		// waits for a clean release before processing.
-		_dropAwaitingRelease = InputMap.HasAction(_secondaryAction) && Input.IsActionPressed(_secondaryAction);
+		_dropAwaitingRelease = InputMap.HasAction(_dropAction) && Input.IsActionPressed(_dropAction);
 		RefreshAll();
 		ItemSlotPanel start = _focused ?? FindFirstFocusable();
 		start?.GrabFocus();
@@ -500,12 +500,12 @@ public partial class InventoryPanel : Control
 		// Gate on actual focus ownership so the global Drop key doesn't
 		// fire here while a sibling panel (CookingPanel) holds focus.
 		ItemState item = _focused != null && _focused.HasButtonFocus() ? _focused.Item : null;
-		bool dropActionRegistered = item != null && InputMap.HasAction(_secondaryAction);
+		bool dropActionRegistered = item != null && InputMap.HasAction(_dropAction);
 		// Clear the inherited-press guard the first frame Drop reads
 		// unpressed — only then will subsequent presses fire tap/hold.
 		if (_dropAwaitingRelease)
 		{
-			if (!dropActionRegistered || !Input.IsActionPressed(_secondaryAction))
+			if (!dropActionRegistered || !Input.IsActionPressed(_dropAction))
 			{
 				_dropAwaitingRelease = false;
 			}
@@ -516,7 +516,7 @@ public partial class InventoryPanel : Control
 		}
 		bool dropHeld = !HoldLocked
 			&& dropActionRegistered
-			&& Input.IsActionPressed(_secondaryAction)
+			&& Input.IsActionPressed(_dropAction)
 			&& onSecondaryHoldComplete != null;
 		if (dropHeld)
 		{
@@ -554,15 +554,15 @@ public partial class InventoryPanel : Control
 		// fire here while a sibling panel (CookingPanel) holds focus.
 		bool focused = _focused != null && _focused.HasButtonFocus();
 		ItemState item = focused ? _focused.Item : null;
-		if (InputMap.HasAction(_tertiaryAction) && onTertiaryPressed != null)
+		if (InputMap.HasAction(_useAction) && onTertiaryPressed != null)
 		{
 			// The tertiary action's binding can overlap a screen-level action
-			// (e.g. AlmanacScreen's TabRight shares RB with MenuTertiary). Only
+			// (e.g. a screen-level action sharing its button). Only
 			// consume the press when the screen has actually surfaced the verb
 			// for the focused item — otherwise the input falls through to the
 			// wrapping screen and does what the player expects there.
 			bool tertiaryAvailable = _buttonHintTertiary != null && _buttonHintTertiary.Visible;
-			if (e.IsActionPressed(_tertiaryAction))
+			if (e.IsActionPressed(_useAction))
 			{
 				if (item != null && tertiaryAvailable)
 				{
@@ -572,7 +572,7 @@ public partial class InventoryPanel : Control
 				}
 				return;
 			}
-			if (e.IsActionReleased(_tertiaryAction))
+			if (e.IsActionReleased(_useAction))
 			{
 				if (_tertiaryStarted)
 				{

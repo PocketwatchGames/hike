@@ -17,6 +17,7 @@ public partial class ItemSlotPanel : PanelContainer
 	[Export] private Control _statusContainer;
 	// Optional overlay shown while the slot's item is equipped.
 	[Export] private CanvasItem _equippedMarker;
+	private bool _equipped;
 	// Scene instantiated per armed effect on the item — typically
 	// scenes/gui/status_effect_icon.tscn (or a sized-down variant for the
 	// slot grid). Root must be a StatusEffectIcon; we drive it via
@@ -115,10 +116,7 @@ public partial class ItemSlotPanel : PanelContainer
 	public void SetItem(ItemState item, int stackCountOverride = -1)
 	{
 		Item = item;
-		if (_itemTexture != null)
-		{
-			_itemTexture.Texture = item?.data?.inventorySprite;
-		}
+		UpdateIcon();
 		// Only toggle when there's actually a backing texture — a null
 		// BackgroundTexture leaves _slotBackground hidden permanently
 		// (ApplyBackground above) so we don't unhide an empty rect.
@@ -188,9 +186,19 @@ public partial class ItemSlotPanel : PanelContainer
 
 	public void SetEquipped(bool equipped)
 	{
+		_equipped = equipped;
 		if (_equippedMarker != null)
 		{
 			_equippedMarker.Visible = equipped;
+		}
+		UpdateIcon();
+	}
+
+	private void UpdateIcon()
+	{
+		if (_itemTexture != null)
+		{
+			_itemTexture.Texture = Item?.data?.SlotIcon(_equipped);
 		}
 	}
 

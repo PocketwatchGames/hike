@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://d24s8gbo4c7n5"]
 
-[ext_resource type="Script" uid="uid://f8fjxu5wikl6" path="res://scripts/gui/DropCountPanel.cs" id="1_t30qk"]
+[ext_resource type="Script" uid="uid://f8fjxu5wikl6" path="res://scripts/gui/ItemCountPanel.cs" id="1_t30qk"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_prdi3"]
 
-[node name="DropCountPanel" type="MarginContainer" unique_id=256445145 node_paths=PackedStringArray("count", "label", "up", "down", "okHint", "cancelHint")]
+[node name="ItemCountPanel" type="MarginContainer" unique_id=256445145 node_paths=PackedStringArray("count", "label", "up", "down", "okHint", "cancelHint")]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0

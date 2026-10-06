@@ -26,8 +26,8 @@ public partial class AlmanacScreen : Control
 	// actions, and it drives them itself (InventoryScreen.BindActionHints);
 	// every other tab shows none.
 	[Export] ButtonHint _buttonHintA;
-	[Export] ButtonHint _buttonHintX;
-	[Export] ButtonHint _buttonHintY;
+	[Export] ButtonHint _buttonHintDrop;
+	[Export] ButtonHint _buttonHintUse;
 	[Export] Control _inventoryTab;
 	[Export] Control _worldMapTab;
 	[Export] Control _bestiaryTab;
@@ -44,7 +44,7 @@ public partial class AlmanacScreen : Control
 		UpdateTab(_bestiaryScreen, _bestiaryTab, false);
 		UpdateTab(_spellScreen, _spellTab, false);
 
-		_inventoryScreen?.BindActionHints(_buttonHintA, _buttonHintX, _buttonHintY);
+		_inventoryScreen?.BindActionHints(_buttonHintA, _buttonHintDrop, _buttonHintUse);
 		_tabLeftButtonHint?.SetHint("TabLeft", string.Empty);
 		_tabRightButtonHint?.SetHint("TabRight", string.Empty);
 
@@ -123,8 +123,8 @@ public partial class AlmanacScreen : Control
 	void HideActionHints()
 	{
 		if (_buttonHintA != null) { _buttonHintA.Visible = false; }
-		if (_buttonHintX != null) { _buttonHintX.Visible = false; }
-		if (_buttonHintY != null) { _buttonHintY.Visible = false; }
+		if (_buttonHintDrop != null) { _buttonHintDrop.Visible = false; }
+		if (_buttonHintUse != null) { _buttonHintUse.Visible = false; }
 	}
 
 	static void UpdateTab(Control screen, Control tab, bool active)

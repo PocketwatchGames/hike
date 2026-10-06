@@ -594,10 +594,6 @@ public partial class Player : CharacterBody3D
 		{
 			_inventory.Remove(item);
 		}
-		// An expired equipped piece leaves its slot empty — backfill weapon/armor
-		// slots from the member's starting loadout so the player is never stranded
-		// barehanded or unarmored.
-		RefillEmptyEquipmentFromStarting();
 	}
 
 	// Per-tick ammo recharge for every weapon the player owns that opts in

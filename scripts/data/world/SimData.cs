@@ -23,6 +23,10 @@ public partial class SimData : Resource
     [Export] public float playerStuckTimeoutSeconds = 1.5f;
     [Export] public float playerStuckVelocityThreshold = 0.1f;
 
+    // Slots in the party stash (SimState.PartyStash). The stash screen's grid
+    // grows to show them all. Shrinking it packs a save's stash into what is left.
+    [Export(PropertyHint.Range, "0,256,1")] public int partyStashCapacity = 32;
+
     // Master recipe library. CookingScreen iterates this list to match the
     // current cooking inputs against an authored recipe. Discovery for any
     // hit is recorded in SimState.DiscoveredRecipes keyed by the same
