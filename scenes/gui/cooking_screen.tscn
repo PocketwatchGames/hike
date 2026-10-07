@@ -16,7 +16,7 @@ grow_vertical = 2
 script = ExtResource("1_f2qv6")
 _backpackPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/StashPanel")
 _cookingPanel = NodePath("MarginContainer/HBoxContainer/CookingContainer/CookingPanel")
-_itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/ItemInfoPanel")
+_itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/ItemInfoPanel")
 _buttonHintPrimary = NodePath("MarginContainer/ButtonHints/ButtonHintA")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1767524930]
@@ -57,14 +57,14 @@ InputAction = "Y"
 [node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=270012993]
 layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 4
 theme_override_constants/separation = 100
+alignment = 1
 
 [node name="CookingContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1380523122]
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 0
+size_flags_vertical = 4
 
 [node name="CookingPanel" parent="MarginContainer/HBoxContainer/CookingContainer" unique_id=1417314439 instance=ExtResource("3_2sopy")]
 layout_mode = 2
@@ -73,7 +73,7 @@ layout_mode = 2
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 size_flags_horizontal = 0
-size_flags_vertical = 0
+size_flags_vertical = 4
 
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=1828088405]
 layout_mode = 2
@@ -84,5 +84,9 @@ alignment = 1
 layout_mode = 2
 size_flags_horizontal = 6
 
-[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=638608018 instance=ExtResource("5_m6qmy")]
+[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=443121301]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+
+[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer2" unique_id=638608018 instance=ExtResource("5_m6qmy")]
 layout_mode = 2

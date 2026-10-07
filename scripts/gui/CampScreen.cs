@@ -197,11 +197,9 @@ public partial class CampScreen : Control
 				_stashScreen?.Open(ChosenPlayer(), _player?.Sim?.WorldState?.SimState?.PartyStash);
 				break;
 			case ECampView.Cook:
-				// Eating a meal (picking a recipe, or a successful experimental cook)
-				// applies its effect to the chosen character and returns to the hub;
-				// the cook button only cooks the loaded ingredients, and ui_cancel
-				// backs out to the hub.
-				_cookingScreen?.Open(ChosenPlayer(), Forge, onMealChosen: OnMealChosen);
+				// Cooking grants the meal into the chosen character's backpack and stays
+				// on this tab; ui_cancel backs out to the hub.
+				_cookingScreen?.Open(ChosenPlayer(), Forge);
 				break;
 		}
 	}
@@ -211,13 +209,6 @@ public partial class CampScreen : Control
 	void OnStashButton() { ShowView(ECampView.Stash); }
 	void OnCookButton() { if (CanCook) { ShowView(ECampView.Cook); } }
 	void OnLeaveButton() { Close(); }
-
-	// CookingScreen callback: the chosen character ate a meal (its effect is already
-	// applied). Return to the hub with Leave Camp focused so a confirm heads out.
-	void OnMealChosen()
-	{
-		ShowHubFocusingLeave();
-	}
 
 	public override void _Process(double delta)
 	{

@@ -1658,6 +1658,14 @@ public static class ItemEventHandlers
 		SpawnOnActor(actor, ev.fx);
 	}
 
+	public static void DoUseConsumable(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		if (actor is Player player && action.context.primaryItem?.data is ConsumableData consumable)
+		{
+			consumable.ApplyTo(player);
+		}
+	}
+
 	public static void DoDecrementStack(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		ConsumeOneFromStack(actor, action.context.primaryItem);

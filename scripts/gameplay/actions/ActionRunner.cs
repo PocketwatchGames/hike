@@ -305,7 +305,8 @@ public class ActionRunner
 	// selected tier (if any reached). Returns true if a transition happened.
 	public bool OnInputReleased()
 	{
-		if (_action.phase != EActionPhase.Charging)
+		if (_action.phase != EActionPhase.Charging
+			|| (_action.profile != null && _action.profile.commitOnPress))
 		{
 			return false;
 		}
@@ -956,6 +957,10 @@ public class ActionRunner
 		if ((t & EItemEventType.ApplyStatusEffect) != 0)
 		{
 			ItemEventHandlers.DoApplyEffect(_actor, ev, ref _action);
+		}
+		if ((t & EItemEventType.UseConsumable) != 0)
+		{
+			ItemEventHandlers.DoUseConsumable(_actor, ev, ref _action);
 		}
 		if ((t & EItemEventType.ApplyAreaStatusEffect) != 0)
 		{

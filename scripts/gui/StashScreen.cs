@@ -481,7 +481,7 @@ public partial class StashScreen : Control
 		{
 			return null;
 		}
-		return InventoryScreen.UseVerb(_player?.Inventory, ItemAt(_focused));
+		return InventoryScreen.UseVerb(_player, ItemAt(_focused));
 	}
 
 	// A null label hides the hint.

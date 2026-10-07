@@ -1248,7 +1248,7 @@ public partial class GameClient : Node3D
 		});
 	}
 
-	void OnSimRecipeDiscovered(RecipeData recipe)
+	void OnSimRecipeDiscovered(ConsumableData recipe)
 	{
 		if (recipe == null) { return; }
 		Announce(new Announcement
@@ -1256,7 +1256,7 @@ public partial class GameClient : Node3D
 			type = EAnnouncementType.Recipe,
 			title = "Recipe Discovered",
 			subtitle = recipe.displayName.ToString(),
-			icon = recipe.icon,
+			icon = recipe.inventorySprite,
 		});
 	}
 

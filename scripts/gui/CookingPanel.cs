@@ -46,8 +46,12 @@ public partial class CookingPanel : MarginContainer
 	public System.Action onCookPressed;
 
 	// A recipe button in the right-hand list was clicked. Screen handles the
-	// reagent spend + pot update.
-	public System.Action<RecipeData> onRecipeSelected;
+	// reagent spend and grants the cooked item.
+	public System.Action<ConsumableData> onRecipeSelected;
+
+	// A recipe button gained focus (gamepad navigation or mouse hover). Screen
+	// previews the recipe's output.
+	public System.Action<ConsumableData> onRecipeFocused;
 
 	public ButtonHint ButtonHintPrimary { get; set; }
 
@@ -63,7 +67,7 @@ public partial class CookingPanel : MarginContainer
 	// Recipe button cache keyed by recipe. Diff-based rebuild in
 	// RefreshRecipes reuses these so the focused button survives an
 	// inventory mutation.
-	readonly System.Collections.Generic.Dictionary<RecipeData, Button> _recipeButtons = new();
+	readonly System.Collections.Generic.Dictionary<ConsumableData, Button> _recipeButtons = new();
 
 	ItemSlotPanel _focused;
 	ItemState _lastFocusedItem;
@@ -292,20 +296,20 @@ public partial class CookingPanel : MarginContainer
 	// disabled when the party stash can't pay the recipe's reagent cost
 	// (selecting a recipe spends from the stash on the spot, so the slots'
 	// experimental contents don't count).
-	public void RefreshRecipes(Array<RecipeData> allRecipes, SimState worldSim, System.Collections.Generic.IReadOnlyList<ItemState> stash, ECampfireType campfireType)
+	public void RefreshRecipes(Array<ConsumableData> allRecipes, SimState worldSim, System.Collections.Generic.IReadOnlyList<ItemState> stash, ECampfireType campfireType)
 	{
 		if (_recipeButtonContainer == null)
 		{
 			return;
 		}
 
-		var desired = new System.Collections.Generic.HashSet<RecipeData>();
+		var desired = new System.Collections.Generic.HashSet<ConsumableData>();
 		if (worldSim != null && allRecipes != null)
 		{
 			for (int i = 0; i < allRecipes.Count; i++)
 			{
-				RecipeData recipe = allRecipes[i];
-				if (recipe == null || recipe.campfireType != campfireType || recipe.inputs == null)
+				ConsumableData recipe = allRecipes[i];
+				if (recipe == null || recipe.campfireType != campfireType || !recipe.IsCookable)
 				{
 					continue;
 				}
@@ -319,7 +323,7 @@ public partial class CookingPanel : MarginContainer
 		// Drop buttons whose recipe no longer belongs in the list (only
 		// happens on rebind to a different forge; discovered recipes don't
 		// un-discover within a session).
-		var stale = new System.Collections.Generic.List<RecipeData>();
+		var stale = new System.Collections.Generic.List<ConsumableData>();
 		foreach (var key in _recipeButtons.Keys)
 		{
 			if (!desired.Contains(key))
@@ -336,7 +340,7 @@ public partial class CookingPanel : MarginContainer
 
 		// Create missing buttons; refresh the Disabled flag on every entry
 		// against the current stash contents.
-		foreach (RecipeData recipe in desired)
+		foreach (ConsumableData recipe in desired)
 		{
 			if (!_recipeButtons.TryGetValue(recipe, out Button button))
 			{
@@ -348,7 +352,7 @@ public partial class CookingPanel : MarginContainer
 			}
 			if (button != null)
 			{
-				button.Disabled = Cooking.CountAffordable(recipe.inputs, stash) <= 0;
+				button.Disabled = Cooking.CountAffordable(recipe.recipeInputs, stash) <= 0;
 			}
 		}
 
@@ -358,7 +362,7 @@ public partial class CookingPanel : MarginContainer
 		}
 	}
 
-	Button CreateRecipeButton(RecipeData recipe)
+	Button CreateRecipeButton(ConsumableData recipe)
 	{
 		if (_recipeButtonScene == null || _recipeButtonContainer == null)
 		{
@@ -370,9 +374,13 @@ public partial class CookingPanel : MarginContainer
 			return null;
 		}
 		button.Text = recipe.displayName.ToString();
-		button.Icon = recipe.icon;
-		RecipeData captured = recipe;
+		button.Icon = recipe.inventorySprite;
+		ConsumableData captured = recipe;
 		button.Pressed += () => onRecipeSelected?.Invoke(captured);
+		button.FocusEntered += () => onRecipeFocused?.Invoke(captured);
+		// Hover grabs focus, matching ItemSlotPanel, so mouse and gamepad preview
+		// the same way. A disabled (unaffordable) recipe still previews.
+		button.MouseEntered += button.GrabFocus;
 		_recipeButtonContainer.AddChild(button);
 		return button;
 	}

@@ -7,23 +7,64 @@ using Godot;
 // RefillLanternOilEffect); effects that read runtime item state off the action
 // context (SummonPetEffect) don't apply — those belong on a spell (SpellData /
 // IUsableItem).
+//
+// A consumable with recipeInputs is also a RECIPE: cooking those ingredients at a
+// station of campfireType grants one of it (Cooking.TryMatch). A meal (meal_*) is
+// such a consumable whose effect is an EEffectCategory.Meal status, so eating it
+// replaces whatever meal the character last ate.
+//
+// With an actionProfile the consumable takes time: the hotbar runs that timeline
+// (a potion's drinking pose) and its UseConsumable event applies the
+// payload. Without one it is spent the instant it's used.
 [GlobalClass]
-public partial class ConsumableData : ItemData, IInstantUseItem
+public partial class ConsumableData : ItemData, IInstantUseItem, IUsableItem
 {
-	// Applied in order to the player on pickup, via ItemEffect.Apply.
+	// Applied in order to the player on use, via ItemEffect.Apply.
 	[Export] public Godot.Collections.Array<ItemEffect> effects = new();
 
-	// Optional one-shot fx spawned on the player as it's used (drink glug,
-	// sparkle). Null = the generic Loot pickup poof is the only cue.
+	// Optional one-shot fx spawned on the player as the payload lands (the
+	// sparkle when a potion finishes). Null = no extra cue.
 	[Export] public PackedScene useEffect;
+
+	// Use timeline. Null = instant use; set = used only from the hotbar, where
+	// the press / hold drives it.
+	[Export] public ItemActionProfile actionProfile;
+	public ItemActionProfile ActionProfile => actionProfile;
+	public bool CanUseInstantly => actionProfile == null;
+
+	[ExportGroup("Recipe")]
+	// The ingredients that cook into this item. Empty = not cookable. Each input
+	// accepts [count, count + range], so an exact-count variant (all range 0)
+	// and a looser one can be authored as two consumables over the same
+	// ingredients.
+	[Export] public Godot.Collections.Array<RecipeInput> recipeInputs = new();
+	// The station that cooks it — a campfire only matches Cooking recipes.
+	[Export] public ECampfireType campfireType;
+	// Higher wins when several recipes match the same inputs; ties go to the
+	// smallest total range (the most specific).
+	[Export] public int recipePriority;
+
+	public bool IsCookable => recipeInputs != null && recipeInputs.Count > 0;
 
 	protected override EItemCategory ComputeCategory() => EItemCategory.Usable;
 
 	public bool UseOn(Player player)
 	{
-		if (player == null)
+		if (player == null || !CanUseInstantly)
 		{
 			return false;
+		}
+		ApplyTo(player);
+		return true;
+	}
+
+	// The payload, however the use was reached — instantly, or by a timed
+	// consumable's UseConsumable event.
+	public void ApplyTo(Player player)
+	{
+		if (player == null)
+		{
+			return;
 		}
 		// Self-targeted context — a consumable buffs/heals the user; there's no
 		// weapon swing or interactive behind it.
@@ -39,6 +80,5 @@ public partial class ConsumableData : ItemData, IInstantUseItem
 		{
 			Fx.Create(useEffect, player, Vector3.Zero);
 		}
-		return true;
 	}
 }

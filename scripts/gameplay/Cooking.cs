@@ -2,8 +2,9 @@ using System.Collections.Generic;
 using Godot.Collections;
 
 // Pure recipe matcher. Given the current cooking inputs (any number of slots,
-// each holding an ItemState or null), the master recipe list from SimData,
-// and the forge type performing the cook, returns the best matching recipe.
+// each holding an ItemState or null), the master recipe list from SimData (the
+// cookable ConsumableData), and the station performing the cook, returns the
+// consumable those ingredients cook into.
 // Match rules:
 //   * recipe.campfireType must equal the supplied campfireType — recipes are
 //     scoped to a station (e.g. cooking-only recipes never match at a
@@ -24,23 +25,23 @@ using Godot.Collections;
 // still allowed when its parent species meat is an authored ingredient.
 //
 // Tier variation (standard vs high-quality output) is expressed by separate
-// RecipeData files, not by a per-match quality flag. When multiple recipes
-// match the same inputs, the recipe with the highest authored `priority`
+// consumables, not by a per-match quality flag. When multiple recipes
+// match the same inputs, the recipe with the highest authored `recipePriority`
 // wins; ties broken by smallest total range (more specific). Final tie
 // resolves to whichever appears first.
 public static class Cooking
 {
 	public readonly struct MatchResult
 	{
-		public readonly RecipeData recipe;
-		public MatchResult(RecipeData recipe)
+		public readonly ConsumableData output;
+		public MatchResult(ConsumableData output)
 		{
-			this.recipe = recipe;
+			this.output = output;
 		}
-		public bool IsValid => recipe != null;
+		public bool IsValid => output != null;
 	}
 
-	public static MatchResult TryMatch(IReadOnlyList<ItemState> inputs, Array<RecipeData> recipes, ECampfireType campfireType)
+	public static MatchResult TryMatch(IReadOnlyList<ItemState> inputs, Array<ConsumableData> recipes, ECampfireType campfireType)
 	{
 		if (inputs == null || recipes == null || recipes.Count == 0)
 		{
@@ -70,20 +71,20 @@ public static class Cooking
 		{
 			return default;
 		}
-		RecipeData bestRecipe = null;
+		ConsumableData bestRecipe = null;
 		int bestPriority = int.MinValue;
 		int bestSpecificity = int.MaxValue;
 		for (int r = 0; r < recipes.Count; r++)
 		{
-			RecipeData recipe = recipes[r];
+			ConsumableData recipe = recipes[r];
 			if (!Matches(recipe, totals, suppliedKinds, campfireType))
 			{
 				continue;
 			}
 			int spec = TotalRange(recipe);
-			if (recipe.priority > bestPriority || (recipe.priority == bestPriority && spec < bestSpecificity))
+			if (recipe.recipePriority > bestPriority || (recipe.recipePriority == bestPriority && spec < bestSpecificity))
 			{
-				bestPriority = recipe.priority;
+				bestPriority = recipe.recipePriority;
 				bestSpecificity = spec;
 				bestRecipe = recipe;
 			}
@@ -91,9 +92,9 @@ public static class Cooking
 		return bestRecipe != null ? new MatchResult(bestRecipe) : default;
 	}
 
-	static bool Matches(RecipeData recipe, System.Collections.Generic.Dictionary<ItemData, int> totals, System.Collections.Generic.HashSet<ItemData> suppliedKinds, ECampfireType campfireType)
+	static bool Matches(ConsumableData recipe, System.Collections.Generic.Dictionary<ItemData, int> totals, System.Collections.Generic.HashSet<ItemData> suppliedKinds, ECampfireType campfireType)
 	{
-		if (recipe?.inputs == null || recipe.inputs.Count == 0)
+		if (recipe == null || !recipe.IsCookable)
 		{
 			return false;
 		}
@@ -101,9 +102,9 @@ public static class Cooking
 		{
 			return false;
 		}
-		for (int i = 0; i < recipe.inputs.Count; i++)
+		for (int i = 0; i < recipe.recipeInputs.Count; i++)
 		{
-			RecipeInput ri = recipe.inputs[i];
+			RecipeInput ri = recipe.recipeInputs[i];
 			if (ri?.item == null)
 			{
 				return false;
@@ -137,13 +138,13 @@ public static class Cooking
 
 	// True if the supplied item or any of its ancestors is an authored
 	// ingredient of the recipe.
-	static bool CoveredBy(RecipeData recipe, ItemData kind)
+	static bool CoveredBy(ConsumableData recipe, ItemData kind)
 	{
 		foreach (ItemData d in Chain(kind))
 		{
-			for (int i = 0; i < recipe.inputs.Count; i++)
+			for (int i = 0; i < recipe.recipeInputs.Count; i++)
 			{
-				if (recipe.inputs[i]?.item == d)
+				if (recipe.recipeInputs[i]?.item == d)
 				{
 					return true;
 				}
@@ -186,12 +187,12 @@ public static class Cooking
 	// Sum of per-ingredient range. Lower = more specific. A recipe with
 	// every input pinned to range=0 has specificity 0, so it always wins
 	// over a looser recipe sharing the same ingredients.
-	static int TotalRange(RecipeData recipe)
+	static int TotalRange(ConsumableData recipe)
 	{
 		int total = 0;
-		for (int i = 0; i < recipe.inputs.Count; i++)
+		for (int i = 0; i < recipe.recipeInputs.Count; i++)
 		{
-			RecipeInput ri = recipe.inputs[i];
+			RecipeInput ri = recipe.recipeInputs[i];
 			if (ri != null) { total += ri.range; }
 		}
 		return total;

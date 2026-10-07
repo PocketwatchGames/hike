@@ -273,7 +273,7 @@ public partial class InventoryScreen : Control
 			return;
 		}
 		ShowHint(_hintSelect, SelectAction, focused != null ? "Select" : null);
-		ShowHint(_hintUse, UseAction, UseVerb(Inv, focused));
+		ShowHint(_hintUse, UseAction, UseVerb(_player, focused));
 		ShowHint(_hintDrop, DropAction, focused != null ? "Drop" : null);
 	}
 
@@ -331,17 +331,24 @@ public partial class InventoryScreen : Control
 
 	// ---- Item verbs, shared with StashScreen and MerchantScreen -------------
 
-	// The Y verb: use an instant item (potion, scroll) on the member, else equip /
-	// unequip gear. Does nothing for an item with no verb (a material).
+	// The Y verb: use an instant item (mud, a meal) on the member, or start a
+	// press-to-commit timeline (drinking a potion) — the menu stays open while it
+	// plays — else equip / unequip gear. Does nothing for an item with no verb (a
+	// material, or a timeline that needs the button held, which only the hotbar
+	// can drive).
 	public static void UseOrToggleEquip(Player player, ItemState item)
 	{
 		if (item?.data == null || player?.Inventory == null)
 		{
 			return;
 		}
-		if (item.data is IInstantUseItem)
+		if (item.data is IInstantUseItem { CanUseInstantly: true })
 		{
 			player.UseInstantItem(item);
+		}
+		else if (UsableFromMenu(player, item))
+		{
+			player.StartUseAction(item);
 		}
 		else if (item.data.IsEquippable)
 		{
@@ -350,13 +357,14 @@ public partial class InventoryScreen : Control
 	}
 
 	// The Y hint's label for `item`, null when it has no verb.
-	public static string UseVerb(Inventory inv, ItemState item)
+	public static string UseVerb(Player player, ItemState item)
 	{
+		Inventory inv = player?.Inventory;
 		if (item?.data == null || inv == null)
 		{
 			return null;
 		}
-		if (item.data is IInstantUseItem)
+		if (item.data is IInstantUseItem { CanUseInstantly: true } || UsableFromMenu(player, item))
 		{
 			return "Use";
 		}
@@ -365,6 +373,16 @@ public partial class InventoryScreen : Control
 			return inv.IsEquipped(item) ? "Unequip" : "Equip";
 		}
 		return null;
+	}
+
+	// A timeline the menu can start: unequippable (gear runs from its slot),
+	// press-to-commit (a menu never sends the release a held action needs), and on
+	// the controlled member — an idle one's runner doesn't tick (camp's stash can
+	// show one).
+	static bool UsableFromMenu(Player player, ItemState item)
+	{
+		return player.IsActive && !item.data.IsEquippable
+			&& item.data is IUsableItem { ActionProfile.commitOnPress: true };
 	}
 
 	// True when `item` may equip into `destSlot` — its category's slot matches.

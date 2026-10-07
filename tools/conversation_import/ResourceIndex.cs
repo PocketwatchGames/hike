@@ -103,7 +103,7 @@ class ResourceIndex
 
 	public ResRef Recipe(string world, string basename)
 	{
-		return ByScriptClass("RecipeData", world, basename);
+		return ByScriptClass("ConsumableData", world, basename);
 	}
 
 	public ResRef Spell(string world, string basename)
@@ -231,7 +231,7 @@ class ResourceIndex
 	// declares: the languages a sheet's language column and `teach:language`
 	// name by id, and the basename tables the rest of `teach:` resolves against.
 	// The header is the first line, so only a file that matches is read whole.
-	static readonly string[] TeachableClasses = { "RecipeData", "SpellData", "RegionData", "SpeciesData" };
+	static readonly string[] TeachableClasses = { "ConsumableData", "SpellData", "RegionData", "SpeciesData" };
 
 	void IndexResources()
 	{

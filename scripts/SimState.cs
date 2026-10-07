@@ -219,10 +219,10 @@ public class SimState
     public event Action<ItemData> onItemIdentified;
 
     // Fired the first time a recipe is discovered. With each tier authored as
-    // its own recipe, this fires once per (recipe, output) the player newly
+    // its own consumable, this fires once per consumable the player newly
     // earns — including the high-quality tier of a dish whose standard variant
     // they already had.
-    public event Action<RecipeData> onRecipeDiscovered;
+    public event Action<ConsumableData> onRecipeDiscovered;
 
     // Fired the first time a species is discovered. GameClient subscribes to
     // forward an announcement; the bestiary refreshes through its own
@@ -345,7 +345,7 @@ public class SimState
 
     // ---- Recipes -----------------------------------------------------------
 
-    public bool IsRecipeDiscovered(RecipeData recipe)
+    public bool IsRecipeDiscovered(ConsumableData recipe)
     {
         if (recipe == null)
         {
@@ -359,7 +359,7 @@ public class SimState
     // discovery; subsequent calls for the same recipe are silent. Recipes have
     // no identification phase — a recipe is either undiscovered (shown nowhere)
     // or discovered under its real name.
-    public bool DiscoverRecipe(RecipeData recipe)
+    public bool DiscoverRecipe(ConsumableData recipe)
     {
         if (recipe == null)
         {

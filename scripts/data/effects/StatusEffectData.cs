@@ -45,8 +45,8 @@ public enum EDurationType
 //   Transient — ordinary timed / buildup combat states (default).
 //   Permanent — long-term quirks / afflictions (no HUD strip yet).
 //   Elite     — elite signature aura (badge only).
-//   Meal      — granted by eating a cooked recipe. At most one per character (eating
-//               again clears the previous via RemoveByCategory); the camp screen's
+//   Meal      — granted by eating a meal_* consumable. At most one per character
+//               (StatusEffectController.Add evicts the previous); the camp screen's
 //               meal readout shows the active one. Combine with Transient so it still
 //               displays on the normal HUD (e.g. Transient | Meal).
 [System.Flags]

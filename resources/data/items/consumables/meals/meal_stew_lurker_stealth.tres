@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://lux85tk8x8ly"]
+
+[ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_consumable"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
+[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="3_apply"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="4_input"]
+[ext_resource type="Resource" uid="uid://ccrx5h1h4qje2" path="res://resources/data/status_effects/well_fed_stealth.tres" id="5_status"]
+[ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="6_icon"]
+[ext_resource type="Resource" uid="uid://cdl46y53kpu67" path="res://resources/data/items/loot/lurker_meat.tres" id="7_lurker_meat"]
+[ext_resource type="Resource" uid="uid://d0ghc0filpfpn" path="res://resources/data/items/loot/mushroom_black.tres" id="8_mushroom_black"]
+
+[sub_resource type="Resource" id="Effect_meal"]
+script = ExtResource("3_apply")
+statusEffect = ExtResource("5_status")
+
+[sub_resource type="Resource" id="Resource_input_meat"]
+script = ExtResource("4_input")
+item = ExtResource("7_lurker_meat")
+count = 2
+
+[sub_resource type="Resource" id="Resource_input_mushroom"]
+script = ExtResource("4_input")
+item = ExtResource("8_mushroom_black")
+
+[resource]
+script = ExtResource("1_consumable")
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_meal")])
+recipeInputs = Array[ExtResource("4_input")]([SubResource("Resource_input_meat"), SubResource("Resource_input_mushroom")])
+displayName = &"Shadowy Lurker Stew"
+description = "Lurker meat and black mushrooms. Muffles your presence."
+maxStack = 99
+spoilDays = 3
+inventorySprite = ExtResource("6_icon")
+typeTags = 5

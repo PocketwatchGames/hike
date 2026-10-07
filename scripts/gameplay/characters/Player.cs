@@ -997,10 +997,8 @@ public partial class Player : CharacterBody3D
 	// over the skipped night.
 	public void ClearTransientStatusEffects() => _statusEffects.RemoveByCategory(EEffectCategory.Transient);
 
-	// Meal effects (EEffectCategory.Meal) — the buff/affliction from the last cooked
-	// recipe eaten. The camp cook screen clears the prior meal before applying a new
-	// one, and reads the active one for its per-character meal readout.
-	public void RemoveMealStatusEffects() => _statusEffects?.RemoveByCategory(EEffectCategory.Meal);
+	// The meal effect (EEffectCategory.Meal) from the last meal eaten, read by the
+	// camp screen's per-character meal readout.
 	public StatusEffectData ActiveMealEffect => _statusEffects?.ActiveMealEffect;
 
 	// Reconcile the daily WellRested stat buff to the hosted member's flag. Called

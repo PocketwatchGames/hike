@@ -6,7 +6,7 @@ using System.Collections.Generic;
 //
 //   teach:language vyeshal                     the whole tongue
 //   teach:language vyeshal grammar,vocabulary1  just those pieces
-//   teach:recipe recipe_stew_goblin_health
+//   teach:recipe meal_stew_goblin_health
 //   teach:spell birds_eye
 //   teach:region swamp
 //   teach:item health_potion                   reveals its real name
@@ -99,7 +99,7 @@ static class TeachCell
 				reference.Property = "recipe";
 				reference.Prefix = "Recipe";
 				reference.Target = index.Recipe(world, name);
-				where = "no RecipeData .tres has that basename";
+				where = "no ConsumableData .tres has that basename";
 				break;
 			case "spell":
 				reference.Teachable = "SpellTeachable";

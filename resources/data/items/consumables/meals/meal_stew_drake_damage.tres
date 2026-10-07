@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://bda2llytofan5"]
+
+[ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_consumable"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
+[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="3_apply"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="4_input"]
+[ext_resource type="Resource" uid="uid://d4gn17jpro1oy" path="res://resources/data/status_effects/well_fed_damage.tres" id="5_status"]
+[ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="6_icon"]
+[ext_resource type="Resource" uid="uid://khjswp5qnpnm" path="res://resources/data/items/loot/drake_meat.tres" id="7_drake_meat"]
+[ext_resource type="Resource" uid="uid://a2asqsl3n7mp5" path="res://resources/data/items/loot/mushroom_orange.tres" id="8_mushroom_orange"]
+
+[sub_resource type="Resource" id="Effect_meal"]
+script = ExtResource("3_apply")
+statusEffect = ExtResource("5_status")
+
+[sub_resource type="Resource" id="Resource_input_meat"]
+script = ExtResource("4_input")
+item = ExtResource("7_drake_meat")
+count = 2
+
+[sub_resource type="Resource" id="Resource_input_mushroom"]
+script = ExtResource("4_input")
+item = ExtResource("8_mushroom_orange")
+count = 3
+
+[resource]
+script = ExtResource("1_consumable")
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_meal")])
+recipeInputs = Array[ExtResource("4_input")]([SubResource("Resource_input_meat"), SubResource("Resource_input_mushroom")])
+displayName = &"Savage Drake Stew"
+description = "Drake meat stewed with orange mushrooms. Stokes a fighting edge."
+maxStack = 99
+spoilDays = 3
+inventorySprite = ExtResource("6_icon")
+typeTags = 5

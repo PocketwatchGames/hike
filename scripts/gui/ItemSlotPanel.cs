@@ -17,7 +17,14 @@ public partial class ItemSlotPanel : PanelContainer
 	[Export] private Control _statusContainer;
 	// Optional overlay shown while the slot's item is equipped.
 	[Export] private CanvasItem _equippedMarker;
+	// Icon tint for an item the current screen can't act on (a non-material on
+	// the cooking screen).
+	[Export] private Color _unavailableTint = new Color(0.35f, 0.35f, 0.35f, 0.6f);
+	// Icon alpha while the item is picked up by select mode.
+	[Export(PropertyHint.Range, "0,1,0.05")] private float _dimmedAlpha = 0.3f;
 	private bool _equipped;
+	private bool _dimmed;
+	private bool _unavailable;
 	// Scene instantiated per armed effect on the item — typically
 	// scenes/gui/status_effect_icon.tscn (or a sized-down variant for the
 	// slot grid). Root must be a StatusEffectIcon; we drive it via
@@ -207,12 +214,29 @@ public partial class ItemSlotPanel : PanelContainer
 	// Cleared by passing false (back to full opacity).
 	public void SetDimmed(bool dimmed)
 	{
+		_dimmed = dimmed;
+		ApplyIconModulate();
+	}
+
+	// Grey this slot's icon to signal "this screen can't use the item here". Purely
+	// visual — the screen still owns refusing the item and hiding its info.
+	public void SetUnavailable(bool unavailable)
+	{
+		_unavailable = unavailable;
+		ApplyIconModulate();
+	}
+
+	private void ApplyIconModulate()
+	{
 		if (_itemTexture == null)
 		{
 			return;
 		}
-		Color m = _itemTexture.Modulate;
-		m.A = dimmed ? 0.3f : 1f;
+		Color m = _unavailable ? _unavailableTint : Colors.White;
+		if (_dimmed)
+		{
+			m.A = Mathf.Min(m.A, _dimmedAlpha);
+		}
 		_itemTexture.Modulate = m;
 	}
 

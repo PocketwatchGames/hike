@@ -31,7 +31,7 @@ public enum EKnowledgeCategory
 public class Knowledge
 {
     public readonly HashSet<ItemData> IdentifiedItems = new();
-    public readonly HashSet<RecipeData> DiscoveredRecipes = new();
+    public readonly HashSet<ConsumableData> DiscoveredRecipes = new();
     // Learned alchemy spells — the single "known" axis for the spell list (a spell
     // is cast, never identified as a physical item, so it has no separate output-
     // identification step the way a cooked recipe does). Gates spell crafting.

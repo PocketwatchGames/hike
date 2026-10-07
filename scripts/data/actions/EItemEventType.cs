@@ -118,4 +118,9 @@ public enum EItemEventType
 	// sounds where the shot ended. For the noise of a strike landing, use
 	// ev.impactDecibels on the Melee / Hitscan / Projectile event instead.
 	Noise = 1 << 23,
+	// Applies context.primaryItem's ConsumableData payload (its effects and
+	// useEffect) to the acting player — the release tick of a timed consumable
+	// (a potion drunk over a hold), paired with DecrementStack. The payload lives
+	// once on the item, so the same consumable is equally usable instantly.
+	UseConsumable = 1 << 24,
 }

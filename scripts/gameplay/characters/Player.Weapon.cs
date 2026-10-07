@@ -333,11 +333,11 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// it even if the hotbar selection has moved on since.
 	ItemState _hotbarUseItem;
 
-	// UseItem on the hotbar selection. An item with an action timeline (the
-	// lantern: a tap puts it out, a full hold reaches its fuel-costed heal)
-	// runs it — but gear must be equipped to be used, so the first press on an
-	// unequipped lantern equips it. An instant-use item (a potion) is spent
-	// on the spot. Any other gear toggles equipped.
+	// UseItem on the hotbar selection. An item with an action timeline (a potion's
+	// drink, the lantern's tap-to-douse) runs it — but gear must be
+	// equipped to be used, so the first press on an unequipped lantern equips it.
+	// An instant-use item (mud, a meal) is spent on the spot. Any other gear
+	// toggles equipped.
 	void UseHotbarSelection()
 	{
 		ItemState item = _inventory?.SelectedHotbarItem;
@@ -349,14 +349,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		if (item.data is IUsableItem usable && usable.ActionProfile != null
 			&& (equippedSlot.HasValue || !item.data.IsEquippable))
 		{
-			CancelDash();
-			var context = new ActionContext
-			{
-				verb = EActionVerb.Use,
-				primaryItem = item,
-				sourceSlot = equippedSlot ?? EInventorySlot.None,
-			};
-			if (_runner.TryStart(usable.ActionProfile, context))
+			if (StartUseAction(item, equippedSlot ?? EInventorySlot.None))
 			{
 				_hotbarUseItem = item;
 			}
@@ -374,7 +367,27 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		}
 	}
 
-	// Spend one unit of an instant-use item (potion, scroll) on this member —
+	// Start `item`'s use timeline on this member. False when it has none, the
+	// member is idle (an idle runner doesn't tick, so the action would never
+	// finish), or the runner is busy / refuses it.
+	public bool StartUseAction(ItemState item, EInventorySlot sourceSlot = EInventorySlot.None)
+	{
+		if (!IsActive || item?.data is not IUsableItem usable || usable.ActionProfile == null
+			|| _runner == null || _runner.IsBusy || _inventory == null || !_inventory.Contains(item))
+		{
+			return false;
+		}
+		CancelDash();
+		var context = new ActionContext
+		{
+			verb = EActionVerb.Use,
+			primaryItem = item,
+			sourceSlot = sourceSlot,
+		};
+		return _runner.TryStart(usable.ActionProfile, context);
+	}
+
+	// Spend one unit of an instant-use item (mud, a meal) on this member —
 	// the shared path for the hotbar and the inventory screen. False when the
 	// item isn't one, or its payload declined to be spent.
 	public bool UseInstantItem(ItemState item)

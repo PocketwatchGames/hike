@@ -5,11 +5,10 @@ using Godot;
 // (an ingredient is OPTIONAL when low <= 0 — absence is treated as a
 // provided amount of 0 and the recipe still matches).
 //
-// Tier variation is expressed by separate RecipeData files rather than
-// by per-ingredient quality flags: a recipe whose ingredients all have
+// Tier variation is expressed by separate consumables rather than by
+// per-ingredient quality flags: a recipe whose ingredients all have
 // range=0 is the "exact" / high-quality variant; one with range>0 on
-// some ingredients is the "loose" / standard variant. Both can target
-// the same dish with different output items.
+// some ingredients is the "loose" / standard variant.
 [GlobalClass]
 public partial class RecipeInput : Resource
 {

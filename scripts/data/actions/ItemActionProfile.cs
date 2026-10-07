@@ -52,6 +52,12 @@ public partial class ItemActionProfile : Resource
 	// filled charge still has a way to fire.
 	[Export] public bool requireFullCharge = false;
 
+	// "Press to commit": the press alone carries the charge through to
+	// autoActivateAtMax and releasing the input is ignored, so a tap starts the
+	// whole action (drinking a potion). The way out is an abort — InteractCancel,
+	// damage (interruptOnDamage). Requires autoActivateAtMax = true.
+	[Export] public bool commitOnPress = false;
+
 	// Damage-during-charge interrupt policy. Active-phase interrupt is gated
 	// by ItemAction.canInterrupt instead.
 	[Export] public bool interruptOnDamage = true;

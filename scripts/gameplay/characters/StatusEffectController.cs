@@ -560,8 +560,8 @@ public class StatusEffectController
 	}
 
 	// The character's currently-active meal effect (EEffectCategory.Meal), or null.
-	// At most one is active at a time (a new meal clears the prior via
-	// RemoveByCategory(Meal)), so the first match is the meal.
+	// At most one is active at a time (Add evicts the prior meal), so the first
+	// match is the meal.
 	public StatusEffectData ActiveMealEffect
 	{
 		get
@@ -1033,6 +1033,11 @@ public class StatusEffectController
 		// stack-cap branch so a same-frame re-add of `data` itself can't get
 		// tangled with its own removal.
 		ApplyRemovesOnApply(data);
+		// One meal at a time: eating evicts whatever the character last ate.
+		if ((data.category & EEffectCategory.Meal) != 0)
+		{
+			RemoveByCategory(EEffectCategory.Meal);
+		}
 		// Slot-exclusive upgrades: applying one evicts the current occupant of the
 		// same concrete slot (melee/ranged/armor/helmet), so a forge visit swaps that
 		// slot rather than stacking. None-slotted effects skip this entirely.

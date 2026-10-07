@@ -8,17 +8,10 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="5_q3g2c"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_uo8nj"]
-[ext_resource type="PackedScene" uid="uid://yl02yt25x2nu" path="res://scenes/fx/status_heal_start.tscn" id="6_healfx"]
 [ext_resource type="Texture2D" uid="uid://dit6x3xeay3qq" path="res://assets/textures/items/BasicLantern.png" id="7_sprite"]
 [ext_resource type="Texture2D" uid="uid://ytounbhlpcqb" path="res://assets/textures/items/BasicLanternActive.png" id="8_sprite_lit"]
 [ext_resource type="PackedScene" uid="uid://wnfsb2rd2l6t" path="res://scenes/fx/torch_douse.tscn" id="9_douse"]
 [ext_resource type="PackedScene" uid="uid://pwi4ejb1gusx" path="res://scenes/items/lantern_held.tscn" id="10_held"]
-
-[sub_resource type="Resource" id="Resource_event_drink"]
-script = ExtResource("4_event")
-time = 200
-type = 64
-animName = 21
 
 [sub_resource type="Resource" id="Resource_event_toggle"]
 script = ExtResource("4_event")
@@ -29,32 +22,9 @@ script = ExtResource("3_charged")
 chargeTime = 0.2
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_toggle")])
 
-[sub_resource type="Resource" id="Resource_event_heal"]
-script = ExtResource("4_event")
-type = 3473408
-fx = ExtResource("6_healfx")
-healAmount = 500.0
-cameraShakeMagnitude = 0.25
-cameraShakeDuration = 0.25
-controllerRumbleWeak = 0.4
-controllerRumbleStrong = 0.7
-controllerRumbleDuration = 0.35
-screenFlashColor = Color(1, 0.95, 0.82, 1)
-screenFlashIntensity = 0.85
-screenFlashFadeSeconds = 0.45
-
-[sub_resource type="Resource" id="Resource_tier_heal"]
-script = ExtResource("3_charged")
-chargeTime = 1.3
-requireFullCharge = true
-fuelCost = 60.0
-events = Array[ExtResource("4_event")]([SubResource("Resource_event_heal")])
-maxSpeedCharging = 0
-
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")
-chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_tier_toggle"), SubResource("Resource_tier_heal")])
-chargeEvents = Array[ExtResource("4_event")]([SubResource("Resource_event_drink")])
+chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_tier_toggle")])
 
 [resource]
 script = ExtResource("1_lantern")
@@ -64,6 +34,6 @@ douseEffectScene = ExtResource("9_douse")
 heldLanternScene = ExtResource("10_held")
 burnTimeSeconds = 360.0
 displayName = &"Lantern"
-description = "A light in the darkness. Clips to your belt when lit. Hold to burn fuel and cast a healing spell."
+description = "A light in the darkness. Clips to your belt when lit."
 value = 10
 inventorySprite = ExtResource("7_sprite")

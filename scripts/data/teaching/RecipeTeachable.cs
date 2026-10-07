@@ -1,17 +1,13 @@
 using Godot;
 
-// Teaches a recipe — adds it to SimState.DiscoveredRecipes so it
-// shows up in the cookbook / forge UI before the player has ever cooked it.
-//
-// Standard and high-quality variants of a dish are separate RecipeData
-// files, so a "scroll of grilled kun kun" teaches the
-// standard recipe; a hypothetical "scroll of succulent grilled kun kun"
-// would teach the high-quality recipe (with range=0 ingredients). Each
-// scroll points at exactly one recipe — no per-tier flag.
+// Teaches a recipe — adds the cookable consumable to SimState.DiscoveredRecipes
+// so it shows up in the cookbook before the player has ever cooked it. Each
+// scroll points at exactly one consumable; standard and high-quality variants
+// of a dish are separate consumables, so each is taught on its own.
 [GlobalClass]
 public partial class RecipeTeachable : TeachableConcept
 {
-    [Export] public RecipeData recipe;
+    [Export] public ConsumableData recipe;
 
     public override string GetDisplayName()
     {

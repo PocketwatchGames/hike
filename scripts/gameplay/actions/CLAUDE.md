@@ -8,7 +8,7 @@ A single `ActionRunner` (one per actor) drives all timeline-based player and mob
 
 Pressed via input or AI request.
 
-- `ItemActionProfile` (`scripts/data/actions/ItemActionProfile.cs`): one profile per slot. Holds an `Array<ItemAction> chargedActions` (the tiers), profile-level `chargeEvents` / `chargeEndEvents` / `abortEvents`, and behavioral flags (`autoActivateAtMax`, `locksMovement`, `interruptOnDamage`, `queueable`/`queueWindowSeconds`).
+- `ItemActionProfile` (`scripts/data/actions/ItemActionProfile.cs`): one profile per slot. Holds an `Array<ItemAction> chargedActions` (the tiers), profile-level `chargeEvents` / `chargeEndEvents` / `abortEvents`, and behavioral flags (`autoActivateAtMax`, `requireFullCharge`, `commitOnPress`, `locksMovement`, `interruptOnDamage`, `queueable`/`queueWindowSeconds`).
 - `ItemAction` (`scripts/data/actions/ItemAction.cs`): one charge tier within a profile. Carries `chargeTime`, `activeDurationSeconds`, `cooldownSeconds`, `events` (Active timeline), `readyEvents` (announce reaching this tier), combo position (`comboIndex` / `comboWindowMs`), `requirements`, abort/interrupt policy (`canAbort` / `canInterrupt`), per-tier charge curves, and per-tier charge fx (`chargeStartEffect`, `chargeLoopEffect`, `chargeCancelEffect`, `releaseEffect`).
 
 ### Combos: two independent mechanisms

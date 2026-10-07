@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://b46fiknhfeeww"]
+
+[ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_consumable"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
+[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="3_apply"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="4_input"]
+[ext_resource type="Resource" uid="uid://cpftcky3qs8jd" path="res://resources/data/status_effects/well_fed_health.tres" id="5_status"]
+[ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="6_icon"]
+[ext_resource type="Resource" uid="uid://d0y12rtrmtgie" path="res://resources/data/items/loot/spider_legs.tres" id="7_spider_legs"]
+[ext_resource type="Resource" uid="uid://drykavgefoqa7" path="res://resources/data/items/loot/mushroom_red.tres" id="8_mushroom_red"]
+
+[sub_resource type="Resource" id="Effect_meal"]
+script = ExtResource("3_apply")
+statusEffect = ExtResource("5_status")
+
+[sub_resource type="Resource" id="Resource_input_meat"]
+script = ExtResource("4_input")
+item = ExtResource("7_spider_legs")
+
+[sub_resource type="Resource" id="Resource_input_mushroom"]
+script = ExtResource("4_input")
+item = ExtResource("8_mushroom_red")
+count = 2
+
+[resource]
+script = ExtResource("1_consumable")
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_meal")])
+recipeInputs = Array[ExtResource("4_input")]([SubResource("Resource_input_meat"), SubResource("Resource_input_mushroom")])
+displayName = &"Hearty Spider Stew"
+description = "Spider legs simmered with red mushrooms. Restores and bolsters health."
+maxStack = 99
+spoilDays = 3
+inventorySprite = ExtResource("6_icon")
+typeTags = 5
