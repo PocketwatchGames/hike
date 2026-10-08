@@ -3,8 +3,8 @@
 [ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_consumable"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_b3uw6"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
-[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="3_apply"]
-[ext_resource type="Resource" uid="uid://td4nk2wwtqxx" path="res://resources/data/status_effects/status_heal.tres" id="4_heal"]
+[ext_resource type="Script" uid="uid://tvnxsypx42je" path="res://scripts/data/effects/HealEffect.cs" id="3_heal"]
+[ext_resource type="PackedScene" uid="uid://ayl02yt25x2nu" path="res://scenes/fx/status_heal_start.tscn" id="4_healfx"]
 [ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="5_icon"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="6_7l8j2"]
 [ext_resource type="PackedScene" uid="uid://dr1nk2lk5q8wn" path="res://scenes/fx/drink_loop.tscn" id="6_drinkfx"]
@@ -41,9 +41,9 @@ chargeEvents = Array[ExtResource("10_event")]([SubResource("Event_drink_anim")])
 commitOnPress = true
 
 [sub_resource type="Resource" id="Effect_heal"]
-script = ExtResource("3_apply")
-statusEffect = ExtResource("4_heal")
-potency = 2.0
+script = ExtResource("3_heal")
+amount = 1000.0
+effectScene = ExtResource("4_healfx")
 
 [sub_resource type="Resource" id="Input_mushroom_gold"]
 script = ExtResource("11_input")

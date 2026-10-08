@@ -8,15 +8,14 @@ using Godot;
 [GlobalClass]
 public partial class ApplyStatusEffect : ItemEffect
 {
-	// Fixed effect this event always applies (health potion → Heal). Leave null
+	// Fixed effect this event always applies. Leave null
 	// to instead draw one boon from the using item's possibleBoons menu (fairy
 	// corpse → one of its boons), so the applied boon is per-instance state
 	// rather than baked into the action data.
 	[Export] public StatusEffectData statusEffect;
 
 	// Magnitude multiplier stamped onto the applied effect's per-instance potency —
-	// how a "superior" variant is authored WITHOUT a duplicate StatusEffectData: a
-	// superior health potion applies the base Heal at potency 2 (double the tick).
+	// how a "superior" variant is authored WITHOUT a duplicate StatusEffectData.
 	// Only affects DoT magnitude (heal/poison ticks); 1 = the effect's base numbers.
 	[Export(PropertyHint.Range, "0.1,10,0.1")] public float potency = 1f;
 

@@ -1,13 +1,10 @@
 using Godot;
 using System;
 
-// Sleep tab of the camp screen. Two rest options, connected in _Ready:
-//   - "Sleep Until Sunrise" advances to the next day's sunrise (the only path
-//     that rolls the day), clearing the player's afflictions and full-healing.
-//   - "Sleep 1 hour" is a short in-day nap that integrates status effects over
-//     the skipped hour and heals a fraction, clamped so it never passes midnight.
-// Each hands its choice to the onSleep callback supplied by CampScreen, which
-// tears down the camp and starts the sleep overlay.
+// Sleep tab of the camp screen: "Sleep Until Sunrise" and "Sleep 1 hour", each
+// handing its duration to the onSleep callback supplied by CampScreen, which
+// hides the camp and starts the sleep overlay. Whether a sleep is a rest is
+// Sim.Sleep's call — it is one exactly when it reaches the sunrise.
 [GlobalClass]
 public partial class SleepScreen : Control
 {
@@ -22,9 +19,8 @@ public partial class SleepScreen : Control
 	// player is camped at — supplied by CampScreen from the campfire. Used only by
 	// the 1-hour nap; the until-sunrise rest full-heals regardless.
 	float _healFractionPerHour;
-	// Supplied by CampScreen.Open; invoked with (hours, healFractionPerHour,
-	// toSunrise). Until-sunrise ignores `hours`.
-	Action<double, double, bool> _onSleep;
+	// Supplied by CampScreen.Open; invoked with (hours, healFractionPerHour).
+	Action<double, double> _onSleep;
 
 	public override void _Ready()
 	{
@@ -39,7 +35,7 @@ public partial class SleepScreen : Control
 		if (_untilSunButton != null) { _untilSunButton.Pressed -= OnUntilSunPressed; }
 	}
 
-	public void Open(Player player, float healFractionPerHour, Action<double, double, bool> onSleep)
+	public void Open(Player player, float healFractionPerHour, Action<double, double> onSleep)
 	{
 		_player = player;
 		_healFractionPerHour = healFractionPerHour;
@@ -60,11 +56,11 @@ public partial class SleepScreen : Control
 
 	void OnOneHourPressed()
 	{
-		_onSleep?.Invoke(NapHours, _healFractionPerHour, false);
+		_onSleep?.Invoke(NapHours, _healFractionPerHour);
 	}
 
 	void OnUntilSunPressed()
 	{
-		_onSleep?.Invoke(0.0, _healFractionPerHour, true);
+		_onSleep?.Invoke(Sim.SleepUntilDawn, _healFractionPerHour);
 	}
 }

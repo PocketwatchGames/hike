@@ -621,6 +621,10 @@ public partial class Sim
         {
             state.RuntimeNode = entity;
             _entityStates[entity] = state;
+            if (entity is IDiscoverableHost discoverableHost)
+            {
+                discoverableHost.Discoverable?.Bind(state);
+            }
             // Clear the back-reference whenever the node leaves the tree
             // (chunk eviction, day/night despawn, mob death). RefreshTimeOfDayEntities
             // uses RuntimeNode to detect which states currently have a live

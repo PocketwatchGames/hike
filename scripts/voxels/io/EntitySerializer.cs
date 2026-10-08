@@ -406,7 +406,7 @@ public static class EntitySerializer
         return ReadList(br);
     }
 
-    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true, bool hasScale = true, bool itemExtras = true, bool hasScriptFields = true)
+    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true, bool hasScale = true, bool itemExtras = true, bool hasScriptFields = true, bool hasDiscovered = true)
     {
         ReadPathTable outer = _readPaths;
         int outerRoofFormat = _roofFormat;
@@ -422,7 +422,7 @@ public static class EntitySerializer
             var list = new List<EntitySimState>((int)count);
             for (uint i = 0; i < count; i++)
             {
-                list.Add(hasRotation ? ReadOne(r, hasTag, hasScale, hasScriptFields) : ReadPayload(r));
+                list.Add(hasRotation ? ReadOne(r, hasTag, hasScale, hasScriptFields, hasDiscovered) : ReadPayload(r));
             }
             return list;
         }
@@ -436,7 +436,8 @@ public static class EntitySerializer
     }
 
     // Tag + per-kind payload, then RotationY, the variant pool tag, the scale and
-    // the script fields (name, disabled gate) as common trailing fields — every entity carries both now, so writing them once here
+    // the script fields (name, disabled gate) and the discovered flag as common
+    // trailing fields — every entity carries them, so writing them once here
     // beats threading them through 21 payloads. Trailing rather than leading
     // because the payload is what constructs the state; ReadOne assigns them
     // afterwards. The pool tag goes through the string table, so the common case
@@ -450,6 +451,7 @@ public static class EntitySerializer
         WriteInternedString(w, e.Name ?? "");
         WriteInternedString(w, e.DisabledVariable?.ToString() ?? "");
         w.Write((byte)e.DisabledWhen);
+        w.Write(e.Discovered);
     }
 
     private static void WritePayload(BinaryWriter w, EntitySimState e)
@@ -472,8 +474,8 @@ public static class EntitySerializer
                 WriteVec3(w, loot.WorldPosition);
                 WriteResource(w, loot.Data);
                 w.Write(loot.PickedUp);
-                // The composed state, when the spawn built one (mods, level, a
-                // lantern's fuel); null means "synthesize a fresh one at pickup".
+                // The composed state, when the spawn built one (mods, level,
+                // ammo); null means "synthesize a fresh one at pickup".
                 WriteItemState(w, loot.Item);
                 break;
 
@@ -562,10 +564,9 @@ public static class EntitySerializer
                 // Per-elite crown scene override (EliteData.crownScene),
                 // scene ref, may be null (then SimData.EliteCrownScene is used).
                 WriteScene(w, mob.EliteCrownScene);
-                // Death loot (MobSimState.Loot), stamped from SpeciesData.loot
-                // at spawn. Mob loot carries no permanent mods, so only item path
-                // + count are persisted (mirrors the chest-loot recipe above). If
-                // modded mob loot is ever added, write the descriptor's
+                // Carried death loot (MobSimState.Loot); species loot is rolled
+                // at death and not stored. Only item path + count are persisted —
+                // if modded carried loot is ever added, write the descriptor's
                 // statusEffects here too.
                 int mobLootCount = mob.Loot?.Count ?? 0;
                 w.Write(mobLootCount);
@@ -869,7 +870,7 @@ public static class EntitySerializer
     // to be assigned after the payload because the payload is what constructs
     // the state. A payload that returns null (an unknown tag) still consumes it,
     // so the stream stays aligned.
-    private static EntitySimState ReadOne(BinaryReader r, bool hasTag, bool hasScale, bool hasScriptFields)
+    private static EntitySimState ReadOne(BinaryReader r, bool hasTag, bool hasScale, bool hasScriptFields, bool hasDiscovered)
     {
         EntitySimState state = ReadPayload(r);
         float rotationY = r.ReadSingle();
@@ -878,6 +879,7 @@ public static class EntitySerializer
         string name = hasScriptFields ? ReadInternedString(r) : "";
         string disabledVariable = hasScriptFields ? ReadInternedString(r) : "";
         var disabledWhen = hasScriptFields ? (EDisabledWhen)r.ReadByte() : EDisabledWhen.True;
+        bool discovered = hasDiscovered && r.ReadBoolean();
         if (state != null)
         {
             state.RotationY = rotationY;
@@ -886,6 +888,7 @@ public static class EntitySerializer
             state.Name = name.Length > 0 ? name : null;
             state.DisabledVariable = disabledVariable.Length > 0 ? new StringName(disabledVariable) : null;
             state.DisabledWhen = disabledWhen;
+            state.Discovered = discovered;
         }
         return state;
     }

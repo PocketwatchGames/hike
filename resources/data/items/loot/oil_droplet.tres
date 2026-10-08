@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="PickupEffectData" format=3 uid="uid://s2f2qpedbhfw"]
+
+[ext_resource type="Script" uid="uid://c558nly57hnmr" path="res://scripts/data/items/PickupEffectData.cs" id="1_pickup"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
+[ext_resource type="Script" uid="uid://do0gxlqe4tomu" path="res://scripts/data/effects/RefillLanternOilEffect.cs" id="3_oil"]
+[ext_resource type="Texture2D" uid="uid://bnp0ij4c4qp71" path="res://assets/textures/items/Potion_black.png" id="4_icon"]
+
+[sub_resource type="Resource" id="Effect_refill_oil"]
+script = ExtResource("3_oil")
+amount = 10.0
+metadata/_custom_type_script = "uid://do0gxlqe4tomu"
+
+[resource]
+script = ExtResource("1_pickup")
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_refill_oil")])
+displayName = &"Oil Droplet"
+description = "A bead of lamp oil. Tops up your lantern oil."
+inventorySprite = ExtResource("4_icon")
+metadata/_custom_type_script = "uid://c558nly57hnmr"

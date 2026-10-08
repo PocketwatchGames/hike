@@ -8,7 +8,7 @@
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="5_fvgyx"]
 [ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="6_32vq5"]
 
-[node name="MerchantScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_merchantPortrait", "_merchantNameLabel", "_merchantConversationLabel", "_merchantInventoryPanel", "_getPanel", "_tradeButton", "_inventoryPanel", "_stockGrid", "_giveGrid", "_getGrid", "_countPanel", "_itemInfoPanel", "_hintSelect", "_hintSend", "_hintDrop", "_hintUse")]
+[node name="MerchantScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_merchantPortrait", "_merchantNameLabel", "_merchantConversationLabel", "_merchantInventoryPanel", "_getPanel", "_tradeButton", "_inventoryPanel", "_stockGrid", "_giveGrid", "_getGrid", "_countPanel", "_itemInfoPanel", "_hintSelect", "_hintEquip", "_hintUse", "_hintSend", "_hintDrop")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -29,6 +29,7 @@ _getGrid = NodePath("MarginContainer/HBoxContainer/Center/GetPanel/MarginContain
 _countPanel = NodePath("MarginContainer/MarginContainer2/ItemCountPanel")
 _itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/ItemInfoPanel")
 _hintSelect = NodePath("MarginContainer/ButtonHints/ButtonHintA")
+_hintEquip = NodePath("MarginContainer/ButtonHints/ButtonHintEquip")
 _hintSend = NodePath("MarginContainer/ButtonHints/ButtonHintSend")
 _hintDrop = NodePath("MarginContainer/ButtonHints/ButtonHintDrop")
 _hintUse = NodePath("MarginContainer/ButtonHints/ButtonHintUse")
@@ -184,20 +185,25 @@ alignment = 1
 layout_mode = 2
 ActionName = "Equip"
 
-[node name="ButtonHintDrop" parent="MarginContainer/ButtonHints" unique_id=199762041 instance=ExtResource("5_fvgyx")]
+[node name="ButtonHintEquip" parent="MarginContainer/ButtonHints" instance=ExtResource("5_fvgyx")]
 layout_mode = 2
-ActionName = "Drop"
-InputAction = "MenuTertiary"
+ActionName = "Equip"
+InputAction = "MenuSecondary"
 
 [node name="ButtonHintUse" parent="MarginContainer/ButtonHints" unique_id=1997220129 instance=ExtResource("5_fvgyx")]
 layout_mode = 2
 ActionName = "Use"
-InputAction = "MenuSecondary"
+InputAction = "MenuTertiary"
 
 [node name="ButtonHintSend" parent="MarginContainer/ButtonHints" instance=ExtResource("5_fvgyx")]
 layout_mode = 2
 ActionName = "Offer"
 InputAction = "MenuQuaternary"
+
+[node name="ButtonHintDrop" parent="MarginContainer/ButtonHints" unique_id=199762041 instance=ExtResource("5_fvgyx")]
+layout_mode = 2
+ActionName = "Drop"
+InputAction = "MenuQuinary"
 
 [node name="MarginContainer2" type="MarginContainer" parent="MarginContainer" unique_id=112741701]
 layout_mode = 2

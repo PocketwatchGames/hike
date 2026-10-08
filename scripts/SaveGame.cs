@@ -28,7 +28,7 @@ public static class SaveGame
 {
 	// Anything that isn't exactly this version is rejected — pre-release saves
 	// are discarded, never upgraded (CLAUDE.md "Priorities").
-	private const int SAVE_VERSION = 33;
+	private const int SAVE_VERSION = 38;
 
 	public static string GlobalPath(string path) => ProjectSettings.GlobalizePath(path);
 

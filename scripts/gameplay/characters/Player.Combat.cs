@@ -229,6 +229,10 @@ public partial class Player : CharacterBody3D
 			{
 				PlayOneShot(EAnimation.Block);
 				_world?.CreateNoiseEvent(GlobalPosition, shield.data.blockDecibels, this);
+				if (!hit.dot)
+				{
+					CounterStrike(shield, shield.data.blockCounter, hit.source);
+				}
 			}
 		}
 		// Central armor chips at (1 + blunt) on whatever survived the guard.
@@ -406,20 +410,26 @@ public partial class Player : CharacterBody3D
 	private void TryParry(ShieldState shield, Node attacker)
 	{
 		_parryDeadlineMs = 0;
-		DamageData damage = shield?.data?.parryCounter;
+		CounterStrike(shield, shield?.data?.parryCounter, attacker);
+	}
+
+	// Strike a Mob attacker back with one of the shield's counters (parry or
+	// thorns). No-op for a null counter or a non-Mob / dead attacker.
+	private void CounterStrike(ShieldState shield, DamageData damage, Node attacker)
+	{
 		if (damage == null || attacker is not Mob mob || !mob.alive)
 		{
 			return;
 		}
 		Vector3 dir = mob.GlobalPosition - GlobalPosition;
 		dir.Y = 0f;
-		var parryHit = new HitInfo(damage, this, dir, ETeam.Player);
+		var counterHit = new HitInfo(damage, this, dir, ETeam.Player);
 		// The shield's level and the Melee forge curve fold into damage, and the
 		// forge curve rides potency so any status it applies ticks harder —
 		// mirroring ResolveHit, which this direct mob.Hit path bypasses.
-		parryHit.healthDamage *= ShieldLevelScale(shield);
-		parryHit.potency = OutgoingLevelScale(EInventorySlot.Shield);
-		mob.Hit(parryHit);
+		counterHit.healthDamage *= ShieldLevelScale(shield);
+		counterHit.potency = OutgoingLevelScale(EInventorySlot.Shield);
+		mob.Hit(counterHit);
 	}
 
 	// Signed HP delta from a status-effect tick. Positive heals, negative

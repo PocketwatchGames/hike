@@ -275,7 +275,12 @@ public static class WorldFile
     //      empty when untrapped) between its spawn conditions and its contents.
     // v69: a mob's outfit mesh-name list is replaced by its NpcAppearanceData
     //      ref.
-    public const uint VERSION = 69;
+    // v70: a lantern carries no subclass state — its oil is the carrier's.
+    // v71: a mob's stored loot is its carried loot alone — species loot is a
+    //      ranged roll made at death.
+    // v72: every entity carries a trailing discovered flag (EntitySimState
+    //      .Discovered), so a perceived Discoverable stays seen across streaming.
+    public const uint VERSION = 72;
 
     public struct IndexEntry
     {

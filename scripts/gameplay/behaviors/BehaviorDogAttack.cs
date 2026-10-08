@@ -4,7 +4,7 @@ using Godot;
 // logic, but the victim is the enemy the mob has built threat-perception toward
 // (MobSimState.ThreatPerception, accumulated in MobAI.AccumulateThreatPerception)
 // instead of the player. Overriding ResolveTarget is the entire difference —
-// standoff slots, cooldowns, yaw, and firing the action profile are inherited
+// encircle ring, cooldowns, yaw, and firing the action profile are inherited
 // unchanged. The brain enters here once threat perception latches `triggered`
 // (perceptionThresholdAlert) and drops back to BehaviorWary when it clears.
 public partial class BehaviorDogAttack : BehaviorAttack
@@ -55,10 +55,10 @@ public partial class BehaviorDogAttack : BehaviorAttack
         {
             if (TryTransitions(me, time, ref targetPerception, out StringName destination))
             {
-                ReleaseSlot(me);
+                LeaveRing(me);
                 return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
             }
-            ReleaseSlot(me);
+            LeaveRing(me);
             me.Navigator?.Goto(master.GlobalPosition, allowFalling: true, avoidHazards: true);
             output.speed = _data.breakoffReturnSpeed;
             return new BehaviorOutput(EBehaviorResult.Running);

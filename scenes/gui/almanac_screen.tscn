@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="4_idb3r"]
 [ext_resource type="PackedScene" uid="uid://c0s173tq07vqh" path="res://scenes/gui/spell_screen.tscn" id="5_7ewlq"]
 
-[node name="AlmanacScreen" type="Control" unique_id=1182491772 node_paths=PackedStringArray("_inventoryScreen", "_worldMapScreen", "_bestiaryScreen", "_spellScreen", "_tabLeftButtonHint", "_tabRightButtonHint", "_buttonHintA", "_buttonHintDrop", "_buttonHintUse", "_inventoryTab", "_worldMapTab", "_bestiaryTab", "_spellTab")]
+[node name="AlmanacScreen" type="Control" unique_id=1182491772 node_paths=PackedStringArray("_inventoryScreen", "_worldMapScreen", "_bestiaryScreen", "_spellScreen", "_tabLeftButtonHint", "_tabRightButtonHint", "_buttonHintA", "_buttonHintEquip", "_buttonHintUse", "_buttonHintDrop", "_inventoryTab", "_worldMapTab", "_bestiaryTab", "_spellTab")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -22,6 +22,7 @@ _spellScreen = NodePath("MarginContainer2/SpellScreen")
 _tabLeftButtonHint = NodePath("MarginContainer/HBoxContainer/TabLeft")
 _tabRightButtonHint = NodePath("MarginContainer/HBoxContainer/TabRight")
 _buttonHintA = NodePath("MarginContainer3/HBoxContainer2/ButtonHintA")
+_buttonHintEquip = NodePath("MarginContainer3/HBoxContainer2/ButtonHintEquip")
 _buttonHintDrop = NodePath("MarginContainer3/HBoxContainer2/ButtonHintDrop")
 _buttonHintUse = NodePath("MarginContainer3/HBoxContainer2/ButtonHintUse")
 _inventoryTab = NodePath("MarginContainer/HBoxContainer/InventoryTab")
@@ -143,8 +144,11 @@ alignment = 1
 [node name="ButtonHintA" parent="MarginContainer3/HBoxContainer2" unique_id=509441122 instance=ExtResource("4_idb3r")]
 layout_mode = 2
 
-[node name="ButtonHintDrop" parent="MarginContainer3/HBoxContainer2" unique_id=958019262 instance=ExtResource("4_idb3r")]
+[node name="ButtonHintEquip" parent="MarginContainer3/HBoxContainer2" instance=ExtResource("4_idb3r")]
 layout_mode = 2
 
 [node name="ButtonHintUse" parent="MarginContainer3/HBoxContainer2" unique_id=557692158 instance=ExtResource("4_idb3r")]
+layout_mode = 2
+
+[node name="ButtonHintDrop" parent="MarginContainer3/HBoxContainer2" unique_id=958019262 instance=ExtResource("4_idb3r")]
 layout_mode = 2

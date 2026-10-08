@@ -152,7 +152,7 @@ public partial class Sim
     // Apply a day<->night transition: latch the new state, refresh time-gated
     // entities, and fire OnNightfall on the rising (dusk) edge so quests and
     // other systems can react without polling. Shared by the process poll and
-    // the AdvanceTime skip.
+    // the Doze skip.
     private void ApplyNightEdge(bool isNight)
     {
         _wasNight = isNight;
@@ -210,8 +210,8 @@ public partial class Sim
     // Full reset of the world's mobs to their authored spawn state, without
     // touching the voxel/chunk streaming — the world snaps back to a pristine set
     // of encounters. Gated on the party RESTING: driven only from RestToSunrise
-    // (sleep-to-sunrise, pray-home and the death wake). A natural dawn, a short
-    // nap (AdvanceTime) and a pure teleport all leave spawns untouched. Mobs return to
+    // (a Sim.Sleep that reaches sunrise). A natural dawn, a nap that stops short
+    // of it and a pure teleport all leave spawns untouched. Mobs return to
     // their spawn posts at full health, unaware, and any the player had killed revive.
     //
     // The reset is WORLD-WIDE, not just the loaded chunks: a mob that chased the

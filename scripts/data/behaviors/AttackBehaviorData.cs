@@ -15,13 +15,13 @@ public partial class AttackBehaviorData : BehaviorData
     // tick (the transition out of attack still runs via aggro-lost).
     [Export] public float approachRange = 30f;
 
-    // Number of angular standoff slots around a target on the encircle ring.
-    // A swarm of N mobs fanning out around the player should set this to a
-    // value >= N so every mob gets its own angle. Higher = more spread,
-    // lower = mobs cluster closer together. 8 reads as "ring around player";
-    // 4 reads as "cardinal sides only"; 1 disables encircle (all mobs
-    // converge from whichever side they're on).
-    [Export] public int encircleSlotCount = 8;
+    // Everyone engaging a target spreads evenly around it (EncircleAllocator).
+    // Minimum arc (meters) between neighbours on the ring — once that many
+    // mobs no longer fit at encircleDistance, the overflow holds on a ring
+    // encircleOverflowGap further out until a place opens. Set it to the
+    // mob's body width plus elbow room.
+    [Export(PropertyHint.Range, "0.25,20,0.05,or_greater")] public float encircleMinSpacing = 1.5f;
+    [Export(PropertyHint.Range, "0.25,20,0.05,or_greater")] public float encircleOverflowGap = 2f;
 
     // Distance from the target the mob holds *between* swings (while every weapon
     // is on cooldown). When a weapon comes off cooldown the mob closes to that

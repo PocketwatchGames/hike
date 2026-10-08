@@ -257,6 +257,36 @@ public partial class SpawnEntryData : Resource
     // HIGHLIGHT, this answers WHICH ONE IS IT, and the UI wants both.
     public virtual string VariantName() => null;
 
+    // What to call `candidate` wherever an author picks it for `property` — a
+    // palette button, an inspector dropdown. For the variant property it is the
+    // member's own name, asked of a fork so the entry answers for the candidate
+    // rather than for whatever it currently holds. Otherwise the candidate's
+    // file, or its resource name when it has none: a sub-resource's path is its
+    // CONTAINER's, so every prop in prop_library.tres would read "prop_library".
+    public string CandidateName(StringName property, Resource candidate)
+    {
+        if (candidate == null)
+        {
+            return null;
+        }
+        if (property == VariantProperty)
+        {
+            SpawnEntryData probe = Fork();
+            probe.Set(property, candidate);
+            string variant = probe.VariantName();
+            if (!string.IsNullOrEmpty(variant))
+            {
+                return variant;
+            }
+        }
+        string path = candidate.ResourcePath;
+        if (!string.IsNullOrEmpty(path) && !path.Contains("::"))
+        {
+            return path.GetFile().GetBaseName();
+        }
+        return string.IsNullOrEmpty(candidate.ResourceName) ? null : candidate.ResourceName;
+    }
+
     // True iff this entry requires a flat patch — the column and all 8
     // surrounding columns must share the same surface height. Subclasses
     // override to opt in; defaults to false so existing entry types

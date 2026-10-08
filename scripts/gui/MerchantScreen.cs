@@ -11,11 +11,12 @@ using System.Collections.Generic;
 // commit, and every move goes through ItemTransfer, as on the stash screen.
 //   A  — pick up the stack under the cursor; with one picked up, put it down
 //        here, on the same owner's side. Hold on a stack to pick up only some.
-//   RT — send the stack across the trade: inventory <-> Give, stock <-> Get.
+//   X  — equip / unequip, on the member's own items only.
+//   Y  — use, on the member's own items only.
+//   LT — send the stack across the trade: inventory <-> Give, stock <-> Get.
 //        Hold on a stack to send only some of it.
-//   Y  — hold to drop one of the player's stacks at the member's feet; on a
+//   RT — hold to drop one of the player's stacks at the member's feet; on a
 //        stack, the hold asks how many.
-//   X  — use / equip / unequip, on the member's own items only.
 //   B  — put the pick-up back; with nothing picked up, close the screen.
 [GlobalClass]
 public partial class MerchantScreen : Control
@@ -34,20 +35,22 @@ public partial class MerchantScreen : Control
 	[Export] private ItemCountPanel _countPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
 	[Export] private ButtonHint _hintSelect;
+	[Export] private ButtonHint _hintEquip;
+	[Export] private ButtonHint _hintUse;
 	[Export] private ButtonHint _hintSend;
 	[Export] private ButtonHint _hintDrop;
-	[Export] private ButtonHint _hintUse;
 	[Export(PropertyHint.Range, "1,24,1")] private int _giveSlots = 3;
 	[Export(PropertyHint.Range, "1,24,1")] private int _getSlots = 3;
 	// The stock grid grows past this to fit a merchant with more stacks.
 	[Export(PropertyHint.Range, "1,48,1")] private int _stockMinSlots = 9;
-	// How long A, RT or Y must be held on a stack to choose how many.
+	// How long Select, Send or Drop must be held on a stack to choose how many.
 	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _holdSeconds = 0.5f;
 
 	const string SelectAction = "ui_select";
+	const string EquipAction = "MenuSecondary";
+	const string UseAction = "MenuTertiary";
 	const string SendAction = "MenuQuaternary";
-	const string DropAction = "MenuTertiary";
-	const string UseAction = "MenuSecondary";
+	const string DropAction = "MenuQuinary";
 
 	enum ESide
 	{
@@ -290,7 +293,7 @@ public partial class MerchantScreen : Control
 		return (IsPlayerSide(a) && IsPlayerSide(b)) || (IsMerchantSide(a) && IsMerchantSide(b));
 	}
 
-	// Where RT sends a stack: across the trade, within its owner's side.
+	// Where Send moves a stack: across the trade, within its owner's side.
 	IItemGrid SendTarget(ESide side, ItemState item)
 	{
 		return side switch
@@ -440,7 +443,7 @@ public partial class MerchantScreen : Control
 		UpdateHints();
 	}
 
-	// ---- RT: send across the trade / Y: drop -----------------------------------
+	// ---- Send across the trade / drop -----------------------------------------
 
 	void TickPolledHolds(float dt)
 	{
@@ -566,9 +569,18 @@ public partial class MerchantScreen : Control
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (e.IsActionPressed(UseAction) && UseVerb() != null && !PickerOpen)
+		if (PickerOpen)
 		{
-			InventoryScreen.UseOrToggleEquip(_player, ItemAt(_focused));
+			return;
+		}
+		if (e.IsActionPressed(EquipAction) && EquipVerb() != null)
+		{
+			InventoryScreen.ToggleEquip(_player, ItemAt(_focused));
+			GetViewport().SetInputAsHandled();
+		}
+		else if (e.IsActionPressed(UseAction) && UseVerb() != null)
+		{
+			InventoryScreen.Use(_player, ItemAt(_focused));
 			GetViewport().SetInputAsHandled();
 		}
 	}
@@ -1018,9 +1030,10 @@ public partial class MerchantScreen : Control
 			// On the Trade / Gift button, A presses it.
 			bool onButton = _tradeButton != null && _tradeButton.HasFocus();
 			ShowHint(_hintSelect, SelectAction, onButton && _picked.IsNone ? _tradeButton.Text : null);
+			ShowHint(_hintEquip, EquipAction, null);
+			ShowHint(_hintUse, UseAction, null);
 			ShowHint(_hintSend, SendAction, null);
 			ShowHint(_hintDrop, DropAction, null);
-			ShowHint(_hintUse, UseAction, null);
 			return;
 		}
 		ItemState focused = ItemAt(_focused);
@@ -1028,15 +1041,17 @@ public partial class MerchantScreen : Control
 		{
 			bool canPlace = _picked.Is(_focused) || SameOwner(_picked.side, _focused.side);
 			ShowHint(_hintSelect, SelectAction, canPlace ? Loc.Get(Loc.Keys.stash_place) : null);
+			ShowHint(_hintEquip, EquipAction, null);
+			ShowHint(_hintUse, UseAction, null);
 			ShowHint(_hintSend, SendAction, null);
 			ShowHint(_hintDrop, DropAction, null);
-			ShowHint(_hintUse, UseAction, null);
 			return;
 		}
 		ShowHint(_hintSelect, SelectAction, focused != null ? Loc.Get(Loc.Keys.stash_select) : null);
+		ShowHint(_hintEquip, EquipAction, EquipVerb());
+		ShowHint(_hintUse, UseAction, UseVerb());
 		ShowHint(_hintSend, SendAction, focused != null ? SendVerb(_focused.side) : null);
 		ShowHint(_hintDrop, DropAction, focused != null && IsPlayerSide(_focused.side) ? Loc.Get(Loc.Keys.stash_drop) : null);
-		ShowHint(_hintUse, UseAction, UseVerb());
 	}
 
 	static string SendVerb(ESide side)
@@ -1050,15 +1065,13 @@ public partial class MerchantScreen : Control
 		};
 	}
 
-	// X acts only on the member's own items, and not while something is picked up.
-	string UseVerb()
-	{
-		if (!_picked.IsNone || !IsMemberSide(_focused.side))
-		{
-			return null;
-		}
-		return InventoryScreen.UseVerb(_player, ItemAt(_focused));
-	}
+	// Equip and Use act only on the member's own items, and not while something
+	// is picked up.
+	bool OnMemberItem => _picked.IsNone && IsMemberSide(_focused.side);
+
+	string EquipVerb() => OnMemberItem ? InventoryScreen.EquipVerb(_player, ItemAt(_focused)) : null;
+
+	string UseVerb() => OnMemberItem ? InventoryScreen.UseVerb(_player, ItemAt(_focused)) : null;
 
 	// A null label hides the hint.
 	static void ShowHint(ButtonHint hint, string action, string label)

@@ -69,7 +69,19 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_staminaContainer", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_parryIcon", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_okx5l"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(0.33333302, 0, 1, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+corner_detail = 6
+
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_staminaContainer", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_parryIcon", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_oilBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -100,6 +112,7 @@ _parryIcon = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContain
 _drainedHealthBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/MarginContainer/DrainedHealthBar")
 _armorBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/ArmorBar")
 _blockArmorBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/BlockArmorBar")
+_oilBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/OilBar")
 _signpostPanel = NodePath("HudSignpostPanel")
 _dialoguePanel = NodePath("DialoguePanel")
 _regionBanner = NodePath("RegionBanner")
@@ -545,6 +558,20 @@ layout_mode = 2
 texture = ExtResource("7_okx5l")
 expand_mode = 3
 stretch_mode = 5
+
+[node name="OilMarginContainer" type="MarginContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=1028124725]
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="OilBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer" unique_id=1869558396]
+custom_minimum_size = Vector2(250, 15)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_styles/fill = SubResource("StyleBoxFlat_okx5l")
+max_value = 1.0
+step = 0.001
+value = 0.5
+show_percentage = false
 
 [node name="StaminaMarginContainer" type="MarginContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=565732423]
 layout_mode = 2

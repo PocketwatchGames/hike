@@ -426,8 +426,8 @@ public partial class PlayerData : Resource
 	// The inventory screens build their grids from the live counts.
 	[Export(PropertyHint.Range, "0,64,1")] public int backpackCapacity = 12;
 	// The belt is the HUD hotbar the player cycles through and uses from the
-	// field (Inventory.CycleHotbar / Player.UseHotbarSelection), and the only
-	// place a lantern can be lit.
+	// field (Inventory.CycleHotbar / Player.UseHotbarSelection), after the
+	// lantern slot, which is always the first entry and is not counted here.
 	[Export(PropertyHint.Range, "0,16,1")] public int beltCapacity = 2;
 
 	[ExportGroup("Combat")]
@@ -637,6 +637,10 @@ public partial class PlayerData : Resource
 	// never auto-relights when conditions ease. 1.0 disables rain dousing
 	// (only a full downpour would ever hit it).
 	[Export(PropertyHint.Range, "0.01,1,0.01")] public float lanternDouseRainThreshold = 0.6f;
+	// How much lantern oil a full supply holds (Player.LanternOil). Oil costs,
+	// refills and burn rates are absolute amounts, so a bigger supply lasts
+	// proportionally longer.
+	[Export(PropertyHint.Range, "10,1000,1")] public float maxLanternOil = 100f;
 	// Wind accelerates drying via evaporation. SampleWindSpeed already
 	// zeroes out under overhead cover, so this only contributes outdoors.
 	// Default 0.1 means the dry rate doubles at 10 m/s of wind and triples

@@ -69,11 +69,11 @@ public partial class Sim : Node3D
 
     // Halts the per-frame day/night clock advance in Tick while the player rests
     // at a camp (set by CampScreen). The sim clock (GameTimeMs) and sleep's
-    // AdvanceTime skip are unaffected — only the ambient time-of-day holds.
+    // Doze skip are unaffected — only the ambient time-of-day holds.
     public bool TimeOfDayFrozen;
 
     // Spatial hash for cheap "mobs within radius" queries — used by
-    // separation steering and (later) encircle-slot allocation. Lives on
+    // separation steering and the encircle ring. Lives on
     // World rather than each Mob so multiple consumers share one index.
     private readonly MobSpatialHash _mobSpatialHash = new();
     public MobSpatialHash MobSpatialHash => _mobSpatialHash;
@@ -112,12 +112,10 @@ public partial class Sim : Node3D
         _corpses.Remove(corpse);
     }
 
-    // Coordinator for "where should each mob stand around the player /
-    // other targets" — hands out angular standoff slots so a swarm fans
-    // out instead of stacking. Slots are leased per-mob and survive
-    // across repaths; explicit Release on aggro-loss / death.
-    private readonly EncircleSlotAllocator _encircleAllocator = new();
-    public EncircleSlotAllocator EncircleAllocator => _encircleAllocator;
+    // Where each mob engaging a target stands around it, so a swarm fans out
+    // instead of stacking. See EncircleAllocator.
+    private readonly EncircleAllocator _encircleAllocator = new();
+    public EncircleAllocator EncircleAllocator => _encircleAllocator;
 
     // Per-frame foliage-occlusion probe driving the canopy cutaway. Owned here
     // (constructed in Initialize once WorldState exists) so it shares the live
@@ -460,13 +458,12 @@ public partial class Sim : Node3D
     // cycle (sunrise → the next sunrise), so this is the whole day.
     private const double HoursPerDay = 24.0;
 
-    // Short rest ("Sleep 1 hour"): fast-forwards `hours` in one-second steps,
-    // replaying the status-effect tick path so timed effects expire and
-    // damage-over-time integrates over the skipped span. Steps stop at the instant
-    // of a lethal DoT so the player wakes (or dies) then. A nap that crosses a
-    // sunrise rolls that dawn on the way, but it is never a REST — the party's
-    // day (spawns, picks) stands. Returns the in-world hours actually advanced.
-    public double AdvanceTime(double hours)
+    // Sleep's nap branch (always short of the next sunrise): fast-forwards
+    // `hours` in one-second steps, replaying the status-effect tick path so timed
+    // effects expire and damage-over-time integrates over the skipped span. Steps
+    // stop at the instant of a lethal DoT so the player wakes (or dies) then.
+    // Returns the in-world hours actually advanced.
+    private double Doze(double hours)
     {
         if (hours <= 0.0 || _player == null || _worldState == null)
         {
@@ -521,7 +518,7 @@ public partial class Sim : Node3D
 
     // Jump the in-world clock to `target`, rolling every dawn crossed. Loaded
     // mobs are caught up over the skipped span, but the PLAYER is deliberately
-    // NOT integrated — a jump is not a nap: the rest path (RestToSunrise) clears
+    // NOT integrated — a jump is not a nap: a rest (Sim.Sleep) clears
     // the player's transient effects and full-heals instead, so a DoT can never
     // chip or kill them in their sleep.
     private void JumpClockTo(double target)

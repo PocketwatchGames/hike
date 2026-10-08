@@ -214,8 +214,8 @@ public partial class MobSpawnEntry : SpawnEntryData
             : null;
     }
 
-    // Fold this individual's carried loot, then each of the row's items whose
-    // chance rolls, onto the species loot. Like InitialBehaviorFor, an authored
+    // Collect this individual's carried loot, then each of the row's items whose
+    // chance rolls, into what it drops beside its species loot. Like InitialBehaviorFor, an authored
     // position takes the row's as named. An item draws only at a real fraction,
     // so a list without carried loot shifts no roll.
     protected void AddCarriedLoot(MobSimState state, Random rng, SpawnContext context)
@@ -227,9 +227,7 @@ public partial class MobSpawnEntry : SpawnEntryData
         {
             return;
         }
-        // A fresh array: state.Loot is the species' own, shared by every mob of it.
         var merged = new Godot.Collections.Array<ItemCount>();
-        AppendLoot(merged, state.Loot);
         if (ownCarries)
         {
             AppendLoot(merged, carriedLoot);

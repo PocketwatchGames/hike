@@ -692,7 +692,7 @@ public partial class Player : CharacterBody3D
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
 	// Catch up status effects by `dt` seconds in one call. Used by the sleep
-	// time-skip (Sim.AdvanceTime) to integrate DoT, expire timed/time-of-day
+	// time-skip (Sim.Doze) to integrate DoT, expire timed/time-of-day
 	// effects, and drain buildup meters over a skipped span. Identical to the
 	// per-frame path so there's no separate catch-up logic to drift.
 	public void TickStatusEffects(float dt) => _statusEffects?.Tick(dt);
@@ -700,10 +700,11 @@ public partial class Player : CharacterBody3D
 	// What a save carries for this member's node, inside a shared EntitySerializer
 	// table (SaveGame). Only what a sunrise keeps: the inventory, effects acquired
 	// in play that outlast the dawn, non-transient buildups, health (the wake heals
-	// only the controlled member), and where a fallen member's body lies.
+	// only the controlled member), lantern oil, and where a fallen member's body lies.
 	public void WriteMemberSave(System.IO.BinaryWriter w)
 	{
 		w.Write(_health);
+		w.Write(_lanternOil);
 		_inventory.Serialize(w);
 		EntitySerializer.WriteStatusEffects(w, EnumerateAcquiredEffects());
 		var buildups = new List<(StatusEffectData data, float amount)>();
@@ -727,6 +728,7 @@ public partial class Player : CharacterBody3D
 	public void RestoreMemberSave(System.IO.BinaryReader r)
 	{
 		float health = r.ReadSingle();
+		_lanternOil = Mathf.Clamp(r.ReadSingle(), 0f, MaxLanternOil);
 		_inventory.Restore(r);
 		List<EntitySerializer.StatusEffectRecord> effects = EntitySerializer.ReadStatusEffects(r);
 		int buildupCount = r.ReadInt32();
@@ -1124,22 +1126,37 @@ public partial class Player : CharacterBody3D
 
 	// ---- Reagents ----------------------------------------------------------
 
-	// The reagent pool reagent-costed interactives and cooking draw from:
-	// the materials in this member's backpack and on their belt. Read-only.
-	public System.Collections.Generic.IEnumerable<ItemState> CarriedMaterials()
+	// The reagent pool reagent-costed interactives draw from: the materials in
+	// this member's backpack and on their belt. Read-only.
+	public System.Collections.Generic.IEnumerable<ItemState> CarriedMaterials() => Materials(null);
+
+	// The carried materials, then those in `stash` when given — cooking at camp
+	// draws on the party stash as well.
+	public System.Collections.Generic.IEnumerable<ItemState> Materials(ItemGrid stash)
 	{
-		if (_inventory == null)
+		if (_inventory != null)
 		{
-			yield break;
-		}
-		foreach (ItemState s in _inventory.EnumerateAll())
-		{
-			if (s.data != null && s.data.IsMaterial && s.stackCount > 0)
+			foreach (ItemState s in _inventory.EnumerateAll())
 			{
-				yield return s;
+				if (IsSpendableMaterial(s))
+				{
+					yield return s;
+				}
+			}
+		}
+		if (stash != null)
+		{
+			foreach (ItemState s in stash.Slots)
+			{
+				if (IsSpendableMaterial(s))
+				{
+					yield return s;
+				}
 			}
 		}
 	}
+
+	static bool IsSpendableMaterial(ItemState s) => s?.data != null && s.data.IsMaterial && s.stackCount > 0;
 
 	// IActionActor — non-mutating peek used to gate a reagent-costed interactive
 	// (InteractiveAction.reagents) at press. An empty cost is trivially affordable;
@@ -1154,15 +1171,23 @@ public partial class Player : CharacterBody3D
 	}
 
 	// Spend one full cost from the carried materials — a spell cast, a
-	// reagent-costed interactive, a cooked recipe. Returns false (spending
-	// nothing) if they can't cover it.
+	// reagent-costed interactive. Returns false (spending nothing) if they can't
+	// cover it.
 	public bool SpendReagents(IReadOnlyList<RecipeInput> reagents, System.Collections.Generic.List<SpentItem> spent = null)
 	{
-		if (reagents == null || reagents.Count == 0)
+		return SpendReagents(reagents, null, spent);
+	}
+
+	// Spend one full cost from the carried materials, then `stash` for what they
+	// can't cover (a recipe cooked at camp). Returns false (spending nothing) if
+	// the two together can't cover it.
+	public bool SpendReagents(IReadOnlyList<RecipeInput> reagents, ItemGrid stash, System.Collections.Generic.List<SpentItem> spent = null)
+	{
+		if (reagents == null || reagents.Count == 0 || _inventory == null)
 		{
 			return false;
 		}
-		if (Cooking.CountAffordable(reagents, CarriedMaterials()) <= 0)
+		if (Cooking.CountAffordable(reagents, Materials(stash)) <= 0)
 		{
 			return false;
 		}
@@ -1173,12 +1198,12 @@ public partial class Player : CharacterBody3D
 			{
 				continue;
 			}
-			_inventory.SpendMaterial(r.item, r.count, spent);
+			int fromCarried = _inventory.SpendMaterial(r.item, r.count, spent);
+			stash?.SpendMaterial(r.item, r.count - fromCarried, spent);
 		}
 		// Refresh any inventory-backed UI (backpack rows, spell ammo, forge counts)
-		// now that pool stacks changed. Callers used to fire this themselves; folding
-		// it in keeps every spend path — spell cast and interactive completion — in sync.
-		_inventory?.NotifyChanged();
+		// now that pool stacks changed.
+		_inventory.NotifyChanged();
 		return true;
 	}
 
@@ -1241,45 +1266,81 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Sim-clock timestamp of the last lantern-fuel drain, so TickLanternFuel spends
+	// Remaining lantern oil, 0 (empty) to MaxLanternOil (full). Whichever
+	// lantern is lit burns it at that lantern's rate (LanternData.secondsPerOil).
+	private float _lanternOil;
+	public float MaxLanternOil => data?.maxLanternOil ?? 0f;
+	public float LanternOil => _lanternOil;
+	public bool HasLanternOil => _lanternOil > 0f;
+
+	// Sim-clock timestamp of the last oil drain, so TickLanternOil spends
 	// exactly the elapsed sim time each frame (frame-rate independent, slows
 	// under slow-mo). Reset to 0 = "first tick, nothing to spend yet".
-	private ulong _lastLanternFuelTickMs;
+	private ulong _lastLanternOilTickMs;
 
-	// Burns down the equipped lantern's fuel on the sim clock and puts it out when
-	// the tank empties — by this tick's burn, or a spell cast's fuel cost since
-	// the last tick. Unlimited lanterns never drain.
-	private void TickLanternFuel()
+	// Burns oil on the sim clock while a lantern is lit and puts it out when the
+	// oil runs dry — by this tick's burn, or an oil-costed action since the last
+	// tick.
+	private void TickLanternOil()
 	{
 		ulong now = _world?.GameTimeMs ?? 0;
-		ulong last = _lastLanternFuelTickMs;
-		_lastLanternFuelTickMs = now;
+		ulong last = _lastLanternOilTickMs;
+		_lastLanternOilTickMs = now;
 		if (last == 0 || now <= last) { return; }
 
 		LanternState lantern = _inventory?.LitLantern;
 		if (lantern == null) { return; }
-		lantern.BurnFuel((long)(now - last));
-		if (!lantern.HasFuel)
+		float secondsPerOil = lantern.data.secondsPerOil;
+		if (secondsPerOil > 0f)
+		{
+			SpendLanternOil((now - last) / 1000f / secondsPerOil);
+		}
+		if (!HasLanternOil)
 		{
 			DouseLantern(lantern);
 		}
 	}
 
-	// Refill every carried lantern's fuel to full. Called at a campfire
-	// (Sim.RefuelPartyLanterns: camping there, or arriving home at one) and at a
-	// fountain (Fountain LanternFuel) — never by a dawn or a sleep alone. Refuels
-	// lanterns in any slot whether lit or not, so it's topped off before you
-	// set out.
+	// IActionActor — ItemAction.oilCost.
+	public bool CanAffordLanternOil(float amount)
+	{
+		return amount <= 0f || _lanternOil >= amount;
+	}
+
+	// Clamps at empty. Also the continuous while-lit burn.
+	public void SpendLanternOil(float amount)
+	{
+		if (amount > 0f)
+		{
+			_lanternOil = Mathf.Max(0f, _lanternOil - amount);
+		}
+	}
+
+	// Capped at full (a flask or droplet of oil).
+	public void AddLanternOil(float amount)
+	{
+		_lanternOil = Mathf.Min(MaxLanternOil, _lanternOil + amount);
+	}
+
+	// Refill the oil to full. Called at a campfire (Sim.RefuelPartyLanterns:
+	// camping there, or arriving home at one) and at a fountain — never by a
+	// dawn or a sleep alone.
 	public void RefuelLantern()
 	{
-		if (_inventory == null) { return; }
-		foreach (ItemState item in _inventory.EnumerateAll())
-		{
-			if (item is LanternState lantern)
-			{
-				lantern.Refuel();
-			}
-		}
+		_lanternOil = MaxLanternOil;
+	}
+
+	// Put out the lit lantern without the douse fx — the party lying down for the
+	// night (Sim.PutOutPartyLanterns), behind the sleep fade.
+	public void PutOutLantern()
+	{
+		_inventory?.Extinguish();
+	}
+
+	// Light the lantern in the lantern slot, if there is oil to burn.
+	public bool LightLantern()
+	{
+		return HasLanternOil && _inventory != null && _inventory.Light();
 	}
 
 	public void Initialize(Sim sim, PlayerState member, Vector3 position, Vector3 rotation)
@@ -1308,6 +1369,7 @@ public partial class Player : CharacterBody3D
 		_scent = new ScentEmitter(this, sim, data.scentStrength, data.scentDecayRate,
 			data.scentStampInterval, data.scentStampMoveDistance, data.scentMaxCrumbs);
 		_health = MaxHealth;
+		_lanternOil = MaxLanternOil;
 
 		// Adopt the hosted member's name (blank keeps the default).
 		if (!string.IsNullOrEmpty(member?.characterName))
@@ -1557,9 +1619,9 @@ public partial class Player : CharacterBody3D
 			}
 			return;
 		}
-		if (item is LanternState lantern && _inventory.LitLantern == null)
+		if (item is LanternState && _inventory.LitLantern == null)
 		{
-			_inventory.Light(lantern);
+			LightLantern();
 		}
 	}
 
@@ -1674,7 +1736,7 @@ public partial class Player : CharacterBody3D
 		UpdateNightVisionShaderGlobal();
 		TickWetEffect(dt);
 		DouseCarriedLantern();
-		TickLanternFuel();
+		TickLanternOil();
 		TickDirtyEffect(dt);
 		TickMuddyEffect(dt);
 		TickBodyTemperature(dt);

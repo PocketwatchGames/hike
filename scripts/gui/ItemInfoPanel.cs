@@ -248,6 +248,7 @@ public partial class ItemInfoPanel : PanelContainer
 		}
 		if (item is ShieldState shield)
 		{
+			BuildBlockCounterContext(shield.data);
 			BuildParryContext(shield.data);
 			return;
 		}
@@ -287,6 +288,19 @@ public partial class ItemInfoPanel : PanelContainer
 		}
 		ItemActionContextPanel.Populate(_contextPanelScene, _actionPanelContainer,
 			GameClient.Current.statNames[EStatName.Parry], StatList.BaseDamage(counter));
+	}
+
+	// The shield's Thorns (damage dealt back on every block), as its own context
+	// panel beside Parry.
+	private void BuildBlockCounterContext(ShieldData shield)
+	{
+		DamageData counter = StatList.BlockCounter(shield);
+		if (counter == null)
+		{
+			return;
+		}
+		ItemActionContextPanel.Populate(_contextPanelScene, _actionPanelContainer,
+			GameClient.Current.statNames[EStatName.Thorns], StatList.BaseDamage(counter));
 	}
 
 }

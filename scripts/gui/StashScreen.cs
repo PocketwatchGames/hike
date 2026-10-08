@@ -7,11 +7,13 @@ using Godot;
 //        here (any grid): an empty slot takes it, a matching stack merges,
 //        anything else swaps. An equip slot takes only its own kind of gear.
 //        Hold on a stack to pick up only some of it.
-//   RT — send the stack under the cursor to the other side, where it fits.
+//   X  — equip / unequip; from the stash, equip gear or put a belt item on the belt.
+//   Y  — use, on the member's own items only.
+//   LT — send the stack under the cursor to the other side, where it fits —
+//        from the stash, the backpack first.
 //        Hold on a stack to send only some of it.
-//   Y  — hold to drop the stack under the cursor at the member's feet; on a
+//   RT — hold to drop the stack under the cursor at the member's feet; on a
 //        stack, the hold asks how many.
-//   X  — use / equip / unequip, on the member's own items only.
 //   B  — put the pick-up back; with nothing picked up, CampScreen backs out.
 // Every move goes through ItemTransfer, so the stash screen holds no move rules.
 [GlobalClass]
@@ -22,16 +24,18 @@ public partial class StashScreen : Control
 	[Export] private ItemInfoPanel _itemInfoPanel;
 	[Export] private ItemCountPanel _countPanel;
 	[Export] private ButtonHint _hintSelect;
+	[Export] private ButtonHint _hintEquip;
+	[Export] private ButtonHint _hintUse;
 	[Export] private ButtonHint _hintSend;
 	[Export] private ButtonHint _hintDrop;
-	[Export] private ButtonHint _hintUse;
-	// How long A, RT or Y must be held on a stack to choose how many.
+	// How long Select, Send or Drop must be held on a stack to choose how many.
 	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _holdSeconds = 0.5f;
 
 	const string SelectAction = "ui_select";
+	const string EquipAction = "MenuSecondary";
+	const string UseAction = "MenuTertiary";
 	const string SendAction = "MenuQuaternary";
-	const string DropAction = "MenuTertiary";
-	const string UseAction = "MenuSecondary";
+	const string DropAction = "MenuQuinary";
 
 	enum ESide
 	{
@@ -179,11 +183,12 @@ public partial class StashScreen : Control
 			: Grid(slot.side)?.At(slot.index);
 	}
 
-	// Where RT sends a stack: the member's side takes it into the grid it
-	// prefers (spilling into the other), every member grid sends to the stash.
-	IItemGrid SendTarget(ESide side, ItemState item)
+	// Where Send moves a stack: the member's side takes it into the backpack
+	// (spilling onto the belt) — the belt is filled deliberately, by Equip — and
+	// every member grid sends to the stash.
+	IItemGrid SendTarget(ESide side)
 	{
-		return side == ESide.Stash ? _player?.Inventory?.PreferredGrid(item?.data) : _stash;
+		return side == ESide.Stash ? _player?.Inventory?.Backpack : _stash;
 	}
 
 	bool PickerOpen => _countPanel != null && _countPanel.IsOpen;
@@ -313,7 +318,7 @@ public partial class StashScreen : Control
 		UpdateHints();
 	}
 
-	// ---- RT: send to the other side / Y: drop ----------------------------------
+	// ---- Send to the other side / drop -------------------------------------------
 
 	void TickPolledHolds(float dt)
 	{
@@ -353,7 +358,7 @@ public partial class StashScreen : Control
 		}
 		else if (count > 0)
 		{
-			ItemTransfer.Send(Grid(slot.side), slot.index, count, SendTarget(slot.side, ItemAt(slot)));
+			ItemTransfer.Send(Grid(slot.side), slot.index, count, SendTarget(slot.side));
 		}
 		Refresh();
 	}
@@ -397,9 +402,18 @@ public partial class StashScreen : Control
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (e.IsActionPressed(UseAction) && UseVerb() != null && !PickerOpen)
+		if (PickerOpen)
 		{
-			InventoryScreen.UseOrToggleEquip(_player, ItemAt(_focused));
+			return;
+		}
+		if (e.IsActionPressed(EquipAction) && EquipVerb() != null)
+		{
+			Equip(_focused);
+			GetViewport().SetInputAsHandled();
+		}
+		else if (e.IsActionPressed(UseAction) && UseVerb() != null)
+		{
+			InventoryScreen.Use(_player, ItemAt(_focused));
 			GetViewport().SetInputAsHandled();
 		}
 	}
@@ -467,27 +481,66 @@ public partial class StashScreen : Control
 		if (!_picked.IsNone)
 		{
 			ShowHint(_hintSelect, SelectAction, Loc.Get(Loc.Keys.stash_place));
+			ShowHint(_hintEquip, EquipAction, null);
+			ShowHint(_hintUse, UseAction, null);
 			ShowHint(_hintSend, SendAction, null);
 			ShowHint(_hintDrop, DropAction, null);
-			ShowHint(_hintUse, UseAction, null);
 			return;
 		}
 		ShowHint(_hintSelect, SelectAction, focused != null ? Loc.Get(Loc.Keys.stash_select) : null);
+		ShowHint(_hintEquip, EquipAction, EquipVerb());
+		ShowHint(_hintUse, UseAction, UseVerb());
 		string send = _focused.side == ESide.Stash ? Loc.Get(Loc.Keys.stash_take) : Loc.Get(Loc.Keys.stash_store);
 		ShowHint(_hintSend, SendAction, focused != null ? send : null);
 		ShowHint(_hintDrop, DropAction, focused != null ? Loc.Get(Loc.Keys.stash_drop) : null);
-		ShowHint(_hintUse, UseAction, UseVerb());
 	}
 
-	// Y acts only on the member's own items, and not while something is picked up.
-	string UseVerb()
+	// Use acts only on the member's own items, and not while something is
+	// picked up.
+	bool OnMemberItem => _picked.IsNone && !_focused.IsNone && _focused.side != ESide.Stash;
+
+	// From the stash, Equip brings the item straight to where it is used: gear
+	// into its equip slot, a belt item onto the belt.
+	string EquipVerb()
 	{
-		if (!_picked.IsNone || _focused.side == ESide.Stash || _focused.IsNone)
+		if (!_picked.IsNone || _focused.IsNone)
 		{
 			return null;
 		}
-		return InventoryScreen.UseVerb(_player, ItemAt(_focused));
+		ItemState item = ItemAt(_focused);
+		if (_focused.side != ESide.Stash)
+		{
+			return InventoryScreen.EquipVerb(_player, item);
+		}
+		Inventory inv = _player?.Inventory;
+		if (item?.data == null || inv == null)
+		{
+			return null;
+		}
+		bool fits = item.data.IsEquippable
+			|| (inv.PreferredGrid(item.data) == inv.Belt && inv.Belt.RoomFor(item.data) > 0);
+		return fits ? "Equip" : null;
 	}
+
+	void Equip(Slot slot)
+	{
+		ItemState item = ItemAt(slot);
+		if (slot.side != ESide.Stash)
+		{
+			InventoryScreen.ToggleEquip(_player, item);
+		}
+		else if (item.data.IsEquippable)
+		{
+			ItemTransfer.Equip(_stash, slot.index, _player.Inventory);
+		}
+		else
+		{
+			ItemTransfer.SendToBelt(_stash, slot.index, _player.Inventory);
+		}
+		Refresh();
+	}
+
+	string UseVerb() => OnMemberItem ? InventoryScreen.UseVerb(_player, ItemAt(_focused)) : null;
 
 	// A null label hides the hint.
 	static void ShowHint(ButtonHint hint, string action, string label)

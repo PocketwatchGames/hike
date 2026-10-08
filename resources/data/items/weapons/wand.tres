@@ -1,0 +1,144 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://c5pqdnrb570vf"]
+
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_6wg67"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_action"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_yamu7"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_req"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="6_state"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="7_profile"]
+[ext_resource type="Script" uid="uid://cbrtam2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="8_burst"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="9_cw4wd"]
+[ext_resource type="PackedScene" uid="uid://cv4rbaanpy105" path="res://scenes/projectiles/homing_missile_blue.tscn" id="9_missile"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/wand_explosive_missile.tscn" id="10_explosive"]
+[ext_resource type="PackedScene" uid="uid://35k2amn0cgis" path="res://scenes/fx/homing_missile_fire.tscn" id="11_fire"]
+[ext_resource type="PackedScene" uid="uid://c1gf8agnm62bs" path="res://scenes/fx/homing_missile_impact.tscn" id="12_impact"]
+[ext_resource type="PackedScene" uid="uid://betguwy5h6abj" path="res://scenes/fx/homing_missile_expire.tscn" id="13_expire"]
+[ext_resource type="PackedScene" uid="uid://bm0blastfx7k2" path="res://scenes/fx/bomb_blast_fx.tscn" id="14_blastfx"]
+[ext_resource type="PackedScene" path="res://scenes/items/wand_held.tscn" id="15_held"]
+[ext_resource type="Texture2D" uid="uid://cvij6l7jgefxe" path="res://assets/textures/items/Wand.png" id="16_inv"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="17_s8kpl"]
+
+[sub_resource type="Resource" id="Resource_event_missile"]
+script = ExtResource("3_event")
+type = 8396800
+fx = ExtResource("11_fire")
+noiseDecibels = 0.1
+impactMissEffect = ExtResource("13_expire")
+impactEnvironmentEffect = ExtResource("12_impact")
+impactHealthEffect = ExtResource("12_impact")
+impactArmorEffect = ExtResource("12_impact")
+impactLethalEffect = ExtResource("12_impact")
+impactDecibels = 0.3
+projectileScene = ExtResource("9_missile")
+projectileSpeed = 12.0
+projectileLifetimeSeconds = 1.5
+
+[sub_resource type="Resource" id="Resource_req_no_swim"]
+script = ExtResource("6_state")
+forbidSwimming = true
+
+[sub_resource type="Resource" id="Resource_tier_missile"]
+script = ExtResource("4_action")
+displayName = &"Magic Missile"
+chargeTime = 0.35
+activeDurationSeconds = 0.2
+cooldownSeconds = 0.3
+oilCost = 2.0
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_missile")])
+requirements = Array[ExtResource("5_req")]([SubResource("Resource_req_no_swim")])
+speedMultiplierActive = 0.6
+
+[sub_resource type="Resource" id="Resource_damage_blast"]
+script = ExtResource("1_damage")
+tags = 1537
+healthDamage = 40.0
+damageVariance = 0.25
+hitstun = 0.3
+knockbackDistance = 2.5
+knockbackTime = 0.3
+buildups = []
+modifiers = []
+
+[sub_resource type="Resource" id="Resource_burst"]
+script = ExtResource("8_burst")
+damage = SubResource("Resource_damage_blast")
+radius = 3.0
+height = 4.0
+fx = ExtResource("14_blastfx")
+
+[sub_resource type="Resource" id="Resource_event_blast"]
+script = ExtResource("3_event")
+type = 4259840
+cameraShakeMagnitude = 0.2
+cameraShakeDuration = 0.3
+cameraShakeRange = 30.0
+areaBurst = SubResource("Resource_burst")
+
+[sub_resource type="Resource" id="Resource_event_explosive"]
+script = ExtResource("3_event")
+type = 8396800
+fx = ExtResource("11_fire")
+damageProfileKey = &"charged"
+noiseDecibels = 0.2
+impactEnvironmentEffect = ExtResource("12_impact")
+impactHealthEffect = ExtResource("12_impact")
+impactArmorEffect = ExtResource("12_impact")
+impactLethalEffect = ExtResource("12_impact")
+impactDecibels = 0.3
+projectileScene = ExtResource("10_explosive")
+projectileSpeed = 9.0
+projectileLifetimeSeconds = 1.2
+impactEvent = SubResource("Resource_event_blast")
+
+[sub_resource type="Resource" id="Resource_tier_explosive"]
+script = ExtResource("4_action")
+displayName = &"Arcane Blast"
+activeDurationSeconds = 0.3
+cooldownSeconds = 0.8
+oilCost = 20.0
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_explosive")])
+requirements = Array[ExtResource("5_req")]([SubResource("Resource_req_no_swim")])
+maxSpeedCharging = 1
+speedMultiplierActive = 0.3
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("7_profile")
+chargedActions = Array[ExtResource("4_action")]([SubResource("Resource_tier_missile"), SubResource("Resource_tier_explosive")])
+autoActivateAtMax = false
+queueWindowSeconds = 0.0
+
+[sub_resource type="Resource" id="Resource_damage_charged"]
+script = ExtResource("1_damage")
+tags = 577
+healthDamage = 15.0
+damageVariance = 0.2
+hitstun = 0.2
+buildups = []
+modifiers = []
+
+[sub_resource type="Resource" id="Resource_damage_primary"]
+script = ExtResource("1_damage")
+tags = 577
+healthDamage = 15.0
+damageVariance = 0.2
+hitstun = 0.15
+buildups = []
+modifiers = []
+
+[resource]
+script = ExtResource("2_weapon")
+rightHandSlot = true
+weight = 0.15
+damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
+&"charged": SubResource("Resource_damage_charged"),
+&"primary": SubResource("Resource_damage_primary")
+})
+actionProfile = SubResource("Resource_profile")
+displayName = &"Wand"
+description = "Fires seeking missiles. Hold to loose one that bursts where it lands."
+value = 60
+inventorySprite = ExtResource("16_inv")
+heldModel = ExtResource("15_held")

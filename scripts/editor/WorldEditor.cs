@@ -905,13 +905,10 @@ public partial class WorldEditor : Node3D
     }
 
     // What a variant button is called: the member's own name, since that is what
-    // an author is picking between. Asked of a fork so the entry answers for the
-    // candidate rather than for whatever it currently holds.
+    // an author is picking between.
     private static string VariantLabel(SpawnEntryData entry, StringName property, Resource candidate)
     {
-        SpawnEntryData probe = entry.Fork();
-        probe.Set(property, candidate);
-        string name = probe.VariantName();
+        string name = entry.CandidateName(property, candidate);
         return string.IsNullOrEmpty(name) ? SpawnEntryData.PaletteName(entry) : name;
     }
 

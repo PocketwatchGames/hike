@@ -5,7 +5,7 @@ using Godot;
 // run the world time-skip while opaque, hold until the world has re-spawned
 // (GameClient.WorldSettling), then fade back in. If a status effect
 // kills the player during the skip, the player wakes "at the appropriate time"
-// — the skip already stopped at the moment of death (Sim.AdvanceTime) — and
+// — the skip already stopped at the moment of death (Sim.Doze) — and
 // this overlay hands the screen to the DeathScreen rather than fading back in.
 //
 // Unlike DeathScreen this does NOT touch the audio buses: doing so would let the

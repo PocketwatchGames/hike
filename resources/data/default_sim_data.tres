@@ -111,6 +111,7 @@
 [ext_resource type="Resource" path="res://resources/data/test_scenarios/caltrops.tres" id="ts_caltrops"]
 [ext_resource type="Resource" path="res://resources/data/test_scenarios/dawn.tres" id="ts_dawn"]
 [ext_resource type="Resource" uid="uid://dy30sceg883qe" path="res://resources/data/test_scenarios/invisibility.tres" id="ts_invisibility"]
+[ext_resource type="Resource" path="res://resources/data/test_scenarios/oil_droplets.tres" id="ts_oil_droplets"]
 [ext_resource type="Resource" uid="uid://btwn5x5u68gc0" path="res://resources/data/test_scenarios/shockwave.tres" id="ts_shockwave"]
 [ext_resource type="Resource" uid="uid://bp5jv2gwndnus" path="res://resources/data/test_scenarios/snow.tres" id="ts_snow"]
 
@@ -176,5 +177,5 @@ weatherLightning = ExtResource("12_lightning")
 rainVisionReduction = 0.35
 weightSpeedModifier = -0.07999999999999996
 weightDashDistanceModifier = -0.25
-testScenarios = [ExtResource("ts_snow"), ExtResource("ts_shockwave"), ExtResource("ts_invisibility"), ExtResource("ts_caltrops"), ExtResource("ts_dawn")]
+testScenarios = [ExtResource("ts_snow"), ExtResource("ts_shockwave"), ExtResource("ts_invisibility"), ExtResource("ts_caltrops"), ExtResource("ts_dawn"), ExtResource("ts_oil_droplets")]
 metadata/_custom_type_script = "uid://chvgahtb671mg"

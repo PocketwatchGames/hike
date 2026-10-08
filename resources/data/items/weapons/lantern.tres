@@ -32,7 +32,6 @@ actionProfile = SubResource("Resource_profile")
 activeSprite = ExtResource("8_sprite_lit")
 douseEffectScene = ExtResource("9_douse")
 heldLanternScene = ExtResource("10_held")
-burnTimeSeconds = 360.0
 displayName = &"Lantern"
 description = "A light in the darkness. Clips to your belt when lit."
 value = 10

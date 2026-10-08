@@ -657,7 +657,7 @@ public class ActionRunner
 	private void EnterActive(ItemAction tier, ulong now)
 	{
 		// Pay the activated tier's stamina + blood costs unconditionally —
-		// SelectTierIndex has already gated on HasStamina / HasBlood, so
+		// SelectTierIndex has already gated on stamina / blood / oil, so
 		// the spend will land safely. Ammo decrement still rides on the
 		// per-event EItemEventType.UseAmmo flag inside the tier's Active
 		// timeline so authors can pick when in the swing the round burns.
@@ -665,14 +665,10 @@ public class ActionRunner
 		{
 			_actor.ConsumeStamina(tier.staminaCost);
 			_actor.DrainBlood(tier.bloodCost);
-			// Fuel spend for a lantern spell cast. SelectTierIndex has already
-			// gated on the tank having fuel; the spend clamps at 0 so a partial
-			// tank still pays the cast and bottoms out. A lit lantern this drains
-			// to empty is extinguished by Player.TickLanternFuel next tick.
-			if (tier.fuelCost > 0f && _action.context.primaryItem is LanternState lantern)
-			{
-				lantern.BurnFuel((long)(tier.fuelCost * 1000f));
-			}
+			// SelectTierIndex has already gated on the actor holding the whole
+			// cost. A lit lantern this drains to empty is extinguished by
+			// Player.TickLanternOil next tick.
+			_actor.SpendLanternOil(tier.oilCost);
 		}
 		FireChargeEndEvents();
 		StopChargeLoop();
@@ -1116,24 +1112,17 @@ public class ActionRunner
 					continue;
 				}
 			}
-			if (!CanAffordFuel(action, context)) { continue; }
+			if (!CanAffordOil(action)) { continue; }
 			return i;
 		}
 		return -1;
 	}
 
-	// Fuel gate for ItemAction.fuelCost: a fuel-costed tier is selectable only
-	// when the driving item is a fuel-bearing consumable (a lantern) with any
-	// fuel left. The spend itself (EnterActive) clamps the tank at 0, so this is
-	// a "> 0" check, not "can afford the full cost". Tiers with no fuel cost
-	// always pass.
-	private static bool CanAffordFuel(ItemAction action, in ActionContext context)
+	// Oil gate for ItemAction.oilCost: the tier is selectable only while the
+	// actor holds the whole cost. Tiers with no oil cost always pass.
+	private bool CanAffordOil(ItemAction action)
 	{
-		if (action.fuelCost <= 0f)
-		{
-			return true;
-		}
-		return context.primaryItem is LanternState lantern && lantern.HasFuel;
+		return _actor.CanAffordLanternOil(action.oilCost);
 	}
 
 	// Same gates as SelectTierIndex but ignoring the chargeT timing filter —
@@ -1158,7 +1147,7 @@ public class ActionRunner
 					continue;
 				}
 			}
-			if (!CanAffordFuel(action, context)) { continue; }
+			if (!CanAffordOil(action)) { continue; }
 			return true;
 		}
 		return false;

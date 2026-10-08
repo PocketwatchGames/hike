@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "oil_droplets"
+description = "Goblins, spiders, a troll and a drake to kill for lantern-oil droplets, plus loose droplets to watch the magnet."
+commands = "spawn_loot oil_droplet 3
+spawn_mob goblin_forest 3
+spawn_mob spider_forest 2
+spawn_mob troll_forest 1
+spawn_mob drake_mountain 1"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

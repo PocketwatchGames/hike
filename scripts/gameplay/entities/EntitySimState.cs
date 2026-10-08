@@ -58,6 +58,10 @@ public abstract class EntitySimState
     public StringName DisabledVariable;
     public EDisabledWhen DisabledWhen;
 
+    // The player has perceived this entity's Discoverable (a hidden chest, a trap,
+    // a forge). Written by the Discoverable at runtime; never set by a bake.
+    public bool Discovered;
+
     public bool IsDisabled(ScriptVariableBank vars)
     {
         if (DisabledVariable == null || DisabledVariable.IsEmpty || vars == null)

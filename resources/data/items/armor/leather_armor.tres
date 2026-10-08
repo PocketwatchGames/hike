@@ -20,7 +20,7 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 [resource]
 script = ExtResource("2_bvjtb")
 maxArmor = 100.0
-beltSlots = 2
+beltSlots = 1
 weight = 0.5
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource("Resource_bvjtb")])
 outfit = &"fighter"

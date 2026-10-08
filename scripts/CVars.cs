@@ -2505,7 +2505,7 @@
     // the fade or the autosave.
     public static CVar rest = new CVar("rest", (cvar) =>
     {
-        Sim.Current?.PerformSleepAdvance(0.0, 0.0, toSunrise: true);
+        Sim.Current?.Sleep(Sim.SleepUntilDawn, 0.0);
     });
 
     // Headless data-integrity check: `--headless -- "resource_check 1"` reports

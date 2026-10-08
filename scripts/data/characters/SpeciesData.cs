@@ -72,10 +72,25 @@ public partial class SpeciesData : Resource
     // Loot ejected from the mob's body when it dies (was a MobData field; lives
     // here so each zone variant sets its own spoils — all kun-kun variants drop
     // the shared kun_kun_meat, all goblins goblin_meat, etc.).
-    // Each entry spawns `count` Loot instances of its descriptor, fired outward
-    // on the same upward arc chests use. CreateState stamps this onto
-    // MobSimState.Loot (read by Mob.EjectLoot); empty = no drops.
-    [Export] public Godot.Collections.Array<ItemCount> loot = new();
+    // Each row is rolled when the mob dies (Mob.EjectLoot) and fired outward on
+    // the same upward arc chests use. Empty = no drops.
+    [Export] public Godot.Collections.Array<ItemCountRange> loot = new();
+
+    // Roll this species' death loot into `into`.
+    public void RollLoot(System.Random rng, System.Collections.Generic.List<ItemState> into)
+    {
+        if (loot == null)
+        {
+            return;
+        }
+        foreach (ItemCountRange row in loot)
+        {
+            if (row != null)
+            {
+                ItemCountRange.AppendStates(row.item, row.RollCount(rng), into);
+            }
+        }
+    }
 
     // What this species can do. A brain node requiring an ability it lacks is
     // dropped at spawn, so species sharing one brain differ here rather than
@@ -108,16 +123,12 @@ public partial class SpeciesData : Resource
         }
         var state = new MobSimState(worldPosition, rotationY, scene, mob, level, levelScalePerLevel);
         // The species is the mob's bestiary identity (discovery / kill-leveling
-        // key) as well as the source of its recolor / loot / stat modifiers.
+        // key) as well as the source of its recolor / death loot / stat modifiers.
         state.Species = this;
         state.Palette = palette;
         if (weapons != null && weapons.Count > 0)
         {
             state.Weapons = weapons;
-        }
-        if (loot != null && loot.Count > 0)
-        {
-            state.Loot = loot;
         }
         // Compose this species' intrinsic status effects with the elite
         // signature's (if any) into one list so both apply at spawn.

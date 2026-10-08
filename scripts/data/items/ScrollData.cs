@@ -22,6 +22,8 @@ public partial class ScrollData : ItemData, IApplyOnPickup
 	// Not a Material, so a field pickup takes an interact — reading is deliberate.
 	protected override EItemCategory ComputeCategory() => EItemCategory.Usable;
 
+	public bool Magnetized => false;
+
 	public bool ApplyOnPickup(Player player)
 	{
 		if (player == null || concept == null)

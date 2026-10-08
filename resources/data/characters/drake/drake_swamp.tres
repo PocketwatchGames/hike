@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="1_sub"]
 [ext_resource type="Resource" uid="uid://ttygw8dsckh3" path="res://resources/data/characters/drake/drake.tres" id="2_mob"]
 [ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="4_xpnei"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="5_lootcount"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="5_lootcount"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="6_3yo1s"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="6_desc"]
 [ext_resource type="Resource" uid="uid://khjswp5qnpnm" path="res://resources/data/items/loot/drake_meat.tres" id="7_meat"]
@@ -11,6 +11,7 @@
 [ext_resource type="Resource" uid="uid://kauvrkh62nsl" path="res://resources/data/characters/drake/drake_lightning.tres" id="9_lightning"]
 [ext_resource type="Resource" uid="uid://cv47ms5ub1g4b" path="res://resources/data/characters/drake/drake_bite.tres" id="10_bite"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="10_gf175"]
+[ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="oil_droplet"]
 
 [sub_resource type="Resource" id="Desc_loot_meat"]
 script = ExtResource("6_desc")
@@ -18,12 +19,24 @@ item = ExtResource("7_meat")
 
 [sub_resource type="Resource" id="Resource_loot_meat"]
 script = ExtResource("5_lootcount")
-descriptor = SubResource("Desc_loot_meat")
+item = SubResource("Desc_loot_meat")
+
+[sub_resource type="Resource" id="Desc_loot_oil"]
+script = ExtResource("6_desc")
+item = ExtResource("oil_droplet")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_loot_oil"]
+script = ExtResource("5_lootcount")
+item = SubResource("Desc_loot_oil")
+count = 0
+countRange = 3
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 
 [resource]
 script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 displayName = &"Swamp Drake"
 weapons = Array[ExtResource("8_wd")]([ExtResource("9_lightning"), ExtResource("10_bite")])
-loot = Array[ExtResource("5_lootcount")]([SubResource("Resource_loot_meat")])
+loot = Array[ExtResource("5_lootcount")]([SubResource("Resource_loot_meat"), SubResource("Resource_loot_oil")])
 abilities = 5

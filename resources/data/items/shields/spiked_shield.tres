@@ -1,0 +1,47 @@
+[gd_resource type="Resource" script_class="ShieldData" format=3]
+
+[ext_resource type="Script" uid="uid://jqmwdcmyi4tc" path="res://scripts/data/items/ShieldData.cs" id="1_shield"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="2_damage"]
+[ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="5_parryfx"]
+[ext_resource type="PackedScene" path="res://scenes/items/shield_spiked_held.tscn" id="6_held"]
+[ext_resource type="Texture2D" uid="uid://s0u3880g3w8n" path="res://assets/textures/items/ShieldLarge.png" id="7_icon"]
+
+[sub_resource type="Resource" id="Resource_thorns"]
+script = ExtResource("2_damage")
+tags = 2177
+healthDamage = 15.0
+damageVariance = 0.25
+hitstun = 0.15
+buildups = []
+modifiers = []
+
+[sub_resource type="Resource" id="Resource_counter"]
+script = ExtResource("2_damage")
+tags = 2193
+healthDamage = 60.0
+armorPenetration = 0.5
+damageVariance = 0.25
+hitstun = 0.5
+knockbackDistance = 2.5
+knockbackTime = 0.25
+buildups = []
+modifiers = []
+
+[resource]
+script = ExtResource("1_shield")
+weight = 1.0
+guardArmor = 220.0
+guardRechargeDelay = 1.75
+guardRechargeTime = 0.55
+blockDecibels = 0.8
+blockCounter = SubResource("Resource_thorns")
+parryTimeMs = 325
+maxParryDamage = 275.0
+parryCounter = SubResource("Resource_counter")
+parryEffect = ExtResource("5_parryfx")
+parryDecibels = 1.0
+displayName = &"Spiked Shield"
+description = "Iron spikes bristle from its face. Anything that strikes it bleeds for the trouble, and a timed crouch drives the spikes home."
+value = 75
+inventorySprite = ExtResource("7_icon")
+heldModel = ExtResource("6_held")

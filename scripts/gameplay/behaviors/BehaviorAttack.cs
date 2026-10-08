@@ -11,10 +11,9 @@ public partial class BehaviorAttack : BehaviorBase
     // Standoff fallback (meters) when neither encircleDistance nor any weapon
     // authors a desired range — mirrors the old AttackBehaviorData default.
     private const float DefaultStandoffDistance = 1.75f;
-    // The target this attack session is leasing an encircle slot against.
-    // Tracked so we can release the slot when the target changes (different
-    // perception target) or the behavior exits.
-    private Node3D _slotTarget;
+    // The target whose encircle ring this attack session is on. Tracked so we
+    // leave the ring when the target changes or the behavior exits.
+    private Node3D _ringTarget;
     // Reused per-tick to count same-team allies in range for the secondary
     // attack's ally-count gate. Cleared before each query.
     private readonly List<Mob> _allyScratch = new();
@@ -41,7 +40,7 @@ public partial class BehaviorAttack : BehaviorBase
 
     // Cooldown is intentionally NOT reset here: behaviors that swap out (e.g.
     // to Investigate and back) shouldn't grant a free attack on re-entry. The
-    // encircle slot is released on exit/target-change, not on enter. The pause
+    // encircle ring is left on exit/target-change, not on enter. The pause
     // IS cleared so re-entry re-rolls a fresh post-cooldown beat (still no free
     // swing — a ready weapon arms a new pause before it can fire).
     public override void OnEnter(Mob me, ulong time)
@@ -66,9 +65,9 @@ public partial class BehaviorAttack : BehaviorBase
     {
         if (TryTransitions(me, time, ref targetPerception, out StringName destination))
         {
-            // Behavior is about to swap out — release any encircle slot we
-            // were holding so a different mob can take it.
-            ReleaseSlot(me);
+            // Behavior is about to swap out — leave the encircle ring so the
+            // rest respace without us.
+            LeaveRing(me);
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
         }
 
@@ -76,7 +75,7 @@ public partial class BehaviorAttack : BehaviorBase
         Node3D target = ResolveTarget(me, ref targetPerception, out bool canSee, out Vector3 targetPos, out Vector3 lastKnownPosition);
         if (target == null)
         {
-            ReleaseSlot(me);
+            LeaveRing(me);
             return new BehaviorOutput(EBehaviorResult.Running);
         }
 
@@ -86,11 +85,11 @@ public partial class BehaviorAttack : BehaviorBase
         // Engaging base; set after the transition / no-target early-outs so
         // leaving the attack state doesn't read as combat.
         output.behaviorFlags |= EBehaviorFlags.Attacking;
-        // Target changed since last tick — release the old slot before we
-        // request a new one against the new target.
-        if (_slotTarget != null && _slotTarget != target)
+        // Target changed since last tick — leave the old ring now, even if we
+        // are too far out to join the new one this tick.
+        if (_ringTarget != null && _ringTarget != target)
         {
-            ReleaseSlot(me);
+            LeaveRing(me);
         }
 
         // Yell once on first sighting this engagement. Mob's AIOutput
@@ -182,23 +181,21 @@ public partial class BehaviorAttack : BehaviorBase
         // windup, dart (via ApplyMotion), strike, and recovery tail. The
         // navigation goal would be ignored by Mob._PhysicsProcess anyway
         // (which gates the path impulse on the same flag), so don't compute
-        // it. The encircle slot stays leased — LeaseSlot is idempotent for
-        // the same target and the body will resume against the same slot
-        // when the action ends; if the mob dies mid-attack, TreeExiting
-        // cleans the slot up.
+        // it. The mob stays on the encircle ring and resumes its place when
+        // the action ends; if it dies mid-attack, Die takes it off.
         if (me.Runner != null && me.Runner.LocksMovement)
         {
             return new BehaviorOutput(EBehaviorResult.Running);
         }
 
-        // Standoff via encircle slot. Each mob leases one angular slot
-        // around the current target; PickStandoffPoint resolves it to a
-        // walkable, line-of-sight world point that the navigator paths
-        // toward. Far-out mobs (outside approachRange) just head for the
-        // last known position so they don't waste a slot resolution
-        // when they aren't even close to the ring yet. Both paths route
-        // through MobNavigator so A* steers around obstacles; allowFalling
-        // lets a chase drop off a ledge the mob can't climb back up.
+        // Standoff via the encircle ring. The mob joins the current target's
+        // ring and gets an angle (plus a tier, when the ring has overflowed);
+        // PickStandoffPoint resolves it to a walkable, line-of-sight world
+        // point that the navigator paths toward. Far-out mobs (outside
+        // approachRange) just head for the last known position — joining
+        // would respace the ring around a mob that isn't near it yet. Both
+        // paths route through MobNavigator so A* steers around obstacles;
+        // allowFalling lets a chase drop off a ledge the mob can't climb back up.
         if (dist2d > _data.approachRange)
         {
             // avoidHazards: false — a mob committed to the player ignores fire
@@ -207,46 +204,31 @@ public partial class BehaviorAttack : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.Running);
         }
 
-        Sim sim = me.Sim;
-        EncircleSlotAllocator allocator = sim?.EncircleAllocator;
-        int slotIdx = allocator?.LeaseSlot(me, target, Mathf.Max(1, _data.encircleSlotCount)) ?? -1;
-        _slotTarget = (slotIdx >= 0) ? target : null;
-
-        // Slot count of 1 (or no slot available) collapses to "stand at
-        // desired range on the line between mob and target" — no encircle
-        // structure, just a hold-distance.
-        // Encircle around the *perceived* target position (targetPos), not the
-        // live target.GlobalPosition. Using the real position let a mob that
-        // had lost sight keep circling exactly where the player actually is —
-        // a wallhack that also looked broken, since yaw faces lastKnownPosition
-        // (so the mob adjusted its surround as you moved while staring at the
-        // wrong spot and never closing for an attack, which is canSee-gated).
-        // Keyed off targetPos, the ring sits on the last-known spot until the
-        // mob reacquires line of sight, matching where it's facing.
         // Standoff distance splits by intent. When a non-reactive weapon is ready
         // we close to its desiredAttackRange (which sits inside maxAttackRange) so
         // the swing lands; with everything on cooldown — or when the only ready
         // weapon is reactive (a kiter's melee, which must never pull the mob in) —
         // we hold at the ring / ranged standoff and wait. This split is why
         // encircleDistance may sit at — or beyond — maxAttackRange without freezing
-        // the mob: the attack approach never holds at the ring.
-        Vector3 standoff;
+        // the mob: the attack approach never holds at the ring. An overflowed mob
+        // holds one overflow gap further out per tier, but closes like any other.
         float holdDistance = (_data.encircleDistance > 0f) ? _data.encircleDistance : ClosestDesiredRange(me);
+        Sim sim = me.Sim;
+        sim.EncircleAllocator.Join(me, target, holdDistance, _data.encircleMinSpacing, _data.encircleOverflowGap,
+            out float ringAngle, out int ringTier);
+        _ringTarget = target;
         bool closing = ready != null && !ready.aiReactiveOnly;
-        float standoffDistance = closing ? ready.desiredAttackRange : holdDistance;
-        // Closing for a lunge: the slot must be one the lunge gate will fire
+        float standoffDistance = closing ? ready.desiredAttackRange : holdDistance + ringTier * _data.encircleOverflowGap;
+        // Closing for a lunge: the point must be one the lunge gate will fire
         // from. The hold ring is not an attack position, so it isn't checked.
         float lungeReach = closing && ready.actionProfile.Lunges && !me.IsAirborne ? ready.actionProfile.LungeDistance : 0f;
-        if (slotIdx < 0)
-        {
-            float angleToTarget = Mathf.Atan2(diff.X, diff.Z);
-            standoff = NavigationGoals.PickStandoffPoint(sim, me.Navigator.Profile, targetPos, standoffDistance, angleToTarget, lungeReach);
-        }
-        else
-        {
-            float slotAngle = EncircleSlotAllocator.SlotAngle(slotIdx, _data.encircleSlotCount);
-            standoff = NavigationGoals.PickStandoffPoint(sim, me.Navigator.Profile, targetPos, standoffDistance, slotAngle, lungeReach);
-        }
+        // Encircle around the *perceived* target position (targetPos), not the
+        // live target.GlobalPosition. Using the real position let a mob that
+        // had lost sight keep circling exactly where the player actually is —
+        // a wallhack that also looked broken, since yaw faces lastKnownPosition.
+        // Keyed off targetPos, the ring sits on the last-known spot until the
+        // mob reacquires line of sight, matching where it's facing.
+        Vector3 standoff = NavigationGoals.PickStandoffPoint(sim, me.Navigator.Profile, targetPos, standoffDistance, ringAngle, lungeReach);
         me.Navigator.Goto(standoff, allowFalling: true, avoidHazards: false);
         return new BehaviorOutput(EBehaviorResult.Running);
     }
@@ -464,14 +446,14 @@ public partial class BehaviorAttack : BehaviorBase
         return bestAny != float.MaxValue ? bestAny : DefaultStandoffDistance;
     }
 
-    protected void ReleaseSlot(Mob me)
+    protected void LeaveRing(Mob me)
     {
-        if (_slotTarget == null)
+        if (_ringTarget == null)
         {
             return;
         }
-        me.Sim?.EncircleAllocator?.ReleaseSlot(me);
-        _slotTarget = null;
+        me.Sim?.EncircleAllocator.Leave(me);
+        _ringTarget = null;
     }
 
     // Counts same-team Mobs (including `me`) within `radius` of me, via the

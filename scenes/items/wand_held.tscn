@@ -1,0 +1,38 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://b7hwld3k9mxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_hw"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="model_lit_shader"]
+
+[sub_resource type="ShaderMaterial" id="Mat_shaft"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.32, 0.22, 0.14, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_shaft"]
+material = SubResource("Mat_shaft")
+top_radius = 0.016
+bottom_radius = 0.022
+height = 0.42
+
+[sub_resource type="ShaderMaterial" id="Mat_gem"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.45, 0.6, 1, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_gem"]
+material = SubResource("Mat_gem")
+radius = 0.04
+height = 0.08
+radial_segments = 8
+rings = 4
+
+[node name="WandHeld" type="Node3D"]
+script = ExtResource("1_hw")
+
+[node name="Shaft" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, 0)
+mesh = SubResource("CylinderMesh_shaft")
+
+[node name="Gem" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
+mesh = SubResource("SphereMesh_gem")

@@ -182,7 +182,7 @@ public class ChestSimState : EntitySimState
     // (ChestSpawnEntry, WorldGen's distributed zone loot) — the scene itself
     // carries none, so one generic chest.tscn serves every variant. Each stack
     // ejects as one pile on open, and the chest is empty after. Live
-    // ItemStates, so per-instance state (a lantern's fuel, a weapon's mods)
+    // ItemStates, so per-instance state (a weapon's ammo and mods)
     // rides the wire format with them.
     public readonly List<ItemState> Contents = new();
     // Springs when the chest opens; null = untrapped.

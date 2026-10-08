@@ -7,11 +7,12 @@
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="6_221hv"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="7_x3016"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="8_1vqu6"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="8_lootcount"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="8_lootcount"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="9_desc"]
 [ext_resource type="Resource" uid="uid://bgbn5p2k4q7wt" path="res://resources/data/items/loot/goblin_meat.tres" id="10_meat"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="11_wd"]
 [ext_resource type="Resource" uid="uid://tnrdlqgbiugo" path="res://resources/data/characters/goblin/goblin_claw.tres" id="13_claw"]
+[ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="oil_droplet"]
 
 [sub_resource type="Resource" id="Desc_loot_meat"]
 script = ExtResource("9_desc")
@@ -20,8 +21,8 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [sub_resource type="Resource" id="Resource_loot_meat"]
 script = ExtResource("8_lootcount")
-descriptor = SubResource("Desc_loot_meat")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+item = SubResource("Desc_loot_meat")
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 
 [sub_resource type="Resource" id="Resource_221hv"]
 script = ExtResource("7_x3016")
@@ -33,12 +34,24 @@ script = ExtResource("8_1vqu6")
 recolors = [SubResource("Resource_221hv")]
 metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
+[sub_resource type="Resource" id="Desc_loot_oil"]
+script = ExtResource("9_desc")
+item = ExtResource("oil_droplet")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_loot_oil"]
+script = ExtResource("8_lootcount")
+item = SubResource("Desc_loot_oil")
+count = 0
+countRange = 2
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
 [resource]
 script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 displayName = &"Swamp Goblin"
 palette = SubResource("Resource_uyb2f")
 weapons = Array[ExtResource("11_wd")]([ExtResource("13_claw")])
-loot = Array[ExtResource("8_lootcount")]([SubResource("Resource_loot_meat")])
+loot = Array[ExtResource("8_lootcount")]([SubResource("Resource_loot_meat"), SubResource("Resource_loot_oil")])
 abilities = 4
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

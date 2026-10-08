@@ -88,17 +88,63 @@ public partial class Sim
         }
     }
 
-    // A night's sleep: skip to sunrise (rolling that dawn), then everything a
-    // rest resets — the controlled member wakes healed with transient effects
-    // cleared (a DoT can't chip or kill them in their sleep), the well-rested
-    // draw, summoned pets, and the world's encounters. The shared
-    // path behind sleep-to-sunrise, the Ruby Rosaries and the death wake.
-    private void RestToSunrise()
+    // Every member blows out their lantern on lying down, so the party wakes in
+    // the dark and a wake's autosave records it unlit.
+    private void PutOutPartyLanterns()
     {
-        if (_worldState == null)
+        if (_partyNodes == null)
         {
+            _player?.PutOutLantern();
             return;
         }
+        for (int i = 0; i < _partyNodes.Count; i++)
+        {
+            _partyNodes[i]?.PutOutLantern();
+        }
+    }
+
+    // Pass to Sleep to sleep until woken by the next sunrise.
+    public const double SleepUntilDawn = double.PositiveInfinity;
+
+    // The ONE way the party sleeps — a camp or tent sleep, the Ruby Rosaries and
+    // the death wake all come through here. A sleep that reaches the next sunrise
+    // wakes there and is a REST (RestToSunrise); a shorter one is a nap, which
+    // integrates the controlled member's effects over `hours` and heals a
+    // fraction. A surviving companion wakes at the player's side (one that died
+    // stays dead). Returns true when it was a rest.
+    public bool Sleep(double hours, double healFractionPerHour)
+    {
+        if (_worldState == null || _player == null || hours <= 0.0)
+        {
+            return false;
+        }
+        PutOutPartyLanterns();
+        double hoursToDawn = (_worldState.NextClockAt(WorldState.SunriseTimeOfDay01) - _worldState.WorldClockDays) * HoursPerDay;
+        bool rest = hours >= hoursToDawn;
+        if (rest)
+        {
+            RestToSunrise();
+        }
+        else
+        {
+            // Heals AFTER the nap's status effects resolve, so a DoT that ran
+            // during it lands first — and a player it killed isn't revived by the heal.
+            Doze(hours);
+            if (!_player.IsDead)
+            {
+                _player.Heal((float)(_player.MaxHealth * healFractionPerHour * hours));
+            }
+        }
+        Companion?.RecallToPlayer(_player.GlobalPosition);
+        return rest;
+    }
+
+    // Sleep's dawn branch: skip to sunrise (rolling that dawn), then everything a
+    // rest resets — the controlled member wakes healed with transient effects
+    // cleared (a DoT can't chip or kill them in their sleep), the well-rested
+    // draw, summoned pets, and the world's encounters.
+    private void RestToSunrise()
+    {
         SkipToNextSunrise();
         if (_player != null && !_player.IsDead)
         {
@@ -148,36 +194,11 @@ public partial class Sim
         OnDeadlinesSwept?.Invoke();
     }
 
-    // Sleep behind the client's fade. toSunrise is a rest (RestToSunrise);
-    // otherwise a nap integrates effects over `hours` then heals a fraction. A
-    // surviving companion wakes at the player's side (one that died stays dead).
-    public void PerformSleepAdvance(double hours, double healFractionPerHour, bool toSunrise)
-    {
-        if (toSunrise)
-        {
-            RestToSunrise();
-        }
-        else
-        {
-            // Rest heals AFTER the skip's status effects resolve, so a DoT that ran
-            // during the nap lands first — and a player it killed isn't revived by the heal.
-            AdvanceTime(hours);
-            if (_player != null && !_player.IsDead)
-            {
-                _player.Heal((float)(_player.MaxHealth * healFractionPerHour * hours));
-            }
-        }
-        if (_player != null)
-        {
-            Companion?.RecallToPlayer(_player.GlobalPosition);
-        }
-    }
-
     // Teleport the controlled member to `pos` (their standing spot at the
-    // campfire — never the fire itself), rest to the next sunrise, refill
-    // lanterns at the fire, and recall a surviving companion to them. Does
-    // NOT bank: the Ruby Rosaries bank first (GameClient.ReturnHome), a death wake
-    // does not. The client keeps the camera reframe, campfire relight, and camp screen.
+    // campfire — never the fire itself), sleep there until dawn, and refill
+    // lanterns at the fire. Does NOT bank: the Ruby Rosaries bank first
+    // (GameClient.ReturnHome), a death wake does not. The client keeps the
+    // camera reframe, campfire relight, and camp screen.
     public void ReturnHomeToSunrise(Vector3 pos)
     {
         if (_player == null)
@@ -185,9 +206,8 @@ public partial class Sim
             return;
         }
         _player.TeleportTo(pos);
-        RestToSunrise();
+        Sleep(SleepUntilDawn, 0.0);
         RefuelPartyLanterns();
-        Companion?.RecallToPlayer(pos);
     }
 
     // The death wake: the controlled member stands back up at `pos` (their spot

@@ -74,7 +74,9 @@ public static class SubsceneFile
     // v14/v15: a chest's payload gained and then lost a lock (see WorldFile
     //      v66/v67). No subscene holds a chest, so there is nothing to gate.
     // v16: a chest's payload carries its rigged trap (see WorldFile v68).
-    public const uint VERSION = 16;
+    // v17: entities gained a trailing discovered flag (see WorldFile v72). v16
+    //      and earlier still read — their entities load undiscovered.
+    public const uint VERSION = 17;
 
     // Bytes before the directory block: magic + version + size + anchor +
     // channelMask + dirLength. ReadDirectory seeks past exactly this much.
@@ -218,7 +220,8 @@ public static class SubsceneFile
             : version >= 4 ? EntitySerializer.ROOF_FORMAT_BROKEN
             : EntitySerializer.ROOF_FORMAT_ORIGINAL;
         sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3, roofFormat: roofFormat, hasTag: version >= 6, tableRefs: version >= 9,
-            hasScale: version >= 10, itemExtras: version >= 12, hasScriptFields: version >= 13);
+            hasScale: version >= 10, itemExtras: version >= 12, hasScriptFields: version >= 13,
+            hasDiscovered: version >= 17);
         return sub;
     }
 

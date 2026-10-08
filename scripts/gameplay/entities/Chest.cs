@@ -2,7 +2,7 @@ using System;
 using Godot;
 
 [GlobalClass]
-public partial class Chest : Node3D, IInteractive, IWorldEntity
+public partial class Chest : Node3D, IInteractive, IWorldEntity, IDiscoverableHost
 {
     [Export] private LitSpriteAnimator _animator;
     [Export] private HurtBox _hurtBox;
@@ -16,6 +16,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     // be left null for chests). Leave _discoverable unset for chests that
     // are visible from spawn.
     [Export] private Discoverable _discoverable;
+    public Discoverable Discoverable => _discoverable;
     [Export] private Node3D _hudNode;
     // 3D chest lid hinge: a Node3D pivot placed at the lid's back-bottom edge
     // with the lid mesh parented under it. When set, the lid tweens open on

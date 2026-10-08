@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 // Stat-entry generators for inventory / tooltip / HUD readouts. Each
@@ -150,6 +151,10 @@ public static class StatList
 		if (action.staminaCost > 0f)
 		{
 			yield return (names[EStatName.StaminaCost], StatFormat.Number(action.staminaCost));
+		}
+		if (action.oilCost > 0f)
+		{
+			yield return (names[EStatName.OilCost], StatFormat.Number(action.oilCost));
 		}
 		float cooldown = action.cooldownSeconds + action.activeDurationSeconds;
 		if (cooldown > 0f)
@@ -645,16 +650,32 @@ public static class StatList
 	}
 
 	// The counter-strike a parry deals back, or null when the shield can't parry
-	// or authors no counter. Feed it through BaseDamage to render the "Parry"
-	// context — damage plus every rider (armor penetration, knockback, Dizzy).
+	// or its counter shows nothing. Feed it through BaseDamage to render the
+	// "Parry" context — damage plus every rider (armor penetration, knockback,
+	// Dizzy); a damage-free counter (a tower shield's shove) still renders.
 	public static DamageData ParryCounter(ShieldData shield)
 	{
 		if (shield == null || !shield.CanParry)
 		{
 			return null;
 		}
-		DamageData counter = shield.parryCounter;
-		return counter != null && counter.healthDamage > 0f ? counter : null;
+		return Displayable(shield.parryCounter);
+	}
+
+	// The thorns a block deals back (ShieldData.blockCounter), or null when the
+	// shield can't block or its counter shows nothing. Rendered like ParryCounter.
+	public static DamageData BlockCounter(ShieldData shield)
+	{
+		if (shield == null || shield.guardArmor <= 0f)
+		{
+			return null;
+		}
+		return Displayable(shield.blockCounter);
+	}
+
+	private static DamageData Displayable(DamageData counter)
+	{
+		return counter != null && BaseDamage(counter).Any() ? counter : null;
 	}
 
 	// Compact combat readout for one mob weapon (bestiary). Summarizes the

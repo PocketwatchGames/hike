@@ -63,13 +63,11 @@ public partial class ItemAction : Resource
 	[Export] public float staminaCost = 0f;
 	[Export] public float bloodCost = 0f;
 
-	// Lantern fuel spent (in seconds of burn budget) when this tier
-	// activates, drawn from the driving item's fuel tank. Unlike stamina/blood,
-	// the gate is "has ANY fuel left" (> 0), not "can afford the full cost" — a
-	// near-empty lantern still casts and the spend clamps the tank at 0 (see
-	// LanternState.BurnFuel). 0 (default) = no fuel cost. Only meaningful when the
-	// driving item (context.primaryItem) is a fuel-bearing consumable (a lantern).
-	[Export] public float fuelCost = 0f;
+	// Lantern oil spent when this tier activates (Player.LanternOil; a default
+	// supply is 100). The tier is selectable only while the actor holds the
+	// whole cost.
+	// 0 (default) = no oil cost.
+	[Export(PropertyHint.Range, "0,100,1,or_greater")] public float oilCost = 0f;
 
 	// True if this tier consumes ammo from the driving WeaponState — gates
 	// the press at zero ammo (PlayerWeapon / AimingReticle / WeaponHud read

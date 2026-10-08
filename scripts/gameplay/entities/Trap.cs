@@ -9,7 +9,7 @@ using Godot;
 // fired by chest opens / mob deaths), wire its _targets at one or more
 // ITriggerable behaviors, and set them as _triggerSource / _deployers.
 [GlobalClass]
-public partial class Trap : Node3D, IInteractive, IWorldEntity
+public partial class Trap : Node3D, IInteractive, IWorldEntity, IDiscoverableHost
 {
     // Optional: the body-driven source that fires the trap. Null for
     // event-driven traps (a chest's onOpen pings deployers directly).
@@ -20,6 +20,7 @@ public partial class Trap : Node3D, IInteractive, IWorldEntity
     [Export] private Godot.Collections.Array<Node> _deployers = new();
     [Export] private Area3D _interactBox;
     [Export] private Discoverable _discoverable;
+    public Discoverable Discoverable => _discoverable;
     [Export] private Node3D _hudNode;
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
 

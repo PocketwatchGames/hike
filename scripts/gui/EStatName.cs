@@ -64,4 +64,7 @@ public enum EStatName
 	Stealth,
 	// Equipped gear's weight (ItemData.EquipWeight).
 	Weight,
+	// Shield block counter-strike (ShieldData.blockCounter) context title.
+	Thorns,
+	OilCost,
 }

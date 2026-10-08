@@ -505,7 +505,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
     // Catch up status effects by `dt` seconds in one call — the sleep
-    // time-skip (Sim.AdvanceTime) bulk-ticks every loaded mob over the
+    // time-skip (Sim.Doze) bulk-ticks every loaded mob over the
     // skipped span. Same path as the per-frame tick, just one coarse step.
     public void TickStatusEffects(float dt) => _statusEffects?.Tick(dt);
 
@@ -674,7 +674,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the moment it makes progress (or stops wanting to move). Gates the
     // run-in-place masking behind a grace window so a brief jam against a wall
     // keeps the run anim, but a goblin genuinely wedged against the player / a
-    // prop / an unreachable encircle slot falls back to idle instead of running
+    // prop / an unreachable ring position falls back to idle instead of running
     // forever in place.
     private ulong _intentStuckStartMs;
 
@@ -872,10 +872,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 sim.UnregisterCompanion(this);
             }
-            // Release any encircle slot held against any target so the
-            // ring doesn't keep a dead mob occupying a slot for the rest
-            // of the encounter.
-            sim.EncircleAllocator.ReleaseSlot(this);
+            // A live mob despawned mid-fight still holds its place on the encircle ring
+            // (a dead one released it in Die).
+            sim.EncircleAllocator.Leave(this);
             sim.onMobRemoved?.Invoke(this);
         };
         sim.onMobSpawned?.Invoke(this);
@@ -1228,6 +1227,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // always pass the gate and the spend is a no-op.
     public bool HasBlood(float amount) => true;
     public void DrainBlood(float amount) { }
+    public bool CanAffordLanternOil(float amount) => true;
+    public void SpendLanternOil(float amount) { }
 
     // Mobs never run reagent-costed interactives (those are player-only), so the
     // ingredient gate always passes and the spend has nothing to deduct from.
@@ -3021,39 +3022,46 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // which stand aside for it.
         TickMantle();
 
+        // The status tick is its own block because a DoT can KILL here, and the
+        // alive branch below must re-read `alive` afterwards — otherwise the
+        // fresh corpse runs one more tick of it, and UpdateMobWet / TickSunburn
+        // re-arm effects Die() just cleared onto a body that never ticks again.
+        if (alive && runCold)
+        {
+            using (Profiler.Sample("Mob.StatusTick"))
+            {
+                TickArmor(coldDt);
+                SyncArmorMeshes();
+                _statusEffects.Tick(coldDt);
+                // A +MaxHealth buff expiring (processed in the status tick above)
+                // shrinks the live cap; clamp current health down so it can't sit
+                // above max. Increases leave health alone — heals own the climb,
+                // mirroring the armor clamp in TickArmor.
+                if (health > maxHealth)
+                {
+                    health = maxHealth;
+                }
+                // Gated so the hud position + visibility gate are only resolved
+                // on the ~1Hz flush tick, not every physics tick.
+                ulong dotNowMs = _world?.GameTimeMs ?? 0;
+                DotHudFlush dotFlush = default;
+                if (_dotHud.WantsTick(dotNowMs))
+                {
+                    Vector3 dotHudPos = hudPosition;
+                    dotFlush = _dotHud.Tick(dotNowMs, dotHudPos, ShowsHudFeedbackAt(dotHudPos));
+                }
+                if (dotFlush.damage)
+                {
+                    // Continuous damage authors no per-frame fx; its "ouch" rides
+                    // on the once-per-second HUD rollup instead.
+                    SpawnVoice(_voice?.hurt);
+                }
+            }
+        }
         if (alive)
         {
             if (runCold)
             {
-                using (Profiler.Sample("Mob.StatusTick"))
-                {
-                    TickArmor(coldDt);
-                    SyncArmorMeshes();
-                    _statusEffects.Tick(coldDt);
-                    // A +MaxHealth buff expiring (processed in the status tick above)
-                    // shrinks the live cap; clamp current health down so it can't sit
-                    // above max. Increases leave health alone — heals own the climb,
-                    // mirroring the armor clamp in TickArmor.
-                    if (health > maxHealth)
-                    {
-                        health = maxHealth;
-                    }
-                    // Gated so the hud position + visibility gate are only resolved
-                    // on the ~1Hz flush tick, not every physics tick.
-                    ulong dotNowMs = _world?.GameTimeMs ?? 0;
-                    DotHudFlush dotFlush = default;
-                    if (_dotHud.WantsTick(dotNowMs))
-                    {
-                        Vector3 dotHudPos = hudPosition;
-                        dotFlush = _dotHud.Tick(dotNowMs, dotHudPos, ShowsHudFeedbackAt(dotHudPos));
-                    }
-                    if (dotFlush.damage)
-                    {
-                        // Continuous damage authors no per-frame fx; its "ouch" rides
-                        // on the once-per-second HUD rollup instead.
-                        SpawnVoice(_voice?.hurt);
-                    }
-                }
                 using (Profiler.Sample("Mob.EnvironmentTick"))
                 {
                     UpdateWaterState();
@@ -5243,6 +5251,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // look-toward-the-killer leg that finding a body later cannot give).
         _world?.RegisterCorpse(this);
         BroadcastCorpseSighting();
+        // The corpse stays in the tree and its AI no longer ticks, so neither the
+        // attack behavior nor TreeExiting would take it off its encircle ring.
+        _world?.EncircleAllocator.Leave(this);
 
         // Corpse-less species (the fairy orb): loot has been ejected and the
         // death fx fired above; now fade the body out in place and remove it
@@ -5294,7 +5305,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _world?.EjectLoot(items, GlobalPosition + Vector3.Up);
     }
 
-    // The species loot stamped onto the sim state, plus the elite trophy.
+    // The species loot, rolled now, plus what this individual carried and the
+    // elite trophy.
     private void EjectLoot()
     {
         if (_world == null)
@@ -5302,6 +5314,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         Vector3 origin = GlobalPosition + Vector3.Up;
+        if (_simState?.Species != null)
+        {
+            var rolled = new List<ItemState>();
+            _simState.Species.RollLoot(System.Random.Shared, rolled);
+            _world.EjectLoot(rolled, origin);
+        }
         _world.EjectLoot(_simState?.Loot, origin);
         // Elites drop the shared crown trophy on top of their species loot —
         // the same halo (SimData.EliteCrownScene) that marked them alive, now a
@@ -5876,7 +5894,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Movement-gated loops. Navigator intent counts as "moving" even
         // when LinearVelocity hasn't built up yet — same reason Player keys
         // off _inputMove. A mob that has arrived at its goal (e.g. holding
-        // an encircle slot) no longer counts as intent-moving even though
+        // its encircle position) no longer counts as intent-moving even though
         // its state stays Goto until the behavior switches. Tall-grass and
         // water are mutually exclusive: if the mob's feet are wet, the
         // water loop wins.

@@ -3,9 +3,24 @@
 [ext_resource type="Resource" uid="uid://dhbfx3rl7hq83" path="res://resources/data/characters/elites/elite_poison.tres" id="E_elite_poison"]
 [ext_resource type="Resource" uid="uid://cssgobswamp01" path="res://resources/data/characters/goblin/goblin_swamp.tres" id="r1"]
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="script"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="oil_count_script"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="oil_desc_script"]
+[ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="oil_droplet"]
+
+[sub_resource type="Resource" id="Desc_carried_oil"]
+script = ExtResource("oil_desc_script")
+item = ExtResource("oil_droplet")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Carried_oil"]
+script = ExtResource("oil_count_script")
+descriptor = SubResource("Desc_carried_oil")
+count = 2
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [resource]
 script = ExtResource("script")
 species = ExtResource("r1")
 elite = ExtResource("E_elite_poison")
+carriedLoot = Array[ExtResource("oil_count_script")]([SubResource("Carried_oil")])
 initialBehavior = null

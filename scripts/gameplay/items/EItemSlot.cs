@@ -9,5 +9,6 @@ public enum EInventorySlot
 	WeaponLeft,
 	WeaponRight,
 	Shield,
+	Lantern,
 	Count
 }

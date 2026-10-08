@@ -91,6 +91,27 @@ public static class ItemTransfer
 		return true;
 	}
 
+	// Move the stack at `from[fromIndex]` onto the member's belt — as much as the
+	// belt alone has room for; the rest stays where it was. Returns the units moved.
+	public static int SendToBelt(IItemGrid from, int fromIndex, Inventory inventory)
+	{
+		ItemState source = from?.At(fromIndex);
+		if (source?.data == null || inventory == null)
+		{
+			return 0;
+		}
+		int units = Math.Min(source.stackCount, inventory.Belt.RoomFor(source.data));
+		if (units <= 0)
+		{
+			return 0;
+		}
+		ItemState moving = from.Take(fromIndex, units);
+		int taken = moving.stackCount;
+		ItemState leftover = inventory.AddOnly(inventory.Belt, moving);
+		Return(from, fromIndex, leftover);
+		return taken - (leftover?.stackCount ?? 0);
+	}
+
 	// Unequip onto a chosen slot of `to`: an empty slot takes it, and gear for
 	// the same equip slot swaps in. False for anything else.
 	public static bool Unequip(Inventory inventory, EInventorySlot slot, IItemGrid to, int toIndex)

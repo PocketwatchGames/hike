@@ -5,7 +5,7 @@ using Godot;
 // offering a single slot-locked "upgrade" (a StatusEffectData with a non-None
 // upgradeSlot) drawn from SimData.forgeUpgrades. Accepting applies the upgrade at
 // this forge's Level — evicting whatever occupies that slot — and the forge goes
-// inert for _cooldownDays of in-world time (a clock deadline persisted on the sim
+// inert until _cooldownDays sunrises have passed (a clock deadline persisted on the sim
 // state so the cooldown survives chunk streaming and save/load). Each upgrade
 // authors its own lifetime (durationType).
 //
@@ -17,10 +17,11 @@ using Godot;
 //
 // Distinct from the Campfire cooking station: no lit/doused state, no jobs.
 [GlobalClass]
-public partial class Forge : Node3D, IInteractive, IWorldEntity
+public partial class Forge : Node3D, IInteractive, IWorldEntity, IDiscoverableHost
 {
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
     [Export] private Discoverable _discoverable;
+    public Discoverable Discoverable => _discoverable;
     [Export] private Node3D _hudNode;
 
     // Hovering purple voxel light: glows while the forge is ready, fades once used.
@@ -28,8 +29,8 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     // Voxels above the forge origin at which the orb light is deposited, so the
     // glow centers on the hovering model rather than the pedestal base.
     [Export] private int _orbLightHeight = 3;
-    // In-world days a used forge stays inert before it can grant again.
-    [Export(PropertyHint.Range, "0,30,0.05,or_greater")] private float _cooldownDays = 1f;
+    // Sunrises a used forge waits before it can grant again (1 = the next dawn).
+    [Export(PropertyHint.Range, "1,30,1,or_greater")] private int _cooldownDays = 1;
 
     // Slot models — one per upgrade slot, only the offered slot's model is shown.
     // The pivot spins + bobs; the visible model swaps every descendant mesh's

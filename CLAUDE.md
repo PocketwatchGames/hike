@@ -603,8 +603,12 @@ Two events, and the split is the design:
 | `Sim.OnDawn` | the clock crosses a sunrise — in play, a nap, or a skip | the day's weather roll, the fairy daily budget, world-script `OnDawn` |
 | `Sim.OnRest` | the party sleeps to sunrise, returns home by the Ruby Rosaries, or wakes from a death | `ResetSpawns`, the well-rested draw, pet dismissal, "Return to Camp", world-script `OnRest` |
 
-- **A rest always ends at a sunrise** (`Sim.RestToSunrise`: skip, rolling that
-  dawn, then the rest work), which is why a save is still a sunrise wake.
+- **Every sleep is `Sim.Sleep(hours)`, and it is a rest exactly when it reaches
+  the next sunrise** — the party then wakes AT that sunrise (skip, rolling that
+  dawn, then the rest work), which is why a save is still a sunrise wake. Camp,
+  tent, the Ruby Rosaries and the death wake all go through it; anything that
+  happens on lying down (lanterns go out) or on a rest belongs there, never
+  beside one caller.
 - **`DayNumber` times nothing.** Every in-world deadline is an absolute
   `WorldClockDays` value: an `UntilTimeOfDay` effect (`expireAtTimeOfDay01`,
   0 = dawn — fairy boons), each spoil cohort, the regrow deadline of berry trees,
@@ -618,8 +622,8 @@ Two events, and the split is the design:
 
 **No party member is ever lost, and there is no game over.** A death goes black,
 shows a Respawn prompt, and is then the same sunrise wake as any other: the
-fallen member's unequipped gear (`Inventory.TakeDeathDrop` — the backpack but one
-belt lantern; worn gear stays on the body) is
+fallen member's unequipped gear (`Inventory.TakeDeathDrop` — the belt and the
+backpack; worn gear, the lantern slot included, stays on the body) is
 left in a `DeathSack` where they fell (their last solid footing if they died in
 water or mid-air), the party rests, wakes at the last campfire, the game
 autosaves, and the camp screen opens. Unbanked

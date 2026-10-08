@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://b8m03p4f7q2nk" path="res://scripts/gui/InventoryPanel.cs" id="5_panel"]
 [ext_resource type="Texture2D" uid="uid://gcw65djqyj64" path="res://assets/textures/gui/inventory_bg_right_hand.png" id="6_058gu"]
 
-[node name="Inventory" type="HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_shieldPanel", "_armorBodyPanel", "_weaponLeftPanel", "_weaponRightPanel", "_belt", "_backpack")]
+[node name="Inventory" type="HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_shieldPanel", "_armorBodyPanel", "_weaponLeftPanel", "_weaponRightPanel", "_lanternPanel", "_belt", "_backpack")]
 size_flags_horizontal = 4
 size_flags_vertical = 0
 theme_override_constants/separation = 100
@@ -17,7 +17,8 @@ _shieldPanel = NodePath("MarginContainer3/VBoxContainer/Equipped/Shield")
 _armorBodyPanel = NodePath("MarginContainer3/VBoxContainer/Equipped/Armor")
 _weaponLeftPanel = NodePath("MarginContainer3/VBoxContainer/Equipped/WeaponLeft")
 _weaponRightPanel = NodePath("MarginContainer3/VBoxContainer/Equipped/WeaponRight")
-_belt = NodePath("MarginContainer3/VBoxContainer/BeltPanel")
+_lanternPanel = NodePath("MarginContainer3/VBoxContainer/Hotbar/Lantern")
+_belt = NodePath("MarginContainer3/VBoxContainer/Hotbar/BeltPanel")
 _backpack = NodePath("MarginContainer3/VBoxContainer/BackpackPanel")
 
 [node name="MarginContainer3" type="MarginContainer" parent="." unique_id=1482364205]
@@ -53,7 +54,15 @@ BackgroundTexture = ExtResource("5_lgndl")
 layout_mode = 2
 BackgroundTexture = ExtResource("6_058gu")
 
-[node name="BeltPanel" parent="MarginContainer3/VBoxContainer" unique_id=1583559512 instance=ExtResource("2_dxbjq")]
+[node name="Hotbar" type="HBoxContainer" parent="MarginContainer3/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+
+[node name="Lantern" parent="MarginContainer3/VBoxContainer/Hotbar" instance=ExtResource("2_4x1s7")]
+layout_mode = 2
+
+[node name="BeltPanel" parent="MarginContainer3/VBoxContainer/Hotbar" unique_id=1583559512 instance=ExtResource("2_dxbjq")]
 layout_mode = 2
 size_flags_horizontal = 4
 _columns = 16

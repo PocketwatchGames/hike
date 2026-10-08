@@ -1,9 +1,10 @@
 using Godot;
 
 // Bare icon used for the over-player and over-mob status announcements.
-// No count badge, no progress bar — Hud + MobHUD use it as a transient
-// notification (queued, auto-outro after hold) and a long-lived per-instance
-// strip entry (no auto-outro; Outro() called when the effect ends) respectively.
+// No progress bar — Hud + MobHUD use it as a transient notification (queued,
+// auto-outro after hold) and a long-lived per-effect strip entry (no
+// auto-outro; Outro() called when the effect ends) respectively. The count
+// badge shows only above one stack.
 // The detail readout in StatusEffectInfoPanel still uses the heavier
 // StatusEffectHud.
 [GlobalClass]
@@ -13,6 +14,8 @@ public partial class StatusEffectIcon : TextureRect
 	const float HoldDuration = 1.0f;
 	const float OutroDuration = 0.3f;
 	const float IntroScaleStart = 3.0f;
+
+	[Export] Label _count;
 
 	public StatusEffectData Data { get; private set; }
 	public bool IsFinished { get; private set; }
@@ -58,6 +61,21 @@ public partial class StatusEffectIcon : TextureRect
 		Scale = Vector2.One;
 		SetProcess(false);
 	}
+
+	public void SetCount(int count)
+	{
+		if (_count == null)
+		{
+			return;
+		}
+		_count.Visible = count > 1;
+		if (count > 1)
+		{
+			_count.Text = count.ToString();
+		}
+	}
+
+	public bool OutroRequested => _outroRequested;
 
 	public void Outro()
 	{

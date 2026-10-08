@@ -13,10 +13,11 @@ using Godot;
 // fire). Both halves are event-driven: the sim's deadline sweep and the
 // script-variable bank, never a per-frame poll.
 [GlobalClass]
-public partial class Fountain : Node3D, IInteractive, IWorldEntity
+public partial class Fountain : Node3D, IInteractive, IWorldEntity, IDiscoverableHost
 {
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
     [Export] private Discoverable _discoverable;
+    public Discoverable Discoverable => _discoverable;
     [Export] private Node3D _hudNode;
     [Export] private Node3D[] _readyNodes = System.Array.Empty<Node3D>();
     [Export] private StationaryLight _light;

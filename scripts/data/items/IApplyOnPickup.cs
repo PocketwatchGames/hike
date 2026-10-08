@@ -6,4 +6,8 @@ public interface IApplyOnPickup
 	// Apply this item's payload to `player`. True when the pickup was spent and
 	// should leave the world; false leaves it in place.
 	bool ApplyOnPickup(Player player);
+
+	// Flies to the player without an interact (Loot's magnet). A scroll is a
+	// deliberate pickup; something that takes no space at all need not be.
+	bool Magnetized { get; }
 }

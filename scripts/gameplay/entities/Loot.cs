@@ -54,7 +54,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 	[Export] private float _waterSurfaceOffset = 0.3f;
 	[Export] private float _waterCurrentDrag = 3f;
 
-	// Loot magnet. A material pickup inside the player's attract sphere
+	// Loot magnet. An eligible pickup (CollectsWithoutInteract) inside the player's attract sphere
 	// (Player._pickupAttractArea) flies toward them when the path is clear:
 	// _magnetAcceleration ramps its speed toward the player up to _magnetMaxSpeed,
 	// aimed _magnetTargetHeight up the player's body. The item stays a rigidbody
@@ -527,9 +527,9 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		}
 	}
 
-	// Whether this loot should fly to `player`: a material topping up a stack the
-	// player already holds (TopsUpHeldStack), not flagged interact-only, and the player is the active
-	// (controlled) member. Re-checked every seek tick so it drops the instant the
+	// Whether this loot should fly to `player`: one it collects without an
+	// interact (CollectsWithoutInteract), not flagged interact-only, and the
+	// player is the active (controlled) member. Re-checked every seek tick so it drops the instant the
 	// backpack fills or control switches away.
 	private bool IsMagnetEligible(Player player)
 	{
@@ -553,16 +553,21 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			return false;
 		}
-		return TopsUpHeldStack(player);
+		return CollectsWithoutInteract(player);
 	}
 
 	// The one rule for collecting a deposited item without pressing interact: a
-	// stackable material the player ALREADY carries a stack of, whose whole stack
+	// magnetized apply-on-pickup item (it takes no space), or a stackable item
+	// of any category the player ALREADY carries a stack of, whose whole stack
 	// fits. A kind the player doesn't hold yet is always a deliberate pickup.
-	private bool TopsUpHeldStack(Player player)
+	private bool CollectsWithoutInteract(Player player)
 	{
 		ItemData data = _simState.Item?.data ?? _simState.Data;
-		if (data == null || !data.IsMaterial || !player.Inventory.HoldsStackOf(data))
+		if (data is IApplyOnPickup { Magnetized: true })
+		{
+			return true;
+		}
+		if (data == null || !player.Inventory.HoldsStackOf(data))
 		{
 			return false;
 		}
@@ -843,9 +848,8 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		FinalizePickup();
 	}
 
-	// Auto-pickup on contact only tops up a material stack the player already
-	// carries (TopsUpHeldStack); everything else falls through to the
-	// press-to-interact path.
+	// Auto-pickup on contact follows CollectsWithoutInteract; everything else
+	// falls through to the press-to-interact path.
 	private bool CanAutoPickup(Player player)
 	{
 		if (_simState == null || _simState.RequireInteract)
@@ -874,7 +878,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 			return true;
 		}
 
-		return TopsUpHeldStack(player);
+		return CollectsWithoutInteract(player);
 	}
 
 	public bool CanInteract() => !_pickedUp && (!IsTimedEmergent || _emergeState == EmergeState.Visible);

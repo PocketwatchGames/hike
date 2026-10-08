@@ -22,7 +22,7 @@
 [ext_resource type="PackedScene" uid="uid://dmlruv4p6oc8f" path="res://scenes/fx/sword_charge_tail.tscn" id="8_chgtail"]
 [ext_resource type="PackedScene" uid="uid://dao14hlapsltn" path="res://scenes/fx/club_smear_heavy.tscn" id="9_smearheavy"]
 [ext_resource type="PackedScene" uid="uid://ncybxa3beup5" path="res://scenes/fx/club_smear_light.tscn" id="9_smearlight"]
-[ext_resource type="Texture2D" uid="uid://cfen4n77e6ynh" path="res://assets/textures/items/Club.png" id="15_3a20y"]
+[ext_resource type="Texture2D" uid="uid://bna05g3ywr0ca" path="res://assets/textures/items/Hammer.png" id="15_3a20y"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="16_eda6u"]
 [ext_resource type="PackedScene" uid="uid://bs6g5vb3w6472" path="res://scenes/items/club_held.tscn" id="17_held"]
 [ext_resource type="Resource" uid="uid://bswd4n1msetq7" path="res://resources/data/characters/human/anim_sets/sword.tres" id="20_animset"]
@@ -83,7 +83,7 @@ forbidSwimming = true
 [sub_resource type="Resource" id="Resource_charged_light"]
 script = ExtResource("4_charged")
 displayName = &"Bash"
-chargeTime = 0.5
+chargeTime = 0.35
 activeDurationSeconds = 0.6
 staminaCost = 0.4
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light"), SubResource("Resource_prwqy")])
@@ -126,6 +126,7 @@ displayName = &"Slam"
 activeDurationSeconds = 0.5
 cooldownSeconds = 0.7
 staminaCost = 1.0
+oilCost = 20.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy_anim"), SubResource("Resource_event_heavy_hit")])
 requirements = Array[ExtResource("4_in4wh")]([SubResource("Resource_req_no_swim")])
 maxSpeedCharging = 1
@@ -224,7 +225,7 @@ damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 })
 actionProfile = SubResource("Resource_profile")
 animSet = ExtResource("20_animset")
-displayName = &"Big Stick"
+displayName = &"Hammer"
 description = "A heavy, slow melee weapon."
 value = 50
 inventorySprite = ExtResource("15_3a20y")

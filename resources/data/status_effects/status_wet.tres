@@ -2,9 +2,6 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Texture2D" uid="uid://cj438yq261kqe" path="res://assets/textures/status_effects/water.png" id="1_l86d8"]
-[ext_resource type="PackedScene" uid="uid://d3jp3sisbjufg" path="res://scenes/fx/status_wet_start.tscn" id="3_startfx"]
-[ext_resource type="PackedScene" uid="uid://bintljsr7v33y" path="res://scenes/fx/status_wet_end.tscn" id="4_endfx"]
-[ext_resource type="PackedScene" uid="uid://j200gykh36xd" path="res://scenes/fx/status_wet_loop.tscn" id="5_loopfx"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="6_burning"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
@@ -53,9 +50,6 @@ displayName = &"Wet"
 hideOnMobHud = true
 maxStack = 1
 buildupBehavior = 1
-startFx = ExtResource("3_startfx")
-endFx = ExtResource("4_endfx")
-loopFx = ExtResource("5_loopfx")
 removesOnApply = Array[ExtResource("1_data")]([ExtResource("6_burning")])
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource("m_heat"), SubResource("m_fire"), SubResource("m_burning"), SubResource("m_lightning"), SubResource("m_shocked")])
 conditionalModifiers = []

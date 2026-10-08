@@ -40,14 +40,14 @@ public partial class MobHUD : Node2D
 	// Angular gap between adjacent pips (the total fan = this × (count − 1)).
 	[Export(PropertyHint.Range, "0,90,1")] private float _pipArcSpacingDegrees = 32f;
 
-	// One icon per active StatusEffectState — multiple stacks of the same data
-	// show as multiple icons side-by-side. New entries play the intro animation
-	// (fade + shrink from 3x to 1x) once, then sit at full opacity until the
-	// matching StatusEffectState falls off the mob, at which point Outro() is
-	// called and the icon fades out before being freed.
-	readonly Dictionary<StatusEffectState, StatusEffectIcon> _statusEffectIcons = new();
-	readonly HashSet<StatusEffectState> _statusEffectsThisTick = new();
-	readonly List<StatusEffectState> _statusEffectsToRemove = new();
+	// One icon per StatusEffectData, badged with how many instances of it the
+	// mob carries. A new effect plays the intro animation (fade + shrink from
+	// 3x to 1x) once, then sits at full opacity until its last instance falls
+	// off the mob, at which point Outro() is called and the icon fades out
+	// before being freed.
+	readonly Dictionary<StatusEffectData, StatusEffectIcon> _statusEffectIcons = new();
+	readonly Dictionary<StatusEffectData, int> _statusEffectCountsThisTick = new();
+	readonly List<StatusEffectData> _statusEffectsToRemove = new();
 
 	Camera3D _camera;
 	Mob _mob;
@@ -556,17 +556,18 @@ public partial class MobHUD : Node2D
 			l.movedSpeed);
 	}
 
-	// Per-instance icon strip: one StatusEffectIcon per StatusEffectState on
-	// the mob. New states play the intro animation (fade + shrink) once; states
-	// that have fallen off the mob since last tick are handed Outro() so they
-	// fade out before being freed. The icon's own _Process drives the timing.
+	// Per-effect icon strip: one StatusEffectIcon per StatusEffectData on the
+	// mob, with a stack count. New effects play the intro animation (fade +
+	// shrink) once; effects that have fallen off the mob since last tick are
+	// handed Outro() so they fade out before being freed. The icon's own
+	// _Process drives the timing.
 	void UpdateStatusEffects()
 	{
 		if (_statusEffectContainer == null || _statusEffectIconScene == null)
 		{
 			return;
 		}
-		_statusEffectsThisTick.Clear();
+		_statusEffectCountsThisTick.Clear();
 		IReadOnlyList<StatusEffectState> effects = _mob.StatusEffects;
 		for (int i = 0; i < effects.Count; i++)
 		{
@@ -579,21 +580,34 @@ public partial class MobHUD : Node2D
 			{
 				continue;
 			}
-			_statusEffectsThisTick.Add(s);
-			if (!_statusEffectIcons.ContainsKey(s))
+			_statusEffectCountsThisTick.TryGetValue(s.data, out int count);
+			_statusEffectCountsThisTick[s.data] = count + 1;
+		}
+
+		foreach (var kv in _statusEffectCountsThisTick)
+		{
+			// An icon already fading out is replaced, so a re-applied effect
+			// pops in again rather than finishing its fade while active.
+			if (_statusEffectIcons.TryGetValue(kv.Key, out StatusEffectIcon icon) && icon.OutroRequested)
 			{
-				StatusEffectIcon icon = _statusEffectIconScene.Instantiate<StatusEffectIcon>();
-				_statusEffectContainer.AddChild(icon);
-				icon.Init(s.data, autoOutro: false);
-				_statusEffectIcons[s] = icon;
+				icon.QueueFree();
+				icon = null;
 			}
+			if (icon == null)
+			{
+				icon = _statusEffectIconScene.Instantiate<StatusEffectIcon>();
+				_statusEffectContainer.AddChild(icon);
+				icon.Init(kv.Key, autoOutro: false);
+				_statusEffectIcons[kv.Key] = icon;
+			}
+			icon.SetCount(kv.Value);
 		}
 
 		_statusEffectsToRemove.Clear();
 		foreach (var kv in _statusEffectIcons)
 		{
 			StatusEffectIcon icon = kv.Value;
-			if (!_statusEffectsThisTick.Contains(kv.Key))
+			if (!_statusEffectCountsThisTick.ContainsKey(kv.Key))
 			{
 				icon.Outro();
 			}

@@ -6,8 +6,8 @@ using Godot;
 // Everything one party member carries: two sparse grids — the belt and the
 // backpack — plus the equip slots. An equipped item lives IN its slot and is in
 // neither grid — equipping moves it out, swapping whatever held the slot back
-// into the grid slot it left. The belt doubles as the HUD hotbar; a lantern is
-// lit only while it hangs there (LitLantern). Both grids' sizes are the
+// into the grid slot it left. The hotbar is the lantern slot followed by the
+// belt; a lantern is lit only in the lantern slot (LitLantern). Both grids' sizes are the
 // PlayerData base plus whatever the worn armor adds (ArmorData.beltSlots /
 // backpackSlots), re-applied on every change.
 public class Inventory
@@ -39,6 +39,8 @@ public class Inventory
 			owner.PlaceAt(this, index, incoming, allowSwap, out displaced);
 		public ItemState Add(ItemState incoming) => owner.Add(this, incoming);
 		public bool CanFullyAdd(ItemData data, int count) => owner.CanFullyAdd(data, count);
+		// Units of `data` this grid alone has room for.
+		public int RoomFor(ItemData data) => grid.RoomFor(data);
 		public bool MoveWithin(int from, int to, int count) => owner.Move(this, from, this, to, count);
 	}
 
@@ -54,14 +56,13 @@ public class Inventory
 	// one place — a grid slot or an equip slot, never both.
 	private readonly ItemState[] _equipped = new ItemState[(int)EInventorySlot.Count];
 
-	// The one lit lantern, or null. One field, so two can never be lit at once.
-	// INVARIANT: sits on the belt — ReconcileLitLantern puts it out the moment
-	// any change leaves it anywhere else.
-	private LanternState _litLantern;
+	// Whether the lantern in the Lantern slot is lit. SetSlot clears it whenever
+	// that slot changes occupant, so a lantern is never lit anywhere else.
+	private bool _lanternLit;
 
-	// Belt index of the hotbar selection, or -1 when the hotbar is empty.
-	// Stored as an index (not an item) so the cursor holds its place when the
-	// selected stack is used up; Changed() snaps it to the next filled slot.
+	// Hotbar index of the selection (see HotbarItemAt), or -1 when the hotbar is
+	// empty. Stored as an index (not an item) so the cursor holds its place when
+	// the selected stack is used up; Changed() snaps it to the next filled slot.
 	private int _hotbarSelected = -1;
 
 	// An equip slot changed occupant (always followed by onChanged).
@@ -96,7 +97,6 @@ public class Inventory
 	{
 		ApplyCapacity();
 		ReconcileHotbarSelection();
-		ReconcileLitLantern();
 		onChanged?.Invoke();
 	}
 
@@ -145,7 +145,7 @@ public class Inventory
 	}
 
 	// Where `data` lands first: materials and equippable gear (weapons, armor,
-	// shields) go in the backpack, so they don't crowd out what the player uses
+	// shields, lanterns) go in the backpack, so they don't crowd out what the player uses
 	// from the belt — only a full pack spills them onto it. Anything else takes
 	// the belt first.
 	public CarriedGrid PreferredGrid(ItemData data)
@@ -196,32 +196,11 @@ public class Inventory
 		{
 			return 0;
 		}
-		int spent = SpendMaterial(_backpackGrid, reagentItem, count, spentItems);
-		spent += SpendMaterial(_beltGrid, reagentItem, count - spent, spentItems);
+		int spent = _backpackGrid.SpendMaterial(reagentItem, count, spentItems);
+		spent += _beltGrid.SpendMaterial(reagentItem, count - spent, spentItems);
 		if (spent > 0)
 		{
 			Changed();
-		}
-		return spent;
-	}
-
-	private static int SpendMaterial(ItemGrid grid, ItemData reagentItem, int count, List<SpentItem> spentItems)
-	{
-		int spent = 0;
-		for (int i = 0; i < grid.Capacity && spent < count; i++)
-		{
-			ItemState s = grid[i];
-			if (s?.data == null || !s.data.IsMaterial || s.stackCount <= 0 || !Cooking.Satisfies(s.data, reagentItem))
-			{
-				continue;
-			}
-			int take = s.Consume(count - spent);
-			spent += take;
-			SpentItem.Add(spentItems, s.data, take);
-			if (s.stackCount <= 0)
-			{
-				grid[i] = null;
-			}
 		}
 		return spent;
 	}
@@ -332,6 +311,24 @@ public class Inventory
 		MarkAcquired(incoming);
 		int before = incoming.stackCount;
 		ItemState leftover = AddPreferring(first.grid, incoming);
+		if ((leftover?.stackCount ?? 0) != before)
+		{
+			Changed();
+		}
+		return leftover;
+	}
+
+	// Like Add, but into `grid` alone — nothing merges into or spills over to the
+	// other grid. Returns the leftover, null when everything went in.
+	public ItemState AddOnly(CarriedGrid grid, ItemState incoming)
+	{
+		if (grid?.owner != this || incoming?.data == null || incoming.stackCount <= 0 || !incoming.data.IsCarriable)
+		{
+			return incoming;
+		}
+		MarkAcquired(incoming);
+		int before = incoming.stackCount;
+		ItemState leftover = grid.grid.Add(incoming);
 		if ((leftover?.stackCount ?? 0) != before)
 		{
 			Changed();
@@ -637,28 +634,24 @@ public class Inventory
 
 	// ---- Lantern ---------------------------------------------------------------
 
-	public LanternState LitLantern => _litLantern;
+	// The lantern in the Lantern slot, lit or not; null when the slot is empty.
+	public LanternState EquippedLantern => _equipped[(int)EInventorySlot.Lantern] as LanternState;
 
-	public bool IsLit(ItemState item) => item != null && item == _litLantern;
+	public LanternState LitLantern => _lanternLit ? EquippedLantern : null;
 
-	// True when `item` is a lantern hanging on the belt — the only place one can
-	// be lit.
-	public bool IsOnBelt(ItemState item)
+	public bool IsLit(ItemState item) => item != null && item == LitLantern;
+
+	// Light the lantern in the Lantern slot. False when the slot is empty. The
+	// oil gate is the carrier's (Player.LightLantern).
+	public bool Light()
 	{
-		return _beltGrid.IndexOf(item) >= 0;
-	}
-
-	// Light a lantern on the belt, putting out whichever was lit. False when it
-	// isn't on the belt or its tank is empty.
-	public bool Light(LanternState lantern)
-	{
-		if (lantern == null || !lantern.HasFuel || !IsOnBelt(lantern))
+		if (EquippedLantern == null)
 		{
 			return false;
 		}
-		if (_litLantern != lantern)
+		if (!_lanternLit)
 		{
-			_litLantern = lantern;
+			_lanternLit = true;
 			Changed();
 		}
 		return true;
@@ -667,71 +660,80 @@ public class Inventory
 	// Put out the lit lantern. False when none was lit.
 	public bool Extinguish()
 	{
-		if (_litLantern == null)
+		if (!_lanternLit)
 		{
 			return false;
 		}
-		_litLantern = null;
+		_lanternLit = false;
 		Changed();
 		return true;
 	}
 
-	// A lantern that left the belt by any path — moved, stashed, dropped, spent,
-	// a belt slot lost with the armor that gave it — goes out. Run on every
-	// change, so no path has to remember it.
-	private void ReconcileLitLantern()
-	{
-		if (_litLantern != null && !IsOnBelt(_litLantern))
-		{
-			_litLantern = null;
-		}
-	}
-
 	// ---- Hotbar --------------------------------------------------------------
 
-	// The hotbar is the belt, slot for slot.
-	public int HotbarSize => _beltGrid.Capacity;
+	// Hotbar index 0 is the Lantern slot — always shown, whether or not it holds
+	// a lantern — and index 1 + i is belt slot i.
+	public const int LanternHotbarIndex = 0;
 
-	// Belt index of the selected hotbar entry, or -1 when the hotbar is empty.
+	public int HotbarSize => 1 + _beltGrid.Capacity;
+
+	// Hotbar index of the selected entry, or -1 when the hotbar is empty.
 	public int SelectedHotbarIndex => _hotbarSelected;
-	public ItemState SelectedHotbarItem => _beltGrid.At(_hotbarSelected);
+	public ItemState SelectedHotbarItem => HotbarItemAt(_hotbarSelected);
 
-	// The FILLED hotbar slots, as belt indices in slot order — what the HUD
-	// shows. Cleared first; caller owns the list.
+	// The item at hotbar index `index`, or null (empty, or out of range).
+	public ItemState HotbarItemAt(int index)
+	{
+		if (index == LanternHotbarIndex)
+		{
+			return _equipped[(int)EInventorySlot.Lantern];
+		}
+		return index > 0 ? _beltGrid.At(index - 1) : null;
+	}
+
+	// The hotbar entries the HUD shows, as hotbar indices in order: the lantern
+	// slot always, then the FILLED belt slots. Cleared first; caller owns the list.
 	public void GetHotbarEntries(List<int> into)
 	{
 		into.Clear();
+		into.Add(LanternHotbarIndex);
 		int size = HotbarSize;
-		for (int i = 0; i < size; i++)
+		for (int i = LanternHotbarIndex + 1; i < size; i++)
 		{
-			if (_beltGrid[i] != null)
+			if (HotbarItemAt(i) != null)
 			{
 				into.Add(i);
 			}
 		}
 	}
 
-	// Select the `entry`-th FILLED hotbar slot — the position the HUD shows it at,
-	// since it packs filled slots together. False when there is no such entry.
+	// Select the `entry`-th hotbar entry as GetHotbarEntries lists them — the
+	// position the HUD shows it at. False when there is no such entry or it is
+	// the empty lantern slot.
 	public bool SelectHotbarEntry(int entry)
 	{
 		int size = HotbarSize;
 		int seen = 0;
 		for (int i = 0; i < size; i++)
 		{
-			if (_beltGrid[i] == null)
+			if (i != LanternHotbarIndex && HotbarItemAt(i) == null)
 			{
 				continue;
 			}
-			if (seen++ == entry)
+			if (seen++ != entry)
 			{
-				if (_hotbarSelected != i)
-				{
-					_hotbarSelected = i;
-					onChanged?.Invoke();
-				}
-				return true;
+				continue;
 			}
+			if (HotbarItemAt(i) == null)
+			{
+				return false;
+			}
+			if (_hotbarSelected != i)
+			{
+				_hotbarSelected = i;
+				onChanged?.Invoke();
+			}
+			return true;
 		}
 		return false;
 	}
@@ -741,7 +743,7 @@ public class Inventory
 	public bool CycleHotbar(int step)
 	{
 		int size = HotbarSize;
-		if (size <= 0 || step == 0 || _hotbarSelected < 0)
+		if (step == 0 || _hotbarSelected < 0)
 		{
 			return false;
 		}
@@ -765,14 +767,14 @@ public class Inventory
 		return true;
 	}
 
-	// The next filled hotbar slot after `from` in direction `dir`, wrapping, not
-	// counting `from` itself. -1 when no OTHER slot is filled.
+	// The next filled hotbar index after `from` in direction `dir`, wrapping, not
+	// counting `from` itself. -1 when no OTHER entry is filled.
 	private int NextFilledHotbarIndex(int from, int dir, int size)
 	{
 		for (int k = 1; k < size; k++)
 		{
 			int i = ((from + dir * k) % size + size) % size;
-			if (_beltGrid[i] != null)
+			if (HotbarItemAt(i) != null)
 			{
 				return i;
 			}
@@ -780,24 +782,24 @@ public class Inventory
 		return -1;
 	}
 
-	// Keep the selection on a filled hotbar slot: hold it while its slot is
-	// filled, otherwise move forward to the next filled one, else -1.
+	// Keep the selection on a filled hotbar entry: hold it while it is filled,
+	// otherwise move forward to the next filled one, else -1.
 	private void ReconcileHotbarSelection()
 	{
 		int size = HotbarSize;
-		if (_hotbarSelected >= 0 && _hotbarSelected < size && _beltGrid[_hotbarSelected] != null)
+		if (_hotbarSelected >= 0 && _hotbarSelected < size && HotbarItemAt(_hotbarSelected) != null)
 		{
 			return;
 		}
 		int from = _hotbarSelected >= 0 && _hotbarSelected < size ? _hotbarSelected : size - 1;
-		_hotbarSelected = size > 0 ? NextFilledHotbarIndex(from, 1, size) : -1;
-		if (_hotbarSelected < 0 && size > 0 && _beltGrid[from] != null)
+		_hotbarSelected = NextFilledHotbarIndex(from, 1, size);
+		if (_hotbarSelected < 0 && HotbarItemAt(from) != null)
 		{
 			_hotbarSelected = from;
 		}
 	}
 
-	// ---- Grid moves (CarriedGrid) ----------------------------------------------
+	// ---- Grid moves (CarriedGrid)----------------------------------------------
 
 	// Every move between grids (the stash screen, later chests and merchants) and
 	// within the member's own comes through these.
@@ -863,6 +865,52 @@ public class Inventory
 		return true;
 	}
 
+	// Units of the carried `item` its other grid (belt <-> backpack) has room
+	// for; 0 when it isn't in either grid.
+	public int RoomInOtherGrid(ItemState item)
+	{
+		CarriedGrid from = GridOf(item);
+		return from == null ? 0 : Math.Min(item.stackCount, OtherGrid(from).grid.RoomFor(item.data));
+	}
+
+	// Move the carried `item` to its other grid (belt <-> backpack): matching
+	// stacks first, then the first empty slot. As much as fits moves and the rest
+	// stays put. False when nothing moved.
+	public bool MoveToOtherGrid(ItemState item)
+	{
+		int units = RoomInOtherGrid(item);
+		if (units <= 0)
+		{
+			return false;
+		}
+		CarriedGrid from = GridOf(item);
+		int index = from.IndexOf(item);
+		ItemState moving = from.grid.Take(index, units);
+		ItemState leftover = OtherGrid(from).grid.Add(moving);
+		if (leftover != null)
+		{
+			from.grid.PlaceAt(index, leftover, allowSwap: false, out _);
+		}
+		Changed();
+		return true;
+	}
+
+	// The grid holding `item`, null when it is in neither (equipped, or not ours).
+	private CarriedGrid GridOf(ItemState item)
+	{
+		if (item == null)
+		{
+			return null;
+		}
+		if (Belt.IndexOf(item) >= 0)
+		{
+			return Belt;
+		}
+		return Backpack.IndexOf(item) >= 0 ? Backpack : null;
+	}
+
+	private CarriedGrid OtherGrid(CarriedGrid grid) => grid == Belt ? Backpack : Belt;
+
 	// ---- Enumeration -----------------------------------------------------------
 
 	// Every owned item: the belt, the backpack, then the equip slots.
@@ -901,17 +949,15 @@ public class Inventory
 
 	// ---- Bulk exits ------------------------------------------------------------
 
-	// Remove every unequipped item but one lantern and return them, for the death
-	// sack (Sim.DropDeathSack). Worn gear stays on the body. The kept lantern —
-	// the lit one, else the first on the belt — means the wake at the campfire
-	// isn't blind. Goes through Remove, so a weapon forfeits its loose arrows as
-	// on any other exit.
+	// Remove every unequipped item and return them, for the death sack
+	// (Sim.DropDeathSack). Worn gear — the lantern slot included, so the wake at
+	// the campfire isn't blind — stays on the body. Goes through Remove, so a
+	// weapon forfeits its loose arrows as on any other exit.
 	public List<ItemState> TakeDeathDrop()
 	{
-		ItemState kept = _litLantern ?? FirstBeltLantern();
 		var taken = new List<ItemState>();
-		CollectExcept(_beltGrid, kept, taken);
-		CollectExcept(_backpackGrid, kept, taken);
+		Collect(_beltGrid, taken);
+		Collect(_backpackGrid, taken);
 		foreach (ItemState item in taken)
 		{
 			Remove(item);
@@ -919,36 +965,23 @@ public class Inventory
 		return taken;
 	}
 
-	private static void CollectExcept(ItemGrid grid, ItemState kept, List<ItemState> into)
+	private static void Collect(ItemGrid grid, List<ItemState> into)
 	{
 		for (int i = 0; i < grid.Capacity; i++)
 		{
-			ItemState item = grid[i];
-			if (item != null && item != kept)
+			if (grid[i] != null)
 			{
-				into.Add(item);
+				into.Add(grid[i]);
 			}
 		}
-	}
-
-	private LanternState FirstBeltLantern()
-	{
-		for (int i = 0; i < _beltGrid.Capacity; i++)
-		{
-			if (_beltGrid[i] is LanternState lantern)
-			{
-				return lantern;
-			}
-		}
-		return null;
 	}
 
 	// ---- Save ------------------------------------------------------------------
 
 	// Inside a shared EntitySerializer table (SaveGame). The equip slots first —
 	// they decide the grids' sizes — then the belt and the backpack slot by slot,
-	// gaps included, so the player's layout survives; then the lit lantern's belt
-	// index (-1 for none) and the hotbar selection.
+	// gaps included, so the player's layout survives; then whether the lantern
+	// slot is lit, and the hotbar selection.
 	public void Serialize(BinaryWriter w)
 	{
 		for (int i = (int)EInventorySlot.None + 1; i < (int)EInventorySlot.Count; i++)
@@ -957,7 +990,7 @@ public class Inventory
 		}
 		_beltGrid.Serialize(w);
 		_backpackGrid.Serialize(w);
-		w.Write(_beltGrid.IndexOf(_litLantern));
+		w.Write(_lanternLit);
 		w.Write(_hotbarSelected);
 	}
 
@@ -975,7 +1008,6 @@ public class Inventory
 		}
 		_beltGrid.Clear();
 		_backpackGrid.Clear();
-		_litLantern = null;
 		for (int i = (int)EInventorySlot.None + 1; i < (int)EInventorySlot.Count; i++)
 		{
 			EInventorySlot slot = (EInventorySlot)i;
@@ -990,7 +1022,7 @@ public class Inventory
 		ApplyCapacity();
 		List<ItemState> overflow = _beltGrid.Restore(r);
 		overflow.AddRange(_backpackGrid.Restore(r));
-		_litLantern = _beltGrid.At(r.ReadInt32()) as LanternState;
+		_lanternLit = r.ReadBoolean() && EquippedLantern != null;
 		_hotbarSelected = r.ReadInt32();
 		foreach (ItemState item in overflow)
 		{
@@ -1011,6 +1043,11 @@ public class Inventory
 		if (outgoing != item && outgoing is WeaponState weapon)
 		{
 			weapon.DestroyMinions();
+		}
+		// A lantern goes out when it leaves the slot, and a new one arrives unlit.
+		if (outgoing != item && slot == EInventorySlot.Lantern)
+		{
+			_lanternLit = false;
 		}
 		_equipped[(int)slot] = item;
 	}

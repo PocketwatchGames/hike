@@ -5,39 +5,40 @@
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="3_buildup"]
 [ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="4_dizzy"]
 [ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="5_parryfx"]
-[ext_resource type="PackedScene" path="res://scenes/items/shield_heater_held.tscn" id="6_held"]
+[ext_resource type="PackedScene" uid="uid://dducspnor7sba" path="res://scenes/items/shield_heater_held.tscn" id="6_held"]
 [ext_resource type="Texture2D" uid="uid://s0u3880g3w8n" path="res://assets/textures/items/ShieldLarge.png" id="7_icon"]
 
 [sub_resource type="Resource" id="Resource_counter_dizzy"]
 script = ExtResource("3_buildup")
 effect = ExtResource("4_dizzy")
-amount = 2.0
+amount = 1.5
 
 [sub_resource type="Resource" id="Resource_counter"]
 script = ExtResource("2_damage")
 tags = 3205
-healthDamage = 30.0
+healthDamage = 25.0
 damageVariance = 0.25
 blunt = 0.5
-hitstun = 0.7
-knockbackDistance = 4.0
-knockbackTime = 0.4
+hitstun = 0.5
+knockbackDistance = 3.0
+knockbackTime = 0.3
 buildups = Array[ExtResource("3_buildup")]([SubResource("Resource_counter_dizzy")])
 modifiers = []
 
 [resource]
 script = ExtResource("1_shield")
-weight = 1.0
-guardArmor = 350.0
-guardRechargeDelay = 2.0
-blockDecibels = 1.0
-parryTimeMs = 300
-maxParryDamage = 300.0
+weight = 0.75
+guardArmor = 250.0
+guardRechargeDelay = 1.75
+guardRechargeTime = 0.55
+blockDecibels = 0.8
+parryTimeMs = 325
+maxParryDamage = 275.0
 parryCounter = SubResource("Resource_counter")
 parryEffect = ExtResource("5_parryfx")
-parryDecibels = 1.2
-displayName = &"Heater Shield"
-description = "A broad wooden shield. Crouch behind it to soak heavy blows, or time the crouch to bash the attacker back."
-value = 60
+parryDecibels = 1.0
+displayName = &"Kite Shield"
+description = "A tapered wooden shield — lighter than a tower, sturdier than a buckler. Soak a blow or time the crouch to bash the attacker back."
+value = 55
 inventorySprite = ExtResource("7_icon")
 heldModel = ExtResource("6_held")

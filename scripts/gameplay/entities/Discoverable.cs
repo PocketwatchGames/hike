@@ -15,6 +15,11 @@ using Godot;
 // discoveredThreshold so the Detected state is reachable. Hosts that
 // should pop directly to visible (chest) leave HudScene null and set
 // detectedThreshold == discoveredThreshold so Detected is skipped.
+//
+// Discovery is recorded on the host's EntitySimState (Discovered), so a node
+// re-created by chunk streaming or a rest's ResetSpawns comes back already seen.
+// Sim.RegisterEntity binds it through IDiscoverableHost — a new host only has
+// to implement that interface.
 [GlobalClass]
 public partial class Discoverable : Node3D
 {
@@ -84,6 +89,8 @@ public partial class Discoverable : Node3D
 
     private PerceivedByPlayerState _state;
     private Sim _world;
+    // Where discovery persists; null until Bind (or for a host with no sim state).
+    private EntitySimState _simState;
     // MeshInstance3D descendants of _fadeMeshRoot, gathered once at _Ready.
     private readonly List<MeshInstance3D> _fadeMeshes = new();
 
@@ -157,9 +164,18 @@ public partial class Discoverable : Node3D
         PerceptionTickResult result = PlayerPerception.Tick(_world, GlobalPosition, in inputs, ref _state, tickDelta, out _);
         if (result.stateChanged)
         {
-            ApplyInteractGate();
-            OnStateChanged?.Invoke(_state.state);
+            HandleStateChanged();
         }
+    }
+
+    private void HandleStateChanged()
+    {
+        if (IsDiscovered && _simState != null)
+        {
+            _simState.Discovered = true;
+        }
+        ApplyInteractGate();
+        OnStateChanged?.Invoke(_state.state);
     }
 
     private void ApplyInteractGate()
@@ -247,17 +263,28 @@ public partial class Discoverable : Node3D
         PlayerPerception.ForceDiscover(ref _state);
         if (_state.state != prev)
         {
-            ApplyInteractGate();
-            OnStateChanged?.Invoke(_state.state);
+            HandleStateChanged();
         }
     }
 
-    // Restore prior perception state on chunk reload. Currently called
-    // from the Discovered branch of any host that persists discovery —
-    // hosts read their own boolean from sim state, then re-promote on
-    // spawn so the saved-then-reloaded chest stays visible.
-    public void RestoreDiscovered()
+    // Attach the host's sim state. One already discovered snaps straight to
+    // visible — no fade-in, since the player has seen it before.
+    public void Bind(EntitySimState simState)
     {
+        _simState = simState;
+        if (simState == null || !simState.Discovered || IsDiscovered)
+        {
+            return;
+        }
+        _visibility = 1f;
+        PushFade();
         ForceDiscover();
     }
+}
+
+// A world entity whose scene carries a Discoverable. Sim.RegisterEntity binds it
+// to the entity's sim state so discovery survives the node being re-created.
+public interface IDiscoverableHost
+{
+    Discoverable Discoverable { get; }
 }

@@ -43,6 +43,13 @@ public interface IActionActor
 	bool HasBlood(float amount);
 	void DrainBlood(float amount);
 
+	// Lantern-oil gate for ItemAction.oilCost (a default supply is 100).
+	// CanAffordLanternOil is the non-mutating press-time peek;
+	// SpendLanternOil the spend at EnterActive. Mobs carry no oil and pass /
+	// no-op both.
+	bool CanAffordLanternOil(float amount);
+	void SpendLanternOil(float amount);
+
 	// Reagent-cost gate for InteractiveAction.reagents, paid from the actor's
 	// material pool. HasReagents is a non-mutating peek at press time (refuse an
 	// interaction the actor can't afford the ingredients for); SpendReagents deducts

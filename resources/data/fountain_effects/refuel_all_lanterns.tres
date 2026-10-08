@@ -4,6 +4,5 @@
 
 [resource]
 script = ExtResource("1_refill")
-refillFraction = 1.0
-allCarried = true
+fillToMax = true
 metadata/_custom_type_script = "uid://do0gxlqe4tomu"

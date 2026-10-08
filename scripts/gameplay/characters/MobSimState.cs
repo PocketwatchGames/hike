@@ -173,11 +173,9 @@ public class MobSimState : EntitySimState
     // every node spawn (Mob.Initialize), since the status controller itself isn't
     // serialized — so these survive chunk eviction and .hike load.
     public Godot.Collections.Array<StatusEffectData> StatusEffects;
-    // Loot ejected on death, stamped from SpeciesData.loot at spawn so a
-    // zone variant drops its own spoils (loot is no longer a MobData field).
-    // Null = no drops. Persisted via EntitySerializer (item path + count per
-    // entry) so a reloaded mob still drops; descriptor mods on loot aren't
-    // persisted (mob meat carries none — matches the chest-loot serialization).
+    // What this individual carries and drops on death on top of its species'
+    // rolled loot (MobSpawnEntry.AddCarriedLoot). Null = nothing. Persisted via
+    // EntitySerializer (item path + count per entry); descriptor mods aren't.
     // Read by Mob.EjectLoot.
     public Godot.Collections.Array<ItemCount> Loot;
     // HUD badge icon (EliteData.badge, via the spawn entry's elite

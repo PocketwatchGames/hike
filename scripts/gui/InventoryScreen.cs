@@ -7,9 +7,10 @@ using Godot;
 //        highlighted slot. Grid to grid (belt or backpack) swaps with whatever is there; an
 //        equip slot takes only its own kind of gear, swapping out what it held.
 //        Cancel deselects.
-//   X  — use / light / equip / unequip the highlighted item, per its kind and state.
-//   Y  — hold to drop the highlighted item at the member's feet.
-// The three button hints belong to AlmanacScreen, which hands them over
+//   X  — equip / unequip the highlighted gear.
+//   Y  — use / light / put out the highlighted item, per its kind and state.
+//   RT — hold to drop the highlighted item at the member's feet.
+// The button hints belong to AlmanacScreen, which hands them over
 // (BindActionHints) and hides them on every other tab.
 [GlobalClass]
 public partial class InventoryScreen : Control
@@ -19,14 +20,15 @@ public partial class InventoryScreen : Control
 	[Export] private ItemInfoPanel _highlightPanel;
 	// Asks how many when a hold-to-drop lands on a stack.
 	[Export] private ItemCountPanel _countPanel;
-	// How long Y must be held before the highlighted item drops.
+	// How long Drop must be held before the highlighted item drops.
 	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _dropHoldSeconds = 0.6f;
 
 	// A's glyph follows the primary-verb convention of the other inventory-style
 	// screens; the press itself arrives as the slot button's own activation.
 	const string SelectAction = "ui_select";
-	const string UseAction = "MenuSecondary";
-	const string DropAction = "MenuTertiary";
+	const string EquipAction = "MenuSecondary";
+	const string UseAction = "MenuTertiary";
+	const string DropAction = "MenuQuinary";
 
 	enum ESide
 	{
@@ -59,14 +61,15 @@ public partial class InventoryScreen : Control
 	GameClient _gameClient;
 	Player _player;
 	ButtonHint _hintSelect;
-	ButtonHint _hintDrop;
+	ButtonHint _hintEquip;
 	ButtonHint _hintUse;
+	ButtonHint _hintDrop;
 
 	// The slot under the cursor, and the slot picked up for a move.
 	Slot _focused = Slot.None;
 	Slot _selected = Slot.None;
 	float _dropHeld;
-	// Latched once a hold has dropped something, so keeping X down doesn't drop
+	// Latched once a hold has dropped something, so keeping Drop down doesn't drop
 	// the next item that slides under the cursor.
 	bool _dropFired;
 
@@ -75,11 +78,12 @@ public partial class InventoryScreen : Control
 		_gameClient = gameClient;
 	}
 
-	public void BindActionHints(ButtonHint select, ButtonHint drop, ButtonHint use)
+	public void BindActionHints(ButtonHint select, ButtonHint equip, ButtonHint use, ButtonHint drop)
 	{
 		_hintSelect = select;
-		_hintDrop = drop;
+		_hintEquip = equip;
 		_hintUse = use;
+		_hintDrop = drop;
 		UpdateHints();
 	}
 
@@ -250,9 +254,14 @@ public partial class InventoryScreen : Control
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (_selected.IsNone && e.IsActionPressed(UseAction))
+		if (_selected.IsNone && e.IsActionPressed(EquipAction))
 		{
-			UseOrToggleEquip(_player, ItemAt(_focused));
+			ToggleEquip(_player, ItemAt(_focused));
+			GetViewport().SetInputAsHandled();
+		}
+		else if (_selected.IsNone && e.IsActionPressed(UseAction))
+		{
+			Use(_player, ItemAt(_focused));
 			GetViewport().SetInputAsHandled();
 		}
 	}
@@ -347,11 +356,13 @@ public partial class InventoryScreen : Control
 		if (!_selected.IsNone)
 		{
 			ShowHint(_hintSelect, SelectAction, "Move");
+			ShowHint(_hintEquip, EquipAction, null);
 			ShowHint(_hintUse, UseAction, null);
 			ShowHint(_hintDrop, DropAction, null);
 			return;
 		}
 		ShowHint(_hintSelect, SelectAction, focused != null ? "Select" : null);
+		ShowHint(_hintEquip, EquipAction, EquipVerb(_player, focused));
 		ShowHint(_hintUse, UseAction, UseVerb(_player, focused));
 		ShowHint(_hintDrop, DropAction, focused != null ? "Drop" : null);
 	}
@@ -388,28 +399,64 @@ public partial class InventoryScreen : Control
 
 	// ---- Item verbs, shared with StashScreen and MerchantScreen -------------
 
-	// The X verb: use an instant item (mud, a meal) on the member, or start a
+	// The Equip verb: equip / unequip gear (a spare lantern included); for an
+	// item that belongs on the belt (a potion, a meal — not a material), move it
+	// between the backpack and the belt.
+	public static void ToggleEquip(Player player, ItemState item)
+	{
+		if (EquipVerb(player, item) == null)
+		{
+			return;
+		}
+		if (item.data.IsEquippable)
+		{
+			player.Inventory.ToggleEquip(item);
+		}
+		else
+		{
+			player.Inventory.MoveToOtherGrid(item);
+		}
+	}
+
+	// The Equip hint's label for `item`, null when it has no verb — a material,
+	// or a belt item whose other grid has no room for it.
+	public static string EquipVerb(Player player, ItemState item)
+	{
+		Inventory inv = player?.Inventory;
+		if (item?.data == null || inv == null)
+		{
+			return null;
+		}
+		if (item.data.IsEquippable)
+		{
+			return inv.IsEquipped(item) ? "Unequip" : "Equip";
+		}
+		if (inv.PreferredGrid(item.data) != inv.Belt || inv.RoomInOtherGrid(item) <= 0)
+		{
+			return null;
+		}
+		return inv.Belt.IndexOf(item) >= 0 ? "Unequip" : "Equip";
+	}
+
+	// The Use verb: use an instant item (mud, a meal) on the member, or start a
 	// press-to-commit timeline (drinking a potion) — the menu stays open while it
-	// plays — light or put out a belt lantern, else equip / unequip gear. Does
-	// nothing for an item with no verb (a material, or a timeline that needs the
-	// button held, which only the hotbar can drive).
-	public static void UseOrToggleEquip(Player player, ItemState item)
+	// plays — or light / put out the lantern-slot lantern. Does nothing for an
+	// item with no verb (gear, a material, or a timeline that needs the button
+	// held, which only the hotbar can drive).
+	public static void Use(Player player, ItemState item)
 	{
 		Inventory inv = player?.Inventory;
 		if (item?.data == null || inv == null)
 		{
 			return;
 		}
-		if (item is LanternState lantern)
+		if (item is LanternState lantern && inv.IsLit(lantern))
 		{
-			if (inv.IsLit(lantern))
-			{
-				inv.Extinguish();
-			}
-			else
-			{
-				inv.Light(lantern);
-			}
+			inv.Extinguish();
+		}
+		else if (item is LanternState && inv.IsEquipped(item) && player.HasLanternOil)
+		{
+			player.LightLantern();
 		}
 		else if (item.data is IInstantUseItem { CanUseInstantly: true })
 		{
@@ -419,13 +466,9 @@ public partial class InventoryScreen : Control
 		{
 			player.StartUseAction(item);
 		}
-		else if (item.data.IsEquippable)
-		{
-			inv.ToggleEquip(item);
-		}
 	}
 
-	// The X hint's label for `item`, null when it has no verb.
+	// The Use hint's label for `item`, null when it has no verb.
 	public static string UseVerb(Player player, ItemState item)
 	{
 		Inventory inv = player?.Inventory;
@@ -433,21 +476,17 @@ public partial class InventoryScreen : Control
 		{
 			return null;
 		}
-		if (item is LanternState lantern)
+		if (item is LanternState lantern && inv.IsLit(lantern))
 		{
-			if (inv.IsLit(lantern))
-			{
-				return "Extinguish";
-			}
-			return inv.IsOnBelt(lantern) && lantern.HasFuel ? "Light" : null;
+			return "Extinguish";
+		}
+		if (item is LanternState && inv.IsEquipped(item) && player.HasLanternOil)
+		{
+			return "Light";
 		}
 		if (item.data is IInstantUseItem { CanUseInstantly: true } || UsableFromMenu(player, item))
 		{
 			return "Use";
-		}
-		if (item.data.IsEquippable)
-		{
-			return inv.IsEquipped(item) ? "Unequip" : "Equip";
 		}
 		return null;
 	}

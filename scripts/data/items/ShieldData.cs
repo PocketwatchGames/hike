@@ -26,6 +26,10 @@ public partial class ShieldData : ItemData
 	// Noise a block makes at the blocker (Sim.CreateNoiseEvent; see
 	// ItemEvent.impactDecibels for the scale). 0 = silent.
 	[Export] public float blockDecibels = 0f;
+	// Thorns: dealt back to the attacker whenever the guard soaks some of a blow,
+	// scaled like parryCounter. Only a Mob landing a discrete hit is struck. Null =
+	// blocking hurts nobody.
+	[Export] public DamageData blockCounter;
 
 	[ExportGroup("Parry")]
 	// Milliseconds after the crouch begins during which a block PARRIES — fully

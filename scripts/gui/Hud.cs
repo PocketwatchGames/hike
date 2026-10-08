@@ -26,10 +26,11 @@ public partial class Hud : Control
 	// fallback — with the Sneak button hint.
 	[Export] WeaponHud _shieldSlot;
 	[Export] ButtonHint _shieldHint;
-	// The hotbar strip, in display order. The FILLED hotbar entries
-	// (Inventory.GetHotbarEntries — the filled belt slots) are packed into the
-	// leading widgets and the rest hidden, so wire as many as the largest belt
-	// armor can give (PlayerData.beltCapacity + ArmorData.beltSlots).
+	// The hotbar strip, in display order. The hotbar entries
+	// (Inventory.GetHotbarEntries — the lantern slot, empty or not, then the
+	// filled belt slots) are packed into the leading widgets and the rest
+	// hidden, so wire one more than the largest belt armor can give
+	// (1 + PlayerData.beltCapacity + ArmorData.beltSlots).
 	[Export] Godot.Collections.Array<WeaponHud> _hotbarSlots = new();
 	// Optional cycle hints beside the strip, shown on the pad only.
 	[Export] ButtonHint _hotbarCycleLeftHint;
@@ -68,6 +69,8 @@ public partial class Hud : Control
 	// sneaking (the only state in which block armor actually absorbs), and
 	// bright blue while the parry window is open.
 	[Export] ProgressBar _blockArmorBar;
+	// The controlled member's lantern oil, out of their MaxLanternOil.
+	[Export] ProgressBar _oilBar;
 	[Export] HudSignpostPanel _signpostPanel;
 	[Export] ConversationController _dialoguePanel;
 	[Export] HudRegionBanner _regionBanner;
@@ -563,7 +566,7 @@ public partial class Hud : Control
 		}
 	}
 
-	// Repack the filled hotbar entries into the leading widgets, and repaint the
+	// Repack the hotbar entries into the leading widgets, and repaint the
 	// weapon slots. Runs on every inventory change (which includes a selection
 	// move), not per frame.
 	void RefreshHotbar()
@@ -576,10 +579,17 @@ public partial class Hud : Control
 		int selected = _inventory?.SelectedHotbarIndex ?? -1;
 		bool keyboard = InputDevice.Current == InputDevice.EDevice.KeyboardMouse;
 		_hotbarSelectedWidget = -1;
+		int filledCount = 0;
 		for (int i = 0; i < _hotbarSlotsFlat.Length; i++)
 		{
-			bool filled = i < _hotbarEntries.Count;
+			bool shown = i < _hotbarEntries.Count;
+			ItemState item = shown ? _inventory.HotbarItemAt(_hotbarEntries[i]) : null;
+			bool filled = item != null;
 			bool isSelected = filled && _hotbarEntries[i] == selected;
+			if (filled)
+			{
+				filledCount++;
+			}
 			if (isSelected)
 			{
 				_hotbarSelectedWidget = i;
@@ -593,22 +603,16 @@ public partial class Hud : Control
 			{
 				continue;
 			}
-			widget.Visible = filled;
-			if (!filled)
-			{
-				widget.SetItem(null);
-				continue;
-			}
-			ItemState item = _inventory.Belt.At(_hotbarEntries[i]);
+			widget.Visible = shown;
 			widget.SetItem(item);
 			widget.SetHotbarState(isSelected, _inventory.IsLit(item));
 		}
 		if (_hotbarEntries.Count > _hotbarSlotsFlat.Length)
 		{
-			GD.PushError($"Hud: {_hotbarEntries.Count} filled belt slots but only {_hotbarSlotsFlat.Length} hotbar widgets wired — the rest are not shown.");
+			GD.PushError($"Hud: {_hotbarEntries.Count} hotbar entries but only {_hotbarSlotsFlat.Length} hotbar widgets wired — the rest are not shown.");
 		}
-		SetVisible(_hotbarCycleLeftHint, _hotbarEntries.Count > 1 && !keyboard);
-		SetVisible(_hotbarCycleRightHint, _hotbarEntries.Count > 1 && !keyboard);
+		SetVisible(_hotbarCycleLeftHint, filledCount > 1 && !keyboard);
+		SetVisible(_hotbarCycleRightHint, filledCount > 1 && !keyboard);
 	}
 
 	static void RefreshHotbarHint(ButtonHint hint, int entry, bool filled, bool isSelected, bool keyboard)
@@ -669,6 +673,13 @@ public partial class Hud : Control
 		// 0..MaxHealth range as the health bar, so it always shares its width.
 		SetBarWidth(_healthBar, maxHealth * _pixelsPerHealthPoint);
 		SetBarWidth(_drainedHealthBar, maxHealth * _pixelsPerHealthPoint);
+
+		if (_oilBar != null)
+		{
+			_oilBar.MinValue = 0;
+			_oilBar.MaxValue = _player.MaxLanternOil;
+			_oilBar.Value = _player.LanternOil;
+		}
 
 		if (_drainedHealthBar != null)
 		{

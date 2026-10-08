@@ -20,6 +20,8 @@ public partial class InventoryPanel : Control
 	[Export] private ItemSlotPanel _armorBodyPanel;
 	[Export] private ItemSlotPanel _weaponLeftPanel;
 	[Export] private ItemSlotPanel _weaponRightPanel;
+	// The lantern slot — the HUD's first hotbar entry, laid out ahead of the belt.
+	[Export] private ItemSlotPanel _lanternPanel;
 	// The belt and backpack grids. Their slots are owned by each BackpackPanel,
 	// sized to the inventory's grids; this panel only listens to their events and
 	// repaints them from the bound inventory.
@@ -34,8 +36,8 @@ public partial class InventoryPanel : Control
 	// Secondary verb (drop) is a polled tap/hold on _dropAction; the Tertiary verb
 	// (use) is a press/release on _useAction.
 	[Export] private StringName _primaryAction = "ui_select";
-	[Export] private StringName _dropAction = "MenuTertiary";
-	[Export] private StringName _useAction = "MenuSecondary";
+	[Export] private StringName _dropAction = "MenuQuinary";
+	[Export] private StringName _useAction = "MenuTertiary";
 
 	// Fires whenever the focused slot's currently-displayed ItemState changes —
 	// either because focus moved to a different slot, or because the focused
@@ -118,6 +120,7 @@ public partial class InventoryPanel : Control
 		WirePanel(_armorBodyPanel);
 		WirePanel(_weaponLeftPanel);
 		WirePanel(_weaponRightPanel);
+		WirePanel(_lanternPanel);
 		WireGrid(_belt);
 		WireGrid(_backpack);
 
@@ -223,6 +226,7 @@ public partial class InventoryPanel : Control
 	public static readonly EInventorySlot[] EquipSlots =
 	{
 		EInventorySlot.Armor, EInventorySlot.Shield, EInventorySlot.WeaponLeft, EInventorySlot.WeaponRight,
+		EInventorySlot.Lantern,
 	};
 
 	public BackpackPanel BeltGrid => _belt;
@@ -236,6 +240,7 @@ public partial class InventoryPanel : Control
 			EInventorySlot.Armor => _armorBodyPanel,
 			EInventorySlot.WeaponLeft => _weaponLeftPanel,
 			EInventorySlot.WeaponRight => _weaponRightPanel,
+			EInventorySlot.Lantern => _lanternPanel,
 			_ => null,
 		};
 	}
@@ -250,13 +255,7 @@ public partial class InventoryPanel : Control
 		}
 		_belt?.Refresh(inventory?.Belt.Slots);
 		_backpack?.Refresh(inventory?.Backpack.Slots);
-		if (_belt != null)
-		{
-			foreach (ItemSlotPanel p in _belt.EnumerateSlots())
-			{
-				p.SetActive(inventory != null && inventory.IsLit(p.Item));
-			}
-		}
+		_lanternPanel?.SetActive(inventory?.LitLantern != null);
 	}
 
 	public void RefreshAll()
@@ -358,6 +357,7 @@ public partial class InventoryPanel : Control
 		_armorBodyPanel?.SetFocusable(focusable);
 		_weaponLeftPanel?.SetFocusable(focusable);
 		_weaponRightPanel?.SetFocusable(focusable);
+		_lanternPanel?.SetFocusable(focusable);
 		_belt?.SetFocusable(focusable);
 		_backpack?.SetFocusable(focusable);
 	}
@@ -372,7 +372,7 @@ public partial class InventoryPanel : Control
 
 	ItemSlotPanel FindFirstFocusable()
 	{
-		return _belt?.GetSlot(0) ?? _backpack?.GetSlot(0) ?? _shieldPanel ?? _armorBodyPanel ?? _weaponLeftPanel ?? _weaponRightPanel;
+		return _belt?.GetSlot(0) ?? _backpack?.GetSlot(0) ?? _shieldPanel ?? _armorBodyPanel ?? _weaponLeftPanel ?? _weaponRightPanel ?? _lanternPanel;
 	}
 
 	// True for a slot of the belt or backpack grid, false for an equip slot.
@@ -382,7 +382,7 @@ public partial class InventoryPanel : Control
 	}
 
 	// Resolve a panel to its EInventorySlot identity (Armor, Shield, WeaponLeft,
-	// WeaponRight, or None for a grid slot).
+	// WeaponRight, Lantern, or None for a grid slot).
 	public EInventorySlot GetEquipSlotKind(ItemSlotPanel panel)
 	{
 		if (panel == null) { return EInventorySlot.None; }
@@ -390,6 +390,7 @@ public partial class InventoryPanel : Control
 		if (panel == _armorBodyPanel) { return EInventorySlot.Armor; }
 		if (panel == _weaponLeftPanel) { return EInventorySlot.WeaponLeft; }
 		if (panel == _weaponRightPanel) { return EInventorySlot.WeaponRight; }
+		if (panel == _lanternPanel) { return EInventorySlot.Lantern; }
 		return EInventorySlot.None;
 	}
 
@@ -456,6 +457,8 @@ public partial class InventoryPanel : Control
 					return _shieldPanel;
 				case WeaponData weapon:
 					return weapon.CanonicalSlot == EInventorySlot.WeaponRight ? _weaponRightPanel : _weaponLeftPanel;
+				case LanternData:
+					return _lanternPanel;
 			}
 			return null;
 		}
@@ -472,6 +475,7 @@ public partial class InventoryPanel : Control
 		if (_armorBodyPanel != null) { yield return _armorBodyPanel; }
 		if (_weaponLeftPanel != null) { yield return _weaponLeftPanel; }
 		if (_weaponRightPanel != null) { yield return _weaponRightPanel; }
+		if (_lanternPanel != null) { yield return _lanternPanel; }
 		if (_belt != null)
 		{
 			foreach (ItemSlotPanel p in _belt.EnumerateSlots())

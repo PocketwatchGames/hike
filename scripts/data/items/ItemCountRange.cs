@@ -20,7 +20,7 @@ public partial class ItemCountRange : Resource
 
     // Roll this range and append the items to `into`: one stack for a stackable
     // item, one state per unit otherwise — a non-stackable item carries its own
-    // state (a lantern's fuel), so two of them are two items.
+    // state (a weapon's ammo), so two of them are two items.
     public void Resolve(System.Random rng, List<ItemState> into)
     {
         AppendStates(item, RollCount(rng), into);

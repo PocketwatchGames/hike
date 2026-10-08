@@ -469,8 +469,7 @@ public partial class MobData : Resource
     [ExportGroup("Loot & Death")]
     // NOTE: the loot drop list is NOT a base-species trait — it's a per-variant
     // concern that lives on SpeciesData.loot (so a forest vs desert kun-kun
-    // drops different meat). CreateState stamps it onto MobSimState.Loot;
-    // Mob.EjectLoot reads it from there. See SpeciesData.
+    // drops different meat), rolled by Mob.EjectLoot at death.
     // When true the mob leaves no corpse: once it dies (loot ejected, death
     // fx fired) the body fades out in place over deathDespawnSeconds and is
     // removed permanently (node + sim state). For ethereal creatures like the

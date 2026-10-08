@@ -52,7 +52,7 @@ transitions = [SubResource("Resource_patrol_to_retreat"), SubResource("Resource_
 script = ExtResource("5_attack")
 engageHeightOffset = 0.5
 approachRange = 35.0
-encircleSlotCount = 6
+encircleMinSpacing = 4.0
 encircleDistance = 7.0
 attackFacingToleranceDegrees = 60.0
 

@@ -382,8 +382,10 @@ public partial class WorldMapEntityInspector : PanelContainer
             CustomMinimumSize = new Vector2(labelWidth, 0f),
             VerticalAlignment = VerticalAlignment.Center,
         });
+        string[] labels = resources == null ? null
+            : System.Array.ConvertAll(resources, r => _shownEntry.CandidateName(name, r));
         Control editor = BuildEditor(FieldBinding(Slot.Root, name), kind, type, hint, hintString,
-            resourceType, names, resources);
+            resourceType, names, resources, labels);
         editor.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         row.AddChild(editor);
         rows.AddChild(row);
@@ -500,7 +502,8 @@ public partial class WorldMapEntityInspector : PanelContainer
     }
 
     private Control BuildEditor(Binding binding, EPropertyEditor kind, Variant.Type type,
-        PropertyHint hint, string hintString, Type resourceType, string[] names, Resource[] resources)
+        PropertyHint hint, string hintString, Type resourceType, string[] names, Resource[] resources,
+        string[] resourceLabels = null)
     {
         switch (kind)
         {
@@ -517,7 +520,7 @@ public partial class WorldMapEntityInspector : PanelContainer
             case EPropertyEditor.Number:
                 return BuildNumber(binding, type == Variant.Type.Int, hint, hintString);
             case EPropertyEditor.ResourcePick:
-                return BuildResourcePicker(binding, resourceType, resources);
+                return BuildResourcePicker(binding, resourceType, resources, resourceLabels);
             case EPropertyEditor.NamePick:
                 return BuildNamePicker(binding, names);
             default:
@@ -1009,7 +1012,8 @@ public partial class WorldMapEntityInspector : PanelContainer
     // field's type, found by SCANNING rather than from a palette: a conversation
     // is authored as a file, and a registration step in a second resource is one
     // that gets forgotten.
-    private Control BuildResourcePicker(Binding binding, Type type, Resource[] constrained = null)
+    private Control BuildResourcePicker(Binding binding, Type type, Resource[] constrained = null,
+        string[] constrainedLabels = null)
     {
         var option = new OptionButton { ClipText = true };
         // A constrained candidate is already loaded; a scanned one is loaded
@@ -1023,13 +1027,15 @@ public partial class WorldMapEntityInspector : PanelContainer
         option.AddItem("—", 0);
         for (int i = 0; i < paths.Length; i++)
         {
-            // A constrained candidate without a file falls back to its resource
-            // name, or the row would be blank and unpickable by sight.
-            string label = paths[i].GetFile().GetBaseName();
-            if (string.IsNullOrEmpty(label) && constrained != null)
+            // A constrained candidate is named by the entry that offers it
+            // (SpawnEntryData.CandidateName), since it may be a sub-resource
+            // whose path names only its container.
+            string label = constrained != null
+                ? constrainedLabels?[i]
+                : paths[i].GetFile().GetBaseName();
+            if (string.IsNullOrEmpty(label))
             {
-                label = constrained[i]?.ResourceName is { Length: > 0 } named
-                    ? named : $"(unnamed {i + 1})";
+                label = $"(unnamed {i + 1})";
             }
             option.AddItem(label, i + 1);
         }

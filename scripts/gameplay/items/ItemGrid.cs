@@ -261,6 +261,30 @@ public class ItemGrid : IItemGrid
 		return true;
 	}
 
+	// Spend up to `count` units of a reagent from the materials here, matching by
+	// the item's parent chain (Cooking.Satisfies). Emptied stacks free their slot.
+	// Returns how many units were spent; `spentItems`, when given, collects them.
+	public int SpendMaterial(ItemData reagentItem, int count, List<SpentItem> spentItems = null)
+	{
+		int spent = 0;
+		for (int i = 0; i < _slots.Length && spent < count; i++)
+		{
+			ItemState s = _slots[i];
+			if (s?.data == null || !s.data.IsMaterial || s.stackCount <= 0 || !Cooking.Satisfies(s.data, reagentItem))
+			{
+				continue;
+			}
+			int take = s.Consume(count - spent);
+			spent += take;
+			SpentItem.Add(spentItems, s.data, take);
+			if (s.stackCount <= 0)
+			{
+				_slots[i] = null;
+			}
+		}
+		return spent;
+	}
+
 	// Drop every spoiled cohort; a stack that empties leaves its slot.
 	public void PruneExpired(double nowClock)
 	{

@@ -67,7 +67,7 @@ forbidSwimming = true
 [sub_resource type="Resource" id="Resource_charged_light"]
 script = ExtResource("4_charged")
 displayName = &"Stab"
-chargeTime = 0.5
+chargeTime = 0.35
 activeDurationSeconds = 0.3
 staminaCost = 0.1
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
@@ -136,6 +136,7 @@ displayName = &"Flurry"
 activeDurationSeconds = 0.9
 cooldownSeconds = 0.7
 staminaCost = 1.0
+oilCost = 20.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_flurry1"), SubResource("Resource_event_flurry2"), SubResource("Resource_event_flurry3")])
 requirements = Array[ExtResource("9_req")]([SubResource("Resource_req_no_swim")])
 maxSpeedCharging = 1

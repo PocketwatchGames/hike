@@ -1,11 +1,12 @@
 using Godot;
 
-// The carried lantern: a light source hung on the belt (the hotbar row), lit
-// by hand and burning a fuel budget. At most one is lit (Inventory.LitLantern),
-// and it goes out if it leaves the belt. It drives its tap (put
-// it out) and fuel-costed actions through an ItemActionProfile like a spell or
-// weapon does, but is otherwise its own item kind — it runs as a LanternState
-// (fuel) and is NOT a spell or a pickup consumable.
+// The carried lantern: a light source worn in the lantern equip slot (the
+// first hotbar entry), lit by hand and burning the carrier's lantern oil
+// (Player.LanternOil). Only the lantern-slot one can be lit
+// (Inventory.LitLantern), and it goes out if it leaves the slot. It
+// drives its tap (put it out) and oil-costed actions through an
+// ItemActionProfile like a spell or weapon does, but is otherwise its own item
+// kind and is NOT a spell or a pickup consumable.
 [GlobalClass]
 public partial class LanternData : ItemData, IUsableItem
 {
@@ -29,16 +30,12 @@ public partial class LanternData : ItemData, IUsableItem
 	// movingLightScene), so this one reference brings both the prop and its light.
 	[Export] public PackedScene heldLanternScene;
 
-	// How long (seconds of lit time) the lantern may burn before its fuel is
-	// spent — it then goes out and can't be relit until refilled at a
-	// campfire, a fountain or with oil. Only counts down while lit, on the
-	// sim clock. 0 (or less) = burns forever.
-	[Export] public float burnTimeSeconds = 0f;
+	// Seconds of lit time this lantern takes to burn 1 oil (Player.LanternOil;
+	// a default supply, PlayerData.maxLanternOil, is 100). Empty puts it out, and it can't be relit
+	// until refilled at a campfire, a fountain or with oil.
+	[Export(PropertyHint.Range, "0.1,60,0.1,or_greater")] public float secondsPerOil = 3.6f;
 
-	public bool HasLimitedFuel => burnTimeSeconds > 0f;
-	public long BurnTimeMs => (long)(burnTimeSeconds * 1000f);
-
-	// Not equippable: a lantern stays in its belt slot and is lit in place.
+	// Equips into EInventorySlot.Lantern; a spare is carried like any other gear.
 	protected override EItemCategory ComputeCategory() => EItemCategory.Lantern;
 
 	public override ItemState CreateState()

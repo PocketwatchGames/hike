@@ -10,7 +10,7 @@ using Godot;
 //   * Ranged tier — rises to a fixed height above the terrain to fire its
 //     long-range attack down at the target.
 //
-// The horizontal encircle ring, slot leasing, weapon selection and facing all
+// The horizontal encircle ring, weapon selection and facing all
 // come from BehaviorAttack unchanged; this class only decides the height.
 public partial class BehaviorFlyAttack : BehaviorAttack
 {

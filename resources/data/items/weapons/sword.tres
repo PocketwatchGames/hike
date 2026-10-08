@@ -81,7 +81,7 @@ forbidSwimming = true
 [sub_resource type="Resource" id="Resource_charged_light"]
 script = ExtResource("4_charged")
 displayName = &"Slash"
-chargeTime = 0.5
+chargeTime = 0.35
 activeDurationSeconds = 0.5
 staminaCost = 0.3
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light"), SubResource("Resource_prwqy")])
@@ -124,6 +124,7 @@ displayName = &"Cleave"
 activeDurationSeconds = 0.5
 cooldownSeconds = 0.7
 staminaCost = 1.0
+oilCost = 20.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy_anim"), SubResource("Resource_event_heavy_hit")])
 requirements = Array[ExtResource("4_in4wh")]([SubResource("Resource_req_no_swim")])
 maxSpeedCharging = 1

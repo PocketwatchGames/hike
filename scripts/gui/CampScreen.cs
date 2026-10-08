@@ -240,15 +240,14 @@ public partial class CampScreen : Control
 	// (concealed, SitIdle, camp music, input gated) through the sleep fade + skip.
 	// RestoreFromSleep re-shows the UI on a clean wake; OnPlayerDied tears it down if
 	// a DoT kills the player mid-skip.
-	void RequestSleep(double hours, double healFractionPerHour, bool toSunrise)
+	void RequestSleep(double hours, double healFractionPerHour)
 	{
-		// Sleep-to-sunrise ignores `hours`; a nap needs a positive duration.
-		if ((!toSunrise && hours <= 0.0) || !_open)
+		if (hours <= 0.0 || !_open)
 		{
 			return;
 		}
 		Visible = false;
-		_gameClient?.BeginSleepFromCamp(hours, healFractionPerHour, RestoreFromSleep, toSunrise);
+		_gameClient?.BeginSleepFromCamp(hours, healFractionPerHour, RestoreFromSleep);
 	}
 
 	// Wake callback from GameClient.EndSleep: the input gate was handed back to us

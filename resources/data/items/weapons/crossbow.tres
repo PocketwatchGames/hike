@@ -16,13 +16,16 @@
 [ext_resource type="PackedScene" uid="uid://c0vvhpnc8yctn" path="res://scenes/fx/bow_attack_heavy.tscn" id="8_atkheavy"]
 [ext_resource type="PackedScene" uid="uid://c2jrhpmsq2rtn" path="res://scenes/fx/bow_charge_head.tscn" id="8_chghead"]
 [ext_resource type="PackedScene" uid="uid://c2jrl015q2rtn" path="res://scenes/fx/bow_charge_loop.tscn" id="8_chgloop"]
+[ext_resource type="PackedScene" uid="uid://c2jrtlu1q2rtn" path="res://scenes/fx/bow_charge_tail.tscn" id="8_chgtail"]
 [ext_resource type="PackedScene" uid="uid://b3la8d0l81l6i" path="res://scenes/projectiles/crossbow_arrow.tscn" id="10_ajm0v"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="12_ow6j3"]
 [ext_resource type="Texture2D" uid="uid://wmrfxg0a1ihs" path="res://assets/textures/items/Crossbow.png" id="15_sprite"]
 [ext_resource type="Resource" uid="uid://bukfpnhl656fs" path="res://resources/data/items/loot/crossbow_arrow.tres" id="17_ajm0v"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="18_5rhbf"]
 [ext_resource type="PackedScene" path="res://scenes/items/crossbow_held.tscn" id="20_held"]
+[ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="21_5rhbf"]
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="22_17x6i"]
 
 [sub_resource type="Resource" id="Resource_event_volley"]
 script = ExtResource("3_event")
@@ -45,7 +48,7 @@ forbidSwimming = true
 [sub_resource type="Resource" id="Resource_tier_volley"]
 script = ExtResource("4_charged")
 displayName = &"Volley"
-chargeTime = 1.0
+chargeTime = 0.35
 activeDurationSeconds = 0.25
 cooldownSeconds = 0.6
 useAmmo = true
@@ -62,11 +65,74 @@ releaseEffect = ExtResource("8_atkheavy")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")
 
+[sub_resource type="Resource" id="Resource_event_heavy"]
+script = ExtResource("3_event")
+type = 8397892
+animName = 20
+damageProfileKey = &"charged"
+motionForwardSpeed = -10.0
+noiseDecibels = 0.2
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitsolid")
+impactLethalEffect = ExtResource("7_hitkill")
+impactDecibels = 0.4
+projectileScene = ExtResource("10_ajm0v")
+projectileSpeed = 48.0
+projectileLifetimeSeconds = 0.25
+
+[sub_resource type="Resource" id="Resource_tier_heavy"]
+script = ExtResource("4_charged")
+displayName = &"Heavy Bolt"
+activeDurationSeconds = 0.25
+cooldownSeconds = 0.6
+useAmmo = true
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy")])
+requirements = Array[ExtResource("4_req")]([SubResource("Resource_req_no_swim")])
+maxSpeedCharging = 1
+speedMultiplierActive = 0.0
+chargeStartEffect = ExtResource("8_chgtail")
+chargeLoopEffect = ExtResource("8_chgloop")
+releaseEffect = ExtResource("8_atkheavy")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
+
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("5_profile")
-chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_tier_volley")])
+chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_tier_volley"), SubResource("Resource_tier_heavy")])
 autoActivateAtMax = false
 queueWindowSeconds = 0.0
+
+[sub_resource type="Resource" id="Resource_el1ut"]
+script = ExtResource("22_17x6i")
+effect = ExtResource("21_5rhbf")
+amount = 2.0
+metadata/_custom_type_script = "uid://b5h7q3xk1an2m"
+
+[sub_resource type="Resource" id="Resource_charged_mod_crit"]
+script = ExtResource("1_modifier")
+overrides = 512
+damageMultiplier = 3.0
+addBuildups = []
+
+[sub_resource type="Resource" id="Resource_charged_mod_backstab"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 512
+damageMultiplier = 1.5
+addBuildups = []
+
+[sub_resource type="Resource" id="Resource_charged_damage"]
+script = ExtResource("1_damage")
+tags = 2113
+healthDamage = 50.0
+critChance = 0.1
+damageVariance = 0.25
+hitstun = 0.25
+knockbackDistance = 5.0
+knockbackTime = 0.3
+buildups = [SubResource("Resource_el1ut")]
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_charged_mod_crit"), SubResource("Resource_charged_mod_backstab")])
 
 [sub_resource type="Resource" id="Resource_mod_crit"]
 script = ExtResource("1_modifier")
@@ -101,6 +167,7 @@ weight = 0.6
 arrowLootData = ExtResource("17_ajm0v")
 ammoRechargeSeconds = 6.0
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
+&"charged": SubResource("Resource_charged_damage"),
 &"primary": SubResource("Resource_damage")
 })
 pitchRangeDegrees = 85.0
@@ -110,7 +177,7 @@ actionProfile = SubResource("Resource_profile")
 wieldHand = 1
 animSet = ExtResource("21_animset")
 displayName = &"Crossbow"
-description = "Fires a fan of three bolts. Hold to tighten the spread."
+description = "Fires a fan of three bolts. Hold to tighten the spread, or keep holding for a single heavy bolt."
 value = 80
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("20_held")

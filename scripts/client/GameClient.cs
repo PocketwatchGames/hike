@@ -66,6 +66,8 @@ public partial class GameClient : Node3D
 		{ EStatName.Perception, "Perception" },
 		{ EStatName.Stealth, "Stealth" },
 		{ EStatName.Weight, "Weight" },
+		{ EStatName.Thorns, "Thorns" },
+		{ EStatName.OilCost, "Oil Cost" },
 	};
 
 	// Damage modifier trigger labels. Used as the header of the conditional
@@ -2958,9 +2960,8 @@ public partial class GameClient : Node3D
 		// low-health episode will re-engage it from scratch.
 		screenEffects?.ResetOnRespawn();
 		onPlayerRespawned?.Invoke(_player);
-		AutosaveAtWake();
 		// The DeathScreen holds black on WorldSettling.
-		_world.BeginSettle(settleEntitySpawnBurst);
+		WakeFromRest();
 	}
 
 	// The controlled member's standing spot at a campfire — slot 0 of the ring
@@ -3010,10 +3011,8 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
-		// Plain rest (tent): a fixed-hours nap (never rolls the day), EndSleep
-		// releases the input gate on wake.
+		// Plain rest (tent): EndSleep releases the input gate on wake.
 		_onSleepWake = null;
-		_sleepToSunrise = false;
 		InputSuppressed = true;
 		sleepOverlay.Show(this, hours, healFractionPerHour);
 	}
@@ -3023,24 +3022,17 @@ public partial class GameClient : Node3D
 	// releasing it. Cleared on a clean wake and on death-in-sleep.
 	Action _onSleepWake;
 
-	// Whether the pending sleep advances to the next day's sunrise (clears the
-	// player's effects + full-heals) vs. a short in-day nap (integrates effects +
-	// fractional heal). Set by the Begin* entry points, read by PerformSleepAdvance.
-	bool _sleepToSunrise;
-
 	// Camp-screen rest entry point. The camp modal stays open (just hidden) across
 	// the sleep, so we skip the modal guard BeginSleep uses for the tent path and
-	// keep input gated the whole time. `toSunrise` selects the sleep-to-sunrise
-	// path (else a fixed-hours nap). onWake fires when the fade-in completes so
+	// keep input gated the whole time. onWake fires when the fade-in completes so
 	// the camp screen can re-show itself, still in camp state.
-	public void BeginSleepFromCamp(double hours, double healFractionPerHour, Action onWake, bool toSunrise)
+	public void BeginSleepFromCamp(double hours, double healFractionPerHour, Action onWake)
 	{
 		if (_player == null || sleepOverlay == null || sleepOverlay.Busy)
 		{
 			return;
 		}
 		_onSleepWake = onWake;
-		_sleepToSunrise = toSunrise;
 		InputSuppressed = true;
 		// Camp music stops the moment the player sleeps; the wake plays the
 		// time-of-day ambient cue (MusicManager.OnCampSleepWake via EndSleep).
@@ -3053,18 +3045,19 @@ public partial class GameClient : Node3D
 	// death-cam happen behind the curtain).
 	public void PerformSleepAdvance(double hours, double healFractionPerHour)
 	{
-		// Sim runs the whole skip behind the fade: to-sunrise rolls the day and
-		// full-heals (a DoT can't kill the sleeper); a nap integrates effects over the
-		// hours then heals a fraction; either way a surviving companion wakes at the
-		// player's side and the world's spawns reset (gated on time actually passing).
-		_world?.PerformSleepAdvance(hours, healFractionPerHour, _sleepToSunrise);
-		if (_sleepToSunrise)
+		if (_world != null && _world.Sleep(hours, healFractionPerHour))
 		{
-			AutosaveAtWake();
-			// A rest re-streams every resident entity (ResetSpawns); the
-			// SleepOverlay holds black on WorldSettling until they are back.
-			_world?.BeginSettle(settleEntitySpawnBurst);
+			WakeFromRest();
 		}
+	}
+
+	// The client's half of every rest (a sleep that reached sunrise): autosave the
+	// wake, then hold the curtain while the world re-streams every resident entity
+	// (ResetSpawns) — the caller's overlay waits on WorldSettling.
+	void WakeFromRest()
+	{
+		AutosaveAtWake();
+		_world.BeginSettle(settleEntitySpawnBurst);
 	}
 
 	// Called by SleepOverlay when a clean wake's fade-in completes. A modal-driven
@@ -3103,8 +3096,7 @@ public partial class GameClient : Node3D
 		// CampScreen reads the lit node live (full cook/craft) once it streams in.
 		LitCampfireNode?.Light();
 		campScreen?.Open(_player, _lastCampfirePosition);
-		AutosaveAtWake();
-		_world.BeginSettle(settleEntitySpawnBurst);
+		WakeFromRest();
 		// The action's own fade clears the instant it ends, so the camp fade takes
 		// the screen over at full black and holds it until the world is in.
 		campFade?.Reveal(() => WorldSettling);

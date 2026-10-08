@@ -8,13 +8,14 @@
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="6_buildup"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="6_c3x7v"]
 [ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="7_poison"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="8_lootcount"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="8_lootcount"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="9_desc"]
 [ext_resource type="Resource" uid="uid://bimryqq5iitw3" path="res://resources/data/items/loot/troll_meat.tres" id="10_meat"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="11_wd"]
 [ext_resource type="Resource" uid="uid://bx6gkmxut0cev" path="res://resources/data/characters/troll/troll_battle_cry.tres" id="12_cry"]
 [ext_resource type="Resource" uid="uid://l67ortso01gq" path="res://resources/data/characters/troll/troll_torch.tres" id="13_torch"]
 [ext_resource type="Resource" uid="uid://mjuk30au128b" path="res://resources/data/characters/ability_tells/ability_tell_venom.tres" id="14_tell"]
+[ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="oil_droplet"]
 
 [sub_resource type="Resource" id="Desc_loot_meat"]
 script = ExtResource("9_desc")
@@ -23,8 +24,8 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [sub_resource type="Resource" id="Resource_loot_meat"]
 script = ExtResource("8_lootcount")
-descriptor = SubResource("Desc_loot_meat")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+item = SubResource("Desc_loot_meat")
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 
 [sub_resource type="Resource" id="Resource_poison_buildup"]
 script = ExtResource("6_buildup")
@@ -50,12 +51,24 @@ conditionalModifiers = []
 weaponMod = SubResource("Resource_venom_mod")
 metadata/_custom_type_script = "uid://uqgkmpiv30t5"
 
+[sub_resource type="Resource" id="Desc_loot_oil"]
+script = ExtResource("9_desc")
+item = ExtResource("oil_droplet")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_loot_oil"]
+script = ExtResource("8_lootcount")
+item = SubResource("Desc_loot_oil")
+count = 0
+countRange = 3
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
 [resource]
 script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 displayName = &"Swamp Torchbearer"
 statusEffects = Array[ExtResource("4_sedata")]([SubResource("Resource_venom_effect")])
 weapons = Array[ExtResource("11_wd")]([ExtResource("12_cry"), ExtResource("13_torch")])
-loot = Array[ExtResource("8_lootcount")]([SubResource("Resource_loot_meat")])
+loot = Array[ExtResource("8_lootcount")]([SubResource("Resource_loot_meat"), SubResource("Resource_loot_oil")])
 abilities = 5
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

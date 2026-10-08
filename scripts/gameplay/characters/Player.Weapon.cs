@@ -353,11 +353,11 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// it even if the hotbar selection has moved on since.
 	ItemState _hotbarUseItem;
 
-	// UseItem on the hotbar selection. An unlit lantern is lit; a lit one runs its
-	// timeline (tap to douse, hold to cast). Any other item with an action
-	// timeline (a potion's drink) runs it. An instant-use item (mud, a meal) is
-	// spent on the spot. Gear on the belt is equipped, swapping with what it
-	// replaces.
+	// UseItem on the hotbar selection. An unlit lantern in the lantern slot is
+	// lit; a lit one runs its timeline (tap to douse, hold to cast). Any other
+	// item with an action timeline (a potion's drink) runs it. An instant-use item
+	// (mud, a meal) is spent on the spot. Gear on the belt — a spare lantern
+	// included — is equipped, swapping with what it replaces.
 	void UseHotbarSelection()
 	{
 		ItemState item = _inventory?.SelectedHotbarItem;
@@ -365,9 +365,14 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			return;
 		}
+		if (item is LanternState && !_inventory.IsEquipped(item))
+		{
+			_inventory.Equip(item);
+			return;
+		}
 		if (item is LanternState lantern && !_inventory.IsLit(lantern))
 		{
-			_inventory.Light(lantern);
+			LightLantern();
 			return;
 		}
 		if (item.data is IUsableItem usable && usable.ActionProfile != null)
@@ -442,7 +447,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// player-carried charge glow grows with the hold and the screen shake builds
 	// toward the auto-cast, both keyed off the heal tier's charge fraction. The
 	// heal tier is identified generically as a lantern-driven Charging tier with a
-	// fuelCost (the toggle tier has none), so a plain light toggle produces no
+	// oilCost (the toggle tier has none), so a plain light toggle produces no
 	// glow or shake. Called each physics tick right after the runner ticks;
 	// resolves to zero (glow off, no shake) whenever the heal isn't charging.
 	void UpdateLanternHealCharge()
@@ -451,7 +456,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		if (_runner != null
 			&& _runner.Phase == EActionPhase.Charging
 			&& _runner.Current.context.primaryItem is LanternState
-			&& (_runner.Current.selectedTier?.fuelCost ?? 0f) > 0f)
+			&& (_runner.Current.selectedTier?.oilCost ?? 0f) > 0f)
 		{
 			t = _runner.CurrentChargeT;
 		}

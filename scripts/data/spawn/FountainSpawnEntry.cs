@@ -20,7 +20,7 @@ public partial class FountainSpawnEntry : SpawnEntryData
     // Applied to the player on each drink. Files under resources/data/fountain_effects/,
     // so the painter can offer them.
     [Export] public ItemEffect[] effects = System.Array.Empty<ItemEffect>();
-    // In-world days until it can be used again; 0 = any number of times.
+    // Sunrises until it can be used again (1 = the next dawn); 0 = any number of times.
     [Export(PropertyHint.Range, "0,7,1,or_greater")] public int cooldownDays;
     // Radius (meters) around the fountain where worldgen-painted detail sprites
     // are erased so scattered foliage doesn't share the station's footprint.
