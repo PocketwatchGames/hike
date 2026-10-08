@@ -81,7 +81,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_staminaContainer", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_parryIcon", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_oilBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_staminaContainer", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_parryIcon", "_drainedHealthBar", "_bonusHealthBar", "_armorBar", "_blockArmorBar", "_oilBar", "_bonusOilBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -110,9 +110,11 @@ _questItemScene = ExtResource("13_o8nis")
 _healthBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/MarginContainer/HealthBar")
 _parryIcon = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/TextureRect")
 _drainedHealthBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/MarginContainer/DrainedHealthBar")
+_bonusHealthBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/BonusHealth")
 _armorBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/ArmorBar")
 _blockArmorBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/BlockArmorBar")
-_oilBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/OilBar")
+_oilBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/HBoxContainer/OilBar")
+_bonusOilBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/HBoxContainer/BonusOil")
 _signpostPanel = NodePath("HudSignpostPanel")
 _dialoguePanel = NodePath("DialoguePanel")
 _regionBanner = NodePath("RegionBanner")
@@ -532,6 +534,17 @@ step = 0.001
 value = 0.5
 show_percentage = false
 
+[node name="BonusHealth" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer" unique_id=1315976122]
+visible = false
+custom_minimum_size = Vector2(0, 25)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_styles/fill = SubResource("StyleBoxFlat_aoesn")
+max_value = 1.0
+step = 0.001
+value = 0.5
+show_percentage = false
+
 [node name="ArmorBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer" unique_id=181068372]
 custom_minimum_size = Vector2(50, 25)
 layout_mode = 2
@@ -563,8 +576,22 @@ stretch_mode = 5
 layout_mode = 2
 size_flags_horizontal = 0
 
-[node name="OilBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer" unique_id=1869558396]
+[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer" unique_id=824327331]
+layout_mode = 2
+
+[node name="OilBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/HBoxContainer" unique_id=1869558396]
 custom_minimum_size = Vector2(250, 15)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_styles/fill = SubResource("StyleBoxFlat_okx5l")
+max_value = 1.0
+step = 0.001
+value = 0.5
+show_percentage = false
+
+[node name="BonusOil" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/HBoxContainer" unique_id=1716515732]
+visible = false
+custom_minimum_size = Vector2(0, 15)
 layout_mode = 2
 size_flags_horizontal = 0
 theme_override_styles/fill = SubResource("StyleBoxFlat_okx5l")

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cuyu2uykmhfid" path="res://scripts/data/spawn/FountainSpawnEntry.cs" id="1_entry"]
 [ext_resource type="PackedScene" uid="uid://dfo7hvqgrcw4g" path="res://scenes/interactives/fountain_healing.tscn" id="2_scene"]
-[ext_resource type="Resource" uid="uid://cnbun6in4kgt8" path="res://resources/data/fountain_effects/heal_full.tres" id="3_effect"]
+[ext_resource type="Resource" uid="uid://cnbun6in4kgt8" path="res://resources/data/fountain_effects/heal_overflow.tres" id="3_effect"]
 
 [resource]
 script = ExtResource("1_entry")

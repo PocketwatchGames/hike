@@ -42,11 +42,13 @@ intro_merchant_description	Merchant
 intro_merchant_greeting_01	Hello, traveler.
 intro_merchant_greeting_02	Can I interest you in some goods?
 intro_innkeeper_description	Innkeeper
-intro_innkeeper_greeting_01	I’m the innkeeper!
+intro_innkeeper_greeting_shop_01	What can I do for you?
+intro_innkeeper_greeting_01	Welcome to the Drowning Stone. You look a bit soggy.
+intro_innkeeper_greeting_02	I’ve got some good that might fix you right up though.
 intro_patron1_description	Patron
-intro_patron1_greeting_01	Have you tried the stew? Each bite has 2 perfect golden mushrooms.
+intro_patron1_greeting_01	Have you tried the stew? Each bite has 2 perfectly pale mushrooms.
 intro_patron2_description	Patron
-intro_patron2_greeting_01	Mmm I can’t get enough of this stew. The 1 portion of succulent sparrow meat is my favorite part.
+intro_patron2_greeting_01	Mmm I can’t get enough of this stew. The 2 portions of succulent sparrow meat is my favorite part.
 intro_patron3_description	Patron
 intro_patron3_greeting_01	I hear the innkeeper cooks the stew for 6 hours.
 intro_mayor_assistant1_description	Seer’s Assistant
@@ -54,6 +56,7 @@ intro_mayor_assistant1_greeting_01	Hello.
 intro_mayor_assistant2_description	Seer’s Assistant
 intro_mayor_assistant2_greeting_01	Salutations.
 intro_watchman_description	Watchman
+intro_watchman_greeting_busy_01	I am busy now, commoner. I must watch the sea.
 intro_watchman_greeting_01	Who goes there?
 intro_watchman_greeting_response_common	I… I don’t know where I am.
 intro_watchman_common_01	Ah, common tongue. You’ve crossed into dangerous lands. But you can rest here in Whittlebone.
@@ -61,10 +64,10 @@ intro_watchman_whittlebone_sanctuary	A man on the shore kept saying “Sanctuary
 intro_watchman_whittlebone_customs	Whittlebone?
 intro_watchman_sanctuary_01	The ramblings of a dying man? No. But you could ask Ulga, the crone in the broken house to the south.
 intro_watchman_customs_01	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now. Not many speak common tongue though. You’d do best to learn our customs. Here, take this.
-intro_watchman_greeting_busy_01	I am busy now, commoner. I must watch the sea.
 swamp_witch_description	Swamp Witch
 swamp_witch_greeting_01	Oooh what’s this come crawlin outta the mud I see?
 swamp_witch_greeting_02	Come a little closer tadpole! Do ya have anything shiny?
 swamp_witch_shop_end	Shall we trade?
 intro_wanderer_description	Wanderer
 intro_wanderer_greeting_01	Gate’s closed, friend
+intro_wanderer_greeting_02	It will open tomorrow. You can pass the time by the fire.

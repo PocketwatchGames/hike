@@ -468,6 +468,11 @@ public partial class Player : CharacterBody3D
 	ulong _debugLastWallLogMs;
 	ActionRunner _runner;
 	float _health;
+	// Health preserved above MaxHealth (a fountain's overflow), so the player's
+	// health is _health + _bonusHealth. Held apart from _health so a capped heal
+	// or a MaxHealth change can't clip it; any health loss takes it first, and
+	// nothing ever refills it but another overflowing heal.
+	float _bonusHealth;
 	float _armor;
 	float _maxArmor;
 	// Per-hit flinch state. _hitstunTime counts down each physics tick while
@@ -678,6 +683,8 @@ public partial class Player : CharacterBody3D
 	}
 	public ActionRunner Runner => _runner;
 	public float Health => _health;
+	public float BonusHealth => _bonusHealth;
+	public float MaxBonusHealth => data?.maxBonusHealth ?? 0f;
 	// Base pool = PlayerData baseline scaled by the hosted member's health
 	// multiplier (1 when no member), then flat Max* stat modifiers add on top.
 	public float MaxHealth => (data?.maxHealth ?? 100f) * (Member?.health ?? 1f) + ComposeStat(EStat.MaxHealth);
@@ -704,7 +711,9 @@ public partial class Player : CharacterBody3D
 	public void WriteMemberSave(System.IO.BinaryWriter w)
 	{
 		w.Write(_health);
+		w.Write(_bonusHealth);
 		w.Write(_lanternOil);
+		w.Write(_bonusLanternOil);
 		_inventory.Serialize(w);
 		EntitySerializer.WriteStatusEffects(w, EnumerateAcquiredEffects());
 		var buildups = new List<(StatusEffectData data, float amount)>();
@@ -728,7 +737,9 @@ public partial class Player : CharacterBody3D
 	public void RestoreMemberSave(System.IO.BinaryReader r)
 	{
 		float health = r.ReadSingle();
+		_bonusHealth = Mathf.Clamp(r.ReadSingle(), 0f, MaxBonusHealth);
 		_lanternOil = Mathf.Clamp(r.ReadSingle(), 0f, MaxLanternOil);
+		_bonusLanternOil = Mathf.Clamp(r.ReadSingle(), 0f, MaxBonusLanternOil);
 		_inventory.Restore(r);
 		List<EntitySerializer.StatusEffectRecord> effects = EntitySerializer.ReadStatusEffects(r);
 		int buildupCount = r.ReadInt32();
@@ -1269,9 +1280,13 @@ public partial class Player : CharacterBody3D
 	// Remaining lantern oil, 0 (empty) to MaxLanternOil (full). Whichever
 	// lantern is lit burns it at that lantern's rate (LanternData.secondsPerOil).
 	private float _lanternOil;
+	// Oil preserved above MaxLanternOil (a fountain's overflow); burned first.
+	private float _bonusLanternOil;
 	public float MaxLanternOil => data?.maxLanternOil ?? 0f;
 	public float LanternOil => _lanternOil;
-	public bool HasLanternOil => _lanternOil > 0f;
+	public float BonusLanternOil => _bonusLanternOil;
+	public float MaxBonusLanternOil => data?.maxBonusLanternOil ?? 0f;
+	public bool HasLanternOil => _lanternOil + _bonusLanternOil > 0f;
 
 	// Sim-clock timestamp of the last oil drain, so TickLanternOil spends
 	// exactly the elapsed sim time each frame (frame-rate independent, slows
@@ -1304,27 +1319,42 @@ public partial class Player : CharacterBody3D
 	// IActionActor — ItemAction.oilCost.
 	public bool CanAffordLanternOil(float amount)
 	{
-		return amount <= 0f || _lanternOil >= amount;
+		return amount <= 0f || _lanternOil + _bonusLanternOil >= amount;
 	}
 
-	// Clamps at empty. Also the continuous while-lit burn.
+	// Bonus oil first, then the capped pool; clamps at empty. Also the continuous
+	// while-lit burn.
 	public void SpendLanternOil(float amount)
 	{
-		if (amount > 0f)
+		if (amount <= 0f)
 		{
-			_lanternOil = Mathf.Max(0f, _lanternOil - amount);
+			return;
 		}
+		float fromBonus = Mathf.Min(_bonusLanternOil, amount);
+		_bonusLanternOil -= fromBonus;
+		_lanternOil = Mathf.Max(0f, _lanternOil - (amount - fromBonus));
 	}
 
-	// Capped at full (a flask or droplet of oil).
-	public void AddLanternOil(float amount)
+	// Capped at MaxLanternOil (a flask or droplet of oil), unless `overflow`, which
+	// keeps what doesn't fit as bonus oil, up to MaxBonusLanternOil (a fountain).
+	public void AddLanternOil(float amount, bool overflow = false)
 	{
-		_lanternOil = Mathf.Min(MaxLanternOil, _lanternOil + amount);
+		if (amount <= 0f)
+		{
+			return;
+		}
+		float filled = Mathf.Min(MaxLanternOil, _lanternOil + amount);
+		if (overflow)
+		{
+			float excess = amount - (filled - _lanternOil);
+			_bonusLanternOil = Mathf.Max(_bonusLanternOil, Mathf.Min(MaxBonusLanternOil, _bonusLanternOil + excess));
+		}
+		_lanternOil = filled;
 	}
 
-	// Refill the oil to full. Called at a campfire (Sim.RefuelPartyLanterns:
-	// camping there, or arriving home at one) and at a fountain — never by a
-	// dawn or a sleep alone.
+	// Refill the oil to full, leaving any bonus. Called at a campfire
+	// (Sim.RefuelPartyLanterns: camping there, or arriving home at one) — never by
+	// a dawn or a sleep alone.
 	public void RefuelLantern()
 	{
 		_lanternOil = MaxLanternOil;

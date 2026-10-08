@@ -4,7 +4,11 @@ using System.Collections.Generic;
 
 public partial class Player : CharacterBody3D
 {
-	public void Heal(float amount)
+	public void Heal(float amount) => Heal(amount, overflow: false);
+
+	// `overflow` keeps whatever the heal carries past MaxHealth, up to
+	// MaxBonusHealth (a fountain), instead of discarding it (potions, spells, rest).
+	public void Heal(float amount, bool overflow)
 	{
 		if (amount <= 0f)
 		{
@@ -21,10 +25,29 @@ public partial class Player : CharacterBody3D
 		_health = Mathf.Min(MaxHealth, _health + amount);
 		_drainedHealth = Mathf.Min(_drainedHealth, Mathf.Max(0f, MaxHealth - _health));
 		float restored = _health - before;
+		if (overflow)
+		{
+			float bonusBefore = _bonusHealth;
+			_bonusHealth = Mathf.Max(_bonusHealth, Mathf.Min(MaxBonusHealth, _bonusHealth + amount - restored));
+			restored += _bonusHealth - bonusBefore;
+		}
 		if (restored > 0f)
 		{
 			GameClient.Current?.onHeal?.Invoke(GlobalPosition, restored, EHudTextType.HealLight);
 		}
+	}
+
+	// Health loss from a hit or a DoT: the overflow above MaxHealth goes first,
+	// then health, clamped at 0.
+	private void LoseHealth(float amount)
+	{
+		if (amount <= 0f)
+		{
+			return;
+		}
+		float fromBonus = Mathf.Min(_bonusHealth, amount);
+		_bonusHealth -= fromBonus;
+		_health = Mathf.Max(0f, _health - (amount - fromBonus));
 	}
 
 	// IActionActor — press-time blood gate. Non-mutating peek. Costs of 0
@@ -50,8 +73,10 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		_health -= amount;
-		_drainedHealth += amount;
+		float fromBonus = Mathf.Min(_bonusHealth, amount);
+		_bonusHealth -= fromBonus;
+		_health -= amount - fromBonus;
+		_drainedHealth += amount - fromBonus;
 		ulong now = _world?.GameTimeMs ?? 0;
 		_bloodRegenStartMs = now + (ulong)(data.bloodRegenDelay * 1000f);
 	}

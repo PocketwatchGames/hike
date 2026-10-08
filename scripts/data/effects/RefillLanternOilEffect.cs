@@ -6,11 +6,12 @@ using Godot;
 [GlobalClass]
 public partial class RefillLanternOilEffect : ItemEffect
 {
-	// Oil restored per use (a default supply is 100). Capped at the player's max.
+	// Oil restored per use (a default supply is 100).
 	[Export(PropertyHint.Range, "0,1000,1")] public float amount = 50f;
 
-	// Ignore `amount` and fill to the player's max (a fountain).
-	[Export] public bool fillToMax;
+	// Oil past the player's max is kept as bonus oil instead of discarded (a
+	// fountain). Flasks and droplets cap.
+	[Export] public bool overflow;
 
 	// Optional one-shot fx spawned on the player (a refuel cue).
 	[Export] public PackedScene effectScene;
@@ -19,14 +20,7 @@ public partial class RefillLanternOilEffect : ItemEffect
 	{
 		if (actor is Player player)
 		{
-			if (fillToMax)
-			{
-				player.RefuelLantern();
-			}
-			else
-			{
-				player.AddLanternOil(amount);
-			}
+			player.AddLanternOil(amount, overflow);
 		}
 		if (effectScene != null)
 		{

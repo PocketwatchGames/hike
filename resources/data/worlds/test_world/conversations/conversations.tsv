@@ -34,15 +34,16 @@ intro_mayor_		Seer		greeting	topics				Hello, traveler.
 			x	topics	sanctuary				A man on the shore kept saying “Sanctuary”. Do you know what this is?
 intro_merchant_		Merchant		greeting					Hello, traveler.
 								open_shop	Can I interest you in some goods?
-intro_innkeeper		Innkeeper		greeting					I’m the innkeeper!
-intro_patron1		Patron		greeting					Have you tried the stew? Each bite has 2 perfect golden mushrooms.
-intro_patron2		Patron		greeting					Mmm I can’t get enough of this stew. The 1 portion of succulent sparrow meat is my favorite part.
+intro_innkeeper		Innkeeper		greeting_shop			npcvar:greeting	open_shop	What can I do for you?
+				greeting					Welcome to the Drowning Stone. You look a bit soggy.
+								open_shop;npcvar:greeting=true	I’ve got some good that might fix you right up though.
+intro_patron1		Patron		greeting					Have you tried the stew? Each bite has 2 perfectly pale mushrooms.
+intro_patron2		Patron		greeting					Mmm I can’t get enough of this stew. The 2 portions of succulent sparrow meat is my favorite part.
 intro_patron3		Patron		greeting					I hear the innkeeper cooks the stew for 6 hours.
 intro_mayor_assistant1		Seer’s Assistant		greeting					Hello.
 intro_mayor_assistant2		Seer’s Assistant		greeting					Salutations.
 									
-intro_watchman		Watchman		entry	greeting_busy		npcvar:customs=true		
-				entry	greeting				
+intro_watchman		Watchman		greeting_busy		common	npcvar:customs		I am busy now, commoner. I must watch the sea.
 				greeting	greeting_response				Who goes there?
 			x	greeting_response	common	common			I… I don’t know where I am.
 				common	whittlebone	common			Ah, common tongue. You’ve crossed into dangerous lands. But you can rest here in Whittlebone.
@@ -50,8 +51,8 @@ intro_watchman		Watchman		entry	greeting_busy		npcvar:customs=true
 			x	whittlebone	customs	common			Whittlebone?
 				sanctuary	whittlebone	common			The ramblings of a dying man? No. But you could ask Ulga, the crone in the broken house to the south.
 				customs	whittlebone	common		spawn_loot:scroll_vyeshal_vocab_1_2;npcvar:customs=true	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now. Not many speak common tongue though. You’d do best to learn our customs. Here, take this.
-				greeting_busy		common			I am busy now, commoner. I must watch the sea.
 swamp_witch		Swamp Witch		greeting	shop				Oooh what’s this come crawlin outta the mud I see?
 									Come a little closer tadpole! Do ya have anything shiny?
 			x	shop				open_shop	Shall we trade?
 intro_wanderer		Wanderer		greeting					Gate’s closed, friend
+									It will open tomorrow. You can pass the time by the fire.

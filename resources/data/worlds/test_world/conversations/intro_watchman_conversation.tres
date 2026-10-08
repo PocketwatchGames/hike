@@ -46,6 +46,12 @@ branch = &"greeting_busy"
 script = ExtResource("Script_ConversationEntry")
 branch = &"greeting"
 
+[sub_resource type="Resource" id="Branch_greeting_busy"]
+script = ExtResource("Script_ConversationBranch")
+name = &"greeting_busy"
+language = ExtResource("Lang_common")
+lineLocKeys = Array[StringName]([&"intro_watchman_greeting_busy_01"])
+
 [sub_resource type="Resource" id="Branch_greeting"]
 script = ExtResource("Script_ConversationBranch")
 name = &"greeting"
@@ -75,12 +81,6 @@ language = ExtResource("Lang_common")
 lineLocKeys = Array[StringName]([&"intro_watchman_customs_01"])
 endActions = Array[Object]([SubResource("Inline_4"), SubResource("Inline_5")])
 exitGroup = &"whittlebone"
-
-[sub_resource type="Resource" id="Branch_greeting_busy"]
-script = ExtResource("Script_ConversationBranch")
-name = &"greeting_busy"
-language = ExtResource("Lang_common")
-lineLocKeys = Array[StringName]([&"intro_watchman_greeting_busy_01"])
 
 [sub_resource type="Resource" id="Resp_greeting_response_1"]
 script = ExtResource("Script_ConversationResponse")
@@ -113,6 +113,6 @@ responses = [SubResource("Resp_whittlebone_1"), SubResource("Resp_whittlebone_2"
 [resource]
 script = ExtResource("Script_ConversationData")
 entryBranches = [SubResource("Entry_1"), SubResource("Entry_2")]
-branches = [SubResource("Branch_greeting"), SubResource("Branch_common"), SubResource("Branch_sanctuary"), SubResource("Branch_customs"), SubResource("Branch_greeting_busy")]
+branches = [SubResource("Branch_greeting_busy"), SubResource("Branch_greeting"), SubResource("Branch_common"), SubResource("Branch_sanctuary"), SubResource("Branch_customs")]
 responseGroups = [SubResource("Group_greeting_response"), SubResource("Group_whittlebone")]
 descriptionLocKey = &"intro_watchman_description"

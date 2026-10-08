@@ -432,6 +432,8 @@ public partial class PlayerData : Resource
 
 	[ExportGroup("Combat")]
 	[Export] public float maxHealth = 1000f;
+	// Ceiling on health kept past maxHealth by an overflowing heal (a fountain).
+	[Export(PropertyHint.Range, "0,10000,10")] public float maxBonusHealth = 1000f;
 
 	// Fallback melee weapon used by the melee attack when the WeaponLeft slot is
 	// empty — the player's bare-handed punch/kick. Authored as an ordinary
@@ -641,6 +643,8 @@ public partial class PlayerData : Resource
 	// refills and burn rates are absolute amounts, so a bigger supply lasts
 	// proportionally longer.
 	[Export(PropertyHint.Range, "10,1000,1")] public float maxLanternOil = 100f;
+	// Ceiling on oil kept past maxLanternOil by an overflowing refill (a fountain).
+	[Export(PropertyHint.Range, "0,1000,1")] public float maxBonusLanternOil = 100f;
 	// Wind accelerates drying via evaporation. SampleWindSpeed already
 	// zeroes out under overhead cover, so this only contributes outdoors.
 	// Default 0.1 means the dry rate doubles at 10 m/s of wind and triples

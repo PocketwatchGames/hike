@@ -63,6 +63,9 @@ public partial class Hud : Control
 	// climbs into, and TickBloodDrain shrinks drain while growing health in
 	// lockstep — so the visible tail shrinks cleanly as drain heals back.
 	[Export] ProgressBar _drainedHealthBar;
+	// Health past MaxHealth (Player.BonusHealth), a full bar whose length is the
+	// bonus at the health scale. Hidden while there is none.
+	[Export] ProgressBar _bonusHealthBar;
 	[Export] ProgressBar _armorBar;
 	// The melee weapon's block-guard pool, drawn as its own row above the
 	// health/armor row. Tinted dark grey while dormant, dark blue while
@@ -71,6 +74,8 @@ public partial class Hud : Control
 	[Export] ProgressBar _blockArmorBar;
 	// The controlled member's lantern oil, out of their MaxLanternOil.
 	[Export] ProgressBar _oilBar;
+	// Oil past MaxLanternOil (Player.BonusLanternOil), sized like _bonusHealthBar.
+	[Export] ProgressBar _bonusOilBar;
 	[Export] HudSignpostPanel _signpostPanel;
 	[Export] ConversationController _dialoguePanel;
 	[Export] HudRegionBanner _regionBanner;
@@ -264,6 +269,8 @@ public partial class Hud : Control
 	// Defaults: 1000 points = 250px.
 	[Export(PropertyHint.Range, "0.01,5,0.01")] float _pixelsPerHealthPoint = 0.25f;
 	[Export(PropertyHint.Range, "0.01,5,0.01")] float _pixelsPerArmorPoint = 0.25f;
+	// Oil's own scale (a default supply is 100): 100 oil = 250px.
+	[Export(PropertyHint.Range, "0.01,10,0.01")] float _pixelsPerOilPoint = 2.5f;
 
 	public override void _Ready()
 	{
@@ -673,13 +680,16 @@ public partial class Hud : Control
 		// 0..MaxHealth range as the health bar, so it always shares its width.
 		SetBarWidth(_healthBar, maxHealth * _pixelsPerHealthPoint);
 		SetBarWidth(_drainedHealthBar, maxHealth * _pixelsPerHealthPoint);
+		UpdateBonusBar(_bonusHealthBar, _player.BonusHealth, _pixelsPerHealthPoint);
 
 		if (_oilBar != null)
 		{
 			_oilBar.MinValue = 0;
 			_oilBar.MaxValue = _player.MaxLanternOil;
 			_oilBar.Value = _player.LanternOil;
+			SetBarWidth(_oilBar, _player.MaxLanternOil * _pixelsPerOilPoint);
 		}
+		UpdateBonusBar(_bonusOilBar, _player.BonusLanternOil, _pixelsPerOilPoint);
 
 		if (_drainedHealthBar != null)
 		{
@@ -738,6 +748,23 @@ public partial class Hud : Control
 	// both layouts in play: the container-driven health/drained pair (min size
 	// feeds the MarginContainer) and the free-floating armor bars (a Control's
 	// size is clamped up to its minimum; their authored offsets are 0).
+	static void UpdateBonusBar(ProgressBar bar, float bonus, float pixelsPerPoint)
+	{
+		if (bar == null)
+		{
+			return;
+		}
+		bool show = bonus > 0f;
+		bar.Visible = show;
+		if (show)
+		{
+			bar.MinValue = 0;
+			bar.MaxValue = 1;
+			bar.Value = 1;
+			SetBarWidth(bar, bonus * pixelsPerPoint);
+		}
+	}
+
 	static void SetBarWidth(ProgressBar bar, float width)
 	{
 		if (bar == null)

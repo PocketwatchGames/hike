@@ -32,12 +32,15 @@ class SheetBranch
 	public List<string> LineKeys = new List<string>();
 	public List<string> Actions = new List<string>();
 	public string ExitGroup = "";
+	// Gates opening the conversation on this branch; null when unconditional.
+	public string Condition;
 	public bool IsPrimaryGroupEntry;
 	// First row of the branch, and the rows that claimed its one-per-branch
 	// fields - kept so a second claim can name where the first one was.
 	public SheetRow Row;
 	public SheetRow GotoRow;
 	public SheetRow LanguageRow;
+	public SheetRow ConditionRow;
 }
 
 class SheetResponse
@@ -238,11 +241,6 @@ static class ConversationSheet
 					report.Error(row, "blank conversation key with no branch above it to continue");
 					continue;
 				}
-				if (row.Condition.Length > 0)
-				{
-					report.Error(row, "a branch has no condition slot - put the condition on an 'entry' row that goes to this branch, or on the player response that leads here");
-					continue;
-				}
 				ApplyBranchFields(openBranch, row, report);
 				AddLine(character, openBranch, row, report);
 				continue;
@@ -299,10 +297,6 @@ static class ConversationSheet
 				return existing;
 			}
 		}
-		if (row.Condition.Length > 0)
-		{
-			report.Error(row, "a branch has no condition slot - put the condition on an 'entry' row that goes to this branch, or on the player response that leads here");
-		}
 		var branch = new SheetBranch { Name = row.Key, Row = row };
 		character.Branches.Add(branch);
 		ApplyBranchFields(branch, row, report);
@@ -310,12 +304,12 @@ static class ConversationSheet
 		return branch;
 	}
 
-	// goto, language and action describe the whole branch, not the paragraph
-	// they sit beside, and may be written on ANY of its rows: both the exit and
-	// the end actions take effect after the LAST line, so a multi-paragraph
-	// branch reads best with them at the bottom, next to the line they follow.
-	// Actions accumulate in row order; the other two are one per branch, and a
-	// second claim is an error rather than a silent overwrite.
+	// goto, language, condition and action describe the whole branch, not the
+	// paragraph they sit beside, and may be written on ANY of its rows: both the
+	// exit and the end actions take effect after the LAST line, so a
+	// multi-paragraph branch reads best with them at the bottom, next to the line
+	// they follow. Actions accumulate in row order; the rest are one per branch,
+	// and a second claim is an error rather than a silent overwrite.
 	static void ApplyBranchFields(SheetBranch branch, SheetRow row, Report report)
 	{
 		if (row.Goto.Length > 0)
@@ -340,6 +334,23 @@ static class ConversationSheet
 			{
 				branch.Language = row.Language;
 				branch.LanguageRow = row;
+			}
+		}
+		if (row.Condition.Length > 0)
+		{
+			List<string> conditions = SplitNames(row.Condition);
+			if (branch.ConditionRow != null)
+			{
+				report.Error(row, $"branch '{branch.Name}' already has the condition '{branch.Condition}' at {branch.ConditionRow.Where} - a branch has one condition");
+			}
+			else if (conditions.Count > 1)
+			{
+				report.Error(row, "a branch has one condition slot - there is no way to and two together yet");
+			}
+			else
+			{
+				branch.Condition = conditions[0];
+				branch.ConditionRow = row;
 			}
 		}
 		branch.Actions.AddRange(SplitNames(row.Action));
@@ -467,9 +478,20 @@ static class ConversationSheet
 		{
 			foreach (SheetResponse response in group.Responses)
 			{
-				if (response.Destination.Length > 0 && !branchNames.Contains(response.Destination))
+				if (response.Destination.Length == 0)
+				{
+					continue;
+				}
+				SheetBranch destination = FindBranch(character, response.Destination);
+				if (destination == null)
 				{
 					report.Error(response.Row, $"response goes to '{response.Destination}', which is not a branch of {character.Name}");
+				}
+				else if (destination.ConditionRow != null)
+				{
+					// The runtime has no branch condition - it gates only the opening,
+					// so a goto would walk straight past it.
+					report.Error(response.Row, $"response goes to '{response.Destination}', which has a condition at {destination.ConditionRow.Where} - a branch's condition gates only opening the conversation on it, and a goto would ignore it; put the condition on this response instead, or goto an unconditioned branch");
 				}
 			}
 		}
@@ -481,16 +503,45 @@ static class ConversationSheet
 			}
 		}
 
-		if (character.Entries.Count == 0)
+		if (character.Entries.Count > 0)
 		{
-			// No explicit entry rows: the conversation opens on the character's
-			// first branch, unconditionally.
+			// Two ways of writing the openings would leave the reader to work out
+			// how they interleave.
+			foreach (SheetBranch branch in character.Branches)
+			{
+				if (branch.ConditionRow != null)
+				{
+					report.Error(branch.ConditionRow, $"{character.Name} declares 'entry' rows, so its openings are written there - move this condition onto an 'entry' row, or replace the 'entry' rows with conditions on the branches");
+				}
+			}
+		}
+		else
+		{
+			// No explicit entry rows: the conversation opens on the first branch,
+			// in sheet order, whose condition passes. The first unconditional
+			// branch is the fallback and ends the walk.
 			if (character.Branches.Count == 0)
 			{
 				report.Error(character.FirstRow, $"{character.Name} has no branches");
 				return;
 			}
-			character.Entries.Add(new SheetEntry { Branch = character.Branches[0].Name, Row = character.Branches[0].Row });
+			SheetBranch fallback = null;
+			foreach (SheetBranch branch in character.Branches)
+			{
+				if (fallback != null)
+				{
+					if (branch.ConditionRow != null)
+					{
+						report.Error(branch.ConditionRow, $"branch '{branch.Name}' can never open the conversation - '{fallback.Name}' above it has no condition and always opens first; move this branch above it");
+					}
+					continue;
+				}
+				character.Entries.Add(new SheetEntry { Branch = branch.Name, Condition = branch.Condition, Row = branch.ConditionRow ?? branch.Row });
+				if (branch.ConditionRow == null)
+				{
+					fallback = branch;
+				}
+			}
 		}
 
 		// The runtime scores a group's response visibility against ONE canonical
@@ -543,6 +594,18 @@ static class ConversationSheet
 				report.Warn(branch.Row, $"branch '{branch.Name}' is never reached - no entry or response goes to it");
 			}
 		}
+	}
+
+	static SheetBranch FindBranch(SheetCharacter character, string name)
+	{
+		foreach (SheetBranch branch in character.Branches)
+		{
+			if (branch.Name == name)
+			{
+				return branch;
+			}
+		}
+		return null;
 	}
 
 	static bool HasKey(SheetCharacter character, string key)

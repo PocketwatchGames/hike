@@ -60,7 +60,7 @@ public partial class Player : CharacterBody3D
 		}
 		else
 		{
-			result = hit.healthDamage >= _health ? EHitResult.Lethal : EHitResult.Health;
+			result = hit.healthDamage >= _health + _bonusHealth ? EHitResult.Lethal : EHitResult.Health;
 		}
 		return new HitPrediction(result, EDamageTriggerFlags.None);
 	}
@@ -273,7 +273,7 @@ public partial class Player : CharacterBody3D
 		incomingDamage = bypassed + absorbable;
 
 		bool wasAlive = _health > 0f;
-		_health = Mathf.Max(0f, _health - incomingDamage);
+		LoseHealth(incomingDamage);
 		if (_health <= 0f)
 		{
 			// Death blood + VO are fired on the alive→dead transition only —
@@ -446,7 +446,7 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		bool wasAlive = _health > 0f;
-		float before = _health;
+		float before = _health + _bonusHealth;
 		if (delta > 0f)
 		{
 			// Heal-over-time effects climb to MaxHealth the same way Heal()
@@ -487,14 +487,14 @@ public partial class Player : CharacterBody3D
 			{
 				RefreshArmorRecharge(false);
 			}
-			_health = Mathf.Max(0f, _health - bypassed);
+			LoseHealth(bypassed);
 		}
 		// Status-effect ticks already fire at 1Hz from StatusEffectController,
 		// so route directly through onDamage / onHeal — no DoT accumulation
 		// needed. Use the realized HP change rather than `delta` so a heal
 		// that climbed into the MaxHealth cap (or a damage tick that bottomed
 		// at 0) only announces what actually moved.
-		float change = _health - before;
+		float change = _health + _bonusHealth - before;
 		GameClient client = GameClient.Current;
 		if (client != null)
 		{
@@ -595,6 +595,7 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		_health = 0f;
+		_bonusHealth = 0f;
 		SpawnWorldEffect(_deathFx);
 		SpawnVoice(_voice?.death);
 		HandleDeath();
@@ -614,6 +615,7 @@ public partial class Player : CharacterBody3D
 		_coldState = null;
 		_hotState = null;
 		_drainedHealth = 0f;
+		_bonusHealth = 0f;
 		_bloodRegenStartMs = 0;
 		_bodyTemperature = _world?.SampleAirTemperature(position) ?? 70f;
 		_warmthZoneCount = 0;

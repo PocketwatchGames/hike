@@ -4,6 +4,6 @@
 
 [resource]
 script = ExtResource("1_heal")
-amount = 0.0
-maxHealthFraction = 1.0
+amount = 600.0
+overflow = true
 metadata/_custom_type_script = "uid://tvnxsypx42je"

@@ -5,19 +5,46 @@
 [ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
 [ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
+[ext_resource type="Script" uid="uid://bt3svar0cond7" path="res://scripts/data/scripting/conditions/ScriptVarCondition.cs" id="Script_ScriptVarCondition"]
+[ext_resource type="Resource" path="res://resources/data/dialogue_scripts/actions/open_shop.tres" id="Act_open_shop"]
+[ext_resource type="Script" uid="uid://cs8svar0acta4" path="res://scripts/data/scripting/actions/SetScriptVarAction.cs" id="Script_SetScriptVarAction"]
+
+[sub_resource type="Resource" id="Inline_1"]
+script = ExtResource("Script_ScriptVarCondition")
+variable = &"intro_innkeeper_greeting"
+op = 0
+operand = 0
+
+[sub_resource type="Resource" id="Inline_2"]
+script = ExtResource("Script_SetScriptVarAction")
+variable = &"intro_innkeeper_greeting"
+op = 0
+operand = 1
 
 [sub_resource type="Resource" id="Entry_1"]
 script = ExtResource("Script_ConversationEntry")
+condition = SubResource("Inline_1")
+branch = &"greeting_shop"
+
+[sub_resource type="Resource" id="Entry_2"]
+script = ExtResource("Script_ConversationEntry")
 branch = &"greeting"
+
+[sub_resource type="Resource" id="Branch_greeting_shop"]
+script = ExtResource("Script_ConversationBranch")
+name = &"greeting_shop"
+lineLocKeys = Array[StringName]([&"intro_innkeeper_greeting_shop_01"])
+endActions = Array[Object]([ExtResource("Act_open_shop")])
 
 [sub_resource type="Resource" id="Branch_greeting"]
 script = ExtResource("Script_ConversationBranch")
 name = &"greeting"
-lineLocKeys = Array[StringName]([&"intro_innkeeper_greeting_01"])
+lineLocKeys = Array[StringName]([&"intro_innkeeper_greeting_01", &"intro_innkeeper_greeting_02"])
+endActions = Array[Object]([ExtResource("Act_open_shop"), SubResource("Inline_2")])
 
 [resource]
 script = ExtResource("Script_ConversationData")
-entryBranches = [SubResource("Entry_1")]
-branches = [SubResource("Branch_greeting")]
+entryBranches = [SubResource("Entry_1"), SubResource("Entry_2")]
+branches = [SubResource("Branch_greeting_shop"), SubResource("Branch_greeting")]
 responseGroups = []
 descriptionLocKey = &"intro_innkeeper_description"

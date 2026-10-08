@@ -614,7 +614,13 @@ Two events, and the split is the design:
   0 = dawn — fairy boons), each spoil cohort, the regrow deadline of berry trees,
   forges, fountains and forage. The only reads of `DayNumber` are RNG seeds.
 - **Lanterns refill at a campfire** (`Sim.RefuelPartyLanterns`: camping there or
-  returning home to one by the Ruby Rosaries) and at a fountain — never at a dawn or a sleep alone.
+  returning home to one by the Ruby Rosaries) — never at a dawn or a sleep alone.
+  A fountain instead ADDS a flat amount and keeps what overflows the max
+  (`BonusLanternOil`, as its heal does `BonusHealth`). It is preserved overflow,
+  not a second pool: spent first by every kind of loss (blood costs included,
+  and never refunded by blood regen), untouched by capped refills and by changes
+  to the max, and itself capped (`PlayerData.maxBonusHealth` /
+  `maxBonusLanternOil`). Potions and spells cap at the max.
 - **A `[TimeOfDayCurve]` must read the same at 0 and 1** — the wrap is played,
   not hidden behind a fade, so `resource_check` refuses a curve that would jump.
 
@@ -729,12 +735,20 @@ wants falls straight out of it:
   sit beside, and may be written on any of its rows.** Both the exit and the end
   actions take effect after the LAST line, so a multi-paragraph branch reads
   best with them at the bottom, beside the line they follow. Actions accumulate
-  in row order; `goto` and `language` are one per branch, and a second one is an
-  error naming the row that claimed it rather than a silent overwrite.
-- **`entry` is a reserved conversation key**: the row declares a
-  `ConversationEntry` (`goto` = the branch it opens on, `condition` gates it,
-  `action` = the entry's actions, no text), walked in sheet order. With no `entry`
-  rows the conversation opens on the character's first branch, unconditionally.
+  in row order; `goto`, `language` and `condition` are one per branch, and a
+  second one is an error naming the row that claimed it rather than a silent
+  overwrite.
+- **A conversation opens on the first branch, top-down, whose `condition`
+  passes**; the first unconditional branch is the fallback and ends the walk, so
+  a greeting with gated variants reads like a switch (`intro_innkeeper`,
+  `intro_watchman`). A branch's condition gates ONLY the opening — the runtime has
+  no branch condition — so a response that `goto`s a conditioned branch is an
+  import error, as is a conditioned branch below the fallback (it can never open).
+- **`entry` is a reserved conversation key**, for the openings a branch condition
+  can't say: an opening with its own `action`s, or one branch opened several
+  ways. The row declares a `ConversationEntry` (`goto` = the branch it opens on,
+  `condition` gates it, no text), walked in sheet order, and a character that has
+  any replaces the branch-condition rule wholesale — mixing the two is an error.
 - **`condition` / `action` cells NAME an authored `.tres`**, `;`-separated for
   several, resolved from `dialogue_scripts/<kind>/` (a verb with no
   proper noun in it — `open_shop`, `language_incomplete`), then
