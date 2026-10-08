@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="KeyData" format=3 uid="uid://tg5k8mt8nadpa"]
+
+[ext_resource type="Script" uid="uid://9bn2ty6ldgy38" path="res://scripts/data/items/KeyData.cs" id="1_key"]
+[ext_resource type="Script" uid="uid://4jozipzp07ftg" path="res://scripts/data/locks/LockData.cs" id="2_lock_script"]
+[ext_resource type="Resource" uid="uid://b22tobik8tsql" path="res://resources/data/locks/standard_lock.tres" id="3_standard_lock"]
+[ext_resource type="Texture2D" uid="uid://bw8ebj857q14u" path="res://assets/textures/items/Key.png" id="4_inv"]
+
+[resource]
+script = ExtResource("1_key")
+opens = Array[ExtResource("2_lock_script")]([ExtResource("3_standard_lock")])
+displayName = &"Key"
+maxStack = 99
+value = 10
+inventorySprite = ExtResource("4_inv")

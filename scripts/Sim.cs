@@ -34,7 +34,7 @@ public partial class Sim : Node3D
     // already been rolled when it fires.
     public event Action OnDawn;
 
-    // Fired when the party rests (sleep to sunrise, pray home, the death wake),
+    // Fired when the party rests (sleep to sunrise, the Ruby Rosaries, the death wake),
     // after the skip's own OnDawn. What a night's sleep resets — spawns, the
     // well-rested pick, summoned pets — runs here, not at dawn: a
     // party that stays up through a sunrise keeps its day.
@@ -605,6 +605,7 @@ public partial class Sim : Node3D
 
         DrainSpawnQueue();
         UpdateEntityLoading(_player.GlobalPosition);
+        TickSettle();
 
         if (CVars.debugNavGrid.Value)
         {

@@ -15,14 +15,12 @@ public partial class ItemSlotPanel : PanelContainer
 	// commit. Authored hidden in the scene; null safely no-ops in SetGhost.
 	[Export] private TextureRect _ghostOverlay;
 	[Export] private Control _statusContainer;
-	// Optional overlay shown while the slot's item is equipped.
-	[Export] private CanvasItem _equippedMarker;
 	// Icon tint for an item the current screen can't act on (a non-material on
 	// the cooking screen).
 	[Export] private Color _unavailableTint = new Color(0.35f, 0.35f, 0.35f, 0.6f);
 	// Icon alpha while the item is picked up by select mode.
 	[Export(PropertyHint.Range, "0,1,0.05")] private float _dimmedAlpha = 0.3f;
-	private bool _equipped;
+	private bool _active;
 	private bool _dimmed;
 	private bool _unavailable;
 	// Scene instantiated per armed effect on the item — typically
@@ -191,13 +189,9 @@ public partial class ItemSlotPanel : PanelContainer
 		_ghostOverlay.Visible = tex != null;
 	}
 
-	public void SetEquipped(bool equipped)
+	public void SetActive(bool active)
 	{
-		_equipped = equipped;
-		if (_equippedMarker != null)
-		{
-			_equippedMarker.Visible = equipped;
-		}
+		_active = active;
 		UpdateIcon();
 	}
 
@@ -205,7 +199,7 @@ public partial class ItemSlotPanel : PanelContainer
 	{
 		if (_itemTexture != null)
 		{
-			_itemTexture.Texture = Item?.data?.SlotIcon(_equipped);
+			_itemTexture.Texture = Item?.data?.SlotIcon(_active);
 		}
 	}
 

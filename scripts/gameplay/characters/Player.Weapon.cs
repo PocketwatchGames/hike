@@ -180,7 +180,23 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// WeaponState is built once and cached — it carries its own combo / level
 	// state like any inventory weapon. Returns null only when the slot is empty
 	// and there's no unarmed fallback (or it's the ranged slot).
-	WeaponState GetMeleeWeaponOrUnarmed(EInventorySlot slot)
+	// The equipped shield, else the bare-handed guard (PlayerData.unarmedShield),
+	// built once and cached like the unarmed weapon. Null only when neither exists.
+	public ShieldState GetShieldOrUnarmed()
+	{
+		if (_inventory?.GetEquipped(EInventorySlot.Shield) is ShieldState shield)
+		{
+			return shield;
+		}
+		if (data?.unarmedShield != null)
+		{
+			_unarmedShield ??= new ShieldState(data.unarmedShield);
+			return _unarmedShield;
+		}
+		return null;
+	}
+
+	public WeaponState GetMeleeWeaponOrUnarmed(EInventorySlot slot)
 	{
 		WeaponState weapon = _inventory?.GetWeapon(slot);
 		if (weapon != null)
@@ -287,6 +303,8 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		EUpgradeSlot upgradeSlot = slot switch
 		{
 			EInventorySlot.WeaponLeft => EUpgradeSlot.Melee,
+			// A parry's counter-strike is a melee blow.
+			EInventorySlot.Shield => EUpgradeSlot.Melee,
 			EInventorySlot.WeaponRight => EUpgradeSlot.Ranged,
 			_ => EUpgradeSlot.None,
 		};
@@ -333,11 +351,11 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// it even if the hotbar selection has moved on since.
 	ItemState _hotbarUseItem;
 
-	// UseItem on the hotbar selection. An item with an action timeline (a potion's
-	// drink, the lantern's tap-to-douse) runs it — but gear must be
-	// equipped to be used, so the first press on an unequipped lantern equips it.
-	// An instant-use item (mud, a meal) is spent on the spot. Any other gear
-	// toggles equipped.
+	// UseItem on the hotbar selection. An unlit lantern is lit; a lit one runs its
+	// timeline (tap to douse, hold to cast). Any other item with an action
+	// timeline (a potion's drink) runs it. An instant-use item (mud, a meal) is
+	// spent on the spot. Gear on the belt is equipped, swapping with what it
+	// replaces.
 	void UseHotbarSelection()
 	{
 		ItemState item = _inventory?.SelectedHotbarItem;
@@ -345,11 +363,14 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			return;
 		}
-		EInventorySlot? equippedSlot = _inventory.GetEquippedSlot(item);
-		if (item.data is IUsableItem usable && usable.ActionProfile != null
-			&& (equippedSlot.HasValue || !item.data.IsEquippable))
+		if (item is LanternState lantern && !_inventory.IsLit(lantern))
 		{
-			if (StartUseAction(item, equippedSlot ?? EInventorySlot.None))
+			_inventory.Light(lantern);
+			return;
+		}
+		if (item.data is IUsableItem usable && usable.ActionProfile != null)
+		{
+			if (StartUseAction(item))
 			{
 				_hotbarUseItem = item;
 			}
@@ -363,7 +384,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		}
 		if (item.data.IsEquippable)
 		{
-			_inventory.ToggleEquip(item);
+			_inventory.Equip(item);
 		}
 	}
 
@@ -418,7 +439,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// Drives the crescendo cues while the lantern's held heal spell charges: the
 	// player-carried charge glow grows with the hold and the screen shake builds
 	// toward the auto-cast, both keyed off the heal tier's charge fraction. The
-	// heal tier is identified generically as a Lantern-slot Charging tier with a
+	// heal tier is identified generically as a lantern-driven Charging tier with a
 	// fuelCost (the toggle tier has none), so a plain light toggle produces no
 	// glow or shake. Called each physics tick right after the runner ticks;
 	// resolves to zero (glow off, no shake) whenever the heal isn't charging.
@@ -427,7 +448,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		float t = 0f;
 		if (_runner != null
 			&& _runner.Phase == EActionPhase.Charging
-			&& _runner.Current.context.sourceSlot == EInventorySlot.Lantern
+			&& _runner.Current.context.primaryItem is LanternState
 			&& (_runner.Current.selectedTier?.fuelCost ?? 0f) > 0f)
 		{
 			t = _runner.CurrentChargeT;
@@ -821,6 +842,8 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		EUpgradeSlot upgradeSlot = slot switch
 		{
 			EInventorySlot.WeaponLeft => EUpgradeSlot.Melee,
+			// A parry's counter-strike is a melee blow.
+			EInventorySlot.Shield => EUpgradeSlot.Melee,
 			EInventorySlot.WeaponRight => EUpgradeSlot.Ranged,
 			_ => EUpgradeSlot.None,
 		};

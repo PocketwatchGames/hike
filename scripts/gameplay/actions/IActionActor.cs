@@ -47,7 +47,14 @@ public interface IActionActor
 	// draws from its backpack + the party stash — the same pool alchemy spells cast
 	// from; mobs no-op (they never run reagent-costed interactives).
 	bool HasReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents);
-	bool SpendReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents);
+	// `spent`, when given, collects the items actually drawn.
+	bool SpendReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents, System.Collections.Generic.List<SpentItem> spent = null);
+
+	// Key gate for a locked interactive (IInteractive.Lock): HasKeyFor peeks at
+	// press, SpendKeyFor spends one key at natural completion and returns which
+	// (null when none was carried). Mobs carry none.
+	bool HasKeyFor(LockData lockData);
+	KeyData SpendKeyFor(LockData lockData);
 
 	// Physical-state queries read by ActorStateRequirement. Players forward
 	// to the live walk/swim state; mobs return sane defaults (grounded, dry)

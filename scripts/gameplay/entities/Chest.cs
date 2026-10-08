@@ -29,6 +29,9 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     // chest open), or any other ITriggerable target. Same-scene
     // NodePath references only.
     [Export] private Godot.Collections.Array<Node> _onOpenTargets = new();
+    // The key this kind of chest takes; null = unlocked. Opening is permanent,
+    // so an opened chest is an unlocked one and nothing else is stored.
+    [Export] private LockData _lock;
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
     private static readonly StringName AnimOpen = "open";
@@ -39,6 +42,8 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     // once the player has found it — see ShouldShowXray.
     private bool _opened;
     private ChestSimState _interactiveState;
+    // The placement's rigged trap (ChestSimState.Trap), instanced under the chest.
+    private ITriggerable _trap;
     private Sim _world;
 
     public ChestSimState SimState => _interactiveState;
@@ -86,6 +91,8 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         return _actions != null && _actions.Count > 0 ? _actions : null;
     }
 
+    public LockData Lock => _open ? null : _lock;
+
     private void UpdateVisuals(bool animateLid)
     {
         // Open/closed is the only state this method gates — perception
@@ -119,17 +126,18 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         _interactiveState.Active = false;
         UpdateVisuals(true);
 
-        // Contents are authored on whatever spawns the chest (ChestSpawnEntry,
-        // WorldGenData, future editor placements) and arrive through the sim
-        // state — the scene itself carries no loot. Ejected through the shared
-        // loot-pop (also used by a dug buried spot): each ItemCount is one pile.
-        _world.EjectLoot(_interactiveState.LootItems, GlobalPosition + Vector3.Up);
+        // Contents arrive through the sim state — the scene itself carries no
+        // loot. The states BECOME the ejected piles, so the chest lets go of
+        // them; a save after opening records an empty chest.
+        _world.EjectLoot(_interactiveState.Contents, GlobalPosition + Vector3.Up);
+        _interactiveState.Contents.Clear();
 
         // Fire any wired traps/effects. The chest itself is the source —
         // ITriggerables that need body-area context (a SpikeDeployer)
         // should be wired indirectly through a TriggerSource (the chain
         // chest → TriggerSource → SpikeDeployer). Targets that don't
         // (a poison cloud, a mob spawner) consume the chest directly.
+        _trap?.Trigger(this);
         if (_onOpenTargets != null)
         {
             for (int i = 0; i < _onOpenTargets.Count; i++)
@@ -142,6 +150,24 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         }
     }
 
+    // An opened chest has sprung its trap, so only a closed one is rigged.
+    private void RigTrap(RiggedTrapData trap)
+    {
+        if (trap?.scene == null)
+        {
+            return;
+        }
+        Node node = trap.scene.Instantiate();
+        if (node is not ITriggerable)
+        {
+            GD.PushError($"Chest: trap '{trap.ResourcePath}' scene root is not an ITriggerable; chest is untrapped.");
+            node.Free();
+            return;
+        }
+        AddChild(node);
+        _trap = (ITriggerable)node;
+    }
+
     public static Chest Create(Sim sim, ChestSimState data)
     {
         var instance = data.Scene.Instantiate<Chest>();
@@ -152,6 +178,10 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
 
         instance._open = !data.Active;
         instance.UpdateVisuals(false);
+        if (!instance._open)
+        {
+            instance.RigTrap(data.Trap);
+        }
 
         return instance;
     }

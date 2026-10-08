@@ -101,6 +101,10 @@ public sealed class SpawnContext
     public StringName InitialBehavior;
     public float InitialBehaviorChance = 1f;
 
+    // The SpawnRow's carried loot, each item with its own chance
+    // (SpawnRow.carriedLoot). Scoped like SpawnConditions; empty outside a row.
+    public Godot.Collections.Array<ItemChance> CarriedLoot;
+
     // True when the position was hand-authored (a subscene marker, or a mark in
     // the world-map painter) rather than sampled off a column. It turns OFF the
     // placement heuristics that exist to judge whether an AUTO-PICKED spot is

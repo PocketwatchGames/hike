@@ -50,6 +50,14 @@ public partial class ModelAnimator : Node
     // player and bunny) means every mesh gets modelMaterial.
     [Export] public ShaderMaterial secondaryMaterial;
     [Export] public string[] secondaryMeshNames = Array.Empty<string>();
+    // Optional recolourable-clothing material for rigs whose clothing and skin
+    // are separate SURFACES of one mesh (the polysplit heroes: an outfit top
+    // carries its bare arms as a second surface). A surface whose imported
+    // material is named outfitSurfaceMaterial gets this — an RGB-mask shader
+    // taking the outfit palette (SetMeshOutfitColors) — and every other surface
+    // keeps modelMaterial, so skin tone and clothing colour coexist on one mesh.
+    [Export] public ShaderMaterial outfitMaterial;
+    [Export] public StringName outfitSurfaceMaterial;
     // Names of MeshInstance3D nodes under `visual` to hide at startup. Imported
     // character FBX often bundle alternate cosmetics (extra hairstyles, the
     // naked body underneath an outfit, optional helmets) that all render at
@@ -70,12 +78,10 @@ public partial class ModelAnimator : Node
     // parts F_, the Male rig M_), so each gender's package scene authors its own.
     // Left empty on non-player rigs (mobs), which never run the compositor.
 
+    // Which rig this is, so an OutfitData resolves to this rig's part names.
+    [Export] public EGender gender;
     // Always visible regardless of equipment: head shell + facial features.
     [Export] public string[] baseMeshNames = Array.Empty<string>();
-    // Bare torso + legs shown when the body armor slot is empty.
-    [Export] public string[] bareBodyMeshNames = Array.Empty<string>();
-    // Skin meshes recolored by the chosen skin tone (face shell + bare body).
-    [Export] public string[] skinMeshNames = Array.Empty<string>();
     // Hair-style menu: a creation-choice index (PlayerState.hairStyle) maps
     // to the hair MeshInstance3D name shown when no head armor is worn. Authored
     // in the SAME order across genders so a creation pick is gender-agnostic; an
@@ -134,6 +140,10 @@ public partial class ModelAnimator : Node
         if (visual != null)
         {
             CollectMeshes(visual);
+        }
+        if (outfitMaterial != null)
+        {
+            SetAllOutfitColors(OutfitData.DefaultPrimary, OutfitData.DefaultSecondary, OutfitData.DefaultTertiary);
         }
         // Default inactive until Player decides which visual is live.
         SetActive(_active);
@@ -197,14 +207,30 @@ public partial class ModelAnimator : Node
 
     // Override every surface of every MeshInstance3D in the subtree with the
     // lit material so the imported FBX materials don't render (they don't read
-    // the world light map). material_override covers all surfaces of a mesh.
+    // the world light map). material_override covers all surfaces of a mesh;
+    // a rig with an outfitMaterial is assigned per surface instead, because
+    // material_override would win over the per-surface split.
     private void ApplyMaterial(Node node)
     {
         if (node is MeshInstance3D mesh)
         {
-            bool secondary = secondaryMaterial != null
-                && Array.IndexOf(secondaryMeshNames, mesh.Name.ToString()) >= 0;
-            mesh.MaterialOverride = secondary ? secondaryMaterial : modelMaterial;
+            if (secondaryMaterial != null && Array.IndexOf(secondaryMeshNames, mesh.Name.ToString()) >= 0)
+            {
+                mesh.MaterialOverride = secondaryMaterial;
+            }
+            else if (outfitMaterial != null && mesh.Mesh != null)
+            {
+                int surfaceCount = mesh.Mesh.GetSurfaceCount();
+                for (int s = 0; s < surfaceCount; s++)
+                {
+                    bool clothing = mesh.Mesh.SurfaceGetMaterial(s)?.ResourceName == outfitSurfaceMaterial;
+                    mesh.SetSurfaceOverrideMaterial(s, clothing ? outfitMaterial : modelMaterial);
+                }
+            }
+            else
+            {
+                mesh.MaterialOverride = modelMaterial;
+            }
         }
         foreach (Node child in node.GetChildren())
         {
@@ -355,20 +381,32 @@ public partial class ModelAnimator : Node
         }
     }
 
-    // Compose the always-on base parts (baseMeshNames: head + face) with an
-    // authored outfit (clothing / hair / hat mesh names) and push the union as
-    // the visible set — the NPC analog of the player's armor compositor, for
-    // hand-dressing a modular humanoid per individual. Empty/null outfit leaves
-    // the scene's authored visibleMeshNames untouched.
-    public void ApplyOutfit(string[] outfitMeshNames)
+    // Dress the rig in an NPC's look — the NPC analog of the player's armor
+    // compositor: base parts (head + face), the hair style, and the outfit's
+    // body and head parts, coloured by the outfit palette, skin tone and hair
+    // colour. Skin goes first because hair shares its surface material.
+    public void ApplyAppearance(NpcAppearanceData look)
     {
-        if (outfitMeshNames == null || outfitMeshNames.Length == 0)
+        if (look.outfit == null)
         {
+            GD.PushError($"ModelAnimator: appearance '{look.ResourcePath}' has no outfit");
             return;
         }
+        string[] clothes = [.. look.outfit.GetBodyMeshNames(gender), .. look.outfit.GetHeadMeshNames(gender)];
+        string hair = GetHairStyleMesh(look.hairStyle);
         var set = new List<string>(baseMeshNames);
-        set.AddRange(outfitMeshNames);
+        set.AddRange(clothes);
+        if (hair != null)
+        {
+            set.Add(hair);
+        }
         SetVisibleMeshes(set.ToArray());
+        SetSkinRecolor(look.skinTone);
+        if (hair != null)
+        {
+            SetMeshRecolor([hair], look.hairColor);
+        }
+        SetMeshOutfitColors(clothes, look.outfit.primaryColor, look.outfit.secondaryColor, look.outfit.tertiaryColor);
     }
 
     // Resolve the hair-style mesh name for a creation-menu index, or null (bald)
@@ -418,15 +456,9 @@ public partial class ModelAnimator : Node
         {
             return;
         }
-        // A vec3 source_color instance uniform takes a Vector3 (R,G,B), matching
-        // SpriteBase's silhouette_tint push — not a Color Variant. Because we push
-        // a Vector3 (not a Color), Godot does NOT apply the source_color sRGB->linear
-        // conversion the hint implies, so we must do it here: the shader replaces the
-        // (linear) sampled albedo with this value, and the palette is authored in
-        // sRGB. Skipping this leaves skin/hair too bright + desaturated (washed
-        // white, blooms in bright sun).
-        Color linear = color.SrgbToLinear();
-        Vector3 rgb = new(linear.R, linear.G, linear.B);
+        // Skipping the sRGB->linear conversion leaves skin/hair too bright +
+        // desaturated (washed white, blooms in bright sun).
+        Vector3 rgb = LinearRgb(color);
         for (int i = 0; i < _meshes.Count; i++)
         {
             MeshInstance3D mesh = _meshes[i];
@@ -440,6 +472,72 @@ public partial class ModelAnimator : Node
                 mesh.SetInstanceShaderParameter("recolor_amount", amount);
             }
         }
+    }
+
+    // Flat-recolour every modelMaterial surface (skin surfaces, under an
+    // outfitMaterial rig) to the skin tone. The clothing surfaces' shader ignores
+    // `recolor`, and the secondaryMaterial meshes (face features) are skipped.
+    // Apply hair after this — it shares the skin surface material.
+    public void SetSkinRecolor(Color color)
+    {
+        Vector3 rgb = LinearRgb(color);
+        for (int i = 0; i < _meshes.Count; i++)
+        {
+            MeshInstance3D mesh = _meshes[i];
+            if (mesh == null || Array.IndexOf(secondaryMeshNames, mesh.Name.ToString()) >= 0)
+            {
+                continue;
+            }
+            mesh.SetInstanceShaderParameter("recolor", rgb);
+            mesh.SetInstanceShaderParameter("recolor_amount", 1f);
+        }
+    }
+
+    // Push an outfit's three palette colours to the named meshes' clothing
+    // surfaces (outfitMaterial's outfit_* instance uniforms).
+    public void SetMeshOutfitColors(string[] meshNames, Color primary, Color secondary, Color tertiary)
+    {
+        if (meshNames == null || meshNames.Length == 0)
+        {
+            return;
+        }
+        for (int i = 0; i < _meshes.Count; i++)
+        {
+            MeshInstance3D mesh = _meshes[i];
+            if (mesh != null && Array.IndexOf(meshNames, mesh.Name.ToString()) >= 0)
+            {
+                PushOutfitColors(mesh, LinearRgb(primary), LinearRgb(secondary), LinearRgb(tertiary));
+            }
+        }
+    }
+
+    private void SetAllOutfitColors(Color primary, Color secondary, Color tertiary)
+    {
+        Vector3 p = LinearRgb(primary);
+        Vector3 s = LinearRgb(secondary);
+        Vector3 t = LinearRgb(tertiary);
+        for (int i = 0; i < _meshes.Count; i++)
+        {
+            if (_meshes[i] != null)
+            {
+                PushOutfitColors(_meshes[i], p, s, t);
+            }
+        }
+    }
+
+    private static void PushOutfitColors(MeshInstance3D mesh, Vector3 primary, Vector3 secondary, Vector3 tertiary)
+    {
+        mesh.SetInstanceShaderParameter("outfit_primary", primary);
+        mesh.SetInstanceShaderParameter("outfit_secondary", secondary);
+        mesh.SetInstanceShaderParameter("outfit_tertiary", tertiary);
+    }
+
+    // A vec3 source_color instance uniform pushed as a Vector3 skips Godot's
+    // sRGB->linear conversion, so do it here (colours are authored in sRGB).
+    private static Vector3 LinearRgb(Color color)
+    {
+        Color linear = color.SrgbToLinear();
+        return new Vector3(linear.R, linear.G, linear.B);
     }
 
     // Toggle a VisualInstance3D render-layer bit on every model mesh. Used by the

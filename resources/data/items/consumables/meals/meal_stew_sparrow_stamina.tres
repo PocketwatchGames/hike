@@ -7,7 +7,8 @@
 [ext_resource type="Resource" uid="uid://bfaxu88un33k" path="res://resources/data/status_effects/well_fed_stamina.tres" id="5_status"]
 [ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="6_icon"]
 [ext_resource type="Resource" uid="uid://uq5vwg0wvv0" path="res://resources/data/items/loot/sparrow_meat.tres" id="7_sparrow_meat"]
-[ext_resource type="Resource" uid="uid://bnm2tuwp6a1ap" path="res://resources/data/items/loot/mushroom_green.tres" id="8_mushroom_green"]
+[ext_resource type="Resource" uid="uid://uyofr5iy0be2j" path="res://resources/data/items/loot/mushroom_green.tres" id="8_mushroom_green"]
+[ext_resource type="Script" uid="uid://cy238vqb2k86o" path="res://scripts/data/items/RecipeData.cs" id="recipe_data"]
 
 [sub_resource type="Resource" id="Effect_meal"]
 script = ExtResource("3_apply")
@@ -22,10 +23,14 @@ script = ExtResource("4_input")
 item = ExtResource("8_mushroom_green")
 count = 3
 
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("recipe_data")
+inputs = Array[ExtResource("4_input")]([SubResource("Resource_input_meat"), SubResource("Resource_input_mushroom")])
+
 [resource]
 script = ExtResource("1_consumable")
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_meal")])
-recipeInputs = Array[ExtResource("4_input")]([SubResource("Resource_input_meat"), SubResource("Resource_input_mushroom")])
+recipe = SubResource("Recipe")
 displayName = &"Energizing Sparrow Stew"
 description = "Sparrow meat and green mushrooms. Fills you up and quickens the step."
 maxStack = 99

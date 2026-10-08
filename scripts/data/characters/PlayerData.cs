@@ -422,13 +422,13 @@ public partial class PlayerData : Resource
 	[Export] public float waterCurrentDrag = 1f;
 
 	[ExportGroup("Inventory")]
-	// Must match the number of backpack ItemSlotPanels wired in
-	// inventory_panel.tscn — every data slot has to be visible, or items can
-	// land in an un-rendered slot and appear to vanish.
-	[Export] public int backpackCapacity = 12;
-	// The first this-many backpack slots are the HUD hotbar the player cycles
-	// through and uses from the field (Inventory.CycleHotbar / Player.UseHotbarSelection).
-	[Export(PropertyHint.Range, "1,16,1")] public int hotbarSize = 8;
+	// Base slot counts before worn armor (ArmorData.beltSlots / backpackSlots).
+	// The inventory screens build their grids from the live counts.
+	[Export(PropertyHint.Range, "0,64,1")] public int backpackCapacity = 12;
+	// The belt is the HUD hotbar the player cycles through and uses from the
+	// field (Inventory.CycleHotbar / Player.UseHotbarSelection), and the only
+	// place a lantern can be lit.
+	[Export(PropertyHint.Range, "0,16,1")] public int beltCapacity = 2;
 
 	[ExportGroup("Combat")]
 	[Export] public float maxHealth = 1000f;
@@ -441,6 +441,11 @@ public partial class PlayerData : Resource
 	// WeaponState the first time it's needed. Null = no unarmed attack (an empty
 	// melee press does nothing).
 	[Export] public WeaponData unarmedWeapon;
+
+	// The guard the sneak crouch raises when the Shield slot is empty — bare hands.
+	// An ordinary ShieldData with no heldModel, held on the player rather than in
+	// the inventory (Player.GetShieldOrUnarmed). Null = no block without a shield.
+	[Export] public ShieldData unarmedShield;
 
 	// Inherent stat modifiers. Composed with equipped ArmorData.modifiers
 	// and active StatusEffectData.modifiers when the actor queries any
@@ -474,7 +479,7 @@ public partial class PlayerData : Resource
 	// can block or parry again — keyed off releasing the block, not off being
 	// hit, so it stops flicker-blocking / instant re-crouch spam. Re-crouching
 	// inside this window still assumes the pose but neither soaks nor parries
-	// until it elapses. See Player.GetSneakBlockWeapon.
+	// until it elapses. See Player.GetRaisedShield.
 	[Export] public float blockReengageCooldown = 0.5f;
 
 	[ExportGroup("Armor")]
@@ -691,6 +696,9 @@ public partial class PlayerData : Resource
 	// StringName that ArmorData.outfit (worn armor) references. Mesh names are
 	// authored once here — no item carries raw rig part names.
 	[Export] public Godot.Collections.Dictionary<StringName, OutfitData> outfits = new();
+	// The outfit worn with nothing in the body armor slot — a key into
+	// `outfits`, like ArmorData.outfit.
+	[Export] public StringName unarmoredOutfit;
 
 	// Registry lookup. Null for a missing / empty key — the compositor then
 	// falls back to the bare body / styled hair.
@@ -711,7 +719,7 @@ public partial class PlayerData : Resource
 	// names a hair MeshInstance3D on the rig to show. Defaults give a usable
 	// spread out of the box and are fully overridable in the inspector.
 	//
-	// Skin tones recolor the face + bare body meshes (see PlayerArmorVisual).
+	// Skin tones recolor every skin surface of the rig (see ModelAnimator.SetSkinRecolor).
 	[Export] public Color[] skinTones =
 	{
 		new Color(0.96f, 0.80f, 0.69f), // pale

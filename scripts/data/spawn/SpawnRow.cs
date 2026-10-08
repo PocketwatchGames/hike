@@ -44,6 +44,15 @@ public partial class SpawnRow : Resource
     [Export] public StringName initialBehavior;
     [Export(PropertyHint.Range, "0,1,0.01")] public float initialBehaviorChance = 1f;
 
+    // Items this row's mobs carry on top of their species loot, each with the
+    // FRACTION of them that carry it ("a quarter of these elites carry a key").
+    // The container's to state for the same reason as initialBehavior: a
+    // key-carrying swamp elite is the same creature as one elsewhere that carries
+    // nothing. Each item rolls on its own, once at spawn, and is baked into the
+    // mob's loot, so a world's carriers are fixed. Read by the mob and npc
+    // entries; empty = nothing extra.
+    [Export] public Godot.Collections.Array<ItemChance> carriedLoot = new();
+
     // Run the entry's placement gates and spawn it, with this row's statements
     // in force. They ride the context because Spawn is overridden by ~20 entry
     // types and only the mob, npc and chest ones care — see SpawnContext.
@@ -95,12 +104,14 @@ public partial class SpawnRow : Resource
         private readonly ESpawnConditions _conditions;
         private readonly StringName _behavior;
         private readonly float _chance;
+        private readonly Godot.Collections.Array<ItemChance> _carriedLoot;
 
         public Stamp(SpawnContext context)
         {
             _conditions = context.SpawnConditions;
             _behavior = context.InitialBehavior;
             _chance = context.InitialBehaviorChance;
+            _carriedLoot = context.CarriedLoot;
         }
 
         public void Restore(SpawnContext context)
@@ -112,6 +123,7 @@ public partial class SpawnRow : Resource
             context.SpawnConditions = _conditions;
             context.InitialBehavior = _behavior;
             context.InitialBehaviorChance = _chance;
+            context.CarriedLoot = _carriedLoot;
         }
     }
 
@@ -125,6 +137,7 @@ public partial class SpawnRow : Resource
         context.SpawnConditions = spawnConditions;
         context.InitialBehavior = initialBehavior;
         context.InitialBehaviorChance = initialBehaviorChance;
+        context.CarriedLoot = carriedLoot;
         return previous;
     }
 }

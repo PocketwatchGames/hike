@@ -16,10 +16,23 @@ public partial class OutfitData : Resource
 	[Export] public string[] bodyMeshNamesFemale = System.Array.Empty<string>();
 	[Export] public string[] bodyMeshNamesMale = System.Array.Empty<string>();
 
-	// Head parts (hood / helm), shown in place of the hair-style fallback.
-	// Empty = the outfit leaves the head bare and the styled hair shows.
+	// Head parts (hood / helm / hat). On the player they replace the styled
+	// hair; an NPC wears them over its hair (pick a short style, like the "b"
+	// cuts). Empty = the outfit leaves the head bare.
 	[Export] public string[] headMeshNamesFemale = System.Array.Empty<string>();
 	[Export] public string[] headMeshNamesMale = System.Array.Empty<string>();
+
+	// The pack's bodyColor1 precolour atlas, as a palette: what a clothing
+	// surface shows when nothing has coloured it.
+	public static readonly Color DefaultPrimary = new(0.820f, 0.592f, 0.365f);
+	public static readonly Color DefaultSecondary = new(0.302f, 0.106f, 0f);
+	public static readonly Color DefaultTertiary = new(0.796f, 0.796f, 0.678f);
+
+	// Clothing palette, weighting the R / G / B regions of the rig's genericRGB
+	// mask (model_lit_outfit).
+	[Export] public Color primaryColor = DefaultPrimary;
+	[Export] public Color secondaryColor = DefaultSecondary;
+	[Export] public Color tertiaryColor = DefaultTertiary;
 
 	public string[] GetBodyMeshNames(EGender gender)
 	{

@@ -165,6 +165,20 @@ instance uniform float recolor_amount : hint_range(0.0, 1.0) = 0.0;
 // ones so the instance-uniform indices stay aligned with model_xray.gdshader.
 instance uniform float clip_anchor_offset = 0.0;
 
+#ifdef MODEL_RGB_MASK
+// --- Outfit palette (instance uniforms) -------------------------------------
+// `albedo_tex` is an RGB region mask instead of colour: each channel's
+// brightness weights one of three per-instance colours (the polysplit
+// genericRGB atlas). One mesh's skin and clothing surfaces share these
+// instance slots, so the skin surface's `recolor` and the clothing's palette
+// coexist on the same MeshInstance3D. Declared after every shared name and
+// mirrored in model_xray so the indices stay aligned. Pushed from
+// ModelAnimator.SetMeshOutfitColors.
+instance uniform vec3 outfit_primary : source_color = vec3(1.0);
+instance uniform vec3 outfit_secondary : source_color = vec3(1.0);
+instance uniform vec3 outfit_tertiary : source_color = vec3(1.0);
+#endif
+
 // --- Ambient occlusion ------------------------------------------------------
 // AO is a multiplicative darken on the diffuse lighting (the same place the
 // terrain applies its baked AO — voxel_clip). Two independent sources feed it,
@@ -434,11 +448,17 @@ void fragment() {
 #else
 	vec4 tex = texture(albedo_tex, UV);
 #endif
+#ifdef MODEL_RGB_MASK
+	// Mask must be sampled sRGB-decoded (source_color) for the defaults to
+	// reproduce the pack's baked precolour atlases.
+	vec3 base = tex.r * outfit_primary + tex.g * outfit_secondary + tex.b * outfit_tertiary;
+#else
 	vec3 base = tex.rgb * color_tint;
 	// Palette recolor: flat-replace the sampled hue with the chosen tone before
 	// lighting (inert at recolor_amount 0, the default for every non-skin/hair
 	// mesh). See the instance-uniform comment above.
 	base = mix(base, recolor, recolor_amount);
+#endif
 
 	// The normal the form term shades against. Plain geometry unless a detail
 	// map perturbs it below.

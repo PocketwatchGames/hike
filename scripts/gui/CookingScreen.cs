@@ -3,8 +3,8 @@ using System;
 using System.Collections.Generic;
 
 // Cook tab of the camp screen. Left = the forge's experimentation slots + commit
-// button (CookingPanel); center = the cook's backpack (BackpackPanel over
-// Inventory.Backpack), whose materials are the ingredient source.
+// button (CookingPanel); center = the cook's belt and backpack (BackpackPanels
+// over Inventory.Belt / Backpack), whose materials are the ingredient source.
 //
 // Cooking is INSTANT — there is no cook job or timer. A recipe is a cookable
 // ConsumableData, and cooking it grants one into the cook's backpack (dropped at
@@ -18,7 +18,8 @@ using System.Collections.Generic;
 public partial class CookingScreen : Control
 {
 	[Export] public GameClient gameClient;
-	// The cook's backpack, slot for slot; only its materials can be cooked.
+	// The cook's belt and backpack, slot for slot; only their materials can be cooked.
+	[Export] private BackpackPanel _beltPanel;
 	[Export] private BackpackPanel _backpackPanel;
 	[Export] private CookingPanel _cookingPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
@@ -42,10 +43,15 @@ public partial class CookingScreen : Control
 		{
 			gameClient.onPlayerSpawned += OnPlayerSpawned;
 		}
+		if (_beltPanel != null)
+		{
+			_beltPanel.onSlotFocused += OnMaterialFocused;
+			_beltPanel.onSlotButtonUp += OnBeltMaterialTap;
+		}
 		if (_backpackPanel != null)
 		{
 			_backpackPanel.onSlotFocused += OnMaterialFocused;
-			_backpackPanel.onSlotButtonUp += OnMaterialTap;
+			_backpackPanel.onSlotButtonUp += OnBackpackMaterialTap;
 		}
 		if (_cookingPanel != null)
 		{
@@ -64,10 +70,15 @@ public partial class CookingScreen : Control
 		{
 			gameClient.onPlayerSpawned -= OnPlayerSpawned;
 		}
+		if (_beltPanel != null)
+		{
+			_beltPanel.onSlotFocused -= OnMaterialFocused;
+			_beltPanel.onSlotButtonUp -= OnBeltMaterialTap;
+		}
 		if (_backpackPanel != null)
 		{
 			_backpackPanel.onSlotFocused -= OnMaterialFocused;
-			_backpackPanel.onSlotButtonUp -= OnMaterialTap;
+			_backpackPanel.onSlotButtonUp -= OnBackpackMaterialTap;
 		}
 		if (_cookingPanel != null)
 		{
@@ -115,7 +126,7 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		ItemSlotPanel firstIngredient = _backpackPanel?.FirstOccupied();
+		ItemSlotPanel firstIngredient = _backpackPanel?.FirstOccupied() ?? _beltPanel?.FirstOccupied();
 		if (firstIngredient != null)
 		{
 			firstIngredient.GrabFocus();
@@ -159,15 +170,21 @@ public partial class CookingScreen : Control
 	SimState WorldSim => _player?.Sim?.WorldState?.SimState;
 	Inventory CookInventory => _player?.Inventory;
 
-	// Only materials can be cooked, so everything else in the backpack is greyed.
+	// Only materials can be cooked, so everything else carried is greyed.
 	void RefreshMaterials()
 	{
-		if (_backpackPanel == null)
+		RefreshMaterials(_beltPanel, CookInventory?.Belt);
+		RefreshMaterials(_backpackPanel, CookInventory?.Backpack);
+	}
+
+	static void RefreshMaterials(BackpackPanel panel, Inventory.CarriedGrid grid)
+	{
+		if (panel == null)
 		{
 			return;
 		}
-		_backpackPanel.Refresh(CookInventory?.Backpack);
-		foreach (ItemSlotPanel slot in _backpackPanel.EnumerateSlots())
+		panel.Refresh(grid?.Slots);
+		foreach (ItemSlotPanel slot in panel.EnumerateSlots())
 		{
 			slot.SetUnavailable(slot.Item != null && !IsCookable(slot.Item));
 		}
@@ -200,21 +217,26 @@ public partial class CookingScreen : Control
 		_itemInfoPanel?.SetItem(IsCookable(item) ? item : null);
 	}
 
-	void OnMaterialTap(int index, ItemSlotPanel panel)
+	void OnBeltMaterialTap(int index, ItemSlotPanel panel)
 	{
-		CookMaterial(index, 1);
+		CookMaterial(CookInventory?.Belt, index, 1);
 	}
 
-	// Move up to `count` units of the material at backpack `index` into the
-	// cooking slots.
-	void CookMaterial(int index, int count)
+	void OnBackpackMaterialTap(int index, ItemSlotPanel panel)
+	{
+		CookMaterial(CookInventory?.Backpack, index, 1);
+	}
+
+	// Move up to `count` units of the material at `grid[index]` into the cooking
+	// slots.
+	void CookMaterial(Inventory.CarriedGrid grid, int index, int count)
 	{
 		Inventory inv = CookInventory;
-		if (inv == null || index < 0 || index >= inv.Backpack.Count || _cookingPanel == null)
+		if (inv == null || grid == null || _cookingPanel == null)
 		{
 			return;
 		}
-		ItemState src = inv.Backpack[index];
+		ItemState src = grid.At(index);
 		if (!IsCookable(src))
 		{
 			return;
@@ -273,7 +295,7 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		if (_player == null || !_player.SpendReagents(recipe.recipeInputs))
+		if (_player == null || !_player.SpendReagents(recipe.recipe?.inputs))
 		{
 			return;
 		}
@@ -288,7 +310,7 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		_itemInfoPanel?.SetItem(recipe.CreateState(), forceIdentified: true, reagents: recipe.recipeInputs);
+		_itemInfoPanel?.SetItem(recipe.CreateState(), forceIdentified: true, reagents: recipe.recipe?.inputs);
 	}
 
 	// ---- Cook button -------------------------------------------------------

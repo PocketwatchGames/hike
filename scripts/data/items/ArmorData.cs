@@ -5,6 +5,11 @@ public partial class ArmorData : ItemData
 {
 	[Export] public float maxArmor = 0f;
 	[Export] public EInventorySlot armorSlot = EInventorySlot.Armor;
+	// Slots this piece adds to the wearer's belt / backpack while worn (negative
+	// takes them away). Taking it off repacks whatever sat in the lost slots into
+	// free ones, and drops what doesn't fit at the wearer's feet.
+	[Export] public int beltSlots = 0;
+	[Export] public int backpackSlots = 0;
 
 	protected override EItemCategory ComputeCategory() => armorSlot == EInventorySlot.Helmet ? EItemCategory.Helmet : EItemCategory.Armor;
 

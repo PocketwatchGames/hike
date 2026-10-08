@@ -8,15 +8,14 @@ public partial class ChestSpawnEntry : SpawnEntryData
 
     public override PackedScene PaletteScene => scene;
 
-    // Optional alternate scene chosen 50% of the time when set (e.g. a
-    // poison chest variant). Null = always use Scene.
-    [Export] public PackedScene altScene;
-    // Contents the chest drops on open, with per-item min/max for variance.
-    // Ranges are rolled here at worldgen, then baked into the ChestSimState
-    // as concrete ItemCounts — opening the chest just ejects the resolved
-    // counts, so a chest that rolled "4 mushrooms" at gen time always
-    // drops 4 (no re-roll on open, no surprise between save/load).
-    [Export] public ItemCountRange[] lootItems = [];
+    // Rigged to spring when the chest opens; null = untrapped. Rolled at spawn
+    // against trapChance.
+    [Export] public RiggedTrapData trap;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float trapChance = 1f;
+    // What the chest holds, rolled here at spawn into the ChestSimState's
+    // Contents — so a chest that rolled "4 mushrooms" always holds 4, with no
+    // re-roll on open and no surprise between save/load.
+    [Export] public ItemCountRange[] contents = [];
 
     protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
@@ -24,47 +23,30 @@ public partial class ChestSpawnEntry : SpawnEntryData
         {
             return;
         }
-        PackedScene chestScene = altScene != null && rng.NextDouble() < 0.5
-            ? altScene
-            : scene;
-        var chest = new ChestSimState(position, chestScene)
+        var chest = new ChestSimState(position, scene)
         {
+            Trap = trap != null && rng.NextDouble() < trapChance ? trap : null,
             RotationY = FacingY(context),
-            // This chest's own authored loot, plus any zone-unique drops for the
-            // zone it spawned in (ZoneGenData.zoneLoot, threaded via SpawnContext)
-            // — so a region's signature loot rides every chest without forking the
-            // shared chest / spawn-group resources.
-            LootItems = Combine(Resolve(lootItems, rng), Resolve(context?.ZonePerChestLoot, rng)),
             SpawnConditions = context?.SpawnConditions ?? ESpawnConditions.None,
         };
+        // This chest's own authored contents, plus any zone-unique drops for the
+        // zone it spawned in (ZoneGenData.perChestLoot, threaded via
+        // SpawnContext) — so a region's signature loot rides every chest without
+        // forking the shared chest / spawn-group resources.
+        Resolve(contents, rng, chest.Contents);
+        Resolve(context?.ZonePerChestLoot, rng, chest.Contents);
         ws.AddEntity(chest);
     }
 
-    // Concatenate two already-rolled loot arrays; either may be null/empty.
-    private static ItemCount[] Combine(ItemCount[] a, ItemCount[] b)
+    private static void Resolve(ItemCountRange[] ranges, Random rng, System.Collections.Generic.List<ItemState> into)
     {
-        if (a == null || a.Length == 0) { return b; }
-        if (b == null || b.Length == 0) { return a; }
-        var merged = new ItemCount[a.Length + b.Length];
-        a.CopyTo(merged, 0);
-        b.CopyTo(merged, a.Length);
-        return merged;
-    }
-
-    // Roll every authored range into a concrete ItemCount. Shared with
-    // WorldEditor's placement path so editor-spawned and worldgen-spawned
-    // chests resolve their ranges the same way.
-    public static ItemCount[] Resolve(ItemCountRange[] ranges, Random rng)
-    {
-        if (ranges == null || ranges.Length == 0)
+        if (ranges == null)
         {
-            return null;
+            return;
         }
-        var resolved = new ItemCount[ranges.Length];
         for (int i = 0; i < ranges.Length; i++)
         {
-            resolved[i] = ranges[i]?.Resolve(rng);
+            ranges[i]?.Resolve(rng, into);
         }
-        return resolved;
     }
 }

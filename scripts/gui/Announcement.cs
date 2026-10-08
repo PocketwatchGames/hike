@@ -20,6 +20,11 @@ public enum EAnnouncementType
 	// Generic event-log notice with no dedicated category — carries its full
 	// text in `title`. Used by interactive-action refusals ("Danger Nearby").
 	Notice,
+	// The player picked loot up by pressing interact. Title is the verb, subtitle
+	// the item (and count).
+	ItemPickedUp,
+	// An interaction spent an item (a key on a chest). Title is the whole line.
+	ItemUsed,
 }
 
 // Carrier for a queued HUD announcement. Built by whoever discovers the

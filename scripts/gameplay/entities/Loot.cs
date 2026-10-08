@@ -898,7 +898,16 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		// Auto-pickup loot suppresses its own interact highlight — body entry
 		// will commit the pickup on the next physics frame, so showing the
 		// "press to interact" affordance would just flicker.
-		if (CanAutoPickup(player))
+		// Backpack room is deliberately NOT gated here: loot that won't fit stays
+		// targetable so the press can be refused with a reason (PickupFitsRequirement
+		// on the Pick Up action) instead of the pile silently ignoring the player.
+		return !CanAutoPickup(player);
+	}
+
+	// Whether picking this up would land in `player`'s backpack in full.
+	public bool FitsIn(Player player)
+	{
+		if (player?.Inventory == null)
 		{
 			return false;
 		}
@@ -915,8 +924,6 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			return true;
 		}
-		// Only allow interact when the whole stack fits; otherwise the action would
-		// run to completion and silently fail.
 		ItemData data = _simState?.Item?.data ?? _simState?.Data;
 		if (data == null)
 		{
@@ -952,7 +959,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			return;
 		}
-		FinalizePickup();
+		FinalizePickup(announce: true);
 	}
 
 	// True when this loot hands the player a choice of boons on interact instead
@@ -992,13 +999,15 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		return true;
 	}
 
-	private void FinalizePickup()
+	// `announce` logs the pickup to the event log — only a deliberate interact
+	// press does; contact and magnet pickups stay quiet.
+	private void FinalizePickup(bool announce = false)
 	{
 		if (_pickedUp)
 		{
 			return;
 		}
-		if (!TryDepositItem(_picker))
+		if (!TryDepositItem(_picker, announce))
 		{
 			return;
 		}
@@ -1047,7 +1056,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 	// Returns true if the pickup should proceed. World-spawned loot with no
 	// attached Item synthesizes a fresh ItemState from Data; legacy entries
 	// with neither Data nor Item still pick up cleanly (deposit nothing).
-	private bool TryDepositItem(Player player)
+	private bool TryDepositItem(Player player, bool announce)
 	{
 		if (_simState == null)
 		{
@@ -1076,9 +1085,32 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			return false;
 		}
+		// Resolved before the take: a merge into an existing stack drains `toAdd`.
+		string line = announce ? FormatPickupLine(toAdd) : null;
 		// Where the item lands is the player's decision, not the loot's. A refusal
 		// leaves the pile in the world.
-		return player.TakeItem(toAdd);
+		if (!player.TakeItem(toAdd))
+		{
+			return false;
+		}
+		if (line != null)
+		{
+			GameClient.Current?.Announce(new Announcement
+			{
+				type = EAnnouncementType.ItemPickedUp,
+				title = Loc.Get(Loc.Keys.picked_up),
+				subtitle = line,
+				icon = toAdd.data.inventorySprite,
+			});
+		}
+		return true;
+	}
+
+	private static string FormatPickupLine(ItemState item)
+	{
+		SimState sim = Sim.Current?.WorldState?.SimState;
+		string name = sim != null ? sim.GetItemDisplayName(item) : item.data.displayName.ToString();
+		return item.stackCount > 1 ? Loc.Format(Loc.Keys.picked_up_count, name, item.stackCount) : name;
 	}
 
 	private void OnPickedUpFinished(StringName animName)

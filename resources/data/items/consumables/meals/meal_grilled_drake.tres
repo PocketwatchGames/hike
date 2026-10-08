@@ -7,6 +7,7 @@
 [ext_resource type="Resource" uid="uid://dwfk3naq2pr5x" path="res://resources/data/status_effects/status_well_fed.tres" id="5_status"]
 [ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="6_icon"]
 [ext_resource type="Resource" uid="uid://khjswp5qnpnm" path="res://resources/data/items/loot/drake_meat.tres" id="7_drake_meat"]
+[ext_resource type="Script" uid="uid://cy238vqb2k86o" path="res://scripts/data/items/RecipeData.cs" id="recipe_data"]
 
 [sub_resource type="Resource" id="Effect_meal"]
 script = ExtResource("3_apply")
@@ -17,10 +18,14 @@ script = ExtResource("4_input")
 item = ExtResource("7_drake_meat")
 count = 2
 
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("recipe_data")
+inputs = Array[ExtResource("4_input")]([SubResource("Resource_input_meat")])
+
 [resource]
 script = ExtResource("1_consumable")
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_meal")])
-recipeInputs = Array[ExtResource("4_input")]([SubResource("Resource_input_meat")])
+recipe = SubResource("Recipe")
 displayName = &"Grilled Drake"
 description = "Rich, smoky meat with a fiery aftertaste."
 maxStack = 99

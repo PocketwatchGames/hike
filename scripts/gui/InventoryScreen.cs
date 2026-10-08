@@ -1,13 +1,13 @@
 using Godot;
-using System.Collections.Generic;
 
-// Inventory tab rendered inside AlmanacScreen: player stats, the weapons equipped
-// in the left / right slots (ItemInfoPanel viewers), and the whole backpack slot
-// for slot — highlighting a slot reads its item out in the detail panel below the
-// grid. The backpack is editable:
+// Inventory tab rendered inside AlmanacScreen: player stats, the member's equip
+// slots, the belt and the whole backpack slot for slot — highlighting a slot reads its item
+// out in the detail panel. Everything is editable:
 //   A  — select the highlighted item; with one selected, move it to the
-//        highlighted slot (swapping with whatever is there). Cancel deselects.
-//   X  — use / equip / unequip the highlighted item, per its kind and state.
+//        highlighted slot. Grid to grid (belt or backpack) swaps with whatever is there; an
+//        equip slot takes only its own kind of gear, swapping out what it held.
+//        Cancel deselects.
+//   X  — use / light / equip / unequip the highlighted item, per its kind and state.
 //   Y  — hold to drop the highlighted item at the member's feet.
 // The three button hints belong to AlmanacScreen, which hands them over
 // (BindActionHints) and hides them on every other tab.
@@ -15,9 +15,7 @@ using System.Collections.Generic;
 public partial class InventoryScreen : Control
 {
 	[Export] private PlayerStatsPanel _statsPanel;
-	[Export] private ItemInfoPanel _meleePanel;
-	[Export] private ItemInfoPanel _rangedPanel;
-	[Export] private BackpackPanel _backpackPanel;
+	[Export] private InventoryPanel _inventoryPanel;
 	[Export] private ItemInfoPanel _highlightPanel;
 	// Asks how many when a hold-to-drop lands on a stack.
 	[Export] private ItemCountPanel _countPanel;
@@ -30,16 +28,43 @@ public partial class InventoryScreen : Control
 	const string UseAction = "MenuSecondary";
 	const string DropAction = "MenuTertiary";
 
+	enum ESide
+	{
+		None,
+		Belt,
+		Backpack,
+		// The equip slots; the index is the EInventorySlot.
+		Equip,
+	}
+
+	// A slot of the member's inventory: a belt or backpack index, or an equip slot.
+	readonly struct Slot
+	{
+		public readonly ESide side;
+		public readonly int index;
+
+		public Slot(ESide side, int index)
+		{
+			this.side = side;
+			this.index = index;
+		}
+
+		public static readonly Slot None = new(ESide.None, -1);
+		public bool IsNone => side == ESide.None;
+		public bool equip => side == ESide.Equip;
+		public bool Is(Slot other) => side == other.side && index == other.index;
+		public EInventorySlot EquipSlot => equip ? (EInventorySlot)index : EInventorySlot.None;
+	}
+
 	GameClient _gameClient;
 	Player _player;
 	ButtonHint _hintSelect;
 	ButtonHint _hintDrop;
 	ButtonHint _hintUse;
 
-	// Backpack indices: the slot under the cursor, and the slot picked up for a
-	// move (-1 = none).
-	int _focusedIndex = -1;
-	int _selectedIndex = -1;
+	// The slot under the cursor, and the slot picked up for a move.
+	Slot _focused = Slot.None;
+	Slot _selected = Slot.None;
 	float _dropHeld;
 	// Latched once a hold has dropped something, so keeping X down doesn't drop
 	// the next item that slides under the cursor.
@@ -61,21 +86,33 @@ public partial class InventoryScreen : Control
 	public override void _Ready()
 	{
 		VisibilityChanged += OnVisibilityChanged;
-		if (_backpackPanel != null)
+		WireGrid(_inventoryPanel?.BeltGrid, ESide.Belt);
+		WireGrid(_inventoryPanel?.BackpackGrid, ESide.Backpack);
+		if (_inventoryPanel != null)
 		{
-			_backpackPanel.onSlotFocused += OnSlotFocused;
-			_backpackPanel.onSlotButtonUp += OnSlotActivated;
+			foreach (EInventorySlot equip in InventoryPanel.EquipSlots)
+			{
+				ItemSlotPanel panel = _inventoryPanel.EquipPanel(equip);
+				if (panel == null)
+				{
+					continue;
+				}
+				var slot = new Slot(ESide.Equip, (int)equip);
+				panel.onFocusEntered += _ => OnSlotFocused(slot);
+				panel.onButtonUp += _ => OnSlotActivated(slot);
+			}
 		}
 		_highlightPanel?.SetItem(null);
 	}
 
-	public override void _ExitTree()
+	void WireGrid(BackpackPanel grid, ESide side)
 	{
-		if (_backpackPanel != null)
+		if (grid == null)
 		{
-			_backpackPanel.onSlotFocused -= OnSlotFocused;
-			_backpackPanel.onSlotButtonUp -= OnSlotActivated;
+			return;
 		}
+		grid.onSlotFocused += (index, _) => OnSlotFocused(new Slot(side, index));
+		grid.onSlotButtonUp += (index, _) => OnSlotActivated(new Slot(side, index));
 	}
 
 	void OnVisibilityChanged()
@@ -99,8 +136,8 @@ public partial class InventoryScreen : Control
 			{
 				_player.Inventory.onChanged -= Refresh;
 			}
-			_selectedIndex = -1;
-			_focusedIndex = -1;
+			_selected = Slot.None;
+			_focused = Slot.None;
 			ResetDropHold();
 			_highlightPanel?.SetItem(null);
 		}
@@ -114,53 +151,89 @@ public partial class InventoryScreen : Control
 		{
 			return;
 		}
-		_backpackPanel?.FirstOccupied()?.GrabFocus();
+		(_inventoryPanel?.BeltGrid?.FirstOccupied() ?? _inventoryPanel?.BackpackGrid?.FirstOccupied())?.GrabFocus();
 	}
 
 	Inventory Inv => _player?.Inventory;
 
-	ItemState ItemAt(int index)
+	static Inventory.CarriedGrid Grid(Inventory inv, Slot slot)
 	{
-		Inventory inv = Inv;
-		return inv != null && index >= 0 && index < inv.Backpack.Count ? inv.Backpack[index] : null;
+		return slot.side switch
+		{
+			ESide.Belt => inv?.Belt,
+			ESide.Backpack => inv?.Backpack,
+			_ => null,
+		};
 	}
 
-	// A backpack slot took focus (D-pad / keyboard, or the mouse hovering it —
+	ItemState ItemAt(Slot slot)
+	{
+		Inventory inv = Inv;
+		if (inv == null || slot.IsNone)
+		{
+			return null;
+		}
+		return slot.equip ? inv.GetEquipped(slot.EquipSlot) : Grid(inv, slot)?.At(slot.index);
+	}
+
+	// A slot took focus (D-pad / keyboard, or the mouse hovering it —
 	// ItemSlotPanel grabs focus on MouseEntered). Its item fills the detail panel.
 	// Not force-identified: an unidentified reagent stays unread here, the same as
 	// everywhere else.
-	void OnSlotFocused(int index, ItemSlotPanel panel)
+	void OnSlotFocused(Slot slot)
 	{
-		_focusedIndex = index;
+		_focused = slot;
 		ResetDropHold();
-		_highlightPanel?.SetItem(panel?.Item);
+		_highlightPanel?.SetItem(ItemAt(slot));
 		UpdateHints();
 	}
 
 	// A on a slot (or a click): pick up the item there, or put the picked-up one
-	// down here — onto an empty slot, into a matching stack, or swapping.
-	void OnSlotActivated(int index, ItemSlotPanel panel)
+	// down here.
+	void OnSlotActivated(Slot slot)
 	{
 		Inventory inv = Inv;
 		if (inv == null)
 		{
 			return;
 		}
-		if (_selectedIndex < 0)
+		if (_selected.IsNone)
 		{
-			if (ItemAt(index) != null)
+			if (ItemAt(slot) != null)
 			{
-				SetSelection(index);
+				SetSelection(slot);
 			}
 			return;
 		}
-		int from = _selectedIndex;
-		SetSelection(-1);
-		ItemState moving = ItemAt(from);
-		if (moving != null)
+		Slot from = _selected;
+		SetSelection(Slot.None);
+		if (!from.Is(slot))
 		{
-			inv.MoveWithin(from, index, moving.stackCount);
+			MoveTo(inv, from, slot);
 		}
+	}
+
+	static void MoveTo(Inventory inv, Slot from, Slot to)
+	{
+		ItemState moving = from.equip ? inv.GetEquipped(from.EquipSlot) : Grid(inv, from)?.At(from.index);
+		if (moving == null || (from.equip && to.equip))
+		{
+			return;
+		}
+		if (to.equip)
+		{
+			if (EquipCompatible(to.EquipSlot, moving))
+			{
+				inv.Equip(moving);
+			}
+			return;
+		}
+		if (from.equip)
+		{
+			inv.UnequipTo(from.EquipSlot, Grid(inv, to), to.index);
+			return;
+		}
+		inv.Move(Grid(inv, from), from.index, Grid(inv, to), to.index, moving.stackCount);
 	}
 
 	public override void _UnhandledInput(InputEvent e)
@@ -171,15 +244,15 @@ public partial class InventoryScreen : Control
 		}
 		// Ahead of AlmanacScreen (a child's unhandled input runs first), so cancel
 		// backs out of a move instead of closing the almanac.
-		if (_selectedIndex >= 0 && e.IsActionPressed("ui_cancel"))
+		if (!_selected.IsNone && e.IsActionPressed("ui_cancel"))
 		{
-			SetSelection(-1);
+			SetSelection(Slot.None);
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (_selectedIndex < 0 && e.IsActionPressed(UseAction))
+		if (_selected.IsNone && e.IsActionPressed(UseAction))
 		{
-			UseFocused();
+			UseOrToggleEquip(_player, ItemAt(_focused));
 			GetViewport().SetInputAsHandled();
 		}
 	}
@@ -193,14 +266,9 @@ public partial class InventoryScreen : Control
 		TickDropHold((float)delta);
 	}
 
-	void UseFocused()
-	{
-		UseOrToggleEquip(_player, ItemAt(_focusedIndex));
-	}
-
 	void TickDropHold(float dt)
 	{
-		ItemState item = _selectedIndex < 0 ? ItemAt(_focusedIndex) : null;
+		ItemState item = _selected.IsNone ? ItemAt(_focused) : null;
 		if (item == null || !Input.IsActionPressed(DropAction))
 		{
 			ResetDropHold();
@@ -236,36 +304,47 @@ public partial class InventoryScreen : Control
 		_hintDrop?.SetProgress(0f);
 	}
 
-	void SetSelection(int index)
+	void SetSelection(Slot slot)
 	{
-		_selectedIndex = index;
+		_selected = slot;
 		ResetDropHold();
 		ApplySlotStates();
 		UpdateHints();
 	}
 
-	// Per-slot overlays the grid's plain item repaint doesn't know about: the
-	// picked-up slot dims, and equipped items carry the equipped marker.
+	// The picked-up slot dims — the overlay the plain repaint doesn't know.
 	void ApplySlotStates()
 	{
-		if (_backpackPanel == null)
+		if (_inventoryPanel == null)
 		{
 			return;
 		}
-		Inventory inv = Inv;
-		int i = 0;
-		foreach (ItemSlotPanel slot in _backpackPanel.EnumerateSlots())
+		ApplySlotStates(_inventoryPanel.BeltGrid, ESide.Belt);
+		ApplySlotStates(_inventoryPanel.BackpackGrid, ESide.Backpack);
+		foreach (EInventorySlot equip in InventoryPanel.EquipSlots)
 		{
-			slot.SetDimmed(i == _selectedIndex);
-			slot.SetEquipped(inv != null && inv.IsEquipped(slot.Item));
+			_inventoryPanel.EquipPanel(equip)?.SetDimmed(_selected.Is(new Slot(ESide.Equip, (int)equip)));
+		}
+	}
+
+	void ApplySlotStates(BackpackPanel grid, ESide side)
+	{
+		if (grid == null)
+		{
+			return;
+		}
+		int i = 0;
+		foreach (ItemSlotPanel slot in grid.EnumerateSlots())
+		{
+			slot.SetDimmed(_selected.Is(new Slot(side, i)));
 			i++;
 		}
 	}
 
 	void UpdateHints()
 	{
-		ItemState focused = ItemAt(_focusedIndex);
-		if (_selectedIndex >= 0)
+		ItemState focused = ItemAt(_focused);
+		if (!_selected.IsNone)
 		{
 			ShowHint(_hintSelect, SelectAction, "Move");
 			ShowHint(_hintUse, UseAction, null);
@@ -291,58 +370,48 @@ public partial class InventoryScreen : Control
 		}
 	}
 
-	// Re-read the highlight from whichever slot currently holds focus. Called after
-	// a repaint so a stack that was spent or merged away doesn't leave stale detail
-	// on screen.
-	void RefreshHighlight()
-	{
-		if (_highlightPanel == null || _backpackPanel == null)
-		{
-			return;
-		}
-		foreach (ItemSlotPanel slot in _backpackPanel.EnumerateSlots())
-		{
-			if (slot.HasButtonFocus())
-			{
-				_highlightPanel.SetItem(slot.Item);
-				return;
-			}
-		}
-		_highlightPanel.SetItem(null);
-	}
-
-	// Repaint the equipped-weapon viewers and the backpack from the live
-	// inventory. Bound to Inventory.onChanged so an ammo change shows immediately.
+	// Repaint the equip slots and the backpack from the live inventory. Bound to
+	// Inventory.onChanged so an ammo change shows immediately. Re-reads the
+	// highlight too, so a stack spent or merged away leaves no stale detail.
 	void Refresh()
 	{
-		Inventory inv = Inv;
-		_meleePanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponLeft), forceIdentified: true);
-		_rangedPanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponRight), forceIdentified: true);
-		_backpackPanel?.Refresh(inv?.Backpack);
+		_inventoryPanel?.Paint(Inv);
 		// A selected stack can vanish under the cursor (spoiled, spent elsewhere).
-		if (_selectedIndex >= 0 && ItemAt(_selectedIndex) == null)
+		if (!_selected.IsNone && ItemAt(_selected) == null)
 		{
-			_selectedIndex = -1;
+			_selected = Slot.None;
 		}
 		ApplySlotStates();
-		RefreshHighlight();
+		_highlightPanel?.SetItem(ItemAt(_focused));
 		UpdateHints();
 	}
 
 	// ---- Item verbs, shared with StashScreen and MerchantScreen -------------
 
-	// The Y verb: use an instant item (mud, a meal) on the member, or start a
+	// The X verb: use an instant item (mud, a meal) on the member, or start a
 	// press-to-commit timeline (drinking a potion) — the menu stays open while it
-	// plays — else equip / unequip gear. Does nothing for an item with no verb (a
-	// material, or a timeline that needs the button held, which only the hotbar
-	// can drive).
+	// plays — light or put out a belt lantern, else equip / unequip gear. Does
+	// nothing for an item with no verb (a material, or a timeline that needs the
+	// button held, which only the hotbar can drive).
 	public static void UseOrToggleEquip(Player player, ItemState item)
 	{
-		if (item?.data == null || player?.Inventory == null)
+		Inventory inv = player?.Inventory;
+		if (item?.data == null || inv == null)
 		{
 			return;
 		}
-		if (item.data is IInstantUseItem { CanUseInstantly: true })
+		if (item is LanternState lantern)
+		{
+			if (inv.IsLit(lantern))
+			{
+				inv.Extinguish();
+			}
+			else
+			{
+				inv.Light(lantern);
+			}
+		}
+		else if (item.data is IInstantUseItem { CanUseInstantly: true })
 		{
 			player.UseInstantItem(item);
 		}
@@ -352,17 +421,25 @@ public partial class InventoryScreen : Control
 		}
 		else if (item.data.IsEquippable)
 		{
-			player.Inventory.ToggleEquip(item);
+			inv.ToggleEquip(item);
 		}
 	}
 
-	// The Y hint's label for `item`, null when it has no verb.
+	// The X hint's label for `item`, null when it has no verb.
 	public static string UseVerb(Player player, ItemState item)
 	{
 		Inventory inv = player?.Inventory;
 		if (item?.data == null || inv == null)
 		{
 			return null;
+		}
+		if (item is LanternState lantern)
+		{
+			if (inv.IsLit(lantern))
+			{
+				return "Extinguish";
+			}
+			return inv.IsOnBelt(lantern) && lantern.HasFuel ? "Light" : null;
 		}
 		if (item.data is IInstantUseItem { CanUseInstantly: true } || UsableFromMenu(player, item))
 		{
@@ -375,10 +452,9 @@ public partial class InventoryScreen : Control
 		return null;
 	}
 
-	// A timeline the menu can start: unequippable (gear runs from its slot),
-	// press-to-commit (a menu never sends the release a held action needs), and on
-	// the controlled member — an idle one's runner doesn't tick (camp's stash can
-	// show one).
+	// A timeline the menu can start: not gear, press-to-commit (a menu never sends
+	// the release a held action needs), and on the controlled member — an idle
+	// one's runner doesn't tick (camp's stash can show one).
 	static bool UsableFromMenu(Player player, ItemState item)
 	{
 		return player.IsActive && !item.data.IsEquippable

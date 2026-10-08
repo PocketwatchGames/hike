@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="ShieldData" format=3 uid="uid://cwbdpohr5162r"]
+
+[ext_resource type="Script" uid="uid://6g0lmsonh44vg" path="res://scripts/data/items/ShieldData.cs" id="1_shield"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="2_damage"]
+[ext_resource type="PackedScene" uid="uid://wdg6yfpm1wnmq" path="res://scenes/fx/parry.tscn" id="3_parryfx"]
+[ext_resource type="Texture2D" uid="uid://c4sexdkxy746h" path="res://assets/textures/items/NinjaCloak.png" id="4_icon"]
+
+[sub_resource type="Resource" id="Resource_counter"]
+script = ExtResource("2_damage")
+tags = 2193
+healthDamage = 10.0
+damageVariance = 0.25
+hitstun = 0.3
+knockbackDistance = 2.0
+knockbackTime = 0.2
+buildups = []
+modifiers = []
+
+[resource]
+script = ExtResource("1_shield")
+guardArmor = 60.0
+guardRechargeDelay = 1.5
+blockDecibels = 0.3
+parryTimeMs = 250
+maxParryDamage = 80.0
+parryCounter = SubResource("Resource_counter")
+parryEffect = ExtResource("3_parryfx")
+parryDecibels = 0.4
+displayName = &"Guard"
+description = "Crouch to guard with your bare hands."
+inventorySprite = ExtResource("4_icon")

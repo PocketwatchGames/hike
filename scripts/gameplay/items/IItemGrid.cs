@@ -1,5 +1,5 @@
 // A row of item slots that items can be moved in and out of, whoever owns it —
-// a member's backpack (Inventory) or the party stash (ItemGrid). ItemTransfer
+// a member's belt or backpack (Inventory.CarriedGrid) or the party stash (ItemGrid). ItemTransfer
 // moves between any two, so a screen pairing a backpack with a stash, a chest or
 // a merchant needs no move logic of its own.
 //

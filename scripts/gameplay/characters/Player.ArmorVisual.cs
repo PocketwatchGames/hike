@@ -5,16 +5,17 @@ using Godot;
 // class outfit and any equipped ArmorData each name an entry in the central
 // outfit registry (PlayerData.outfits) by key; this resolves those to the live
 // gender's mesh sets, composites them with the always-on base (head + face) and
-// the bare-body / hair defaults for uncovered slots, then hands the union to
-// the model animator, which toggles visibility on the one shared skeleton — no
-// reload, no skin rebind. Recomputed on every armor slot change and once at
-// spawn.
+// the defaults for uncovered slots — PlayerData.unarmoredOutfit for the body,
+// the styled hair for the head — then hands the union to the model animator,
+// which toggles visibility on the one shared skeleton — no reload, no skin
+// rebind — and pushes each worn outfit's palette onto its meshes. Recomputed on
+// every armor slot change and once at spawn.
 //
 // Targets the live gender model (_animator), so it composites onto
 // whichever body type the player spawned as. The rig-specific part names (head
-// shell, bare body, skin meshes, hair menu) are NOT hardcoded here — they live
-// on each gender's ModelAnimator (baseMeshNames / bareBodyMeshNames /
-// skinMeshNames / hairStyleMeshNames), authored per package scene, because the
+// shell, hair menu) are NOT hardcoded here — they live on each gender's
+// ModelAnimator (baseMeshNames / hairStyleMeshNames), authored per package
+// scene, because the
 // Female rig prefixes its parts F_ and the Male rig M_. Head-slot coverage is
 // wired (an outfit's head meshes replace the hair fallback) but no current
 // outfit authors head meshes.
@@ -27,7 +28,8 @@ public partial class Player : CharacterBody3D
 	private string[] _hairStyleMeshes = System.Array.Empty<string>();
 
 	// Apply the hosted member's modular appearance to the live model: a flat skin
-	// tone on the face / bare-body skin meshes and the hair color on the chosen
+	// tone on every skin surface (bare head and body, and the arms / legs an
+	// outfit leaves exposed) and the hair color on the chosen
 	// hair-style mesh. Resolved from PlayerData's palettes by the indices on the
 	// PlayerState and applied once at spawn — the `recolor` instance uniforms
 	// persist across animation and visibility changes, so hair keeps its color
@@ -42,13 +44,14 @@ public partial class Player : CharacterBody3D
 		string hairMesh = _animator.GetHairStyleMesh(member?.hairStyle ?? 0);
 		_hairStyleMeshes = hairMesh != null ? new[] { hairMesh } : System.Array.Empty<string>();
 
-		_animator.SetMeshRecolor(_animator.skinMeshNames, data.GetSkinTone(member?.skinTone ?? 0));
+		_animator.SetSkinRecolor(data.GetSkinTone(member?.skinTone ?? 0));
 		_animator.SetMeshRecolor(_hairStyleMeshes, data.GetHairColor(member?.hairColor ?? 0));
 	}
 
 	// Recompose the visible mesh set from the equipped armor and push it to the
 	// model. No-op before the model animator or inventory exists. Per slot: the
-	// equipped armor's outfit, else bare head (styled hair) / bare body.
+	// equipped armor's outfit, else styled hair (head) / the unarmored outfit
+	// (body).
 	private void UpdateArmorVisual()
 	{
 		if (_animator == null || _inventory == null)
@@ -56,27 +59,36 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		List<string> visible = new(_animator.baseMeshNames);
-		AppendSlotMeshes(EInventorySlot.Helmet, _hairStyleMeshes, visible);
-		AppendSlotMeshes(EInventorySlot.Armor, _animator.bareBodyMeshNames, visible);
+		AppendSlotMeshes(EInventorySlot.Helmet, null, _hairStyleMeshes, visible);
+		AppendSlotMeshes(EInventorySlot.Armor, data?.GetOutfit(data.unarmoredOutfit), System.Array.Empty<string>(), visible);
 		_animator.SetVisibleMeshes(visible.ToArray());
 	}
 
-	// Append the equipped armor's outfit meshes for `slot`, or the fallback when
-	// nothing is equipped there (or its outfit has no meshes for this slot and
-	// gender).
-	private void AppendSlotMeshes(EInventorySlot slot, string[] fallback, List<string> dst)
+	// Append the meshes `slot` shows, colouring them with their outfit's palette:
+	// the equipped armor's outfit, else `fallbackOutfit`, else the bare
+	// `fallbackMeshes` (an outfit with no meshes for this slot and gender counts
+	// as absent).
+	private void AppendSlotMeshes(EInventorySlot slot, OutfitData fallbackOutfit, string[] fallbackMeshes, List<string> dst)
 	{
-		if (_inventory.GetEquipped(slot) is ArmorState armor
-			&& armor.data is ArmorData armorData
-			&& data?.GetOutfit(armorData.outfit) is OutfitData outfit
-			&& SlotMeshes(outfit, slot) is { Length: > 0 } worn)
+		OutfitData worn = _inventory.GetEquipped(slot) is ArmorState { data: ArmorData armorData }
+			? data?.GetOutfit(armorData.outfit)
+			: null;
+		if (AppendOutfit(worn, slot, dst) || AppendOutfit(fallbackOutfit, slot, dst))
 		{
-			dst.AddRange(worn);
+			return;
 		}
-		else
+		dst.AddRange(fallbackMeshes);
+	}
+
+	private bool AppendOutfit(OutfitData outfit, EInventorySlot slot, List<string> dst)
+	{
+		if (outfit == null || SlotMeshes(outfit, slot) is not { Length: > 0 } meshes)
 		{
-			dst.AddRange(fallback);
+			return false;
 		}
+		dst.AddRange(meshes);
+		_animator.SetMeshOutfitColors(meshes, outfit.primaryColor, outfit.secondaryColor, outfit.tertiaryColor);
+		return true;
 	}
 
 	// The outfit mesh set an equip slot draws from: head pieces show the head

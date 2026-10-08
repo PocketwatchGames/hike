@@ -44,7 +44,7 @@ public partial class CampScreen : Control
 	GameClient _gameClient;
 	Player _player;
 	// The camp is always at the world's single lit fire, so resolve it LIVE from the sim
-	// rather than caching a node: a death/Pray respawn opens before the fire's chunk has
+	// rather than caching a node: a death/return-home respawn opens before the fire's chunk has
 	// streamed its entities back in, and this lets cooking enable itself the moment it does
 	// (a cached snapshot would be null forever). Null when no fire is lit / not yet resident.
 	Campfire Forge => _gameClient?.LitCampfireNode;
@@ -52,7 +52,7 @@ public partial class CampScreen : Control
 	bool _open;
 
 	// Cooking needs a lit fire resident. Resolved live, so it flips true on its own once a
-	// respawn/Pray fire streams in (UpdateHubButtons re-runs from _Process while on the hub).
+	// respawn/return-home fire streams in (UpdateHubButtons re-runs from _Process while on the hub).
 	bool CanCook => Forge != null;
 
 	public override void _Ready()
@@ -212,7 +212,7 @@ public partial class CampScreen : Control
 
 	public override void _Process(double delta)
 	{
-		// A respawn/Pray fire can stream in a few frames after the hub opens; re-sync the
+		// A respawn/return-home fire can stream in a few frames after the hub opens; re-sync the
 		// hub buttons so the cook button enables itself the moment its fire becomes resident.
 		if (_open && _view == ECampView.Root)
 		{

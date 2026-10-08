@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://g2qnx2aoo0cy" path="res://scenes/fx/fists_kill.tscn" id="7_hitkill"]
 [ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="7_hitsolid"]
 [ext_resource type="PackedScene" uid="uid://l2a2i3yh3emq" path="res://scenes/fx/fists_attack_light.tscn" id="8_atklight"]
+[ext_resource type="Texture2D" uid="uid://blgk5830chakx" path="res://assets/textures/items/Fists.png" id="22_sprite"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_5mj5i"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="9_state"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="12_fgw35"]
@@ -101,3 +102,4 @@ damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 actionProfile = SubResource("Resource_profile")
 displayName = &"Fists"
 description = "Bare-handed."
+inventorySprite = ExtResource("22_sprite")

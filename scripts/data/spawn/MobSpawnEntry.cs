@@ -42,6 +42,13 @@ public partial class MobSpawnEntry : SpawnEntryData
     // defers to that row, then to the brain.
     [Export] public StringName initialBehavior;
 
+    // Items THIS individual carries on top of its species loot, always — a
+    // hand-placed goblin holding the key. Set on a placement's own copy; a shared
+    // entry leaves it empty, because which of a creature carry something is a
+    // population rule and belongs to the row (SpawnRow.carriedLoot). Adds to the
+    // row's rather than replacing it.
+    [Export] public Godot.Collections.Array<ItemCount> carriedLoot = new();
+
     // Mobs require flat terrain to keep physics from knocking them off step
     // edges into the cliff face below. Water-bound mobs are exempt — they spawn
     // in the water column, where the dry-ground flatness test is meaningless
@@ -178,6 +185,7 @@ public partial class MobSpawnEntry : SpawnEntryData
         {
             state.InitialBehavior = behavior;
         }
+        AddCarriedLoot(state, rng, context);
         ws.AddEntity(state);
     }
 
@@ -204,5 +212,66 @@ public partial class MobSpawnEntry : SpawnEntryData
         return context.AuthoredPosition || rng.NextDouble() < context.InitialBehaviorChance
             ? rowBehavior
             : null;
+    }
+
+    // Fold this individual's carried loot, then each of the row's items whose
+    // chance rolls, onto the species loot. Like InitialBehaviorFor, an authored
+    // position takes the row's as named. An item draws only at a real fraction,
+    // so a list without carried loot shifts no roll.
+    protected void AddCarriedLoot(MobSimState state, Random rng, SpawnContext context)
+    {
+        Godot.Collections.Array<ItemChance> rowLoot = context?.CarriedLoot;
+        bool rowHasLoot = rowLoot != null && rowLoot.Count > 0;
+        bool ownCarries = carriedLoot != null && carriedLoot.Count > 0;
+        if (!rowHasLoot && !ownCarries)
+        {
+            return;
+        }
+        // A fresh array: state.Loot is the species' own, shared by every mob of it.
+        var merged = new Godot.Collections.Array<ItemCount>();
+        AppendLoot(merged, state.Loot);
+        if (ownCarries)
+        {
+            AppendLoot(merged, carriedLoot);
+        }
+        if (rowHasLoot)
+        {
+            foreach (ItemChance item in rowLoot)
+            {
+                if (item != null && RollCarried(item.chance, rng, context))
+                {
+                    merged.Add(item);
+                }
+            }
+        }
+        if (merged.Count == 0)
+        {
+            return;
+        }
+        state.Loot = merged;
+    }
+
+    private static bool RollCarried(float chance, Random rng, SpawnContext context)
+    {
+        if (context.AuthoredPosition || chance >= 1f)
+        {
+            return true;
+        }
+        return chance > 0f && rng.NextDouble() < chance;
+    }
+
+    private static void AppendLoot(Godot.Collections.Array<ItemCount> into, Godot.Collections.Array<ItemCount> from)
+    {
+        if (from == null)
+        {
+            return;
+        }
+        foreach (ItemCount item in from)
+        {
+            if (item != null)
+            {
+                into.Add(item);
+            }
+        }
     }
 }

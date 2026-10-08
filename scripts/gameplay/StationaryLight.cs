@@ -54,6 +54,20 @@ public partial class StationaryLight : Node3D
         SetProcess(false);
     }
 
+    // Block light is not serialized — it is the live sum of the registered
+    // sources — so a source left behind when its node goes (chunk eviction, a
+    // broken crystal) keeps lighting the spot, and the respawned node on the
+    // next stream-in deposits a second copy on top.
+    public override void _ExitTree()
+    {
+        if (!_registered || _world == null || _world.IsQueuedForDeletion())
+        {
+            return;
+        }
+        _world.RemoveLightSource(_source);
+        _registered = false;
+    }
+
     public void Initialize(WorldState worldData, Sim sim, Vector3I baseWorldPos)
     {
         _worldData = worldData;

@@ -472,6 +472,9 @@ public static class EntitySerializer
                 WriteVec3(w, loot.WorldPosition);
                 WriteResource(w, loot.Data);
                 w.Write(loot.PickedUp);
+                // The composed state, when the spawn built one (mods, level, a
+                // lantern's fuel); null means "synthesize a fresh one at pickup".
+                WriteItemState(w, loot.Item);
                 break;
 
             case MobSimState mob:
@@ -581,15 +584,9 @@ public static class EntitySerializer
                 {
                     WriteResource(w, mob.ItemPreferences[i]);
                 }
-                // Per-individual outfit override (NpcSpawnEntry.Outfit): visible-
-                // mesh names for a modular humanoid. String array, may be empty.
-                // Appended last so older world files still parse.
-                int outfitCount = mob.Outfit?.Length ?? 0;
-                w.Write(outfitCount);
-                for (int i = 0; i < outfitCount; i++)
-                {
-                    w.Write(mob.Outfit[i] ?? string.Empty);
-                }
+                // Per-individual look (NpcSpawnEntry.appearance), resource ref,
+                // may be null.
+                WriteResource(w, mob.Appearance);
                 // Per-individual idle-pose override (NpcSpawnEntry.IdleAnimation):
                 // a clip name, may be empty. Appended last so older world files
                 // still parse.
@@ -671,20 +668,7 @@ public static class EntitySerializer
                 WriteScene(w, chest.Scene);
                 w.Write(chest.Active);
                 w.Write((byte)chest.SpawnConditions);
-                int chestLootCount = chest.LootItems?.Length ?? 0;
-                w.Write(chestLootCount);
-                for (int i = 0; i < chestLootCount; i++)
-                {
-                    ItemCount entry = chest.LootItems[i];
-                    // Chest loot carries no permanent mods (ItemCountRange, the
-                    // only producer, authors none), so only the item path + count
-                    // are persisted. If modded chest loot is ever added, the
-                    // descriptor's statusEffects must be written here too.
-                    WriteResource(w, entry?.descriptor?.item);
-                    w.Write(entry?.count ?? 0);
-                }
-                // Persistent slot contents (stash-style chests). Distinct
-                // from the LootItems ejection recipe above.
+                WriteResource(w, chest.Trap);
                 WriteItemList(w, chest.Contents);
                 break;
 
@@ -939,6 +923,7 @@ public static class EntitySerializer
                 bool pickedUp = r.ReadBoolean();
                 var loot = new LootSimState(pos, data);
                 loot.PickedUp = pickedUp;
+                loot.Item = ReadItemState(r);
                 return loot;
             }
             case Tag.Mob:
@@ -1020,12 +1005,7 @@ public static class EntitySerializer
                 {
                     itemPreferences.Add(ReadResource<ItemTagPreference>(r));
                 }
-                int outfitCount = r.ReadInt32();
-                var outfit = new string[outfitCount];
-                for (int i = 0; i < outfitCount; i++)
-                {
-                    outfit[i] = r.ReadString();
-                }
+                var appearance = ReadResource<NpcAppearanceData>(r);
                 string idleAnimation = r.ReadString();
                 var recruitTemplate = ReadResource<PlayerState>(r);
 
@@ -1067,7 +1047,7 @@ public static class EntitySerializer
                 mob.EliteCrownScene = eliteCrownScene;
                 mob.Loot = loot;
                 mob.ItemPreferences = itemPreferences;
-                mob.Outfit = outfit;
+                mob.Appearance = appearance;
                 if (!string.IsNullOrEmpty(idleAnimation))
                 {
                     mob.IdleAnimation = idleAnimation;
@@ -1152,25 +1132,14 @@ public static class EntitySerializer
                 PackedScene scene = ReadScene(r);
                 bool active = r.ReadBoolean();
                 var spawnConditions = (ESpawnConditions)r.ReadByte();
-                int n = r.ReadInt32();
-                ItemCount[] lootItems = n > 0 ? new ItemCount[n] : null;
-                for (int i = 0; i < n; i++)
-                {
-                    ItemData item = ReadResource<ItemData>(r);
-                    int count = r.ReadInt32();
-                    lootItems[i] = new ItemCount { descriptor = new ItemDescriptor { item = item }, count = count };
-                }
+                RiggedTrapData trap = ReadResource<RiggedTrapData>(r);
                 var chest = new ChestSimState(pos, scene)
                 {
                     Active = active,
                     SpawnConditions = spawnConditions,
-                    LootItems = lootItems,
+                    Trap = trap,
                 };
-                List<ItemState> contents = ReadItemList(r);
-                for (int i = 0; i < contents.Count; i++)
-                {
-                    chest.Contents.Add(contents[i]);
-                }
+                chest.Contents.AddRange(ReadItemList(r));
                 return chest;
             }
             case Tag.DeathSack:

@@ -13,8 +13,6 @@ using System.Collections.Generic;
 public partial class PartyScreen : Control
 {
 	[Export] PlayerStatsPanel _playerStatsPanel;
-	[Export] ItemInfoPanel _meleePanel;
-	[Export] ItemInfoPanel _rangedPanel;
 	[Export] ButtonHint _buttonHintSelect;
 	// Screen-pixel radius within which the mouse cursor picks a character.
 	[Export] float _mousePickRadius = 90f;
@@ -168,8 +166,6 @@ public partial class PartyScreen : Control
 		member?.SetHighlighted(true);
 		_playerStatsPanel?.SetPlayer(member);
 		Inventory inv = member?.Inventory;
-		_meleePanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponLeft), forceIdentified: true);
-		_rangedPanel?.SetItem(inv?.GetWeapon(EInventorySlot.WeaponRight), forceIdentified: true);
 	}
 
 	Player MemberAt(int index) =>

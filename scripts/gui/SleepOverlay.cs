@@ -2,7 +2,8 @@ using Godot;
 
 // Full-screen black overlay for the sleep / rest time-skip (tents). Mirrors the
 // DeathScreen fade pattern but is purely visual and self-driving: fade to black,
-// run the world time-skip while opaque, then fade back in. If a status effect
+// run the world time-skip while opaque, hold until the world has re-spawned
+// (GameClient.WorldSettling), then fade back in. If a status effect
 // kills the player during the skip, the player wakes "at the appropriate time"
 // — the skip already stopped at the moment of death (Sim.AdvanceTime) — and
 // this overlay hands the screen to the DeathScreen rather than fading back in.
@@ -21,6 +22,8 @@ public partial class SleepOverlay : Control
 	{
 		Hidden,
 		FadingOut,
+		// Skip done, still black while the world re-spawns around the sleeper.
+		Settling,
 		FadingIn,
 		// Player died mid-skip; hold fully black until the DeathScreen is opaque,
 		// then release so the swap shows no frame of the dead body.
@@ -82,7 +85,15 @@ public partial class SleepOverlay : Control
 					// Fully black: do the skip now, then wake or hand off.
 					_gameClient?.PerformSleepAdvance(_sleepHours, _healFractionPerHour);
 					bool died = _gameClient?.PlayerIsDead ?? false;
-					_state = died ? EState.DeathHandoff : EState.FadingIn;
+					_state = died ? EState.DeathHandoff : EState.Settling;
+				}
+				break;
+			}
+			case EState.Settling:
+			{
+				if (!(_gameClient?.WorldSettling ?? false))
+				{
+					_state = EState.FadingIn;
 				}
 				break;
 			}

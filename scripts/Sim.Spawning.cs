@@ -184,6 +184,36 @@ public partial class Sim
         }
     }
 
+    // Eject items that already exist (a chest's contents), handing each state
+    // over rather than re-creating it, so its per-instance state comes along. A
+    // small stack scatters as single pieces split off it. The caller gives the
+    // states up: they are the loot now.
+    public void EjectLoot(IReadOnlyList<ItemState> items, Vector3 origin)
+    {
+        if (items == null)
+        {
+            return;
+        }
+        int splitMax = SimData?.lootEjectSplitMaxCount ?? 0;
+        for (int i = 0; i < items.Count; i++)
+        {
+            ItemState stack = items[i];
+            int count = stack?.stackCount ?? 0;
+            if (stack?.data == null || count <= 0)
+            {
+                continue;
+            }
+            if (count <= splitMax)
+            {
+                for (int k = 1; k < count; k++)
+                {
+                    SpawnLoot(origin, BuildEjectImpulse(), stack.SplitOff(1));
+                }
+            }
+            SpawnLoot(origin, BuildEjectImpulse(), stack);
+        }
+    }
+
     public void EjectLoot(ItemDescriptor descriptor, int count, Vector3 origin)
     {
         if (descriptor?.item != null)

@@ -29,14 +29,8 @@ public partial class NpcSpawnEntry : MobSpawnEntry
     [Export] public ConversationData conversation;
 
     // --- Per-individual appearance (each NPC is one unique world entity) ---
-    // The bundled look — rig, outfit and recolor as ONE authored choice. Set,
-    // it wins over the raw trio below; null falls back to them.
-    //
-    // Two paths rather than one because they are authored by different things.
-    // Worldgen's house lists name the three fields inline and always have. A
-    // hand placement picks a bundle, because the map's property panel can only
-    // offer a single pick per row and three independent rows cannot enforce that
-    // an outfit's meshes exist in the rig it is worn on — see NpcAppearanceData.
+    // The look — rig, outfit, hair and skin as ONE authored choice (see
+    // NpcAppearanceData). Null = the species' scene in its authored default.
     [Export] public NpcAppearanceData appearance;
 
     // The appearances THIS entry may be given, the way MobSpawnEntry.variants
@@ -45,21 +39,7 @@ public partial class NpcSpawnEntry : MobSpawnEntry
     // leaves the row offering every authored appearance.
     [Export] public NpcAppearanceData[] appearances = System.Array.Empty<NpcAppearanceData>();
 
-    // Rig/gender override: the model scene instanced for THIS individual (e.g. a
-    // male vs female villager package). Null = the species' base
-    // MobData.mobScene. Passed into SpeciesData.CreateState so it's fixed at
-    // construction and serializes with the mob.
-    [Export] public PackedScene scene;
-
-    public override PackedScene PaletteScene => scene;
-
-    // Outfit: the modular rig's visible clothing/hair/hat mesh names (gender-
-    // matched to Scene), composed with the rig's always-on base meshes at spawn.
-    // Empty = the scene's authored default outfit.
-    [Export] public string[] outfit = System.Array.Empty<string>();
-    // Recolor applied to this individual's meshes (clothing/hair tints) so two
-    // villagers in the same outfit still read as distinct. Null = no recolor.
-    [Export] public MobPalette palette;
+    public override PackedScene PaletteScene => Rig;
     // Idle-pose override: a clip name (e.g. "idle_happy", "idle_nervous") that
     // replaces the species' shared Idle animation for THIS individual, so
     // villagers built from one MobData each rest differently. Must name a clip
@@ -85,19 +65,12 @@ public partial class NpcSpawnEntry : MobSpawnEntry
     // the clone stands at the active campfire. Null = not recruitable.
     [Export] public PlayerState recruitTemplate;
 
-    // The three appearance channels, resolved once so the bundle and the raw
-    // trio cannot disagree between the spawn path and the animation picker.
-    public PackedScene Rig => appearance?.scene ?? scene;
-
-    public string[] Outfit => appearance != null && appearance.outfit is { Length: > 0 }
-        ? appearance.outfit
-        : outfit;
-
-    public MobPalette Recolor => appearance?.palette ?? palette;
+    // The rig this individual is drawn with. Null = the species' model scene.
+    public PackedScene Rig => appearance?.scene;
 
     // Which villager of its family this one is. The appearance is what a hand
-    // placement varies, so it names the individual; a worldgen entry authored
-    // before appearances existed falls back to its species.
+    // placement varies, so it names the individual; an entry without one falls
+    // back to its species.
     public override string VariantName()
     {
         if (appearance != null && !string.IsNullOrEmpty(appearance.ResourcePath))
@@ -149,8 +122,8 @@ public partial class NpcSpawnEntry : MobSpawnEntry
         return base.ResourceCandidates(property);
     }
 
-    // The clips baked into the rig this individual is drawn with — its own
-    // `scene` override, else the species' model scene.
+    // The clips baked into the rig this individual is drawn with — its
+    // appearance's scene, else the species' model scene.
     //
     // Read off the PackedScene's STATE rather than by instantiating it: the
     // rig names its AnimationLibrary as a plain ext_resource, so the clip list
@@ -234,16 +207,14 @@ public partial class NpcSpawnEntry : MobSpawnEntry
             return;
         }
         state.SpawnConditions = context?.SpawnConditions ?? ESpawnConditions.None;
-        MobPalette recolor = Recolor;
-        string[] worn = Outfit;
-        if (recolor != null) { state.Palette = recolor; }
-        if (worn != null && worn.Length > 0) { state.Outfit = worn; }
+        state.Appearance = appearance;
         if (idleAnimation != null && (string)idleAnimation != "") { state.IdleAnimation = idleAnimation; }
         StringName behavior = InitialBehaviorFor(rng, context);
         if (behavior != null)
         {
             state.InitialBehavior = behavior;
         }
+        AddCarriedLoot(state, rng, context);
         if (language != null) { state.Language = language; }
         if (conversation != null) { state.Conversation = conversation; }
         if (loyaltyGifts != null)

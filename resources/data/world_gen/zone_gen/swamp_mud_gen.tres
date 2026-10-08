@@ -3,7 +3,7 @@
 [ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_gen/spawn_lists/cave_entities_swamp.tres" id="1_4e0co"]
 [ext_resource type="Resource" uid="uid://bg3737i70mdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="2_p15ox"]
 [ext_resource type="Resource" uid="uid://blrncmkcsytp7" path="res://resources/data/world_authoring/terrain/shore_swamp.tres" id="3_0m5rd"]
-[ext_resource type="Resource" uid="uid://dkql170kxil1" path="res://resources/data/world_authoring/terrain/underwater.tres" id="4_64pvx"]
+[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="4_64pvx"]
 [ext_resource type="Resource" uid="uid://3lnulrnyn5ro" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp_mud.tres" id="5_4e0co"]
 [ext_resource type="Resource" uid="uid://dyxoe4k26a80k" path="res://resources/data/world_authoring/terrain/swamp_mud.tres" id="6_4e0co"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_6p0r5"]
@@ -11,8 +11,9 @@
 [ext_resource type="Resource" uid="uid://4od2uivsll01" path="res://resources/data/world_authoring/zones/swamp_mud.tres" id="9_p15ox"]
 [ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_script"]
 [ext_resource type="Resource" uid="uid://bfcfe26d6bj6a" path="res://resources/data/items/scrolls/treasure_map_swamp_mud.tres" id="96_map"]
-[ext_resource type="Resource" uid="uid://4efn43odde5i" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_3.tres" id="97_spot"]
+[ext_resource type="Resource" uid="uid://eyr986zwwj9v9" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_3.tres" id="97_spot"]
 [ext_resource type="Resource" uid="uid://duhbyv7bnv3p7" path="res://resources/data/world_gen/foliage_gen/swamp_mud.tres" id="F_foliage"]
 [ext_resource type="Resource" uid="uid://bante0m1vlh6a" path="res://resources/data/items/scrolls/scroll_grilled_drake.tres" id="rc0"]
 [ext_resource type="Resource" uid="uid://bvwbp0bcuwn4i" path="res://resources/data/items/scrolls/scroll_grilled_sparrow.tres" id="rc1"]
@@ -20,25 +21,45 @@
 [ext_resource type="Resource" uid="uid://bsnxuawbk5idr" path="res://resources/data/items/scrolls/scroll_stew_sparrow_stamina.tres" id="rc3"]
 [ext_resource type="Script" uid="uid://bngmvmgus5vlm" path="res://scripts/data/worldgen/PlateauZoneTerrainData.cs" id="swamp_mud_gen_zoneterrain"]
 
+[sub_resource type="Resource" id="Dist_treasure_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("96_map")
+
 [sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")
-item = ExtResource("96_map")
+item = SubResource("Dist_treasure_desc")
+
+[sub_resource type="Resource" id="Rc0_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("rc0")
 
 [sub_resource type="Resource" id="Rc0"]
 script = ExtResource("90_countrange")
-item = ExtResource("rc0")
+item = SubResource("Rc0_desc")
+
+[sub_resource type="Resource" id="Rc1_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("rc1")
 
 [sub_resource type="Resource" id="Rc1"]
 script = ExtResource("90_countrange")
-item = ExtResource("rc1")
+item = SubResource("Rc1_desc")
+
+[sub_resource type="Resource" id="Rc2_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("rc2")
 
 [sub_resource type="Resource" id="Rc2"]
 script = ExtResource("90_countrange")
-item = ExtResource("rc2")
+item = SubResource("Rc2_desc")
+
+[sub_resource type="Resource" id="Rc3_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("rc3")
 
 [sub_resource type="Resource" id="Rc3"]
 script = ExtResource("90_countrange")
-item = ExtResource("rc3")
+item = SubResource("Rc3_desc")
 
 [sub_resource type="Resource" id="ZoneTerrain_swamp_mud_gen"]
 script = ExtResource("swamp_mud_gen_zoneterrain")

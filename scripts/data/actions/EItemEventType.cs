@@ -14,9 +14,9 @@ public enum EItemEventType
 	UseAmmo = 1 << 2,
 	ApplyStatusEffect = 1 << 3,
 	DecrementStack = 1 << 4,
-	// Unequips context.primaryItem from the acting player — how the lantern's
-	// tap puts it out, since a lantern is lit exactly while it is equipped.
-	Unequip = 1 << 5,
+	// Puts out context.primaryItem if it is the acting player's lit lantern —
+	// how the lantern's tap puts it out.
+	Extinguish = 1 << 5,
 	PlayAnim = 1 << 6,
 //	PlaySound = 1 << 7, REMOVED
 	// Calls Complete() on context.primaryInteractive — the universal way for

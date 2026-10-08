@@ -1,20 +1,14 @@
 using Godot;
 
-// One NPC's look, as a single authored choice: the rig, the outfit meshes shown
-// on it, and the recolor applied to them.
+// One NPC's look, as a single authored choice: the rig, the clothes and
+// colours worn on it, the hair, and the skin — the same ingredients a party
+// member's look is built from (PlayerState's skin / hair picks plus the
+// OutfitData its armour names).
 //
-// The three are bundled because they are NOT independent — an outfit names
-// meshes that exist only in a particular rig ("F_Archer_Top" is in the female
-// villager scene and nowhere else), and a recolor names those same meshes
-// again. Offered as three separate fields, the only thing stopping a male rig
-// wearing a female outfit is the author remembering, and the result fails
-// silently: the meshes simply do not resolve and the NPC spawns in its rig's
-// default clothes.
-//
-// So this is what a placement editor picks, one row, and a mismatch is
-// unrepresentable rather than merely discouraged. It is also why NpcSpawnEntry's
-// raw scene / outfit / palette trio stays hidden from that editor — see
-// SpawnEntryData.IsIdentityProperty.
+// The outfit is an OutfitData because it lists its parts for BOTH rigs and the
+// rig picks its own (ModelAnimator.gender), so a look can never name meshes the
+// rig doesn't have. The hair is an index into the rig's own hair menu for the
+// same reason.
 //
 // Reusable by construction: two villagers in one appearance are two placements
 // naming one file, so retuning the look retunes both. Give one its own variation
@@ -23,15 +17,18 @@ using Godot;
 public partial class NpcAppearanceData : Resource
 {
     // The model scene instanced for an NPC wearing this appearance — the rig,
-    // and with it the gender the outfit has to match. Null falls back to the
-    // species' own MobData.mobScene.
+    // and with it the gender. Null falls back to the species' own
+    // MobData.mobScene.
     [Export] public PackedScene scene;
 
-    // The rig's visible clothing / hair / hat mesh names, composed with its
-    // always-on base meshes at spawn. Empty = the scene's authored default.
-    [Export] public string[] outfit = System.Array.Empty<string>();
+    // Clothing parts (body, plus head for a hat) and their colours. Required —
+    // the rig shows no body without one.
+    [Export] public OutfitData outfit;
 
-    // Tints applied to those meshes, so two NPCs in one outfit still read as
-    // distinct. Null = no recolor.
-    [Export] public MobPalette palette;
+    // Index into the rig's ModelAnimator.hairStyleMeshNames; out of range =
+    // bald.
+    [Export] public int hairStyle;
+    // Defaults are the atlas swatches untinted hair and skin sample.
+    [Export] public Color hairColor = OutfitData.DefaultSecondary;
+    [Export] public Color skinTone = OutfitData.DefaultPrimary;
 }

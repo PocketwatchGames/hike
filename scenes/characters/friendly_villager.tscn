@@ -12,6 +12,7 @@
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]
 [ext_resource type="Resource" uid="uid://cx7ub2sgi3fui" path="res://resources/data/characters/human/friendly_villager_voice.tres" id="11_voice"]
 [ext_resource type="Material" uid="uid://nsghx0dy6spm" path="res://resources/materials/model_lit_face_cutout.tres" id="12_facemat"]
+[ext_resource type="Material" uid="uid://oosffp50x8nw" path="res://resources/materials/model_lit_character_outfit.tres" id="13_outfitmat"]
 [ext_resource type="Script" uid="uid://btmjrrxy7m26w" path="res://scripts/gameplay/minimap/LiveMapMarker.cs" id="13_livemarker"]
 [ext_resource type="Texture2D" uid="uid://dr6jpb6ba715x" path="res://assets/textures/map_markers/npc.png" id="14_npcicon"]
 
@@ -53,8 +54,12 @@ visual = NodePath("../VillagerModel")
 modelMaterial = ExtResource("7_heromat")
 secondaryMaterial = ExtResource("12_facemat")
 secondaryMeshNames = PackedStringArray("M_eyes0", "M_eyebrows0", "M_mouth0")
+outfitMaterial = ExtResource("13_outfitmat")
+outfitSurfaceMaterial = &"genericRGBMat_Objects"
+gender = 1
 visibleMeshNames = PackedStringArray("M_Head", "M_eyes0", "M_eyebrows0", "M_mouth0", "M_hair_2b", "M_Hunter_Top", "M_Hunter_Bottom", "M_Hunter_FeltedHat")
 baseMeshNames = PackedStringArray("M_Head", "M_eyes0", "M_eyebrows0", "M_mouth0")
+hairStyleMeshNames = PackedStringArray("M_hair_1", "M_hair_2", "M_hair_3", "M_hair_4", "M_hair_5", "M_hair_6", "M_hair_7", "M_hair_8", "M_hair_2b")
 metadata/_custom_type_script = "uid://y5ti8jcvqdvm"
 
 [node name="HudAnchor" type="Node3D" parent="Visuals" unique_id=357625513]

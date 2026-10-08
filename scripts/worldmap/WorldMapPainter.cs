@@ -836,7 +836,7 @@ public partial class WorldMapPainter : Node3D
         GD.Print($"WorldMapPainter: redo {edit.Name}");
     }
 
-    private void OnCanvasStrokeStart(Vector2I texel, EStrokeMods mods)
+    private bool OnCanvasStrokeStart(Vector2I texel, EStrokeMods mods)
     {
         // Clicking the map means you are done typing — but the canvas takes no
         // focus, so the property panel would never hear about it and the typed
@@ -858,8 +858,10 @@ public partial class WorldMapPainter : Node3D
                 SetCutaway(floor + cutawayHeadroom);
                 RebuildFull();
             }
-            // Withheld from the tool: this press aimed the plane, not the brush.
-            mods &= ~EStrokeMods.Pick;
+            // The whole press is spent on the plane and never reaches the tool:
+            // held open, a drag before release became an RMB erase stroke and
+            // deleted whatever was under the click.
+            return false;
         }
         // Opened on every press, including ones that paint nothing (an
         // alt+click pick, a click on empty ground): an edit that captured no
@@ -874,6 +876,7 @@ public partial class WorldMapPainter : Node3D
         {
             UpdateHud();   // the picked value is the tool's parameter now
         }
+        return true;
     }
 
     private void OnCanvasPaint(Vector2I texel, bool erase)

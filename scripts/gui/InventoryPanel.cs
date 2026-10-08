@@ -1,6 +1,5 @@
 using Godot;
 using System.Collections.Generic;
-using Godot.Collections;
 
 // The interactive inventory body — slot grid, button hints, focus tracking,
 // and the input plumbing that turns presses into verb callbacks. The panel
@@ -11,19 +10,21 @@ using Godot.Collections;
 // can be reused under any modal that lays out the player's items.
 //
 // The panel is dormant until the screen calls Bind(player) on it; Unbind()
-// detaches from inventory signals and stops reacting to input.
+// detaches from inventory signals and stops reacting to input. A screen that
+// owns its own input (StashScreen, InventoryScreen) never binds: it listens to
+// BeltGrid / BackpackGrid / EquipPanel directly and repaints through Paint.
 [GlobalClass]
 public partial class InventoryPanel : Control
 {
-	[Export] private ItemSlotPanel _armorHeadPanel;
+	[Export] private ItemSlotPanel _shieldPanel;
 	[Export] private ItemSlotPanel _armorBodyPanel;
 	[Export] private ItemSlotPanel _weaponLeftPanel;
 	[Export] private ItemSlotPanel _weaponRightPanel;
-	// Optional in-panel backpack grid. The material-carrying screens (inventory /
-	// stash / cooking) render the backpack with a SEPARATE BackpackPanel and leave
-	// this empty, so InventoryPanel here is just the equip-slot cluster; the legacy
-	// MerchantScreen still drives its backpack through these slots.
-	[Export] private Array<ItemSlotPanel> _backpackPanels;
+	// The belt and backpack grids. Their slots are owned by each BackpackPanel,
+	// sized to the inventory's grids; this panel only listens to their events and
+	// repaints them from the bound inventory.
+	[Export] private BackpackPanel _belt;
+	[Export] private BackpackPanel _backpack;
 	[Export] private ButtonHint _buttonHintPrimary;
 	[Export] private ButtonHint _buttonHintSecondary;
 	[Export] private ButtonHint _buttonHintTertiary;
@@ -113,11 +114,12 @@ public partial class InventoryPanel : Control
 
 	public override void _Ready()
 	{
-		WirePanel(_armorHeadPanel);
+		WirePanel(_shieldPanel);
 		WirePanel(_armorBodyPanel);
 		WirePanel(_weaponLeftPanel);
 		WirePanel(_weaponRightPanel);
-		WirePanels(_backpackPanels);
+		WireGrid(_belt);
+		WireGrid(_backpack);
 
 		// Seed every hint with its bound action's glyph. The screen overrides
 		// `ActionName` per-context (Equip / Cook / Use / Drop) but the glyph
@@ -203,20 +205,59 @@ public partial class InventoryPanel : Control
 		panel.onButtonUp += OnPanelButtonUp;
 	}
 
-	void WirePanels(Array<ItemSlotPanel> panels)
+	void WireGrid(BackpackPanel grid)
 	{
-		if (panels == null)
+		if (grid == null)
 		{
 			return;
 		}
-		foreach (ItemSlotPanel panel in panels)
-		{
-			WirePanel(panel);
-		}
+		grid.onSlotFocused += (_, p) => OnPanelFocused(p);
+		grid.onSlotButtonDown += (_, p) => OnPanelButtonDown(p);
+		grid.onSlotButtonUp += (_, p) => OnPanelButtonUp(p);
 	}
 
 	void OnInventoryChanged(EInventorySlot _) => RefreshAll();
 	void OnInventoryGenericChanged() => RefreshAll();
+
+	// The equip slots the panel shows, in display order.
+	public static readonly EInventorySlot[] EquipSlots =
+	{
+		EInventorySlot.Armor, EInventorySlot.Shield, EInventorySlot.WeaponLeft, EInventorySlot.WeaponRight,
+	};
+
+	public BackpackPanel BeltGrid => _belt;
+	public BackpackPanel BackpackGrid => _backpack;
+
+	public ItemSlotPanel EquipPanel(EInventorySlot slot)
+	{
+		return slot switch
+		{
+			EInventorySlot.Shield => _shieldPanel,
+			EInventorySlot.Armor => _armorBodyPanel,
+			EInventorySlot.WeaponLeft => _weaponLeftPanel,
+			EInventorySlot.WeaponRight => _weaponRightPanel,
+			_ => null,
+		};
+	}
+
+	// Repaint every slot from `inventory`, the lit lantern marked. Each grid shows
+	// as many slots as the inventory's grid has. Needs no Bind.
+	public void Paint(Inventory inventory)
+	{
+		foreach (EInventorySlot slot in EquipSlots)
+		{
+			EquipPanel(slot)?.SetItem(inventory?.GetEquipped(slot));
+		}
+		_belt?.Refresh(inventory?.Belt.Slots);
+		_backpack?.Refresh(inventory?.Backpack.Slots);
+		if (_belt != null)
+		{
+			foreach (ItemSlotPanel p in _belt.EnumerateSlots())
+			{
+				p.SetActive(inventory != null && inventory.IsLit(p.Item));
+			}
+		}
+	}
 
 	public void RefreshAll()
 	{
@@ -225,19 +266,7 @@ public partial class InventoryPanel : Control
 			return;
 		}
 
-		_armorHeadPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.Helmet));
-		_armorBodyPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.Armor));
-		_weaponLeftPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.WeaponLeft));
-		_weaponRightPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.WeaponRight));
-
-		if (_backpackPanels != null)
-		{
-			IReadOnlyList<ItemState> backpack = _inventory.Backpack;
-			for (int i = 0; i < _backpackPanels.Count; i++)
-			{
-				_backpackPanels[i]?.SetItem(i < backpack.Count ? backpack[i] : null);
-			}
-		}
+		Paint(_inventory);
 		// Focused slot may now hold a different item (e.g. a drop shifted the
 		// backpack list under the focus index). Pulse so the screen reflects
 		// the new content; EmitFocusedItem suppresses no-op fires.
@@ -325,23 +354,12 @@ public partial class InventoryPanel : Control
 	// picker) is up.
 	public void SetSlotsFocusable(bool focusable)
 	{
-		_armorHeadPanel?.SetFocusable(focusable);
+		_shieldPanel?.SetFocusable(focusable);
 		_armorBodyPanel?.SetFocusable(focusable);
 		_weaponLeftPanel?.SetFocusable(focusable);
 		_weaponRightPanel?.SetFocusable(focusable);
-		ApplyFocusable(_backpackPanels, focusable);
-	}
-
-	static void ApplyFocusable(Array<ItemSlotPanel> panels, bool focusable)
-	{
-		if (panels == null)
-		{
-			return;
-		}
-		foreach (ItemSlotPanel panel in panels)
-		{
-			panel?.SetFocusable(focusable);
-		}
+		_belt?.SetFocusable(focusable);
+		_backpack?.SetFocusable(focusable);
 	}
 
 	// Put focus back on the last-focused slot — used after a sub-modal that
@@ -354,85 +372,94 @@ public partial class InventoryPanel : Control
 
 	ItemSlotPanel FindFirstFocusable()
 	{
-		if (_backpackPanels != null)
-		{
-			foreach (ItemSlotPanel panel in _backpackPanels)
-			{
-				if (panel != null) { return panel; }
-			}
-		}
-		return _armorHeadPanel ?? _armorBodyPanel ?? _weaponLeftPanel ?? _weaponRightPanel;
+		return _belt?.GetSlot(0) ?? _backpack?.GetSlot(0) ?? _shieldPanel ?? _armorBodyPanel ?? _weaponLeftPanel ?? _weaponRightPanel;
 	}
 
-	public bool IsBackpackPanel(ItemSlotPanel panel)
+	// True for a slot of the belt or backpack grid, false for an equip slot.
+	public bool IsGridPanel(ItemSlotPanel panel)
 	{
-		return panel != null && _backpackPanels != null && _backpackPanels.Contains(panel);
+		return GridIndexOf(panel, out _) >= 0;
 	}
 
-	// Resolve a panel to its EInventorySlot identity (Helmet, Armor, WeaponLeft,
-	// WeaponRight, or None for backpack).
+	// Resolve a panel to its EInventorySlot identity (Armor, Shield, WeaponLeft,
+	// WeaponRight, or None for a grid slot).
 	public EInventorySlot GetEquipSlotKind(ItemSlotPanel panel)
 	{
 		if (panel == null) { return EInventorySlot.None; }
-		if (panel == _armorHeadPanel) { return EInventorySlot.Helmet; }
+		if (panel == _shieldPanel) { return EInventorySlot.Shield; }
 		if (panel == _armorBodyPanel) { return EInventorySlot.Armor; }
 		if (panel == _weaponLeftPanel) { return EInventorySlot.WeaponLeft; }
 		if (panel == _weaponRightPanel) { return EInventorySlot.WeaponRight; }
 		return EInventorySlot.None;
 	}
 
-	// Backpack index for a backpack panel, -1 for any other panel kind. The
-	// backpack is a sparse array under the hood (Inventory.Backpack[i] is
-	// the item at slot i or null), so the panel's grid position maps
-	// directly to the inventory's storage index — no list-vs-grid offset.
-	public int GetBackpackPanelIndex(ItemSlotPanel panel)
+	// The bound inventory's grid behind a grid panel and the slot index in it —
+	// the panel's grid position IS the grid's storage index. False for an equip
+	// slot, or when nothing is bound.
+	public bool TryGetGridSlot(ItemSlotPanel panel, out Inventory.CarriedGrid grid, out int index)
 	{
-		if (panel == null || _backpackPanels == null) { return -1; }
-		return _backpackPanels.IndexOf(panel);
+		index = GridIndexOf(panel, out bool belt);
+		grid = index < 0 || _inventory == null ? null : belt ? _inventory.Belt : _inventory.Backpack;
+		return grid != null;
 	}
 
-	// First EMPTY backpack slot, used as the auto-target when unequipping
-	// (or moving items out of the equip slots / stash) in select mode. The
-	// player's expectation is that the item lands in the first available
-	// open position, not slot 0 displacing whatever lived there. Falls back
-	// to the first backpack panel if every slot is occupied, then to
-	// FindFirstFocusable if no backpack panels exist.
+	int GridIndexOf(ItemSlotPanel panel, out bool belt)
+	{
+		belt = false;
+		if (panel == null)
+		{
+			return -1;
+		}
+		int index = _belt?.IndexOf(panel) ?? -1;
+		if (index >= 0)
+		{
+			belt = true;
+			return index;
+		}
+		return _backpack?.IndexOf(panel) ?? -1;
+	}
+
+	// First EMPTY backpack slot, else the belt's, used as the auto-target when
+	// unequipping (or moving items out of the equip slots / stash) in select mode.
+	// The player's expectation is that the item lands in the first available open
+	// position, not slot 0 displacing whatever lived there. Falls back to the
+	// first backpack panel if every slot is occupied, then to FindFirstFocusable.
 	public ItemSlotPanel GetFirstBackpackPanel()
 	{
-		if (_backpackPanels == null || _backpackPanels.Count == 0)
+		ItemSlotPanel backpack = _backpack?.FirstEmptyOrFirst();
+		if (backpack?.Item == null && backpack != null)
 		{
-			return FindFirstFocusable();
+			return backpack;
 		}
-		foreach (ItemSlotPanel p in _backpackPanels)
+		ItemSlotPanel belt = _belt?.FirstEmptyOrFirst();
+		if (belt?.Item == null && belt != null)
 		{
-			if (p != null && p.Item == null)
-			{
-				return p;
-			}
+			return belt;
 		}
-		return _backpackPanels[0];
+		return backpack ?? belt ?? FindFirstFocusable();
 	}
 
 	// Resolve the auto-target slot for select mode: backpack items snap to
-	// their natural equip slot (head/body/L/R/first-empty consumable); already-
+	// their natural equip slot (body/shield/L/R/first-empty consumable); already-
 	// equipped items snap to the first backpack slot. Items with no natural
 	// target return null so the caller can fall back to the current focus.
 	public ItemSlotPanel FindAutoTargetForSelect(ItemSlotPanel source, ItemState item)
 	{
 		if (item?.data == null) { return null; }
-		bool sourceIsBackpack = IsBackpackPanel(source);
-		if (sourceIsBackpack)
+		if (IsGridPanel(source))
 		{
 			switch (item.data)
 			{
 				case ArmorData armor:
-					return armor.armorSlot == EInventorySlot.Helmet ? _armorHeadPanel : _armorBodyPanel;
+					return armor.EquipSlotKind == EInventorySlot.Armor ? _armorBodyPanel : null;
+				case ShieldData:
+					return _shieldPanel;
 				case WeaponData weapon:
 					return weapon.CanonicalSlot == EInventorySlot.WeaponRight ? _weaponRightPanel : _weaponLeftPanel;
 			}
 			return null;
 		}
-		// Source is an equip slot — autotarget the first backpack position.
+		// Source is an equip slot — autotarget the first open grid position.
 		return GetFirstBackpackPanel();
 	}
 
@@ -441,15 +468,22 @@ public partial class InventoryPanel : Control
 	// currently-focused slot).
 	public IEnumerable<ItemSlotPanel> EnumerateAllSlots()
 	{
-		if (_armorHeadPanel != null) { yield return _armorHeadPanel; }
+		if (_shieldPanel != null) { yield return _shieldPanel; }
 		if (_armorBodyPanel != null) { yield return _armorBodyPanel; }
 		if (_weaponLeftPanel != null) { yield return _weaponLeftPanel; }
 		if (_weaponRightPanel != null) { yield return _weaponRightPanel; }
-		if (_backpackPanels != null)
+		if (_belt != null)
 		{
-			foreach (ItemSlotPanel p in _backpackPanels)
+			foreach (ItemSlotPanel p in _belt.EnumerateSlots())
 			{
-				if (p != null) { yield return p; }
+				yield return p;
+			}
+		}
+		if (_backpack != null)
+		{
+			foreach (ItemSlotPanel p in _backpack.EnumerateSlots())
+			{
+				yield return p;
 			}
 		}
 	}

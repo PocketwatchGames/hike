@@ -177,6 +177,14 @@ public partial class GameClient : Node3D
 	[Export] public PackedScene hudTextMissScene;
 	[Export] public PackedScene hudTextBlockedScene;
 	[Export] public PackedScene hudTextParriedScene;
+	// A spent item's icon rising off the interactive that used it (ShowItemsUsed).
+	[Export] public PackedScene hudItemIconScene;
+	// Several icons at once each land at a random screen offset up to this far
+	// (pixels) from the anchor, so they read as separate items.
+	[Export] public Vector2 usedItemIconJitterPixels = new Vector2(24f, 12f);
+	// Icons drawn per item spent, at most — a stack of twenty reagents shouldn't
+	// cover the screen.
+	[Export] public int usedItemIconMaxPerItem = 5;
 	[ExportGroup("")]
 	[Export] public ShaderMaterial outlineMaterial;
 	// Flat-sprite outline variant. Used when ApplyHighlight is wrapping a
@@ -591,20 +599,22 @@ public partial class GameClient : Node3D
 	// is the one source of truth. Its RuntimeNode is repopulated on chunk reload and nulled on
 	// unload, so — unlike a cached node ref — it never dangles. Null when nothing is lit or the
 	// fire's chunk isn't resident yet. CampScreen reads this LIVE every frame rather than caching
-	// a node, so cooking enables itself the moment a respawn/Pray fire streams in.
+	// a node, so cooking enables itself the moment a respawn/return-home fire streams in.
 	public Campfire LitCampfireNode => _world?.WorldState?.SimState?.LitCampfire?.RuntimeNode as Campfire;
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
 	InteractHUD _interactHUD;
 	ClimbHUD _climbHUD;
 
-	// Per-frame entity-spawn budget for the loading-screen-opaque window.
-	// World defaults to 8/frame for hitch-free in-game streaming; 64 burns
-	// through the inner sphere in a fraction of a second since the player
-	// can't see the frame hitches behind the overlay. Reset to the default
-	// before the fade so post-fade pop-in stays smooth.
+	// Per-frame entity-spawn budget while a black screen (the loading screen, a
+	// wake's fade) hides a settle (Sim.BeginSettle). In-game streaming runs at
+	// 8/frame to stay hitch-free; behind the overlay nobody sees the hitches.
 	[ExportGroup("Loading")]
-	[Export(PropertyHint.Range, "1,256,1")] public int loadingEntitySpawnBurst = 64;
+	[Export(PropertyHint.Range, "1,256,1")] public int settleEntitySpawnBurst = 64;
+
+	// True while the world around the party is still spawning in after a load or
+	// a wake. Every overlay that fades back in holds black until it clears.
+	public bool WorldSettling => _world?.IsSettling ?? false;
 
 	[ExportGroup("")]
 	// Bird's-eye overlook driver — lifts the camera off the player into a
@@ -767,7 +777,6 @@ public partial class GameClient : Node3D
 			sim.onItemIdentified += OnSimItemIdentified;
 			sim.onRecipeDiscovered += OnSimRecipeDiscovered;
 			sim.onSpeciesDiscovered += OnSimSpeciesDiscovered;
-			sim.onSpellLearned += OnSimSpellLearned;
 		}
 		onMobKilled += OnMobKilled;
 
@@ -802,31 +811,18 @@ public partial class GameClient : Node3D
 		}
 		save?.ApplyAfterSpawn(worldState, PlayerFor);
 
-		// Burst the per-frame spawn budget while the loading overlay is
-		// opaque — the player can't see frame hitches, so we trade smooth
-		// frames for fewer of them. Reset to the in-game default right
-		// before HideWithFade so the outer-shell drain (enqueued by
-		// ExpandToFullEntityRadius) pops in at the normal rate.
-		_world.MaxEntitiesPerFrame = loadingEntitySpawnBurst;
 		_world.SetPlayer(_player);
+		_world.BeginSettle(settleEntitySpawnBurst);
 
-		// Capture the peak entity-spawn count immediately after SetPlayer.
-		// The chunk-mesh sphere is already fully loaded above, so SetPlayer's
-		// SyncEntitiesToDesired call enqueues every entity for every chunk
-		// in the initial (reduced) radius in one synchronous pass. From this
-		// point on, PendingEntitySpawnCount only decreases until the wait
-		// loop exits.
+		// The settle enqueues every entity of the inner sphere in one pass, so
+		// from here PendingEntitySpawnCount only decreases until it ends.
 		int peakEntitySpawnCount = _world.PendingEntitySpawnCount;
 
-		// Hold the loading screen up until every chunk in the initial entity
-		// radius has finished draining its entity-spawn queue. Without this
-		// wait, the screen would fade to reveal an empty world and props
-		// would pop in after the camera was already active. The outer shell
-		// (between the initial and full radius) is allowed to pop in
-		// post-fade — those chunks aren't enqueued until ExpandToFullEntityRadius
-		// runs below.
+		// Hold the loading screen up until the inner sphere has spawned, or the
+		// screen would fade on an empty world with props popping in. The outer
+		// shell streams in post-fade at the normal rate once the settle ends.
 		int drainFrames = 0;
-		while (!_world.AreEntitySpawnsDrained())
+		while (_world.IsSettling)
 		{
 			drainFrames++;
 			if (loadingScreen != null && peakEntitySpawnCount > 0)
@@ -854,12 +850,6 @@ public partial class GameClient : Node3D
 		_world.Minimap?.RevealAtPlayerNow();
 
 		onPlayerSpawned?.Invoke(_player);
-
-		// Hand the entity drain back to the steady in-game cadence and
-		// enqueue the outer shell of chunks — those entities trickle in
-		// over the next few seconds while the player is getting oriented.
-		_world.MaxEntitiesPerFrame = Sim.DEFAULT_MAX_ENTITIES_PER_FRAME;
-		_world.ExpandToFullEntityRadius();
 
 		// Begin the loading screen fade. LoadingScreen owns the timer and
 		// QueueFrees itself when the fade hits 0; we drop InputSuppressed
@@ -925,66 +915,76 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	// Instantiate one Player node per party member and place them around the
-	// spawn anchor: the active member at the anchor (controlled), the rest
-	// spread evenly on a ring and set inactive. Sets _player to the active one.
+	// Instantiate one Player node per party member and stand them around the
+	// spawn anchor (a campfire on a load), the active member controlled and the
+	// rest inactive. Sets _player to the active one.
 	void SpawnParty(Party party, Vector3 anchor)
 	{
 		_partyPlayers.Clear();
 		int activeIndex = party.ActiveIndex;
-		int inactiveCount = Math.Max(0, party.Count - 1);
-		int ringSlot = 0;
 		for (int i = 0; i < party.Count; i++)
 		{
 			bool active = i == activeIndex;
-			Vector3 pos;
-			if (active)
-			{
-				pos = anchor;
-			}
-			else
-			{
-				// Even ring so the controlled member (at the anchor) has room to
-				// sit; gravity in Player.TickInactive settles each onto the ground.
-				pos = RingPosition(anchor, ringSlot, inactiveCount);
-				ringSlot++;
-			}
-			Player p = SpawnPartyMember(party[i], pos, active);
+			Player p = SpawnPartyMember(party[i], anchor, active);
 			_partyPlayers.Add(p);
 			if (active) { _player = p; }
 		}
+		// Placed once _player exists: the spot search reads its traversal profile.
+		GatherPartyAt(anchor);
 	}
 
-	// Even-spaced position on a ring of `ringCount` members around `anchor`.
-	Vector3 RingPosition(Vector3 anchor, int slot, int ringCount)
+	// Drop onto a spot from this far above its voxel floor: the floor is the
+	// voxel top, and the smoothed terrain mesh can sit a little above it.
+	const float CampSpotDropHeight = 0.5f;
+	// Angular steps tried either side of a ring slot that has no standable ground.
+	const int CampSpotSweepSteps = 3;
+	const float CampSpotSweepDegrees = 15f;
+
+	// Standing spot for ring slot `slot` of `count` around `anchor` — never the
+	// anchor itself, which is the campfire's own collision. The controlled member
+	// takes slot 0. Snapped to standable voxel ground near the anchor's height
+	// (a cave floor resolves to the floor), sweeping a little either side of the
+	// slot; falls back to the plain ring point at the anchor's height.
+	Vector3 CampSpot(Vector3 anchor, int slot, int count)
 	{
-		float a = ringCount > 0 ? Mathf.Tau * slot / ringCount : 0f;
-		return anchor + new Vector3(Mathf.Cos(a) * partyRingRadius, 0f, Mathf.Sin(a) * partyRingRadius);
+		float baseAngle = count > 0 ? Mathf.Tau * slot / count : 0f;
+		if (_world != null && _player != null)
+		{
+			TraversalProfile profile = _player.TraversalProfileForQuery();
+			float step = Mathf.DegToRad(CampSpotSweepDegrees);
+			for (int attempt = 0; attempt <= CampSpotSweepSteps * 2; attempt++)
+			{
+				int offset = (attempt + 1) / 2 * (attempt % 2 == 1 ? 1 : -1);
+				Vector3 candidate = RingPoint(anchor, baseAngle + offset * step);
+				if (NavigationGoals.IsGroundStandable(_world, profile, candidate, out Vector3 ground))
+				{
+					return ground + Vector3.Up * CampSpotDropHeight;
+				}
+			}
+		}
+		return RingPoint(anchor, baseAngle) + Vector3.Up * CampSpotDropHeight;
 	}
 
-	// Teleport the party to the campfire anchor: the controlled member at the
-	// center (room to sit), the others spread evenly around it. Used by the death
-	// wake and whenever the camp screen opens.
+	Vector3 RingPoint(Vector3 anchor, float angle)
+	{
+		return anchor + new Vector3(Mathf.Cos(angle) * partyRingRadius, 0f, Mathf.Sin(angle) * partyRingRadius);
+	}
+
+	// Stand the party around the campfire anchor, the controlled member in slot
+	// 0 and the others evenly round the ring. Used by the death wake and whenever
+	// the camp screen opens.
 	public void GatherPartyAt(Vector3 anchor)
 	{
-		int ringCount = 0;
+		int count = 0;
 		foreach (Player p in _partyPlayers)
 		{
-			if (p != null && p != _player) { ringCount++; }
+			if (p != null) { count++; }
 		}
-		int slot = 0;
+		int slot = 1;
 		foreach (Player p in _partyPlayers)
 		{
 			if (p == null) { continue; }
-			if (p == _player)
-			{
-				p.TeleportTo(anchor);
-			}
-			else
-			{
-				p.TeleportTo(RingPosition(anchor, slot, ringCount));
-				slot++;
-			}
+			p.TeleportTo(CampSpot(anchor, p == _player ? 0 : slot++, count));
 		}
 	}
 
@@ -1017,7 +1017,7 @@ public partial class GameClient : Node3D
 		}
 		InputSuppressed = true;
 		// Lighting the fire makes it the world's LitCampfire (LitCampfireNode), which is
-		// how Pray / the death select later reopen a full camp screen here.
+		// how the Ruby Rosaries / the death select later reopen a full camp screen here.
 		forge.Light();
 		// The map reveal is armed but NOT shown here — it plays the next time the
 		// player opens the map. Knowledge that newly landed in the pool is announced
@@ -1059,10 +1059,6 @@ public partial class GameClient : Node3D
 		{
 			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Recipe Logged" });
 		}
-		if (banked.HasFlag(EKnowledgeCategory.Spell))
-		{
-			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Spell Logged" });
-		}
 		if (banked.HasFlag(EKnowledgeCategory.Bestiary))
 		{
 			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Bestiary Updated" });
@@ -1101,15 +1097,15 @@ public partial class GameClient : Node3D
 			return false;
 		}
 
-		// Place on the campfire ring alongside the other standing members. Sized to
-		// the inactive count including the newcomer; the existing members keep their
+		// Place on the campfire ring alongside the other members, in the last slot
+		// of a ring sized to include the newcomer; the existing members keep their
 		// slots (a slight unevenness) until the next GatherPartyAt re-rings them.
-		int inactiveBefore = 0;
+		int membersBefore = 0;
 		for (int i = 0; i < _partyPlayers.Count; i++)
 		{
-			if (_partyPlayers[i] != null && _partyPlayers[i] != _player) { inactiveBefore++; }
+			if (_partyPlayers[i] != null) { membersBefore++; }
 		}
-		Vector3 pos = RingPosition(_lastCampfirePosition, inactiveBefore, inactiveBefore + 1);
+		Vector3 pos = CampSpot(_lastCampfirePosition, membersBefore, membersBefore + 1);
 		Player p = SpawnPartyMember(member, pos, active: false);
 		_partyPlayers.Add(p);
 
@@ -1257,20 +1253,6 @@ public partial class GameClient : Node3D
 			title = "Recipe Discovered",
 			subtitle = recipe.displayName.ToString(),
 			icon = recipe.inventorySprite,
-		});
-	}
-
-	void OnSimSpellLearned(SpellData spell)
-	{
-		if (spell == null) { return; }
-		SimState sim = _world?.WorldState?.SimState;
-		string name = sim != null ? sim.GetItemDisplayName(spell) : spell.displayName.ToString();
-		Announce(new Announcement
-		{
-			type = EAnnouncementType.Recipe,
-			title = "Spell Learned",
-			subtitle = name,
-			icon = spell.inventorySprite,
 		});
 	}
 
@@ -1750,12 +1732,12 @@ public partial class GameClient : Node3D
 			_player.ClearInput();
 		}
 
-		// Drive the fade-to-black for a fadeToBlack interactive action (Pray) off its
-		// live interact progress, unwinding to clear the instant the action ends or is
+		// Drive the fade-to-black for a fadeToBlack action (the Ruby Rosaries) off its
+		// live progress, unwinding to clear the instant the action ends or is
 		// cancelled. Runs regardless of InputSuppressed so the curtain still clears once
 		// the completion effect opens the camp screen. campFade doubles as the overlay
 		// (idle whenever a real camp fade isn't running, so SetManualDarkness owns it).
-		campFade?.SetManualDarkness(_player.CurrentInteractiveFadesToBlack ? _player.ClientInteractProgress : 0f);
+		campFade?.SetManualDarkness(_player.ComputeActionFadeDarkness());
 
 		// Recenter the virtual aim cursor when not aiming so each new aim
 		// session starts centered. Gated on IsAiming so a mid-charge release
@@ -1883,7 +1865,10 @@ public partial class GameClient : Node3D
 			// visible here still carrying the PREVIOUS sprite target's texture and
 			// transform — the "stale villager highlight in a weird place" ghost.
 			bool birdsEyeActive = _player?.IsBirdsEye ?? false;
-			bool shouldShow = _player?.HighlightInteractive != null && !externalHudActive && _meshHighlight == null && !birdsEyeActive;
+			// The overlay is not under the sprite it outlines, so it doesn't inherit
+			// its visibility (camera-clip hide, a fade) or its removal: ask directly.
+			bool sourceShown = IsInstanceValid(_highlightSource) && _highlightSource.IsVisibleInTree();
+			bool shouldShow = sourceShown && _player?.HighlightInteractive != null && !externalHudActive && _meshHighlight == null && !birdsEyeActive;
 			if (_highlightOverlay.Visible != shouldShow)
 			{
 				_highlightOverlay.Visible = shouldShow;
@@ -2387,7 +2372,7 @@ public partial class GameClient : Node3D
 		// player's self-interactive while they are holding interact with nothing
 		// highlighted (SelfPromptActive) — that spawns the HUD purely to draw the
 		// hold bar and, once the hold completes, the options modal listing the
-		// always-available self-actions (Pray, ...).
+		// always-available self-actions.
 		IInteractive target = (_player?.IsBirdsEye ?? false)
 			? null
 			: _player?.CurInteractive ?? _player?.HighlightInteractive
@@ -2447,7 +2432,6 @@ public partial class GameClient : Node3D
 		}
 
 		_highlightOverlay.Texture = source.Texture;
-		_highlightOverlay.Transform = Transform3D.Identity;
 		_highlightOverlay.Centered = source.Centered;
 		_highlightOverlay.Offset = source.Offset;
 		_highlightOverlay.PixelSize = source.PixelSize;
@@ -2486,13 +2470,23 @@ public partial class GameClient : Node3D
 			float forwardOffset = source is LitSprite lit ? lit.ForwardOffset : 0f;
 			activeOutline.SetShaderParameter("forward_offset", forwardOffset);
 		}
-		// Reparent as a child of the source sprite so the overlay inherits
-		// its full transform chain — both the parent chain (Mob's MeshContainer
-		// drop during burrow) and any sprite-local animation (Loot's bob).
-		// Local transform stays identity since the parent IS what we're tracking.
-		_highlightOverlay.Reparent(source, false);
-		_highlightOverlay.Visible = true;
-	}
+		// The overlay copies the source sprite's global transform — its whole
+		// parent chain (Mob's MeshContainer drop during burrow) and any
+		// sprite-local animation (Loot's bob) — through a follower parented under
+		// the sprite. The overlay itself is never parented there: an interactive
+		// can be freed at any moment (a rest's ResetSpawns, chunk eviction) and
+		// would take the overlay with it. Only the follower dies with it.
+		_highlightSource = source;
+		_highlightFollow = new RemoteTransform3D();
+		_highlightFollow.Name = "HighlightFollow";
+		source.AddChild(_highlightFollow);
+		_highlightFollow.RemotePath = _highlightFollow.GetPathTo(_highlightOverlay);
+		_highlightOverlay.Visible = true;	}
+
+	// The sprite the overlay is following and its follower, while a sprite
+	// interactive is outlined. Either may be freed under us with its entity.
+	Sprite3D _highlightSource;
+	RemoteTransform3D _highlightFollow;
 
 	void RemoveHighlight()
 	{
@@ -2504,10 +2498,15 @@ public partial class GameClient : Node3D
 			_meshHighlight.SetSelected(false);
 		}
 		_meshHighlight = null;
+		if (IsInstanceValid(_highlightFollow))
+		{
+			_highlightFollow.QueueFree();
+		}
+		_highlightFollow = null;
+		_highlightSource = null;
 		if (IsInstanceValid(_highlightOverlay))
 		{
 			_highlightOverlay.Visible = false;
-			_highlightOverlay.Reparent(sceneViewport, false);
 		}
 		_outlinedNode = null;
 	}
@@ -2552,6 +2551,45 @@ public partial class GameClient : Node3D
 			}
 		}
 		return null;
+	}
+
+	// Items an interaction spent: an event-log line per item and its inventory
+	// icon rising off `anchor`, one per unit up to usedItemIconMaxPerItem.
+	public void ShowItemsUsed(Vector3 anchor, IReadOnlyList<SpentItem> spent)
+	{
+		SimState sim = _world?.WorldState?.SimState;
+		int iconCount = 0;
+		for (int i = 0; i < spent.Count; i++)
+		{
+			iconCount += Math.Min(spent[i].count, usedItemIconMaxPerItem);
+		}
+		bool jitter = iconCount > 1;
+		for (int i = 0; i < spent.Count; i++)
+		{
+			ItemData item = spent[i].item;
+			int count = spent[i].count;
+			string name = sim != null ? sim.GetItemDisplayName(item) : item.displayName.ToString();
+			Announce(new Announcement
+			{
+				type = EAnnouncementType.ItemUsed,
+				title = count > 1 ? Loc.Format(Loc.Keys.item_used_count, name, count) : Loc.Format(Loc.Keys.item_used, name),
+				icon = item.inventorySprite,
+			});
+			if (worldHUD == null || hudItemIconScene == null || item.inventorySprite == null)
+			{
+				continue;
+			}
+			int icons = Math.Min(count, usedItemIconMaxPerItem);
+			for (int n = 0; n < icons; n++)
+			{
+				Vector2 offset = jitter
+					? new Vector2(
+						(float)GD.RandRange(-usedItemIconJitterPixels.X, usedItemIconJitterPixels.X),
+						(float)GD.RandRange(-usedItemIconJitterPixels.Y, usedItemIconJitterPixels.Y))
+					: Vector2.Zero;
+				HudItemIcon.Create(hudItemIconScene, _world, camera, anchor, offset, item.inventorySprite, worldHUD);
+			}
+		}
 	}
 
 	void OnHudTextRequested(Vector3 position, string text, EHudTextType type)
@@ -2910,7 +2948,7 @@ public partial class GameClient : Node3D
 			return;
 		}
 		_world.DropDeathSack(_player.DeathSackPosition(), _player.Inventory);
-		_world.RespawnAtSunrise(_lastCampfirePosition);
+		_world.RespawnAtSunrise(ControlledCampSpot(_lastCampfirePosition));
 		GatherPartyAt(_lastCampfirePosition);
 		camera?.SetInitialPosition(_lastCampfirePosition);
 		// Ease back to real time + the resting zoom under the fade-in.
@@ -2920,6 +2958,20 @@ public partial class GameClient : Node3D
 		screenEffects?.ResetOnRespawn();
 		onPlayerRespawned?.Invoke(_player);
 		AutosaveAtWake();
+		// The DeathScreen holds black on WorldSettling.
+		_world.BeginSettle(settleEntitySpawnBurst);
+	}
+
+	// The controlled member's standing spot at a campfire — slot 0 of the ring
+	// GatherPartyAt stands the party on.
+	Vector3 ControlledCampSpot(Vector3 anchor)
+	{
+		int count = 0;
+		foreach (Player p in _partyPlayers)
+		{
+			if (p != null) { count++; }
+		}
+		return CampSpot(anchor, 0, count);
 	}
 
 	// Called by DeathScreen once its fade-in has revealed the campfire: open camp
@@ -3008,6 +3060,9 @@ public partial class GameClient : Node3D
 		if (_sleepToSunrise)
 		{
 			AutosaveAtWake();
+			// A rest re-streams every resident entity (ResetSpawns); the
+			// SleepOverlay holds black on WorldSettling until they are back.
+			_world?.BeginSettle(settleEntitySpawnBurst);
 		}
 	}
 
@@ -3030,32 +3085,28 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	// Resolution of the Pray self-action (PrayReturnHomeEffect, fired once the
-	// screen is fully black). Sends the player home to their last campfire and wakes
-	// them into the camp screen the next morning. Every state change here reuses the
-	// existing camp/sleep path — the sleep-to-sunrise trio (advance the day, clear
-	// transient effects, full-heal, exactly as PerformSleepAdvance's toSunrise branch)
-	// plus the ordinary camp-screen open. The ONE deliberate omission is banking:
-	// unlike EnterCampWithFade this never calls NotifyCampedAt, so the field knowledge
-	// and materials the player gathered are NOT committed — that's the cost of the
-	// free trip home.
-	public void PrayReturnHome()
+	// Resolution of ReturnHomeEffect (the Ruby Rosaries, fired once the screen is
+	// fully black). Sends the player home to their last campfire and wakes them into
+	// the camp screen the next morning. Arriving home commits the camp exactly as
+	// walking up to the fire does (NotifyCampedAt), so nothing gathered is lost.
+	public void ReturnHome()
 	{
 		if (_player == null || _world == null)
 		{
 			return;
 		}
-		// Sim sends the player home: teleport to the campfire, sleep to sunrise (reset
-		// transient effects + full-heal), refuel lanterns, and recall a surviving
-		// companion — the same restore the camp sleep makes, but deliberately WITHOUT
-		// banking (the cost of the free trip). We reframe the camera + open the camp.
-		_world.ReturnHomeToSunrise(_lastCampfirePosition);
+		NotifyCampedAt(_lastCampfirePosition);
+		_world.ReturnHomeToSunrise(ControlledCampSpot(_lastCampfirePosition));
 		camera?.SetInitialPosition(_lastCampfirePosition);
 		// Open the camp screen without banking. Relight the home fire if it's resident;
 		// CampScreen reads the lit node live (full cook/craft) once it streams in.
 		LitCampfireNode?.Light();
 		campScreen?.Open(_player, _lastCampfirePosition);
 		AutosaveAtWake();
+		_world.BeginSettle(settleEntitySpawnBurst);
+		// The action's own fade clears the instant it ends, so the camp fade takes
+		// the screen over at full black and holds it until the world is in.
+		campFade?.Reveal(() => WorldSettling);
 	}
 
 	public void QuitToMenu()

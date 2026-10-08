@@ -13,11 +13,11 @@ public partial class Sim
     // rotating the camera never reveals un-spawned entities.
     private const int ENTITY_LOAD_RADIUS = 5;
     private const int ENTITY_LOAD_RADIUS_SQ = ENTITY_LOAD_RADIUS * ENTITY_LOAD_RADIUS;
-    // Reduced radius used for the initial spawn-time fill. The loading screen is
-    // opaque so the player can't see past the inner sphere; the outer shell
-    // streams in over the next few seconds after the fade via the normal
-    // per-frame drain. Sphere counts: r=3 → ~110 chunks vs r=5 → ~520, so the
-    // loading wait drains ~5x fewer entities before handing control back.
+    // Reduced radius used while settling (BeginSettle). The screen is opaque so
+    // the player can't see past the inner sphere; the outer shell streams in
+    // over the next few seconds after the fade via the normal per-frame drain.
+    // Sphere counts: r=3 → ~110 chunks vs r=5 → ~520, so the wait drains ~5x
+    // fewer entities before handing control back.
     private const int INITIAL_ENTITY_LOAD_RADIUS = 3;
     private const int INITIAL_ENTITY_LOAD_RADIUS_SQ = INITIAL_ENTITY_LOAD_RADIUS * INITIAL_ENTITY_LOAD_RADIUS;
 
@@ -69,13 +69,12 @@ public partial class Sim
     // spawn in 1-4 frames — visually a brief pop-in of mobs/props, dramatically
     // better than a 130ms freeze.
     public const int DEFAULT_MAX_ENTITIES_PER_FRAME = 8;
-    // Settable so the loading sequence can burst the drain rate while the
-    // overlay is opaque (no visible frame cost). Reset to default before the
-    // fade so in-game streaming keeps its hitch-free 8/frame cadence.
-    public int MaxEntitiesPerFrame { get; set; } = DEFAULT_MAX_ENTITIES_PER_FRAME;
-    // Cleared by ExpandToFullEntityRadius once the loading screen is ready to
-    // fade. While true, RebuildDesiredEntityChunks uses INITIAL_ENTITY_LOAD_RADIUS
-    // so SetPlayer's initial sync only enqueues the inner sphere.
+    // Burst while settling behind an opaque screen (no visible frame cost), back
+    // to the default when the settle ends.
+    private int _maxEntitiesPerFrame = DEFAULT_MAX_ENTITIES_PER_FRAME;
+    // While true, RebuildDesiredEntityChunks uses INITIAL_ENTITY_LOAD_RADIUS.
+    // Starts true so SetPlayer's first sync only enqueues the inner sphere the
+    // load's settle waits on; the settle's end clears it.
     private bool _useInitialEntityRadius = true;
 
     // Breadcrumb trail of recent player positions, sampled once per
@@ -156,8 +155,8 @@ public partial class Sim
 
     // The editor runs a player-less Sim, so neither of the two places that
     // normally prime entity streaming ever fires: SetPlayer (which seeds
-    // _desiredEntityChunks) and ExpandToFullEntityRadius (which leaves the
-    // initial narrow radius). Prime both here.
+    // _desiredEntityChunks) and the end of a settle (which leaves the initial
+    // narrow radius). Prime both here.
     //
     // UpdateEntityLoading can't do it — Initialize already stored the spawn
     // chunk in _lastEntityChunkCoord, so the editor's first call sees an
@@ -194,22 +193,47 @@ public partial class Sim
         }
     }
 
-    // Switch from the initial (small) entity-load radius to the full radius
-    // and enqueue spawns for the newly-desired outer-shell chunks. Called by
-    // GameClient once the inner sphere has drained and the loading screen is
-    // about to fade — the outer shell pops in over the next few seconds via
-    // the normal DrainSpawnQueue budget.
-    public void ExpandToFullEntityRadius()
+    // True from BeginSettle until the inner entity sphere around the party has
+    // fully spawned. Every black screen that hides a world change (the loading
+    // screen, a wake's fade) holds opaque while this is set.
+    public bool IsSettling { get; private set; }
+    private ulong _settleStartMs;
+
+    // Bring the world around the controlled member to a revealable state behind
+    // an opaque screen: build the collision sphere there now, narrow entity
+    // streaming to INITIAL_ENTITY_LOAD_RADIUS and drain it at `entitySpawnBurst`
+    // per frame. _Process ends the settle once that drains, restoring the
+    // in-game budget and widening to the full radius, whose outer shell then
+    // streams in at the normal rate behind the fade-in. Call after the party has
+    // been placed and anything that re-streams entities (ResetSpawns) has run.
+    public void BeginSettle(int entitySpawnBurst)
     {
-        if (!_useInitialEntityRadius)
-        {
-            return;
-        }
-        _useInitialEntityRadius = false;
         if (_player == null)
         {
             return;
         }
+        Vector3 pos = _player.GlobalPosition;
+        _settleStartMs = Time.GetTicksMsec();
+        _chunkManager.FillSphereNow(pos);
+        IsSettling = true;
+        _maxEntitiesPerFrame = entitySpawnBurst;
+        _useInitialEntityRadius = true;
+        Vector3I center = WorldToChunkCoord(pos);
+        _lastEntityChunkCoord = center;
+        RebuildDesiredEntityChunks(center);
+        SyncEntitiesToDesired();
+    }
+
+    private void TickSettle()
+    {
+        if (!IsSettling || !AreEntitySpawnsDrained())
+        {
+            return;
+        }
+        IsSettling = false;
+        GD.Print($"[Settle] World settled at {_player.GlobalPosition}: {Time.GetTicksMsec() - _settleStartMs}ms");
+        _maxEntitiesPerFrame = DEFAULT_MAX_ENTITIES_PER_FRAME;
+        _useInitialEntityRadius = false;
         RebuildDesiredEntityChunks(WorldToChunkCoord(_player.GlobalPosition));
         SyncEntitiesToDesired();
     }
@@ -478,16 +502,11 @@ public partial class Sim
     }
 
     // True once every entity-eligible chunk around the player has finished
-    // streaming its entities out of _spawnQueue. ChunkManager's initial-load
-    // pass fills the full mesh sphere (NEARBY_RADIUS = 6) synchronously before
-    // IsSpawnChunkReady flips, so by the time SetPlayer runs every chunk
-    // inside the active entity radius has its mesh and gets LoadEntitiesForChunk
-    // called. GameClient holds the spawn-fade opaque until this returns true so
-    // tallgrass / props / knowledge stones don't pop in over the reveal —
-    // during the initial load the active radius is INITIAL_ENTITY_LOAD_RADIUS,
-    // so this becomes true once only the inner sphere has drained; the outer
-    // shell is enqueued by ExpandToFullEntityRadius right before the fade.
-    public bool AreEntitySpawnsDrained()
+    // streaming its entities out of _spawnQueue. A settle fills the whole mesh
+    // sphere (NEARBY_RADIUS) synchronously first, so every chunk inside the
+    // active entity radius already has its mesh and has been enqueued — this
+    // cannot read true early for a chunk that simply hasn't loaded yet.
+    private bool AreEntitySpawnsDrained()
     {
         return _spawnQueue.Count == 0 && _spawningRemaining.Count == 0;
     }
@@ -547,7 +566,7 @@ public partial class Sim
     {
         using var _prof = Profiler.Sample("Sim.DrainSpawnQueue");
         int spawned = 0;
-        int budget = MaxEntitiesPerFrame;
+        int budget = _maxEntitiesPerFrame;
         while (spawned < budget && _spawnQueue.Count > 0)
         {
             PendingSpawn pending = _spawnQueue.Dequeue();

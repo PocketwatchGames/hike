@@ -265,7 +265,17 @@ public static class WorldFile
     //      its offer in place of the day.
     // v64: a lantern's subclass state is its fuel alone — lit is no longer
     //      stored, because a lantern is lit exactly while it is equipped.
-    public const uint VERSION = 64;
+    // v65: a chest's payload is its Contents item list alone — the separate
+    //      item-path + count loot recipe is gone, so chest loot carries its full
+    //      ItemState (a lantern's fuel, mods, level). The Loot payload carries
+    //      its composed ItemState (null for a plain drop).
+    // v66: a chest's payload carried its lock (a LockData ref).
+    // v67: ...and no longer does — a chest's lock is its scene's.
+    // v68: a chest's payload carries its rigged trap (a RiggedTrapData ref,
+    //      empty when untrapped) between its spawn conditions and its contents.
+    // v69: a mob's outfit mesh-name list is replaced by its NpcAppearanceData
+    //      ref.
+    public const uint VERSION = 69;
 
     public struct IndexEntry
     {

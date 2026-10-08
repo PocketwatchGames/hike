@@ -26,7 +26,10 @@ using System.Linq;
 // A LIST of resources — a chest's loot, a merchant's stock, an NPC's gifts — is
 // edited too: one block per element with the element's own fields, plus add and
 // remove. That is what lets one `chest` palette row stand for every chest, with
-// what it holds picked per placement.
+// what it holds picked per placement. A single RECORD — a resource field whose
+// type has no files to pick, like a loot drop's ItemDescriptor — is the same
+// block without the add and remove. Both nest (a chest's loot row holds a
+// descriptor, which holds its mods); see Slot.
 //
 // What stays a read-only row: a list of strings or scenes (an outfit, a stone
 // ring's scenes) and a PackedScene, which is a rig choice rather than data. The
@@ -367,18 +370,9 @@ public partial class WorldMapEntityInspector : PanelContainer
     {
         EPropertyEditor kind = EditorFor(_shownEntry, name, type, hint, World, out Type resourceType,
             out string[] names, out Resource[] resources);
-        if (kind == EPropertyEditor.List)
+        if (kind is EPropertyEditor.List or EPropertyEditor.Record)
         {
-            // A list takes the panel's whole width under its name: each element
-            // is a block of rows of its own, and squeezed into the value column
-            // those rows would have a label column a third the width of this one.
-            var block = new VBoxContainer();
-            block.AddChild(new Label { Text = name.ToString() });
-            var indent = new MarginContainer();
-            indent.AddThemeConstantOverride("margin_left", listIndent);
-            indent.AddChild(BuildList(name, resourceType));
-            block.AddChild(indent);
-            rows.AddChild(block);
+            rows.AddChild(NestedBlock(Slot.Root, name, kind, resourceType, depth: 1));
             return;
         }
         var row = new HBoxContainer();
@@ -388,7 +382,7 @@ public partial class WorldMapEntityInspector : PanelContainer
             CustomMinimumSize = new Vector2(labelWidth, 0f),
             VerticalAlignment = VerticalAlignment.Center,
         });
-        Control editor = BuildEditor(PropertyBinding(name), kind, type, hint, hintString,
+        Control editor = BuildEditor(FieldBinding(Slot.Root, name), kind, type, hint, hintString,
             resourceType, names, resources);
         editor.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         row.AddChild(editor);
@@ -411,6 +405,7 @@ public partial class WorldMapEntityInspector : PanelContainer
         ResourcePick,
         NamePick,
         List,
+        Record,
         ReadOnly,
     }
 
@@ -427,10 +422,8 @@ public partial class WorldMapEntityInspector : PanelContainer
             out resourceType, out names, out resources);
     }
 
-    // The same question for one field of a list ELEMENT — a loot row's item or
-    // count. Nothing constrains it (an element names no family), and a list
-    // inside an element stays read-only: a list of lists is not a thing a
-    // placement needs and not a thing this narrow panel can show.
+    // The same question for one field of a RECORD — a loot row's item or count,
+    // a descriptor's level. Nothing constrains it (a record names no family).
     public static EPropertyEditor ElementEditorFor(Type element, StringName name,
         Variant.Type type, PropertyHint hint, string world, out Type resourceType)
     {
@@ -490,9 +483,15 @@ public partial class WorldMapEntityInspector : PanelContainer
                 {
                     return EPropertyEditor.ResourcePick;
                 }
+                // Nothing to pick, so the value IS the data — edited in place,
+                // as a list element is.
+                if (IsRecordType(resourceType))
+                {
+                    return EPropertyEditor.Record;
+                }
                 resourceType = null;
                 return EPropertyEditor.ReadOnly;
-            case Variant.Type.Array when entry != null:
+            case Variant.Type.Array:
                 resourceType = ListElementType(owner, name);
                 return resourceType != null ? EPropertyEditor.List : EPropertyEditor.ReadOnly;
             default:
@@ -542,14 +541,96 @@ public partial class WorldMapEntityInspector : PanelContainer
         }
     }
 
-    // Reading goes through the placement, never through a captured entry
-    // reference: the first edit REPLACES the entry with a fork and every row
-    // must follow it there.
-    private Binding PropertyBinding(StringName name)
+    // Where a RECORD the panel edits lives: the entry itself, a record field of
+    // another slot, or one element of a list on another slot. Nesting is just a
+    // chain of these, so a descriptor inside a loot row inside a chest is three
+    // links and needs no code of its own.
+    //
+    // Reading resolves through the entry the caller hands in — the placement's
+    // CURRENT entry, never a captured reference, since the first edit replaces it
+    // with a fork. Editing hands `change` a COPY of the record and puts the copy
+    // back into its parent the same way, all the way up to the entry, which is
+    // the placement's own fork and the only thing mutated in place. Copying every
+    // link is not optional: a fork is shallow, so until now each nested record may
+    // be the palette file's own, and undo compares a fork's top-level fields by
+    // identity — a nested record mutated in place would be invisible to it.
+    private sealed class Slot
+    {
+        public static readonly Slot Root = new(null, e => e, (e, change) => change(e));
+
+        // What to build when the record is unset.
+        public readonly Type Type;
+        private readonly Func<SpawnEntryData, Resource> _resolve;
+        private readonly Action<SpawnEntryData, Action<Resource>> _edit;
+
+        private Slot(Type type, Func<SpawnEntryData, Resource> resolve,
+            Action<SpawnEntryData, Action<Resource>> edit)
+        {
+            Type = type;
+            _resolve = resolve;
+            _edit = edit;
+        }
+
+        public Resource Resolve(SpawnEntryData entry) => entry == null ? null : _resolve(entry);
+
+        public void Edit(SpawnEntryData target, Action<Resource> change) => _edit(target, change);
+
+        public Slot Field(StringName name, Type type) => new(type,
+            e => Resolve(e)?.Get(name).As<Resource>(),
+            (e, change) => Edit(e, parent =>
+            {
+                Resource copy = parent.Get(name).As<Resource>()?.Duplicate() as Resource
+                    ?? (Resource)Activator.CreateInstance(type);
+                change(copy);
+                parent.Set(name, copy);
+            }));
+
+        public Slot Element(StringName list, int index, Type type) => new(type,
+            e =>
+            {
+                List<Resource> items = ReadList(Resolve(e), list);
+                return index < items.Count ? items[index] : null;
+            },
+            (e, change) => Edit(e, parent =>
+            {
+                List<Resource> items = ReadList(parent, list);
+                if (index >= items.Count)
+                {
+                    return;
+                }
+                Resource copy = items[index]?.Duplicate() as Resource
+                    ?? (Resource)Activator.CreateInstance(type);
+                change(copy);
+                items[index] = copy;
+                WriteList(parent, list, items);
+            }));
+    }
+
+    // One field of the record in `slot`. An unset record reads as its type's
+    // defaults — what a write would create — so a fresh loot row shows count 1,
+    // not 0.
+    private Binding FieldBinding(Slot slot, StringName field)
     {
         return new Binding(
-            () => _rowsOwner?.Entry != null ? _rowsOwner.Entry.Get(name) : default,
-            (target, value) => target.Set(name, value));
+            () => (slot.Resolve(_rowsOwner?.Entry) ?? DefaultOf(slot.Type)) is Resource current
+                ? current.Get(field) : default,
+            (target, value) => slot.Edit(target, record => record.Set(field, value)));
+    }
+
+    private static readonly Dictionary<Type, Resource> _defaults = new();
+
+    private static Resource DefaultOf(Type type)
+    {
+        if (type == null)
+        {
+            return null;
+        }
+        if (!_defaults.TryGetValue(type, out Resource probe))
+        {
+            probe = Activator.CreateInstance(type) as Resource;
+            _defaults[type] = probe;
+        }
+        return probe;
     }
 
     // The placement's own copy of its entry, forking it on the first edit.
@@ -1074,6 +1155,79 @@ public partial class WorldMapEntityInspector : PanelContainer
         return label;
     }
 
+    // ---- Records -------------------------------------------------------------
+
+    // Can a field of this type be edited as a record of its own fields? It has
+    // to be something the panel can build a fresh one of when the field is
+    // unset, and one of OUR scripted resources — an engine type (a Curve, a
+    // Texture2D) has no script exports to show, so a record of it is empty.
+    public static bool IsRecordType(Type type)
+    {
+        return type != null && !type.IsAbstract
+            && type.Assembly != typeof(Resource).Assembly
+            && type.GetConstructor(Type.EmptyTypes) != null;
+    }
+
+    // How deep records and lists nest before the rest is a read-only row. No
+    // authored type needs more than a descriptor's mods inside a chest's loot
+    // row (3); the cap exists so a type that can contain itself cannot recurse
+    // the panel forever.
+    private const int MAX_NESTING = 4;
+
+    // A list or record under its name, taking the panel's whole width: each is a
+    // block of rows of its own, and squeezed into the value column those rows
+    // would have a label column a third the width of this one.
+    private Control NestedBlock(Slot owner, StringName name, EPropertyEditor kind, Type type, int depth)
+    {
+        var block = new VBoxContainer();
+        block.AddChild(new Label { Text = name.ToString() });
+        var indent = new MarginContainer();
+        indent.AddThemeConstantOverride("margin_left", listIndent);
+        indent.AddChild(kind == EPropertyEditor.List
+            ? BuildList(owner, name, type, depth)
+            : BuildRecordFields(owner.Field(name, type), depth));
+        block.AddChild(indent);
+        return block;
+    }
+
+    // A record's fields through the same editors a property gets, nesting
+    // further where a field is itself a record or a list.
+    private Control BuildRecordFields(Slot record, int depth)
+    {
+        var fields = new VBoxContainer();
+        foreach (Godot.Collections.Dictionary property in ElementProperties(record.Type))
+        {
+            var field = new StringName(property["name"].AsString());
+            var type = (Variant.Type)(long)property["type"];
+            var hint = (PropertyHint)(long)property["hint"];
+            EPropertyEditor kind = ElementEditorFor(record.Type, field, type, hint, World, out Type resourceType);
+            if (kind is EPropertyEditor.List or EPropertyEditor.Record)
+            {
+                if (depth < MAX_NESTING)
+                {
+                    fields.AddChild(NestedBlock(record, field, kind, resourceType, depth + 1));
+                    continue;
+                }
+                kind = EPropertyEditor.ReadOnly;
+            }
+            var row = new HBoxContainer();
+            row.AddChild(new Label
+            {
+                Text = field.ToString(),
+                // Narrower by each level's indent, so the editors still line up
+                // down the panel.
+                CustomMinimumSize = new Vector2(Mathf.Max(0, labelWidth - listIndent * depth), 0f),
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+            Control editor = BuildEditor(FieldBinding(record, field), kind, type, hint,
+                property["hint_string"].AsString(), resourceType, null, null);
+            editor.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            row.AddChild(editor);
+            fields.AddChild(row);
+        }
+        return fields;
+    }
+
     // ---- Lists ---------------------------------------------------------------
 
     // The element type of an exported list the panel can edit — a C# array or a
@@ -1108,10 +1262,10 @@ public partial class WorldMapEntityInspector : PanelContainer
     // The list as it stands, copied out. Read off the C# field rather than
     // through Get, which would marshal a Godot array per call for a value that
     // is already managed.
-    private static List<Resource> ReadList(SpawnEntryData entry, StringName name)
+    private static List<Resource> ReadList(Resource owner, StringName name)
     {
         var items = new List<Resource>();
-        if (entry?.GetType().GetField(name.ToString())?.GetValue(entry) is System.Collections.IEnumerable list)
+        if (owner?.GetType().GetField(name.ToString())?.GetValue(owner) is System.Collections.IEnumerable list)
         {
             foreach (object item in list)
             {
@@ -1121,13 +1275,13 @@ public partial class WorldMapEntityInspector : PanelContainer
         return items;
     }
 
-    // Always a NEW collection, never the one the entry holds: a fork is shallow,
+    // Always a NEW collection, never the one the owner holds: a fork is shallow,
     // so that one may still be the palette file's, and the undo snapshot is
     // holding the old one to put back.
-    private static void WriteList(SpawnEntryData entry, StringName name, List<Resource> items)
+    private static void WriteList(Resource owner, StringName name, List<Resource> items)
     {
-        System.Reflection.FieldInfo field = entry.GetType().GetField(name.ToString());
-        Type element = ListElementType(entry.GetType(), name);
+        System.Reflection.FieldInfo field = owner.GetType().GetField(name.ToString());
+        Type element = ListElementType(owner.GetType(), name);
         if (field == null || element == null)
         {
             return;
@@ -1139,7 +1293,7 @@ public partial class WorldMapEntityInspector : PanelContainer
             {
                 array.SetValue(items[i], i);
             }
-            field.SetValue(entry, array);
+            field.SetValue(owner, array);
             return;
         }
         object list = Activator.CreateInstance(field.FieldType);
@@ -1148,7 +1302,7 @@ public partial class WorldMapEntityInspector : PanelContainer
         {
             add.Invoke(list, new object[] { item });
         }
-        field.SetValue(entry, list);
+        field.SetValue(owner, list);
     }
 
     // The fields an element of this type shows, off a throwaway instance —
@@ -1177,14 +1331,17 @@ public partial class WorldMapEntityInspector : PanelContainer
         return shown;
     }
 
-    private Control BuildList(StringName name, Type element)
+    // The list `name` on the record in `owner`.
+    private Control BuildList(Slot owner, StringName name, Type element, int depth)
     {
         var box = new VBoxContainer();
         bool picks = ListPicksFiles(element, World);
-        int built = ReadList(_rowsOwner?.Entry, name).Count;
+        int built = ReadList(owner.Resolve(_rowsOwner?.Entry), name).Count;
         for (int i = 0; i < built; i++)
         {
-            box.AddChild(picks ? BuildListPick(name, element, i) : BuildListRecord(name, element, i));
+            box.AddChild(picks
+                ? BuildListPick(owner, name, element, i)
+                : BuildListRecord(owner, name, element, i, depth));
         }
         var add = new Button
         {
@@ -1193,20 +1350,20 @@ public partial class WorldMapEntityInspector : PanelContainer
             FocusMode = Control.FocusModeEnum.None,
             SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
         };
-        add.Pressed += () => Mutate(target =>
+        add.Pressed += () => Mutate(target => owner.Edit(target, record =>
         {
-            List<Resource> items = ReadList(target, name);
+            List<Resource> items = ReadList(record, name);
             // A picked element starts empty and is chosen in its own row; a
             // record starts at its type's defaults (one of nothing, for loot).
             items.Add(picks ? null : (Resource)Activator.CreateInstance(element));
-            WriteList(target, name, items);
-        });
+            WriteList(record, name, items);
+        }));
         box.AddChild(add);
         // An add, a remove, or an undo of either changes how many blocks there
         // should be, which a refresh cannot do — the rows are rebuilt instead.
         _refreshers.Add(() =>
         {
-            if (ReadList(_rowsOwner?.Entry, name).Count != built)
+            if (ReadList(owner.Resolve(_rowsOwner?.Entry), name).Count != built)
             {
                 RebuildDeferred();
             }
@@ -1215,52 +1372,32 @@ public partial class WorldMapEntityInspector : PanelContainer
     }
 
     // One element that is a record: a header with its position and a remove
-    // button, then its own fields through the same editors a property gets.
-    private Control BuildListRecord(StringName list, Type element, int index)
+    // button, then its own fields.
+    private Control BuildListRecord(Slot owner, StringName list, Type element, int index, int depth)
     {
         var block = new VBoxContainer();
-        block.AddChild(ListHeader(list, index, new Label
+        block.AddChild(ListHeader(owner, list, index, new Label
         {
             Text = $"#{index + 1}",
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
         }));
-        var fields = new VBoxContainer();
-        foreach (Godot.Collections.Dictionary property in ElementProperties(element))
-        {
-            var field = new StringName(property["name"].AsString());
-            var type = (Variant.Type)(long)property["type"];
-            var hint = (PropertyHint)(long)property["hint"];
-            EPropertyEditor kind = ElementEditorFor(element, field, type, hint, World, out Type resourceType);
-            var row = new HBoxContainer();
-            row.AddChild(new Label
-            {
-                Text = field.ToString(),
-                CustomMinimumSize = new Vector2(labelWidth - listIndent, 0f),
-                VerticalAlignment = VerticalAlignment.Center,
-            });
-            Control editor = BuildEditor(ElementBinding(list, element, index, field), kind, type, hint,
-                property["hint_string"].AsString(), resourceType, null, null);
-            editor.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            row.AddChild(editor);
-            fields.AddChild(row);
-        }
         var indent = new MarginContainer();
         indent.AddThemeConstantOverride("margin_left", listIndent);
-        indent.AddChild(fields);
+        indent.AddChild(BuildRecordFields(owner.Element(list, index, element), depth + 1));
         block.AddChild(indent);
         return block;
     }
 
     // One element that is a pick of an authored file: the picker and its remove
     // button on one line.
-    private Control BuildListPick(StringName list, Type element, int index)
+    private Control BuildListPick(Slot owner, StringName list, Type element, int index)
     {
-        Control picker = BuildResourcePicker(PickBinding(list, index), element);
+        Control picker = BuildResourcePicker(PickBinding(owner, list, index), element);
         picker.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        return ListHeader(list, index, picker);
+        return ListHeader(owner, list, index, picker);
     }
 
-    private HBoxContainer ListHeader(StringName list, int index, Control lead)
+    private HBoxContainer ListHeader(Slot owner, StringName list, int index, Control lead)
     {
         var header = new HBoxContainer();
         header.AddChild(lead);
@@ -1270,65 +1407,37 @@ public partial class WorldMapEntityInspector : PanelContainer
             TooltipText = "Remove",
             FocusMode = Control.FocusModeEnum.None,
         };
-        remove.Pressed += () => Mutate(target =>
+        remove.Pressed += () => Mutate(target => owner.Edit(target, record =>
         {
-            List<Resource> items = ReadList(target, list);
+            List<Resource> items = ReadList(record, list);
             if (index < items.Count)
             {
                 items.RemoveAt(index);
-                WriteList(target, list, items);
+                WriteList(record, list, items);
             }
-        });
+        }));
         header.AddChild(remove);
         return header;
     }
 
-    // One field of one record. A write CLONES the element rather than setting
-    // the field on it: the element may be the palette file's own (a fork is
-    // shallow), and the undo snapshot compares elements by identity — mutated in
-    // place, an edit would be invisible to undo and would retune every chest
-    // still tracking the palette.
-    private Binding ElementBinding(StringName list, Type element, int index, StringName field)
-    {
-        return new Binding(
-            () =>
-            {
-                List<Resource> items = ReadList(_rowsOwner?.Entry, list);
-                return index < items.Count && items[index] != null ? items[index].Get(field) : default;
-            },
-            (target, value) =>
-            {
-                List<Resource> items = ReadList(target, list);
-                if (index >= items.Count)
-                {
-                    return;
-                }
-                Resource copy = items[index]?.Duplicate() as Resource
-                    ?? (Resource)Activator.CreateInstance(element);
-                copy.Set(field, value);
-                items[index] = copy;
-                WriteList(target, list, items);
-            });
-    }
-
     // The element itself, for a list of picks.
-    private Binding PickBinding(StringName list, int index)
+    private Binding PickBinding(Slot owner, StringName list, int index)
     {
         return new Binding(
             () =>
             {
-                List<Resource> items = ReadList(_rowsOwner?.Entry, list);
+                List<Resource> items = ReadList(owner.Resolve(_rowsOwner?.Entry), list);
                 return index < items.Count && items[index] != null ? Variant.From(items[index]) : default;
             },
-            (target, value) =>
+            (target, value) => owner.Edit(target, record =>
             {
-                List<Resource> items = ReadList(target, list);
+                List<Resource> items = ReadList(record, list);
                 if (index < items.Count)
                 {
                     items[index] = value.As<Resource>();
-                    WriteList(target, list, items);
+                    WriteList(record, list, items);
                 }
-            });
+            }));
     }
 
     // Rebuild the rows once, after the current signal has finished — a list's

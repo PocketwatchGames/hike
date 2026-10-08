@@ -92,7 +92,7 @@ public partial class Sim
     // rest resets — the controlled member wakes healed with transient effects
     // cleared (a DoT can't chip or kill them in their sleep), the well-rested
     // draw, summoned pets, and the world's encounters. The shared
-    // path behind sleep-to-sunrise, pray home and the death wake.
+    // path behind sleep-to-sunrise, the Ruby Rosaries and the death wake.
     private void RestToSunrise()
     {
         if (_worldState == null)
@@ -173,10 +173,11 @@ public partial class Sim
         }
     }
 
-    // Pray-return-home: teleport the controlled member to `pos` (their campfire),
-    // rest to the next sunrise, refill lanterns at the fire, and recall a surviving
-    // companion. Deliberately does NOT bank — that's the cost of the free trip. The
-    // client keeps the camera reframe, campfire relight, and camp screen.
+    // Teleport the controlled member to `pos` (their standing spot at the
+    // campfire — never the fire itself), rest to the next sunrise, refill
+    // lanterns at the fire, and recall a surviving companion to them. Does
+    // NOT bank: the Ruby Rosaries bank first (GameClient.ReturnHome), a death wake
+    // does not. The client keeps the camera reframe, campfire relight, and camp screen.
     public void ReturnHomeToSunrise(Vector3 pos)
     {
         if (_player == null)
@@ -189,7 +190,8 @@ public partial class Sim
         Companion?.RecallToPlayer(pos);
     }
 
-    // The death wake: the controlled member stands back up at `pos` and the party
+    // The death wake: the controlled member stands back up at `pos` (their spot
+    // at the campfire) and the party
     // sleeps to the next sunrise, as a pray-home does. Respawn comes first — the
     // time-skip stops early on a dead controlled member.
     public void RespawnAtSunrise(Vector3 pos)

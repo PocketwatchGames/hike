@@ -82,6 +82,9 @@ public partial class HeldItemVisual : Node3D
 	// keeps lighting with the hands free. See UpdateTorchPlacement.
 	private Node3D _torchHolder;
 	private Node3D _beltHolder;
+	// The shield rides the off hand on its own holder, so concealing the weapon
+	// never hides it; it is shown only while the guard stance is held.
+	private Node3D _shieldHolder;
 	// Nearest PhysicsBody3D ancestor (the Mob / Player body) — the stable, body-
 	// level node a held torch's world light parents to so the deposit tracks the
 	// body rather than the swinging hand bone. Resolved once in BuildSockets.
@@ -109,6 +112,9 @@ public partial class HeldItemVisual : Node3D
 	// HeldTorch.SetLit). Latched so a relight after a model swap reuses it.
 	private Node3D _torchLightParent;
 	private bool _weaponConcealed;
+	private PackedScene _shieldScene;
+	private Node3D _shieldInstance;
+	private bool _shieldShown;
 
 	// The weapon holder for the hand currently selected. Null until built.
 	private Node3D ActiveWeaponHolder => _weaponHand == EHand.Left ? _weaponHolderLeft : _weaponHolderRight;
@@ -150,6 +156,14 @@ public partial class HeldItemVisual : Node3D
 			RotationDegrees = leftGripRotationDegrees,
 		};
 		_weaponHolderLeft.GetParent().AddChild(_torchHolder);
+		_shieldHolder = new Node3D
+		{
+			Name = "ShieldHolder",
+			Position = leftGripOffset,
+			RotationDegrees = leftGripRotationDegrees,
+			Visible = _shieldShown,
+		};
+		_weaponHolderLeft.GetParent().AddChild(_shieldHolder);
 		// Belt socket for a lit lantern (hands-free, stays visible + lighting).
 		// Optional — rigs with no waist/pelvis bone just hide the belted lantern.
 		_beltHolder = BuildBeltHolder(skeleton);
@@ -162,6 +176,7 @@ public partial class HeldItemVisual : Node3D
 		ApplyWeaponIdleFx();
 		ApplyItem();
 		ApplyTorch();
+		ApplyShield();
 	}
 
 	// Builds the belt socket + holder for the lit lantern. Returns null when the
@@ -323,6 +338,36 @@ public partial class HeldItemVisual : Node3D
 		}
 		_itemScene = model;
 		ApplyItem();
+	}
+
+	// Sets the off-hand shield model. No-op when unchanged. Null clears it.
+	public void SetShield(PackedScene model)
+	{
+		if (model == _shieldScene)
+		{
+			return;
+		}
+		_shieldScene = model;
+		ApplyShield();
+	}
+
+	// Shows/hides the shield without discarding it. Cheap to call per tick.
+	public void SetShieldShown(bool shown)
+	{
+		_shieldShown = shown;
+		if (_shieldHolder != null)
+		{
+			_shieldHolder.Visible = shown;
+		}
+	}
+
+	private void ApplyShield()
+	{
+		if (_shieldHolder == null)
+		{
+			return;
+		}
+		SwapInstance(ref _shieldInstance, _shieldHolder, _shieldScene);
 	}
 
 	// Extinguishes the held weapon if it's a lit torch — kills its world light and

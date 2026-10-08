@@ -74,16 +74,12 @@ public partial class SpawnEntryData : Resource
     // file, not to a placement. Shown, they would also be the one edit that can
     // widen the group from inside it.
     //
-    // The raw appearance trio (scene / outfit / palette) stays hidden because it
-    // is the WORLDGEN authoring path: the three must agree with each other (a
-    // rig gender-matched to its outfit), which is a constraint no per-field row
-    // can enforce. A hand placement varies its look through the bundled
-    // NpcSpawnEntry.appearance instead, where a mismatch is unrepresentable.
+    // `scene` is what the entry IS — swapping a door's scene from a placement
+    // turns it into some other thing.
     public static bool IsIdentityProperty(StringName name)
     {
         return name == "variants" || name == "appearances"
-            || name == "scene" || name == "altScene"
-            || name == "outfit" || name == "palette";
+            || name == "scene";
     }
 
     // Does this property get a row in a placement editor at all? Two independent

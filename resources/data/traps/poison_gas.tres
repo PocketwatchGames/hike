@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="RiggedTrapData" format=3 uid="uid://ps9u43jr55rie"]
+
+[ext_resource type="Script" uid="uid://d7tephp1hssch" path="res://scripts/data/world/RiggedTrapData.cs" id="1_trap"]
+[ext_resource type="PackedScene" uid="uid://hjq0pkv0c7537" path="res://scenes/interactives/traps/poison_gas_trap.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_trap")
+scene = ExtResource("2_scene")

@@ -36,78 +36,12 @@
 [ext_resource type="PackedScene" uid="uid://ol8ysqglfqnu" path="res://scenes/characters/player_model_female.tscn" id="29_modelfem"]
 [ext_resource type="Resource" uid="uid://b7mu3dyq8ka1n" path="res://resources/data/status_effects/status_muddy.tres" id="29_statusmuddy"]
 [ext_resource type="PackedScene" uid="uid://el7ngc3sj7g" path="res://scenes/fx/dash_speed_lines.tscn" id="33_dashlines"]
-[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="39_j057w"]
 [ext_resource type="PackedScene" uid="uid://cypanyqryd22f" path="res://scenes/characters/player_model_male.tscn" id="41_modelmale"]
-[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="42_18mi3"]
 [ext_resource type="PackedScene" uid="uid://dqv7n2wk8rmpc" path="res://scenes/fx/dig_scoop.tscn" id="42_digscoop"]
-[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="50_iaction"]
-[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="51_ievent"]
-[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="52_areq"]
-[ext_resource type="Script" uid="uid://b7kq3xn2wawdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="53_nodanger"]
-[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="54_ieffect"]
-[ext_resource type="Script" uid="uid://c5n1cy40gvp4n" path="res://scripts/data/effects/PrayReturnHomeEffect.cs" id="55_prayeffect"]
-[ext_resource type="PackedScene" uid="uid://cvoui2mg0oxau" path="res://scenes/fx/interact_reject.tscn" id="56_reject"]
-[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="57_actorstate"]
-[ext_resource type="PackedScene" uid="uid://cqn7thwp82vd4" path="res://scenes/fx/dig_nothing.tscn" id="58_dignothing"]
-[ext_resource type="PackedScene" uid="uid://dk3mwv9rq2n1x" path="res://scenes/fx/dig_common.tscn" id="59_digcommon"]
-[ext_resource type="PackedScene" uid="uid://b8trz5wq4mkpv" path="res://scenes/fx/dig_treasure.tscn" id="60_digtreasure"]
-[ext_resource type="PackedScene" uid="uid://cwk3rn8qv2tba" path="res://scenes/items/shovel_held.tscn" id="61_shovelheld"]
 [ext_resource type="PackedScene" uid="uid://9y2ehc26fegq7" path="res://scenes/fx/block_start.tscn" id="62_blockstart"]
 [ext_resource type="PackedScene" uid="uid://y3odoq6n86nt2" path="res://scenes/fx/parry_window_end.tscn" id="63_parrywinend"]
 [ext_resource type="PackedScene" uid="uid://dseuhbe357xj7" path="res://scenes/fx/footstep_snow.tscn" id="99_fstsnow"]
 [ext_resource type="PackedScene" uid="uid://dja6erumnnuia" path="res://scenes/fx/skating_snow.tscn" id="98_skatesnow"]
-
-[sub_resource type="Resource" id="Resource_pray_effect"]
-script = ExtResource("55_prayeffect")
-
-[sub_resource type="Resource" id="Resource_pray_event"]
-script = ExtResource("51_ievent")
-type = 8
-effects = Array[ExtResource("54_ieffect")]([SubResource("Resource_pray_effect")])
-
-[sub_resource type="Resource" id="Resource_pray_req_nodanger"]
-script = ExtResource("53_nodanger")
-rejectMessage = &"danger_nearby"
-
-[sub_resource type="Resource" id="Resource_pray_action"]
-script = ExtResource("50_iaction")
-verb = 10
-displayName = &"Pray"
-completionEvents = Array[ExtResource("51_ievent")]([SubResource("Resource_pray_event")])
-durationSeconds = 3.0
-requirements = Array[ExtResource("52_areq")]([SubResource("Resource_pray_req_nodanger")])
-rejectEffect = ExtResource("56_reject")
-cancelOnMove = true
-fadeToBlack = true
-
-[sub_resource type="Resource" id="Resource_dig_event_dig"]
-script = ExtResource("51_ievent")
-type = 131072
-digRadius = 2.0
-digReach = 0.0
-digNothingEffect = ExtResource("58_dignothing")
-digCommonEffect = ExtResource("59_digcommon")
-digTreasureEffect = ExtResource("60_digtreasure")
-
-[sub_resource type="Resource" id="Resource_dig_event_anim"]
-script = ExtResource("51_ievent")
-type = 64
-animName = 36
-
-[sub_resource type="Resource" id="Resource_dig_req_grounded"]
-script = ExtResource("57_actorstate")
-requireGrounded = true
-
-[sub_resource type="Resource" id="Resource_dig_action"]
-script = ExtResource("50_iaction")
-verb = 11
-displayName = &"Dig"
-interactEvents = Array[ExtResource("51_ievent")]([SubResource("Resource_dig_event_anim")])
-completionEvents = Array[ExtResource("51_ievent")]([SubResource("Resource_dig_event_dig")])
-durationSeconds = 2.5
-requirements = Array[ExtResource("52_areq")]([SubResource("Resource_dig_req_grounded")])
-rejectEffect = ExtResource("56_reject")
-locksMovement = true
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25
@@ -199,8 +133,6 @@ _wadeRippleStrength = 0.05
 _digDirtFx = ExtResource("42_digscoop")
 _footprintTexture = ExtResource("8_5jukt")
 _footprintSize = Vector2(0.4, 0.6)
-_selfActions = Array[ExtResource("50_iaction")]([SubResource("Resource_pray_action"), SubResource("Resource_dig_action")])
-_digToolHeldScene = ExtResource("61_shovelheld")
 
 [node name="AudioListener3D" type="AudioListener3D" parent="." unique_id=1649569787]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)

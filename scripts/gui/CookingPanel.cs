@@ -309,7 +309,7 @@ public partial class CookingPanel : MarginContainer
 			for (int i = 0; i < allRecipes.Count; i++)
 			{
 				ConsumableData recipe = allRecipes[i];
-				if (recipe == null || recipe.campfireType != campfireType || !recipe.IsCookable)
+				if (recipe == null || !recipe.IsCookable || recipe.recipe.station != campfireType)
 				{
 					continue;
 				}
@@ -352,7 +352,7 @@ public partial class CookingPanel : MarginContainer
 			}
 			if (button != null)
 			{
-				button.Disabled = Cooking.CountAffordable(recipe.recipeInputs, stash) <= 0;
+				button.Disabled = Cooking.CountAffordable(recipe.recipe.inputs, stash) <= 0;
 			}
 		}
 

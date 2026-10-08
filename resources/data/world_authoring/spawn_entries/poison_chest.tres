@@ -1,8 +1,10 @@
 [gd_resource type="Resource" format=3]
 
 [ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="1_entry"]
-[ext_resource type="PackedScene" uid="uid://bfdv5jjcu2h5d" path="res://scenes/interactives/chest_poison.tscn" id="2_scene"]
+[ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="2_scene"]
+[ext_resource type="Resource" uid="uid://ps9u43jr55rie" path="res://resources/data/traps/poison_gas.tres" id="3_trap"]
 
 [resource]
 script = ExtResource("1_entry")
 scene = ExtResource("2_scene")
+trap = ExtResource("3_trap")

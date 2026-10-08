@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="SpawnScatterData" format=3 uid="uid://x8hb05i0davx"]
 
-[ext_resource type="Script" uid="uid://dqlswysnuirjd" path="res://scripts/data/worldmap/SpawnScatterData.cs" id="13_ep0wb"]
+[ext_resource type="Script" uid="uid://ddj71cgyukalc" path="res://scripts/data/items/ItemChance.cs" id="2_q3gpi"]
+[ext_resource type="Script" uid="uid://hl0oi1pwfpm94" path="res://scripts/data/worldmap/SpawnScatterData.cs" id="13_ep0wb"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_black.tres" id="e_mushroom_black"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_white.tres" id="e_mushroom_white"]
 [ext_resource type="Resource" uid="uid://fk5luyhye2h5" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/spider_swamp.tres" id="e_spider_swamp"]

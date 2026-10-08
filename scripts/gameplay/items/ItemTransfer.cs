@@ -5,8 +5,9 @@ using Godot;
 // over there" that every two-sided item screen shares.
 public static class ItemTransfer
 {
-	// Move `count` units onto a chosen slot. Within one grid this is MoveWithin.
-	// Across grids a whole stack may swap with what is there (the displaced item
+	// Move `count` units onto a chosen slot. Within one member's grids (one grid,
+	// or belt <-> backpack) this is Inventory.Move — nothing leaves the inventory.
+	// Across owners a whole stack may swap with what is there (the displaced item
 	// takes the emptied source slot); a partial one only merges or fills an empty
 	// slot. Checked before anything is detached, so a refused move changes nothing.
 	public static bool MoveTo(IItemGrid from, int fromIndex, int count, IItemGrid to, int toIndex)
@@ -18,6 +19,10 @@ public static class ItemTransfer
 		if (from == to)
 		{
 			return from.MoveWithin(fromIndex, toIndex, count);
+		}
+		if (from is Inventory.CarriedGrid carriedFrom && to is Inventory.CarriedGrid carriedTo && carriedFrom.owner == carriedTo.owner)
+		{
+			return carriedFrom.owner.Move(carriedFrom, fromIndex, carriedTo, toIndex, count);
 		}
 		ItemState source = from.At(fromIndex);
 		if (source?.data == null || count <= 0 || toIndex < 0 || toIndex >= to.Capacity)
@@ -61,6 +66,82 @@ public static class ItemTransfer
 		ItemState leftover = to.Add(moving);
 		Return(from, fromIndex, leftover);
 		return taken - (leftover?.stackCount ?? 0);
+	}
+
+	// Equip the stack at `from[fromIndex]` — the whole of it, gear never stacks.
+	// From one of the member's own grids this is Inventory.Equip; from another grid
+	// the gear it displaces takes the emptied slot.
+	public static bool Equip(IItemGrid from, int fromIndex, Inventory inventory)
+	{
+		if (from == null || inventory == null)
+		{
+			return false;
+		}
+		if (OwnedBy(from, inventory))
+		{
+			return inventory.Equip(from.At(fromIndex));
+		}
+		ItemState source = from.At(fromIndex);
+		if (source?.data == null || !source.data.IsEquippable)
+		{
+			return false;
+		}
+		ItemState moving = from.Take(fromIndex, source.stackCount);
+		Return(from, fromIndex, inventory.EquipIncoming(moving));
+		return true;
+	}
+
+	// Unequip onto a chosen slot of `to`: an empty slot takes it, and gear for
+	// the same equip slot swaps in. False for anything else.
+	public static bool Unequip(Inventory inventory, EInventorySlot slot, IItemGrid to, int toIndex)
+	{
+		if (inventory == null || to == null)
+		{
+			return false;
+		}
+		if (OwnedBy(to, inventory))
+		{
+			return inventory.UnequipTo(slot, (Inventory.CarriedGrid)to, toIndex);
+		}
+		ItemState item = inventory.GetEquipped(slot);
+		if (item == null || toIndex < 0 || toIndex >= to.Capacity)
+		{
+			return false;
+		}
+		ItemState target = to.At(toIndex);
+		if (target != null)
+		{
+			return target.data?.EquipSlotKind == slot && Equip(to, toIndex, inventory);
+		}
+		inventory.Remove(item);
+		Return(to, toIndex, item);
+		return true;
+	}
+
+	// Send equipped gear to wherever it fits in `to`. False when it doesn't.
+	public static bool SendEquipped(Inventory inventory, EInventorySlot slot, IItemGrid to)
+	{
+		if (inventory == null || to == null)
+		{
+			return false;
+		}
+		if (OwnedBy(to, inventory))
+		{
+			return inventory.Unequip(slot);
+		}
+		ItemState item = inventory.GetEquipped(slot);
+		if (item?.data == null || !to.CanFullyAdd(item.data, item.stackCount))
+		{
+			return false;
+		}
+		inventory.Remove(item);
+		Return(to, -1, to.Add(item));
+		return true;
+	}
+
+	static bool OwnedBy(IItemGrid grid, Inventory inventory)
+	{
+		return grid is Inventory.CarriedGrid carried && carried.owner == inventory;
 	}
 
 	// Put something that came out of `grid` back: its own slot first (empty after a

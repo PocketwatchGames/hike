@@ -89,7 +89,7 @@ public partial class ItemEvent : Resource
 	// idle mid-attack while still movement-locked.
 	[Export] public float animDuration;
 
-	// Unequip: no extra fields.
+	// Extinguish: no extra fields.
 
 	// OpenInteractive: handler calls Complete() on context.primaryInteractive
 	// and (if `fx` is non-null) spawns a one-shot at the interactive's node

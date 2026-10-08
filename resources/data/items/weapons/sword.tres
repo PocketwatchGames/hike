@@ -25,7 +25,6 @@
 [ext_resource type="PackedScene" path="res://scenes/items/sword_held.tscn" id="17_held"]
 [ext_resource type="Resource" uid="uid://bswd4n1msetq7" path="res://resources/data/characters/human/anim_sets/sword.tres" id="20_animset"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
-[ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="22_parryfx"]
 
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
@@ -169,18 +168,6 @@ knockbackTime = 0.5
 buildups = []
 modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_charged_mod_crit"), SubResource("Resource_charged_mod_backstab")])
 
-[sub_resource type="Resource" id="Resource_parry"]
-script = ExtResource("1_damage")
-tags = 3201
-healthDamage = 40.0
-armorPenetration = 0.1
-damageVariance = 0.25
-hitstun = 0.7
-knockbackDistance = 1.0
-knockbackTime = 0.4
-buildups = []
-modifiers = []
-
 [sub_resource type="Resource" id="Resource_mod_crit"]
 script = ExtResource("1_modifier")
 overrides = 512
@@ -212,19 +199,10 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), 
 script = ExtResource("2_weapon")
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"charged": SubResource("Resource_charged_damage"),
-&"parry": SubResource("Resource_parry"),
 &"primary": SubResource("Resource_damage")
 })
 actionProfile = SubResource("Resource_profile")
 animSet = ExtResource("20_animset")
-blockArmor = 350.0
-blockArmorRechargeDelay = 2.0
-parryTimeMs = 350
-maxParryDamage = 300.0
-parryDamageProfileKey = &"parry"
-parryEffect = ExtResource("22_parryfx")
-blockDecibels = 1.0
-parryDecibels = 1.2
 displayName = &"Sword"
 description = "A sturdy blade with a heavy charged slash."
 value = 80

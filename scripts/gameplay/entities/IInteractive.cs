@@ -34,6 +34,13 @@ public interface IInteractive
     // this list to populate the hold-menu.
     Array<InteractiveAction> GetActions(Player player);
 
+    // The lock barring every action not marked InteractiveAction.bypassesLock,
+    // or null. ActionRunner gates those actions on a key and, when one
+    // completes, spends the key and calls Unlock — before the action's
+    // completion events, so Complete already sees the lock gone.
+    LockData Lock => null;
+    void Unlock() { }
+
     // The one "can this player use it right now" question every interact site
     // asks: the placement's disabled gate first, then the interactive's own
     // answer. Ask this, never CanActorInteract directly, or a disabled entity

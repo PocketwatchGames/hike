@@ -1,0 +1,89 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://c1da8npxio1b2"]
+
+[ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_spell"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_nk7yf"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_wr8ep"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://cbrtam2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="5_burst"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="6_damage"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="7_buildup"]
+[ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="8_dizzy"]
+[ext_resource type="PackedScene" uid="uid://o82whnkokp9j8" path="res://scenes/fx/shockwave_fx.tscn" id="9_fx"]
+[ext_resource type="Texture2D" uid="uid://dat6u2bd4xsqf" path="res://assets/textures/items/GemYellow.png" id="10_inv"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="10_k85kh"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="11_1uevr"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="11_input"]
+[ext_resource type="Resource" uid="uid://bgbn5p2k4q7wt" path="res://resources/data/items/loot/goblin_meat.tres" id="12_meat"]
+[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="13_gold"]
+[ext_resource type="Script" uid="uid://cy238vqb2k86o" path="res://scripts/data/items/RecipeData.cs" id="recipe_data"]
+
+[sub_resource type="Resource" id="Resource_event_anim"]
+script = ExtResource("4_event")
+type = 64
+animName = 24
+animDuration = 0.5
+
+[sub_resource type="Resource" id="Resource_buildup_dizzy"]
+script = ExtResource("7_buildup")
+effect = ExtResource("8_dizzy")
+amount = 3.0
+
+[sub_resource type="Resource" id="Resource_burst_damage"]
+script = ExtResource("6_damage")
+tags = 1536
+hitstun = 3.0
+knockbackDistance = 6.0
+knockbackTime = 0.5
+buildups = Array[ExtResource("7_buildup")]([SubResource("Resource_buildup_dizzy")])
+modifiers = []
+
+[sub_resource type="Resource" id="Resource_burst"]
+script = ExtResource("5_burst")
+damage = SubResource("Resource_burst_damage")
+radius = 5.0
+fx = ExtResource("9_fx")
+
+[sub_resource type="Resource" id="Resource_event_cast"]
+script = ExtResource("4_event")
+type = 4259856
+cameraShakeMagnitude = 0.6
+cameraShakeDuration = 0.3
+areaBurst = SubResource("Resource_burst")
+
+[sub_resource type="Resource" id="Resource_charged"]
+script = ExtResource("3_charged")
+displayName = &"Shockwave"
+activeDurationSeconds = 0.5
+events = Array[ExtResource("4_event")]([SubResource("Resource_event_anim"), SubResource("Resource_event_cast")])
+speedMultiplierActive = 0.0
+turnSpeedMultiplierActive = 0.0
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("2_profile")
+chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_charged")])
+
+[sub_resource type="Resource" id="Resource_reagent_meat"]
+script = ExtResource("11_input")
+item = ExtResource("12_meat")
+
+[sub_resource type="Resource" id="Resource_reagent_gold"]
+script = ExtResource("11_input")
+item = ExtResource("13_gold")
+count = 2
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("recipe_data")
+inputs = Array[ExtResource("11_input")]([SubResource("Resource_reagent_meat"), SubResource("Resource_reagent_gold")])
+
+[resource]
+script = ExtResource("1_spell")
+actionProfile = SubResource("Resource_profile")
+recipe = SubResource("Recipe")
+displayName = &"Shockwave"
+unidentifiedDisplayName = &"Unknown Potion"
+description = "A thunderous pulse that hurls back and staggers everything around you."
+maxStack = 5
+value = 15
+inventorySprite = ExtResource("10_inv")

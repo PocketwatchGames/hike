@@ -178,30 +178,15 @@ public class ChestSimState : EntitySimState
     // encounters (e.g. Night for campfire encampments). Mirrors
     // MobSimState.SpawnConditions.
     public ESpawnConditions SpawnConditions;
-    // Contents the chest ejects on open. Authored on whatever places the
-    // chest (ChestSpawnEntry for procedural spawns, WorldGenData for test
-    // fixtures, future editor placements) — the chest scene itself carries
-    // no loot, so a single generic chest.tscn handles every variant by
-    // having a different LootItems list pushed onto its SimState. Each
-    // ItemCount ejects as one stacked Loot (single pickup with stackCount
-    // = count), so "5 mushrooms" is one pile rather than five separate
-    // pickups.
-    public ItemCount[] LootItems;
-
-    // Persistent slot contents — the inventory the chest actually holds
-    // between visits. Distinct from LootItems (which is the worldgen-rolled
-    // ejection recipe consumed when the chest is opened): Contents holds
-    // live ItemState instances with stack counts and cooldowns, and rides
-    // the wire format so a stash-style chest keeps whatever the player
-    // deposited across save/load and chunk eviction. Default empty.
-    // Mutators (stash UI, future chest UIs) must write to this list
-    // directly — the runtime Chest node holds a reference to this SimState,
-    // so direct mutation persists without any sync-back hook.
-    // Subclass-specific ItemState fields (WeaponState.ammo,
-    // LanternState fuel) are NOT preserved — items round-trip through
-    // ItemData.CreateState(), resetting to authored defaults. Lift this when
-    // player Inventory persistence lands.
+    // What the chest holds: concrete items rolled by whatever placed it
+    // (ChestSpawnEntry, WorldGen's distributed zone loot) — the scene itself
+    // carries none, so one generic chest.tscn serves every variant. Each stack
+    // ejects as one pile on open, and the chest is empty after. Live
+    // ItemStates, so per-instance state (a lantern's fuel, a weapon's mods)
+    // rides the wire format with them.
     public readonly List<ItemState> Contents = new();
+    // Springs when the chest opens; null = untrapped.
+    public RiggedTrapData Trap;
 
     public ChestSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)

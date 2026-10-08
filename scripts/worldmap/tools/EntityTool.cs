@@ -240,10 +240,20 @@ public class EntityTool : IWorldMapTool
             return;
         }
 
+        // A click that only selects, or a motion event that stays in the same
+        // cell, must not re-seat: with the plane above a passage the seat
+        // resolves to the surface, so merely selecting a tunnel entity would
+        // lift it out.
+        Vector2I anchor = ctx.WorldXZ(texel) + _grabOffset;
+        if (anchor == Selected.anchorXZ)
+        {
+            return;
+        }
+
         // Where it came from as well as where it went: the mark it left behind
         // needs repainting as much as the one it arrived at.
         Rect2I before = CellRect(ctx, Selected.anchorXZ);
-        Selected.anchorXZ = ctx.WorldXZ(texel) + _grabOffset;
+        Selected.anchorXZ = anchor;
         // Re-seated as it slides, so dragging one along a passage keeps it on
         // that passage's floor and dragging it out of the mouth puts it back
         // on the ground.

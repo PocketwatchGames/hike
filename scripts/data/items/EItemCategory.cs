@@ -22,4 +22,5 @@ public enum EItemCategory
 	// into the firing weapon.
 	Ammo,
 	Lantern,
+	Shield,
 }

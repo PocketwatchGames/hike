@@ -71,7 +71,10 @@ public static class SubsceneFile
     //      disabled gate (see WorldFile v61). v12 and earlier still read — their
     //      entities load unnamed and ungated. A fountain's payload lost its own
     //      enabled variable in the same step; no subscene holds a fountain.
-    public const uint VERSION = 13;
+    // v14/v15: a chest's payload gained and then lost a lock (see WorldFile
+    //      v66/v67). No subscene holds a chest, so there is nothing to gate.
+    // v16: a chest's payload carries its rigged trap (see WorldFile v68).
+    public const uint VERSION = 16;
 
     // Bytes before the directory block: magic + version + size + anchor +
     // channelMask + dirLength. ReadDirectory seeks past exactly this much.

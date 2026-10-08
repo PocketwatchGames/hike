@@ -2,12 +2,12 @@ using Godot;
 using Godot.Collections;
 
 // A menu-only IInteractive fronting the player's always-available self-actions
-// (Pray, and future rituals). NOT a world entity: it has no InteractiveBox, is
+// (none authored today; kept for future rituals). NOT a world entity: it has no InteractiveBox, is
 // never highlighted by proximity, and is never the default press action. It is
 // surfaced only through the interact menu — appended to a highlighted world
 // interactive's option list, or shown alone when the player opens the menu with
 // nothing highlighted. Each self-action carries its own behavior via completion
-// ItemEffects (e.g. PrayReturnHomeEffect), so Complete() is a no-op; this shell
+// ItemEffects, so Complete() is a no-op; this shell
 // exists only so a self-action can run through the same ActionRunner /
 // _curInteractive plumbing world interactions use. Owned by the Player.
 public sealed class PlayerSelfInteractive : IInteractive

@@ -5,11 +5,10 @@ using Godot;
 // (a health potion's heal, mud's camo, lantern oil's refill). Author
 // self-contained buff/heal effects here (HealEffect, ApplyStatusEffect,
 // RefillLanternOilEffect); effects that read runtime item state off the action
-// context (SummonPetEffect) don't apply — those belong on a spell (SpellData /
-// IUsableItem).
+// context (SummonPetEffect) run from the actionProfile timeline instead.
 //
-// A consumable with recipeInputs is also a RECIPE: cooking those ingredients at a
-// station of campfireType grants one of it (Cooking.TryMatch). A meal (meal_*) is
+// A consumable with a recipe is also cookable: cooking those ingredients at the
+// recipe's station grants one of it (Cooking.TryMatch). A meal (meal_*) is
 // such a consumable whose effect is an EEffectCategory.Meal status, so eating it
 // replaces whatever meal the character last ate.
 //
@@ -32,19 +31,10 @@ public partial class ConsumableData : ItemData, IInstantUseItem, IUsableItem
 	public ItemActionProfile ActionProfile => actionProfile;
 	public bool CanUseInstantly => actionProfile == null;
 
-	[ExportGroup("Recipe")]
-	// The ingredients that cook into this item. Empty = not cookable. Each input
-	// accepts [count, count + range], so an exact-count variant (all range 0)
-	// and a looser one can be authored as two consumables over the same
-	// ingredients.
-	[Export] public Godot.Collections.Array<RecipeInput> recipeInputs = new();
-	// The station that cooks it — a campfire only matches Cooking recipes.
-	[Export] public ECampfireType campfireType;
-	// Higher wins when several recipes match the same inputs; ties go to the
-	// smallest total range (the most specific).
-	[Export] public int recipePriority;
+	// What cooks into this item. Null = not cookable.
+	[Export] public RecipeData recipe;
 
-	public bool IsCookable => recipeInputs != null && recipeInputs.Count > 0;
+	public bool IsCookable => recipe != null && recipe.HasInputs;
 
 	protected override EItemCategory ComputeCategory() => EItemCategory.Usable;
 

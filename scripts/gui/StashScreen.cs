@@ -1,10 +1,12 @@
 using Godot;
 
 // Stash tab of the camp screen: the party stash (SimState.PartyStash) beside the
-// chosen member's backpack, items moved to and fro between them.
+// chosen member's inventory — belt, backpack and equip slots — items moved to and fro
+// between them.
 //   A  — pick up the stack under the cursor; with one picked up, put it down
-//        here (either grid): an empty slot takes it, a matching stack merges,
-//        anything else swaps. Hold on a stack to pick up only some of it.
+//        here (any grid): an empty slot takes it, a matching stack merges,
+//        anything else swaps. An equip slot takes only its own kind of gear.
+//        Hold on a stack to pick up only some of it.
 //   RT — send the stack under the cursor to the other side, where it fits.
 //        Hold on a stack to send only some of it.
 //   Y  — hold to drop the stack under the cursor at the member's feet; on a
@@ -16,7 +18,7 @@ using Godot;
 public partial class StashScreen : Control
 {
 	[Export] private BackpackPanel _stashPanel;
-	[Export] private BackpackPanel _backpackPanel;
+	[Export] private InventoryPanel _inventoryPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
 	[Export] private ItemCountPanel _countPanel;
 	[Export] private ButtonHint _hintSelect;
@@ -35,7 +37,10 @@ public partial class StashScreen : Control
 	{
 		None,
 		Stash,
+		Belt,
 		Backpack,
+		// The member's equip slots; the index is the EInventorySlot.
+		Equip,
 	}
 
 	readonly struct Slot
@@ -52,73 +57,6 @@ public partial class StashScreen : Control
 		public static readonly Slot None = new(ESide.None, -1);
 		public bool IsNone => side == ESide.None;
 		public bool Is(Slot other) => side == other.side && index == other.index;
-	}
-
-	// Tap / hold on an action no slot sees (RT, Y), read by polling.
-	sealed class PolledHold
-	{
-		public enum EResult
-		{
-			None,
-			Tap,
-			Hold,
-		}
-
-		readonly string _action;
-		float _held;
-		bool _wasDown;
-		bool _fired;
-
-		public PolledHold(string action)
-		{
-			_action = action;
-		}
-
-		// `enabled` false cancels a hold in progress (nothing under the cursor).
-		public EResult Tick(bool enabled, float dt, float holdSeconds, ButtonHint hint)
-		{
-			bool down = Input.IsActionPressed(_action);
-			EResult result = EResult.None;
-			if (!enabled)
-			{
-				Reset(hint);
-			}
-			else if (down && _wasDown && !_fired)
-			{
-				_held += dt;
-				hint?.SetProgress(Mathf.Clamp(_held / holdSeconds, 0f, 1f));
-				if (_held >= holdSeconds)
-				{
-					_fired = true;
-					hint?.SetProgress(0f);
-					result = EResult.Hold;
-				}
-			}
-			else if (!down && _wasDown && !_fired)
-			{
-				result = EResult.Tap;
-			}
-			if (!down)
-			{
-				Reset(hint);
-			}
-			_wasDown = down;
-			return result;
-		}
-
-		public void Reset(ButtonHint hint)
-		{
-			_held = 0f;
-			_fired = false;
-			hint?.SetProgress(0f);
-		}
-
-		// A press already down when the screen opens must come up before it counts.
-		public void Arm(ButtonHint hint)
-		{
-			Reset(hint);
-			_wasDown = Input.IsActionPressed(_action);
-		}
 	}
 
 	Player _player;
@@ -141,7 +79,23 @@ public partial class StashScreen : Control
 	{
 		Visible = false;
 		WirePanel(_stashPanel, ESide.Stash);
-		WirePanel(_backpackPanel, ESide.Backpack);
+		WirePanel(_inventoryPanel?.BeltGrid, ESide.Belt);
+		WirePanel(_inventoryPanel?.BackpackGrid, ESide.Backpack);
+		if (_inventoryPanel != null)
+		{
+			foreach (EInventorySlot equip in InventoryPanel.EquipSlots)
+			{
+				ItemSlotPanel panel = _inventoryPanel.EquipPanel(equip);
+				if (panel == null)
+				{
+					continue;
+				}
+				var slot = new Slot(ESide.Equip, (int)equip);
+				panel.onFocusEntered += _ => OnSlotFocused(slot);
+				panel.onButtonDown += _ => OnSelectDown(slot);
+				panel.onButtonUp += _ => OnSelectUp(slot);
+			}
+		}
 		_itemInfoPanel?.SetItem(null);
 	}
 
@@ -185,7 +139,7 @@ public partial class StashScreen : Control
 		}
 		_countPanel?.Dismiss();
 		_stashPanel?.ClearVisuals();
-		_backpackPanel?.ClearVisuals();
+		_inventoryPanel?.ClearSelectVisuals();
 		Visible = false;
 		_stash = null;
 		_player = null;
@@ -200,7 +154,10 @@ public partial class StashScreen : Control
 		{
 			return;
 		}
-		ItemSlotPanel start = _backpackPanel?.FirstOccupied() ?? _stashPanel?.FirstOccupied() ?? _backpackPanel?.GetSlot(0);
+		BackpackPanel belt = _inventoryPanel?.BeltGrid;
+		BackpackPanel backpack = _inventoryPanel?.BackpackGrid;
+		ItemSlotPanel start = belt?.FirstOccupied() ?? backpack?.FirstOccupied() ?? _stashPanel?.FirstOccupied()
+			?? belt?.GetSlot(0) ?? backpack?.GetSlot(0);
 		start?.GrabFocus();
 	}
 
@@ -209,14 +166,25 @@ public partial class StashScreen : Control
 		return side switch
 		{
 			ESide.Stash => _stash,
-			ESide.Backpack => _player?.Inventory,
+			ESide.Belt => _player?.Inventory?.Belt,
+			ESide.Backpack => _player?.Inventory?.Backpack,
 			_ => null,
 		};
 	}
 
-	ItemState ItemAt(Slot slot) => Grid(slot.side)?.At(slot.index);
+	ItemState ItemAt(Slot slot)
+	{
+		return slot.side == ESide.Equip
+			? _player?.Inventory?.GetEquipped((EInventorySlot)slot.index)
+			: Grid(slot.side)?.At(slot.index);
+	}
 
-	static ESide Other(ESide side) => side == ESide.Stash ? ESide.Backpack : ESide.Stash;
+	// Where RT sends a stack: the member's side takes it into the grid it
+	// prefers (spilling into the other), every member grid sends to the stash.
+	IItemGrid SendTarget(ESide side, ItemState item)
+	{
+		return side == ESide.Stash ? _player?.Inventory?.PreferredGrid(item?.data) : _stash;
+	}
 
 	bool PickerOpen => _countPanel != null && _countPanel.IsOpen;
 
@@ -297,9 +265,32 @@ public partial class StashScreen : Control
 		ClearPick();
 		if (!from.Is(slot))
 		{
-			ItemTransfer.MoveTo(Grid(from.side), from.index, count, Grid(slot.side), slot.index);
+			MoveTo(from, count, slot);
 		}
 		Refresh();
+	}
+
+	void MoveTo(Slot from, int count, Slot to)
+	{
+		Inventory inv = _player?.Inventory;
+		if (from.side == ESide.Equip && to.side == ESide.Equip)
+		{
+			return;
+		}
+		if (to.side == ESide.Equip)
+		{
+			if (InventoryScreen.EquipCompatible((EInventorySlot)to.index, ItemAt(from)))
+			{
+				ItemTransfer.Equip(Grid(from.side), from.index, inv);
+			}
+			return;
+		}
+		if (from.side == ESide.Equip)
+		{
+			ItemTransfer.Unequip(inv, (EInventorySlot)from.index, Grid(to.side), to.index);
+			return;
+		}
+		ItemTransfer.MoveTo(Grid(from.side), from.index, count, Grid(to.side), to.index);
 	}
 
 	void Pick(Slot slot, int count)
@@ -356,16 +347,24 @@ public partial class StashScreen : Control
 
 	void Send(Slot slot, int count)
 	{
-		if (count > 0)
+		if (slot.side == ESide.Equip)
 		{
-			ItemTransfer.Send(Grid(slot.side), slot.index, count, Grid(Other(slot.side)));
+			ItemTransfer.SendEquipped(_player?.Inventory, (EInventorySlot)slot.index, _stash);
+		}
+		else if (count > 0)
+		{
+			ItemTransfer.Send(Grid(slot.side), slot.index, count, SendTarget(slot.side, ItemAt(slot)));
 		}
 		Refresh();
 	}
 
 	void Drop(Slot slot, int count)
 	{
-		if (count > 0)
+		if (slot.side == ESide.Equip)
+		{
+			_player?.Inventory?.Drop(ItemAt(slot));
+		}
+		else if (count > 0)
 		{
 			_player?.DropAtFeet(Grid(slot.side)?.Take(slot.index, count));
 		}
@@ -420,7 +419,7 @@ public partial class StashScreen : Control
 	void Refresh()
 	{
 		_stashPanel?.Refresh(_stash?.Slots);
-		_backpackPanel?.Refresh(_player?.Inventory?.Backpack);
+		_inventoryPanel?.Paint(_player?.Inventory);
 		// A picked stack can vanish under the cursor (spoiled, spent elsewhere).
 		ItemState picked = ItemAt(_picked);
 		if (!_picked.IsNone && (picked == null || picked.stackCount < _pickedCount))
@@ -433,15 +432,22 @@ public partial class StashScreen : Control
 		UpdateHints();
 	}
 
-	// Per-slot overlays the plain repaint doesn't know: the picked-up slot dims,
-	// and the member's equipped items carry the equipped marker.
+	// The picked-up slot dims — the overlay the plain repaint doesn't know.
 	void ApplySlotStates()
 	{
-		ApplySlotStates(_stashPanel, ESide.Stash, null);
-		ApplySlotStates(_backpackPanel, ESide.Backpack, _player?.Inventory);
+		ApplySlotStates(_stashPanel, ESide.Stash);
+		ApplySlotStates(_inventoryPanel?.BeltGrid, ESide.Belt);
+		ApplySlotStates(_inventoryPanel?.BackpackGrid, ESide.Backpack);
+		if (_inventoryPanel != null)
+		{
+			foreach (EInventorySlot equip in InventoryPanel.EquipSlots)
+			{
+				_inventoryPanel.EquipPanel(equip)?.SetDimmed(_picked.side == ESide.Equip && _picked.index == (int)equip);
+			}
+		}
 	}
 
-	void ApplySlotStates(BackpackPanel panel, ESide side, Inventory inv)
+	void ApplySlotStates(BackpackPanel panel, ESide side)
 	{
 		if (panel == null)
 		{
@@ -451,7 +457,6 @@ public partial class StashScreen : Control
 		foreach (ItemSlotPanel slot in panel.EnumerateSlots())
 		{
 			slot.SetDimmed(_picked.side == side && _picked.index == i);
-			slot.SetEquipped(inv != null && inv.IsEquipped(slot.Item));
 			i++;
 		}
 	}
@@ -477,7 +482,7 @@ public partial class StashScreen : Control
 	// Y acts only on the member's own items, and not while something is picked up.
 	string UseVerb()
 	{
-		if (!_picked.IsNone || _focused.side != ESide.Backpack)
+		if (!_picked.IsNone || _focused.side == ESide.Stash || _focused.IsNone)
 		{
 			return null;
 		}

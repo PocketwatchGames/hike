@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 // Reusable "struck and it's gone" component. Drop it into any prop or
@@ -124,14 +125,11 @@ public partial class Destructible : Node3D
             return;
         }
         var rng = new Random();
+        var items = new List<ItemState>();
         for (int i = 0; i < _drops.Length; i++)
         {
-            ItemCountRange drop = _drops[i];
-            if (drop?.item == null)
-            {
-                continue;
-            }
-            sim.EjectLoot(drop.item, drop.Resolve(rng).count, origin);
+            _drops[i]?.Resolve(rng, items);
         }
+        sim.EjectLoot(items, origin);
     }
 }

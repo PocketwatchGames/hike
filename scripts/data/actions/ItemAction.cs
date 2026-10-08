@@ -240,6 +240,12 @@ public partial class ItemAction : Resource
 	//   or interrupt) while this tier is selected. NOT fired on a successful
 	//   release into Active — that path uses releaseEffect.
 	// releaseEffect (one-shot): fired when this tier activates (Charging→Active).
+	// Fade the screen to black as THIS tier charges (chargeT 0 → 1), unwinding on
+	// cancel. Pair with requireFullCharge so the tier's events — a teleport, a camp
+	// — land behind a fully-black curtain. The item twin of
+	// InteractiveAction.fadeToBlack; purely presentational.
+	[Export] public bool fadeToBlack = false;
+
 	[Export] public PackedScene chargeStartEffect;
 	[Export] public PackedScene chargeLoopEffect;
 	[Export] public PackedScene chargeCancelEffect;

@@ -40,17 +40,6 @@ public class WeaponState : ItemState
 	// projectiles threaded through Projectile.Launch.
 	public float DamageMultiplier => 1 << level;
 
-	// Live block-armor guard pool + its recharge-delay gate. Capacity and
-	// recharge tuning live on WeaponData (blockArmor / blockArmorRechargeDelay
-	// / blockArmorRechargeTime); this is the current pool plus the game-time
-	// at which recharge may resume. Only absorbs damage while the player is
-	// sneaking with this weapon in the melee slot (Player.OnHurtBoxHit) — the
-	// sneak crouch doubles as a guard stance — but recharges continuously once
-	// the delay elapses so the guard is ready for the next block. Starts full
-	// so a freshly-equipped weapon guards the first time the player sneaks.
-	public float blockArmor;
-	public ulong blockArmorRechargeStartMs;
-
 	// Arrows this bow has fired that are still recoverable, oldest first.
 	// Spans both forms an arrow can take: loose loot on the ground
 	// (ArrowLootSimState) and stuck on a mob (ArrowStuck). Each entry returns
@@ -74,8 +63,8 @@ public class WeaponState : ItemState
 	public override WeaponData data => _data;
 	private readonly WeaponData _data;
 
-	// Combo cursors, the guard pool and the recharge stamp are live-combat state
-	// that restarts on its own; ammo is the one thing a quiver carries.
+	// Combo cursors are live-combat state that restarts on its own; ammo is the
+	// one thing a quiver carries.
 	public override void WriteSubclassState(System.IO.BinaryWriter w)
 	{
 		w.Write(ammo);
@@ -92,7 +81,6 @@ public class WeaponState : ItemState
 		if (_data != null)
 		{
 			ammo = _data.maxAmmo;
-			blockArmor = _data.blockArmor;
 		}
 	}
 

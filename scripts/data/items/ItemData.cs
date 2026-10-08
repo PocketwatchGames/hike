@@ -38,7 +38,7 @@ public partial class ItemData : Resource
 	// The icon an item slot draws. Every slot widget asks this rather than
 	// reading inventorySprite, so an item whose look depends on being equipped
 	// (a lit lantern) reads the same everywhere.
-	public virtual Texture2D SlotIcon(bool equipped) => inventorySprite;
+	public virtual Texture2D SlotIcon(bool active) => inventorySprite;
 
 	// Coarse classification flags driving mob taste preferences — a dog values
 	// Meat, a villager dislikes Gross. An item can carry several (a roast is
@@ -86,7 +86,7 @@ public partial class ItemData : Resource
 	public EItemCategory Category => categoryOverride != EItemCategory.None ? categoryOverride : ComputeCategory();
 
 	// Per-subclass default category. Base items (loot, meat, ingredients) are
-	// Material; WeaponData / ArmorData / SpellData / LanternData / ConsumableData /
+	// Material; WeaponData / ArmorData / LanternData / ConsumableData /
 	// ArrowLootData override.
 	protected virtual EItemCategory ComputeCategory() => EItemCategory.Material;
 
@@ -96,8 +96,8 @@ public partial class ItemData : Resource
 	// Ammo never enters the inventory — a pickup reclaims it into its weapon.
 	public bool IsCarriable => Category != EItemCategory.Ammo;
 
-	// True when this item fills one of the equip slots — weapon, armor, helmet,
-	// lantern. Equipping never moves it out of the backpack.
+	// True when this item fills one of the equip slots — weapon, armor, shield.
+	// Equipping moves it out of the backpack into the slot.
 	public bool IsEquippable => EquipSlotKind != EInventorySlot.None;
 
 	// The equip slot this item's category maps to, or None.
@@ -106,8 +106,10 @@ public partial class ItemData : Resource
 		EItemCategory.WeaponLeft => EInventorySlot.WeaponLeft,
 		EItemCategory.WeaponRight => EInventorySlot.WeaponRight,
 		EItemCategory.Armor => EInventorySlot.Armor,
-		EItemCategory.Helmet => EInventorySlot.Helmet,
-		EItemCategory.Lantern => EInventorySlot.Lantern,
+		EItemCategory.Shield => EInventorySlot.Shield,
+		// The helmet slot is withdrawn from the inventory for now: helmets are
+		// inert backpack items until it returns (map back to EInventorySlot.Helmet).
+		EItemCategory.Helmet => EInventorySlot.None,
 		_ => EInventorySlot.None,
 	};
 

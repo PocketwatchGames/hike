@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using Godot;
 
-// A fixed row of item slots with gaps allowed — the storage behind a member's
+// A row of item slots with gaps allowed — the storage behind a member's belt and
 // backpack and the party stash. Owns placement only (stacking, swapping,
 // splitting); an owner that cares how items enter or leave (Inventory's equip,
 // hotbar and spoil bookkeeping) wraps one and implements IItemGrid itself.
 public class ItemGrid : IItemGrid
 {
-	private readonly ItemState[] _slots;
+	private ItemState[] _slots;
 
 	public ItemGrid(int capacity)
 	{
@@ -28,6 +28,26 @@ public class ItemGrid : IItemGrid
 	}
 
 	public bool InRange(int index) => index >= 0 && index < _slots.Length;
+
+	// Change the slot count. Growing adds empty slots at the end; shrinking cuts
+	// the trailing ones, and their items are appended to `evicted` for the owner
+	// to rehome — a grid has nowhere to put them itself.
+	public void Resize(int capacity, List<ItemState> evicted)
+	{
+		capacity = Math.Max(0, capacity);
+		if (capacity == _slots.Length)
+		{
+			return;
+		}
+		for (int i = capacity; i < _slots.Length; i++)
+		{
+			if (_slots[i] != null)
+			{
+				evicted.Add(_slots[i]);
+			}
+		}
+		Array.Resize(ref _slots, capacity);
+	}
 
 	public ItemState At(int index) => InRange(index) ? _slots[index] : null;
 
@@ -102,9 +122,8 @@ public class ItemGrid : IItemGrid
 		}
 	}
 
-	// Add, with the empty-slot search starting at `firstSlot` (wrapping) — the
-	// backpack starts materials past the hotbar.
-	public ItemState Add(ItemState incoming, int firstSlot)
+	// Merge into matching stacks, then take the first empty slot.
+	public ItemState Add(ItemState incoming)
 	{
 		if (incoming?.data == null || incoming.stackCount <= 0)
 		{
@@ -115,7 +134,7 @@ public class ItemGrid : IItemGrid
 		{
 			return null;
 		}
-		int index = FirstEmpty(firstSlot);
+		int index = FirstEmpty();
 		if (index < 0)
 		{
 			return incoming;
@@ -124,34 +143,34 @@ public class ItemGrid : IItemGrid
 		return null;
 	}
 
-	public ItemState Add(ItemState incoming) => Add(incoming, 0);
-
 	public bool CanFullyAdd(ItemData data, int count)
 	{
-		if (data == null || count <= 0)
+		return data != null && count > 0 && RoomFor(data) >= count;
+	}
+
+	// How many units of `data` Add could take: the space left in matching stacks
+	// plus a full stack per empty slot.
+	public int RoomFor(ItemData data)
+	{
+		if (data == null)
 		{
-			return false;
+			return 0;
 		}
-		int remaining = count;
-		int emptySlots = 0;
+		int perSlot = data.IsStackable ? Math.Max(1, data.maxStack) : 1;
+		int room = 0;
 		for (int i = 0; i < _slots.Length; i++)
 		{
 			ItemState existing = _slots[i];
 			if (existing == null)
 			{
-				emptySlots++;
+				room += perSlot;
 			}
 			else if (data.IsStackable && existing.data == data)
 			{
-				remaining -= existing.RemainingStackSpace();
+				room += existing.RemainingStackSpace();
 			}
 		}
-		if (remaining <= 0)
-		{
-			return true;
-		}
-		int perSlot = data.IsStackable ? Math.Max(1, data.maxStack) : 1;
-		return remaining <= emptySlots * perSlot;
+		return room;
 	}
 
 	public ItemState Take(int index, int count)
@@ -200,22 +219,28 @@ public class ItemGrid : IItemGrid
 		return incoming;
 	}
 
-	public bool MoveWithin(int from, int to, int count)
+	public bool MoveWithin(int from, int to, int count) => Move(this, from, this, to, count);
+
+	// Move `count` units from a slot of `src` to a slot of `dst` (the same grid or
+	// another): onto an empty slot or a matching stack, or — for a whole stack —
+	// swapping with what is there. Placement only, for an owner moving between
+	// grids it holds both of. False when nothing moved.
+	public static bool Move(ItemGrid src, int from, ItemGrid dst, int to, int count)
 	{
-		ItemState source = At(from);
-		if (source == null || count <= 0 || from == to || !InRange(to))
+		ItemState source = src?.At(from);
+		if (source == null || dst == null || count <= 0 || (src == dst && from == to) || !dst.InRange(to))
 		{
 			return false;
 		}
 		bool whole = count >= source.stackCount;
-		ItemState target = _slots[to];
+		ItemState target = dst._slots[to];
 		if (target == null)
 		{
-			_slots[to] = whole ? source : source.SplitOff(count);
 			if (whole)
 			{
-				_slots[from] = null;
+				src._slots[from] = null;
 			}
+			dst._slots[to] = whole ? source : source.SplitOff(count);
 			return true;
 		}
 		if (Merges(target, source))
@@ -223,7 +248,7 @@ public class ItemGrid : IItemGrid
 			int moved = source.TransferTo(target, Math.Min(count, target.RemainingStackSpace()));
 			if (source.stackCount <= 0)
 			{
-				_slots[from] = null;
+				src._slots[from] = null;
 			}
 			return moved > 0;
 		}
@@ -231,7 +256,8 @@ public class ItemGrid : IItemGrid
 		{
 			return false;
 		}
-		(_slots[from], _slots[to]) = (target, source);
+		src._slots[from] = target;
+		dst._slots[to] = source;
 		return true;
 	}
 

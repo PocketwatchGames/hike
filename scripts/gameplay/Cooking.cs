@@ -4,9 +4,10 @@ using Godot.Collections;
 // Pure recipe matcher. Given the current cooking inputs (any number of slots,
 // each holding an ItemState or null), the master recipe list from SimData (the
 // cookable ConsumableData), and the station performing the cook, returns the
-// consumable those ingredients cook into.
+// consumable those ingredients cook into. The rules read only the RecipeData, so
+// they hold for any item that carries one.
 // Match rules:
-//   * recipe.campfireType must equal the supplied campfireType — recipes are
+//   * recipe.station must equal the supplied campfireType — recipes are
 //     scoped to a station (e.g. cooking-only recipes never match at a
 //     smelter).
 //   * Every authored ingredient must satisfy the provided count being inside
@@ -26,7 +27,7 @@ using Godot.Collections;
 //
 // Tier variation (standard vs high-quality output) is expressed by separate
 // consumables, not by a per-match quality flag. When multiple recipes
-// match the same inputs, the recipe with the highest authored `recipePriority`
+// match the same inputs, the recipe with the highest authored `priority`
 // wins; ties broken by smallest total range (more specific). Final tie
 // resolves to whichever appears first.
 public static class Cooking
@@ -76,35 +77,36 @@ public static class Cooking
 		int bestSpecificity = int.MaxValue;
 		for (int r = 0; r < recipes.Count; r++)
 		{
-			ConsumableData recipe = recipes[r];
+			ConsumableData dish = recipes[r];
+			RecipeData recipe = dish?.recipe;
 			if (!Matches(recipe, totals, suppliedKinds, campfireType))
 			{
 				continue;
 			}
 			int spec = TotalRange(recipe);
-			if (recipe.recipePriority > bestPriority || (recipe.recipePriority == bestPriority && spec < bestSpecificity))
+			if (recipe.priority > bestPriority || (recipe.priority == bestPriority && spec < bestSpecificity))
 			{
-				bestPriority = recipe.recipePriority;
+				bestPriority = recipe.priority;
 				bestSpecificity = spec;
-				bestRecipe = recipe;
+				bestRecipe = dish;
 			}
 		}
 		return bestRecipe != null ? new MatchResult(bestRecipe) : default;
 	}
 
-	static bool Matches(ConsumableData recipe, System.Collections.Generic.Dictionary<ItemData, int> totals, System.Collections.Generic.HashSet<ItemData> suppliedKinds, ECampfireType campfireType)
+	static bool Matches(RecipeData recipe, System.Collections.Generic.Dictionary<ItemData, int> totals, System.Collections.Generic.HashSet<ItemData> suppliedKinds, ECampfireType campfireType)
 	{
-		if (recipe == null || !recipe.IsCookable)
+		if (recipe == null || !recipe.HasInputs)
 		{
 			return false;
 		}
-		if (recipe.campfireType != campfireType)
+		if (recipe.station != campfireType)
 		{
 			return false;
 		}
-		for (int i = 0; i < recipe.recipeInputs.Count; i++)
+		for (int i = 0; i < recipe.inputs.Count; i++)
 		{
-			RecipeInput ri = recipe.recipeInputs[i];
+			RecipeInput ri = recipe.inputs[i];
 			if (ri?.item == null)
 			{
 				return false;
@@ -138,13 +140,13 @@ public static class Cooking
 
 	// True if the supplied item or any of its ancestors is an authored
 	// ingredient of the recipe.
-	static bool CoveredBy(ConsumableData recipe, ItemData kind)
+	static bool CoveredBy(RecipeData recipe, ItemData kind)
 	{
 		foreach (ItemData d in Chain(kind))
 		{
-			for (int i = 0; i < recipe.recipeInputs.Count; i++)
+			for (int i = 0; i < recipe.inputs.Count; i++)
 			{
-				if (recipe.recipeInputs[i]?.item == d)
+				if (recipe.inputs[i]?.item == d)
 				{
 					return true;
 				}
@@ -187,19 +189,19 @@ public static class Cooking
 	// Sum of per-ingredient range. Lower = more specific. A recipe with
 	// every input pinned to range=0 has specificity 0, so it always wins
 	// over a looser recipe sharing the same ingredients.
-	static int TotalRange(ConsumableData recipe)
+	static int TotalRange(RecipeData recipe)
 	{
 		int total = 0;
-		for (int i = 0; i < recipe.recipeInputs.Count; i++)
+		for (int i = 0; i < recipe.inputs.Count; i++)
 		{
-			RecipeInput ri = recipe.recipeInputs[i];
+			RecipeInput ri = recipe.inputs[i];
 			if (ri != null) { total += ri.range; }
 		}
 		return total;
 	}
 
 	// How many times a flat reagent cost can be paid from `pool`. For each reagent, the affordable count is floor(available /
-	// count); the spell can be cast the minimum of those across all reagents.
+	// count); the cost can be paid the minimum of those across all reagents.
 	// Availability sums the stackCount of every pool stack whose item (up its
 	// parent chain) matches the reagent, so a reagent naming a parent species
 	// meat is paid by any descendant — the same identity rule TryMatch uses.

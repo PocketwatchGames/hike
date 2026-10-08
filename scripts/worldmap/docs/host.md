@@ -123,7 +123,7 @@ row of one family ever returns (see the merchant, below). A runtime fork needs
 neither: `Duplicate` carries the export and `EditableEntry` sets the name.
 
 **Identity is now WHICH FAMILY, not which member** (`IsIdentityProperty`:
-`family`, `variants`, `appearances`, `scene`, `altScene`, `outfit`, `palette`). A
+`family`, `variants`, `appearances`, `scene`, `outfit`, `palette`). A
 fork keeps its palette file as its NAME, so what must stay un-editable is
 anything that can move an entry OUT of its family — otherwise a placement that IS
 a drake is still called `npc_hermit` by the panel title, the hover readout,
@@ -165,17 +165,15 @@ with nothing enforcing it — the same reasoning that keeps the animation-clip l
 un-filtered. Authoring it also lets the author say where a family's edges are,
 e.g. whether a cube and a sphere slime are one creature.
 
-**An NPC's look is ONE pick, not three.** `NpcAppearanceData` bundles
-`scene` + `outfit` + `palette`, because those three are not independent: an
-outfit names meshes that exist only in a particular rig, and the recolor names
-them again. As three rows the only thing preventing a male rig in a female outfit
-is the author remembering, and the failure is SILENT — the meshes do not resolve
-and the NPC spawns in its rig's default clothes. It also sidesteps both of the
-panel's standing read-only cases at once (`PackedScene` is excluded as a rig
-choice, and `outfit` is an array). `NpcSpawnEntry` keeps the raw trio for
-worldgen's house lists, which author it inline and always have; the bundle wins
-where set, resolved once through `Rig` / `Outfit` / `Recolor` so the spawn path
-and the idle-animation picker cannot disagree about which rig is in play.
+**An NPC's look is ONE pick.** `NpcAppearanceData` bundles the rig `scene`,
+an `OutfitData` (clothing parts for both rigs plus its 3-colour palette), a hair
+style index, hair colour and skin tone — the same ingredients as a party
+member's look. The outfit lists parts per gender and the rig resolves its own
+(`ModelAnimator.gender`), so a look cannot name meshes its rig lacks. It also
+sidesteps the panel's `PackedScene` read-only case (a rig choice). It is the
+ONLY way an `NpcSpawnEntry` sets a look — worldgen's house lists name an
+appearance file too — and `Rig` resolves it once so the spawn path and the
+idle-animation picker cannot disagree about which rig is in play.
 
 **`idleAnimation` stays its own row** rather than joining the bundle: it is
 genuinely per-individual (villagers built from one `MobData` each rest
@@ -586,9 +584,21 @@ inscription `text`, and the hover names it by what it teaches
 nothing and is refused at bake, as a signpost with no text is — the language is
 a proper noun, so the shared entry carries no default for it.
 
-**A chest's loot is a list on the placement**: `chest` (and `poison_chest`, a
-different scene and so a different family) hold nothing, and the panel's list
-editor adds `ItemCountRange` rows to the placement's own copy.
+**A chest's loot is a list on the placement**: `chest` (and `poison_chest`, the
+same scene with a `trap` set — a trap is per placement too, picked from the
+`RiggedTrapData` files) hold nothing, and the panel's list
+editor adds `ItemCountRange` rows to the placement's own `contents`. A row's
+`item` is an `ItemDescriptor`, so a chest can hold a Fragile bomb or a
+levelled, modded weapon. The rows are rolled at spawn into the
+`ChestSimState`'s live `ItemState`s, which is what the `.hike` stores, so
+nothing a descriptor composes is lost at bake.
+
+**A loose drop is the same shape**: `loot` holds no item, and the placement
+picks one — its `item` is an `ItemDescriptor`, edited as a record (an item
+picker over every `ItemData` the world offers, plus `level`) — and a `count`,
+which lies as one stacked pile for a stackable item and as that many piles for a
+non-stackable one (`ItemCountRange.AppendStates`, the chest's own rule). A drop
+with no item is refused at bake, and `worldmap_check` counts them.
 
 **A placed entity's properties ARE its entry's**, edited in the panel top-right
 (`WorldMapEntityInspector`) — the text on a signpost, the conditions on a chest,
@@ -758,10 +768,10 @@ The field's type comes from **reflection on the entry's C# type**, not from the
 property hint: these are C# fields, so reflection is the exact answer while a
 hint string is the editor's rendering of one.
 
-**A list of resources gets a list editor** — a chest's `lootItems`, an NPC's
+**A list of resources gets a list editor** — a chest's `contents`, an NPC's
 `inventory`, `loyaltyGifts` and `itemPreferences`. One block per element, with
 that element's own fields through the same row editors a property gets (an
-`ItemCountRange` is an item picker and two numbers), plus add and remove. It is
+`ItemCountRange` is a descriptor and two numbers), plus add and remove. It is
 generic over the element type, found by reflection on the entry's field (a C#
 array or a `Godot.Collections.Array<T>`), so a list added to an entry tomorrow is
 editable the day it is added. Two rules make it safe:
@@ -777,15 +787,28 @@ editable the day it is added. Two rules make it safe:
   element types has a standalone file, so all four lists edit records inline and
   those save into `placements.tres` as the placement's own sub-resources.
 
-A list inside an element (none exist) stays read-only, and adding or removing an
-element rebuilds the panel, deferred past the button's own signal.
+**A single record field gets the same block, minus add and remove** — a
+resource field whose type has no files to pick (`LootSpawnEntry.item`, an
+`ItemDescriptor`). Its writes clone the record for the list's reasons. Only a
+concrete scripted type qualifies (`IsRecordType`); anything else with nothing to
+pick stays a read-only row.
+
+**Records and lists NEST**: a field of a record or element that is itself a
+record or a list gets the same block, indented — a chest's loot row holds an
+`ItemDescriptor`, which holds its `statusEffects`. Every row is bound through a
+`Slot` (the entry, a record field of a slot, or an element of a list on a slot),
+and an edit clones EVERY link from the leaf up to the entry, for the list rule's
+reasons applied at each depth: a nested record may still be the palette file's,
+and undo sees only the top-level field it replaced. Past `MAX_NESTING` (4) the
+rest is a read-only row, which only a type that contains itself would reach.
+Adding or removing an element rebuilds the panel, deferred past the button's own
+signal.
 
 **What stays read-only**, and neither is an oversight: a list of strings or
-scenes (an outfit, a stone ring's scenes) is not a list of records, and a
-**`PackedScene`** is a rig choice rather than data — an NPC's `scene` has
-to gender-match its `outfit`, and offering every scene in the project invites a
-mismatch the panel cannot check. A value the scan cannot name (an embedded
-`MobPalette` sub-resource) is offered as its own disabled `(embedded)` row, so
+scenes (a stone ring's scenes) is not a list of records, and a
+**`PackedScene`** is a rig choice rather than data — offering every scene in
+the project invites a choice the panel cannot check. A value the scan cannot
+name (an embedded sub-resource) is offered as its own disabled `(embedded)` row, so
 leaving it alone is what the row means; dropping it into "none" would read as an
 empty field and invite a pick that silently discarded it.
 

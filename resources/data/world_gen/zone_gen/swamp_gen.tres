@@ -4,7 +4,7 @@
 [ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/data/world_authoring/zones/swamp.tres" id="2_region"]
 [ext_resource type="Resource" uid="uid://gpdraqwf22b8" path="res://resources/data/world_authoring/terrain/marsh.tres" id="3_kit_temperate"]
 [ext_resource type="Resource" uid="uid://bg3737i70mdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="4_kit_cave"]
-[ext_resource type="Resource" uid="uid://dkql170kxil1" path="res://resources/data/world_authoring/terrain/underwater.tres" id="5_kit_underwater"]
+[ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="5_kit_underwater"]
 [ext_resource type="Resource" uid="uid://blrncmkcsytp7" path="res://resources/data/world_authoring/terrain/shore_swamp.tres" id="10_nd86w"]
 [ext_resource type="Resource" uid="uid://crwiul27krdig" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp.tres" id="11_surface"]
 [ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_gen/spawn_lists/cave_entities_swamp.tres" id="12_cave"]
@@ -12,10 +12,12 @@
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="16_grp"]
 [ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_script"]
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="92_health"]
 [ext_resource type="Resource" uid="uid://dqvfmgixf4hns" path="res://resources/data/items/consumables/lantern_oil.tres" id="93_oil"]
+[ext_resource type="Resource" uid="uid://b2m6lnjcasyli" path="res://resources/data/items/consumables/ruby_rosaries.tres" id="94_rosaries"]
 [ext_resource type="Resource" uid="uid://2pu5xrui7a5a" path="res://resources/data/items/scrolls/treasure_map_swamp.tres" id="96_map"]
-[ext_resource type="Resource" uid="uid://4efn43odde5i" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_3.tres" id="97_spot"]
+[ext_resource type="Resource" uid="uid://eyr986zwwj9v9" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_3.tres" id="97_spot"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/campfire.tres" id="e_campfire"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab1.tres" id="e_knowledge_stone"]
 [ext_resource type="Resource" uid="uid://wwydvupgfm6a" path="res://resources/data/world_gen/foliage_gen/marsh.tres" id="F_foliage"]
@@ -30,41 +32,77 @@
 [ext_resource type="Resource" uid="uid://kogvearm5wi2" path="res://resources/data/items/scrolls/scroll_stew_spider_stealth.tres" id="sc7"]
 [ext_resource type="Script" uid="uid://38wffcrscjmc" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="swamp_gen_zoneterrain"]
 
+[sub_resource type="Resource" id="Dist0_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("sc0")
+
 [sub_resource type="Resource" id="Dist0"]
 script = ExtResource("90_countrange")
-item = ExtResource("sc0")
+item = SubResource("Dist0_desc")
+
+[sub_resource type="Resource" id="Dist1_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("sc1")
 
 [sub_resource type="Resource" id="Dist1"]
 script = ExtResource("90_countrange")
-item = ExtResource("sc1")
+item = SubResource("Dist1_desc")
+
+[sub_resource type="Resource" id="Dist2_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("sc2")
 
 [sub_resource type="Resource" id="Dist2"]
 script = ExtResource("90_countrange")
-item = ExtResource("sc2")
+item = SubResource("Dist2_desc")
+
+[sub_resource type="Resource" id="Dist3_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("sc3")
 
 [sub_resource type="Resource" id="Dist3"]
 script = ExtResource("90_countrange")
-item = ExtResource("sc3")
+item = SubResource("Dist3_desc")
+
+[sub_resource type="Resource" id="Dist4_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("sc4")
 
 [sub_resource type="Resource" id="Dist4"]
 script = ExtResource("90_countrange")
-item = ExtResource("sc4")
+item = SubResource("Dist4_desc")
+
+[sub_resource type="Resource" id="Dist5_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("sc5")
 
 [sub_resource type="Resource" id="Dist5"]
 script = ExtResource("90_countrange")
-item = ExtResource("sc5")
+item = SubResource("Dist5_desc")
+
+[sub_resource type="Resource" id="Dist6_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("sc6")
 
 [sub_resource type="Resource" id="Dist6"]
 script = ExtResource("90_countrange")
-item = ExtResource("sc6")
+item = SubResource("Dist6_desc")
+
+[sub_resource type="Resource" id="Dist7_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("sc7")
 
 [sub_resource type="Resource" id="Dist7"]
 script = ExtResource("90_countrange")
-item = ExtResource("sc7")
+item = SubResource("Dist7_desc")
+
+[sub_resource type="Resource" id="Dist_treasure_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("96_map")
 
 [sub_resource type="Resource" id="Dist_treasure"]
 script = ExtResource("90_countrange")
-item = ExtResource("96_map")
+item = SubResource("Dist_treasure_desc")
 
 [sub_resource type="Resource" id="Row_campfire"]
 script = ExtResource("grouprow")
@@ -84,15 +122,33 @@ rows = Array[ExtResource("grouprow")]([SubResource("Row_campfire"), SubResource(
 disabledVariable = null
 metadata/_custom_type_script = "uid://ci23e7ltpsb6o"
 
+[sub_resource type="Resource" id="PerChest_health_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("92_health")
+
 [sub_resource type="Resource" id="PerChest_health"]
 script = ExtResource("90_countrange")
-item = ExtResource("92_health")
+item = SubResource("PerChest_health_desc")
 count = 0
 countRange = 1
 
+[sub_resource type="Resource" id="PerChest_oil_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("93_oil")
+
 [sub_resource type="Resource" id="PerChest_oil"]
 script = ExtResource("90_countrange")
-item = ExtResource("93_oil")
+item = SubResource("PerChest_oil_desc")
+count = 0
+countRange = 1
+
+[sub_resource type="Resource" id="PerChest_rosaries_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("94_rosaries")
+
+[sub_resource type="Resource" id="PerChest_rosaries"]
+script = ExtResource("90_countrange")
+item = SubResource("PerChest_rosaries_desc")
 count = 0
 countRange = 1
 
@@ -123,7 +179,7 @@ surfaceEntities = ExtResource("11_surface")
 caveEntities = ExtResource("12_cave")
 caveWaterEntities = ExtResource("90_cave_water")
 waterEntities = ExtResource("14_water")
-perChestLoot = [SubResource("PerChest_health"), SubResource("PerChest_oil")]
+perChestLoot = [SubResource("PerChest_health"), SubResource("PerChest_oil"), SubResource("PerChest_rosaries")]
 distributedLoot = [SubResource("Dist0"), SubResource("Dist1"), SubResource("Dist2"), SubResource("Dist3"), SubResource("Dist4"), SubResource("Dist5"), SubResource("Dist6"), SubResource("Dist7"), SubResource("Dist_treasure")]
 treasureName = "swamp"
 treasureSpot = ExtResource("97_spot")

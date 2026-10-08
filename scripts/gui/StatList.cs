@@ -622,36 +622,27 @@ public static class StatList
 		yield return (GameClient.Current.statNames[key], weapon.ammo + " / " + data.maxAmmo);
 	}
 
-	// Weapon-level Block: the sneak-guard pool capacity, a weapon-wide trait
-	// (not per-action) that renders as a simple stat row alongside Ammo. 0 =
-	// no guard, no row. Parry is NOT here — its counter-strike is a triggered
-	// effect shown as a "Parry" context panel (see ParryCounter), the same way
-	// Crit / Backstab render as contexts rather than flat rows.
-	public static IEnumerable<(string name, string value)> WeaponDefense(WeaponData weapon)
+	// A shield's Block row: the guard pool capacity. 0 = no row. Parry is NOT
+	// here — its counter-strike is a triggered effect shown as a "Parry" context
+	// panel (see ParryCounter), the same way Crit / Backstab render as contexts.
+	public static IEnumerable<(string name, string value)> ShieldStats(ShieldData shield)
 	{
-		if (weapon == null)
+		if (shield != null && shield.guardArmor > 0f)
 		{
-			yield break;
-		}
-		if (weapon.blockArmor > 0f)
-		{
-			yield return (GameClient.Current.statNames[EStatName.Block], StatFormat.Number(weapon.blockArmor));
+			yield return (GameClient.Current.statNames[EStatName.Block], StatFormat.Number(shield.guardArmor));
 		}
 	}
 
-	// The counter-strike DamageData a parry deals back, or null when the weapon
-	// can't parry (parryTimeMs / maxParryDamage unset) or maps no counter profile
-	// (a parry that only negates the blow). Feed the result through BaseDamage to
-	// render the "Parry" context — damage plus every distinctive rider (armor
-	// penetration, knockback, status buildups like Dizzy). The counter-strike is
-	// what varies weapon to weapon; the parry window and damage cap don't.
-	public static DamageData ParryCounter(WeaponData weapon)
+	// The counter-strike a parry deals back, or null when the shield can't parry
+	// or authors no counter. Feed it through BaseDamage to render the "Parry"
+	// context — damage plus every rider (armor penetration, knockback, Dizzy).
+	public static DamageData ParryCounter(ShieldData shield)
 	{
-		if (weapon == null || weapon.parryTimeMs <= 0 || weapon.maxParryDamage <= 0f)
+		if (shield == null || !shield.CanParry)
 		{
 			return null;
 		}
-		DamageData counter = weapon.GetDamage(weapon.parryDamageProfileKey);
+		DamageData counter = shield.parryCounter;
 		return counter != null && counter.healthDamage > 0f ? counter : null;
 	}
 
@@ -665,11 +656,6 @@ public static class StatList
 		if (weapon?.actionProfile?.chargedActions == null)
 		{
 			yield break;
-		}
-		// Weapon-wide defense first — independent of the attack shape below.
-		foreach (var entry in WeaponDefense(weapon))
-		{
-			yield return entry;
 		}
 		foreach (ItemAction action in weapon.actionProfile.chargedActions)
 		{

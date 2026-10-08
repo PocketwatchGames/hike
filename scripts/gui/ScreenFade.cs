@@ -31,6 +31,8 @@ public partial class ScreenFade : Control
 	// must run at real speed regardless of any slow-mo.
 	ulong _lastRealMs;
 	ulong _holdUntilMs;
+	// Optional extra hold: stays black while this reads true (the world settling).
+	Func<bool> _holdWhile;
 	Action _onOpaque;
 	Action _onComplete;
 
@@ -53,9 +55,30 @@ public partial class ScreenFade : Control
 		}
 		_onOpaque = onOpaque;
 		_onComplete = onComplete;
+		_holdWhile = null;
 		_darkness = 0f;
 		_state = EState.FadingOut;
 		_lastRealMs = Time.GetTicksMsec();
+		Visible = true;
+	}
+
+	// Take over a screen something else already blacked out (a fadeToBlack
+	// action): start fully black, hold while `holdWhile` reads true, then fade in.
+	public void Reveal(Func<bool> holdWhile, Action onComplete = null)
+	{
+		if (_state != EState.Idle)
+		{
+			return;
+		}
+		_onOpaque = null;
+		_onComplete = onComplete;
+		_holdWhile = holdWhile;
+		_darkness = 1f;
+		SetAlpha(1f);
+		ulong nowMs = Time.GetTicksMsec();
+		_lastRealMs = nowMs;
+		_holdUntilMs = nowMs + (ulong)(holdSeconds * 1000f);
+		_state = EState.Holding;
 		Visible = true;
 	}
 
@@ -87,8 +110,9 @@ public partial class ScreenFade : Control
 			}
 			case EState.Holding:
 			{
-				if (nowMs >= _holdUntilMs)
+				if (nowMs >= _holdUntilMs && !(_holdWhile?.Invoke() ?? false))
 				{
+					_holdWhile = null;
 					_state = EState.FadingIn;
 				}
 				break;
@@ -111,8 +135,8 @@ public partial class ScreenFade : Control
 		}
 	}
 
-	// Drive the black overlay directly from an external progress source (the Pray
-	// ritual's fade tracking its interact hold), instead of the timed Play() cycle.
+	// Drive the black overlay directly from an external progress source (a fadeToBlack
+	// action's hold or charge progress), instead of the timed Play() cycle.
 	// No-op while an auto Play() cycle owns the overlay, so the two never fight.
 	// Shows/hides the ColorRect with the alpha so t=0 leaves nothing on screen.
 	public void SetManualDarkness(float t)

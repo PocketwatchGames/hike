@@ -682,6 +682,10 @@ public static class WorldMapCheck
                         ? $"{name}[pick {resourceType.Name}]"
                         : $"{name}[{resourceType.Name}: {DescribeElement(resourceType, ctx.Data.World)}]");
                 }
+                else if (kind == WorldMapEntityInspector.EPropertyEditor.Record)
+                {
+                    editable.Add($"{name}{{{resourceType.Name}: {DescribeElement(resourceType, ctx.Data.World)}}}");
+                }
                 else if (kind == WorldMapEntityInspector.EPropertyEditor.ReadOnly)
                 {
                     locked.Add(name.ToString());
@@ -699,8 +703,12 @@ public static class WorldMapCheck
     private static string Join(List<string> items)
         => items.Count == 0 ? "none" : string.Join(", ", items);
 
-    private static string DescribeElement(System.Type element, string world)
+    // Nested records and lists are described inside their parent, in the same
+    // {record} / [list] notation the top level uses. The depth guard mirrors the
+    // panel's, for the same self-containing-type reason.
+    private static string DescribeElement(System.Type element, string world, int depth = 1)
     {
+        const int MaxDepth = 4;
         var fields = new List<string>();
         foreach (Godot.Collections.Dictionary property in WorldMapEntityInspector.ElementProperties(element))
         {
@@ -708,11 +716,20 @@ public static class WorldMapCheck
             WorldMapEntityInspector.EPropertyEditor kind = WorldMapEntityInspector.ElementEditorFor(
                 element, name, (Variant.Type)(long)property["type"], (PropertyHint)(long)property["hint"],
                 world, out System.Type resourceType);
+            bool nests = depth < MaxDepth;
             fields.Add(kind switch
             {
                 WorldMapEntityInspector.EPropertyEditor.ResourcePick =>
                     $"{name}({ResourceTypeIndex.Candidates(resourceType, world).Length})",
-                WorldMapEntityInspector.EPropertyEditor.ReadOnly => $"{name}(read-only)",
+                WorldMapEntityInspector.EPropertyEditor.Record when nests =>
+                    $"{name}{{{resourceType.Name}: {DescribeElement(resourceType, world, depth + 1)}}}",
+                WorldMapEntityInspector.EPropertyEditor.List when nests =>
+                    WorldMapEntityInspector.ListPicksFiles(resourceType, world)
+                        ? $"{name}[pick {resourceType.Name}]"
+                        : $"{name}[{resourceType.Name}: {DescribeElement(resourceType, world, depth + 1)}]",
+                WorldMapEntityInspector.EPropertyEditor.ReadOnly
+                    or WorldMapEntityInspector.EPropertyEditor.Record
+                    or WorldMapEntityInspector.EPropertyEditor.List => $"{name}(read-only)",
                 _ => name.ToString(),
             });
         }
@@ -814,11 +831,16 @@ public static class WorldMapCheck
     {
         var byName = new SortedDictionary<string, List<EntityPlacement>>(System.StringComparer.Ordinal);
         int emptySpots = 0;
+        int emptyLoot = 0;
         foreach (EntityPlacement placement in entities)
         {
             if (placement?.Entry is BuriedSpotSpawnEntry spot && spot.item == null && spot.payload == null)
             {
                 emptySpots++;
+            }
+            if (placement?.Entry is LootSpawnEntry loot && loot.item?.item == null)
+            {
+                emptyLoot++;
             }
             string name = placement?.Name;
             if (name == null)
@@ -863,6 +885,11 @@ public static class WorldMapCheck
         {
             sb.AppendLine($"[worldmap_check] ERROR: {emptySpots} buried spot(s) have nothing buried and "
                 + "will NOT spawn — select each and pick an item or a payload");
+        }
+        if (emptyLoot > 0)
+        {
+            sb.AppendLine($"[worldmap_check] ERROR: {emptyLoot} loot placement(s) have no item and "
+                + "will NOT spawn — select each and pick its item");
         }
     }
 

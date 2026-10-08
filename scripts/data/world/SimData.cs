@@ -27,17 +27,12 @@ public partial class SimData : Resource
     // grows to show them all. Shrinking it packs a save's stash into what is left.
     [Export(PropertyHint.Range, "0,256,1")] public int partyStashCapacity = 32;
 
-    // Master recipe library: every cookable ConsumableData (one with
-    // recipeInputs). CookingScreen matches the cooking inputs against this list,
+    // Master recipe library: every cookable ConsumableData (one with a
+    // recipe). CookingScreen matches the cooking inputs against this list,
     // and discovery is recorded in SimState.DiscoveredRecipes keyed by the same
     // consumable. Adding a recipe = adding it here.
     [Export] public Array<ConsumableData> recipes = new();
 
-    // Master alchemy-spell library, filtered to those currently known by the
-    // almanac's spell tab (SimState.IsSpellKnown → Knowledge.KnownSpells). Each
-    // SpellData owns its reagent cost; which spells start known is authored on
-    // WorldStartData.initialKnowledge (SpellTeachable). Adding a spell = adding it here.
-    [Export] public Array<SpellData> spells = new();
 
     // Master mob-type library — one entry per bestiary PAGE. BestiaryScreen
     // iterates this list for stable page ordering, then groups the player's

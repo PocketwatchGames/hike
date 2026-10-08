@@ -476,7 +476,7 @@ what a build SHIPS.** Its header stores `res://` paths and re-resolves them on
 load — `SimData`, `StartContentPath`, and every `ZoneData` / `RegionData` — and
 entity payloads reference resources through a table of `res://` paths. A
 `<file>::<id>` sub-resource is fine there as long as `<file>` ships (a
-`SpeciesData`'s status effect, an NPC appearance's palette); `GD.Load` resolves
+`SpeciesData`'s status effect, a mob species' recolour palette); `GD.Load` resolves
 that form only from the resource cache, which is why `EntitySerializer.LoadRef`
 loads the outer document first.
 
@@ -546,7 +546,7 @@ see [scripts/data/spawn/CLAUDE.md](scripts/data/spawn/CLAUDE.md).
 ### Save/Load System (`scripts/SaveGame.cs`)
 
 **A save is the party waking at a campfire at sunrise.** It is written at every
-sunrise wake (`GameClient.AutosaveAtWake`: camp sleep, pray-home, death wake)
+sunrise wake (`GameClient.AutosaveAtWake`: camp sleep, Ruby Rosaries return-home, death wake)
 — there is no manual save — and a load reproduces that wake: it starts the world
 the header names (`WorldState.Origin`), sets the clock to the saved
 `WorldClockDays` (always a whole number — a sunrise), lights the saved campfire,
@@ -601,7 +601,7 @@ Two events, and the split is the design:
 | Event | When | Owns |
 |---|---|---|
 | `Sim.OnDawn` | the clock crosses a sunrise — in play, a nap, or a skip | the day's weather roll, the fairy daily budget, world-script `OnDawn` |
-| `Sim.OnRest` | the party sleeps to sunrise, prays home, or wakes from a death | `ResetSpawns`, the well-rested draw, pet dismissal, "Return to Camp", world-script `OnRest` |
+| `Sim.OnRest` | the party sleeps to sunrise, returns home by the Ruby Rosaries, or wakes from a death | `ResetSpawns`, the well-rested draw, pet dismissal, "Return to Camp", world-script `OnRest` |
 
 - **A rest always ends at a sunrise** (`Sim.RestToSunrise`: skip, rolling that
   dawn, then the rest work), which is why a save is still a sunrise wake.
@@ -610,7 +610,7 @@ Two events, and the split is the design:
   0 = dawn — fairy boons), each spoil cohort, the regrow deadline of berry trees,
   forges, fountains and forage. The only reads of `DayNumber` are RNG seeds.
 - **Lanterns refill at a campfire** (`Sim.RefuelPartyLanterns`: camping there or
-  praying home to one) and at a fountain — never at a dawn or a sleep alone.
+  returning home to one by the Ruby Rosaries) and at a fountain — never at a dawn or a sleep alone.
 - **A `[TimeOfDayCurve]` must read the same at 0 and 1** — the wrap is played,
   not hidden behind a fade, so `resource_check` refuses a curve that would jump.
 
@@ -618,7 +618,8 @@ Two events, and the split is the design:
 
 **No party member is ever lost, and there is no game over.** A death goes black,
 shows a Respawn prompt, and is then the same sunrise wake as any other: the
-fallen member's gear (`Inventory.TakeDeathDrop` — everything but the lantern) is
+fallen member's unequipped gear (`Inventory.TakeDeathDrop` — the backpack but one
+belt lantern; worn gear stays on the body) is
 left in a `DeathSack` where they fell (their last solid footing if they died in
 water or mid-air), the party rests, wakes at the last campfire, the game
 autosaves, and the camp screen opens. Unbanked
@@ -763,7 +764,7 @@ wants falls straight out of it:
   across NPCs. A plain one-item handover is not that, and should not cost three
   nested resources to say.
 - **A lesson is written inline too**: `teach:<kind> <name> [components]` in an
-  action cell, where `<kind>` is one of `language`, `recipe`, `spell`, `region`,
+  action cell, where `<kind>` is one of `language`, `recipe`, `region`,
   `item` (reveals its real name) or `bestiary`. The kind picks the namespace, so
   a name can never be ambiguous and the cell says what it means; the name is the
   `.tres` basename, except a language, which is its `LanguageData.id` — the same

@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="4_litsprite"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_72em6"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_1ntuc"]
+[ext_resource type="Script" uid="uid://ddr1wkqv1jkk9" path="res://scripts/data/actions/requirements/PickupFitsRequirement.cs" id="7_pickupfits"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="8_interactivebox"]
 [ext_resource type="PackedScene" uid="uid://cfugslgplto77" path="res://scenes/fx/loot_pickup.tscn" id="9_lootpickup"]
 [ext_resource type="PackedScene" uid="uid://crm8k3n4p5q7w" path="res://scenes/fx/loot_remove.tscn" id="10b_lootremove"]
@@ -23,11 +24,16 @@ bounce = 0.5
 script = ExtResource("12_event")
 type = 256
 
+[sub_resource type="Resource" id="Resource_loot_req_fits"]
+script = ExtResource("7_pickupfits")
+rejectMessage = &"inventory_full"
+
 [sub_resource type="Resource" id="Resource_loot_action_open"]
 script = ExtResource("11_action")
 displayName = &"Pick Up"
 icon = ExtResource("14_pickup")
 completionEvents = Array[ExtResource("12_event")]([SubResource("Resource_loot_event_open")])
+requirements = Array[ExtResource("7_1ntuc")]([SubResource("Resource_loot_req_fits")])
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_loot"]
 

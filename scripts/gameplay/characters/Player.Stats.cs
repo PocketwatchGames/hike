@@ -330,13 +330,11 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// The weapon whose block-armor guard is currently live — non-null only
-	// while the player is sneaking and the equipped melee weapon carries a
-	// block pool. Sneaking is a defensive crouch that doubles as a guard
-	// stance; the guard "active" (absorbs damage) only while sneaking, but
-	// still recharges between crouches (TickBlockArmor) so it's topped up for
-	// the next block.
-	private WeaponState GetSneakBlockWeapon()
+	// The shield whose guard is currently raised — non-null only while the player
+	// is sneaking with a guard (the shield, else bare hands). The crouch is the guard stance: the
+	// guard absorbs only while sneaking, but recharges between crouches
+	// (TickShieldGuard) so it's topped up for the next block.
+	private ShieldState GetRaisedShield()
 	{
 		if (!_sneaking)
 		{
@@ -348,22 +346,14 @@ public partial class Player : CharacterBody3D
 		{
 			return null;
 		}
-		// A "guard" is a melee weapon that can either soak damage passively
-		// (blockArmor) or parry (maxParryDamage). Either qualifies, so a knife
-		// with no passive block still guards for the sake of the parry.
-		if (_inventory?.GetEquipped(EInventorySlot.WeaponLeft) is WeaponState weapon
-			&& weapon.data != null
-			&& (weapon.data.blockArmor > 0f || WeaponCanParry(weapon.data)))
-		{
-			return weapon;
-		}
-		return null;
+		ShieldState shield = GetShieldOrUnarmed();
+		return shield?.data != null && shield.data.CanGuard ? shield : null;
 	}
 
-	// True while a well-timed parry would deflect an incoming blow: the sneak
-	// guard is up, the crouch's parry window is still open, and the guard is off
-	// its recharge cooldown — the same gate OnHurtBoxHit checks (minus the
-	// per-hit damage cap). Read by the HUD to tint the block bar during the window.
+	// True while a well-timed parry would deflect an incoming blow: the guard is
+	// raised, the crouch's parry window is still open, and the guard is off its
+	// recharge cooldown — the same gate OnHurtBoxHit checks (minus the per-hit
+	// damage cap). Read by the HUD.
 	public bool IsParryWindowActive
 	{
 		get
@@ -372,70 +362,53 @@ public partial class Player : CharacterBody3D
 			{
 				return false;
 			}
-			WeaponState guard = GetSneakBlockWeapon();
-			return guard != null && IsGuardReadyToParry(guard);
+			ShieldState shield = GetRaisedShield();
+			return shield != null && IsGuardReadyToParry(shield);
 		}
 	}
 
-	// True when a parry is *possible* — the equipped melee weapon can parry and
-	// its guard is off its recharge cooldown — regardless of whether the crouch's
-	// timed window is currently open. Distinct from IsParryWindowActive (which
-	// also requires the window). Read by the HUD to show "parry available" before
-	// the window opens; the guard readiness alone doesn't need the sneak crouch.
+	// True when a parry is *possible* — the equipped shield can parry and its guard
+	// is off its recharge cooldown — whether or not the crouch's window is open.
+	// Read by the HUD to show "parry available" before the window opens.
 	public bool IsParryReady
 	{
 		get
 		{
-			if (_inventory?.GetEquipped(EInventorySlot.WeaponLeft) is WeaponState weapon
-				&& WeaponCanParry(weapon.data))
-			{
-				return IsGuardReadyToParry(weapon);
-			}
-			return false;
+			ShieldState shield = GetShieldOrUnarmed();
+			return shield?.data != null && shield.data.CanParry && IsGuardReadyToParry(shield);
 		}
-	}
-
-	// A weapon parries only if it authors both a window (parryTimeMs) and a
-	// non-zero negation cap (maxParryDamage).
-	private static bool WeaponCanParry(WeaponData data)
-	{
-		return data != null && data.parryTimeMs > 0 && data.maxParryDamage > 0f;
 	}
 
 	// Opens the parry window on the frame a sneak-block begins (rising edge of
-	// _sneaking, from ProcessInput). A parry-capable melee weapon arms a
-	// GameTimeMs deadline; a well-timed block before it elapses fully negates
-	// the blow and counter-strikes (OnHurtBoxHit → TryParry). A weapon that only
-	// blocks passively leaves the window closed — it soaks but never parries.
+	// _sneaking, from ProcessInput). A well-timed block before the deadline fully
+	// negates the blow and counter-strikes (OnHurtBoxHit → TryParry).
 	private void BeginSneakBlock()
 	{
 		_parryDeadlineMs = 0;
-		// Guard-up cue, only when the crouch raises a live guard — a crouch
-		// inside the re-engage cooldown (or with no guarding weapon) stays
-		// silent so the cue reliably means "the block is up".
-		if (GetSneakBlockWeapon() != null)
+		ShieldState shield = GetRaisedShield();
+		if (shield == null)
 		{
-			SpawnWorldEffect(_blockStartFx);
+			// A crouch inside the re-engage cooldown (or with no shield) stays
+			// silent, so the cue reliably means "the block is up".
+			return;
 		}
-		if (_inventory?.GetEquipped(EInventorySlot.WeaponLeft) is WeaponState weapon
-			&& WeaponCanParry(weapon.data))
+		SpawnWorldEffect(_blockStartFx);
+		if (shield.data.CanParry)
 		{
-			_parryDeadlineMs = (_world?.GameTimeMs ?? 0) + (ulong)weapon.data.parryTimeMs;
+			_parryDeadlineMs = (_world?.GameTimeMs ?? 0) + (ulong)shield.data.parryTimeMs;
 		}
 	}
 
 	// Fires the subtle "too late to parry" cue on the tick the parry window
 	// elapses, consuming the deadline so it's a one-shot (a successful parry
-	// zeroed it already). Silent when the guard isn't up at expiry — the player
-	// stood mid-window, or crouched during the re-engage cooldown and the
-	// guard never rose.
+	// zeroed it already). Silent when the guard isn't up at expiry.
 	private void TickParryWindow()
 	{
 		if (_parryDeadlineMs == 0 || (_world?.GameTimeMs ?? 0) < _parryDeadlineMs)
 		{
 			return;
 		}
-		bool guardUp = GetSneakBlockWeapon() != null;
+		bool guardUp = GetRaisedShield() != null;
 		_parryDeadlineMs = 0;
 		if (guardUp)
 		{
@@ -443,123 +416,98 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Effective parry cap for `weapon`: the authored maxParryDamage scaled by
-	// the same per-level multipliers the weapon's own hits enjoy — its composed
-	// item level (DamageMultiplier, 2^level) and the Melee forge upgrade's
-	// shared curve (OutgoingLevelScale) — so an upgraded weapon deflects
-	// proportionally bigger blows, keeping parry viable against higher-level
-	// mobs whose damage rides the same curve.
-	private float EffectiveMaxParryDamage(WeaponState weapon)
+	// Level scale shared by the parry cap and the counter-strike: the shield's
+	// composed level and the Melee forge upgrade's curve, so parry keeps pace with
+	// level-scaled mob damage.
+	private float ShieldLevelScale(ShieldState shield)
 	{
-		if (weapon?.data == null || weapon.data.maxParryDamage <= 0f)
+		return shield.LevelMultiplier * OutgoingLevelScale(EInventorySlot.Shield);
+	}
+
+	private float EffectiveMaxParryDamage(ShieldState shield)
+	{
+		if (shield?.data == null || shield.data.maxParryDamage <= 0f)
 		{
 			return 0f;
 		}
-		return weapon.data.maxParryDamage * weapon.DamageMultiplier * OutgoingLevelScale(EInventorySlot.WeaponLeft);
+		return shield.data.maxParryDamage * ShieldLevelScale(shield);
 	}
 
-	// Whether `weapon`'s guard is off its recharge cooldown and so free to
-	// parry. blockArmorRechargeStartMs is the game-time at which the guard's
-	// recharge may resume — pushed into the future by every guard-touching hit
-	// and by each parry (SpendParryGuard) — so the parry is gated by the same
-	// delay the passive pool recharges on. A weapon never hit yet has the
-	// timestamp at 0 (in the past), so its first parry is immediately available.
-	private bool IsGuardReadyToParry(WeaponState weapon)
+	// The guard is free to parry once it's off its recharge delay, which every
+	// guard-touching hit and every parry push into the future — so parry and the
+	// passive pool share one cooldown.
+	private bool IsGuardReadyToParry(ShieldState shield)
 	{
-		return weapon != null && (_world?.GameTimeMs ?? 0) >= weapon.blockArmorRechargeStartMs;
+		return shield != null && (_world?.GameTimeMs ?? 0) >= shield.guardRechargeStartMs;
 	}
 
-	// Consume the guard on a successful parry: re-arm the block recharge delay so
-	// the next parry (and the passive pool's own recharge) waits out
-	// blockArmorRechargeDelay. This is the whole coupling to the block system —
-	// the parry spends no pool amount (it negated the hit itself, not via the
-	// pool), only the guard's readiness.
-	private void SpendParryGuard(WeaponState weapon)
+	// A parry spends no pool (it negated the hit itself), only the guard's
+	// readiness: it re-arms the recharge delay.
+	private void SpendParryGuard(ShieldState shield)
 	{
-		if (weapon?.data == null)
-		{
-			return;
-		}
 		ulong now = _world?.GameTimeMs ?? 0;
-		weapon.blockArmorRechargeStartMs = now + (ulong)(weapon.data.blockArmorRechargeDelay * 1000f);
+		shield.guardRechargeStartMs = now + (ulong)(shield.data.guardRechargeDelay * 1000f);
 	}
 
-	// Routes the armor-touchable slice of an incoming hit through the charging
-	// weapon's guard before the player's central armor. Overflow model: the
-	// guard absorbs up to its remaining charge and passes only the UNABSORBED
-	// OVERFLOW on to central armor — it never re-applies the whole slice
-	// downstream, so a partial block genuinely reduces what armor/health take.
-	// `absorbable` is lowered by the absorbed damage-equivalent (0 if the guard
-	// soaked it all) and the return is the pool amount consumed (> 0 whenever
-	// the guard stopped anything, so the caller shows "BLOCKED!" on any partial
-	// block). The guard recharge follows the same rule as central armor: any
-	// guard-touchable hit (absorbable > 0) resets the recharge delay — even one
-	// that lands while the pool is already empty — while a fully-bypassing hit
-	// (poison / armor-penetrating, absorbable == 0) never touches the guard and
-	// so leaves its recovery alone. The guard only engages while the player is
-	// sneaking (null weapon no-ops here), so a player not actively guarding
-	// never resets it.
-	private float AbsorbWeaponBlock(WeaponState weapon, ref float absorbable, float blunt)
+	// Routes the armor-touchable slice of an incoming hit through the raised
+	// shield's guard before central armor. Overflow model: the guard absorbs up to
+	// its remaining charge and passes only the unabsorbed overflow on, so a partial
+	// block genuinely reduces what armor/health take. `absorbable` is lowered by
+	// the absorbed damage; the return is the pool consumed (> 0 whenever the guard
+	// stopped anything, so the caller shows "BLOCKED!" on a partial block). Any
+	// guard-touchable hit re-arms the recharge delay — even at an empty pool — while
+	// a fully-bypassing hit (absorbable == 0) leaves it alone. Null shield no-ops.
+	private float AbsorbShieldBlock(ShieldState shield, ref float absorbable, float blunt)
 	{
-		if (weapon == null || absorbable <= 0f)
+		if (shield == null || absorbable <= 0f)
 		{
 			return 0f;
 		}
 		ulong now = _world?.GameTimeMs ?? 0;
-		weapon.blockArmorRechargeStartMs = now + (ulong)(weapon.data.blockArmorRechargeDelay * 1000f);
-		if (weapon.blockArmor <= 0f)
+		shield.guardRechargeStartMs = now + (ulong)(shield.data.guardRechargeDelay * 1000f);
+		if (shield.guard <= 0f)
 		{
 			return 0f;
 		}
 		float blockDamage = absorbable * (1f + blunt);
-		if (blockDamage <= weapon.blockArmor)
+		if (blockDamage <= shield.guard)
 		{
-			// Guard soaks the whole slice.
-			weapon.blockArmor -= blockDamage;
+			shield.guard -= blockDamage;
 			absorbable = 0f;
 			return blockDamage;
 		}
-		// Guard depletes: it absorbs what it can and only the overflow
-		// continues. Convert the consumed pool back to damage units (undo the
-		// blunt multiplier) so the leftover `absorbable` is the true damage
-		// that got past the guard.
-		float absorbed = weapon.blockArmor;
+		// The guard breaks: convert the consumed pool back to damage units (undo
+		// the blunt multiplier) so the leftover `absorbable` is the true overflow.
+		float absorbed = shield.guard;
 		absorbable -= absorbed / (1f + blunt);
-		weapon.blockArmor = 0f;
+		shield.guard = 0f;
 		return absorbed;
 	}
 
-	// Per-tick recharge of every equipped weapon's block-armor guard. Mirrors
-	// TickArmor but keyed off the weapon's own (independent) recharge stats and
-	// driven for both weapon slots so a guard refills whether or not it's the
-	// one being charged. No depletion fx — the HUD bar carries the feedback.
-	private void TickBlockArmor(float dt)
+	// Per-tick guard recharge, independent of central armor's. Runs whether or not
+	// the guard is raised, so it refills between crouches. The HUD bar carries the
+	// feedback.
+	private void TickShieldGuard(float dt)
 	{
-		ulong now = _world?.GameTimeMs ?? 0;
-		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState, now, dt);
-		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponRight) as WeaponState, now, dt);
-	}
-
-	private static void TickWeaponBlockArmor(WeaponState weapon, ulong now, float dt)
-	{
-		if (weapon?.data == null)
+		ShieldState shield = GetShieldOrUnarmed();
+		if (shield?.data == null)
 		{
 			return;
 		}
-		float max = weapon.data.blockArmor;
-		if (max <= 0f || weapon.blockArmor >= max)
+		float max = shield.data.guardArmor;
+		if (max <= 0f || shield.guard >= max)
 		{
 			return;
 		}
-		if (now < weapon.blockArmorRechargeStartMs)
+		if ((_world?.GameTimeMs ?? 0) < shield.guardRechargeStartMs)
 		{
 			return;
 		}
-		// Rate derived from the pool size so a full refill takes
-		// blockArmorRechargeTime seconds regardless of the guard's capacity.
-		float rechargeTime = weapon.data.blockArmorRechargeTime;
+		// Rate derived from the pool size so a full refill takes guardRechargeTime
+		// seconds regardless of capacity.
+		float rechargeTime = shield.data.guardRechargeTime;
 		float speed = rechargeTime > 0f ? max / rechargeTime : 0f;
-		weapon.blockArmor = Mathf.Min(max, weapon.blockArmor + speed * dt);
+		shield.guard = Mathf.Min(max, shield.guard + speed * dt);
 	}
 
 	// Everything this member holds whose deadline has passed: status effects and
@@ -622,12 +570,17 @@ public partial class Player : CharacterBody3D
 		// Unequipped weapons keep their recharge timers running so a holstered
 		// bow still reclaims its outstanding arrows (and a stashed bomb still
 		// refills). Equipped weapons live in the slot pointers only — they're
-		// not duplicated in the backpack — so this loop can't double-tick them.
-		// Indexed access over Backpack avoids per-frame enumerator allocation.
-		System.Collections.Generic.IReadOnlyList<ItemState> backpack = _inventory.Backpack;
-		for (int i = 0; i < backpack.Count; i++)
+		// not duplicated in the grids — so these loops can't double-tick them.
+		// Indexed access over the grids avoids per-frame enumerator allocation.
+		TickWeaponAmmoRecharge(_inventory.Belt.Slots, now);
+		TickWeaponAmmoRecharge(_inventory.Backpack.Slots, now);
+	}
+
+	private static void TickWeaponAmmoRecharge(System.Collections.Generic.IReadOnlyList<ItemState> slots, ulong now)
+	{
+		for (int i = 0; i < slots.Count; i++)
 		{
-			TickWeaponAmmoRecharge(backpack[i] as WeaponState, now);
+			TickWeaponAmmoRecharge(slots[i] as WeaponState, now);
 		}
 	}
 

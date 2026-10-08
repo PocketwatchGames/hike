@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="4_vv7vb"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="5_m6qmy"]
 
-[node name="CookingScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_backpackPanel", "_cookingPanel", "_itemInfoPanel", "_buttonHintPrimary")]
+[node name="CookingScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_beltPanel", "_backpackPanel", "_cookingPanel", "_itemInfoPanel", "_buttonHintPrimary")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -14,6 +14,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_f2qv6")
+_beltPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/BeltPanel")
 _backpackPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/StashPanel")
 _cookingPanel = NodePath("MarginContainer/HBoxContainer/CookingContainer/CookingPanel")
 _itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/ItemInfoPanel")
@@ -79,6 +80,11 @@ size_flags_vertical = 4
 layout_mode = 2
 theme_override_constants/separation = 20
 alignment = 1
+
+[node name="BeltPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1854400172 instance=ExtResource("4_vv7vb")]
+layout_mode = 2
+size_flags_horizontal = 6
+_columns = 16
 
 [node name="StashPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1854400171 instance=ExtResource("4_vv7vb")]
 layout_mode = 2

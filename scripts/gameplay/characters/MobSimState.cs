@@ -161,12 +161,11 @@ public class MobSimState : EntitySimState
     // loadout (a torch-bearing goblin vs a claw goblin — each its own species).
     // Read by Mob.Weapons.
     public MobPalette Palette;
-    // Per-individual outfit override (NpcSpawnEntry.Outfit): the modular rig's
-    // visible clothing/hair/hat mesh names, composed with the rig's always-on
-    // base meshes at spawn (Mob → ModelAnimator.ApplyOutfit). Null/empty = the
-    // scene's authored default outfit. Persisted via EntitySerializer so a
-    // hand-dressed NPC keeps its look across chunk eviction and save/load.
-    public string[] Outfit;
+    // Per-individual look (NpcSpawnEntry.appearance): outfit, hair and skin,
+    // applied at spawn (Mob → ModelAnimator.ApplyAppearance). Null = the scene's
+    // authored default. Persisted via EntitySerializer so a hand-dressed NPC
+    // keeps its look across chunk eviction and save/load.
+    public NpcAppearanceData Appearance;
     public Godot.Collections.Array<WeaponData> Weapons;
     // Per-instance status effects authored on the descriptor, applied to every
     // mob it spawns regardless of Elite — the home for an elite's signature

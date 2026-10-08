@@ -177,9 +177,13 @@ lets a tool ask for a plane when it is picked up — the voxel-edit tools want
 aims it at the floor under the cursor plus the same headroom. The alt+RMB gesture
 is live only where a cutaway is actually on screen; elsewhere it would swallow a
 press whose effect nothing can show, so there it keeps its ordinary tool-pick
-meaning. It reaches `BeginStroke` through `EStrokeMods.Secondary`, which is not a
-modifier key but arrives the same way and is the only thing that distinguishes
-alt+LMB (aim the brush) from alt+RMB (aim the plane).
+meaning. It reaches the host's stroke start through `EStrokeMods.Secondary`, which
+is not a modifier key but arrives the same way and is the only thing that
+distinguishes alt+LMB (aim the brush) from alt+RMB (aim the plane). **Where it
+aims the plane, the press ends there** — `OnStrokeStart` returns false and the
+canvas drops the stroke, so it never reaches the tool. Held open, a drag before
+release turned into an RMB erase and deleted the entity (or passage) under the
+click.
 
 **The view draws the highest FLOOR under the cut** — `WorldMapState.CutawayFloor`,
 the highest solid voxel with air above it at or below the plane, in its own

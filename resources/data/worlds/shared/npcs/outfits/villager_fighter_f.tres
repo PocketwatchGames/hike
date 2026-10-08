@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="OutfitData" format=3 uid="uid://bpqvggrrxo0pp"]
+
+[ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="1_outfit"]
+
+[resource]
+script = ExtResource("1_outfit")
+bodyMeshNamesFemale = PackedStringArray("F_Fighter_Top", "F_Fighter_Bottom")
+bodyMeshNamesMale = PackedStringArray("M_Fighter_Top", "M_Fighter_Bottom")
+primaryColor = Color(0.45, 0.16, 0.24, 1)
+secondaryColor = Color(0.52, 0.36, 0.64, 1)
+tertiaryColor = Color(0.796, 0.796, 0.678, 1)

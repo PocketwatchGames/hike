@@ -326,9 +326,6 @@ dotnet_diagnostic.HK002.severity = warning
 [scripts/gui/HudRegionBanner.cs]
 dotnet_diagnostic.HK002.severity = warning
 
-[scripts/gui/HudText.cs]
-dotnet_diagnostic.HK002.severity = warning
-
 [scripts/gui/InteractHUD.cs]
 dotnet_diagnostic.HK002.severity = warning
 dotnet_diagnostic.HK008.severity = warning

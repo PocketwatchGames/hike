@@ -20,6 +20,7 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 [resource]
 script = ExtResource("2_armor")
 maxArmor = 50.0
+beltSlots = 2
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_speed"), SubResource("m_noise")])
 outfit = &"mage"
 displayName = &"Cloth Armor"

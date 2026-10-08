@@ -45,7 +45,7 @@ public partial class InteractiveAction : Resource
 	[Export] public float durationSeconds = 0f;
 
 	// Pooled ingredient cost, paid from the party material pool (backpack +
-	// party stash) exactly like an alchemy spell's cast cost (SpellData.reagents).
+	// party stash) exactly like a recipe's inputs (RecipeData.inputs).
 	// The action can't START unless the pool covers the full cost, and one cost's
 	// worth is SPENT when the action completes naturally — an aborted or interrupted
 	// action pays nothing (it skips EndActive). Reagent identity matches up the
@@ -55,6 +55,11 @@ public partial class InteractiveAction : Resource
 	// ConsumeFromInventory event — these reagents are fungible, pooled, and consumed
 	// automatically on completion. Empty = free (no ingredient gate).
 	[Export] public Array<RecipeInput> reagents = new();
+
+	// Gets past the interactive's lock (IInteractive.Lock) without a key — a
+	// lockpick, a smash. Every other action on a locked interactive needs a
+	// carried key that opens it, and spends one on natural completion.
+	[Export] public bool bypassesLock = false;
 
 	// Event-log line shown when a press is refused because the pool can't afford
 	// `reagents` (e.g. "Not enough ingredients"). Empty = the refusal prints no
@@ -83,7 +88,7 @@ public partial class InteractiveAction : Resource
 
 	// Cancel the action the moment the player supplies any movement input. Pairs
 	// with locksMovement = false to make a ritual the player can walk out of
-	// (Pray fades to black over its duration but bolts you awake if you move).
+	// (fades to black over its duration but bolts you awake if you move).
 	// Distinct from interruptOnDamage — this is a voluntary bail, not a hit.
 	[Export] public bool cancelOnMove = false;
 

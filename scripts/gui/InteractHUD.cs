@@ -346,7 +346,7 @@ public partial class InteractHUD : Node2D
 			child.QueueFree();
 		}
 		// The options list is the MERGED menu: this interactive's actions followed by
-		// the player's always-available self-actions (Pray, ...). Captured here so the
+		// the player's always-available self-actions. Captured here so the
 		// focused-option icon and the selection routing agree on indices.
 		_menuActions = _player.GetMenuActions(_interactive);
 		Button firstButton = null;

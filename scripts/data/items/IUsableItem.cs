@@ -1,7 +1,7 @@
 // Capability marker for item data that drives a press/hold action through an
-// ItemActionProfile — spells and the lantern. Deliberately an
-// interface, not a base class: SpellData and LanternData are otherwise
-// unrelated (one is a charge-cast spell, the other an equipped fuel-burning
+// ItemActionProfile — timed consumables and the lantern. Deliberately an
+// interface, not a base class: ConsumableData and LanternData are otherwise
+// unrelated (one is a stack spent per use, the other an equipped fuel-burning
 // light), so they share only this one capability. Lets the UI ask "can this be
 // used?" without a common ancestor. WeaponData runs its own attack path and
 // intentionally does not implement this.

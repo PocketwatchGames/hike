@@ -361,7 +361,7 @@ public partial class Player : CharacterBody3D
 	// Sim-clock (GameTimeMs) time before which the guard can't block or parry
 	// again after the player stopped blocking. Armed on the falling edge of
 	// sneak (ProcessInput) with PlayerData.blockReengageCooldown; gates
-	// GetSneakBlockWeapon so a re-crouch inside the window neither soaks nor
+	// GetRaisedShield so a re-crouch inside the window neither soaks nor
 	// parries.
 	ulong _blockCooldownEndMs;
 	EWaterState _waterState = EWaterState.None;
@@ -580,6 +580,9 @@ public partial class Player : CharacterBody3D
 	// swings instead of being rebuilt each press. Lives on the player, never in
 	// the inventory. See GetMeleeWeaponOrUnarmed.
 	WeaponState _unarmedWeapon;
+	// PlayerData.unarmedShield's state — the guard when the Shield slot is empty.
+	// See GetShieldOrUnarmed.
+	ShieldState _unarmedShield;
 	// Wall-clock time at which the player most recently lost ground contact.
 	// Drives the fall-anim grace window — running up/down hills momentarily
 	// lifts off, and we don't want a one-frame !_grounded to spike the fall
@@ -894,6 +897,7 @@ public partial class Player : CharacterBody3D
 	// once the buffer rolls. Used by the ruby slippers' return-to-spawn effect.
 	public void TeleportTo(Vector3 position)
 	{
+		CancelTraversal();
 		GlobalPosition = position;
 		Velocity = Vector3.Zero;
 		for (int i = 0; i < SafeGroundedHistorySize; i++)
@@ -1120,18 +1124,16 @@ public partial class Player : CharacterBody3D
 	// ---- Reagents ----------------------------------------------------------
 
 	// The reagent pool reagent-costed interactives and cooking draw from:
-	// the materials in this member's backpack. Read-only.
+	// the materials in this member's backpack and on their belt. Read-only.
 	public System.Collections.Generic.IEnumerable<ItemState> CarriedMaterials()
 	{
 		if (_inventory == null)
 		{
 			yield break;
 		}
-		IReadOnlyList<ItemState> backpack = _inventory.Backpack;
-		for (int i = 0; i < backpack.Count; i++)
+		foreach (ItemState s in _inventory.EnumerateAll())
 		{
-			ItemState s = backpack[i];
-			if (s?.data != null && s.data.IsMaterial && s.stackCount > 0)
+			if (s.data != null && s.data.IsMaterial && s.stackCount > 0)
 			{
 				yield return s;
 			}
@@ -1153,7 +1155,7 @@ public partial class Player : CharacterBody3D
 	// Spend one full cost from the carried materials — a spell cast, a
 	// reagent-costed interactive, a cooked recipe. Returns false (spending
 	// nothing) if they can't cover it.
-	public bool SpendReagents(IReadOnlyList<RecipeInput> reagents)
+	public bool SpendReagents(IReadOnlyList<RecipeInput> reagents, System.Collections.Generic.List<SpentItem> spent = null)
 	{
 		if (reagents == null || reagents.Count == 0)
 		{
@@ -1170,7 +1172,7 @@ public partial class Player : CharacterBody3D
 			{
 				continue;
 			}
-			_inventory.SpendMaterial(r.item, r.count);
+			_inventory.SpendMaterial(r.item, r.count, spent);
 		}
 		// Refresh any inventory-backed UI (backpack rows, spell ammo, forge counts)
 		// now that pool stacks changed. Callers used to fire this themselves; folding
@@ -1179,23 +1181,29 @@ public partial class Player : CharacterBody3D
 		return true;
 	}
 
-	// Shows the equipped lantern's prop, lit — a lantern is lit exactly while it
-	// is equipped. The HeldTorch prop carries its own world light; placement is
-	// HeldItemVisual's job. Runs on every inventory change.
+	// IActionActor — the key gate for a locked interactive, read from this
+	// member's backpack only.
+	public bool HasKeyFor(LockData lockData)
+	{
+		return _inventory != null && _inventory.HasKeyFor(lockData);
+	}
+
+	public KeyData SpendKeyFor(LockData lockData)
+	{
+		return _inventory?.SpendKeyFor(lockData);
+	}
+
+	// Shows the lit lantern's prop. The HeldTorch prop carries its own world
+	// light; placement is HeldItemVisual's job. Runs on every inventory change.
 	private void RefreshCarriedLight()
 	{
 		if (_heldVisual == null)
 		{
 			return;
 		}
-		LanternData lantern = EquippedLantern()?.data;
+		LanternData lantern = _inventory?.LitLantern?.data;
 		_heldVisual.SetTorch(lantern?.heldLanternScene, inHand: false);
 		_heldVisual.SetTorchLit(lantern != null, this);
-	}
-
-	private LanternState EquippedLantern()
-	{
-		return _inventory?.GetEquipped(EInventorySlot.Lantern) as LanternState;
 	}
 
 	// Puts the lantern out by circumstance (water, rain, an empty tank) rather
@@ -1203,7 +1211,7 @@ public partial class Player : CharacterBody3D
 	// the light's own off-cue.
 	private void DouseLantern(LanternState lantern)
 	{
-		_inventory.Unequip(EInventorySlot.Lantern);
+		_inventory.Extinguish();
 		if (lantern.data.douseEffectScene != null)
 		{
 			Fx.Create(lantern.data.douseEffectScene, this, Vector3.Up * SkyExposureProbeHeight);
@@ -1214,7 +1222,7 @@ public partial class Player : CharacterBody3D
 	// out. Wading in shallows keeps it lit (only Swimming counts).
 	private void DouseCarriedLantern()
 	{
-		LanternState lantern = EquippedLantern();
+		LanternState lantern = _inventory?.LitLantern;
 		if (lantern == null || data == null) { return; }
 
 		bool douse = IsSwimming;
@@ -1247,7 +1255,7 @@ public partial class Player : CharacterBody3D
 		_lastLanternFuelTickMs = now;
 		if (last == 0 || now <= last) { return; }
 
-		LanternState lantern = EquippedLantern();
+		LanternState lantern = _inventory?.LitLantern;
 		if (lantern == null) { return; }
 		lantern.BurnFuel((long)(now - last));
 		if (!lantern.HasFuel)
@@ -1386,6 +1394,7 @@ public partial class Player : CharacterBody3D
 		// Authoritative first pass so the worn-armor meshes match the spawned
 		// loadout even when nothing fired a slot-change (e.g. spawning bare).
 		UpdateArmorVisual();
+		_heldVisual?.SetShield(GetShieldOrUnarmed()?.data?.heldModel);
 
 		// Seed body temperature to the spawn ambient so the player isn't
 		// born already cold / hot just because the default float is 70°F.
@@ -1475,14 +1484,15 @@ public partial class Player : CharacterBody3D
 	}
 
 	// Whether TakeItem would accept `count` of `data` — the gate a pickup checks
-	// before committing. An apply-on-pickup item never needs backpack room.
+	// before committing. An apply-on-pickup item, or gear going straight into an
+	// empty equip slot, never needs backpack room.
 	public bool CanTake(ItemData data, int count)
 	{
 		if (_inventory == null || data == null)
 		{
 			return false;
 		}
-		return data is IApplyOnPickup || _inventory.CanFullyAdd(data, count);
+		return data is IApplyOnPickup || _inventory.CanAcquire(data, count);
 	}
 
 	// Toss a detached stack (out of the backpack or the stash) just in front of
@@ -1501,8 +1511,8 @@ public partial class Player : CharacterBody3D
 	}
 
 	// Take ownership of an item from outside the inventory (a field pickup, a
-	// gift, a forged piece): it goes into the backpack, never equipped — gear is
-	// put on deliberately. An apply-on-pickup item (a scroll) is applied instead
+	// gift, a forged piece): gear whose equip slot is empty is equipped, anything
+	// else goes into the backpack. An apply-on-pickup item (a scroll) is applied instead
 	// and never enters the backpack. False means the player did
 	// NOT take it — the caller must leave it where it is, since a half-taken
 	// stack would vanish.
@@ -1518,18 +1528,18 @@ public partial class Player : CharacterBody3D
 		}
 		// Partial adds refuse the whole take — the leftover units have nowhere
 		// to go, and the caller (loot) would remove the pile regardless.
-		if (!_inventory.CanFullyAdd(item.data, item.stackCount))
+		if (!_inventory.CanAcquire(item.data, item.stackCount))
 		{
 			return false;
 		}
-		_inventory.TryAdd(item);
+		_inventory.Acquire(item);
 		return true;
 	}
 
-	// Seed one entry of this member's authored equipped loadout: into the
-	// backpack, equipped when its slot is still free — so a loadout authored with
-	// two melee weapons carries the spare unequipped. One that doesn't fit goes to
-	// the party stash rather than being lost.
+	// Seed one entry of this member's authored equipped loadout: equipped when
+	// its slot is still free, else into the backpack — so a loadout authored with
+	// two melee weapons carries the spare unequipped. A lantern is lit if none is
+	// yet. One that doesn't fit goes to the party stash rather than being lost.
 	private void SeedStartingItem(ItemState item)
 	{
 		if (item?.data == null)
@@ -1537,7 +1547,7 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		int wanted = item.stackCount;
-		if (_inventory.TryAdd(item) < wanted)
+		if (_inventory.Acquire(item) < wanted)
 		{
 			ItemState unplaced = _inventory.PushToStash(item);
 			if (unplaced != null)
@@ -1546,9 +1556,9 @@ public partial class Player : CharacterBody3D
 			}
 			return;
 		}
-		if (item.data.IsEquippable && _inventory.GetEquipped(item.data.EquipSlotKind) == null)
+		if (item is LanternState lantern && _inventory.LitLantern == null)
 		{
-			_inventory.Equip(item);
+			_inventory.Light(lantern);
 		}
 	}
 
@@ -1559,6 +1569,10 @@ public partial class Player : CharacterBody3D
 		{
 			RecalculateMaxArmor();
 			UpdateArmorVisual();
+		}
+		else if (slot == EInventorySlot.Shield)
+		{
+			_heldVisual?.SetShield(GetShieldOrUnarmed()?.data?.heldModel);
 		}
 	}
 
@@ -1643,7 +1657,7 @@ public partial class Player : CharacterBody3D
 		UpdateTerrainSpeed(dt);
 		UpdateWaterState();
 		TickArmor(dt);
-		TickBlockArmor(dt);
+		TickShieldGuard(dt);
 		TickParryWindow();
 		TickAmmoRecharge(_world?.GameTimeMs ?? 0);
 		TickStamina(dt);

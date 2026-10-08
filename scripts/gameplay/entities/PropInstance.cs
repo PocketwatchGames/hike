@@ -26,7 +26,21 @@ public partial class PropInstance : Node3D, IWorldEntity
         return _apertureHeights.Get(scene);
     }
 
-    public void OnSpawned(Sim sim) { }
+    // Optional always-on light (glowing crystals). Anchored at its own node, and
+    // gone with the prop — a Destructible breaking it takes the light too.
+    [Export] private StationaryLight _light;
+
+    public void OnSpawned(Sim sim)
+    {
+        if (_light == null)
+        {
+            return;
+        }
+        Vector3 p = _light.GlobalPosition;
+        var cell = new Vector3I(Mathf.FloorToInt(p.X), Mathf.FloorToInt(p.Y), Mathf.FloorToInt(p.Z));
+        _light.Initialize(sim.WorldState, sim, cell);
+        _light.SetActive(true, fade: false);
+    }
 
     public static PropInstance Create(Sim sim, PropSimState data)
     {

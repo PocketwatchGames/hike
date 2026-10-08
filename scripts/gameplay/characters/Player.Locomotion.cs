@@ -543,16 +543,11 @@ public partial class Player : CharacterBody3D
 	// translation trails it, so the body clears the lip instead of cutting
 	// through the corner of it.
 	//
-	// Mirrors TickMounted: while something other than input owns position, the
-	// upkeep that must not stall (status effects, night vision, animation) still
-	// ticks. Skipping it would pause DoT and buff timers for the traversal.
 	private void TickMantle(float dt)
 	{
 		TickMantleMotion();
 		FallTraceTick();
-		_statusEffects?.Tick(dt);
-		UpdateNightVisionShaderGlobal();
-		UpdateAnimation();
+		TickPositionOwnedUpkeep(dt);
 	}
 
 	private void TickMantleMotion()
@@ -943,8 +938,6 @@ public partial class Player : CharacterBody3D
 		return EAnimation.ClimbIdle;
 	}
 
-	// Mirrors TickMantle: while something other than input owns position, the
-	// upkeep that must not stall still ticks.
 	private void TickClimb(float dt)
 	{
 		FallTraceMark("climb");
@@ -970,9 +963,7 @@ public partial class Player : CharacterBody3D
 		// since attaching out of water is a normal way in.
 		UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopFx, false);
 		UpdateLoopEffect(ref _foliageMovementLoop, _foliageMovementLoopFx, false);
-		_statusEffects?.Tick(dt);
-		UpdateNightVisionShaderGlobal();
-		UpdateAnimation();
+		TickPositionOwnedUpkeep(dt);
 	}
 
 	private void TickClimbCarry()
@@ -994,6 +985,22 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		EndClimb();
+	}
+
+	// Drop any climb or mantle, pending or in progress, without landing it. Both
+	// own position while active, so a body moved out from under one (a teleport,
+	// a death wake) would otherwise keep hanging on a hold that is no longer there.
+	private void CancelTraversal()
+	{
+		_traversalPending = false;
+		_pendingClimbSurface = null;
+		_climbPhase = EClimbPhase.None;
+		_climbSurface = null;
+		_climbStartMs = 0;
+		_climbEndMs = 0;
+		_climbAnimSign = 0;
+		_mantleStartMs = 0;
+		_mantleEndMs = 0;
 	}
 
 	private void EndClimb()

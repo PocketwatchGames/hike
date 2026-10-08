@@ -1,14 +1,14 @@
 // Carryable-lantern runtime state. Distinct from TorchSimState, which is the
-// world-placed torch prop. A lantern is lit exactly while it is equipped, so
-// there is no lit state of its own: the Use tap unequips it, and water, heavy
-// rain or an empty tank unequip it too (Player.DouseCarriedLantern /
-// TickLanternFuel). An empty lantern can't be equipped (Inventory.Equip).
+// world-placed torch prop. Whether it is lit is not stored here: the inventory
+// holds the one lit lantern (Inventory.LitLantern). The Use tap puts it out,
+// and water, heavy rain or an empty tank do too (Player.DouseCarriedLantern /
+// TickLanternFuel). An empty lantern can't be lit (Inventory.Light).
 public class LanternState : ItemState
 {
 	public override LanternData data => _lanternData;
 	private readonly LanternData _lanternData;
 
-	// Remaining burn budget, in sim-ms. Counts down only while equipped
+	// Remaining burn budget, in sim-ms. Counts down only while lit
 	// (Player.TickLanternFuel) and is refilled at a campfire or a fountain
 	// (Refuel). Ignored entirely when the lantern has unlimited fuel.
 	public long FuelRemainingMs;

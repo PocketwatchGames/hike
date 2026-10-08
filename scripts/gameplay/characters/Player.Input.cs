@@ -68,7 +68,7 @@ public partial class Player : CharacterBody3D
 		bool hasTarget = IInteractive.CanUse(_highlightInteractive, this);
 		// Nothing to run and nothing to open — leave the button alone rather than
 		// filling a hold bar for a menu that would come up empty.
-		if (!hasTarget && (_selfActions == null || _selfActions.Count == 0))
+		if (!hasTarget && !HasSelfActions)
 		{
 			return;
 		}
@@ -115,9 +115,17 @@ public partial class Player : CharacterBody3D
 		{
 			HideSelfPrompt();
 		}
-		else
+		else if (HasSelfActions)
 		{
 			ShowSelfPrompt();
+		}
+		else
+		{
+			// Walked off the target mid-hold with no self-actions to fall back on:
+			// the menu would come up empty, so the hold ends here.
+			_interactPressActive = false;
+			InteractHoldProgress = 0f;
+			return;
 		}
 
 		if (elapsed >= ContextButtonHoldMs)
@@ -281,9 +289,9 @@ public partial class Player : CharacterBody3D
 		// on JustPressed so the snappy feel is preserved.
 		HandleInteractInput();
 
-		// Voluntary bail from a cancelOnMove ritual (Pray): the moment the player
+		// Voluntary bail from a cancelOnMove interactive action: the moment the player
 		// feeds movement input, abort it — the fade unwinds and no completion effect
-		// fires. Distinct from locksMovement (Pray doesn't lock) and interruptOnDamage.
+		// fires. Distinct from locksMovement and interruptOnDamage.
 		if (_inputMove.LengthSquared() > MoveCancelThresholdSq
 			&& _runner != null && _runner.IsBusy
 			&& (_runner.Current.interactiveAction?.cancelOnMove ?? false))

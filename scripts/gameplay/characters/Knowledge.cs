@@ -13,7 +13,6 @@ public enum EKnowledgeCategory
     Bestiary = 1 << 1,  // per-species discovery
     Language = 1 << 2,
     Item = 1 << 3,      // identified items
-    Spell = 1 << 4,     // learned alchemy spells
     Name = 1 << 5,      // characters whose name the party has learned
 }
 
@@ -32,10 +31,6 @@ public class Knowledge
 {
     public readonly HashSet<ItemData> IdentifiedItems = new();
     public readonly HashSet<ConsumableData> DiscoveredRecipes = new();
-    // Learned alchemy spells — the single "known" axis for the spell list (a spell
-    // is cast, never identified as a physical item, so it has no separate output-
-    // identification step the way a cooked recipe does). Gates spell crafting.
-    public readonly HashSet<SpellData> KnownSpells = new();
     // Per-species bestiary discovery — the set of species this store has charted.
     // Unioned across party+individual on read and on merge.
     public readonly HashSet<SpeciesData> DiscoveredSpecies = new();
@@ -65,10 +60,6 @@ public class Knowledge
         DiscoveredRecipes.UnionWith(other.DiscoveredRecipes);
         if (DiscoveredRecipes.Count > recipesBefore) { changed |= EKnowledgeCategory.Recipe; }
 
-        int spellsBefore = KnownSpells.Count;
-        KnownSpells.UnionWith(other.KnownSpells);
-        if (KnownSpells.Count > spellsBefore) { changed |= EKnowledgeCategory.Spell; }
-
         int speciesBefore = DiscoveredSpecies.Count;
         DiscoveredSpecies.UnionWith(other.DiscoveredSpecies);
         if (DiscoveredSpecies.Count > speciesBefore) { changed |= EKnowledgeCategory.Bestiary; }
@@ -96,7 +87,6 @@ public class Knowledge
     {
         WriteSet(w, IdentifiedItems);
         WriteSet(w, DiscoveredRecipes);
-        WriteSet(w, KnownSpells);
         WriteSet(w, DiscoveredSpecies);
         WriteSet(w, KnownNames);
         w.Write(LearnedLanguages.Count);
@@ -112,7 +102,6 @@ public class Knowledge
     {
         ReadSet(r, IdentifiedItems);
         ReadSet(r, DiscoveredRecipes);
-        ReadSet(r, KnownSpells);
         ReadSet(r, DiscoveredSpecies);
         ReadSet(r, KnownNames);
         int languages = r.ReadInt32();
@@ -153,7 +142,6 @@ public class Knowledge
     {
         IdentifiedItems.Clear();
         DiscoveredRecipes.Clear();
-        KnownSpells.Clear();
         DiscoveredSpecies.Clear();
         KnownNames.Clear();
         LearnedLanguages.Clear();

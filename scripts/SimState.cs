@@ -229,11 +229,6 @@ public class SimState
     // VisibilityChanged path.
     public event Action<SpeciesData> onSpeciesDiscovered;
 
-    // Fired the first time an alchemy spell is learned. GameClient subscribes to
-    // forward an announcement; the alchemy screen refreshes through its own
-    // VisibilityChanged path.
-    public event Action<SpellData> onSpellLearned;
-
     // The two knowledge stores the facade reads/writes. Banked = permanent party
     // pool; Active = the currently-controlled member's provisional field store
     // (null when there's no roster yet, e.g. very early boot). Writes target
@@ -297,52 +292,6 @@ public class SimState
         return true;
     }
 
-    // A spell is attunable at the alchemy screen once LEARNED (recorded into a
-    // Knowledge store's KnownSpells, e.g. via a SpellTeachable in
-    // WorldStartData.initialKnowledge or a spell scroll). This is the single "known"
-    // axis for spells — deliberately NOT item-identification: a spell is cast, not
-    // found and identified as a physical item, so learning is the only gate.
-    public bool IsSpellKnown(SpellData spell)
-    {
-        if (spell == null)
-        {
-            return false;
-        }
-        return (Banked?.KnownSpells.Contains(spell) ?? false)
-            || (Active?.KnownSpells.Contains(spell) ?? false);
-    }
-
-    // Records a spell as learned in the active member's store and fires
-    // onSpellLearned. Returns true only on first learn. Because a spell's name IS
-    // its output name (no separate identification step), this also silently
-    // identifies the spell item so the alchemy screen reads with the real name
-    // instead of the "Unknown Potion" placeholder — mirroring DiscoverRecipe's
-    // identifyOutput, and without a redundant "Item Identified" banner.
-    public bool LearnSpell(SpellData spell)
-    {
-        if (spell == null)
-        {
-            return false;
-        }
-        Knowledge store = Active;
-        if (store == null)
-        {
-            return false;
-        }
-        if (!string.IsNullOrEmpty(spell.unidentifiedDisplayName.ToString())
-            && !IdentifiedInStores(spell))
-        {
-            store.IdentifiedItems.Add(spell);
-        }
-        if (IsSpellKnown(spell))
-        {
-            return false;
-        }
-        store.KnownSpells.Add(spell);
-        onSpellLearned?.Invoke(spell);
-        return true;
-    }
-
     // ---- Recipes -----------------------------------------------------------
 
     public bool IsRecipeDiscovered(ConsumableData recipe)
@@ -356,9 +305,9 @@ public class SimState
     }
 
     // Records a discovery and fires onRecipeDiscovered. Returns true on first
-    // discovery; subsequent calls for the same recipe are silent. Recipes have
-    // no identification phase — a recipe is either undiscovered (shown nowhere)
-    // or discovered under its real name.
+    // discovery; subsequent calls for the same recipe are silent. Knowing how to
+    // make an item is knowing what it is, so this also silently identifies the
+    // item — no separate "Item Identified" banner.
     public bool DiscoverRecipe(ConsumableData recipe)
     {
         if (recipe == null)
@@ -369,6 +318,10 @@ public class SimState
         if (store == null || IsRecipeDiscovered(recipe))
         {
             return false;
+        }
+        if (!string.IsNullOrEmpty(recipe.unidentifiedDisplayName.ToString()) && !IdentifiedInStores(recipe))
+        {
+            store.IdentifiedItems.Add(recipe);
         }
         store.DiscoveredRecipes.Add(recipe);
         onRecipeDiscovered?.Invoke(recipe);

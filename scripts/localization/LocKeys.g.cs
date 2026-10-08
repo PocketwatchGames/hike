@@ -10,6 +10,9 @@ public static partial class Loc
 		danger_nearby,
 		too_hurt_to_rest,
 		not_enough_health_to_revive,
+		inventory_full,
+		picked_up,
+		picked_up_count,
 		combat_miss,
 		combat_blocked,
 		combat_parried,
@@ -45,6 +48,13 @@ public static partial class Loc
 		stash_pick_how_many,
 		stash_send_how_many,
 		stash_drop,
-		item_drop_how_many
+		item_drop_how_many,
+		merchant_offer,
+		merchant_take_back,
+		merchant_request,
+		merchant_return,
+		requires_key,
+		item_used,
+		item_used_count
 	}
 }

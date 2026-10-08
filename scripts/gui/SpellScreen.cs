@@ -1,12 +1,11 @@
 using Godot;
 using Godot.Collections;
 
-// Spell tab rendered inside AlmanacScreen. Lists every spell the player has
-// learned this run (SimState.IsSpellKnown → Knowledge.KnownSpells) — one row
-// per known spell. Focusing a row populates the item info panel with the spell
-// and the reagent slots with the spell's reagent cost.
+// Spell tab rendered inside AlmanacScreen. Lists every recipe the party knows
+// (SimState.IsRecipeDiscovered over SimData.recipes). Focusing a row populates
+// the item info panel with what it makes and the reagent slots with its inputs.
 //
-// View only — spells are learned out in the world (scrolls / teaching). The Almanac wrapper
+// View only — recipes are learned out in the world (scrolls / teaching). The Almanac wrapper
 // owns InputSuppressed / hud-visibility / ui_cancel handling; this screen just
 // rebuilds when its tab is shown.
 [GlobalClass]
@@ -37,8 +36,8 @@ public partial class SpellScreen : Control
 		}
 	}
 
-	// Walk SimData.spells, keep only the ones the player has learned, and stamp
-	// out one button per spell. The container also owns the "No Spells Known!"
+	// Walk SimData.recipes, keep only the known ones, and stamp out one button
+	// per recipe. The container also owns the "No Spells Known!"
 	// label as a sibling child — we only free Button-typed children so the label
 	// survives.
 	void Rebuild()
@@ -58,13 +57,13 @@ public partial class SpellScreen : Control
 		SimData simData = _gameClient?.Sim?.SimData;
 		SimState worldSim = _gameClient?.Sim?.WorldState?.SimState;
 		Button firstButton = null;
-		SpellData firstSpell = null;
-		if (simData != null && worldSim != null && simData.spells != null)
+		ConsumableData firstSpell = null;
+		if (simData != null && worldSim != null && simData.recipes != null)
 		{
-			for (int i = 0; i < simData.spells.Count; i++)
+			for (int i = 0; i < simData.recipes.Count; i++)
 			{
-				SpellData spell = simData.spells[i];
-				if (spell == null || !worldSim.IsSpellKnown(spell))
+				ConsumableData spell = simData.recipes[i];
+				if (spell == null || !worldSim.IsRecipeDiscovered(spell))
 				{
 					continue;
 				}
@@ -95,7 +94,7 @@ public partial class SpellScreen : Control
 		}
 	}
 
-	Button CreateSpellButton(SpellData spell)
+	Button CreateSpellButton(ConsumableData spell)
 	{
 		if (_spellButtonScene == null || _spellListContainer == null)
 		{
@@ -111,7 +110,7 @@ public partial class SpellScreen : Control
 			? worldSim.GetItemDisplayName(spell)
 			: spell.displayName.ToString();
 		button.Icon = spell.inventorySprite;
-		SpellData captured = spell;
+		ConsumableData captured = spell;
 		button.FocusEntered += () => ShowSpellDetail(captured);
 		// Mouse hover grabs focus so the right-hand info / reagent view tracks
 		// the cursor the same way D-pad navigation does.
@@ -120,16 +119,14 @@ public partial class SpellScreen : Control
 		return button;
 	}
 
-	// Bind the right-hand info panel and reagent slots to a single spell row.
-	// spell = null clears everything (used at construction and when no spells
-	// are known).
-	void ShowSpellDetail(SpellData spell)
+	// Bind the right-hand info panel and reagent slots to a single recipe row.
+	// spell = null clears everything (used at construction and when no recipes
+	// are known). A known recipe's output reads identified.
+	void ShowSpellDetail(ConsumableData spell)
 	{
 		if (spell != null)
 		{
-			ItemState state = spell.CreateState();
-			state.SetCount(1);
-			_itemInfoPanel?.SetItem(state);
+			_itemInfoPanel?.SetItem(spell.CreateState(), forceIdentified: true, reagents: spell.recipe?.inputs);
 		}
 		else
 		{

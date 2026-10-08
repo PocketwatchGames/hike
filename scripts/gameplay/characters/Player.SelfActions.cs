@@ -2,7 +2,7 @@ using Godot;
 using Godot.Collections;
 
 // Always-available "self" interactions — actions the player performs on themselves
-// with no world interactive present (Pray now; more rituals later). Authored on the
+// with no world interactive present (none authored today; kept for future rituals). Authored on the
 // Player as inline InteractiveAction sub-resources, exactly like a world entity's
 // _actions, so they share the whole InteractiveAction pipeline: reagent gating +
 // spend (InteractiveAction.reagents → the shared HasReagents/SpendReagents pool
@@ -15,19 +15,6 @@ using Godot.Collections;
 public partial class Player : CharacterBody3D
 {
 	[Export] private Array<InteractiveAction> _selfActions = new();
-
-	// Held-model scene shown in the player's hand while the Dig self-action runs
-	// (verb == Dig). A self-action carries no item, so the tool prop lives here on
-	// the player rather than on an ItemState.heldModel. Typically the shovel's
-	// held model (scenes/items/held/shovel_held.tscn).
-	[Export] private PackedScene _digToolHeldScene;
-
-	// The tool prop to show in-hand for the in-flight interactive action, or null.
-	// Today only the Dig self-action carries one; read by UpdateHeldItemVisual.
-	public PackedScene ActiveInteractionHeldModel =>
-		(_runner != null && _runner.IsBusy && _runner.Current.interactiveAction?.verb == EActionVerb.Dig)
-			? _digToolHeldScene
-			: null;
 
 	// Menu-only shell IInteractive (built in _Ready) that fronts _selfActions so a
 	// self-action runs through the same ActionRunner / _curInteractive path a world
@@ -43,11 +30,7 @@ public partial class Player : CharacterBody3D
 	public Array<InteractiveAction> SelfActions => _selfActions;
 	public IInteractive SelfInteractive => _selfInteractive;
 	public bool SelfPromptActive => _selfPromptActive;
-
-	// True when the runner is driving an interactive action flagged fadeToBlack —
-	// GameClient reads it to fade the screen off the live interact progress.
-	public bool CurrentInteractiveFadesToBlack =>
-		_runner != null && _runner.IsBusy && (_runner.Current.interactiveAction?.fadeToBlack ?? false);
+	public bool HasSelfActions => _selfActions != null && _selfActions.Count > 0;
 
 	void InitSelfActions()
 	{
@@ -60,7 +43,7 @@ public partial class Player : CharacterBody3D
 	// modal when the hold completes. No-op when there are no self-actions to show.
 	public void ShowSelfPrompt()
 	{
-		if (_selfActions == null || _selfActions.Count == 0 || _selfPromptActive)
+		if (!HasSelfActions || _selfPromptActive)
 		{
 			return;
 		}

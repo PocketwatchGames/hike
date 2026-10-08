@@ -39,8 +39,11 @@ public partial class WorldMapCanvas : Control
     // (texel coord, isErase) — isErase is the right mouse button.
     public Action<Vector2I, bool> OnPaint;
 
-    // (texel, modifiers) on button press, before the stroke paints.
-    public Action<Vector2I, EStrokeMods> OnStrokeStart;
+    // (texel, modifiers) on button press, before the stroke paints. Returns
+    // false when the host consumed the press itself (alt+RMB aiming the
+    // cutaway): the stroke then ends there, so a drag before release cannot
+    // turn it into an erase.
+    public Func<Vector2I, EStrokeMods, bool> OnStrokeStart;
 
     // Button released (or the press ended any other way). The whole drag is one
     // undoable edit, so this is where it closes.
@@ -143,9 +146,13 @@ public partial class WorldMapCanvas : Control
                     _painting = true;
                     _erase = mb.ButtonIndex == MouseButton.Right;
                     _holdingPick = pick;
-                    if (TryTexel(mb.Position, out Vector2I start))
+                    if (TryTexel(mb.Position, out Vector2I start)
+                        && OnStrokeStart != null && !OnStrokeStart(start, mods))
                     {
-                        OnStrokeStart?.Invoke(start, mods);
+                        _painting = false;
+                        _holdingPick = false;
+                        AcceptEvent();
+                        return;
                     }
                     if (!pick)
                     {

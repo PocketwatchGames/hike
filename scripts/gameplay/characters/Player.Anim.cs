@@ -444,9 +444,6 @@ public partial class Player : CharacterBody3D
 		{
 			itemModel = _runner.Current.context.primaryItem?.data?.heldModel;
 		}
-		// A self-action's tool prop (the shovel during Dig) has no backing item, so it
-		// comes from the player-held scene instead of primaryItem.heldModel.
-		itemModel ??= ActiveInteractionHeldModel;
 		_heldVisual.SetActiveItem(itemModel);
 
 		// While aiming, draw the equipped ranged weapon so the bow is in hand
@@ -475,5 +472,9 @@ public partial class Player : CharacterBody3D
 		bool animHides = data != null && _animator != null
 			&& data.AnimationHidesHeldItem(_animator.CurrentAnimation);
 		_heldVisual.SetWeaponConcealed(itemModel != null || animHides);
+		// The shield comes out with the guard stance, and stays away while a
+		// ranged weapon is the one in hand.
+		bool rangedInHand = _wieldedWeapon?.data != null && _wieldedWeapon.data.rightHandSlot;
+		_heldVisual.SetShieldShown(_sneaking && !rangedInHand && !animHides);
 	}
 }

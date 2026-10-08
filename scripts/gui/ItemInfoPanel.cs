@@ -32,8 +32,7 @@ public partial class ItemInfoPanel : PanelContainer
 	//
 	// reagents, when supplied, are the required ingredients shown in the "Required
 	// Reagents" row — a recipe's `inputs` for a crafting preview. Left null, the row
-	// falls back to the item's own use cost when it's an alchemy spell
-	// (SpellData.reagents), and hides entirely for anything else.
+	// hides.
 	public void SetItem(ItemState item, bool forceIdentified = false, IReadOnlyList<RecipeInput> reagents = null)
 	{
 		ItemData data = item?.data;
@@ -65,10 +64,7 @@ public partial class ItemInfoPanel : PanelContainer
 		RebuildItemStats(item, identified);
 		RebuildStatusEffects(item);
 		RebuildActionPanels(item, identified);
-		// An explicit list (a crafting recipe's inputs) wins; otherwise a spell shows
-		// its own cast cost. Only spells carry reagents on the item, so the auto path
-		// never leaks an unidentified consumable's recipe.
-		RebuildReagents(reagents ?? (data as SpellData)?.reagents);
+		RebuildReagents(reagents);
 		Visible = true;
 	}
 
@@ -184,12 +180,13 @@ public partial class ItemInfoPanel : PanelContainer
 		{
 			case WeaponState weapon:
 				AddStats(StatList.Ammo(weapon));
-				AddStats(StatList.WeaponDefense(weapon.data));
+				break;
+			case ShieldState shield:
+				AddStats(StatList.ShieldStats(shield.data));
 				break;
 			case ArmorState armor:
 				AddStats(StatList.ArmorStats(armor));
 				break;
-			case { data: SpellData }:
 			case LanternState:
 				if (item.data is IUsableItem usable)
 				{
@@ -248,6 +245,11 @@ public partial class ItemInfoPanel : PanelContainer
 		{
 			return;
 		}
+		if (item is ShieldState shield)
+		{
+			BuildParryContext(shield.data);
+			return;
+		}
 		if (item is not WeaponState weapon)
 		{
 			return;
@@ -269,16 +271,15 @@ public partial class ItemInfoPanel : PanelContainer
 			_actionPanelContainer.AddChild(panel);
 			panel.SetAction(action, data, i, _showDetails);
 		}
-		BuildParryContext(data);
 	}
 
-	// The weapon's Parry counter-strike, shown as its own titled context panel
+	// The shield's Parry counter-strike, shown as its own titled context panel
 	// (like the per-action Crit / Backstab contexts) rather than a flat stat row —
 	// its riders (armor pen, knockback, Dizzy) only apply on a successful parry.
-	// No-op when the weapon can't parry or the context widget isn't wired.
-	private void BuildParryContext(WeaponData weapon)
+	// No-op when the shield can't parry or the context widget isn't wired.
+	private void BuildParryContext(ShieldData shield)
 	{
-		DamageData counter = StatList.ParryCounter(weapon);
+		DamageData counter = StatList.ParryCounter(shield);
 		if (counter == null)
 		{
 			return;

@@ -271,6 +271,13 @@ public class ActionRunner
 			AnnounceInteractiveRejection(action, context);
 			return false;
 		}
+		LockData barring = LockBarring(action, context);
+		if (barring != null && !_actor.HasKeyFor(barring))
+		{
+			ItemEventHandlers.SpawnOnActor(_actor, action.rejectEffect);
+			AnnounceLocked(barring);
+			return false;
+		}
 		// Pooled ingredient gate: like a weapon's ammo, refuse the press when the
 		// actor's material pool can't cover the full cost. Checked after requirements
 		// so a hard gate (danger nearby) still owns the reject message when both fail.
@@ -776,10 +783,22 @@ public class ActionRunner
 			// interrupts skip EndActive, so a cancelled interaction costs nothing
 			// (mirrors a weapon's charge-abort not debiting). Affordability was gated
 			// at press, so HasReagents already passed for this action.
+			var spent = new System.Collections.Generic.List<SpentItem>();
 			if (_action.interactiveAction.reagents.Count > 0)
 			{
-				_actor.SpendReagents(_action.interactiveAction.reagents);
+				_actor.SpendReagents(_action.interactiveAction.reagents, spent);
 			}
+			// Same completion-only rule for the key. Unlocked before the
+			// completion events so the interactive's Complete sees it open.
+			LockData barring = LockBarring(_action.interactiveAction, _action.context);
+			if (barring != null)
+			{
+				SpentItem.Add(spent, _actor.SpendKeyFor(barring), 1);
+				_action.context.primaryInteractive.Unlock();
+			}
+			// Before the completion events: one may free the interactive (a loot
+			// pickup), and the feedback anchors on it.
+			ItemEventHandlers.ShowItemsUsed(_action.context.primaryInteractive, spent);
 			FireEventList(_action.interactiveAction.completionEvents);
 		}
 
@@ -1011,9 +1030,9 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoUseAmmo(_actor, ev, ref _action);
 		}
-		if ((t & EItemEventType.Unequip) != 0)
+		if ((t & EItemEventType.Extinguish) != 0)
 		{
-			ItemEventHandlers.DoUnequip(_actor, ev, ref _action);
+			ItemEventHandlers.DoExtinguish(_actor, ev, ref _action);
 		}
 		if ((t & EItemEventType.LearnLanguage) != 0)
 		{
@@ -1232,6 +1251,37 @@ public class ActionRunner
 			});
 			return;
 		}
+	}
+
+	// The lock this action must get past, or null when the interactive is
+	// unlocked or the action bypasses locks.
+	private static LockData LockBarring(InteractiveAction action, ActionContext context)
+	{
+		if (action.bypassesLock || context.primaryInteractive == null)
+		{
+			return null;
+		}
+		return context.primaryInteractive.Lock;
+	}
+
+	// Surface the lock's lockedMessage to the event log when a press is refused
+	// for want of a key. Silent when unauthored, like the other rejections.
+	private static void AnnounceLocked(LockData lockData)
+	{
+		if (lockData.lockedMessage is null || lockData.lockedMessage.IsEmpty)
+		{
+			return;
+		}
+		string msg = Loc.Get(lockData.lockedMessage);
+		if (string.IsNullOrEmpty(msg))
+		{
+			return;
+		}
+		GameClient.Current?.Announce(new Announcement
+		{
+			type = EAnnouncementType.Notice,
+			title = msg,
+		});
 	}
 
 	// Surface the interactive's insufficientReagentsMessage to the event log when a

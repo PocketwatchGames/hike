@@ -734,9 +734,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 _modelAnimator.SetMeshRecolor(mobData.levelColorMeshNames, GameClient.MobLevelColor(Level));
             }
-            // Per-individual outfit (NpcSpawnEntry.Outfit) composed onto the rig's
-            // base meshes. No-op when unset — the scene's authored outfit stands.
-            _modelAnimator.ApplyOutfit(_simState.Outfit);
+            // Per-individual look (NpcSpawnEntry.appearance). Unset leaves the
+            // scene's authored outfit standing.
+            if (_simState.Appearance != null)
+            {
+                _modelAnimator.ApplyAppearance(_simState.Appearance);
+            }
             // Footfalls fire from a Call Method Track authored on the model's
             // movement clips (OnFootstep) at the exact foot-contact frame.
             _modelAnimator.OnFootstep += EmitFootstep;
@@ -1228,7 +1231,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Mobs never run reagent-costed interactives (those are player-only), so the
     // ingredient gate always passes and the spend has nothing to deduct from.
     public bool HasReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents) => true;
-    public bool SpendReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents) => false;
+    public bool SpendReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents, System.Collections.Generic.List<SpentItem> spent = null) => false;
+    public bool HasKeyFor(LockData lockData) => false;
+    public KeyData SpendKeyFor(LockData lockData) => null;
 
     // Mob locomotion has no airborne distinction yet, so IsGrounded is a
     // stable default. IsSwimming reflects the real water state (_swimming,

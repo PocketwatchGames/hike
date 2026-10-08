@@ -1712,17 +1712,16 @@ public static class ItemEventHandlers
 		inv?.Remove(item);
 	}
 
-	public static void DoUnequip(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	public static void DoExtinguish(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		if (actor is not Player player)
 		{
 			return;
 		}
 		Inventory inventory = player.Inventory;
-		EInventorySlot? slot = inventory?.GetEquippedSlot(action.context.primaryItem);
-		if (slot.HasValue)
+		if (inventory != null && inventory.IsLit(action.context.primaryItem))
 		{
-			inventory.Unequip(slot.Value);
+			inventory.Extinguish();
 		}
 	}
 
@@ -1811,6 +1810,7 @@ public static class ItemEventHandlers
 		}
 		int remaining = ev.consumeAmount;
 		Player player = actor as Player;
+		var spent = new System.Collections.Generic.List<SpentItem>();
 		// Walk supporting items, decrement matching stacks until consumeAmount
 		// is fulfilled. Stack→0 removes from inventory via Player.Inventory.
 		for (int i = 0; i < action.context.supportingItems.Count && remaining > 0; i++)
@@ -1822,11 +1822,25 @@ public static class ItemEventHandlers
 			}
 			int take = item.Consume(remaining);
 			remaining -= take;
+			SpentItem.Add(spent, item.data, take);
 			if (item.stackCount <= 0 && player?.Inventory != null)
 			{
 				player.Inventory.Remove(item);
 			}
 		}
+		ShowItemsUsed(action.context.primaryInteractive, spent);
+	}
+
+	// The "used" feedback for items an interaction spent, anchored on the
+	// interactive. Item-driven spends (a potion drunk) have no interactive and
+	// show nothing here.
+	public static void ShowItemsUsed(IInteractive interactive, System.Collections.Generic.List<SpentItem> spent)
+	{
+		if (interactive == null || spent.Count == 0)
+		{
+			return;
+		}
+		GameClient.Current?.ShowItemsUsed(interactive.hudPosition, spent);
 	}
 
 	// Build the HitInfo a Melee/Hitscan event should apply: looks up the

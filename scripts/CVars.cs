@@ -2492,13 +2492,6 @@
         DebugVerbs.SetVar(((CVarString)cvar).Value);
     });
 
-    // `spells_all` — learn every spell on SimData.spells and put a full stack of
-    // charges of each in the backpack (as far as it fits).
-    public static CVar allSpells = new CVar("spells_all", (cvar) =>
-    {
-        DebugVerbs.AllSpells();
-    });
-
     // `next_day` — skip straight to the next sunrise, rolling the dawn (and so
     // every world-script OnDawn hook) without resting. Sim-only: no fade, no
     // heal, and deliberately no autosave over the dev save.

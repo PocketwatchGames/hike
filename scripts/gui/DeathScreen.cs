@@ -6,7 +6,8 @@ using System;
 // + Ambience2D audio buses fade to silence. Once opaque, the "YOU DIED"
 // prompt + Respawn button hint appear and the screen accepts ui_accept.
 // On press GameClient runs the death wake (sack, rest, campfire), the
-// prompt hides, and the FadingIn phase ramps everything back up over
+// prompt hides, Settling holds black until the world there has spawned, and
+// the FadingIn phase ramps everything back up over
 // `fadeInSeconds`, then hands off to the wake's camp screen. InputSuppressed
 // is held on GameClient for the entire life of the screen.
 [GlobalClass]
@@ -27,6 +28,8 @@ public partial class DeathScreen : Control
 		Hidden,
 		FadingOut,
 		Prompt,
+		// Woken, still black while the world around the campfire spawns in.
+		Settling,
 		FadingIn,
 	}
 
@@ -106,7 +109,14 @@ public partial class DeathScreen : Control
 					if (promptRoot != null)
 					{
 						promptRoot.Visible = true;
-					}
+					}				}
+				break;
+			}
+			case EState.Settling:
+			{
+				if (!(_gameClient?.WorldSettling ?? false))
+				{
+					_state = EState.FadingIn;
 				}
 				break;
 			}
@@ -143,15 +153,16 @@ public partial class DeathScreen : Control
 		{
 			return;
 		}
-		// The whole wake happens synchronously here so the first frame of the
-		// fade-in already shows the campfire. Input stays suppressed by
-		// GameClient for the full fade-in window.
+		// The whole wake happens synchronously here; Settling then holds black
+		// until the world around the campfire has spawned, so the first frame of
+		// the fade-in already shows it complete. Input stays suppressed by
+		// GameClient for the full window.
 		_gameClient.RespawnAtCampfire();
 		if (promptRoot != null)
 		{
 			promptRoot.Visible = false;
 		}
-		_state = EState.FadingIn;
+		_state = EState.Settling;
 	}
 
 	void FinishFadeIn()

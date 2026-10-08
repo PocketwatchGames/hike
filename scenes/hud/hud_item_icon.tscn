@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://qc46wg03d3lm"]
+
+[ext_resource type="Script" uid="uid://bj3o2udrhcc60" path="res://scripts/gui/HudItemIcon.cs" id="1_icon"]
+
+[node name="HUDItemIcon" type="Control" node_paths=PackedStringArray("icon")]
+layout_mode = 3
+anchors_preset = 0
+mouse_filter = 2
+script = ExtResource("1_icon")
+icon = NodePath("Icon")
+fadeDurationMs = 1200
+verticalMovement = 40.0
+
+[node name="Icon" type="TextureRect" parent="."]
+texture_filter = 1
+layout_mode = 0
+offset_left = -16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = 16.0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5

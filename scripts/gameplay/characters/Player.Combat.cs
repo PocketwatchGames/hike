@@ -158,10 +158,10 @@ public partial class Player : CharacterBody3D
 			NotifyCombatEngaged();
 		}
 
-		// Capture the sneaking guard BEFORE `_sneaking = false` below — being
+		// Capture the raised shield BEFORE `_sneaking = false` below — being
 		// hit breaks sneak, but the guard was up when the hit landed, so it
 		// catches this one and then drops.
-		WeaponState blockWeapon = GetSneakBlockWeapon();
+		ShieldState shield = GetRaisedShield();
 		// Damage may interrupt an in-flight action (gated by profile +
 		// per-tier canInterrupt). External interruption fires BEFORE damage
 		// is applied so abortEvents can run on coherent pre-damage state.
@@ -196,50 +196,39 @@ public partial class Player : CharacterBody3D
 		float absorbable = incomingDamage - bypassed;
 		// Parry: a well-timed, rechargeable deflection of a mob's melee blow.
 		// Within the window opened when the crouch began, if the guard is off its
-		// recharge cooldown and the whole blow is no larger than the weapon's
-		// level-scaled parry cap (EffectiveMaxParryDamage — authored maxParryDamage
-		// grown by item level + forge upgrade), the hit is fully negated — the
-		// downstream armor / health /
+		// recharge cooldown and the whole blow is no larger than the shield's
+		// level-scaled parry cap, the hit is fully negated — armor / health /
 		// buildup / hitstun / knockback are all skipped — and the attacker is
 		// counter-struck. Only a discrete hit from a Mob qualifies (no DoT ticks,
-		// traps, or projectiles). Independent of the pool size, so a knife with no
-		// passive block still parries; a successful parry re-arms the block recharge
-		// delay (SpendParryGuard) so parries can't be spammed.
+		// traps, or projectiles). A parry re-arms the guard's recharge delay
+		// (SpendParryGuard) so parries can't be spammed.
 		bool parried = false;
-		if (blockWeapon != null && !hit.dot && hit.source is Mob
+		if (shield != null && shield.data.CanParry && !hit.dot && hit.source is Mob
 			&& _parryDeadlineMs > 0 && (_world?.GameTimeMs ?? 0) < _parryDeadlineMs
-			&& IsGuardReadyToParry(blockWeapon)
-			&& incomingDamage <= EffectiveMaxParryDamage(blockWeapon))
+			&& IsGuardReadyToParry(shield)
+			&& incomingDamage <= EffectiveMaxParryDamage(shield))
 		{
 			parried = true;
 			absorbable = 0f;
 			bypassed = 0f;
-			SpendParryGuard(blockWeapon);
-			TryParry(blockWeapon, hit.source);
-			// Parry reaction one-shot over the sneak pose (resolves the wielded
-			// weapon's Block override; no-op if it authors none).
+			SpendParryGuard(shield);
+			TryParry(shield, hit.source);
+			// Reaction one-shot over the sneak pose (the wielded weapon's Block
+			// override; no-op if it authors none).
 			PlayOneShot(EAnimation.Block);
-			// The weapon's parry cue (clang + shake), fired at the deflection.
-			SpawnWorldEffect(blockWeapon.data.parryEffect);
-			_world?.CreateNoiseEvent(GlobalPosition, blockWeapon.data.parryDecibels, this);
+			SpawnWorldEffect(shield.data.parryEffect);
+			_world?.CreateNoiseEvent(GlobalPosition, shield.data.parryDecibels, this);
 		}
-		// Passive block guard takes the absorbable slice while the player is
-		// sneaking with a guard-bearing melee weapon — the sneak crouch doubles as
-		// a shield. Overflow model: the guard absorbs up to its charge and passes
-		// only the unabsorbed overflow to central armor (not the whole slice).
-		// AbsorbWeaponBlock also re-arms the weapon's recharge delay on any
-		// guard-touching hit, even at zero guard. Skipped on a parry (the blow was
-		// already fully negated above).
+		// Otherwise the raised guard takes the absorbable slice and passes only the
+		// overflow on to central armor.
 		float blockAbsorbed = 0f;
 		if (!parried)
 		{
-			blockAbsorbed = AbsorbWeaponBlock(blockWeapon, ref absorbable, hit.blunt);
+			blockAbsorbed = AbsorbShieldBlock(shield, ref absorbable, hit.blunt);
 			if (blockAbsorbed > 0f)
 			{
-				// Guard reaction one-shot over the sneak pose (resolves the wielded
-				// weapon's Block override; no-op if it authors none).
 				PlayOneShot(EAnimation.Block);
-				_world?.CreateNoiseEvent(GlobalPosition, blockWeapon.data.blockDecibels, this);
+				_world?.CreateNoiseEvent(GlobalPosition, shield.data.blockDecibels, this);
 			}
 		}
 		// Central armor chips at (1 + blunt) on whatever survived the guard.
@@ -410,35 +399,26 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Deliver the parry counter-strike after a clean, well-timed sneak-block:
-	// hit the attacker back with the blocking weapon's parryDamageProfileKey
-	// profile. Only a melee attacker — the Mob that dealt the blocked blow — is
-	// countered; a projectile / hazard source is left alone. No-op if the weapon
-	// authors no parry profile (empty / unmapped key). Closes the window so the
-	// counter fires once per crouch (the hit that triggered it also drops sneak,
-	// so re-crouching is what reopens it).
-	private void TryParry(WeaponState weapon, Node attacker)
+	// Deliver the shield's parry counter-strike to the Mob whose blow was parried.
+	// No-op if the shield authors no counter. Closes the window so the counter
+	// fires once per crouch (the hit that triggered it also drops sneak, so
+	// re-crouching is what reopens it).
+	private void TryParry(ShieldState shield, Node attacker)
 	{
 		_parryDeadlineMs = 0;
-		if (weapon?.data == null || attacker is not Mob mob || !mob.alive)
-		{
-			return;
-		}
-		DamageData damage = weapon.data.GetDamage(weapon.data.parryDamageProfileKey);
-		if (damage == null)
+		DamageData damage = shield?.data?.parryCounter;
+		if (damage == null || attacker is not Mob mob || !mob.alive)
 		{
 			return;
 		}
 		Vector3 dir = mob.GlobalPosition - GlobalPosition;
 		dir.Y = 0f;
 		var parryHit = new HitInfo(damage, this, dir, ETeam.Player);
-		// The riposte scales like any other hit from this weapon — composed item
-		// level and the Melee forge upgrade's curve fold into damage, and the upgrade
-		// curve rides potency so any status it applies ticks harder — mirroring
-		// ResolveHit / DoProjectile, which this direct mob.Hit path bypasses.
-		float levelScale = OutgoingLevelScale(EInventorySlot.WeaponLeft);
-		parryHit.healthDamage *= weapon.DamageMultiplier * levelScale;
-		parryHit.potency = levelScale;
+		// The shield's level and the Melee forge curve fold into damage, and the
+		// forge curve rides potency so any status it applies ticks harder —
+		// mirroring ResolveHit, which this direct mob.Hit path bypasses.
+		parryHit.healthDamage *= ShieldLevelScale(shield);
+		parryHit.potency = OutgoingLevelScale(EInventorySlot.Shield);
 		mob.Hit(parryHit);
 	}
 
@@ -476,13 +456,13 @@ public partial class Player : CharacterBody3D
 			float p = Mathf.Clamp(armorPenetration, 0f, 1f);
 			float bypassed = damage * p;
 			float absorbable = damage - bypassed;
-			// Sneaking guard soaks the absorbable slice before central armor.
+			// The raised shield soaks the absorbable slice before central armor.
 			// A DoT that chips the guard (burn) re-arms its recharge delay; one
 			// that bypasses it (poison, absorbable==0) leaves it alone, same as
 			// central armor. Blunt isn't modeled on status ticks, so the chip is
 			// unscaled here. Status ticks don't break sneak, so the guard stays
 			// up across a burn/poison zone while the player keeps sneaking.
-			AbsorbWeaponBlock(GetSneakBlockWeapon(), ref absorbable, 0f);
+			AbsorbShieldBlock(GetRaisedShield(), ref absorbable, 0f);
 			// A DoT that bypasses armor (poison / heal, armorPenetration=1) has
 			// armorDamage==0 and never enters here, so it can't stall recovery.
 			// One that chips armor (burn, armorPenetration<1) refreshes the

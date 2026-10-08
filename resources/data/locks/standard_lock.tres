@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="LockData" format=3 uid="uid://b22tobik8tsql"]
+
+[ext_resource type="Script" uid="uid://4jozipzp07ftg" path="res://scripts/data/locks/LockData.cs" id="1_lock"]
+
+[resource]
+script = ExtResource("1_lock")
+lockedMessage = &"requires_key"

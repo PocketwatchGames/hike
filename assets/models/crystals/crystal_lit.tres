@@ -1,0 +1,14 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/form_strength = 0.6
+shader_parameter/color_tint = Color(0.62, 0.42, 1, 1)
+shader_parameter/emission_tint = Color(0.62, 0.42, 1, 1)
+shader_parameter/emission_strength = 0.45
+shader_parameter/specular_strength = 1.5
+shader_parameter/specular_color = Color(0.9, 0.8, 1, 1)
+shader_parameter/specular_shininess = 48.0

@@ -98,11 +98,20 @@ public partial class Player : CharacterBody3D
 		_grounded = false;
 	}
 
-	// Minimal per-frame upkeep while mounted: keep status effects ticking and
-	// drive the seated animation loop. All locomotion, gravity, water, and
-	// collision are owned by the vehicle (the rider rides its transform).
+	// All locomotion, gravity, water, and collision are owned by the vehicle
+	// (the rider rides its transform).
 	private void TickMounted(float dt)
 	{
+		TickPositionOwnedUpkeep(dt);
+	}
+
+	// The upkeep that must keep ticking while something other than input owns
+	// position (a mount, a mantle, a climb), each of which returns before the
+	// normal tick. Hitstun matters most: input is gated on it, so a hit taken
+	// while it was frozen locked out every press — including the climb let-go.
+	private void TickPositionOwnedUpkeep(float dt)
+	{
+		TickHitstun(dt);
 		_statusEffects?.Tick(dt);
 		UpdateNightVisionShaderGlobal();
 		UpdateAnimation();
@@ -169,6 +178,27 @@ public partial class Player : CharacterBody3D
 			ulong elapsed = now > action.activateMs ? now - action.activateMs : 0;
 			return Mathf.Clamp((float)elapsed / total, 0f, 1f);
 		}
+	}
+
+	// Screen darkness (0..1) the in-flight action asks for: a fadeToBlack
+	// interactive tracks its interact progress, a fadeToBlack item tier its charge.
+	// 0 when nothing fading is running, so the curtain unwinds on cancel.
+	public float ComputeActionFadeDarkness()
+	{
+		if (_runner == null || !_runner.IsBusy)
+		{
+			return 0f;
+		}
+		ref readonly PlayerAction action = ref _runner.Current;
+		if (action.interactiveAction != null)
+		{
+			return action.interactiveAction.fadeToBlack ? ClientInteractProgress : 0f;
+		}
+		if (action.selectedTier == null || !action.selectedTier.fadeToBlack)
+		{
+			return 0f;
+		}
+		return _runner.Phase == EActionPhase.Charging ? _runner.CurrentChargeT : 1f;
 	}
 
 	void SetCurInteractive(IInteractive value, int actionIndex = 0)

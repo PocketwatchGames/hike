@@ -1,18 +1,24 @@
 [gd_resource type="Resource" script_class="ChestSpawnEntry" format=3 uid="uid://c7pkj388842sx"]
 
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="r1"]
-[ext_resource type="PackedScene" uid="uid://bfdv5jjcu2h5d" path="res://scenes/interactives/chest_poison.tscn" id="r2"]
+[ext_resource type="Resource" uid="uid://ps9u43jr55rie" path="res://resources/data/traps/poison_gas.tres" id="r2"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="r3"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_script"]
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="r4"]
 [ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="script"]
 
+[sub_resource type="Resource" id="sub0_desc"]
+script = ExtResource("itemdesc_script")
+item = ExtResource("r4")
+
 [sub_resource type="Resource" id="sub0"]
 script = ExtResource("r3")
-item = ExtResource("r4")
+item = SubResource("sub0_desc")
 
 [resource]
 script = ExtResource("script")
 scene = ExtResource("r1")
-altScene = ExtResource("r2")
-lootItems = [SubResource("sub0")]
+trap = ExtResource("r2")
+trapChance = 0.5
+contents = [SubResource("sub0")]
 disabledVariable = null

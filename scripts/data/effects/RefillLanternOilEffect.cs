@@ -12,7 +12,7 @@ public partial class RefillLanternOilEffect : ItemEffect
 	// refill; the default tops up half. Clamped to full so overfilling caps out.
 	[Export(PropertyHint.Range, "0,1,0.05")] public float refillFraction = 0.5f;
 
-	// Every lantern the player carries, not just the equipped one (a fountain).
+	// Every lantern the player carries, not just the lit one (a fountain).
 	[Export] public bool allCarried;
 
 	// Optional one-shot fx spawned on the player (a refuel cue).
@@ -31,13 +31,27 @@ public partial class RefillLanternOilEffect : ItemEffect
 			}
 			else
 			{
-				Refill(player.Inventory.GetEquipped(EInventorySlot.Lantern) as LanternState);
+				Refill(player.Inventory.LitLantern ?? FirstCarriedLantern(player.Inventory));
 			}
 		}
 		if (effectScene != null)
 		{
 			ItemEventHandlers.SpawnOnActor(actor, effectScene);
 		}
+	}
+
+	// With none lit, the oil goes into the first lantern carried rather than
+	// being wasted.
+	private static LanternState FirstCarriedLantern(Inventory inventory)
+	{
+		foreach (ItemState item in inventory.EnumerateAll())
+		{
+			if (item is LanternState lantern)
+			{
+				return lantern;
+			}
+		}
+		return null;
 	}
 
 	private void Refill(LanternState lantern)

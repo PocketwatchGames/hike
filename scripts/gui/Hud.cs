@@ -16,17 +16,28 @@ public partial class Hud : Control
 	// Scene used for the transient over-the-player notification — bare icon
 	// only, no count, no progress bar. See StatusEffectIcon for the animation.
 	[Export] PackedScene _statusEffectIconScene;
+	// The weapon each attack button swings — the equipped one, or the unarmed
+	// fallback in the left hand — with that attack's button hint.
+	[Export] WeaponHud _weaponLeftSlot;
+	[Export] WeaponHud _weaponRightSlot;
+	[Export] ButtonHint _weaponLeftHint;
+	[Export] ButtonHint _weaponRightHint;
+	// The guard the sneak crouch raises — the equipped shield, or the bare-handed
+	// fallback — with the Sneak button hint.
+	[Export] WeaponHud _shieldSlot;
+	[Export] ButtonHint _shieldHint;
 	// The hotbar strip, in display order. The FILLED hotbar entries
-	// (Inventory.GetHotbarEntries) are packed into the leading widgets and the
-	// rest hidden, so wire PlayerData.hotbarSize of them.
+	// (Inventory.GetHotbarEntries — the filled belt slots) are packed into the
+	// leading widgets and the rest hidden, so wire as many as the largest belt
+	// armor can give (PlayerData.beltCapacity + ArmorData.beltSlots).
 	[Export] Godot.Collections.Array<WeaponHud> _hotbarSlots = new();
-	// Optional button hints beside the strip.
-	[Export] ButtonHint _hotbarUseHint;
+	// Optional cycle hints beside the strip, shown on the pad only.
 	[Export] ButtonHint _hotbarCycleLeftHint;
 	[Export] ButtonHint _hotbarCycleRightHint;
-	// One per hotbar widget, same order: the direct-select key (SelectItem1..N)
-	// for that position. Keyboard/mouse only — the pad cycles instead.
-	[Export] Godot.Collections.Array<ButtonHint> _hotbarSelectHints = new();
+	// One per hotbar widget, same order. Over the selected entry it is the
+	// UseItem hint, filled while its action charges; over the others it is the
+	// direct-select key (SelectItem1..N) on keyboard, and hidden on the pad.
+	[Export] Godot.Collections.Array<ButtonHint> _hotbarUseHints = new();
 	[Export] Control _staminaContainer;
 	[Export] PackedScene _staminaBarScene;
 	// Persistent strip parent — usually an HBoxContainer above the health bar.
@@ -97,7 +108,9 @@ public partial class Hud : Control
 	Inventory _inventory;
 	// Managed mirror of _hotbarSlots (read per frame) and the current packing.
 	WeaponHud[] _hotbarSlotsFlat = System.Array.Empty<WeaponHud>();
-	ButtonHint[] _hotbarSelectHintsFlat = System.Array.Empty<ButtonHint>();
+	ButtonHint[] _hotbarUseHintsFlat = System.Array.Empty<ButtonHint>();
+	// Widget position of the selected entry, -1 when none is shown.
+	int _hotbarSelectedWidget = -1;
 	readonly List<int> _hotbarEntries = new();
 	// One pip per unit of max stamina (1 unit = 1 dash), instanced from
 	// _staminaBarScene into _staminaContainer. Filled left to right, so the
@@ -254,17 +267,15 @@ public partial class Hud : Control
 		{
 			_dialoguePanel.gameClient = gameClient;
 		}
-		_hotbarUseHint?.SetHint("UseItem", string.Empty);
+		_weaponLeftHint?.SetHint("AttackContextSensitive", "AttackMelee", string.Empty, string.Empty);
+		_weaponRightHint?.SetHint("AttackContextSensitive", "AttackRanged", "Aim", string.Empty);
+		_shieldHint?.SetHint("Sneak", string.Empty);
 		_hotbarCycleLeftHint?.SetHint("ConsumableCycleLeft", string.Empty);
 		_hotbarCycleRightHint?.SetHint("ConsumableCycleRight", string.Empty);
 		_hotbarSlotsFlat = new WeaponHud[_hotbarSlots.Count];
 		_hotbarSlots.CopyTo(_hotbarSlotsFlat, 0);
-		_hotbarSelectHintsFlat = new ButtonHint[_hotbarSelectHints.Count];
-		_hotbarSelectHints.CopyTo(_hotbarSelectHintsFlat, 0);
-		for (int i = 0; i < _hotbarSelectHintsFlat.Length; i++)
-		{
-			_hotbarSelectHintsFlat[i]?.SetHint(Player.HotbarSelectAction(i), string.Empty);
-		}
+		_hotbarUseHintsFlat = new ButtonHint[_hotbarUseHints.Count];
+		_hotbarUseHints.CopyTo(_hotbarUseHintsFlat, 0);
 		InputDevice.OnChanged += OnInputDeviceChanged;
 		_buttonHintTurnLeft.SetHint("CameraLeft", string.Empty);
 		_buttonHintTurnRight.SetHint("CameraRight", string.Empty);
@@ -547,39 +558,86 @@ public partial class Hud : Control
 		}
 	}
 
-	// Repack the filled hotbar entries into the leading widgets. Runs on every
-	// inventory change (which includes a selection move), not per frame.
+	// Repack the filled hotbar entries into the leading widgets, and repaint the
+	// weapon slots. Runs on every inventory change (which includes a selection
+	// move), not per frame.
 	void RefreshHotbar()
 	{
+		RefreshWeaponSlot(_weaponLeftSlot, _weaponLeftHint, EInventorySlot.WeaponLeft);
+		RefreshWeaponSlot(_weaponRightSlot, _weaponRightHint, EInventorySlot.WeaponRight);
+		RefreshShieldSlot();
 		_hotbarEntries.Clear();
 		_inventory?.GetHotbarEntries(_hotbarEntries);
 		int selected = _inventory?.SelectedHotbarIndex ?? -1;
 		bool keyboard = InputDevice.Current == InputDevice.EDevice.KeyboardMouse;
+		_hotbarSelectedWidget = -1;
 		for (int i = 0; i < _hotbarSlotsFlat.Length; i++)
 		{
+			bool filled = i < _hotbarEntries.Count;
+			bool isSelected = filled && _hotbarEntries[i] == selected;
+			if (isSelected)
+			{
+				_hotbarSelectedWidget = i;
+			}
+			if (i < _hotbarUseHintsFlat.Length)
+			{
+				RefreshHotbarHint(_hotbarUseHintsFlat[i], i, filled, isSelected, keyboard);
+			}
 			WeaponHud widget = _hotbarSlotsFlat[i];
 			if (widget == null)
 			{
 				continue;
 			}
-			bool filled = i < _hotbarEntries.Count;
 			widget.Visible = filled;
-			if (i < _hotbarSelectHintsFlat.Length)
-			{
-				SetVisible(_hotbarSelectHintsFlat[i], filled && keyboard);
-			}
 			if (!filled)
 			{
 				widget.SetItem(null);
 				continue;
 			}
-			ItemState item = _inventory.Backpack[_hotbarEntries[i]];
+			ItemState item = _inventory.Belt.At(_hotbarEntries[i]);
 			widget.SetItem(item);
-			widget.SetHotbarState(_hotbarEntries[i] == selected, _inventory.IsEquipped(item));
+			widget.SetHotbarState(isSelected, _inventory.IsLit(item));
 		}
-		SetVisible(_hotbarUseHint, _hotbarEntries.Count > 0);
+		if (_hotbarEntries.Count > _hotbarSlotsFlat.Length)
+		{
+			GD.PushError($"Hud: {_hotbarEntries.Count} filled belt slots but only {_hotbarSlotsFlat.Length} hotbar widgets wired — the rest are not shown.");
+		}
 		SetVisible(_hotbarCycleLeftHint, _hotbarEntries.Count > 1 && !keyboard);
 		SetVisible(_hotbarCycleRightHint, _hotbarEntries.Count > 1 && !keyboard);
+	}
+
+	static void RefreshHotbarHint(ButtonHint hint, int entry, bool filled, bool isSelected, bool keyboard)
+	{
+		if (hint == null)
+		{
+			return;
+		}
+		hint.Visible = isSelected || (filled && keyboard);
+		hint.SetProgress(0f);
+		if (hint.Visible)
+		{
+			hint.SetHint(isSelected ? "UseItem" : Player.HotbarSelectAction(entry), string.Empty);
+		}
+	}
+
+	// A slot with nothing to swing — the right hand empty — hides with its hint.
+	// The hotbar's selected / active overlays never apply to a weapon slot.
+	void RefreshWeaponSlot(WeaponHud widget, ButtonHint hint, EInventorySlot slot)
+	{
+		WeaponState weapon = _player?.GetMeleeWeaponOrUnarmed(slot);
+		SetVisible(widget, weapon != null);
+		SetVisible(hint, weapon != null);
+		widget?.SetItem(weapon);
+		widget?.SetHotbarState(selected: false, active: false);
+	}
+
+	void RefreshShieldSlot()
+	{
+		ShieldState shield = _player?.GetShieldOrUnarmed();
+		SetVisible(_shieldSlot, shield != null);
+		SetVisible(_shieldHint, shield != null);
+		_shieldSlot?.SetItem(shield);
+		_shieldSlot?.SetHotbarState(selected: false, active: false);
 	}
 
 	void OnInputDeviceChanged(InputDevice.EDevice device)
@@ -629,14 +687,19 @@ public partial class Hud : Control
 		UpdateStaminaPips();
 
 		ulong now = gameClient.Sim?.GameTimeMs ?? 0;
+		TickWeaponSlot(_weaponLeftSlot, _weaponLeftHint, EInventorySlot.WeaponLeft, now);
+		TickWeaponSlot(_weaponRightSlot, _weaponRightHint, EInventorySlot.WeaponRight, now);
 		for (int i = 0; i < _hotbarSlotsFlat.Length && i < _hotbarEntries.Count; i++)
 		{
-			_hotbarSlotsFlat[i]?.Tick(now, IsCharging(_inventory.Backpack[_hotbarEntries[i]]));
+			_hotbarSlotsFlat[i]?.Tick(now, IsCharging(_inventory.Belt.At(_hotbarEntries[i])));
 		}
 
 		UpdateStatusEffects(now);
 
-		_hotbarUseHint?.SetProgress(GetChargeProgress(_inventory?.SelectedHotbarItem, now));
+		if (_hotbarSelectedWidget >= 0 && _hotbarSelectedWidget < _hotbarUseHintsFlat.Length)
+		{
+			_hotbarUseHintsFlat[_hotbarSelectedWidget]?.SetProgress(GetChargeProgress(_inventory?.SelectedHotbarItem, now));
+		}
 
 		if (gameClient.camera.RotationDegrees.Y != _mapRotation)
 		{
@@ -1129,6 +1192,13 @@ public partial class Hud : Control
 		}
 	}
 
+	void TickWeaponSlot(WeaponHud widget, ButtonHint hint, EInventorySlot slot, ulong now)
+	{
+		WeaponState weapon = _player.GetMeleeWeaponOrUnarmed(slot);
+		widget?.Tick(now, IsCharging(weapon));
+		hint?.SetProgress(GetChargeProgress(weapon, now));
+	}
+
 	// Whether the player is actively charging an action driven by `item`.
 	// Drives each WeaponHud's charge-gauge fill.
 	bool IsCharging(ItemState item)
@@ -1144,20 +1214,19 @@ public partial class Hud : Control
 		return _player.Runner.Current.context.primaryItem == item;
 	}
 
-	// Drive the block-guard bar. The pool shown is the equipped melee weapon's
-	// guard — live (blue) while the player sneaks, a dormant grey reserve
-	// otherwise. Hidden entirely when the melee weapon carries no block armor.
-	// Sized on the same pixels-per-armor-point scale as the armor bar so guard
-	// and armor capacities read in the same visual units.
+	// Drive the block-guard bar: the guard pool — live (blue) while the player
+	// sneaks, a dormant grey reserve otherwise. Hidden when the guard has no pool
+	// (a parry-only shield). Sized on the armor bar's pixels-per-point scale so
+	// guard and armor capacities read in the same visual units.
 	void UpdateBlockArmorBar()
 	{
 		if (_blockArmorBar == null)
 		{
 			return;
 		}
-		WeaponState weapon = SelectBlockArmorWeapon(out bool active);
-		float capacity = weapon?.data?.blockArmor ?? 0f;
-		if (weapon == null || capacity <= 0f)
+		ShieldState shield = _player?.GetShieldOrUnarmed();
+		float capacity = shield?.data?.guardArmor ?? 0f;
+		if (capacity <= 0f)
 		{
 			_blockArmorBar.Visible = false;
 			return;
@@ -1165,14 +1234,14 @@ public partial class Hud : Control
 		_blockArmorBar.Visible = true;
 		_blockArmorBar.MinValue = 0;
 		_blockArmorBar.MaxValue = 1;
-		_blockArmorBar.Value = weapon.blockArmor / capacity;
+		_blockArmorBar.Value = shield.guard / capacity;
 		SetBarWidth(_blockArmorBar, capacity * _pixelsPerArmorPoint);
-		_blockArmorBar.Modulate = active ? BlockArmorActiveColor : BlockArmorIdleColor;
+		_blockArmorBar.Modulate = _player.IsSneaking ? BlockArmorActiveColor : BlockArmorIdleColor;
 	}
 
 	// Drive the parry icon: hidden when no parry can land, dim grey while a parry
-	// is available (guard ready, weapon can parry), brighter near-white while the
-	// parry window is actually open. Replaces the old block-bar parry tint.
+	// is available (guard ready, shield can parry), brighter near-white while the
+	// parry window is actually open.
 	void UpdateParryIcon()
 	{
 		if (_parryIcon == null)
@@ -1193,23 +1262,6 @@ public partial class Hud : Control
 		{
 			_parryIcon.Visible = false;
 		}
-	}
-
-	// Picks the weapon whose block-armor pool the extension represents: the
-	// equipped melee weapon, the only slot whose guard is live. Its reserve
-	// shows as a dormant grey extension while stood, tinting blue while the
-	// guard is live. `active` reports whether the guard is currently absorbing
-	// — i.e. the player is sneaking — which drives the grey/blue tint.
-	WeaponState SelectBlockArmorWeapon(out bool active)
-	{
-		active = false;
-		WeaponState melee = _inventory?.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState;
-		if (melee?.data == null || melee.data.blockArmor <= 0f)
-		{
-			return null;
-		}
-		active = _player != null && _player.IsSneaking;
-		return melee;
 	}
 
 	// Charge fill across the current tier's hold window. With per-tier

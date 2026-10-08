@@ -261,47 +261,6 @@ public static class DebugVerbs
         GD.Print($"spawn_loot: {count}x {data.ResourcePath.GetFile()} dropped at your feet");
     }
 
-    // --- all_spells -----------------------------------------------------
-
-    public static void AllSpells()
-    {
-        Sim sim = Sim.Current;
-        SimState state = sim?.WorldState?.SimState;
-        if (state == null || sim.SimData == null)
-        {
-            GD.PrintErr("all_spells: no running game.");
-            return;
-        }
-
-        // Taught through the real path, so the knowledge is provisional until
-        // the next camp exactly as a scroll or NPC lesson would be. Each spell's
-        // charges are its stack, so a full stack goes into the backpack.
-        int learned = 0;
-        var given = new List<string>();
-        foreach (SpellData spell in sim.SimData.spells)
-        {
-            if (spell == null)
-            {
-                continue;
-            }
-            if (state.LearnSpell(spell))
-            {
-                learned++;
-            }
-            ItemState stack = spell.CreateState();
-            stack.SetCount(Mathf.Max(1, spell.maxStack));
-            int wanted = stack.stackCount;
-            if ((sim.player?.Inventory?.TryAdd(stack) ?? 0) < wanted)
-            {
-                GD.PrintErr($"all_spells: backpack full — '{spell.ResourcePath.GetFile()}' only partly given.");
-            }
-            given.Add($"{wanted}x {spell.ResourcePath.GetFile()}");
-        }
-
-        GD.Print($"all_spells: learned {learned} new of {sim.SimData.spells.Count} spells; "
-            + $"gave {string.Join(", ", given)}");
-    }
-
     // --- setvar ---------------------------------------------------------
 
     public static void SetVar(string arg)

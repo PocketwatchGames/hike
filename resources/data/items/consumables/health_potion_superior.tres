@@ -13,6 +13,7 @@
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="11_input"]
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="12_mushroom_gold"]
 [ext_resource type="Resource" uid="uid://chpmfha5lvycx" path="res://resources/data/items/loot/mushroom_purple.tres" id="13_mushroom_purple"]
+[ext_resource type="Script" uid="uid://cy238vqb2k86o" path="res://scripts/data/items/RecipeData.cs" id="recipe_data"]
 
 [sub_resource type="Resource" id="Effect_heal"]
 script = ExtResource("3_apply")
@@ -51,11 +52,15 @@ script = ExtResource("11_input")
 item = ExtResource("13_mushroom_purple")
 count = 2
 
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("recipe_data")
+inputs = Array[ExtResource("11_input")]([SubResource("Input_mushroom_gold"), SubResource("Input_mushroom_purple")])
+
 [resource]
 script = ExtResource("1_consumable")
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_heal")])
 actionProfile = SubResource("Profile_drink")
-recipeInputs = Array[ExtResource("11_input")]([SubResource("Input_mushroom_gold"), SubResource("Input_mushroom_purple")])
+recipe = SubResource("Recipe")
 displayName = &"Superior Health Potion"
 unidentifiedDisplayName = &"Unknown Potion"
 description = "Heals you right up when you drink it."

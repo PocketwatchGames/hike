@@ -75,6 +75,11 @@ instance uniform float recolor_amount : hint_range(0.0, 1.0) = 0.0;
 // host (see model_lit_body / ClipAnchor.cs) keeps X-raying after the lit mesh
 // has been cut away — or vanishes while the lit mesh stays.
 instance uniform float clip_anchor_offset = 0.0;
+// Not read here — placeholders holding model_lit_outfit's MODEL_RGB_MASK
+// palette slots aligned.
+instance uniform vec3 outfit_primary : source_color = vec3(1.0);
+instance uniform vec3 outfit_secondary : source_color = vec3(1.0);
+instance uniform vec3 outfit_tertiary : source_color = vec3(1.0);
 // === xray-only uniforms below — must follow all shared names ===
 // Per-instance fade for the X-ray. Mobs leave this at 1 (silhouette always on
 // whenever occluded); an InteractiveXray-style driver can gate 0→1→0 so a mesh

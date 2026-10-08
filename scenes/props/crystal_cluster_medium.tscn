@@ -1,0 +1,46 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
+[ext_resource type="PackedScene" uid="uid://dxqicc4i30ssd" path="res://assets/models/crystals/SM_Prop_Crystal_03.fbx" id="2_model"]
+[ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="3_autocoll"]
+[ext_resource type="Material" path="res://assets/models/crystals/crystal_lit.tres" id="4_mat"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="5_hurtbox"]
+[ext_resource type="Script" uid="uid://i33l7k1z81ng0" path="res://scripts/gameplay/entities/Destructible.cs" id="6_destructible"]
+[ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="7_light"]
+[ext_resource type="PackedScene" path="res://scenes/fx/crystal_shatter.tscn" id="8_shatter"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_hurt"]
+size = Vector3(1.0, 1.0, 0.9)
+
+[node name="PropInstance" type="Node3D" node_paths=PackedStringArray("_light")]
+script = ExtResource("1_prop")
+_light = NodePath("StationaryLight")
+
+[node name="Model" type="Node3D" parent="."]
+script = ExtResource("3_autocoll")
+materialOverride = ExtResource("4_mat")
+
+[node name="SM_Prop_Crystal_03" parent="Model" instance=ExtResource("2_model")]
+
+[node name="HurtBox" type="Area3D" parent="Model"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.32, 0)
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("5_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Model/HurtBox"]
+shape = SubResource("BoxShape3D_hurt")
+
+[node name="StationaryLight" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+script = ExtResource("7_light")
+_lightColor = Color(0.65, 0.45, 1, 1)
+_distance = 5.0
+_falloff = 1.5
+_brightness = 0.4
+
+[node name="Destructible" type="Node3D" parent="." node_paths=PackedStringArray("_hurtBox")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.32, 0)
+script = ExtResource("6_destructible")
+_hurtBox = NodePath("../Model/HurtBox")
+_destroyEffect = ExtResource("8_shatter")

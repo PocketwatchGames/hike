@@ -584,16 +584,12 @@ public sealed class WorldGen
                 {
                     continue;
                 }
-                int total = entry.Resolve(rng).count;
+                int total = entry.RollCount(rng);
                 for (int k = 0; k < total; k++)
                 {
                     ChestSimState chest = chests[cursor % chests.Count];
                     cursor++;
-                    AppendChestLoot(chest, new ItemCount
-                    {
-                        descriptor = new ItemDescriptor { item = entry.item },
-                        count = 1,
-                    });
+                    ItemCountRange.AppendStates(entry.item, 1, chest.Contents);
                 }
             }
         }
@@ -606,22 +602,6 @@ public sealed class WorldGen
         c = a.WorldPosition.Z.CompareTo(b.WorldPosition.Z);
         if (c != 0) { return c; }
         return a.WorldPosition.Y.CompareTo(b.WorldPosition.Y);
-    }
-
-    // Append one rolled ItemCount to a chest's ejection recipe (LootItems may be
-    // null for a chest authored with no base loot).
-    private void AppendChestLoot(ChestSimState chest, ItemCount item)
-    {
-        ItemCount[] existing = chest.LootItems;
-        if (existing == null || existing.Length == 0)
-        {
-            chest.LootItems = new[] { item };
-            return;
-        }
-        var merged = new ItemCount[existing.Length + 1];
-        existing.CopyTo(merged, 0);
-        merged[existing.Length] = item;
-        chest.LootItems = merged;
     }
 
     // Per-run noise channels, built once at the top of Generate from the

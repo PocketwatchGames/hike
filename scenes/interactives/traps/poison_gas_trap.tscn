@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://hjq0pkv0c7537"]
+
+[ext_resource type="Script" uid="uid://b4fimcftsikmx" path="res://scripts/gameplay/entities/GasCloudDeployer.cs" id="1_deployer"]
+[ext_resource type="PackedScene" uid="uid://c3a8m1hhlwljn" path="res://scenes/fx/gas_poison.tscn" id="2_gas"]
+
+[node name="PoisonGasTrap" type="Node3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+script = ExtResource("1_deployer")
+cloudScene = ExtResource("2_gas")

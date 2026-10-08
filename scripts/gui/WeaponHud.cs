@@ -9,9 +9,9 @@ public partial class WeaponHud : BoxContainer
 	[Export] ProgressBar _ammoProgress;
 	[Export] Label _ammoText;
 	// Optional hotbar overlays: shown on the hotbar cursor's slot, and on an
-	// item that is currently equipped.
+	// item that is active — the lit lantern.
 	[Export] CanvasItem _selectedMarker;
-	[Export] CanvasItem _equippedMarker;
+	[Export] CanvasItem _activeMarker;
 
 	// Alpha applied to the guard gauge while the player isn't charging this
 	// weapon — the guard is dormant, so it reads as a faint ghost rather than
@@ -19,7 +19,7 @@ public partial class WeaponHud : BoxContainer
 	const float BlockArmorIdleAlpha = 0.25f;
 
 	ItemState _item;
-	bool _equipped;
+	bool _active;
 
 	public void SetItem(ItemState item)
 	{
@@ -27,17 +27,17 @@ public partial class WeaponHud : BoxContainer
 		Refresh(0, false);
 	}
 
-	public void SetHotbarState(bool selected, bool equipped)
+	public void SetHotbarState(bool selected, bool active)
 	{
-		_equipped = equipped;
+		_active = active;
 		UpdateIcon();
 		if (_selectedMarker != null)
 		{
 			_selectedMarker.Visible = selected;
 		}
-		if (_equippedMarker != null)
+		if (_activeMarker != null)
 		{
-			_equippedMarker.Visible = equipped;
+			_activeMarker.Visible = active;
 		}
 	}
 
@@ -56,7 +56,7 @@ public partial class WeaponHud : BoxContainer
 
 	void UpdateIcon()
 	{
-		_icon.Texture = _item?.data?.SlotIcon(_equipped);
+		_icon.Texture = _item?.data?.SlotIcon(_active);
 	}
 
 	void UpdateCounter(ulong nowMs)
