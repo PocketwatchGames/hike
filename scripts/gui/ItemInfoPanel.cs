@@ -176,6 +176,7 @@ public partial class ItemInfoPanel : PanelContainer
 		{
 			return;
 		}
+		AddStats(StatList.Weight(item.data));
 		switch (item)
 		{
 			case WeaponState weapon:

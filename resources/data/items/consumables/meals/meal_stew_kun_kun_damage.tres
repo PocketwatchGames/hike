@@ -7,7 +7,7 @@
 [ext_resource type="Resource" uid="uid://d4gn17jpro1oy" path="res://resources/data/status_effects/well_fed_damage.tres" id="5_status"]
 [ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="6_icon"]
 [ext_resource type="Resource" uid="uid://ckmt8n5p3q07w" path="res://resources/data/items/loot/kun_kun_meat.tres" id="7_kun_kun_meat"]
-[ext_resource type="Resource" uid="uid://a2asqsl3n7mp5" path="res://resources/data/items/loot/mushroom_orange.tres" id="8_mushroom_orange"]
+[ext_resource type="Resource" uid="uid://2asqsl3n7mp5" path="res://resources/data/items/loot/mushroom_orange.tres" id="8_mushroom_orange"]
 [ext_resource type="Script" uid="uid://cy238vqb2k86o" path="res://scripts/data/items/RecipeData.cs" id="recipe_data"]
 
 [sub_resource type="Resource" id="Effect_meal"]

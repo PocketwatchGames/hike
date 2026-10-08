@@ -144,12 +144,13 @@ public class Inventory
 		return false;
 	}
 
-	// Where new `data` lands first: a material goes in the backpack, so loot
-	// doesn't crowd out what the player uses in the field — only a full pack
-	// spills it onto the belt. Anything else takes the belt first.
+	// Where `data` lands first: materials and equippable gear (weapons, armor,
+	// shields) go in the backpack, so they don't crowd out what the player uses
+	// from the belt — only a full pack spills them onto it. Anything else takes
+	// the belt first.
 	public CarriedGrid PreferredGrid(ItemData data)
 	{
-		return data != null && data.IsMaterial ? Backpack : Belt;
+		return data != null && (data.IsMaterial || data.IsEquippable) ? Backpack : Belt;
 	}
 
 	// Merge into matching stacks in both grids, then take the first empty slot of

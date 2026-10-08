@@ -9,6 +9,10 @@ public partial class ShieldData : ItemData
 {
 	protected override EItemCategory ComputeCategory() => EItemCategory.Shield;
 
+	// Weight while equipped (see ItemData.EquipWeight).
+	[Export] public float weight = 0f;
+	public override float EquipWeight => weight;
+
 	[ExportGroup("Block")]
 	// Recharging guard pool, live only while sneaking. 0 = the shield never soaks
 	// (it can still parry). The guard refills fully over guardRechargeTime seconds

@@ -220,6 +220,18 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Summed ItemData.EquipWeight across every equipment slot.
+	public float EquippedWeight()
+	{
+		if (_inventory == null) { return 0f; }
+		float total = 0f;
+		for (EInventorySlot slot = EInventorySlot.None + 1; slot < EInventorySlot.Count; slot++)
+		{
+			total += _inventory.GetEquipped(slot)?.data?.EquipWeight ?? 0f;
+		}
+		return total;
+	}
+
 	private float AccumulateArmorStat(EInventorySlot slot, EStat stat, float value)
 	{
 		if (_inventory == null) { return value; }
@@ -265,10 +277,26 @@ public partial class Player : CharacterBody3D
 		scentMultiplier = ComposeStat(EStat.Scent);
 	}
 
-	// Composite movement multiplier from every active status effect. Doesn't
-	// include armor — armor doesn't carry a speed modifier in the current
-	// model. Cold and similar effects multiply in here.
-	public float SpeedMultiplier => _statusEffects?.FoldStat(EStat.MoveSpeed, 1f) ?? 1f;
+	// Scale on full run and swim speed (not sneak or tired) and on dash distance from the weight of
+	// equipped gear (SimData.weightSpeedModifier / weightDashDistanceModifier).
+	public float WeightSpeedMultiplier() => WeightMultiplier(_world?.SimData?.weightSpeedModifier ?? 0f);
+	public float WeightDashDistanceMultiplier() => WeightMultiplier(_world?.SimData?.weightDashDistanceModifier ?? 0f);
+
+	private float WeightMultiplier(float perUnit)
+	{
+		return Mathf.Max(0f, 1f + PenalizedWeight() * perUnit);
+	}
+
+	// Total equipped weight over SimData.minWeightPenalty — the part that costs
+	// stamina, speed and dash distance.
+	public float PenalizedWeight()
+	{
+		return Mathf.Max(0f, EquippedWeight() - (_world?.SimData?.minWeightPenalty ?? 0f));
+	}
+
+	// Composite movement multiplier for the stats panel: active status effects
+	// (Cold and similar) times the equipped-weight slowdown on full run speed.
+	public float SpeedMultiplier => (_statusEffects?.FoldStat(EStat.MoveSpeed, 1f) ?? 1f) * WeightSpeedMultiplier();
 
 	// Pushes the armor recharge window out whenever damage actually touches
 	// armor — a direct hit OR a status DoT that chips it (e.g. burn). Damage
@@ -644,15 +672,16 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// IActionActor — press-time stamina gate. Non-mutating peek. Costs of 0
-	// or less always pass.
+	// IActionActor — press-time stamina gate. Non-mutating peek. Same rule as
+	// the dash: any positive stamina affords the whole cost, and the spend
+	// overdraws into the negative. Costs of 0 or less always pass.
 	public bool HasStamina(float amount)
 	{
 		if (amount <= 0f)
 		{
 			return true;
 		}
-		return _stamina >= amount;
+		return _stamina > 0f;
 	}
 
 	// IActionActor — unconditional spend at EnterActive. Allowed to drive

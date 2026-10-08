@@ -158,7 +158,9 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			_runner.TryAbort();
 		}
-		var context = new ActionContext();
+		// Equipped weight shortens the dash (not weapon lunges): same speed, less
+		// distance.
+		var context = new ActionContext { motionDurationMultiplier = WeightDashDistanceMultiplier() };
 		if (!_runner.TryStart(data.dashActionProfile, context))
 		{
 			return;
@@ -897,8 +899,9 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// `freezeGravity` is ignored: the player cannot leave the ground under their
 	// own power, so there is no dash hang to suppress gravity for. Mobs (fliers
 	// in particular) still honour it.
-	public void ApplyMotion(float forwardSpeed, float duration, bool freezeGravity, EMotionDirection direction)
+	public void ApplyMotion(float forwardSpeed, float duration, float durationMultiplier, bool freezeGravity, EMotionDirection direction)
 	{
+		duration *= durationMultiplier;
 		Vector3 dir = new Vector3(Mathf.Sin(Rotation.Y), 0f, Mathf.Cos(Rotation.Y));
 		if (direction == EMotionDirection.Movement && _inputMove.LengthSquared() > 0f)
 		{

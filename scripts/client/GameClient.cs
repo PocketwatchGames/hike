@@ -65,6 +65,7 @@ public partial class GameClient : Node3D
 		{ EStatName.Strength, "Strength" },
 		{ EStatName.Perception, "Perception" },
 		{ EStatName.Stealth, "Stealth" },
+		{ EStatName.Weight, "Weight" },
 	};
 
 	// Damage modifier trigger labels. Used as the header of the conditional

@@ -622,6 +622,17 @@ public static class StatList
 		yield return (GameClient.Current.statNames[key], weapon.ammo + " / " + data.maxAmmo);
 	}
 
+	// Equipped gear's Weight row: the stamina units it takes off the wearer's
+	// max. 0 = no row.
+	public static IEnumerable<(string name, string value)> Weight(ItemData item)
+	{
+		float weight = item?.EquipWeight ?? 0f;
+		if (weight != 0f)
+		{
+			yield return (GameClient.Current.statNames[EStatName.Weight], StatFormat.Number(weight));
+		}
+	}
+
 	// A shield's Block row: the guard pool capacity. 0 = no row. Parry is NOT
 	// here — its counter-strike is a triggered effect shown as a "Parry" context
 	// panel (see ParryCounter), the same way Crit / Backstab render as contexts.

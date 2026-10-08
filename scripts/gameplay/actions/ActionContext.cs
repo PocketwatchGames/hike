@@ -28,4 +28,10 @@ public struct ActionContext
 	// location here so a treasure map can roll its dig spot near where it was
 	// found. Zero for the common case (the effect uses the actor instead).
 	public Vector3 worldPosition;
+	// Scale on the duration of every ApplyMotion event the action fires, set by
+	// whoever starts it (a dash shortened by equipped weight). Nullable because
+	// the struct's default must mean "unscaled", not 0. Read via
+	// MotionDurationMultiplier.
+	public float? motionDurationMultiplier;
+	public readonly float MotionDurationMultiplier => motionDurationMultiplier ?? 1f;
 }

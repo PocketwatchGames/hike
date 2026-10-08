@@ -7,7 +7,7 @@
 [ext_resource type="Resource" uid="uid://ccrx5h1h4qje2" path="res://resources/data/status_effects/well_fed_stealth.tres" id="5_status"]
 [ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="6_icon"]
 [ext_resource type="Resource" uid="uid://d0y12rtrmtgie" path="res://resources/data/items/loot/spider_legs.tres" id="7_spider_legs"]
-[ext_resource type="Resource" uid="uid://pln2356abb1yx" path="res://resources/data/items/loot/mushroom_black.tres" id="8_mushroom_black"]
+[ext_resource type="Resource" uid="uid://d0ghc0filpfpn" path="res://resources/data/items/loot/mushroom_black.tres" id="8_mushroom_black"]
 [ext_resource type="Script" uid="uid://cy238vqb2k86o" path="res://scripts/data/items/RecipeData.cs" id="recipe_data"]
 
 [sub_resource type="Resource" id="Effect_meal"]

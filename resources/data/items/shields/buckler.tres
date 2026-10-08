@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="ShieldData" format=3 uid="uid://da4xu24a1otne"]
 
-[ext_resource type="Script" uid="uid://6g0lmsonh44vg" path="res://scripts/data/items/ShieldData.cs" id="1_shield"]
+[ext_resource type="Script" uid="uid://jqmwdcmyi4tc" path="res://scripts/data/items/ShieldData.cs" id="1_shield"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="2_damage"]
-[ext_resource type="PackedScene" uid="uid://wdg6yfpm1wnmq" path="res://scenes/fx/parry.tscn" id="3_parryfx"]
-[ext_resource type="PackedScene" uid="uid://dyvfv57hw0tme" path="res://scenes/items/shield_buckler_held.tscn" id="4_held"]
+[ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="3_parryfx"]
+[ext_resource type="PackedScene" path="res://scenes/items/shield_buckler_held.tscn" id="4_held"]
 [ext_resource type="Texture2D" uid="uid://b7ui4uaaddgs" path="res://assets/textures/items/ShieldSmall.png" id="5_icon"]
 
 [sub_resource type="Resource" id="Resource_counter"]
@@ -20,6 +20,7 @@ modifiers = []
 
 [resource]
 script = ExtResource("1_shield")
+weight = 0.5
 guardArmor = 150.0
 guardRechargeDelay = 1.5
 guardRechargeTime = 0.6

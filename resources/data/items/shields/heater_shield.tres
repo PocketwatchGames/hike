@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="ShieldData" format=3 uid="uid://chf8k5furw1g6"]
 
-[ext_resource type="Script" uid="uid://6g0lmsonh44vg" path="res://scripts/data/items/ShieldData.cs" id="1_shield"]
+[ext_resource type="Script" uid="uid://jqmwdcmyi4tc" path="res://scripts/data/items/ShieldData.cs" id="1_shield"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="2_damage"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="3_buildup"]
 [ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="4_dizzy"]
-[ext_resource type="PackedScene" uid="uid://wdg6yfpm1wnmq" path="res://scenes/fx/parry.tscn" id="5_parryfx"]
-[ext_resource type="PackedScene" uid="uid://dducspnor7sba" path="res://scenes/items/shield_heater_held.tscn" id="6_held"]
+[ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="5_parryfx"]
+[ext_resource type="PackedScene" path="res://scenes/items/shield_heater_held.tscn" id="6_held"]
 [ext_resource type="Texture2D" uid="uid://s0u3880g3w8n" path="res://assets/textures/items/ShieldLarge.png" id="7_icon"]
 
 [sub_resource type="Resource" id="Resource_counter_dizzy"]
@@ -27,6 +27,7 @@ modifiers = []
 
 [resource]
 script = ExtResource("1_shield")
+weight = 1.0
 guardArmor = 350.0
 guardRechargeDelay = 2.0
 blockDecibels = 1.0

@@ -116,6 +116,11 @@ public partial class Hud : Control
 	// _staminaBarScene into _staminaContainer. Filled left to right, so the
 	// recharging unit reads as a partial fill on the first non-full pip.
 	readonly List<ProgressBar> _staminaBars = new();
+	// Full-unit pip size, read from the scene so the authored width stays the
+	// source of truth; a fractional last pip is scaled down from it.
+	Vector2 _staminaPipSize;
+	// Float noise in MaxStamina (3.0000001) must not add a sliver pip.
+	const float STAMINA_PIP_EPSILON = 0.01f;
 	// Quest surfacing (view only — the quest lifecycle is sim-driven in World).
 	// Bound to SimState.QuestLog on player spawn; one QuestItem widget per
 	// active quest, refreshed each frame so counters / countdowns stay live.
@@ -736,20 +741,26 @@ public partial class Hud : Control
 		}
 	}
 
-	// Sync the pip row against MaxStamina (armor and status effects change it in
-	// whole units) and fill pips left to right from current stamina — full pips
-	// first, then the fractional remainder on the next pip. Negative stamina
-	// (dash overdraw) just reads as an empty row.
+	// Sync the pip row against MaxStamina and fill pips left to right from current
+	// stamina — full pips first, then the fractional remainder on the next pip. A
+	// fractional max adds a last pip narrowed to that fraction of a unit, filling
+	// over its own smaller capacity. Negative stamina (dash overdraw) just reads as
+	// an empty row.
 	void UpdateStaminaPips()
 	{
 		if (_staminaContainer == null || _staminaBarScene == null)
 		{
 			return;
 		}
-		int units = Mathf.Max(0, Mathf.RoundToInt(_player.MaxStamina));
+		float maxStamina = Mathf.Max(0f, _player.MaxStamina);
+		int units = Mathf.CeilToInt(maxStamina - STAMINA_PIP_EPSILON);
 		while (_staminaBars.Count < units)
 		{
 			ProgressBar bar = _staminaBarScene.Instantiate<ProgressBar>();
+			if (_staminaBars.Count == 0)
+			{
+				_staminaPipSize = bar.CustomMinimumSize;
+			}
 			_staminaContainer.AddChild(bar);
 			_staminaBars.Add(bar);
 		}
@@ -763,7 +774,15 @@ public partial class Hud : Control
 		float stamina = _player.Stamina;
 		for (int i = 0; i < _staminaBars.Count; i++)
 		{
-			_staminaBars[i].Value = Mathf.Clamp(stamina - i, 0f, 1f);
+			ProgressBar bar = _staminaBars[i];
+			float capacity = Mathf.Clamp(maxStamina - i, 0f, 1f);
+			Vector2 size = new Vector2(_staminaPipSize.X * capacity, _staminaPipSize.Y);
+			if (bar.CustomMinimumSize != size)
+			{
+				bar.CustomMinimumSize = size;
+			}
+			bar.MaxValue = capacity;
+			bar.Value = Mathf.Clamp(stamina - i, 0f, capacity);
 		}
 	}
 

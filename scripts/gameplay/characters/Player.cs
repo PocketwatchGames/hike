@@ -686,8 +686,9 @@ public partial class Player : CharacterBody3D
 	public float Stamina => _stamina;
 	// Stamina base is the member's flat unit count (PlayerState.stamina), not a
 	// multiplier — PlayerData.maxStamina only serves memberless spawns. Flat
-	// MaxStamina modifiers (armor, status effects) add whole units on top.
-	public float MaxStamina => (Member?.stamina ?? data?.maxStamina ?? 0f) + ComposeStat(EStat.MaxStamina);
+	// MaxStamina modifiers (status effects, traits) add whole units on top, and
+	// equipped weight over SimData.minWeightPenalty takes units away.
+	public float MaxStamina => Mathf.Max(0f, (Member?.stamina ?? data?.maxStamina ?? 0f) + ComposeStat(EStat.MaxStamina) - PenalizedWeight());
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
 	// Catch up status effects by `dt` seconds in one call. Used by the sleep
@@ -1752,9 +1753,9 @@ public partial class Player : CharacterBody3D
 		// Stamina-gated speed table:
 		//   sneaking      → sneakSpeed
 		//   stamina ≤ 0   → tiredRunSpeed
-		//   else          → moveSpeed
+		//   else          → moveSpeed, slowed by equipped weight but never below sneakSpeed
 		bool exhausted = _stamina <= 0f;
-		float speed = data.moveSpeed;
+		float speed = Mathf.Max(data.sneakSpeed, data.moveSpeed * WeightSpeedMultiplier());
 		if (_sneaking)
 		{
 			speed = data.sneakSpeed;
@@ -1775,7 +1776,7 @@ public partial class Player : CharacterBody3D
 			// tiredSwimSpeed. Swim drain runs whenever swimming + moving
 			// (see TickSwimStamina) so an exhausted swimmer can't refill
 			// until they stop trying to move.
-			speed = exhausted ? data.tiredSwimSpeed : data.swimSpeed;
+			speed = exhausted ? data.tiredSwimSpeed : data.swimSpeed * WeightSpeedMultiplier();
 		}
 		float statusMoveMul = _statusEffects?.FoldStat(EStat.MoveSpeed, 1f) ?? 1f;
 		speed *= statusMoveMul;

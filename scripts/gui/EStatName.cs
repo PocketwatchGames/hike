@@ -62,4 +62,6 @@ public enum EStatName
 	Strength,
 	Perception,
 	Stealth,
+	// Equipped gear's weight (ItemData.EquipWeight).
+	Weight,
 }

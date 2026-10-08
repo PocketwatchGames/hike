@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="6_damage"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="7_buildup"]
 [ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="8_dizzy"]
-[ext_resource type="PackedScene" uid="uid://o82whnkokp9j8" path="res://scenes/fx/shockwave_fx.tscn" id="9_fx"]
+[ext_resource type="PackedScene" uid="uid://dnubphswu4nax" path="res://scenes/fx/shockwave_fx.tscn" id="9_fx"]
 [ext_resource type="Texture2D" uid="uid://dat6u2bd4xsqf" path="res://assets/textures/items/GemYellow.png" id="10_inv"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="10_k85kh"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="11_1uevr"]

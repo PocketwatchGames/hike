@@ -21,12 +21,15 @@ public interface IActionActor
 	// and end-of-motion behavior. `direction` selects whether the base axis is
 	// the actor's facing or its move input; forwardSpeed is signed along that
 	// resolved axis — negative drives the actor backward (hop-back / recoil).
+	// `durationMultiplier` scales `duration` (ActionContext.motionDurationMultiplier),
+	// so a motion travels less far at the same speed.
 	// Actors that don't drive motion from authored events (basic mobs today)
 	// may no-op.
-	void ApplyMotion(float forwardSpeed, float duration, bool freezeGravity, EMotionDirection direction);
+	void ApplyMotion(float forwardSpeed, float duration, float durationMultiplier, bool freezeGravity, EMotionDirection direction);
 
 	// Stamina gate for ItemAction.staminaCost. HasStamina is a non-mutating
-	// peek used at press time to refuse an action the actor can't afford.
+	// peek used at press time to refuse an action the actor can't afford —
+	// for the player, any positive stamina affords any cost (matching dash).
 	// ConsumeStamina is an unconditional spend at EnterActive; actors are
 	// expected to allow negative stamina (matching dash/swim drain).
 	bool HasStamina(float amount);

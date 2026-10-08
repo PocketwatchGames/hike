@@ -1090,8 +1090,9 @@ public class ActionRunner
 		// target AND whose cumulative start time is reached AND whose
 		// requirements all pass AND whose costs the actor can afford
 		// (stamina, blood, ammo). Any failure falls through to the next
-		// lower tier — a Strong attack short on mana drops to Weak (within
-		// the same combo step). The combo filter is fixed for the duration
+		// lower tier — a Strong attack short on blood drops to Weak (within
+		// the same combo step). Stamina never splits tiers this way: any
+		// positive stamina affords every tier, and the spend overdraws. The combo filter is fixed for the duration
 		// of the charge.
 		//
 		// Costs are gated here (not just at press) because EnterActive

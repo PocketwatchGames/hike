@@ -1750,7 +1750,7 @@ public static class ItemEventHandlers
 
 	public static void DoApplyMotion(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
-		actor.ApplyMotion(ev.motionForwardSpeed, ev.motionDuration, ev.motionFreezeGravity, ev.motionDirection);
+		actor.ApplyMotion(ev.motionForwardSpeed, ev.motionDuration, action.context.MotionDurationMultiplier, ev.motionFreezeGravity, ev.motionDirection);
 	}
 
 	// Grants ev.languageComponents of ev.language to the learner — for

@@ -1159,8 +1159,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // `direction` is ignored: a mob always lunges along its facing. While an
     // attack runs its body is movement-locked, so its move input is ~zero and
     // Movement would resolve back to facing anyway.
-    public void ApplyMotion(float forwardSpeed, float duration, bool freezeGravity, EMotionDirection direction)
+    public void ApplyMotion(float forwardSpeed, float duration, float durationMultiplier, bool freezeGravity, EMotionDirection direction)
     {
+        duration *= durationMultiplier;
         // A negative forwardSpeed reverses the vector (a hop-back); only a
         // zero speed or zero duration is a true no-op.
         if (duration <= 0f || forwardSpeed == 0f)

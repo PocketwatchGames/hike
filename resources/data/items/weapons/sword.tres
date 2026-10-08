@@ -83,6 +83,7 @@ script = ExtResource("4_charged")
 displayName = &"Slash"
 chargeTime = 0.5
 activeDurationSeconds = 0.5
+staminaCost = 0.3
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light"), SubResource("Resource_prwqy")])
 comboWindowMs = 600
 repeatActionOverrides = Array[ExtResource("21_repeat")]([SubResource("Resource_sword_swing1"), SubResource("Resource_sword_swing2"), SubResource("Resource_sword_swing3")])
@@ -197,6 +198,7 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), 
 
 [resource]
 script = ExtResource("2_weapon")
+weight = 0.5
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"charged": SubResource("Resource_charged_damage"),
 &"primary": SubResource("Resource_damage")

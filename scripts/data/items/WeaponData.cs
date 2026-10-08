@@ -31,6 +31,10 @@ public partial class WeaponData : ItemData
 
 	protected override EItemCategory ComputeCategory() => rightHandSlot ? EItemCategory.WeaponRight : EItemCategory.WeaponLeft;
 
+	// Weight while equipped (see ItemData.EquipWeight). Mobs ignore it.
+	[Export] public float weight = 0f;
+	public override float EquipWeight => weight;
+
 	// How this weapon delivers its attacks. A capability set — a weapon may
 	// carry several bits (a melee weapon with a charged throw). Gates which
 	// weapon mods may attach: a mod's WeaponModData.requiredDelivery must be

@@ -1635,6 +1635,16 @@ public partial class SimData : Resource
     // advantage. 0.4 = -40% smell reach in a strong wind.
     [Export(PropertyHint.Range, "0,1,0.01")] public float smellWindDisruption = 0.4f;
 
+    [ExportGroup("Equipment Weight")]
+    // Total equipped weight carried free of every weight penalty (max stamina,
+    // speed, dash distance); only the combined weight above it counts.
+    [Export(PropertyHint.Range, "0,10,0.1")] public float minWeightPenalty = 1f;
+    // Fractional change per unit of equipped weight over minWeightPenalty
+    // (Player.EquippedWeight), applied as 1 + excess * modifier and floored at 0.
+    // -0.05 = each unit costs 5% of move speed / 10% of dash distance.
+    [Export(PropertyHint.Range, "-1,0,0.01")] public float weightSpeedModifier = -0.05f;
+    [Export(PropertyHint.Range, "-1,0,0.01")] public float weightDashDistanceModifier = -0.1f;
+
     // Named test setups reachable from the console as `setup <name>`. Dev
     // tooling rather than game content, but it lives here because a scenario is
     // per-world simulation data and this is the resource a running game already

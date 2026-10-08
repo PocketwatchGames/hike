@@ -90,6 +90,12 @@ public partial class ItemData : Resource
 	// ArrowLootData override.
 	protected virtual EItemCategory ComputeCategory() => EItemCategory.Material;
 
+	// This item's weight while it sits in an equipment slot. The total over
+	// SimData.minWeightPenalty costs max stamina, run/swim speed and dash distance
+	// (Player.PenalizedWeight). Only gear authors one — armor, shields and weapons
+	// override it with their `weight` field.
+	public virtual float EquipWeight => 0f;
+
 	// A cooking / spell reagent; picked up on contact, and placed past the hotbar.
 	public bool IsMaterial => Category == EItemCategory.Material;
 
