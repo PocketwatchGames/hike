@@ -53,7 +53,7 @@ public partial class PlayerState : Resource
 	//   stealth          — quiets the player's emissions (Noise + Scent); higher = stealthier.
 	//   fortitude        — resists incoming combat status buildup (folds into EStat.FortitudeResistance); higher = more resistant.
 	[Export] public float health = 1f;
-	[Export(PropertyHint.Range, "0,10,1")] public float stamina = 3f;
+	[Export(PropertyHint.Range, "0,10,0.05")] public float stamina = 5f;
 	[Export] public float fortitude = 1f;
 	[Export] public float strength = 1f;
 	[Export] public float perception = 1f;
