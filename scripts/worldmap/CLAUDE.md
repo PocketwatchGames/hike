@@ -19,7 +19,7 @@ carries invariants that are not repeated here.
 | The elevation model - signed around sea level, snapped to the interior lattice | [docs/elevation.md](docs/elevation.md) |
 | Painted water - a brush and not a fill, and why there is no waterline | [docs/water.md](docs/water.md) |
 | How the map is drawn (relief + step outlines), and what a rebuild costs | [docs/drawing.md](docs/drawing.md) |
-| Resizing: `worldmap_resize` (rescale) vs `worldmap_canvas` (extend) | [docs/resize.md](docs/resize.md) |
+| Resizing and rotating: `worldmap_resize` (rescale) vs `worldmap_canvas` (extend), and `worldmap_rotate` | [docs/resize.md](docs/resize.md) |
 | The host `WorldMapPainter` - palette families, placements, the entity inspector panel, subscene stamps, entity marks, paving | [docs/host.md](docs/host.md) |
 | Painted prop regions - the packed fill over measured collision, interior clearings, slope seating, no-spawn | [docs/prop-fill.md](docs/prop-fill.md) |
 | Carving and building (`VoxelEditTool`) | [tools/CLAUDE.md](tools/CLAUDE.md) |

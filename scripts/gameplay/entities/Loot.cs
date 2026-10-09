@@ -790,7 +790,9 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 	// every-overlap attack queries mask, so this never costs a mob its hit.
 	private void OnHurtBoxHit(HitInfo hit)
 	{
-		if (_pickedUp || _removed || _seeking)
+		// A continuous zone (a gas cloud) hits every physics tick; pushing on each
+		// one integrates into a launch that throws the item across the map.
+		if (_pickedUp || _removed || _seeking || hit.dot)
 		{
 			return;
 		}

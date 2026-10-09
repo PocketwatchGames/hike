@@ -784,17 +784,18 @@ public partial class WorldMapPainter : Node3D
         UpdateHud();
     }
 
-    // Resize or re-canvas the open document and pick the result back up.
+    // Rewrite the open document wholesale (resize, re-canvas, rotate) and pick
+    // the result back up.
     //
-    // The extent operations read the layer FILES and rewrite them, so the live
+    // These operations read the layer FILES and rewrite them, so the live
     // images have to be saved first or a session's painting would be silently
     // replaced by whatever was last on disk. Afterwards everything sized by the
     // map is rebuilt: the state, the display buffer, and the history — whose
-    // snapshots are tiles at the OLD extent and would restore garbage.
-    public void ApplyExtentChange(System.Func<WorldMapData, int, int, bool> action, int chunksX, int chunksZ)
+    // snapshots are tiles of the OLD layout and would restore garbage.
+    public void ApplyDocumentRewrite(System.Func<WorldMapData, bool> action)
     {
         _ctx.Save();
-        if (!action(data, chunksX, chunksZ))
+        if (!action(data))
         {
             return;
         }

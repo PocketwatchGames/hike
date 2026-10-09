@@ -123,32 +123,38 @@
 [sub_resource type="Resource" id="Resource_v1avn"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("1_1iphp")
-anchorXZ = Vector2i(119, 19)
+anchorXZ = Vector2i(-20, 119)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_xitar"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("3_iwr7h")
-anchorXZ = Vector2i(52, 17)
+anchorXZ = Vector2i(-18, 52)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_m17nx"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("3_iwr7h")
-anchorXZ = Vector2i(159, 37)
+anchorXZ = Vector2i(-38, 159)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_8icqc"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("3_iwr7h")
-anchorXZ = Vector2i(-64, -58)
+anchorXZ = Vector2i(57, -64)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_errfs"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("3_iwr7h")
-anchorXZ = Vector2i(38, -130)
+anchorXZ = Vector2i(129, 38)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_m2c7i"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(-32, 8)
+anchorXZ = Vector2i(-9, -32)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_bx82r_desc"]
 script = ExtResource("77_5av3f")
@@ -168,22 +174,26 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_xefb8")
-anchorXZ = Vector2i(72, 48)
+anchorXZ = Vector2i(-49, 72)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_hatgq"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(43, -1)
+anchorXZ = Vector2i(0, 43)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_w1yuy"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(10, -70)
+anchorXZ = Vector2i(69, 10)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_nb33q"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(61, 69)
+anchorXZ = Vector2i(-70, 61)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_rhsyl_desc"]
 script = ExtResource("77_5av3f")
@@ -212,32 +222,38 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_xpmpx")
-anchorXZ = Vector2i(145, 60)
+anchorXZ = Vector2i(-61, 145)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_jdn3h"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(-76, -96)
+anchorXZ = Vector2i(95, -76)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_jvlfu"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(-108, 32)
+anchorXZ = Vector2i(-33, -108)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_f4tcb"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(53, -106)
+anchorXZ = Vector2i(105, 53)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_tefhj"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(96, -115)
+anchorXZ = Vector2i(114, 96)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_m27kj"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(139, -144)
+anchorXZ = Vector2i(143, 139)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_axgr2_desc"]
 script = ExtResource("77_5av3f")
@@ -258,27 +274,32 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_c8824")
-anchorXZ = Vector2i(211, 58)
+anchorXZ = Vector2i(-59, 211)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_s6rg6"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(145, -57)
+anchorXZ = Vector2i(56, 145)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_54uw5"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(55, -61)
+anchorXZ = Vector2i(60, 55)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_fkddt"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(-144, 4)
+anchorXZ = Vector2i(-5, -144)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_3esya"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(-40, 57)
+anchorXZ = Vector2i(-58, -40)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_02tyn"]
 script = ExtResource("77_5av3f")
@@ -300,12 +321,14 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_bg3q2")
-anchorXZ = Vector2i(45, 157)
+anchorXZ = Vector2i(-158, 45)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_u32lv"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(16, 95)
+anchorXZ = Vector2i(-96, 16)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_f2atw"]
 script = ExtResource("77_5av3f")
@@ -326,7 +349,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_k4esf")
-anchorXZ = Vector2i(148, 109)
+anchorXZ = Vector2i(-110, 148)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_gbmn5"]
 script = ExtResource("77_5av3f")
@@ -335,7 +359,6 @@ item = ExtResource("16_c8824")
 [sub_resource type="Resource" id="Resource_7grru"]
 script = ExtResource("6_eflh0")
 item = SubResource("Resource_gbmn5")
-count = 3
 
 [sub_resource type="Resource" id="Resource_stln2"]
 script = ExtResource("77_5av3f")
@@ -357,287 +380,344 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_vwgca")
-anchorXZ = Vector2i(95, 30)
+anchorXZ = Vector2i(-31, 95)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_3tpyt"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(79, 88)
+anchorXZ = Vector2i(-89, 79)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_h4tfw"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(-29, -95)
+anchorXZ = Vector2i(94, -29)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_rm76c"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(97, -90)
+anchorXZ = Vector2i(89, 97)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_qe5vh"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
-anchorXZ = Vector2i(67, -169)
+anchorXZ = Vector2i(168, 67)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_si3n7"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("1_1iphp")
-anchorXZ = Vector2i(-33, -65)
+anchorXZ = Vector2i(64, -33)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_u8dk4"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("1_1iphp")
-anchorXZ = Vector2i(61, -117)
+anchorXZ = Vector2i(116, 61)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_otsru"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("1_1iphp")
-anchorXZ = Vector2i(132, -83)
+anchorXZ = Vector2i(82, 132)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_4m1we"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("5_iwr7h")
-anchorXZ = Vector2i(-6, -38)
+anchorXZ = Vector2i(37, -6)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_87ui2"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("5_iwr7h")
-anchorXZ = Vector2i(124, 98)
+anchorXZ = Vector2i(-99, 124)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_2mrh3"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("5_iwr7h")
-anchorXZ = Vector2i(-112, 25)
+anchorXZ = Vector2i(-26, -112)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_v4k15"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(86, 108)
+anchorXZ = Vector2i(-109, 86)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_cv3em"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(74, 71)
+anchorXZ = Vector2i(-72, 74)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_5dlux"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(60, 75)
+anchorXZ = Vector2i(-76, 60)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_hck5n"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(114, 109)
+anchorXZ = Vector2i(-110, 114)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_i35ip"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(180, 110)
+anchorXZ = Vector2i(-111, 180)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_4kuvw"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(180, 75)
+anchorXZ = Vector2i(-76, 180)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_cqh6q"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(52, 87)
+anchorXZ = Vector2i(-88, 52)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_vvdyp"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(2, 114)
+anchorXZ = Vector2i(-115, 2)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_cfccf"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(155, 71)
+anchorXZ = Vector2i(-72, 155)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_rwocs"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(155, 28)
+anchorXZ = Vector2i(-29, 155)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_65r5s"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(143, 55)
+anchorXZ = Vector2i(-56, 143)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_4iap5"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(-27, 83)
+anchorXZ = Vector2i(-84, -27)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_kbshv"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(-79, 41)
+anchorXZ = Vector2i(-42, -79)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_wfut7"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(-120, 9)
+anchorXZ = Vector2i(-10, -120)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_4wdla"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(-100, -13)
+anchorXZ = Vector2i(12, -100)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_60gjy"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(-54, -14)
+anchorXZ = Vector2i(13, -54)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_1hepy"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(11, 41)
+anchorXZ = Vector2i(-42, 11)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_inkue"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(21, 11)
+anchorXZ = Vector2i(-12, 21)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_mrnhc"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(-61, -40)
+anchorXZ = Vector2i(39, -61)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_o1j36"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(-101, -66)
+anchorXZ = Vector2i(65, -101)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_2si1a"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(-107, -82)
+anchorXZ = Vector2i(81, -107)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_dakmn"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(-26, -45)
+anchorXZ = Vector2i(44, -26)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_c4ufj"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(-56, -77)
+anchorXZ = Vector2i(76, -56)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_lox48"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(-68, -121)
+anchorXZ = Vector2i(120, -68)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_whmxo"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(113, 45)
+anchorXZ = Vector2i(-46, 113)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_r117a"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(98, -38)
+anchorXZ = Vector2i(37, 98)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_h11tg"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(28, -51)
+anchorXZ = Vector2i(50, 28)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_vaddl"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(144, -112)
+anchorXZ = Vector2i(111, 144)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_gi6h3"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(111, -102)
+anchorXZ = Vector2i(101, 111)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_wo01p"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(77, -75)
+anchorXZ = Vector2i(74, 77)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_c7jvl"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(-3, -82)
+anchorXZ = Vector2i(81, -3)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_t1hy1"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(17, -141)
+anchorXZ = Vector2i(140, 17)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_3amhf"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(46, -117)
+anchorXZ = Vector2i(116, 46)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_lencd"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("6_mm4s5")
-anchorXZ = Vector2i(-17, -113)
+anchorXZ = Vector2i(112, -17)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_20m58"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("7_xitar")
-anchorXZ = Vector2i(145, -14)
+anchorXZ = Vector2i(13, 145)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_ll8vc"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("7_xitar")
-anchorXZ = Vector2i(95, 55)
+anchorXZ = Vector2i(-56, 95)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_kll4j"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("7_xitar")
-anchorXZ = Vector2i(135, 123)
+anchorXZ = Vector2i(-124, 135)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_f6i7f"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("7_xitar")
-anchorXZ = Vector2i(9, -24)
+anchorXZ = Vector2i(23, 9)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_u5vb8"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("7_xitar")
-anchorXZ = Vector2i(-111, -21)
+anchorXZ = Vector2i(20, -111)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_e7xmq"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("7_xitar")
-anchorXZ = Vector2i(-29, -137)
+anchorXZ = Vector2i(136, -29)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_qtpqv"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("7_xitar")
-anchorXZ = Vector2i(101, -152)
+anchorXZ = Vector2i(151, 101)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_xe2kj"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("8_m17nx")
-anchorXZ = Vector2i(26, 10)
+anchorXZ = Vector2i(-11, 26)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_ngy1e"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("8_m17nx")
-anchorXZ = Vector2i(54, 150)
+anchorXZ = Vector2i(-151, 54)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_iyn5v"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("8_m17nx")
-anchorXZ = Vector2i(-48, 30)
+anchorXZ = Vector2i(-31, -48)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_kpvgv"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("8_m17nx")
-anchorXZ = Vector2i(182, 17)
+anchorXZ = Vector2i(-18, 182)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_jndr2"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("8_m17nx")
-anchorXZ = Vector2i(44, -178)
+anchorXZ = Vector2i(177, 44)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_osda5"]
 script = ExtResource("11_mw5ge")
@@ -653,8 +733,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("16_signpost")
 custom = SubResource("Resource_osda5")
-anchorXZ = Vector2i(124, 18)
-facing = 1
+anchorXZ = Vector2i(-19, 124)
+facing = 7
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_i07lw"]
@@ -669,7 +749,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("16_signpost")
 custom = SubResource("Resource_i07lw")
-anchorXZ = Vector2i(120, 42)
+anchorXZ = Vector2i(-43, 120)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_signpost_road"]
 script = ExtResource("11_mw5ge")
@@ -682,7 +763,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("16_signpost")
 custom = SubResource("Resource_signpost_road")
-anchorXZ = Vector2i(-87, -63)
+anchorXZ = Vector2i(62, -87)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_4j70r"]
 script = ExtResource("11_mw5ge")
@@ -696,7 +778,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("16_signpost")
 custom = SubResource("Resource_4j70r")
-anchorXZ = Vector2i(19, -22)
+anchorXZ = Vector2i(21, 19)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_vai1a"]
 script = ExtResource("14_w1yuy")
@@ -710,7 +793,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("15_nb33q")
 custom = SubResource("Resource_vai1a")
-anchorXZ = Vector2i(14, 71)
+anchorXZ = Vector2i(-72, 14)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_vm386_stone"]
 script = ExtResource("14_w1yuy")
@@ -724,7 +808,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("15_nb33q")
 custom = SubResource("Resource_vm386_stone")
-anchorXZ = Vector2i(186, 60)
+anchorXZ = Vector2i(-61, 186)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_anunb"]
 script = ExtResource("14_w1yuy")
@@ -738,7 +823,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("15_nb33q")
 custom = SubResource("Resource_anunb")
-anchorXZ = Vector2i(-95, -29)
+anchorXZ = Vector2i(28, -95)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_in76e"]
 script = ExtResource("14_w1yuy")
@@ -752,7 +838,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("15_nb33q")
 custom = SubResource("Resource_in76e")
-anchorXZ = Vector2i(86, -86)
+anchorXZ = Vector2i(85, 86)
+facing = 6
 
 [sub_resource type="Resource" id="NpcFork_villager_elder_m"]
 script = ExtResource("NpcScript")
@@ -768,7 +855,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("NpcFork_villager_elder_m")
-anchorXZ = Vector2i(111, 4)
+anchorXZ = Vector2i(-5, 111)
+facing = 6
 
 [sub_resource type="Resource" id="NpcFork_villager_hunter_m"]
 script = ExtResource("NpcScript")
@@ -784,7 +872,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("NpcFork_villager_hunter_m")
-anchorXZ = Vector2i(129, -14)
+anchorXZ = Vector2i(13, 129)
+facing = 6
 
 [sub_resource type="Resource" id="NpcFork_villager_archer_f"]
 script = ExtResource("NpcScript")
@@ -800,7 +889,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("NpcFork_villager_archer_f")
-anchorXZ = Vector2i(143, -2)
+anchorXZ = Vector2i(1, 143)
+facing = 6
 
 [sub_resource type="Resource" id="NpcFork_villager_plain_m"]
 script = ExtResource("NpcScript")
@@ -816,7 +906,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("NpcFork_villager_plain_m")
-anchorXZ = Vector2i(165, 5)
+anchorXZ = Vector2i(-6, 165)
+facing = 6
 name = "librarian"
 
 [sub_resource type="Resource" id="NpcFork_merchant_leather"]
@@ -834,7 +925,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("NpcFork_merchant_leather")
-anchorXZ = Vector2i(76, -7)
+anchorXZ = Vector2i(6, 76)
+facing = 6
 
 [sub_resource type="Resource" id="NpcFork_hermit"]
 script = ExtResource("NpcScript")
@@ -850,7 +942,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("NpcFork_hermit")
-anchorXZ = Vector2i(81, 18)
+anchorXZ = Vector2i(-19, 81)
+facing = 6
 
 [sub_resource type="Resource" id="NpcFork_wanderer_talia"]
 script = ExtResource("NpcScript")
@@ -867,37 +960,37 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("NpcFork_wanderer_talia")
-anchorXZ = Vector2i(7, 9)
+anchorXZ = Vector2i(-10, 7)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_33bg6"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("5_iwr7h")
-anchorXZ = Vector2i(130, -2)
+anchorXZ = Vector2i(1, 130)
+facing = 6
 name = "whittlebone"
 
 [sub_resource type="Resource" id="Resource_vdcb2"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("40_4bnws")
-anchorXZ = Vector2i(167, 25)
-facing = 4
+anchorXZ = Vector2i(-26, 167)
+facing = 2
 
 [sub_resource type="Resource" id="Resource_4bnws"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("40_4bnws")
-anchorXZ = Vector2i(99, 108)
-facing = 2
+anchorXZ = Vector2i(-109, 99)
 
 [sub_resource type="Resource" id="Resource_fmfr7"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("40_4bnws")
-anchorXZ = Vector2i(60, -6)
-facing = 2
+anchorXZ = Vector2i(5, 60)
 
 [sub_resource type="Resource" id="Resource_edibo"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("40_4bnws")
-anchorXZ = Vector2i(93, -59)
-facing = 1
+anchorXZ = Vector2i(58, 93)
+facing = 7
 
 [sub_resource type="Resource" id="Resource_1qnll"]
 script = ExtResource("NpcScript")
@@ -915,19 +1008,21 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("Resource_1qnll")
-anchorXZ = Vector2i(182, -7)
-facing = 4
+anchorXZ = Vector2i(6, 182)
+facing = 2
 
 [sub_resource type="Resource" id="Resource_38h8b"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("42_a1ou6")
-anchorXZ = Vector2i(172, -12)
+anchorXZ = Vector2i(11, 172)
+facing = 6
 floorY = 0
 
 [sub_resource type="Resource" id="Resource_h87o5"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("42_a1ou6")
-anchorXZ = Vector2i(160, -21)
+anchorXZ = Vector2i(20, 160)
+facing = 6
 floorY = 0
 
 [sub_resource type="Resource" id="Resource_7c7kn"]
@@ -941,8 +1036,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("40_vdcb2")
 custom = SubResource("Resource_7c7kn")
-anchorXZ = Vector2i(159, 10)
-facing = 6
+anchorXZ = Vector2i(-11, 159)
+facing = 4
 
 [sub_resource type="Resource" id="Resource_yp151"]
 script = ExtResource("NpcScript")
@@ -960,8 +1055,8 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("Resource_yp151")
-anchorXZ = Vector2i(132, -19)
-facing = 7
+anchorXZ = Vector2i(18, 132)
+facing = 5
 
 [sub_resource type="Resource" id="Resource_qaghn"]
 script = ExtResource("M_5_r")
@@ -1006,8 +1101,7 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("Resource_1cxn5")
-anchorXZ = Vector2i(128, -22)
-facing = 2
+anchorXZ = Vector2i(21, 128)
 
 [sub_resource type="Resource" id="Resource_xigvu"]
 script = ExtResource("NpcScript")
@@ -1025,8 +1119,8 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("Resource_xigvu")
-anchorXZ = Vector2i(123, -21)
-facing = 5
+anchorXZ = Vector2i(20, 123)
+facing = 3
 
 [sub_resource type="Resource" id="Resource_rimgo"]
 script = ExtResource("NpcScript")
@@ -1044,8 +1138,7 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("Resource_rimgo")
-anchorXZ = Vector2i(116, -1)
-facing = 2
+anchorXZ = Vector2i(0, 116)
 
 [sub_resource type="Resource" id="Resource_eflh0"]
 script = ExtResource("NpcScript")
@@ -1063,7 +1156,8 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("Resource_eflh0")
-anchorXZ = Vector2i(113, -4)
+anchorXZ = Vector2i(3, 113)
+facing = 6
 name = "mayor"
 
 [sub_resource type="Resource" id="Resource_5uafj"]
@@ -1082,8 +1176,8 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("Resource_5uafj")
-anchorXZ = Vector2i(112, 30)
-facing = 4
+anchorXZ = Vector2i(-31, 112)
+facing = 2
 
 [sub_resource type="Resource" id="Resource_f8a1f"]
 script = ExtResource("NpcScript")
@@ -1101,8 +1195,7 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("Resource_f8a1f")
-anchorXZ = Vector2i(148, -29)
-facing = 2
+anchorXZ = Vector2i(28, 148)
 
 [sub_resource type="Resource" id="Resource_mko67"]
 script = ExtResource("54_ce1ad")
@@ -1115,7 +1208,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("56_xigvu")
 custom = SubResource("Resource_mko67")
-anchorXZ = Vector2i(119, 72)
+anchorXZ = Vector2i(-73, 119)
+facing = 6
 name = "city_center"
 
 [sub_resource type="Resource" id="Resource_2mx78"]
@@ -1145,7 +1239,8 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 script = ExtResource("2_4i2sm")
 source = ExtResource("17_npc")
 custom = SubResource("Resource_jwncb")
-anchorXZ = Vector2i(127, 124)
+anchorXZ = Vector2i(-125, 127)
+facing = 6
 name = "swamp_witch"
 
 [sub_resource type="Resource" id="Resource_3yats_desc"]
@@ -1167,8 +1262,7 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_0m4wo")
-anchorXZ = Vector2i(64, 30)
-facing = 2
+anchorXZ = Vector2i(-31, 64)
 
 [sub_resource type="Resource" id="Resource_7lrfi_desc"]
 script = ExtResource("77_5av3f")
@@ -1188,13 +1282,14 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_h67pf")
-anchorXZ = Vector2i(138, -42)
-facing = 4
+anchorXZ = Vector2i(41, 138)
+facing = 2
 
 [sub_resource type="Resource" id="Resource_p7qwg"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("62_0mtyp")
-anchorXZ = Vector2i(102, 36)
+anchorXZ = Vector2i(-37, 102)
+facing = 6
 floorY = 0
 
 [sub_resource type="Resource" id="Resource_oaout_desc"]
@@ -1224,114 +1319,126 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_63fgg")
-anchorXZ = Vector2i(99, 36)
+anchorXZ = Vector2i(-37, 99)
+facing = 6
 floorY = 0
 
 [sub_resource type="Resource" id="Resource_idx1o"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("62_0mtyp")
-anchorXZ = Vector2i(62, 33)
+anchorXZ = Vector2i(-34, 62)
+facing = 6
 floorY = 0
 
 [sub_resource type="Resource" id="Resource_5av3f"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("62_0mtyp")
-anchorXZ = Vector2i(52, 32)
+anchorXZ = Vector2i(-33, 52)
+facing = 6
 floorY = 0
 
 [sub_resource type="Resource" id="Resource_ojfud"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("62_0mtyp")
-anchorXZ = Vector2i(60, 20)
+anchorXZ = Vector2i(-21, 60)
+facing = 6
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_cr071"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("62_0mtyp")
-anchorXZ = Vector2i(74, 17)
+anchorXZ = Vector2i(-18, 74)
+facing = 6
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_tlpyt"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("62_0mtyp")
-anchorXZ = Vector2i(118, 17)
+anchorXZ = Vector2i(-18, 118)
+facing = 6
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_c27bh"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("62_0mtyp")
-anchorXZ = Vector2i(125, 26)
+anchorXZ = Vector2i(-27, 125)
+facing = 6
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_30ytk"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("62_0mtyp")
-anchorXZ = Vector2i(128, 28)
+anchorXZ = Vector2i(-29, 128)
+facing = 6
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_km8mr"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("62_0mtyp")
-anchorXZ = Vector2i(132, 28)
+anchorXZ = Vector2i(-29, 132)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_lu4bc"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("62_0mtyp")
-anchorXZ = Vector2i(123, 23)
+anchorXZ = Vector2i(-24, 123)
+facing = 6
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_wmpsl"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_0")
-anchorXZ = Vector2i(57, 35)
-facing = 6
+anchorXZ = Vector2i(-36, 57)
+facing = 4
 floorY = 0
 
 [sub_resource type="Resource" id="Resource_mplm6"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_0")
-anchorXZ = Vector2i(57, 15)
-facing = 1
+anchorXZ = Vector2i(-16, 57)
+facing = 7
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_gkypr"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_0")
-anchorXZ = Vector2i(60, 12)
+anchorXZ = Vector2i(-13, 60)
+facing = 6
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_ufai2"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_0")
-anchorXZ = Vector2i(61, 16)
-facing = 3
+anchorXZ = Vector2i(-17, 61)
+facing = 1
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_tdxo6"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_0")
-anchorXZ = Vector2i(129, 15)
-facing = 5
+anchorXZ = Vector2i(-16, 129)
+facing = 3
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_swuxn"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_0")
-anchorXZ = Vector2i(132, 9)
-facing = 7
+anchorXZ = Vector2i(-10, 132)
+facing = 5
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_y5gjg"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_0")
-anchorXZ = Vector2i(140, 17)
-facing = 5
+anchorXZ = Vector2i(-18, 140)
+facing = 3
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_iwjer"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_0")
-anchorXZ = Vector2i(135, 31)
+anchorXZ = Vector2i(-32, 135)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_n0le8"]
 script = ExtResource("69_xefb8")
@@ -1342,7 +1449,8 @@ disabledVariable = &"town_gate_locked"
 script = ExtResource("2_4i2sm")
 source = ExtResource("68_jwncb")
 custom = SubResource("Resource_n0le8")
-anchorXZ = Vector2i(112, 37)
+anchorXZ = Vector2i(-38, 112)
+facing = 6
 floorY = 4
 name = "town_gate"
 
@@ -1372,7 +1480,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_wjs4y")
-anchorXZ = Vector2i(166, -30)
+anchorXZ = Vector2i(29, 166)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_5781h"]
 script = ExtResource("77_5av3f")
@@ -1387,7 +1496,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("80_tlpyt")
 custom = SubResource("Resource_mh3we")
-anchorXZ = Vector2i(184, -16)
+anchorXZ = Vector2i(15, 184)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_galmf_desc"]
 script = ExtResource("77_5av3f")
@@ -1415,8 +1525,7 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_l74os")
-anchorXZ = Vector2i(147, -2)
-facing = 2
+anchorXZ = Vector2i(1, 147)
 
 [sub_resource type="Resource" id="Resource_tdypt_desc"]
 script = ExtResource("77_5av3f")
@@ -1436,7 +1545,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_gcwk7")
-anchorXZ = Vector2i(122, -13)
+anchorXZ = Vector2i(12, 122)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_dtxhw_desc"]
 script = ExtResource("77_5av3f")
@@ -1456,7 +1566,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_4ovwr")
-anchorXZ = Vector2i(119, -4)
+anchorXZ = Vector2i(3, 119)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_r6qn0"]
 script = ExtResource("77_5av3f")
@@ -1472,7 +1583,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("80_tlpyt")
 custom = SubResource("Resource_mkmis")
-anchorXZ = Vector2i(175, -17)
+anchorXZ = Vector2i(16, 175)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_akmly"]
 script = ExtResource("77_5av3f")
@@ -1487,42 +1599,49 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("80_tlpyt")
 custom = SubResource("Resource_3k8ws")
-anchorXZ = Vector2i(142, -5)
+anchorXZ = Vector2i(4, 142)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_j6mcs"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_1")
-anchorXZ = Vector2i(45, 29)
+anchorXZ = Vector2i(-30, 45)
+facing = 6
 floorY = 0
 
 [sub_resource type="Resource" id="Resource_hmry2"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_2")
-anchorXZ = Vector2i(47, 36)
+anchorXZ = Vector2i(-37, 47)
+facing = 6
 floorY = 0
 
 [sub_resource type="Resource" id="Resource_sdeqp"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_3")
-anchorXZ = Vector2i(111, 17)
+anchorXZ = Vector2i(-18, 111)
+facing = 6
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_356aa"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_1")
-anchorXZ = Vector2i(116, 14)
+anchorXZ = Vector2i(-15, 116)
+facing = 6
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_i8jgx"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_2")
-anchorXZ = Vector2i(106, 17)
+anchorXZ = Vector2i(-18, 106)
+facing = 6
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_8040p"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("cv_3")
-anchorXZ = Vector2i(76, 32)
+anchorXZ = Vector2i(-33, 76)
+facing = 6
 floorY = 1
 
 [sub_resource type="Resource" id="Resource_urvpn"]
@@ -1538,7 +1657,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("80_tlpyt")
 custom = SubResource("Resource_ppt4r")
-anchorXZ = Vector2i(74, 14)
+anchorXZ = Vector2i(-15, 74)
+facing = 6
 floorY = -1
 
 [sub_resource type="Resource" id="Resource_yu5fc"]
@@ -1554,177 +1674,200 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("80_tlpyt")
 custom = SubResource("Resource_48p2f")
-anchorXZ = Vector2i(172, 29)
+anchorXZ = Vector2i(-30, 172)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_vmcb7"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("102_ubhg3")
-anchorXZ = Vector2i(94, -18)
+anchorXZ = Vector2i(17, 94)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_48288"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("103_y5gjg")
-anchorXZ = Vector2i(111, -26)
+anchorXZ = Vector2i(25, 111)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_fkjbg"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("103_y5gjg")
-anchorXZ = Vector2i(141, -22)
+anchorXZ = Vector2i(21, 141)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_acbn5"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("102_ubhg3")
-anchorXZ = Vector2i(140, 10)
+anchorXZ = Vector2i(-11, 140)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_1yris"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("102_ubhg3")
-anchorXZ = Vector2i(98, 8)
+anchorXZ = Vector2i(-9, 98)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_53vms"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("103_y5gjg")
-anchorXZ = Vector2i(62, 1)
+anchorXZ = Vector2i(-2, 62)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_gj4xi"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("102_ubhg3")
-anchorXZ = Vector2i(94, 22)
+anchorXZ = Vector2i(-23, 94)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_0up5a"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("103_y5gjg")
-anchorXZ = Vector2i(178, 10)
+anchorXZ = Vector2i(-11, 178)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_hnw58"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("96_axgr2")
-anchorXZ = Vector2i(111, -13)
+anchorXZ = Vector2i(12, 111)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_dxter"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("97_c8824")
-anchorXZ = Vector2i(111, -15)
-facing = 7
+anchorXZ = Vector2i(14, 111)
+facing = 5
 
 [sub_resource type="Resource" id="Resource_10yy2"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("98_bx82r")
-anchorXZ = Vector2i(109, -12)
-facing = 3
+anchorXZ = Vector2i(11, 109)
+facing = 1
 
 [sub_resource type="Resource" id="Resource_rq4a6"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("99_7lrfi")
-anchorXZ = Vector2i(108, -14)
-facing = 1
+anchorXZ = Vector2i(13, 108)
+facing = 7
 
 [sub_resource type="Resource" id="Resource_8p38b"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("100_61e6v")
-anchorXZ = Vector2i(107, -12)
+anchorXZ = Vector2i(11, 107)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_u7xed"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("98_bx82r")
-anchorXZ = Vector2i(117, 9)
+anchorXZ = Vector2i(-10, 117)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_ya0r4"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("100_61e6v")
-anchorXZ = Vector2i(137, -9)
+anchorXZ = Vector2i(8, 137)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_o5jgy"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("99_7lrfi")
-anchorXZ = Vector2i(145, -7)
+anchorXZ = Vector2i(6, 145)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_onsk1"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("96_axgr2")
-anchorXZ = Vector2i(145, -31)
-facing = 1
+anchorXZ = Vector2i(30, 145)
+facing = 7
 
 [sub_resource type="Resource" id="Resource_yprhx"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("97_c8824")
-anchorXZ = Vector2i(146, -32)
-facing = 6
+anchorXZ = Vector2i(31, 146)
+facing = 4
 
 [sub_resource type="Resource" id="Resource_30hpm"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("97_c8824")
-anchorXZ = Vector2i(83, -7)
-facing = 1
+anchorXZ = Vector2i(6, 83)
+facing = 7
 
 [sub_resource type="Resource" id="Resource_ng4wn"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("99_7lrfi")
-anchorXZ = Vector2i(84, -10)
-facing = 7
+anchorXZ = Vector2i(9, 84)
+facing = 5
 
 [sub_resource type="Resource" id="Resource_k0ym5"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("100_61e6v")
-anchorXZ = Vector2i(84, -8)
-facing = 1
+anchorXZ = Vector2i(7, 84)
+facing = 7
 
 [sub_resource type="Resource" id="Resource_s6r1i"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("96_axgr2")
-anchorXZ = Vector2i(104, 27)
+anchorXZ = Vector2i(-28, 104)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_i6mmi"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("99_7lrfi")
-anchorXZ = Vector2i(105, 28)
-facing = 5
+anchorXZ = Vector2i(-29, 105)
+facing = 3
 
 [sub_resource type="Resource" id="Resource_86084"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("101_wjs4y")
-anchorXZ = Vector2i(83, -9)
+anchorXZ = Vector2i(8, 83)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_he7wn"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("102_714vb")
-anchorXZ = Vector2i(108, -17)
+anchorXZ = Vector2i(16, 108)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_6yp4y"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("103_3yats")
-anchorXZ = Vector2i(110, -11)
+anchorXZ = Vector2i(10, 110)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_efsra"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("104_5781h")
-anchorXZ = Vector2i(135, -19)
+anchorXZ = Vector2i(18, 135)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_c1r22"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("105_mh3we")
-anchorXZ = Vector2i(146, -31)
+anchorXZ = Vector2i(30, 146)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_4hdtk"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("106_teqrv")
-anchorXZ = Vector2i(141, 3)
-facing = 4
+anchorXZ = Vector2i(-4, 141)
+facing = 2
 
 [sub_resource type="Resource" id="Resource_s6n6h"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("107_galmf")
-anchorXZ = Vector2i(105, 27)
+anchorXZ = Vector2i(-28, 105)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_48gop"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("108_mgvr4")
-anchorXZ = Vector2i(138, -9)
+anchorXZ = Vector2i(8, 138)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_d6vvl"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("109_l74os")
-anchorXZ = Vector2i(177, 9)
+anchorXZ = Vector2i(-10, 177)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_60b31"]
 script = ExtResource("77_5av3f")
@@ -1752,8 +1895,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_5576s")
-anchorXZ = Vector2i(168, 65)
-facing = 6
+anchorXZ = Vector2i(-66, 168)
+facing = 4
 
 [sub_resource type="Resource" id="Resource_wxtsl"]
 script = ExtResource("77_5av3f")
@@ -1781,7 +1924,8 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_sbb75")
-anchorXZ = Vector2i(108, 87)
+anchorXZ = Vector2i(-88, 108)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_4512b"]
 script = ExtResource("77_5av3f")
@@ -1802,350 +1946,411 @@ disabledVariable = &""
 script = ExtResource("2_4i2sm")
 source = ExtResource("4_mm4s5")
 custom = SubResource("Resource_23o8u")
-anchorXZ = Vector2i(165, 82)
+anchorXZ = Vector2i(-83, 165)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_m4pbi"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(201, 59)
+anchorXZ = Vector2i(-60, 201)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_ytqou"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(206, 58)
+anchorXZ = Vector2i(-59, 206)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_ktbto"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(203, 56)
+anchorXZ = Vector2i(-57, 203)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_vjdi0"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(165, 28)
+anchorXZ = Vector2i(-29, 165)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_ucrcy"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(170, 26)
+anchorXZ = Vector2i(-27, 170)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_qesjv"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(122, 69)
+anchorXZ = Vector2i(-70, 122)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_bpeg5"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(114, 69)
+anchorXZ = Vector2i(-70, 114)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_t31fl"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(120, 76)
+anchorXZ = Vector2i(-77, 120)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_73qnw"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(80, 50)
+anchorXZ = Vector2i(-51, 80)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_c8j6s"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(107, 50)
+anchorXZ = Vector2i(-51, 107)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_1owoq"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(142, -43)
+anchorXZ = Vector2i(42, 142)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_sikud"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(121, -39)
+anchorXZ = Vector2i(38, 121)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_yqt3d"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(81, 37)
+anchorXZ = Vector2i(-38, 81)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_th788"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(86, 42)
+anchorXZ = Vector2i(-43, 86)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_ehysw"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(162, 115)
+anchorXZ = Vector2i(-116, 162)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_c52en"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(129, 96)
+anchorXZ = Vector2i(-97, 129)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_u8i8v"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(100, 148)
+anchorXZ = Vector2i(-149, 100)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_rcofr"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(103, 112)
+anchorXZ = Vector2i(-113, 103)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_fsliu"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(147, 117)
+anchorXZ = Vector2i(-118, 147)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_ebugr"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("42_a1ou6")
-anchorXZ = Vector2i(132, 131)
+anchorXZ = Vector2i(-132, 132)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_l45ba"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("42_a1ou6")
-anchorXZ = Vector2i(119, 131)
+anchorXZ = Vector2i(-132, 119)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_qipss"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("42_a1ou6")
-anchorXZ = Vector2i(108, 34)
+anchorXZ = Vector2i(-35, 108)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_vqut3"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("42_a1ou6")
-anchorXZ = Vector2i(117, 34)
+anchorXZ = Vector2i(-35, 117)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_lk4jv"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("42_a1ou6")
-anchorXZ = Vector2i(123, 46)
+anchorXZ = Vector2i(-47, 123)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_7myi7"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(85, 73)
+anchorXZ = Vector2i(-74, 85)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_uc4a3"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(130, 65)
+anchorXZ = Vector2i(-66, 130)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_s4jyg"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(138, 81)
+anchorXZ = Vector2i(-82, 138)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_kpe0w"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(77, 45)
+anchorXZ = Vector2i(-46, 77)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_awrr6"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(214, 60)
+anchorXZ = Vector2i(-61, 214)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_4lsde"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(168, -27)
+anchorXZ = Vector2i(26, 168)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_e2ksi"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(182, -8)
+anchorXZ = Vector2i(7, 182)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_pu7rx"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(183, -17)
+anchorXZ = Vector2i(16, 183)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_nid24"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(109, -14)
+anchorXZ = Vector2i(13, 109)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_yb1la"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(145, 40)
+anchorXZ = Vector2i(-41, 145)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_5nyyn"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(189, 78)
+anchorXZ = Vector2i(-79, 189)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_kxeji"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(166, 89)
+anchorXZ = Vector2i(-90, 166)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_hnbwv"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(188, 102)
+anchorXZ = Vector2i(-103, 188)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_ul5or"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(170, 131)
+anchorXZ = Vector2i(-132, 170)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_r8baj"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(150, 90)
+anchorXZ = Vector2i(-91, 150)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_rhq7h"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(143, 109)
+anchorXZ = Vector2i(-110, 143)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_v55ei"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(112, 113)
+anchorXZ = Vector2i(-114, 112)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_hbwrc"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(138, 129)
+anchorXZ = Vector2i(-130, 138)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_hdkqd"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(128, 138)
+anchorXZ = Vector2i(-139, 128)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_w4ox5"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(111, 154)
+anchorXZ = Vector2i(-155, 111)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_0ytlg"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(82, 152)
+anchorXZ = Vector2i(-153, 82)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_v7psn"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("115_7lrfi")
-anchorXZ = Vector2i(69, 154)
+anchorXZ = Vector2i(-155, 69)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_yf4aq"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("114_bx82r")
-anchorXZ = Vector2i(54, 155)
+anchorXZ = Vector2i(-156, 54)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_vm4hs"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("116_7lrfi")
-anchorXZ = Vector2i(132, -8)
+anchorXZ = Vector2i(7, 132)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_8fhyx"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("116_7lrfi")
-anchorXZ = Vector2i(128, 17)
+anchorXZ = Vector2i(-18, 128)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_4xav6"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("116_7lrfi")
-anchorXZ = Vector2i(73, 1)
+anchorXZ = Vector2i(-2, 73)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_kchuy"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("116_7lrfi")
-anchorXZ = Vector2i(111, 26)
+anchorXZ = Vector2i(-27, 111)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_2w72q"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("116_7lrfi")
-anchorXZ = Vector2i(127, 5)
+anchorXZ = Vector2i(-6, 127)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_47mun"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("116_7lrfi")
-anchorXZ = Vector2i(133, 5)
+anchorXZ = Vector2i(-6, 133)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_8ejmf"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("116_7lrfi")
-anchorXZ = Vector2i(109, 56)
+anchorXZ = Vector2i(-57, 109)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_hrdwk"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("116_7lrfi")
-anchorXZ = Vector2i(122, 50)
+anchorXZ = Vector2i(-51, 122)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_qlhv6"]
 script = ExtResource("2_4i2sm")
 source = ExtResource("116_7lrfi")
-anchorXZ = Vector2i(19, -14)
+anchorXZ = Vector2i(13, 19)
+facing = 6
 
 [sub_resource type="Resource" id="Resource_tbjbl"]
 script = ExtResource("1_rkdci")
 path = "res://resources/data/world_authoring/subscenes/house01.hikescene"
-anchorXZ = Vector2i(-6, 2)
+anchorXZ = Vector2i(-2, -6)
+rotation = 3
 
 [sub_resource type="Resource" id="Resource_hd6tq"]
 script = ExtResource("1_rkdci")
 path = "res://resources/data/world_authoring/subscenes/house04.hikescene"
-anchorXZ = Vector2i(5, -21)
+anchorXZ = Vector2i(21, 5)
+rotation = 3
 
 [sub_resource type="Resource" id="Resource_rkdci"]
 script = ExtResource("1_rkdci")
 path = "res://resources/data/world_authoring/subscenes/town_square01.hikescene"
-anchorXZ = Vector2i(124, -8)
+anchorXZ = Vector2i(8, 124)
+rotation = 3
 
 [sub_resource type="Resource" id="Resource_sh2e7"]
 script = ExtResource("1_rkdci")
 path = "res://resources/data/world_authoring/subscenes/house03.hikescene"
-anchorXZ = Vector2i(117, -27)
+anchorXZ = Vector2i(27, 117)
+rotation = 3
 
 [sub_resource type="Resource" id="Resource_4i2sm"]
 script = ExtResource("1_rkdci")
 path = "res://resources/data/world_authoring/subscenes/house01.hikescene"
-anchorXZ = Vector2i(115, 118)
+anchorXZ = Vector2i(-118, 115)
+rotation = 3
 
 [sub_resource type="Resource" id="Resource_iwr7h"]
 script = ExtResource("1_rkdci")
 path = "res://resources/data/world_authoring/subscenes/house02.hikescene"
-anchorXZ = Vector2i(105, 12)
-rotation = 1
+anchorXZ = Vector2i(-12, 105)
 
 [sub_resource type="Resource" id="Resource_mm4s5"]
 script = ExtResource("1_rkdci")
 path = "res://resources/data/world_authoring/subscenes/house04.hikescene"
-anchorXZ = Vector2i(70, -2)
-rotation = 1
+anchorXZ = Vector2i(2, 70)
 
 [sub_resource type="Resource" id="Resource_ciokf"]
 script = ExtResource("1_rkdci")
 path = "res://resources/data/world_authoring/subscenes/house03.hikescene"
-anchorXZ = Vector2i(70, 32)
-rotation = 1
+anchorXZ = Vector2i(-32, 70)
 
 [sub_resource type="Resource" id="Resource_6n32a"]
 script = ExtResource("1_rkdci")
 path = "res://resources/data/world_authoring/subscenes/house01.hikescene"
-anchorXZ = Vector2i(173, -4)
-rotation = 3
+anchorXZ = Vector2i(4, 173)
+rotation = 2
 
 [sub_resource type="Resource" id="Resource_reuqt"]
 script = ExtResource("1_rkdci")
 path = "res://resources/data/world_authoring/subscenes/house02.hikescene"
-anchorXZ = Vector2i(-51, -150)
+anchorXZ = Vector2i(150, -51)
+rotation = 3
 
 [sub_resource type="Resource" id="Resource_ova6p"]
 script = ExtResource("1_rkdci")
 path = "res://resources/data/world_authoring/subscenes/house04.hikescene"
-anchorXZ = Vector2i(138, -8)
+anchorXZ = Vector2i(8, 138)
+rotation = 3
 
 [resource]
 script = ExtResource("1_62klx")
 placements = [SubResource("Resource_tbjbl"), SubResource("Resource_hd6tq"), SubResource("Resource_rkdci"), SubResource("Resource_sh2e7"), SubResource("Resource_4i2sm"), SubResource("Resource_iwr7h"), SubResource("Resource_mm4s5"), SubResource("Resource_ciokf"), SubResource("Resource_6n32a"), SubResource("Resource_reuqt"), SubResource("Resource_ova6p")]
 entities = [SubResource("Resource_v1avn"), SubResource("Resource_xitar"), SubResource("Resource_m17nx"), SubResource("Resource_8icqc"), SubResource("Resource_errfs"), SubResource("Resource_m2c7i"), SubResource("Resource_mw5ge"), SubResource("Resource_hatgq"), SubResource("Resource_w1yuy"), SubResource("Resource_nb33q"), SubResource("Resource_ne3xj"), SubResource("Resource_jdn3h"), SubResource("Resource_jvlfu"), SubResource("Resource_f4tcb"), SubResource("Resource_tefhj"), SubResource("Resource_m27kj"), SubResource("Resource_6ef7y"), SubResource("Resource_s6rg6"), SubResource("Resource_54uw5"), SubResource("Resource_fkddt"), SubResource("Resource_3esya"), SubResource("Resource_3eexj"), SubResource("Resource_u32lv"), SubResource("Resource_12ffn"), SubResource("Resource_tvr8w"), SubResource("Resource_3tpyt"), SubResource("Resource_h4tfw"), SubResource("Resource_rm76c"), SubResource("Resource_qe5vh"), SubResource("Resource_si3n7"), SubResource("Resource_u8dk4"), SubResource("Resource_otsru"), SubResource("Resource_4m1we"), SubResource("Resource_87ui2"), SubResource("Resource_2mrh3"), SubResource("Resource_v4k15"), SubResource("Resource_cv3em"), SubResource("Resource_5dlux"), SubResource("Resource_hck5n"), SubResource("Resource_i35ip"), SubResource("Resource_4kuvw"), SubResource("Resource_cqh6q"), SubResource("Resource_vvdyp"), SubResource("Resource_cfccf"), SubResource("Resource_rwocs"), SubResource("Resource_65r5s"), SubResource("Resource_4iap5"), SubResource("Resource_kbshv"), SubResource("Resource_wfut7"), SubResource("Resource_4wdla"), SubResource("Resource_60gjy"), SubResource("Resource_1hepy"), SubResource("Resource_inkue"), SubResource("Resource_mrnhc"), SubResource("Resource_o1j36"), SubResource("Resource_2si1a"), SubResource("Resource_dakmn"), SubResource("Resource_c4ufj"), SubResource("Resource_lox48"), SubResource("Resource_whmxo"), SubResource("Resource_r117a"), SubResource("Resource_h11tg"), SubResource("Resource_vaddl"), SubResource("Resource_gi6h3"), SubResource("Resource_wo01p"), SubResource("Resource_c7jvl"), SubResource("Resource_t1hy1"), SubResource("Resource_3amhf"), SubResource("Resource_lencd"), SubResource("Resource_20m58"), SubResource("Resource_ll8vc"), SubResource("Resource_kll4j"), SubResource("Resource_f6i7f"), SubResource("Resource_u5vb8"), SubResource("Resource_e7xmq"), SubResource("Resource_qtpqv"), SubResource("Resource_xe2kj"), SubResource("Resource_ngy1e"), SubResource("Resource_iyn5v"), SubResource("Resource_kpvgv"), SubResource("Resource_jndr2"), SubResource("Resource_ktogt"), SubResource("Resource_4v30q"), SubResource("Resource_rik87"), SubResource("Resource_gokyh"), SubResource("Resource_ql8yq"), SubResource("Resource_vm386"), SubResource("Resource_jj52j"), SubResource("Resource_1i773"), SubResource("Resource_gtttp"), SubResource("Resource_t3wb4"), SubResource("Resource_7x1my"), SubResource("Resource_hnnhv"), SubResource("Resource_oe36o"), SubResource("Resource_pkcg1"), SubResource("Resource_0sxfu"), SubResource("Resource_33bg6"), SubResource("Resource_vdcb2"), SubResource("Resource_4bnws"), SubResource("Resource_fmfr7"), SubResource("Resource_edibo"), SubResource("Resource_0s8ee"), SubResource("Resource_38h8b"), SubResource("Resource_h87o5"), SubResource("Resource_l8e3m"), SubResource("Resource_haao1"), SubResource("Resource_4xkh0"), SubResource("Resource_emxt3"), SubResource("Resource_0mdw8"), SubResource("Resource_oxleg"), SubResource("Resource_ce1ad"), SubResource("Resource_1881d"), SubResource("Resource_0mtyp"), SubResource("Resource_3ss2w"), SubResource("Resource_wase2"), SubResource("Resource_bjtjo"), SubResource("Resource_p7qwg"), SubResource("Resource_fehiu"), SubResource("Resource_idx1o"), SubResource("Resource_5av3f"), SubResource("Resource_ojfud"), SubResource("Resource_cr071"), SubResource("Resource_tlpyt"), SubResource("Resource_c27bh"), SubResource("Resource_30ytk"), SubResource("Resource_km8mr"), SubResource("Resource_lu4bc"), SubResource("Resource_wmpsl"), SubResource("Resource_mplm6"), SubResource("Resource_gkypr"), SubResource("Resource_ufai2"), SubResource("Resource_tdxo6"), SubResource("Resource_swuxn"), SubResource("Resource_y5gjg"), SubResource("Resource_iwjer"), SubResource("Resource_hk5o1"), SubResource("Resource_714vb"), SubResource("Resource_teqrv"), SubResource("Resource_3cgaj"), SubResource("Resource_2r8q0"), SubResource("Resource_whhws"), SubResource("Resource_8sdt2"), SubResource("Resource_6p3qh"), SubResource("Resource_j6mcs"), SubResource("Resource_hmry2"), SubResource("Resource_sdeqp"), SubResource("Resource_356aa"), SubResource("Resource_i8jgx"), SubResource("Resource_8040p"), SubResource("Resource_ditbb"), SubResource("Resource_hxinb"), SubResource("Resource_vmcb7"), SubResource("Resource_48288"), SubResource("Resource_fkjbg"), SubResource("Resource_acbn5"), SubResource("Resource_1yris"), SubResource("Resource_53vms"), SubResource("Resource_gj4xi"), SubResource("Resource_0up5a"), SubResource("Resource_hnw58"), SubResource("Resource_dxter"), SubResource("Resource_10yy2"), SubResource("Resource_rq4a6"), SubResource("Resource_8p38b"), SubResource("Resource_u7xed"), SubResource("Resource_ya0r4"), SubResource("Resource_o5jgy"), SubResource("Resource_onsk1"), SubResource("Resource_yprhx"), SubResource("Resource_30hpm"), SubResource("Resource_ng4wn"), SubResource("Resource_k0ym5"), SubResource("Resource_s6r1i"), SubResource("Resource_i6mmi"), SubResource("Resource_86084"), SubResource("Resource_he7wn"), SubResource("Resource_6yp4y"), SubResource("Resource_efsra"), SubResource("Resource_c1r22"), SubResource("Resource_4hdtk"), SubResource("Resource_s6n6h"), SubResource("Resource_48gop"), SubResource("Resource_d6vvl"), SubResource("Resource_nb24n"), SubResource("Resource_j0pgg"), SubResource("Resource_dvrgw"), SubResource("Resource_m4pbi"), SubResource("Resource_ytqou"), SubResource("Resource_ktbto"), SubResource("Resource_vjdi0"), SubResource("Resource_ucrcy"), SubResource("Resource_qesjv"), SubResource("Resource_bpeg5"), SubResource("Resource_t31fl"), SubResource("Resource_73qnw"), SubResource("Resource_c8j6s"), SubResource("Resource_1owoq"), SubResource("Resource_sikud"), SubResource("Resource_yqt3d"), SubResource("Resource_th788"), SubResource("Resource_ehysw"), SubResource("Resource_c52en"), SubResource("Resource_u8i8v"), SubResource("Resource_rcofr"), SubResource("Resource_fsliu"), SubResource("Resource_ebugr"), SubResource("Resource_l45ba"), SubResource("Resource_qipss"), SubResource("Resource_vqut3"), SubResource("Resource_lk4jv"), SubResource("Resource_7myi7"), SubResource("Resource_uc4a3"), SubResource("Resource_s4jyg"), SubResource("Resource_kpe0w"), SubResource("Resource_awrr6"), SubResource("Resource_4lsde"), SubResource("Resource_e2ksi"), SubResource("Resource_pu7rx"), SubResource("Resource_nid24"), SubResource("Resource_yb1la"), SubResource("Resource_5nyyn"), SubResource("Resource_kxeji"), SubResource("Resource_hnbwv"), SubResource("Resource_ul5or"), SubResource("Resource_r8baj"), SubResource("Resource_rhq7h"), SubResource("Resource_v55ei"), SubResource("Resource_hbwrc"), SubResource("Resource_hdkqd"), SubResource("Resource_w4ox5"), SubResource("Resource_0ytlg"), SubResource("Resource_v7psn"), SubResource("Resource_yf4aq"), SubResource("Resource_vm4hs"), SubResource("Resource_8fhyx"), SubResource("Resource_4xav6"), SubResource("Resource_kchuy"), SubResource("Resource_2w72q"), SubResource("Resource_47mun"), SubResource("Resource_8ejmf"), SubResource("Resource_hrdwk"), SubResource("Resource_qlhv6")]
 hasSpawn = true
-spawnXZ = Vector2i(185, 1)
+spawnXZ = Vector2i(-2, 185)

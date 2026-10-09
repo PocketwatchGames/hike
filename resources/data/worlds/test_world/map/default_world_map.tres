@@ -1,11 +1,11 @@
-[gd_resource type="Resource" script_class="WorldMapData" format=3 uid="uid://e8dg4qt8u74x"]
+[gd_resource type="Resource" script_class="WorldMapData" format=3]
 
-[ext_resource type="Script" uid="uid://q4y8a0jvwr2y" path="res://scripts/data/worldmap/WorldMapData.cs" id="1_wmd"]
+[ext_resource type="Script" path="res://scripts/data/worldmap/WorldMapData.cs" id="1_wmd"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/terrain_kits/mountain.tres" id="dg"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/world_finish_data.tres" id="wm_finish"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/terrain/terrain_palette.tres" id="wm_kits"]
-[ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="wm_sim"]
-[ext_resource type="Resource" uid="uid://comperp28v2jt" path="res://resources/data/worlds/test_world/world_start_test.tres" id="wm_start"]
+[ext_resource type="Resource" path="res://resources/data/default_sim_data.tres" id="wm_sim"]
+[ext_resource type="Resource" path="res://resources/data/worlds/test_world/world_start_test.tres" id="wm_start"]
 
 [resource]
 script = ExtResource("1_wmd")
@@ -14,8 +14,8 @@ finish = ExtResource("wm_finish")
 terrainPalette = ExtResource("wm_kits")
 simData = ExtResource("wm_sim")
 defaultGround = ExtResource("dg")
-sizeChunksX = 36
-sizeChunksZ = 32
+sizeChunksX = 32
+sizeChunksZ = 36
 elevationImagePath = "res://resources/data/worlds/test_world/map/elevation.exr"
 waterImagePath = "res://resources/data/worlds/test_world/map/water.exr"
 regionImagePath = "res://resources/data/worlds/test_world/map/region.png"

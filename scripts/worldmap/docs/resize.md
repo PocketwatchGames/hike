@@ -67,4 +67,26 @@ Two more things do not follow the images. **Heights are not scaled** — doublin
 map's width must not double how tall its walls are, since wall height is a
 gameplay quantity the terrain rules pin independently of extent. **Stamps keep
 their size** and are moved to the same relative spot, since a house does not grow
-with the map.
+with the map; hand-placed entities and the player spawn move the same way.
+
+## Rotating a document (`WorldMapRotate`)
+
+**`worldmap_rotate <quarterTurnsCW> [res://doc.tres]`** turns the whole document
+clockwise as seen on the painter's map (negative = anticlockwise); one turn
+sends world +X to +Z, and the chunk extent swaps. Run it from the painter's
+console and it saves, rotates and reopens like the two extent commands.
+
+It is exact, so **four turns must reproduce every file byte for byte** — that is
+the test for any change here (`palettes.tres` differs only in Godot's random
+sub-resource ids). Three things carry a direction and are turned beyond moving
+their pixels; the round trip cannot catch a wrong SENSE on any of them, only an
+inconsistent axis:
+
+- the wind layer's angle byte (+64 per turn; unpainted chunks untouched),
+- a stamp's `rotation` (a scene's own turn is anticlockwise, so +3), and its
+  anchor, recomputed from the turned FOOTPRINT so a half-voxel `sub.Anchor`
+  still floors onto the right cells,
+- an entity's `facing` (two eighths back per turn).
+
+The prop fill and mob scatter hash their world column, so they re-roll rather
+than turn. Re-bake afterwards; saves against the old bake stop loading.

@@ -276,6 +276,26 @@ public static class WorldMapResize
             int tz = Mathf.FloorToInt((placement.anchorXZ.Y - oldMinZ) * (float)newH / oldH);
             placement.anchorXZ = new Vector2I(data.WorldMinX + tx, data.WorldMinZ + tz);
         }
+
+        // Entities and the spawn name a COLUMN, so it is the column's centre that
+        // is carried across.
+        Vector2I MoveCell(Vector2I cell)
+        {
+            int tx = Mathf.FloorToInt((cell.X - oldMinX + 0.5f) * newW / oldW);
+            int tz = Mathf.FloorToInt((cell.Y - oldMinZ + 0.5f) * newH / oldH);
+            return new Vector2I(data.WorldMinX + tx, data.WorldMinZ + tz);
+        }
+        foreach (EntityPlacement entity in state.Placements.entities)
+        {
+            if (entity != null)
+            {
+                entity.anchorXZ = MoveCell(entity.anchorXZ);
+            }
+        }
+        if (state.Placements.hasSpawn)
+        {
+            state.Placements.spawnXZ = MoveCell(state.Placements.spawnXZ);
+        }
     }
 
     // Any EDIT wins over the covered region, and nothing is smoothed: a tunnel

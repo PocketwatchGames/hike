@@ -2259,19 +2259,52 @@
             Godot.GD.Print($"{name}: usage `{name} <chunksX> <chunksZ> [res://path/to/world_map.tres]`");
             return;
         }
+        RewriteWorldMap(doc, name, d => action(d, chunksX, chunksZ));
+    }
+
+    // Action: turns a painted world-map document by quarter turns CLOCKWISE as
+    // seen on the painter's map (from above) — every layer, tunnel, stamp,
+    // entity (and its facing), the player spawn and the painted wind. Negative
+    // turns go anticlockwise. Exact: four turns give back the same files.
+    // Re-bake afterwards; saves against the old bake stop loading.
+    // Usage: `worldmap_rotate <quarterTurnsCW> [res://path/to/world_map.tres]`
+    public static CVarString worldMapRotate = new CVarString("worldmap_rotate", "", (cvar) =>
+    {
+        string[] parts = (((CVarString)cvar).Value ?? "").Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
+        WorldMapData doc = WorldMapPainter.LastDocument;
+        if (parts.Length >= 2)
+        {
+            doc = Godot.ResourceLoader.Load<WorldMapData>(parts[1]);
+            if (doc == null)
+            {
+                Godot.GD.PrintErr($"worldmap_rotate: could not load '{parts[1]}' as a WorldMapData.");
+                return;
+            }
+        }
+        if (doc == null || parts.Length < 1 || !int.TryParse(parts[0], out int turns))
+        {
+            Godot.GD.PrintErr("worldmap_rotate: usage `worldmap_rotate <quarterTurnsCW> [res://path/to/world_map.tres]` "
+                + "(the document defaults to the one the painter has open).");
+            return;
+        }
+        RewriteWorldMap(doc, "worldmap_rotate", d => WorldMapRotate.Run(d, turns));
+    });
+
+    // With the painter open on `doc`, go through it: it holds unsaved painting
+    // and every buffer sized by the map, so it has to save first and reopen the
+    // result. Closed, the plain call is enough.
+    private static void RewriteWorldMap(WorldMapData doc, string name, System.Func<WorldMapData, bool> action)
+    {
         try
         {
-            // With the painter open, go through it: it holds unsaved painting
-            // and every buffer sized by the map, so it has to save first and
-            // reopen the result. Closed, the plain call is enough.
             WorldMapPainter painter = WorldMapPainter.Current;
             if (painter != null && Godot.GodotObject.IsInstanceValid(painter) && painter.Document == doc)
             {
-                painter.ApplyExtentChange(action, chunksX, chunksZ);
+                painter.ApplyDocumentRewrite(action);
             }
             else
             {
-                action(doc, chunksX, chunksZ);
+                action(doc);
             }
         }
         catch (System.Exception e)
