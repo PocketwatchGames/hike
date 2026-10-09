@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_b3uw6"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
 [ext_resource type="Script" uid="uid://tvnxsypx42je" path="res://scripts/data/effects/HealEffect.cs" id="3_heal"]
-[ext_resource type="PackedScene" uid="uid://ayl02yt25x2nu" path="res://scenes/fx/status_heal_start.tscn" id="4_healfx"]
+[ext_resource type="PackedScene" uid="uid://yl02yt25x2nu" path="res://scenes/fx/status_heal_start.tscn" id="4_healfx"]
 [ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="5_icon"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="6_7l8j2"]
 [ext_resource type="PackedScene" uid="uid://dr1nk2lk5q8wn" path="res://scenes/fx/drink_loop.tscn" id="6_drinkfx"]

@@ -35,5 +35,6 @@ displayName = &"Fortifying Lurker Stew"
 description = "Lurker meat and blue mushrooms. Steels you against harm."
 maxStack = 99
 spoilDays = 3
+value = 5
 inventorySprite = ExtResource("6_icon")
 typeTags = 5

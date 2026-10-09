@@ -9,6 +9,10 @@
 [ext_resource type="PackedScene" uid="uid://kv5h72dbtfxcz" path="res://scenes/fx/barrel_explosion.tscn" id="7_explosion"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="8_damage"]
 [ext_resource type="Script" uid="uid://cbrtam2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="9_burst"]
+[ext_resource type="Script" uid="uid://i33l7k1z81ng0" path="res://scripts/gameplay/entities/Destructible.cs" id="10_destructible"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="dr_range"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="dr_desc"]
+[ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="dr_oil_droplet"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_body"]
 size = Vector3(0.7676, 1.0312, 0.7677)
@@ -35,38 +39,60 @@ radius = 3.5
 height = 5.0
 fx = ExtResource("7_explosion")
 
-[node name="ExplodingBarrel" type="Node3D" node_paths=PackedStringArray("_hurtBox", "_bodyCollision", "_intactModel", "_brokenModel", "_scorchStain")]
+[sub_resource type="Resource" id="DropDesc_oil_droplet"]
+script = ExtResource("dr_desc")
+item = ExtResource("dr_oil_droplet")
+
+[sub_resource type="Resource" id="Drop_oil_droplet"]
+script = ExtResource("dr_range")
+item = SubResource("DropDesc_oil_droplet")
+countRange = 1
+chance = 0.25
+
+[node name="ExplodingBarrel" type="Node3D" node_paths=PackedStringArray("_destructible")]
 script = ExtResource("1_barrel")
-_hurtBox = NodePath("HurtBox")
-_bodyCollision = NodePath("Body/CollisionShape3D")
-_intactModel = NodePath("IntactModel")
-_brokenModel = NodePath("BrokenModel")
-_scorchStain = NodePath("ScorchStain")
+_destructible = NodePath("Destructible")
 _blast = SubResource("Resource_blast")
 
-[node name="Body" type="StaticBody3D" parent="."]
+[node name="Intact" type="Node3D" parent="."]
+transform = Transform3D(1.25, 0, 0, 0, 1.25, 0, 0, 0, 1.25, 0, 0, 0)
+
+[node name="Body" type="StaticBody3D" parent="Intact"]
 script = ExtResource("2_porous")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Body"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Intact/Body"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5156, 0)
 shape = SubResource("BoxShape3D_body")
 
-[node name="IntactModel" type="Node3D" parent="." instance=ExtResource("4_intact")]
+[node name="IntactModel" type="Node3D" parent="Intact" instance=ExtResource("4_intact")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.0001)
 
-[node name="BrokenModel" type="Node3D" parent="." instance=ExtResource("5_broken")]
+[node name="HurtBox" type="Area3D" parent="Intact"]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("3_hurtbox")
 
-[node name="ScorchStain" type="MeshInstance3D" parent="."]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Intact/HurtBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+shape = SubResource("BoxShape3D_hurt")
+
+[node name="Rubble" type="Node3D" parent="."]
+transform = Transform3D(1.25, 0, 0, 0, 1.25, 0, 0, 0, 1.25, 0, 0, 0)
+visible = false
+
+[node name="BrokenModel" type="Node3D" parent="Rubble" instance=ExtResource("5_broken")]
+
+[node name="ScorchStain" type="MeshInstance3D" parent="Rubble"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
 layers = 16
 material_override = ExtResource("6_scorch")
 mesh = SubResource("PlaneMesh_scorch")
 
-[node name="HurtBox" type="Area3D" parent="."]
-collision_layer = 32
-collision_mask = 0
-script = ExtResource("3_hurtbox")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
-shape = SubResource("BoxShape3D_hurt")
+[node name="Destructible" type="Node3D" parent="." node_paths=PackedStringArray("_hurtBox", "_intact", "_rubble")]
+transform = Transform3D(1.25, 0, 0, 0, 1.25, 0, 0, 0, 1.25, 0, 0.6250, 0)
+script = ExtResource("10_destructible")
+_drops = [SubResource("Drop_oil_droplet")]
+_hurtBox = NodePath("../Intact/HurtBox")
+_destroyedBy = 0
+_intact = NodePath("../Intact")
+_rubble = NodePath("../Rubble")

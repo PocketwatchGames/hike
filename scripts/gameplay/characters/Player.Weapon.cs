@@ -315,6 +315,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		var context = new ActionContext
 		{
 			primaryItem = weapon,
+			source = _inventory,
 			sourceSlot = slot,
 		};
 		if (_runner.TryStart(weapon.data.actionProfile, context))
@@ -395,13 +396,15 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		}
 	}
 
-	// Start `item`'s use timeline on this member. False when it has none, the
-	// member is idle (an idle runner doesn't tick, so the action would never
-	// finish), or the runner is busy / refuses it.
-	public bool StartUseAction(ItemState item, EInventorySlot sourceSlot = EInventorySlot.None)
+	// Start `item`'s use timeline on this member, spending from `source` (null:
+	// the member's own inventory). False when it has none, the source doesn't hold
+	// it, the member is idle (an idle runner doesn't tick, so the action would
+	// never finish), or the runner is busy / refuses it.
+	public bool StartUseAction(ItemState item, IItemSource source = null)
 	{
+		source ??= _inventory;
 		if (!IsActive || item?.data is not IUsableItem usable || usable.ActionProfile == null
-			|| _runner == null || _runner.IsBusy || _inventory == null || !_inventory.Contains(item))
+			|| _runner == null || _runner.IsBusy || source == null || !source.Holds(item))
 		{
 			return false;
 		}
@@ -410,17 +413,19 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			verb = EActionVerb.Use,
 			primaryItem = item,
-			sourceSlot = sourceSlot,
+			source = source,
 		};
 		return _runner.TryStart(usable.ActionProfile, context);
 	}
 
-	// Spend one unit of an instant-use item (mud, a meal) on this member —
-	// the shared path for the hotbar and the inventory screen. False when the
-	// item isn't one, or its payload declined to be spent.
-	public bool UseInstantItem(ItemState item)
+	// Spend one unit of an instant-use item (mud, a meal) from `source` (null:
+	// the member's own inventory) on this member — the shared path for the
+	// hotbar and the menus. False when the item isn't one, the source doesn't
+	// hold it, or its payload declined to be spent.
+	public bool UseInstantItem(ItemState item, IItemSource source = null)
 	{
-		if (item?.data is not IInstantUseItem instant || _inventory == null || !_inventory.Contains(item))
+		source ??= _inventory;
+		if (item?.data is not IInstantUseItem instant || source == null || !source.Holds(item))
 		{
 			return false;
 		}
@@ -428,7 +433,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			return false;
 		}
-		ItemEventHandlers.ConsumeOneFromStack(this, item);
+		ItemEventHandlers.ConsumeOneFromStack(this, item, source);
 		return true;
 	}
 

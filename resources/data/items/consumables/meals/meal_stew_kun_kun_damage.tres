@@ -35,5 +35,6 @@ displayName = &"Savage Kun Kun Stew"
 description = "Kun-kun meat stewed with orange mushrooms. Stokes a fighting edge."
 maxStack = 99
 spoilDays = 3
+value = 5
 inventorySprite = ExtResource("6_icon")
 typeTags = 5

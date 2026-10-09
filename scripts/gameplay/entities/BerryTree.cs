@@ -2,7 +2,7 @@ using System;
 using Godot;
 
 [GlobalClass]
-public partial class BerryTree : Node3D, IInteractive, IWorldEntity
+public partial class BerryTree : Node3D, IInteractive, IWorldEntity, IBreakableEntity
 {
     [Export] private Node3D _berries;
     // Struck-to-destroy is the component's job (hurtbox, effect, removal); the
@@ -19,13 +19,17 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
     // lives on the scene alongside _berryItem.
     [Export(PropertyHint.Range, "1,60,1,or_greater")] private int _regrowDays = 3;
     public Vector3 hudPosition => _hudNode.GlobalPosition;
+    public Destructible Destructible => _destructible;
 
     private BerryTreeSimState _interactiveState;
     private Sim _world;
 
     // Bare until the in-world clock reaches the regrow deadline; ripe once reached.
-    private bool IsRipe => _interactiveState == null
-        || _interactiveState.IsRegrown(_world?.WorldClockDays ?? 0.0);
+    // A smashed bush is a stump: never ripe, and its fruit branch is gone.
+    private bool IsRipe => !IsBroken && (_interactiveState == null
+        || _interactiveState.IsRegrown(_world?.WorldClockDays ?? 0.0));
+
+    private bool IsBroken => _interactiveState?.Break.Broken == true;
 
     public override void _Ready()
     {
@@ -112,7 +116,7 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
     // is still a bush you can cut down, it just has nothing left to drop.
     private void ApplyRipeState(bool ripe)
     {
-        if (_berries != null)
+        if (_berries != null && !IsBroken)
         {
             _berries.Visible = ripe;
         }

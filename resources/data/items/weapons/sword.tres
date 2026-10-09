@@ -208,6 +208,6 @@ actionProfile = SubResource("Resource_profile")
 animSet = ExtResource("20_animset")
 displayName = &"Sword"
 description = "A sturdy blade with a heavy charged slash."
-value = 80
+value = 50
 inventorySprite = ExtResource("15_3a20y")
 heldModel = ExtResource("17_held")

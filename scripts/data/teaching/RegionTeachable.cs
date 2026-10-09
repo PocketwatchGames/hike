@@ -5,6 +5,9 @@ using Godot;
 // the region. The on-entry banner / loot table hooks are still owned by
 // GameClient.UpdateRegion; this concept only seeds the "I know this place
 // exists" bit. Useful for treasure-map scrolls and NPC quest-giver hints.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class RegionTeachable : TeachableConcept
 {

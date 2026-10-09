@@ -6,6 +6,9 @@ using Godot;
 // own AI engagement tuning; BehaviorAttack reads them off the mob.
 // This data holds only the chase / encircle geometry that's the same regardless
 // of which weapon swings.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class AttackBehaviorData : BehaviorData
 {

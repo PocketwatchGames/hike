@@ -7,6 +7,9 @@ using Godot;
 // plus authoring slot for the per-arrow sprite, timeout, and other tuning
 // fields inherited from LootData (removeTimeMs in particular — bow arrows set
 // this to 30000).
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class ArrowLootData : LootData
 {

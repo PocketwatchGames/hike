@@ -17,6 +17,9 @@ public enum EThreatTier
 // Wary when Alert clears), and release (Wary → Follow when Wary clears). The
 // actual thresholds live on MobData so a single set of numbers governs both the
 // transitions and the perception accumulation.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class ThreatPerceivedCondition : BehaviorTransitionData
 {

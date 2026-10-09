@@ -4,6 +4,9 @@ using Godot;
 // geometry, plus the vertical tiers a flying combatant moves between. The mob
 // stays airborne for the whole engagement; which height it holds is chosen per
 // tick from the weapon it's bringing to bear (see BehaviorFlyAttack).
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class FlyAttackBehaviorData : AttackBehaviorData
 {

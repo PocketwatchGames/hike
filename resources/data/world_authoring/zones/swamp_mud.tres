@@ -3,6 +3,61 @@
 [ext_resource type="Resource" uid="uid://erij2kg7sead" path="res://resources/audio/swamp_ambience.tres" id="1_njvqn"]
 [ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/world/ZoneData.cs" id="2_nq7m8"]
 [ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="3_nhn5a"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="bl_range"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="bl_desc"]
+[ext_resource type="Resource" uid="uid://dgldn4p2qx8wt" path="res://resources/data/items/loot/gold.tres" id="bl_gold"]
+[ext_resource type="Resource" uid="uid://pln2356abb1yx" path="res://resources/data/items/loot/mushroom_black.tres" id="bl_mushroom_black"]
+[ext_resource type="Resource" uid="uid://chpmfha5lvycx" path="res://resources/data/items/loot/mushroom_purple.tres" id="bl_mushroom_purple"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/ancient_bone.tres" id="bl_ancient_bone"]
+[ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="bl_oil_droplet"]
+
+[sub_resource type="Resource" id="BlDesc_oil_droplet"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_oil_droplet")
+
+[sub_resource type="Resource" id="BlLoot_oil_droplet"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_oil_droplet")
+chance = 0.1
+
+[sub_resource type="Resource" id="BlDesc_ancient_bone"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_ancient_bone")
+
+[sub_resource type="Resource" id="BlLoot_ancient_bone"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_ancient_bone")
+chance = 0.1
+
+[sub_resource type="Resource" id="BlDesc_gold"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_gold")
+
+[sub_resource type="Resource" id="BlLoot_gold"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_gold")
+countRange = 2
+chance = 0.35
+
+[sub_resource type="Resource" id="BlDesc_mushroom_black"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_mushroom_black")
+
+[sub_resource type="Resource" id="BlLoot_mushroom_black"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_mushroom_black")
+countRange = 1
+chance = 0.12
+
+[sub_resource type="Resource" id="BlDesc_mushroom_purple"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_mushroom_purple")
+
+[sub_resource type="Resource" id="BlLoot_mushroom_purple"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_mushroom_purple")
+countRange = 1
+chance = 0.12
 
 [sub_resource type="Resource" id="Resource_weather"]
 script = ExtResource("3_nhn5a")
@@ -16,6 +71,7 @@ metadata/_custom_type_script = "uid://d25sc6n2mi728"
 
 [resource]
 script = ExtResource("2_nq7m8")
+zoneLoot = [SubResource("BlLoot_ancient_bone"), SubResource("BlLoot_oil_droplet"), SubResource("BlLoot_gold"), SubResource("BlLoot_mushroom_black"), SubResource("BlLoot_mushroom_purple")]
 sunColor = Color(0.8595, 0.9, 0.63, 1)
 moonColor = Color(0.559, 0.57871664, 0.65, 1)
 skyColor = Color(0.3485, 0.39462498, 0.41, 1)

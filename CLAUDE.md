@@ -239,7 +239,7 @@ they fail at the compiler instead of depending on a reviewer having read this fi
   not an exemption list: fix a file and delete its section. **Never add a section
   to silence new code** — that is the whole mechanism.
 - **`HK003` is `resource_check`'s `[Tool]` rule moved to the compiler**, and the
-  two agree exactly (same 5 sites today). The compile-time copy is the useful one:
+  two agree exactly (zero sites today). The compile-time copy is the useful one:
   it fires before the editor has a chance to drop the reference. `resource_check`
   keeps the load sweep, which needs a running engine.
 - **A rule that cannot be decided from source does not go here.** The `.cs.uid`
@@ -393,7 +393,7 @@ selected.
 |---|---|---|
 | `worlds/<name>/` | ONE world, whichever producer builds it — its `WorldGenData` **or** its painted `map/`, plus that world's own `WorldStartData` / `WorldScriptData` and `items/` (an item only this world hands out — `map_city_center`). (`WorldFinishData` is NOT one of these — the finish passes are tuned once for the game, in `world_authoring/world_finish_data.tres`, and every world points at it.) A painted world links its start content through `WorldMapData.startContent` / `.finish`; the bake records the `WorldStartData`'s path in the `.hike` header and `WorldFileChunkSource` re-resolves it on load | is this world the only thing that wants it? |
 | `worlds/shared/` | the GAME's fiction, used by every world: `npcs/` (conversations, appearances), `party/`, `quests/`, `script_variables/`, `regions/`, `languages/`, and the spawn entries / lists / groups that NAME a character, language or story beat | a proper noun, but not one world's |
-| `world_authoring/` | the reusable kit the AUTHORING TOOLS offer: `terrain/` (a `TerrainData` per material, plus its `details/`), `terrain_kits/` (the four-material `TerrainKitData` the painter paints per column), `zones/`, `presets/`, `props/` (the `PropListData` a painted region is filled from), `spawn_entries/`, `spawn_scatters/`, `subscenes/`, `editor/`, and the two shared singles `prop_library.tres` and `world_finish_data.tres` | a type, kit or style — no proper nouns — **that the painter or the world editor reads** |
+| `world_authoring/` | the reusable kit the AUTHORING TOOLS offer: `terrain/` (a `TerrainData` per material, plus its `details/`), `terrain_kits/` (the four-material `TerrainKitData` the painter paints per column), `zones/`, `presets/`, `props/` (the `PropListData` a painted region is filled from), `spawn_entries/`, `spawn_scatters/`, `subscenes/`, `editor/`, and the shared single `world_finish_data.tres` | a type, kit or style — no proper nouns — **that the painter or the world editor reads** |
 | `world_gen/` | the generator's reusable vocabulary: `TerrainGenData`, `zone_gen/`, `region_gen/`, `foliage_gen/` (`FoliageGenData` — what grows in a zone), `spawn_groups/`, the `surface_` / `cave_` / `water_entities_*` lists in `spawn_lists/`, and `spawn_entries/` (complete leaves only those lists name — the loot chests; the painter places a `chest` and fills it per placement) | nothing but the generator reads it |
 
 **The `world_authoring` / `world_gen` line is WHO READS IT, not what it is.**
@@ -500,7 +500,7 @@ NOT need anything else under `map/`: the raster layers (`*.png`, `*.exr`,
 
 The first step in the world-authoring chain: a broad-brush, in-game paint program that authors a layered raster *document* and bakes it into a real `WorldState` / `.hike` (the downstream `WorldEditor` does fine per-voxel detail; the game loads the baked `.hike`).
 
-**What the painter can paint is DISCOVERED from disk, never registered.** A zone, terrain kit, prop list, scatter set, preset or placeable entity becomes available by existing in the directory `WorldMapPaletteSource.Table` names for it — that table is the one place a palette is declared. The palettes whose index a raster stores (zone, region, ground, scatter, mobs, paving, water type) keep an append-only slot ledger in `map/palettes.tres` so a newly discovered file can never re-point an already-painted column. See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
+**What the painter can paint is DISCOVERED from disk, never registered.** A zone, terrain kit, prop list, scatter set, preset or placeable entity becomes available by existing in the directory `AuthoringPaletteSource.Table` names for it — that table is the one place a palette is declared. A placeable entity is one spawn-entry file, one row, and its folder under `spawn_entries/` is its section (a prop is a three-line `PropSpawnEntry` under `props/<category>/`). The palettes whose index a raster stores (zone, region, ground, scatter, mobs, paving, water type) keep an append-only slot ledger in `map/palettes.tres` so a newly discovered file can never re-point an already-painted column. See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
 
 ### Blocks — the voxel material model (`scripts/data/world/`)
 
@@ -882,6 +882,35 @@ floated the player back up it), so the fall is drawn by an entity instead —
 sweeps a ballistic sheet off each one, and both waters share one shading include.
 See [scripts/gameplay/entities/CLAUDE.md](scripts/gameplay/entities/CLAUDE.md).
 
+### Breakables (`scripts/gameplay/entities/Destructible.cs`, `BreakState.cs`)
+
+**Whether a thing breaks is its SCENE's say; what it holds is its ZONE's.** A
+`Destructible` on a prop (crates, barrels, pots, rocks, crystals, bone piles) or
+a berry bush turns it to RUBBLE that stays in place until its schedule stands it
+up again (`ERestoreSchedule`: N rests, N sunrises, or never). Three rules reach
+past the component:
+
+- **Breaking lives on the sim state as a `BreakState` component, never a base
+  class** — `PropSimState` and `BerryTreeSimState` each hold one
+  (`IBreakableSimState`), because a berry bush is already a `RegrowSimState`.
+  Every `PropSimState` carries one, so every path that places props (prop
+  library, painter prop lists, foliage scatter, stamped scenes) gets breakables
+  free.
+- **Loot = the scene's own rows + `ZoneData.zoneLoot`**, both
+  `ItemCountRange` (item, count range, chance), rolled AT THE BREAK from the
+  chunk's zone and the day's seed. Nothing is stored, so retuning a zone needs no
+  rebake, and a stamped scene reused in three zones holds three zones' loot.
+  **A breakable never holds a one-off item** — it comes back; that is a chest.
+  The same zone table drops from a dying creature whose `MobData.carriesZoneLoot`
+  is set (goblins, trolls, drakes, spiders) — a trait of the creature, not the
+  variant, and authored because nothing else about a mob implies it.
+- **Nothing looks breakable that isn't, and nothing breakable has a
+  non-breakable twin.** Every crate, barrel and pot breaks; breakable rocks wear
+  `rock_cracked_lit`; debris props (`barrel_broken`, `barrel_staves`) read as
+  already broken. Don't author an unbreakable scene on a breakable's mesh.
+
+See [scripts/gameplay/entities/CLAUDE.md](scripts/gameplay/entities/CLAUDE.md).
+
 ### Visual Render Layers (`VisualInstance3D.Layers` / `Camera3D.CullMask`)
 
 The game runs several off-screen `SubViewport` cameras alongside the main one, each culling to a **dedicated 3D-render layer bit** so it sees only its own geometry. These bits are a **shared global namespace** — every `GeometryInstance3D.Layers` value and every `Camera3D.CullMask` in the project draws from the same 20 bits — so a duplicate claim silently cross-feeds one system's meshes into another's projector. (This bit us once: the selection outline and the ground-stain projector both used bit 4, so highlighting a prop rendered its model into `ground_stain_tex` and smeared its color up nearby walls.)
@@ -943,7 +972,7 @@ Run `dotnet run --project tools/validate_uids` to scan for missing `.cs.uid` sid
   - **It is data loss, not just a display bug.** The field reads empty, so the next time the editor saves that resource it writes the file back *without* the reference. You lose authored data to a diff you didn't make, and only in-editor — runtime has no `[Tool]` gate, so the game keeps working and hides it.
   - **It cascades.** Tagging `X` makes `X`'s own typed fields subject to the same rule, so the real cost is the transitive closure (subclasses + everything reachable through `[Export]`s), not one attribute. Measure that closure before starting: it is 5 classes for `ZoneData` but ~90 for `ItemData` and ~174 for `WorldGenData`. A half-applied sweep leaves the bug in place.
 
-  Match the parent: if it's `[Tool]`, everything it can reach is too, and say so in a comment on each so nobody strips it later. `StatusEffectData`'s payloads (`WeaponModData`, `DamageOverTimeData`, …) and the `SkyController`/`ZoneData` ambience graph are `[Tool]` for exactly this reason. Known remaining gaps: `ItemEvent.reagent` / `.concept` / `.minionSpecies`.
+  Match the parent: if it's `[Tool]`, everything it can reach is too, and say so in a comment on each so nobody strips it later. `StatusEffectData`'s payloads (`WeaponModData`, `DamageOverTimeData`, …) and the `SkyController`/`ZoneData` ambience graph are `[Tool]` for exactly this reason, and so is the whole item closure — `ZoneData.zoneLoot` reaches `ItemCountRange` → `ItemData` → every item, effect, teachable and, through a summoned pet, `MobData` and its brains (~100 classes).
 - No namespaces; all classes are global scope.
 - Event communication uses C# `Action` delegates and Godot `[Signal]` attributes.
 - Factory methods (`Create()`) for instantiating scene-backed objects.

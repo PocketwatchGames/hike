@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="2_light"]
+[ext_resource type="PackedScene" path="res://scenes/fx/firefly_swarm_loop.tscn" id="3_swarm"]
+
+[node name="PropInstance" type="Node3D" node_paths=PackedStringArray("_light")]
+script = ExtResource("1_prop")
+_light = NodePath("StationaryLight")
+
+[node name="FireflySwarmLoop" parent="." instance=ExtResource("3_swarm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="StationaryLight" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+script = ExtResource("2_light")
+_lightColor = Color(1, 0.67, 0.27, 1)
+_distance = 5.0
+_falloff = 1.5
+_brightness = 0.25

@@ -9,7 +9,8 @@ using Godot;
 //        Cancel deselects.
 //   X  — equip / unequip the highlighted gear.
 //   Y  — use / light / put out the highlighted item, per its kind and state.
-//   RT — hold to drop the highlighted item at the member's feet.
+//   RT — drop the highlighted item at the member's feet: a tap drops the whole
+//        stack, a hold asks how many.
 // The button hints belong to AlmanacScreen, which hands them over
 // (BindActionHints) and hides them on every other tab.
 [GlobalClass]
@@ -20,7 +21,7 @@ public partial class InventoryScreen : Control
 	[Export] private ItemInfoPanel _highlightPanel;
 	// Asks how many when a hold-to-drop lands on a stack.
 	[Export] private ItemCountPanel _countPanel;
-	// How long Drop must be held before the highlighted item drops.
+	// How long Drop must be held to ask how many instead of dropping the stack.
 	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _dropHoldSeconds = 0.6f;
 
 	// A's glyph follows the primary-verb convention of the other inventory-style
@@ -68,10 +69,7 @@ public partial class InventoryScreen : Control
 	// The slot under the cursor, and the slot picked up for a move.
 	Slot _focused = Slot.None;
 	Slot _selected = Slot.None;
-	float _dropHeld;
-	// Latched once a hold has dropped something, so keeping Drop down doesn't drop
-	// the next item that slides under the cursor.
-	bool _dropFired;
+	readonly PolledHold _drop = new(DropAction);
 
 	public void Initialize(GameClient gameClient)
 	{
@@ -130,6 +128,7 @@ public partial class InventoryScreen : Control
 				_player.Inventory.onChanged += Refresh;
 			}
 			Refresh();
+			_drop.Arm(_hintDrop);
 			// Deferred: GrabFocus needs the slot visible-in-tree, and the focus it
 			// takes is what fills the highlight panel.
 			Callable.From(ApplyInitialFocus).CallDeferred();
@@ -278,39 +277,21 @@ public partial class InventoryScreen : Control
 	void TickDropHold(float dt)
 	{
 		ItemState item = _selected.IsNone ? ItemAt(_focused) : null;
-		if (item == null || !Input.IsActionPressed(DropAction))
+		PolledHold.EResult drop = _drop.Tick(item != null, dt, _dropHoldSeconds, _hintDrop);
+		if (drop == PolledHold.EResult.Tap || (drop == PolledHold.EResult.Hold && (item.stackCount <= 1 || _countPanel == null)))
 		{
-			ResetDropHold();
-			return;
+			Inv.Drop(item);
 		}
-		if (_dropFired)
+		else if (drop == PolledHold.EResult.Hold)
 		{
-			return;
-		}
-		_dropHeld += dt;
-		_hintDrop?.SetProgress(Mathf.Clamp(_dropHeld / _dropHoldSeconds, 0f, 1f));
-		if (_dropHeld >= _dropHoldSeconds)
-		{
-			_dropFired = true;
-			_dropHeld = 0f;
-			_hintDrop?.SetProgress(0f);
-			if (item.stackCount > 1 && _countPanel != null)
-			{
-				Inventory inv = Inv;
-				_countPanel.Open(item.stackCount, count => inv.Drop(item, count), prompt: Loc.Get(Loc.Keys.item_drop_how_many));
-			}
-			else
-			{
-				Inv.Drop(item);
-			}
+			Inventory inv = Inv;
+			_countPanel.Open(item.stackCount, count => inv.Drop(item, count), prompt: Loc.Get(Loc.Keys.item_drop_how_many));
 		}
 	}
 
 	void ResetDropHold()
 	{
-		_dropHeld = 0f;
-		_dropFired = false;
-		_hintDrop?.SetProgress(0f);
+		_drop.Reset(_hintDrop);
 	}
 
 	void SetSelection(Slot slot)
@@ -440,10 +421,11 @@ public partial class InventoryScreen : Control
 
 	// The Use verb: use an instant item (mud, a meal) on the member, or start a
 	// press-to-commit timeline (drinking a potion) — the menu stays open while it
-	// plays — or light / put out the lantern-slot lantern. Does nothing for an
-	// item with no verb (gear, a material, or a timeline that needs the button
-	// held, which only the hotbar can drive).
-	public static void Use(Player player, ItemState item)
+	// plays — or light / put out the lantern-slot lantern. `source` holds the item
+	// (null: the member's own inventory). Does nothing for an item with no verb
+	// (gear, a material, or a timeline that needs the button held, which only the
+	// hotbar can drive).
+	public static void Use(Player player, ItemState item, IItemSource source = null)
 	{
 		Inventory inv = player?.Inventory;
 		if (item?.data == null || inv == null)
@@ -460,11 +442,11 @@ public partial class InventoryScreen : Control
 		}
 		else if (item.data is IInstantUseItem { CanUseInstantly: true })
 		{
-			player.UseInstantItem(item);
+			player.UseInstantItem(item, source);
 		}
 		else if (UsableFromMenu(player, item))
 		{
-			player.StartUseAction(item);
+			player.StartUseAction(item, source);
 		}
 	}
 

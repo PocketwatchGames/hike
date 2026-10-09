@@ -6,6 +6,9 @@ using Godot;
 // pollute ItemData. Any plain ItemData can already be dropped in the world
 // through the shared Loot scene; LootData exists for items that ALSO need
 // world-on-ground dynamics beyond a basic pickup.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class LootData : ItemData
 {

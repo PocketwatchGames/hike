@@ -45,4 +45,8 @@ public class RoofSimState : EntitySimState
     {
         return Roof.Create(sim, this);
     }
+
+    // Overhead: its collider sits on the walls, and anything it rasterized would
+    // be eave cells in mid-air.
+    public override void GetPathBlockerCells(Node3D entity, System.Collections.Generic.List<Vector3I> outCells) { }
 }

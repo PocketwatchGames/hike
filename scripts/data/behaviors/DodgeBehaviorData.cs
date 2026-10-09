@@ -4,6 +4,9 @@ using Godot;
 // Entered from the attack/encircle state via IncomingProjectileCondition; runs
 // the dash, then hands control back to `resumeBehavior`. Tuning only — the dash
 // physics live in Mob.ApplyDodge and the direction choice in BehaviorDodge.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class DodgeBehaviorData : BehaviorData
 {

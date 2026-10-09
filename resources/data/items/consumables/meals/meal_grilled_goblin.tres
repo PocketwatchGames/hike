@@ -30,5 +30,6 @@ displayName = &"Grilled Goblin"
 description = "Tough and gamy, but a filling meal."
 maxStack = 99
 spoilDays = 3
+value = 5
 inventorySprite = ExtResource("6_icon")
 typeTags = 5

@@ -3,6 +3,9 @@ using Godot;
 // Tops up the player's lantern oil — the payload of a lantern-oil flask, an oil
 // droplet and a fountain's refuel. Oil is the carrier's (Player.LanternOil),
 // not any one lantern's.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class RefillLanternOilEffect : ItemEffect
 {

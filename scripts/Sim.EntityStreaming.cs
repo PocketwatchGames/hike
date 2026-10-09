@@ -613,6 +613,14 @@ public partial class Sim
 
     private void RegisterEntity(Node3D entity, List<Node3D> entities, EntitySimState state = null)
     {
+        // First: binding frees whichever of the intact / rubble branches the
+        // state doesn't show, so OnSpawned and the path blockers below see the
+        // entity in its final shape (a broken crystal never lights its lamp).
+        if (entity is IBreakableEntity breakableEntity && state is IBreakableSimState breakable)
+        {
+            breakable.Break.ResolveDeadline(WorldClockDays);
+            breakableEntity.Destructible?.Bind(breakable);
+        }
         if (entity is IWorldEntity worldEntity)
         {
             worldEntity.OnSpawned(this);
@@ -1030,6 +1038,38 @@ public partial class Sim
             _worldState?.RemoveEntity(state);
         }
         root.QueueFree();
+    }
+
+    // Re-materialize a live entity from its sim state after the state changed
+    // under it: the old node goes, a fresh one takes its slot in the same chunk
+    // list. How a Destructible turns to rubble — so what the player sees the
+    // moment something breaks is exactly what a reload builds.
+    public void RespawnEntity(Node3D node)
+    {
+        Node3D root = FindEntityRoot(node);
+        if (root == null || !_entityStates.TryGetValue(root, out EntitySimState state))
+        {
+            return;
+        }
+        List<Node3D> owner = null;
+        foreach (List<Node3D> entities in _activeEntities.Values)
+        {
+            if (entities.Remove(root))
+            {
+                owner = entities;
+                break;
+            }
+        }
+        root.QueueFree();
+        if (owner == null)
+        {
+            return;
+        }
+        Node3D fresh = state.CreateEntity(this);
+        if (fresh != null)
+        {
+            RegisterEntity(fresh, owner, state);
+        }
     }
 
     // Open or close a door in the SIM, resident or not: a door out of streaming

@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="PropSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://qfwty8kuxrwxx" path="res://scripts/data/spawn/PropSpawnEntry.cs" id="script"]
+[ext_resource type="PackedScene" uid="uid://imnq0o8nknyw" path="res://scenes/props/table_plain.tscn" id="scene"]
+
+[resource]
+script = ExtResource("script")
+scene = ExtResource("scene")

@@ -15,8 +15,8 @@ using System.Collections.Generic;
 //   Y  — use, on the member's own items only.
 //   LT — send the stack across the trade: inventory <-> Give, stock <-> Get.
 //        Hold on a stack to send only some of it.
-//   RT — hold to drop one of the player's stacks at the member's feet; on a
-//        stack, the hold asks how many.
+//   RT — drop one of the player's stacks at the member's feet.
+//        Hold on a stack to drop only some of it.
 //   B  — put the pick-up back; with nothing picked up, close the screen.
 [GlobalClass]
 public partial class MerchantScreen : Control
@@ -462,18 +462,17 @@ public partial class MerchantScreen : Control
 			return;
 		}
 
-		// Drop is hold-only: a tap must never throw anything away.
 		ItemState droppable = IsPlayerSide(slot.side) ? item : null;
-		if (_drop.Tick(droppable != null, dt, _holdSeconds, _hintDrop) != PolledHold.EResult.Hold)
-		{
-			return;
-		}
-		if (droppable.stackCount <= 1)
+		PolledHold.EResult drop = _drop.Tick(droppable != null, dt, _holdSeconds, _hintDrop);
+		if (drop == PolledHold.EResult.Tap || (drop == PolledHold.EResult.Hold && droppable.stackCount <= 1))
 		{
 			Drop(slot, droppable.stackCount);
 			return;
 		}
-		_countPanel?.Open(droppable.stackCount, count => Drop(slot, count), prompt: Loc.Get(Loc.Keys.item_drop_how_many));
+		if (drop == PolledHold.EResult.Hold)
+		{
+			_countPanel?.Open(droppable.stackCount, count => Drop(slot, count), prompt: Loc.Get(Loc.Keys.item_drop_how_many));
+		}
 	}
 
 	void Send(Slot slot, int count)

@@ -9,6 +9,9 @@ using Godot;
 // Composed, not inherited: a stack (ItemCount) or a spawn entry HAS-A
 // descriptor; neither IS a kind of one. CreateState builds the runtime ItemState
 // with the mods composed onto its item-side `statusEffects` controller.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class ItemDescriptor : Resource
 {

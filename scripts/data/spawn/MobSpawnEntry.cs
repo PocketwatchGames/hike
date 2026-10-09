@@ -17,19 +17,6 @@ public partial class MobSpawnEntry : SpawnEntryData
     // See EliteData.
     [Export] public EliteData elite;
 
-    // The species THIS entry may be set to — the biome and loadout variants that
-    // are all the same creature. One palette entry per family ("goblin"), with
-    // the member picked per placement, so selecting it on the map highlights
-    // every goblin rather than one biome's.
-    //
-    // Authored rather than derived: a filename prefix would make a naming rule
-    // load-bearing with nothing enforcing it, and this lets the author decide
-    // where a family's edges are — whether a cube and a sphere slime are one.
-    //
-    // Empty leaves the entry a single-variant one, which is what every worldgen
-    // spawn list is: those name a species outright and never offer a choice.
-    [Export] public SpeciesData[] variants = System.Array.Empty<SpeciesData>();
-
     // Difficulty tier floor for THIS placement — a FLOOR, not a final answer.
     // The painted difficulty layer adds on top via SpawnContext.MobLevel, so
     // this raises a mob above its area rather than pinning it. 0 = base.
@@ -65,24 +52,9 @@ public partial class MobSpawnEntry : SpawnEntryData
 
     public override bool IsMobEntry => true;
 
-    public override StringName VariantProperty => PropertyName.species;
-
-    // Which species of its family this one is, so an entry covering a whole
-    // family still names the individual in the hover readout and the panel title.
+    // Which species this one is, for the hover readout and the panel title.
     public override string VariantName()
         => species != null ? species.ResourcePath.GetFile().GetBaseName() : null;
-
-    // Constrained to the family, which is what makes the species row safe to
-    // show: a goblin entry offers only goblins, so a fork can never become a
-    // spider while still being named — and highlighted — as a goblin.
-    public override Resource[] ResourceCandidates(StringName property)
-    {
-        if (property != PropertyName.species || variants == null || variants.Length == 0)
-        {
-            return base.ResourceCandidates(property);
-        }
-        return variants;
-    }
 
     // The behaviour nodes of the brain THIS entry's species runs — transitions
     // already reference each other by BehaviorNode.name, so that is the exact
@@ -220,7 +192,7 @@ public partial class MobSpawnEntry : SpawnEntryData
     // so a list without carried loot shifts no roll.
     protected void AddCarriedLoot(MobSimState state, Random rng, SpawnContext context)
     {
-        Godot.Collections.Array<ItemChance> rowLoot = context?.CarriedLoot;
+        Godot.Collections.Array<ItemCountRange> rowLoot = context?.CarriedLoot;
         bool rowHasLoot = rowLoot != null && rowLoot.Count > 0;
         bool ownCarries = carriedLoot != null && carriedLoot.Count > 0;
         if (!rowHasLoot && !ownCarries)
@@ -234,11 +206,11 @@ public partial class MobSpawnEntry : SpawnEntryData
         }
         if (rowHasLoot)
         {
-            foreach (ItemChance item in rowLoot)
+            foreach (ItemCountRange row in rowLoot)
             {
-                if (item != null && RollCarried(item.chance, rng, context))
+                if (row != null && RollCarried(row, rng, context))
                 {
-                    merged.Add(item);
+                    merged.Add(new ItemCount { descriptor = row.item, count = row.RollCount(rng) });
                 }
             }
         }
@@ -249,13 +221,9 @@ public partial class MobSpawnEntry : SpawnEntryData
         state.Loot = merged;
     }
 
-    private static bool RollCarried(float chance, Random rng, SpawnContext context)
+    private static bool RollCarried(ItemCountRange row, Random rng, SpawnContext context)
     {
-        if (context.AuthoredPosition || chance >= 1f)
-        {
-            return true;
-        }
-        return chance > 0f && rng.NextDouble() < chance;
+        return context.AuthoredPosition || row.RollPresent(rng);
     }
 
     private static void AppendLoot(Godot.Collections.Array<ItemCount> into, Godot.Collections.Array<ItemCount> from)

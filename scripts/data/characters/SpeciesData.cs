@@ -18,6 +18,9 @@ using Godot;
 // rather than authored here. That keeps an elite goblin the same bestiary row,
 // discovery and kill-quest target as a plain one, and spares every elite a
 // forked copy of the seven fields below.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class SpeciesData : Resource
 {
@@ -85,10 +88,7 @@ public partial class SpeciesData : Resource
         }
         foreach (ItemCountRange row in loot)
         {
-            if (row != null)
-            {
-                ItemCountRange.AppendStates(row.item, row.RollCount(rng), into);
-            }
+            row?.Resolve(rng, into);
         }
     }
 

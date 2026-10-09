@@ -33,10 +33,10 @@ public partial class NpcSpawnEntry : MobSpawnEntry
     // NpcAppearanceData). Null = the species' scene in its authored default.
     [Export] public NpcAppearanceData appearance;
 
-    // The appearances THIS entry may be given, the way MobSpawnEntry.variants
-    // constrains a species: one npc palette entry, with the villager picked
-    // per placement, so selecting it highlights every NPC on the map. Empty
-    // leaves the row offering every authored appearance.
+    // The appearances THIS entry may be given: one npc palette entry, with the
+    // villager picked per placement — an NPC is one unique individual, so who
+    // it is belongs to the placement. Empty leaves the row offering every
+    // authored appearance.
     [Export] public NpcAppearanceData[] appearances = System.Array.Empty<NpcAppearanceData>();
 
     public override PackedScene PaletteScene => Rig;

@@ -4,6 +4,9 @@ using Godot;
 // tamed companion — or, when `requireNone` is set, when it is NOT (a wild mob).
 // Branches the shared dog brain between BehaviorWanderFollow (companion) and
 // BehaviorWildIdle (wild) without forking the brain per individual.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class TamedCondition : BehaviorTransitionData
 {

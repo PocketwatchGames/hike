@@ -10,7 +10,7 @@ using Godot;
 // belt; a lantern is lit only in the lantern slot (LitLantern). Both grids' sizes are the
 // PlayerData base plus whatever the worn armor adds (ArmorData.beltSlots /
 // backpackSlots), re-applied on every change.
-public class Inventory
+public class Inventory : IItemSource
 {
 	// One of the member's two grids, as an IItemGrid so ItemTransfer and the
 	// two-sided screens can move items in and out of it. Every call routes back
@@ -72,9 +72,8 @@ public class Inventory
 	// panels that re-derive everything listen to this.
 	public Action onChanged;
 
-	// Fire onChanged from outside the Inventory class — used by the action
-	// runner's DecrementStack handler when it mutates item.stackCount
-	// directly without going through one of Inventory's mutation methods.
+	// Fire onChanged from outside the Inventory class, for a change made to an
+	// item without going through one of Inventory's mutation methods.
 	public void NotifyChanged()
 	{
 		Changed();
@@ -410,6 +409,25 @@ public class Inventory
 	{
 		return data != null && count > 0 && data.IsCarriable
 			&& _beltGrid.RoomFor(data) + _backpackGrid.RoomFor(data) >= count;
+	}
+
+	public bool Holds(ItemState item) => Contains(item);
+
+	public void Spend(ItemState item, int count)
+	{
+		if (count <= 0 || !Contains(item))
+		{
+			return;
+		}
+		item.Consume(count);
+		if (item.stackCount > 0)
+		{
+			Changed();
+		}
+		else
+		{
+			Remove(item);
+		}
 	}
 
 	// Removes an item from the inventory entirely (dropped, sold, stashed, spent),

@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="PropSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://qfwty8kuxrwxx" path="res://scripts/data/spawn/PropSpawnEntry.cs" id="script"]
+[ext_resource type="PackedScene" path="res://scenes/props/firefly_swarm.tscn" id="scene"]
+
+[resource]
+script = ExtResource("script")
+scene = ExtResource("scene")
+propType = 1

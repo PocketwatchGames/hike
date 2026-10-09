@@ -1,6 +1,9 @@
 using Godot;
 using Godot.Collections;
 
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class MobData : Resource
 {
@@ -470,6 +473,13 @@ public partial class MobData : Resource
     // NOTE: the loot drop list is NOT a base-species trait — it's a per-variant
     // concern that lives on SpeciesData.loot (so a forest vs desert kun-kun
     // drops different meat), rolled by Mob.EjectLoot at death.
+    //
+    // Whether this creature goes about carrying things, and so also drops the
+    // loot of the zone it dies in (ZoneData.zoneLoot). A trait of the creature
+    // rather than of any one variant — goblins and trolls carry things, a
+    // sparrow or a fish never does — and not derivable from anything else
+    // about it, so it is authored.
+    [Export] public bool carriesZoneLoot = false;
     // When true the mob leaves no corpse: once it dies (loot ejected, death
     // fx fired) the body fades out in place over deathDespawnSeconds and is
     // removed permanently (node + sim state). For ethereal creatures like the

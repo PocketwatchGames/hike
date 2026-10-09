@@ -1,0 +1,99 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_shader"]
+[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="3_fade"]
+[ext_resource type="AudioStream" uid="uid://c350600kf16kv" path="res://assets/audio/source/impact/sfx_rock_chip_1.wav" id="4_s1"]
+[ext_resource type="AudioStream" uid="uid://cabrb8f478y8b" path="res://assets/audio/source/impact/sfx_rock_chip_2.wav" id="4_s2"]
+[ext_resource type="AudioStream" uid="uid://bbj07wy0imxjr" path="res://assets/audio/source/impact/sfx_rock_chip_3.wav" id="4_s3"]
+
+[sub_resource type="ParticleProcessMaterial" id="Proc_chips"]
+emission_shape = 1
+emission_sphere_radius = 0.2
+direction = Vector3(0, 1, 0)
+spread = 60.0
+initial_velocity_min = 1.5
+initial_velocity_max = 3.0
+angular_velocity_min = -360.0
+angular_velocity_max = 360.0
+gravity = Vector3(0, -12, 0)
+damping_min = 0.5
+damping_max = 1.5
+scale_min = 0.5
+scale_max = 1.1
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="Shader_chips"]
+render_priority = 0
+shader = ExtResource("2_shader")
+shader_parameter/albedo = Color(0.45, 0.45, 0.48, 1)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="Quad_chips"]
+material = SubResource("Shader_chips")
+size = Vector2(0.06, 0.06)
+
+[sub_resource type="ParticleProcessMaterial" id="Proc_dust"]
+emission_shape = 1
+emission_sphere_radius = 0.25
+direction = Vector3(0, 1, 0)
+spread = 180.0
+initial_velocity_min = 0.3
+initial_velocity_max = 1.0
+gravity = Vector3(0, -1, 0)
+damping_min = 1.5
+damping_max = 3.0
+scale_min = 0.5
+scale_max = 1.0
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="Shader_dust"]
+render_priority = 0
+shader = ExtResource("2_shader")
+shader_parameter/albedo = Color(0.62, 0.6, 0.58, 0.6)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="Quad_dust"]
+material = SubResource("Shader_dust")
+size = Vector2(0.04, 0.04)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_chip"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 2.0
+streams_count = 3
+stream_0/stream = ExtResource("4_s1")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("4_s2")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("4_s3")
+stream_2/weight = 1.0
+
+[node name="StoneChip" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Chips" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 6
+lifetime = 0.7
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("Proc_chips")
+draw_pass_1 = SubResource("Quad_chips")
+
+[node name="Dust" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 8
+lifetime = 0.9
+one_shot = true
+explosiveness = 0.9
+randomness = 0.6
+process_material = SubResource("Proc_dust")
+draw_pass_1 = SubResource("Quad_dust")
+
+[node name="Impact" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_chip")
+unit_size = 5.0
+max_distance = 30.0
+bus = &"World3D"

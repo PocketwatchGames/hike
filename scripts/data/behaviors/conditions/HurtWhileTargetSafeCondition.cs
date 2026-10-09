@@ -6,6 +6,9 @@ using Godot;
 // AggroAcquiredCondition won't let it enter Attack, so this routes it to flee.
 // (When the player is NOT safe, being hit funnels back through the normal
 // aggro/attack path instead.)
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class HurtWhileTargetSafeCondition : BehaviorTransitionData
 {

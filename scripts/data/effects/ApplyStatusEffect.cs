@@ -5,6 +5,9 @@ using Godot;
 // existing ApplyEffect event's `effects` array — same authoring path as
 // HealEffect, but the target accumulates ticks over the data's duration
 // instead of getting an immediate one-shot HP delta.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class ApplyStatusEffect : ItemEffect
 {
@@ -31,6 +34,7 @@ public partial class ApplyStatusEffect : ItemEffect
 		}
 
 		ItemState item = context.primaryItem;
+		IItemSource source = context.source;
 		if (item == null || item.possibleBoons.Count == 0)
 		{
 			return;
@@ -52,7 +56,7 @@ public partial class ApplyStatusEffect : ItemEffect
 			GameClient.Current.startUpgradeSelection.Invoke(choices, chosen =>
 			{
 				ApplyBoon(actor, chosen);
-				ItemEventHandlers.ConsumeOneFromStack(actor, item);
+				ItemEventHandlers.ConsumeOneFromStack(actor, item, source);
 			});
 			return;
 		}
@@ -60,7 +64,7 @@ public partial class ApplyStatusEffect : ItemEffect
 		// No selection UI (and always for mobs): a random boon is applied and the
 		// item consumed immediately — there's no choice to wait on.
 		ApplyBoon(actor, PickRandom(item));
-		ItemEventHandlers.ConsumeOneFromStack(actor, item);
+		ItemEventHandlers.ConsumeOneFromStack(actor, item, source);
 	}
 
 	// Apply a boon: its status effect (if any) to the actor, and its granted

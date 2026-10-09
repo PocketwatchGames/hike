@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="8_klnhq"]
 [ext_resource type="Resource" uid="uid://d0mvjjk1xtiyd" path="res://resources/data/world_gen/spawn_entries/chest_camp_mushrooms_gold.tres" id="e_chest_camp_mushrooms_gold"]
-[ext_resource type="Resource" uid="uid://dy76g6ru7ip3r" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_swamp_torchbearer.tres" id="e_goblin_swamp_torchbearer"]
+[ext_resource type="Resource" uid="uid://dy76g6ru7ip3r" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_swamp_torchbearer.tres" id="e_goblin_swamp_torchbearer"]
 [ext_resource type="Script" uid="uid://bhy5xnkiybhbv" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
 
 [sub_resource type="Resource" id="Row_goblin_swamp_torchbearer_camp"]

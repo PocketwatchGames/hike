@@ -134,7 +134,7 @@ public partial class FairySpawner : Node
             _decidedPeriod = currentPeriod;
             if (_spawnedToday < data.fairyMaxSpawnsPerDay)
             {
-                ZoneData zone = DominantZoneData(sim, player.GlobalPosition);
+                ZoneData zone = sim.WorldState?.ZoneDataAt(player.GlobalPosition);
                 // No fairy in a zone that forbids them (skip this window entirely),
                 // else roll the zone's chance.
                 if (zone != null && zone.canSpawnFairy && _rng.Randf() < zone.fairySpawnChance)
@@ -227,28 +227,6 @@ public partial class FairySpawner : Node
                 _living.RemoveAtSwap(i);
             }
         }
-    }
-
-    // The authored ZoneData of the chunk under `pos` (the dominant zone there), read
-    // straight off the loaded chunk rather than the blended sample so the per-zone
-    // fairy flags come through unblended. Null when no zone data is loaded there.
-    private static ZoneData DominantZoneData(Sim sim, Vector3 pos)
-    {
-        WorldState ws = sim.WorldState;
-        if (ws?.Zones == null || ws.Zones.Length == 0)
-        {
-            return null;
-        }
-        ChunkState chunk = ws.GetChunk(new Vector3I(
-            Mathf.FloorToInt(pos.X / ChunkState.SIZE),
-            Mathf.FloorToInt(pos.Y / ChunkState.SIZE),
-            Mathf.FloorToInt(pos.Z / ChunkState.SIZE)));
-        if (chunk == null)
-        {
-            return null;
-        }
-        int zi = chunk.ZoneIndex;
-        return (zi >= 0 && zi < ws.Zones.Length) ? ws.Zones[zi].Data : null;
     }
 
     // Count a player kill of a fairy toward the day's kill-stop threshold. Matches by

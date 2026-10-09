@@ -1,8 +1,12 @@
 using Godot;
 
 [GlobalClass]
-public partial class PropInstance : Node3D, IWorldEntity
+public partial class PropInstance : Node3D, IWorldEntity, IBreakableEntity
 {
+    // Set on a prop that can be struck to rubble (a crate, a rock, a crystal).
+    [Export] private Destructible _destructible;
+    public Destructible Destructible => _destructible;
+
     // Porousness is owned per-collider by node type: a prop's movement collider
     // is a PorousBody (blocks movement / grounded sight, lets smell, sound,
     // perched vision, and flight pass through), while a genuinely solid prop
@@ -27,12 +31,13 @@ public partial class PropInstance : Node3D, IWorldEntity
     }
 
     // Optional always-on light (glowing crystals). Anchored at its own node, and
-    // gone with the prop — a Destructible breaking it takes the light too.
+    // gone with the prop — authored under a Destructible's intact branch, so a
+    // broken prop spawns without it.
     [Export] private StationaryLight _light;
 
     public void OnSpawned(Sim sim)
     {
-        if (_light == null)
+        if (_light == null || !_light.IsInsideTree())
         {
             return;
         }

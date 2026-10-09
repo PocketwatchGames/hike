@@ -6,6 +6,9 @@ using Godot;
 // built — the treasure is buried under a name (a zone's treasureName, or a named
 // buried spot in the painter) and this concept's treasureName matches it — so a
 // given map always points at the same treasure.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class TreasureMapTeachable : TeachableConcept
 {

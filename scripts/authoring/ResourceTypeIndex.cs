@@ -77,15 +77,10 @@ public static class ResourceTypeIndex
         return found;
     }
 
-    // Every .tres of `type` sitting DIRECTLY in one of `roots` — no
-    // subdirectories — sorted by path.
-    //
-    // Non-recursive because a subdirectory is how a family's leaves are kept out
-    // of the palette that offers their composite: `spawn_entries/mobs/` holds
-    // goblin.tres and `spawn_entries/mobs/variants/` holds the thirteen regional
-    // goblins the generator's spawn lists name. They are the same C# type, so
-    // the directory is the only thing that distinguishes them.
-    public static string[] In(Type type, string[] roots)
+    // Every .tres of `type` in one of `roots`, sorted by path. A root with its
+    // `recursive` flag set also takes everything in its subdirectories; the
+    // others take only the files directly in them.
+    public static string[] In(Type type, string[] roots, bool[] recursive = null)
     {
         if (type == null || roots == null)
         {
@@ -96,11 +91,12 @@ public static class ResourceTypeIndex
         // world's own directory means it.
         foreach (string path in AllOf(type))
         {
-            string dir = path.GetBaseDir();
-            foreach (string root in roots)
+            string dir = path.GetBaseDir() + "/";
+            for (int i = 0; i < roots.Length; i++)
             {
                 // Roots carry a trailing slash; GetBaseDir does not.
-                if (dir + "/" == root)
+                bool deep = recursive != null && i < recursive.Length && recursive[i];
+                if (dir == roots[i] || (deep && dir.StartsWith(roots[i], StringComparison.Ordinal)))
                 {
                     found.Add(path);
                     break;

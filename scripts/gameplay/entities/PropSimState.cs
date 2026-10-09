@@ -1,9 +1,14 @@
 using Godot;
 using System.Collections.Generic;
 
-public class PropSimState : EntitySimState, IVoxelStamper
+public class PropSimState : EntitySimState, IVoxelStamper, IBreakableSimState
 {
     public readonly PropType Type;
+
+    // Every prop carries one: whether a prop CAN break is its scene's say (a
+    // Destructible), and every path that places props — the prop library, the
+    // painter's prop lists, foliage scatter, stamped scenes — then gets it free.
+    public BreakState Break { get; } = new();
 
     // RotationY lives on EntitySimState. WorldGen randomizes it for trees and
     // tall grass so a meadow doesn't read as a grid of identical sprites all
@@ -48,33 +53,5 @@ public class PropSimState : EntitySimState, IVoxelStamper
             Mathf.FloorToInt(WorldPosition.Y),
             Mathf.FloorToInt(WorldPosition.Z));
         return new VoxelStamp(cell, height, Blocks.OpeningId, carves: true);
-    }
-
-    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
-    {
-        // A prop blocks the cells its solid colliders physically cover — a
-        // tree's CylinderShape3D has radius ~1.0–1.5m, so its footprint is a
-        // 3×3 (or 5×5) cell disc, not the single cell at the trunk's origin.
-        // Not gated on PropType: the rasterizer only collects Solid-layer
-        // bodies, so a prop authored without one still emits nothing, and the
-        // answer stays "whatever this scene actually stands in the way of".
-        PathBlockerRasterizer.Rasterize(entity, StandingRow(Sim.Current?.WorldState, WorldPosition), outCells);
-    }
-
-    // The air row a prop stands in — the row its path blockers are stamped on.
-    // NOT floor(Y) alone: a prop seated onto a downhill grade sinks below its
-    // column's top face, floor(Y) then names the SOLID voxel, and a blocker
-    // stamped there blocks nothing. Read the voxels instead, so how deep a prop
-    // is seated is a visual decision and never a nav one.
-    public static int StandingRow(WorldState ws, Vector3 position)
-    {
-        int x = Mathf.FloorToInt(position.X);
-        int y = Mathf.FloorToInt(position.Y);
-        int z = Mathf.FloorToInt(position.Z);
-        if (ws != null && ws.IsInBounds(x, y, z) && Blocks.IsSolid(ws.GetBlockWorld(x, y, z)))
-        {
-            return y + 1;
-        }
-        return y;
     }
 }

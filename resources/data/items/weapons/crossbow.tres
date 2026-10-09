@@ -178,6 +178,6 @@ wieldHand = 1
 animSet = ExtResource("21_animset")
 displayName = &"Crossbow"
 description = "Fires a fan of three bolts. Hold to tighten the spread, or keep holding for a single heavy bolt."
-value = 80
+value = 50
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("20_held")

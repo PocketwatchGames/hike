@@ -3,6 +3,9 @@ using Godot;
 // Sends the actor back to the world's authored spawn point. Used by the
 // ruby slippers — the slippers stay in inventory (no DecrementStack on
 // the firing event) so the same pair can be re-used forever.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class TeleportToSpawnEffect : ItemEffect
 {

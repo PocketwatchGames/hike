@@ -4,6 +4,9 @@ using Godot;
 // so it shows up in the cookbook before the player has ever cooked it. Each
 // scroll points at exactly one consumable; standard and high-quality variants
 // of a dish are separate consumables, so each is taught on its own.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class RecipeTeachable : TeachableConcept
 {

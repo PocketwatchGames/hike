@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ItemData" format=3]
+
+[ext_resource type="Script" uid="uid://ct3276hu7bc1v" path="res://scripts/data/items/ItemData.cs" id="1_item_data"]
+[ext_resource type="Texture2D" uid="uid://gnaddcgqqs5x" path="res://assets/textures/items/GemPurple.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_item_data")
+displayName = &"Crystal Shard"
+description = "A splinter of cave crystal. It still holds a faint glow."
+maxStack = 99
+value = 3
+inventorySprite = ExtResource("2_icon")
+typeTags = 64

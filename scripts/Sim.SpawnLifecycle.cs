@@ -284,6 +284,10 @@ public partial class Sim
             {
                 lootToPurge.Add(state);
             }
+            else if (state is IBreakableSimState breakable)
+            {
+                breakable.Break.OnRest();
+            }
         }
         foreach (ArrowLootSimState arrow in arrowsToRecover)
         {

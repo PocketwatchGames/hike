@@ -2,6 +2,9 @@ using Godot;
 
 // Tuning for BehaviorFlyFlee — a flying mob taking off and traveling to a
 // landing spot away from a threat.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class FlyFleeBehaviorData : BehaviorData
 {

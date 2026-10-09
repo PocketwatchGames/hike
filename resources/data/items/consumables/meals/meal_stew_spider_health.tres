@@ -35,5 +35,6 @@ displayName = &"Hearty Spider Stew"
 description = "Spider legs simmered with red mushrooms. Restores and bolsters health."
 maxStack = 99
 spoilDays = 3
+value = 5
 inventorySprite = ExtResource("6_icon")
 typeTags = 5

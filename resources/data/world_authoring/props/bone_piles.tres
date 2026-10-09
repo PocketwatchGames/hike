@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="PropListData" format=3]
+
+[ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://mcl599wl0ordv" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
+[ext_resource type="PackedScene" path="res://scenes/props/bone_pile_1.tscn" id="sc_0"]
+[ext_resource type="PackedScene" path="res://scenes/props/bone_pile_2.tscn" id="sc_1"]
+
+[sub_resource type="Resource" id="e_0"]
+script = ExtResource("2_row")
+scene = ExtResource("sc_0")
+
+[sub_resource type="Resource" id="e_1"]
+script = ExtResource("2_row")
+scene = ExtResource("sc_1")
+
+[resource]
+script = ExtResource("1_list")
+displayName = "Bone Piles"
+mapColor = Color(0.86, 0.82, 0.7, 1)
+scenes = [SubResource("e_0"), SubResource("e_1")]
+interiorDensity = 0.08
+minSpacingMeters = 6.0
+positionJitter = 0.5
+scaleJitter = 0.15

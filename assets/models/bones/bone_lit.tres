@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/form_strength = 0.6
+shader_parameter/color_tint = Color(0.86, 0.82, 0.7, 1)

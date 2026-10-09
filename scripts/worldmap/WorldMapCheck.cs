@@ -108,7 +108,8 @@ public static class WorldMapCheck
         ReportScatterSets(sb, ctx);
         ReportPalettes(sb, ctx);
         ReportPaletteEditors(sb, ctx);
-        ReportDuplicateFamilies(sb, ctx);
+        ReportDuplicateEntries(sb, ctx);
+        ReportPropsWithoutEntry(sb, ctx);
 
         // The fork the property panel makes must come back as the SAME entry
         // type. If Duplicate ever returns a bare Resource the panel silently
@@ -736,18 +737,12 @@ public static class WorldMapCheck
         return string.Join(" ", fields);
     }
 
-    // Palette rows that are really ONE family: two entries of the same type
-    // that differ only in what a placement can set for itself. Each is a file an
-    // author scrolls past to reach the one they want, and the fix is to keep one
-    // and set the rest per placement — which is how three buried spots, six
-    // knowledge stones and four loot chests came to be palette rows. Decided
-    // from the data, so it catches the next one the day it is added.
-    //
-    // What a placement cannot set is what defines a family: the identity rows
-    // (a scene, a variants list) and whatever the entry hides. Only those are
-    // compared — minus the scatter-only knobs (minSpacing), which a placement
-    // never reads and so cannot tell two rows apart for one.
-    private static void ReportDuplicateFamilies(System.Text.StringBuilder sb, WorldMapState ctx)
+    // Palette rows that are the same thing twice: two entry files of one type
+    // whose every authored field matches. Each row is meant to be a distinct
+    // thing to place, so a pair like this is a copy someone made and forgot —
+    // and the two will drift the first time only one of them is edited.
+    // minSpacing is left out: a placement never reads it.
+    private static void ReportDuplicateEntries(System.Text.StringBuilder sb, WorldMapState ctx)
     {
         var byKey = new Dictionary<string, List<SpawnEntryData>>();
         foreach (SpawnEntryData entry in ctx.EntityPalette)
@@ -761,8 +756,7 @@ public static class WorldMapCheck
             {
                 var usage = (PropertyUsageFlags)(long)property["usage"];
                 var name = new StringName(property["name"].AsString());
-                if ((usage & PropertyUsageFlags.ScriptVariable) == 0 || entry.ShowsProperty(name)
-                    || !SpawnEntryData.IsHandPlacedProperty(name))
+                if ((usage & PropertyUsageFlags.ScriptVariable) == 0 || !SpawnEntryData.IsHandPlacedProperty(name))
                 {
                     continue;
                 }
@@ -783,17 +777,86 @@ public static class WorldMapCheck
                 continue;
             }
             found++;
-            sb.AppendLine($"[worldmap_check] WARN one family, {group.Count} palette rows: "
-                + string.Join(", ", group.ConvertAll(SpawnEntryData.PaletteName))
-                + " — they differ only in what a placement sets for itself; keep one");
+            sb.AppendLine($"[worldmap_check] WARN identical palette rows: "
+                + string.Join(", ", group.ConvertAll(e => e.ResourcePath))
+                + " — keep one");
         }
         if (found == 0)
         {
-            sb.AppendLine("[worldmap_check] palette families: no duplicates");
+            sb.AppendLine("[worldmap_check] palette rows: no duplicates");
         }
     }
 
-    // A value as the family comparison sees it: a file by its path, a list by
+    // Every prop scene has a palette row. A prop is placeable because a
+    // PropSpawnEntry names it, and nothing else would notice a new scene that
+    // never got one — it would simply be missing from the list. A "prop scene"
+    // is any scene under scenes/props/ whose root runs PropInstance or a subclass.
+    private const string PROP_SCENE_DIR = "res://scenes/props/";
+
+    private static void ReportPropsWithoutEntry(System.Text.StringBuilder sb, WorldMapState ctx)
+    {
+        var named = new HashSet<string>();
+        foreach (SpawnEntryData entry in ctx.EntityPalette)
+        {
+            if (entry is PropSpawnEntry prop && prop.scene != null)
+            {
+                named.Add(prop.scene.ResourcePath);
+            }
+        }
+        var missing = new List<string>();
+        foreach (string path in PropScenes(PROP_SCENE_DIR))
+        {
+            if (!named.Contains(path))
+            {
+                missing.Add(path.GetFile().GetBaseName());
+            }
+        }
+        sb.AppendLine(missing.Count == 0
+            ? "[worldmap_check] prop scenes: every one has a palette entry"
+            : $"[worldmap_check] WARN {missing.Count} prop scene(s) have no entry under "
+                + $"spawn_entries/props/ and cannot be placed: {string.Join(", ", missing)}");
+    }
+
+    private static IEnumerable<string> PropScenes(string dir)
+    {
+        foreach (string sub in DirAccess.GetDirectoriesAt(dir))
+        {
+            foreach (string path in PropScenes(dir + sub + "/"))
+            {
+                yield return path;
+            }
+        }
+        foreach (string file in DirAccess.GetFilesAt(dir))
+        {
+            if (file.EndsWith(".tscn") && RootIsProp(dir + file))
+            {
+                yield return dir + file;
+            }
+        }
+    }
+
+    // Read off the packed state rather than instancing the scene: the root is
+    // node 0, and its "script" property names the class.
+    private static bool RootIsProp(string path)
+    {
+        SceneState state = ResourceLoader.Load<PackedScene>(path)?.GetState();
+        if (state == null || state.GetNodeCount() == 0)
+        {
+            return false;
+        }
+        for (int i = 0; i < state.GetNodePropertyCount(0); i++)
+        {
+            if (state.GetNodePropertyName(0, i) == "script"
+                && state.GetNodePropertyValue(0, i).As<Script>() is Script script)
+            {
+                System.Type type = System.Type.GetType(script.GetGlobalName());
+                return type != null && typeof(PropInstance).IsAssignableFrom(type);
+            }
+        }
+        return false;
+    }
+
+    // A value as the duplicate comparison sees it: a file by its path, a list by
     // its elements, and anything else by its text. By value rather than by
     // reference, because two palette files naming the same scene hold two
     // references to one resource and must compare equal.

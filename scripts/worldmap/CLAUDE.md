@@ -367,7 +367,7 @@ KIND of thing.
 | Props | `world_authoring/props/` |
 | Mobs | `world_authoring/spawn_scatters/` |
 | Presets | `world_authoring/presets/` |
-| Entities | `world_authoring/spawn_entries/` + `.../mobs/` + `.../props/`, `worlds/shared/spawn_entries/npcs/` — one row per FAMILY; what a buried spot holds, what a stone teaches, what a chest contains is set on the placement (see [docs/host.md](docs/host.md)) |
+| Entities | `world_authoring/spawn_entries/` (recursive — the folder is the section: `mobs/goblin/`, `props/furniture/`) and `worlds/shared/spawn_entries/npcs/` — one row per FILE; what a buried spot holds, what a stone teaches, what a chest contains is still set on the placement (see [docs/host.md](docs/host.md)) |
 | Water | the block catalog, every block whose `render` is `Water` |
 | Blocks (paving AND block edits — one slot numbering, stored by both `paving.png` and `tunnels.bin`) | the block catalog, every solid block with a top surface |
 
@@ -390,12 +390,19 @@ Four rules, three of which were real bugs:
   `WorldMapPlacements` and for the same reason: `WorldMapData` is a resource the
   Godot editor may have open, and rewriting it from a running game is how
   `genData` got stripped twice.
-- **Scans are NON-RECURSIVE, and a subdirectory is how leaves are excluded.**
-  `spawn_entries/mobs/` holds the composite entry an author places (`goblin.tres`,
-  offering all thirteen goblins as variants); `spawn_entries/mobs/variants/` holds
-  the leaves the generator's spawn lists name. Both are `MobSpawnEntry`, so
-  nothing but the directory can tell them apart — which makes "which folder" the
-  authoring decision, visible in the file browser.
+- **The entity palette is one row per entry FILE, and its folder is its
+  section.** Its root is scanned recursively (`PaletteRoot.Recursive`):
+  `spawn_entries/mobs/goblin/goblin_swamp.tres` lists under Mobs ▸ Goblin, a file
+  directly in `spawn_entries/` under Interactives. There are no families — a
+  swamp goblin and a crate are each their own file, picked BEFORE placing, and
+  what an entry IS (`scene`, `species`) cannot be changed on a placement
+  (`SpawnEntryData.IsIdentityProperty`). A prop is a three-line
+  `PropSpawnEntry` (scene + prop type) under `props/<category>/`, and
+  `worldmap_check` reports any prop scene that has none. The same files are what
+  the generator's spawn lists and the scatter sets name, so a palette row and a
+  spawn row are one thing. The painter shows the palette as a collapsible tree
+  with a text filter (`WorldMapHud.optionTree` / `optionFilter`); Escape clears
+  the filter, then gives the keys back, and a press on the map does the same.
 
 `worldmap_check` prints every palette with its slot numbers. That readout is the
 only thing that can catch a ledger whose order has moved: a document whose zone 4

@@ -195,6 +195,6 @@ actionProfile = SubResource("Resource_profile")
 animSet = ExtResource("20_animset")
 displayName = &"Spear"
 description = "A long thrusting spear. Reaches far and punches through armor; the charged lunge drives you into your foe."
-value = 70
+value = 50
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("17_held")

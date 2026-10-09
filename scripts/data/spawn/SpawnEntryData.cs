@@ -16,8 +16,8 @@ public enum EDisabledWhen
 // ChestSpawnEntry, ...) and override SpawnEntities to construct the matching
 // EntitySimState and add it to the world.
 //
-// An entry is a SHARED asset — one goblin.tres named by every list that wants
-// goblins. So it holds only what is true of the thing wherever it appears. How
+// An entry is a SHARED asset — one goblin_swamp.tres named by every list that
+// wants swamp goblins. So it holds only what is true of the thing wherever it appears. How
 // densely a particular list sprinkles it, whether it is night-only there, and
 // how many of it a camp holds belong to the SpawnRow that names it.
 //
@@ -57,29 +57,19 @@ public partial class SpawnEntryData : Resource
         return name != PropertyName.minSpacing;
     }
 
-    // Does this property decide WHICH PALETTE ENTRY this is, rather than which
-    // member of it this individual is? Only the palette entry is the palette's
-    // to choose: a fork is named after the file it came from, so a property that
-    // can move an entry OUT of that group produces a placement that IS a drake
-    // while the panel title, the hover readout, worldmap_check's listing and the
-    // palette-match highlight all still call it npc_hermit.
+    // Does this property decide WHICH PALETTE ENTRY this is? Every palette row
+    // is one file, and a fork is named after the file it came from, so a
+    // property that changes what the entry is produces a placement that IS a
+    // drake while the panel title, the hover readout, worldmap_check's listing
+    // and the palette-match highlight all still call it goblin_swamp.
     //
-    // Which member is a per-placement choice and stays editable — that is the
-    // whole point of a palette entry offering variants. It is safe precisely
-    // because the candidates are constrained to them (ResourceCandidates), so no
-    // in-panel edit can reach outside the group and the fork's name stays true.
-    //
-    // `variants` and `appearances` are the group's own definition — what the
-    // fields below MAY be set to — so they belong to whoever authors the palette
-    // file, not to a placement. Shown, they would also be the one edit that can
-    // widen the group from inside it.
-    //
-    // `scene` is what the entry IS — swapping a door's scene from a placement
-    // turns it into some other thing.
+    // `scene` (a prop, a door) and `species` (a mob) are what the entry IS.
+    // `variants` (a lever's link tags) and `appearances` (who an NPC may be) are
+    // what a field MAY be set to — the file's to define, not a placement's.
     public static bool IsIdentityProperty(StringName name)
     {
         return name == "variants" || name == "appearances"
-            || name == "scene";
+            || name == "scene" || name == "species";
     }
 
     // Does this property get a row in a placement editor at all? Two independent
@@ -189,11 +179,10 @@ public partial class SpawnEntryData : Resource
     }
 
     // What to CALL this entry wherever one is named — the panel title, the hover
-    // readout, a set's listing. Its palette name, plus which member of the family
-    // it is when that says something the name does not: a `goblin.tres` holding
-    // thirteen variants reads "goblin: goblin_swamp", while the leaf
-    // `goblin_swamp.tres` a spawn list names reads just "goblin_swamp" rather
-    // than repeating itself.
+    // readout, a set's listing. Its palette name, plus what it holds when that
+    // says something the name does not: `goblin_swamp_elite.tres` reads
+    // "goblin_swamp_elite: goblin_swamp", while `goblin_swamp.tres` reads just
+    // "goblin_swamp" rather than repeating itself.
     public static string Describe(SpawnEntryData entry)
     {
         string name = PaletteName(entry);
@@ -251,9 +240,9 @@ public partial class SpawnEntryData : Resource
     // offers only the one. Overridden by the entry types that carry a
     // per-placement choice.
     //
-    // It exists because one palette entry covering a whole group costs the map
-    // its names: with a single npc entry, every NPC hovers as "npc" and the
-    // elder is not distinguishable from the archer. The entry answers WHICH
+    // It exists because an entry whose individual is picked per placement costs
+    // the map its names: with a single npc entry, every NPC hovers as "npc" and
+    // the elder is not distinguishable from the archer. The entry answers WHICH
     // HIGHLIGHT, this answers WHICH ONE IS IT, and the UI wants both.
     public virtual string VariantName() => null;
 
@@ -262,7 +251,7 @@ public partial class SpawnEntryData : Resource
     // member's own name, asked of a fork so the entry answers for the candidate
     // rather than for whatever it currently holds. Otherwise the candidate's
     // file, or its resource name when it has none: a sub-resource's path is its
-    // CONTAINER's, so every prop in prop_library.tres would read "prop_library".
+    // CONTAINER's, so every one would read as the file it sits in.
     public string CandidateName(StringName property, Resource candidate)
     {
         if (candidate == null)

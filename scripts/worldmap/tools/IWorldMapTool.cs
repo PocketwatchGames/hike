@@ -45,6 +45,11 @@ public interface IWorldMapTool
     // the general mechanism and this is only the presentable subset of it.
     string[] Options(WorldMapState ctx);
 
+    // One section path per option ("Mobs/Goblin", "" for the top level), or null
+    // for a flat list. A sectioned list is shown as collapsible groups with a
+    // filter.
+    string[] OptionSections(WorldMapState ctx) => null;
+
     // Swatch colour per option, or null for the theme default. Where the options
     // are things drawn on the map, this is what makes the toolbar the legend
     // instead of something to memorise.

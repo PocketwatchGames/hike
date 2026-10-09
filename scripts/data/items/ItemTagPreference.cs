@@ -12,6 +12,9 @@ using Godot;
 // in author order, so a species layers as many likes/dislikes as it needs.
 //   Dog:      { Meat, whenMissing=true, x0 }  -> anything that isn't meat is worthless.
 //   Villager: { Gross, x0.1 }, { Magic, x3 }, { Potion, x1.5 }, ... -> layered taste.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class ItemTagPreference : Resource
 {

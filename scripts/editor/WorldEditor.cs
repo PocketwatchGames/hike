@@ -845,91 +845,40 @@ public partial class WorldEditor : Node3D
                     + "SpawnEntryData; skipped.");
                 continue;
             }
-            AddEntryBrushes(entry, source.SectionFor(path));
+            AddEntryBrushes(entry, EditorTabFor(source.SectionFor(path)));
         }
     }
 
-    // One button for an entry that offers one thing, or one per member for an
-    // entry that offers a family — the goblins, the prop library, the link tags
-    // a lever may throw.
-    //
-    // Expanding here rather than in the model is deliberate: which members an
-    // entry has is the entry's business (VariantProperty plus the candidates it
-    // already answers for the property panel), while whether a family is worth
-    // sixty buttons or one row and a dropdown is a question about the tool's
-    // screen. The painter answers it the other way and reads the same data.
+    // One button per entry file — the same rows the painter lists. An entry
+    // whose variant is a free-text tag (the link a lever throws, a marker's pool)
+    // gets one button per tag already in use, which is a convenience of this
+    // tool's toolbar and not part of the palette.
     private void AddEntryBrushes(SpawnEntryData entry, string section)
     {
         StringName property = entry.VariantProperty;
         string entryName = SpawnEntryData.PaletteName(entry);
-        if (property == null)
+        string[] names = property != null ? entry.NameCandidates(property) : null;
+        if (names == null || names.Length == 0)
         {
             _entityBrushes.Add(new EntityBrush(entryName, entry, section));
             return;
         }
-
-        Resource[] resources = entry.ResourceCandidates(property);
-        if (resources != null && resources.Length > 0)
+        foreach (string candidate in names)
         {
-            foreach (Resource candidate in resources)
+            if (!string.IsNullOrEmpty(candidate))
             {
-                if (candidate == null)
-                {
-                    continue;
-                }
-                _entityBrushes.Add(new EntityBrush(
-                    VariantLabel(entry, property, candidate), entry,
-                    SectionForVariant(candidate, section), candidate));
+                _entityBrushes.Add(new EntityBrush($"{entryName}: {candidate}", entry, section, candidate));
             }
-            return;
         }
-
-        string[] names = entry.NameCandidates(property);
-        if (names != null && names.Length > 0)
-        {
-            foreach (string candidate in names)
-            {
-                if (string.IsNullOrEmpty(candidate))
-                {
-                    continue;
-                }
-                _entityBrushes.Add(new EntityBrush(
-                    $"{entryName}: {candidate}", entry, section, candidate));
-            }
-            return;
-        }
-
-        // A variant property with nothing to offer yet — the entry still places,
-        // with whatever it was authored holding.
-        _entityBrushes.Add(new EntityBrush(entryName, entry, section));
     }
 
-    // What a variant button is called: the member's own name, since that is what
-    // an author is picking between.
-    private static string VariantLabel(SpawnEntryData entry, StringName property, Resource candidate)
+    // The toolbar tab for a palette section ("Mobs/Goblin", "Props/Furniture"):
+    // its top folder, except props, which are too many for one tab and keep their
+    // category folder as the tab.
+    private static string EditorTabFor(string section)
     {
-        string name = entry.CandidateName(property, candidate);
-        return string.IsNullOrEmpty(name) ? SpawnEntryData.PaletteName(entry) : name;
-    }
-
-    // A prop files under its authoring CATEGORY rather than its palette root,
-    // because one entry covers the whole library and "Props" as a single tab is
-    // sixty buttons deep. Everything else keeps the section its directory
-    // declared. An entry ticking several categories appears under each.
-    private static string SectionForVariant(Resource candidate, string section)
-    {
-        if (candidate is not PropLibraryEntry prop)
-        {
-            return section;
-        }
-        return prop.category switch
-        {
-            EPropCategory category when (category & EPropCategory.Tree) != 0 => "Trees",
-            EPropCategory category when (category & EPropCategory.Rock) != 0 => "Rocks",
-            EPropCategory category when (category & EPropCategory.Foliage) != 0 => "Nature",
-            EPropCategory category when (category & EPropCategory.Furniture) != 0 => "Furniture",
-            _ => "Props",
-        };
+        string[] parts = section.Split('/');
+        return parts.Length > 1 && parts[0] == "Props" ? parts[1] : parts[0];
     }
 
     public override void _Process(double deltaTime)
@@ -2564,8 +2513,8 @@ public partial class WorldEditor : Node3D
             return false;
         }
         EntityBrush brush = _entityBrushes[_entityTypeIndex];
-        PropLibraryEntry prop = brush.HasVariant ? brush.Variant.As<PropLibraryEntry>() : null;
-        if (prop?.scene == null || PropInstance.GetApertureHeight(prop.scene) <= 0)
+        PackedScene scene = (brush.Entry as PropSpawnEntry)?.scene;
+        if (scene == null || PropInstance.GetApertureHeight(scene) <= 0)
         {
             return false;
         }

@@ -7,9 +7,15 @@ using Godot;
 // backpack and the party stash. Owns placement only (stacking, swapping,
 // splitting); an owner that cares how items enter or leave (Inventory's equip,
 // hotbar and spoil bookkeeping) wraps one and implements IItemGrid itself.
-public class ItemGrid : IItemGrid
+public class ItemGrid : IItemGrid, IItemSource
 {
 	private ItemState[] _slots;
+
+	// Raised by the changes that land in place, out from under whatever is showing
+	// the grid: a spend (which can arrive mid-timeline) and the spoil prune. The
+	// placement methods don't raise it — their caller is the one moving items and
+	// repaints itself.
+	public event Action onChanged;
 
 	public ItemGrid(int capacity)
 	{
@@ -285,6 +291,23 @@ public class ItemGrid : IItemGrid
 		return spent;
 	}
 
+	public bool Holds(ItemState item) => IndexOf(item) >= 0;
+
+	public void Spend(ItemState item, int count)
+	{
+		int index = IndexOf(item);
+		if (index < 0 || count <= 0)
+		{
+			return;
+		}
+		item.Consume(count);
+		if (item.stackCount <= 0)
+		{
+			_slots[index] = null;
+		}
+		onChanged?.Invoke();
+	}
+
 	// Drop every spoiled cohort; a stack that empties leaves its slot.
 	public void PruneExpired(double nowClock)
 	{
@@ -301,6 +324,7 @@ public class ItemGrid : IItemGrid
 				_slots[i] = null;
 			}
 		}
+		onChanged?.Invoke();
 	}
 
 	// Inside a shared EntitySerializer table. Slot by slot, gaps included, so the

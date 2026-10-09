@@ -139,6 +139,6 @@ damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 actionProfile = SubResource("Resource_profile")
 displayName = &"Wand"
 description = "Fires seeking missiles. Hold to loose one that bursts where it lands."
-value = 60
+value = 50
 inventorySprite = ExtResource("16_inv")
 heldModel = ExtResource("15_held")

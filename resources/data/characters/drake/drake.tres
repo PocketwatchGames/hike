@@ -60,6 +60,7 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [resource]
 script = ExtResource("1_mob")
+carriesZoneLoot = true
 displayName = &"Drake"
 visionDotPower = 2.0
 dangerous = true

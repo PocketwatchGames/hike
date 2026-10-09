@@ -132,11 +132,32 @@ public abstract class EntitySimState
     // TreeExiting, so overlapping props (e.g. a chest tucked against a tree)
     // keep the union of their cells blocked until the last entity leaves.
     // The walkability sampler treats any surface column whose stand-in cells
-    // are blocked as unwalkable. Default: emit nothing — only entities with
-    // a meaningful physical footprint should override. `entity` is the live
-    // runtime node, so shape-derived implementations (e.g. trees rasterizing
-    // their cylinder collider) can read its CollisionShape3D directly.
-    public virtual void GetPathBlockerCells(Node3D entity, System.Collections.Generic.List<Vector3I> outCells) { }
+    // are blocked as unwalkable. Default: the cells the scene's Solid-layer
+    // colliders physically cover, so anything a walker bumps into is also
+    // routed around, and a scene without one emits nothing. Movers (mobs,
+    // loot, boats) are never on Solid. Override to emit nothing only where a
+    // Solid collider is not an obstacle — a door leaf, a floor, a roof.
+    public virtual void GetPathBlockerCells(Node3D entity, System.Collections.Generic.List<Vector3I> outCells)
+    {
+        PathBlockerRasterizer.Rasterize(entity, StandingRow(Sim.Current?.WorldState, WorldPosition), outCells);
+    }
+
+    // The air row an entity stands in — the row its path blockers are stamped
+    // on. NOT floor(Y) alone: an entity seated onto a downhill grade sinks below
+    // its column's top face, floor(Y) then names the SOLID voxel, and a blocker
+    // stamped there blocks nothing. Read the voxels instead, so how deep a thing
+    // is seated is a visual decision and never a nav one.
+    public static int StandingRow(WorldState ws, Vector3 position)
+    {
+        int x = Mathf.FloorToInt(position.X);
+        int y = Mathf.FloorToInt(position.Y);
+        int z = Mathf.FloorToInt(position.Z);
+        if (ws != null && ws.IsInBounds(x, y, z) && Blocks.IsSolid(ws.GetBlockWorld(x, y, z)))
+        {
+            return y + 1;
+        }
+        return y;
+    }
 
     // Radius (meters) of the damaging "danger zone" around this entity that
     // mobs avoid when wandering and never spawn inside. 0 = harmless (the

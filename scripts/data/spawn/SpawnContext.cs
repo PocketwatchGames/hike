@@ -103,7 +103,7 @@ public sealed class SpawnContext
 
     // The SpawnRow's carried loot, each item with its own chance
     // (SpawnRow.carriedLoot). Scoped like SpawnConditions; empty outside a row.
-    public Godot.Collections.Array<ItemChance> CarriedLoot;
+    public Godot.Collections.Array<ItemCountRange> CarriedLoot;
 
     // True when the position was hand-authored (a subscene marker, or a mark in
     // the world-map painter) rather than sampled off a column. It turns OFF the

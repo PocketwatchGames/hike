@@ -51,7 +51,7 @@ public partial class SpawnRow : Resource
     // nothing. Each item rolls on its own, once at spawn, and is baked into the
     // mob's loot, so a world's carriers are fixed. Read by the mob and npc
     // entries; empty = nothing extra.
-    [Export] public Godot.Collections.Array<ItemChance> carriedLoot = new();
+    [Export] public Godot.Collections.Array<ItemCountRange> carriedLoot = new();
 
     // Run the entry's placement gates and spawn it, with this row's statements
     // in force. They ride the context because Spawn is overridden by ~20 entry
@@ -104,7 +104,7 @@ public partial class SpawnRow : Resource
         private readonly ESpawnConditions _conditions;
         private readonly StringName _behavior;
         private readonly float _chance;
-        private readonly Godot.Collections.Array<ItemChance> _carriedLoot;
+        private readonly Godot.Collections.Array<ItemCountRange> _carriedLoot;
 
         public Stamp(SpawnContext context)
         {

@@ -7,6 +7,9 @@ using Godot;
 // window ends. Authored as a sub-resource on LootData (null = ordinary
 // always-present loot) so it sits with the other world-on-ground loot dynamics.
 // See Loot's emergence section for the runtime.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class TimedEmergenceData : Resource
 {

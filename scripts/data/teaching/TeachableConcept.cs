@@ -12,6 +12,9 @@ using Godot;
 // surfaces it in the inspector's resource-picker dropdown — Godot's editor
 // won't list abstract types as creatable resources. Subclasses must also be
 // `[GlobalClass]` to appear in the picker.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class TeachableConcept : Resource
 {

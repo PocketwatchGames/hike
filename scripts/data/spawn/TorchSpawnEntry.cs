@@ -1,8 +1,8 @@
 using System;
 using Godot;
 
-// Plain torch (defaults to lit). Use CampfireSpawnEntry for the campfire
-// variant that auto-lights at night and spawns dark.
+// A torch or lamp, lit until the player douses it. Use CampfireSpawnEntry for
+// the campfire, which is its own entity.
 [GlobalClass]
 public partial class TorchSpawnEntry : SpawnEntryData
 {

@@ -5,6 +5,9 @@ using Godot;
 // it is held, the interactive's lock-gated actions refuse to start unless the
 // actor carries a key that opens it, and one such key is spent when the action
 // completes — which removes the lock for good.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class LockData : Resource
 {

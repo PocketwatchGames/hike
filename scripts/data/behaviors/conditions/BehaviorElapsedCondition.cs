@@ -6,6 +6,9 @@ using Godot;
 // so a timer read off the engagement dies exactly when a committed behavior
 // still needs it. A fairy that has started its getaway must vanish whether or
 // not it can still see what spooked it.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class BehaviorElapsedCondition : BehaviorTransitionData
 {

@@ -1,19 +1,18 @@
 [gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://b2m6lnjcasyli"]
 
 [ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_consumable"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_53reb"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
 [ext_resource type="Script" uid="uid://c5n1cy40gvp4n" path="res://scripts/data/effects/ReturnHomeEffect.cs" id="3_returnhome"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="4_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="5_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="6_event"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="6_vhruw"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_req"]
 [ext_resource type="Script" uid="uid://b7kq3xn2wawdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="8_nodanger"]
 [ext_resource type="Texture2D" uid="uid://q5swbro44uym" path="res://assets/textures/items/GemRed.png" id="9_icon"]
 [ext_resource type="PackedScene" uid="uid://c4st1lkqam3rx" path="res://scenes/fx/cast_loop.tscn" id="10_castloop"]
 [ext_resource type="PackedScene" uid="uid://cvoui2mg0oxau" path="res://scenes/fx/interact_reject.tscn" id="11_reject"]
-
-[sub_resource type="Resource" id="Effect_return_home"]
-script = ExtResource("3_returnhome")
 
 [sub_resource type="Resource" id="Event_pray_anim"]
 script = ExtResource("6_event")
@@ -47,6 +46,9 @@ chargedActions = Array[ExtResource("5_action")]([SubResource("Action_pray")])
 chargeEvents = Array[ExtResource("6_event")]([SubResource("Event_pray_anim")])
 rejectEffect = ExtResource("11_reject")
 requireFullCharge = true
+
+[sub_resource type="Resource" id="Effect_return_home"]
+script = ExtResource("3_returnhome")
 
 [resource]
 script = ExtResource("1_consumable")

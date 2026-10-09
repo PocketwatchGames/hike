@@ -23,11 +23,13 @@ public partial class WorldMapHud : CanvasLayer
     [Export] public ProgressBar bakeBar;
     // Row the tool buttons are built into.
     [Export] public Container toolButtonBar;
-    // The active tool's options. An ItemList rather than a row of buttons: a
-    // palette runs to 20+ entries (the entity palette, every .hikescene), which
-    // a wrapping button row turned into a block of the screen that grew with the
-    // content. A list has a fixed footprint and scrolls instead.
-    [Export] public ItemList optionList;
+    // The active tool's options: a tree, so a tool whose options carry sections
+    // (the entity palette, filed by folder) shows them as collapsible groups,
+    // and one without shows a flat list in the same fixed, scrolling footprint.
+    [Export] public Tree optionTree;
+    // Narrows the option tree by name or section. Shown only for a sectioned
+    // list — the long, palette-backed ones.
+    [Export] public LineEdit optionFilter;
     // Shortcut hints, global plus whatever the active tool adds.
     [Export] public Label hintLabel;
     // Properties of the entity tool's selection. Hides itself when there is no
@@ -40,22 +42,45 @@ public partial class WorldMapHud : CanvasLayer
     // One connection made in _Ready dispatches through this instead.
     private System.Action<int> _onOptionPressed;
 
+    // What the current option tree was built from, kept so the filter can
+    // rebuild it.
+    private string[] _optionNames = System.Array.Empty<string>();
+    private string[] _optionSections;
+    private Color[] _optionColors;
+    private bool _optionNumberKeys;
+    private int _activeOption = -1;
+    // Option index -> its row, or null while filtered out.
+    private TreeItem[] _optionItems = System.Array.Empty<TreeItem>();
+    // Section paths the author has opened. Sections start closed; the active
+    // option's section opens itself.
+    private readonly System.Collections.Generic.HashSet<string> _openSections = new();
+    // Set while the HUD itself selects or collapses rows, whose signals must not
+    // read as the author's choice.
+    private bool _syncingTree;
+
     public override void _Ready()
     {
-        if (optionList != null)
+        if (optionTree != null)
         {
             // Never take keyboard focus — the painter's shortcuts are bare keys
-            // (1-9, Q/E, W, X, Tab), and a focused list would eat them for its
-            // own navigation. Mouse selection and wheel scrolling do not need
-            // focus, so the list still behaves.
-            optionList.FocusMode = Control.FocusModeEnum.None;
-            optionList.ItemSelected += index => _onOptionPressed?.Invoke((int)index);
+            // (1-9, Q/E, W, X, Tab), and a focused tree would eat them for its
+            // own navigation. Mouse selection and wheel scrolling do not need it.
+            optionTree.FocusMode = Control.FocusModeEnum.None;
+            optionTree.HideRoot = true;
+            optionTree.ItemSelected += OnOptionRowSelected;
+            optionTree.ItemCollapsed += OnSectionToggled;
+        }
+        if (optionFilter != null)
+        {
+            optionFilter.TextChanged += _ => RebuildOptionTree();
+            optionFilter.TextSubmitted += _ => PickFirstFiltered();
+            optionFilter.GuiInput += OnFilterInput;
         }
     }
 
     // Both bars are built from lists the painter hands over rather than authored
     // one-per-node, so adding a tool — or an op to a tool — cannot leave a stale
-    // button behind. The OPTION row labels its hotkeys where the tool HAS them
+    // button behind. The OPTION list labels its hotkeys where the tool HAS them
     // (IWorldMapTool.NumberKeys), because that is the thing you change
     // mid-stroke; switching tool is Tab or a click.
     public void BuildToolButtons(string[] names, System.Action<int> onPressed)
@@ -66,28 +91,24 @@ public partial class WorldMapHud : CanvasLayer
     // Called again on every tool change, so it clears whatever the last tool put
     // there. A tool with no discrete options leaves the list empty.
     // `numberKeys` is the tool's answer, not a count: a palette-backed tool has
-    // no digits at all, however short its list happens to be today.
+    // no digits at all, however short its list happens to be today. `sections`
+    // (one "A/B" path per option, "" for the top level) groups the list and
+    // brings up the filter; null shows it flat.
     public void BuildOptionButtons(string[] names, Color[] colors, bool numberKeys,
-        System.Action<int> onPressed)
+        System.Action<int> onPressed, string[] sections = null)
     {
         _onOptionPressed = onPressed;
-        if (optionList == null)
+        _optionNames = names ?? System.Array.Empty<string>();
+        _optionColors = colors;
+        _optionNumberKeys = numberKeys;
+        _optionSections = sections;
+        _activeOption = -1;
+        if (optionFilter != null)
         {
-            return;
+            optionFilter.Visible = sections != null;
+            optionFilter.Text = "";
         }
-        optionList.Clear();
-        for (int i = 0; i < names.Length; i++)
-        {
-            // Only the first nine can name a key that does anything; the rest
-            // are clicked, and a palette-backed tool labels none of them.
-            optionList.AddItem(numberKeys && i < NUMBER_KEYS ? $"{i + 1}  {names[i]}" : names[i]);
-            if (colors != null && i < colors.Length)
-            {
-                // Same colour the map draws this option in, so the two cannot
-                // drift — lifted only as far as the list's dark panel needs.
-                optionList.SetItemCustomFgColor(i, Legible(colors[i]));
-            }
-        }
+        RebuildOptionTree();
     }
 
     public void SetActiveTool(int index)
@@ -95,24 +116,180 @@ public partial class WorldMapHud : CanvasLayer
         SetActive(_toolButtons, index);
     }
 
-    // Reflects a selection rather than making one. ItemList.Select does not emit
-    // ItemSelected, so this cannot call back into the painter — the same reason
-    // the tool buttons use SetPressedNoSignal.
+    // Reflects a selection rather than making one, so it cannot call back into
+    // the painter (the same reason the tool buttons use SetPressedNoSignal).
+    // Opens the option's section and scrolls to it: a Q/E step or a tool change
+    // that restores a stored index can land anywhere in a long list.
     public void SetActiveOption(int index)
     {
-        if (optionList == null)
+        _activeOption = index;
+        if (optionTree == null)
         {
             return;
         }
-        if (index < 0 || index >= optionList.ItemCount)
+        TreeItem item = index >= 0 && index < _optionItems.Length ? _optionItems[index] : null;
+        _syncingTree = true;
+        if (item == null)
         {
-            optionList.DeselectAll();
+            optionTree.DeselectAll();
+            _syncingTree = false;
             return;
         }
-        optionList.Select(index);
-        // A long palette scrolls, so the active entry can be off-screen after a
-        // Q/E step or a tool change that restores a stored index.
-        optionList.EnsureCurrentIsVisible();
+        for (TreeItem parent = item.GetParent(); parent != null && parent != optionTree.GetRoot(); parent = parent.GetParent())
+        {
+            parent.Collapsed = false;
+            _openSections.Add(parent.GetMetadata(0).AsString());
+        }
+        item.Select(0);
+        optionTree.ScrollToItem(item);
+        _syncingTree = false;
+    }
+
+    // The painter calls this on any press over the map: the filter is the one
+    // control here that takes keyboard focus, and the map canvas never does, so
+    // without it a click back onto the map would leave every shortcut typing
+    // into the filter.
+    public void ReleaseOptionFilter()
+    {
+        if (optionFilter != null && optionFilter.HasFocus())
+        {
+            optionFilter.ReleaseFocus();
+        }
+    }
+
+    private void RebuildOptionTree()
+    {
+        if (optionTree == null)
+        {
+            return;
+        }
+        string query = optionFilter?.Text?.StripEdges().ToLower() ?? "";
+        bool filtering = query.Length > 0;
+        _syncingTree = true;
+        optionTree.Clear();
+        TreeItem root = optionTree.CreateItem();
+        var sectionRows = new System.Collections.Generic.Dictionary<string, TreeItem>();
+        _optionItems = new TreeItem[_optionNames.Length];
+        for (int i = 0; i < _optionNames.Length; i++)
+        {
+            string name = _optionNames[i];
+            string section = _optionSections != null && i < _optionSections.Length ? _optionSections[i] ?? "" : "";
+            if (filtering && !name.ToLower().Contains(query) && !section.ToLower().Contains(query))
+            {
+                continue;
+            }
+            TreeItem row = optionTree.CreateItem(SectionRow(root, section, sectionRows, filtering));
+            // Only the first nine can name a key that does anything; the rest
+            // are clicked, and a palette-backed tool labels none of them.
+            row.SetText(0, _optionNumberKeys && i < NUMBER_KEYS ? $"{i + 1}  {name}" : name);
+            row.SetMetadata(0, i);
+            if (_optionColors != null && i < _optionColors.Length)
+            {
+                // Same colour the map draws this option in, so the two cannot
+                // drift — lifted only as far as the list's dark panel needs.
+                row.SetCustomColor(0, Legible(_optionColors[i]));
+            }
+            _optionItems[i] = row;
+        }
+        _syncingTree = false;
+        SetActiveOption(_activeOption);
+    }
+
+    // The row for a section path, creating it and its parents on first use.
+    // Every section is open while filtering, so a match is never hidden in a
+    // closed group.
+    private TreeItem SectionRow(TreeItem root, string section,
+        System.Collections.Generic.Dictionary<string, TreeItem> rows, bool filtering)
+    {
+        if (section.Length == 0)
+        {
+            return root;
+        }
+        if (rows.TryGetValue(section, out TreeItem existing))
+        {
+            return existing;
+        }
+        int slash = section.LastIndexOf('/');
+        TreeItem parent = slash < 0 ? root : SectionRow(root, section.Substring(0, slash), rows, filtering);
+        TreeItem row = optionTree.CreateItem(parent);
+        row.SetText(0, slash < 0 ? section : section.Substring(slash + 1));
+        row.SetMetadata(0, section);
+        row.Collapsed = !filtering && !_openSections.Contains(section);
+        rows[section] = row;
+        return row;
+    }
+
+    // A section row opens and shuts on a click, like its arrow; an option row
+    // picks the option.
+    private void OnOptionRowSelected()
+    {
+        if (_syncingTree)
+        {
+            return;
+        }
+        TreeItem item = optionTree.GetSelected();
+        if (item == null)
+        {
+            return;
+        }
+        Variant meta = item.GetMetadata(0);
+        if (meta.VariantType == Variant.Type.String)
+        {
+            item.Collapsed = !item.Collapsed;
+            SetActiveOption(_activeOption);
+            return;
+        }
+        _onOptionPressed?.Invoke(meta.AsInt32());
+    }
+
+    private void OnSectionToggled(TreeItem item)
+    {
+        if (_syncingTree || (optionFilter?.Text?.Length ?? 0) > 0)
+        {
+            return;
+        }
+        string section = item.GetMetadata(0).AsString();
+        if (item.Collapsed)
+        {
+            _openSections.Remove(section);
+        }
+        else
+        {
+            _openSections.Add(section);
+        }
+    }
+
+    // Enter takes the first match, so filter-then-Enter is a keyboard pick.
+    private void PickFirstFiltered()
+    {
+        for (int i = 0; i < _optionItems.Length; i++)
+        {
+            if (_optionItems[i] != null)
+            {
+                _onOptionPressed?.Invoke(i);
+                break;
+            }
+        }
+        optionFilter.ReleaseFocus();
+    }
+
+    // Escape clears the filter, then a second press hands the keys back to the
+    // painter.
+    private void OnFilterInput(InputEvent e)
+    {
+        if (e is InputEventKey key && key.Pressed && key.Keycode == Key.Escape)
+        {
+            if (optionFilter.Text.Length > 0)
+            {
+                optionFilter.Text = "";
+                RebuildOptionTree();
+            }
+            else
+            {
+                optionFilter.ReleaseFocus();
+            }
+            optionFilter.AcceptEvent();
+        }
     }
 
     // Where a tool has digits, only nine of its options can carry one. The

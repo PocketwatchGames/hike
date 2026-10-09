@@ -1308,6 +1308,27 @@ public class WorldState
         return data;
     }
 
+    // The authored ZoneData of the chunk containing `pos` — its dominant zone,
+    // unblended, so per-zone flags and lists come through as authored. Null
+    // outside the world or where no zone is authored.
+    public ZoneData ZoneDataAt(Vector3 pos)
+    {
+        if (Zones == null || Zones.Length == 0)
+        {
+            return null;
+        }
+        ChunkState chunk = GetChunk(new Vector3I(
+            Mathf.FloorToInt(pos.X / ChunkState.SIZE),
+            Mathf.FloorToInt(pos.Y / ChunkState.SIZE),
+            Mathf.FloorToInt(pos.Z / ChunkState.SIZE)));
+        if (chunk == null)
+        {
+            return null;
+        }
+        int zi = chunk.ZoneIndex;
+        return (zi >= 0 && zi < Zones.Length) ? Zones[zi].Data : null;
+    }
+
     // World-XZ centroid of every named region in the loaded world,
     // computed as the unweighted average of the centers of the chunks
     // whose RegionIndex maps to that region. Border chunks (Data == null

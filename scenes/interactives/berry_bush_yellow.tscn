@@ -1,0 +1,11 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" uid="uid://23ids5pfkxv0" path="res://scenes/interactives/berry_tree.tscn" id="1_base"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/berry_yellow.tres" id="2_item"]
+
+[node name="BerryTree" instance=ExtResource("1_base")]
+_berryItem = ExtResource("2_item")
+
+[node name="Foliage2" parent="Intact"]
+leafTintA = Color(1, 0.84, 0.08, 1)
+leafTintB = Color(0.95, 0.58, 0.1, 1)

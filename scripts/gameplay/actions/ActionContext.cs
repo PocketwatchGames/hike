@@ -14,6 +14,9 @@ public struct ActionContext
 {
 	public EActionVerb verb;
 	public ItemState primaryItem;
+	// Where primaryItem is held, and so what a spend of it comes off. Null for
+	// an action whose item belongs to no container (a mob's weapon).
+	public IItemSource source;
 	public IInteractive primaryInteractive;
 	// Index of the running action in primaryInteractive.GetActions(). Set
 	// when the runner starts an interactive-driven action so OpenInteractive

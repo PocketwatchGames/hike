@@ -24,6 +24,10 @@ public class DoorSimState : EntitySimState, IVoxelStamper
         return Door.Create(sim, this);
     }
 
+    // Navigation follows the voxel stamp below, which flips with the leaf; a
+    // spawn-time blocker from the leaf collider would outlive its opening.
+    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells) { }
+
     // The doorway column, following the leaf: Barrier while closed (opaque to
     // sunlight, block light and navigation), Opening while open. Active ==
     // closed, the same way Door.Create derives its own _open.
@@ -71,6 +75,9 @@ public class TrapdoorSimState : EntitySimState
     {
         return Trapdoor.Create(sim, this);
     }
+
+    // The leaf is a floor you walk over, not an obstacle.
+    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells) { }
 }
 
 // A coil of rope at the top of a drop. Persists only whether it has been thrown:
@@ -118,12 +125,6 @@ public class LeverSimState : EntitySimState
 public class TorchSimState : EntitySimState
 {
     public bool Active = true;
-    // When true, Torch.Create overrides Active based on world time-of-day at
-    // chunk activation: lit at night, unlit during the day. Authored on
-    // worldgen-spawned campfires so they "come alive" after dark without the
-    // player having to light each one. Player toggles still apply for the
-    // duration the chunk is loaded; the next chunk activation re-evaluates.
-    public bool AutoLightAtNight;
 
     public TorchSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
@@ -210,15 +211,12 @@ public class ChestSimState : EntitySimState
         }
         return Chest.Create(sim, this);
     }
-
-    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
-    {
-        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
-    }
 }
 
-public class BerryTreeSimState : RegrowSimState
+public class BerryTreeSimState : RegrowSimState, IBreakableSimState
 {
+    public BreakState Break { get; } = new();
+
     // Number of berries the tree drops when picked. Per-instance so worldgen can
     // vary the payload between bushes; serialized so a stocked bush keeps its
     // count across save/load.
@@ -239,11 +237,6 @@ public class BerryTreeSimState : RegrowSimState
     {
         return BerryTree.Create(sim, this);
     }
-
-    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
-    {
-        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
-    }
 }
 
 public class TrapSimState : EntitySimState
@@ -263,6 +256,10 @@ public class TrapSimState : EntitySimState
     {
         return Trap.Create(sim, this);
     }
+
+    // Traps are walked onto (the crumbling floor's leaf is a Solid floor);
+    // mobs keep clear through HazardRadius instead.
+    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells) { }
 }
 
 // Desert hazard plant. Fires a ring of hazard spines on touch/strike (see
@@ -286,11 +283,6 @@ public class CactusSimState : EntitySimState
     public override Node3D CreateEntity(Sim sim)
     {
         return Cactus.Create(sim, this);
-    }
-
-    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
-    {
-        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
     }
 }
 
@@ -359,11 +351,6 @@ public class TentSimState : EntitySimState
     {
         return Tent.Create(sim, this);
     }
-
-    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
-    {
-        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
-    }
 }
 
 // A tree the player can climb to perch in the canopy. Climbing hides the
@@ -381,11 +368,6 @@ public class ClimbableTreeSimState : EntitySimState
     public override Node3D CreateEntity(Sim sim)
     {
         return ClimbableTree.Create(sim, this);
-    }
-
-    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
-    {
-        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
     }
 }
 
@@ -440,11 +422,6 @@ public class ForgeSimState : RegrowSimState
     {
         return Forge.Create(sim, this);
     }
-
-    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
-    {
-        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
-    }
 }
 
 // Anything the player drinks from (see Fountain). The drink's effects, cooldown
@@ -465,11 +442,6 @@ public class FountainSimState : RegrowSimState
     public override Node3D CreateEntity(Sim sim)
     {
         return Fountain.Create(sim, this);
-    }
-
-    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
-    {
-        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
     }
 }
 

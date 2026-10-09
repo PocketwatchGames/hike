@@ -36,5 +36,6 @@ displayName = &"Shadowy Spider Stew"
 description = "Spider legs and black mushrooms. Muffles your presence."
 maxStack = 99
 spoilDays = 3
+value = 5
 inventorySprite = ExtResource("6_icon")
 typeTags = 5

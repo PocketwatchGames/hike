@@ -19,6 +19,9 @@ using Godot.Collections;
 // The flags are universal per slot, so they're read from the BASE set (PlayerData
 // delegates IsAnimationSpeedAffected / AnimationHidesHeldItem to it). An override
 // set only needs to fill in `name`; its flag fields are inert.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class WeaponAnimSet : Resource
 {

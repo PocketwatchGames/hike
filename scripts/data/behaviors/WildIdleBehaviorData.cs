@@ -4,6 +4,9 @@ using Godot;
 // barks at the player when it is aware of them and they come within barkRadius.
 // The tamed companion never runs this — the dog brain routes between this and
 // BehaviorWanderFollow on the mob's tamed state (TamedCondition).
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class WildIdleBehaviorData : BehaviorData
 {

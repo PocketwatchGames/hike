@@ -280,7 +280,12 @@ public static class WorldFile
     //      ranged roll made at death.
     // v72: every entity carries a trailing discovered flag (EntitySimState
     //      .Discovered), so a perceived Discoverable stays seen across streaming.
-    public const uint VERSION = 72;
+    // v73: props and berry trees carry a BreakState (broken flag, then the
+    //      restore deadlines while broken). A prop's flag took the byte that was
+    //      its always-false legacy PickedUp flag.
+    // v74: a torch's payload dropped its AutoLightAtNight bool — a torch or
+    //      lamp is lit until doused.
+    public const uint VERSION = 74;
 
     public struct IndexEntry
     {

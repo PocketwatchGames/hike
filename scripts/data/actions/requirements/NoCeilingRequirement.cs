@@ -8,6 +8,9 @@ using Godot;
 // genuine open sky overhead does. Sky-only verbs (bird's-eye overlook, future
 // summons that need open air) put this on every tier so the runner's
 // AnyTierCouldFire pass rejects the press at t=0 and plays the rejectEffect.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class NoCeilingRequirement : ActionRequirement
 {

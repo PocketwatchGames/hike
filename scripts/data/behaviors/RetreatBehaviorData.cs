@@ -4,6 +4,9 @@ using Godot;
 // stare a beat, then walk away until far enough to lose interest. Wired on
 // aggressive brains as the destination of Attack → Retreat (TargetSafeCondition)
 // and Idle/Wander → Retreat (HurtWhileTargetSafeCondition).
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class RetreatBehaviorData : BehaviorData
 {

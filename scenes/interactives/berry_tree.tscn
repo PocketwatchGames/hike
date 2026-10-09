@@ -96,29 +96,31 @@ buffer = PackedFloat32Array(0.0021299869, 0.0018702914, 0.10553113, 1.2497499, 0
 
 [node name="BerryTree" type="Node3D" unique_id=1961436059 node_paths=PackedStringArray("_berries", "_destructible", "_hudNode")]
 script = ExtResource("1_berrytree")
-_berries = NodePath("Foliage2")
 _destructible = NodePath("Destructible")
+_berries = NodePath("Intact/Foliage2")
 _hudNode = NodePath("HUDNode")
 _actions = Array[ExtResource("10_action")]([SubResource("Resource_berry_action_pick")])
 _berryItem = ExtResource("6_5ksji")
 
-[node name="InteractiveBox" type="Area3D" parent="." unique_id=682119598 node_paths=PackedStringArray("_interactiveNode")]
+[node name="Intact" type="Node3D" parent="."]
+
+[node name="InteractiveBox" type="Area3D" parent="Intact" unique_id=682119598 node_paths=PackedStringArray("_interactiveNode")]
 collision_layer = 4
 collision_mask = 0
 monitoring = false
 script = ExtResource("4_interactivebox")
-_interactiveNode = NodePath("..")
+_interactiveNode = NodePath("../..")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=1048261640]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Intact/InteractiveBox" unique_id=1048261640]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_interact")
 
-[node name="HurtBox" type="Area3D" parent="." unique_id=610679060]
+[node name="HurtBox" type="Area3D" parent="Intact" unique_id=610679060]
 collision_layer = 32
 collision_mask = 0
 script = ExtResource("2_hurtbox")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=1898320281]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Intact/HurtBox" unique_id=1898320281]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_block")
 
@@ -129,12 +131,13 @@ script = ExtResource("20_porous")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_body")
 
-[node name="Destructible" type="Node3D" parent="." node_paths=PackedStringArray("_hurtBox")]
+[node name="Destructible" type="Node3D" parent="." node_paths=PackedStringArray("_hurtBox", "_intact")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
 script = ExtResource("21_destructible")
-_hurtBox = NodePath("../HurtBox")
+_hurtBox = NodePath("../Intact/HurtBox")
 _destroyedBy = 2050
 _destroyEffect = ExtResource("22_destroyfx")
+_intact = NodePath("../Intact")
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=219164443]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5480789, 0)
@@ -175,7 +178,7 @@ cardSizeMax = 0.6
 rollJitter = 0.25
 droopAmount = 0.97
 
-[node name="Foliage2" type="MultiMeshInstance3D" parent="." unique_id=1695649873]
+[node name="Foliage2" type="MultiMeshInstance3D" parent="Intact" unique_id=1695649873]
 material_override = SubResource("ShaderMaterial_v5trg")
 multimesh = SubResource("MultiMesh_niy6d")
 script = ExtResource("18_40lre")
@@ -185,7 +188,7 @@ leafTintA = Color(1, 0.100000024, 0.11499977, 1)
 leafTintB = Color(0.95, 0.47547495, 0.1805, 1)
 details = []
 
-[node name="Cluster1" type="Node3D" parent="Foliage2" unique_id=1454837727]
+[node name="Cluster1" type="Node3D" parent="Intact/Foliage2" unique_id=1454837727]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 script = ExtResource("19_hs835")
 ellipsoidRadii = Vector3(1.25, 0.75, 1.25)

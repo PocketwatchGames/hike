@@ -76,7 +76,12 @@ public static class SubsceneFile
     // v16: a chest's payload carries its rigged trap (see WorldFile v68).
     // v17: entities gained a trailing discovered flag (see WorldFile v72). v16
     //      and earlier still read — their entities load undiscovered.
-    public const uint VERSION = 17;
+    // v18: props and berry trees carry a BreakState (see WorldFile v73). A
+    //      prop's flag is the byte that was always written false, so every
+    //      earlier prop reads as standing; no subscene holds a berry tree.
+    // v19: a torch's payload dropped its AutoLightAtNight bool (see WorldFile
+    //      v74). v18 and earlier still read — the byte is skipped.
+    public const uint VERSION = 19;
 
     // Bytes before the directory block: magic + version + size + anchor +
     // channelMask + dirLength. ReadDirectory seeks past exactly this much.
@@ -221,7 +226,7 @@ public static class SubsceneFile
             : EntitySerializer.ROOF_FORMAT_ORIGINAL;
         sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3, roofFormat: roofFormat, hasTag: version >= 6, tableRefs: version >= 9,
             hasScale: version >= 10, itemExtras: version >= 12, hasScriptFields: version >= 13,
-            hasDiscovered: version >= 17);
+            hasDiscovered: version >= 17, torchAutoLightByte: version < 19);
         return sub;
     }
 

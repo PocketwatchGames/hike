@@ -75,15 +75,24 @@ public class EntityTool : IWorldMapTool
         names[0] = "Player spawn";
         for (int i = 0; i < palette.Length; i++)
         {
-            // The palette ENTRY, not the variant: this row is "what am I
-            // placing", and one goblin row is the whole point of an entry that
-            // offers variants. Which goblin is a per-placement choice and shows
-            // on the hover readout and in the property panel, where it is the
-            // answer being asked for.
             names[i + 1] = palette[i] == null
-                ? $"Entry {i}" : SpawnEntryData.PaletteName(palette[i]);
+                ? $"Entry {i}" : SpawnEntryData.PaletteName(palette[i]).Capitalize();
         }
         return names;
+    }
+
+    // Each entry under the folder it sits in; the player spawn leads, ungrouped.
+    public string[] OptionSections(WorldMapState ctx)
+    {
+        SpawnEntryData[] palette = ctx.EntityPalette;
+        AuthoringPaletteSource source = AuthoringPaletteSource.Find(AuthoringPaletteSource.Entities);
+        var sections = new string[palette.Length + 1];
+        sections[0] = "";
+        for (int i = 0; i < palette.Length; i++)
+        {
+            sections[i + 1] = palette[i] == null || source == null ? "" : source.SectionFor(palette[i].ResourcePath);
+        }
+        return sections;
     }
 
     public Color[] OptionColors(WorldMapInk ink) => null;

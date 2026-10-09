@@ -26,5 +26,5 @@ modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource
 outfit = &"archer"
 displayName = &"Fur Coat"
 description = "Polar bears stay warm in the winter!"
-value = 25
+value = 60
 inventorySprite = ExtResource("2_sprite")

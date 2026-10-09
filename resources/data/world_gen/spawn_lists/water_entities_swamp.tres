@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://cwvam7wm5c6ql"]
 
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="2_list"]
-[ext_resource type="Resource" uid="uid://cb1axmir73f6r" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/lurker_swamp.tres" id="e_lurker_swamp"]
+[ext_resource type="Resource" uid="uid://cb1axmir73f6r" path="res://resources/data/world_authoring/spawn_entries/mobs/lurker/lurker_swamp.tres" id="e_lurker_swamp"]
 [ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 
 [sub_resource type="Resource" id="Row_lurker_swamp"]

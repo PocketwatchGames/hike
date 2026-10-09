@@ -36,5 +36,6 @@ displayName = &"Keen Sparrow Stew"
 description = "Sparrow meat and white mushrooms. Sharpens the senses."
 maxStack = 99
 spoilDays = 3
+value = 5
 inventorySprite = ExtResource("6_icon")
 typeTags = 5

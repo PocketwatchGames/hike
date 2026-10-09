@@ -281,7 +281,7 @@ drop), clamped twice:
   leaving a gap under it.
 - **Never more than `PropMaxEmbed` (0.5) below it** — a visual bound only. The
   row a prop's nav blockers are stamped on comes from the voxels
-  (`PropSimState.StandingRow`: the air row above a prop seated into its top
+  (`EntitySimState.StandingRow`: the air row above a prop seated into its top
   voxel), not from `floor(Y)`, so how deep a prop sits never decides whether it
   blocks.
 
@@ -296,7 +296,7 @@ One gate covers the painted mob layer, spawn entries' own column probe
   life of the world.
 - Nothing is needed at runtime: `NightMobSpawner` and `FairySpawner` both pick
   from `NavigationGoals.CollectReachableStandableCells`, and props block the nav
-  grid through `PropSimState.GetPathBlockerCells`, so a sealed interior is
+  grid through `EntitySimState.GetPathBlockerCells`, so a sealed interior is
   already unreachable.
 
 ## Export, caches, determinism

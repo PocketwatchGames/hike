@@ -6,6 +6,9 @@ using Godot;
 // rather than granting a language / recipe / spell. Dedup is the flag itself:
 // Teach reports a new grant only the first time it flips the flag, so re-reading
 // an already-learned scroll is a silent no-op and can't double-count.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class ScriptFlagTeachable : TeachableConcept
 {

@@ -10,6 +10,9 @@ using Godot.Collections;
 // action skips completion. Authoring "the chest opens after a 3s pick" is
 // therefore: durationSeconds=3, interactEvents=picking-anim/sfx,
 // completionEvents=[OpenInteractive, chest-creak-sfx].
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class InteractiveAction : Resource
 {

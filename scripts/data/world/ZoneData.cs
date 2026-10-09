@@ -94,4 +94,12 @@ public partial class ZoneData : Resource
     // worldgen-only ZoneGenData. See FairySpawner.
     [Export] public bool canSpawnFairy = false;
     [Export(PropertyHint.Range, "0,1,0.01")] public float fairySpawnChance = 1f;
+
+    // What turns up in this zone: rolled from the chunk's zone the moment a
+    // breakable that fills with zone loot breaks (Destructible._fillWithZoneLoot)
+    // or a creature that carries it dies (MobData.carriesZoneLoot), on top of
+    // their own drops. Retuning it needs no rebake. Each row rolls its own
+    // chance. Breakables and mobs both come back, so nothing here should be a
+    // one-off — that belongs in a chest.
+    [Export] public ItemCountRange[] zoneLoot = System.Array.Empty<ItemCountRange>();
 }

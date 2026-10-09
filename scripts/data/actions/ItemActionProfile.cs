@@ -5,6 +5,9 @@ using Godot.Collections;
 // a weapon, consumable, or interactive. The runner consumes a profile +
 // context and runs the timeline; the input/AI/UI layer chooses *which*
 // profile to run.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class ItemActionProfile : Resource
 {

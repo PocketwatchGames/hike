@@ -99,7 +99,7 @@ public static class SpawnCheck
     // An initialBehavior is a free-typed node name. The mob falls back to its
     // brain's idle at spawn, so a bad one is silent until the first behavior
     // completes, and then errors on every completion for the mob's lifetime.
-    // Checked against every species the entry may be set to, and a node the
+    // Checked against the entry's species, and a node the
     // species' abilities prune counts as missing, as it does at runtime.
     private static void CheckInitialBehavior(StringBuilder sb, string indent, MobSpawnEntry entry, StringName behavior)
     {
@@ -111,10 +111,6 @@ public static class SpawnCheck
         if (entry.species != null)
         {
             species.Add(entry.species);
-        }
-        if (entry.variants != null)
-        {
-            species.AddRange(entry.variants);
         }
         foreach (SpeciesData s in species)
         {

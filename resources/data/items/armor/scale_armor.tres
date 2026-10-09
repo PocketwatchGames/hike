@@ -19,5 +19,5 @@ modifiers = Array[ExtResource("modifier_1")]([SubResource("m_pen")])
 outfit = &"hunter"
 displayName = &"Scale Armor"
 description = "Overlapping metal scales spread the force of a blow — heavier than mail, and it shows in the stride."
-value = 90
+value = 60
 inventorySprite = ExtResource("1_sprite")

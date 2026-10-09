@@ -20,5 +20,5 @@ modifiers = Array[ExtResource("modifier_1")]([SubResource("m_noise")])
 outfit = &"mage"
 displayName = &"Cloth Armor"
 description = "Little more than layered robes — light and quiet, but it stops nothing."
-value = 10
+value = 60
 inventorySprite = ExtResource("1_sprite")

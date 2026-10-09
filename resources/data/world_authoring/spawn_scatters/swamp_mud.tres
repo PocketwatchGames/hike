@@ -1,16 +1,21 @@
 [gd_resource type="Resource" script_class="SpawnScatterData" format=3 uid="uid://dxoj817462sxc"]
 
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/sparrow_swamp.tres" id="2_7q2k4"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/sparrow/sparrow_swamp.tres" id="2_7q2k4"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_black.tres" id="6_6cstx"]
 [ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="7_vc7vf"]
-[ext_resource type="Script" uid="uid://hl0oi1pwfpm94" path="res://scripts/data/worldmap/SpawnScatterData.cs" id="13_s5msw"]
-[ext_resource type="Resource" uid="uid://d1tr4270i64sw" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_swamp.tres" id="e_goblin_swamp"]
-[ext_resource type="Resource" uid="uid://dmn04bx0aoir2" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_swamp_elite.tres" id="e_goblin_swamp_elite"]
+[ext_resource type="Resource" uid="uid://dhmtll3iyo4ae" path="res://resources/data/world_authoring/spawn_entries/mobs/spider/spider_swamp_elite.tres" id="11_k2sgo"]
+[ext_resource type="Script" uid="uid://dqlswysnuirjd" path="res://scripts/data/worldmap/SpawnScatterData.cs" id="13_s5msw"]
+[ext_resource type="Resource" uid="uid://d1tr4270i64sw" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_swamp.tres" id="e_goblin_swamp"]
+[ext_resource type="Resource" uid="uid://dmn04bx0aoir2" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_swamp_elite.tres" id="e_goblin_swamp_elite"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_purple.tres" id="e_mushroom_purple"]
-[ext_resource type="Script" uid="uid://ddj71cgyukalc" path="res://scripts/data/items/ItemChance.cs" id="key_chance"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="key_chance"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="key_desc"]
-[ext_resource type="Resource" uid="uid://tg5k8mt8nadpa" path="res://resources/data/items/keys/key.tres" id="key_item"]
+[ext_resource type="Resource" uid="uid://d0i3ve58egun7" path="res://resources/data/items/keys/key.tres" id="key_item"]
 [ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/bone_pile_1.tres" id="e_bone_pile_1"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/bone_pile_2.tres" id="e_bone_pile_2"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/stump_1.tres" id="e_stump_1"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/stump_2.tres" id="e_stump_2"]
 
 [sub_resource type="Resource" id="Resource_m5nrt"]
 script = ExtResource("listrow")
@@ -33,8 +38,8 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [sub_resource type="Resource" id="Chance_carried_key"]
 script = ExtResource("key_chance")
-descriptor = SubResource("Desc_carried_key")
 chance = 0.1
+item = SubResource("Desc_carried_key")
 metadata/_custom_type_script = "uid://g7x3med8fq5c3"
 
 [sub_resource type="Resource" id="Row_goblin_swamp_elite"]
@@ -58,8 +63,47 @@ entry = ExtResource("6_6cstx")
 initialBehavior = null
 metadata/_custom_type_script = "uid://prsprptvme87"
 
+[sub_resource type="Resource" id="Resource_hya48"]
+script = ExtResource("key_desc")
+item = ExtResource("key_item")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_oaswv"]
+script = ExtResource("key_chance")
+chance = 0.1
+item = SubResource("Resource_hya48")
+metadata/_custom_type_script = "uid://ddj71cgyukalc"
+
+[sub_resource type="Resource" id="Resource_odjuy"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 1500.0
+entry = ExtResource("11_k2sgo")
+initialBehavior = &"Wander"
+carriedLoot = Array[ExtResource("key_chance")]([SubResource("Resource_oaswv")])
+metadata/_custom_type_script = "uid://prsprptvme87"
+
+[sub_resource type="Resource" id="Row_bone_pile_1"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 1500.0
+entry = ExtResource("e_bone_pile_1")
+
+[sub_resource type="Resource" id="Row_bone_pile_2"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 1500.0
+entry = ExtResource("e_bone_pile_2")
+
+[sub_resource type="Resource" id="Row_stump_1"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 800.0
+entry = ExtResource("e_stump_1")
+
+[sub_resource type="Resource" id="Row_stump_2"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 800.0
+entry = ExtResource("e_stump_2")
+
 [resource]
 script = ExtResource("13_s5msw")
 displayName = "Swamp Mud"
 mapColor = Color(0.45, 0.6, 0.35, 1)
-rows = Array[ExtResource("listrow")]([SubResource("Resource_m5nrt"), SubResource("Row_goblin_swamp"), SubResource("Row_goblin_swamp_elite"), SubResource("Row_mushroom_purple"), SubResource("Resource_4vc07")])
+rows = Array[ExtResource("listrow")]([SubResource("Resource_m5nrt"), SubResource("Row_goblin_swamp"), SubResource("Row_goblin_swamp_elite"), SubResource("Row_mushroom_purple"), SubResource("Resource_4vc07"), SubResource("Resource_odjuy"), SubResource("Row_bone_pile_1"), SubResource("Row_bone_pile_2"), SubResource("Row_stump_1"), SubResource("Row_stump_2")])

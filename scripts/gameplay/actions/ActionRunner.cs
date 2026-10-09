@@ -1009,10 +1009,10 @@ public class ActionRunner
 		}
 		if ((t & EItemEventType.Projectile) != 0)
 		{
-			// fireOnAttackMods: this is the primary weapon attack, so a ranged-slot
-			// boon's on-attack missiles fire off it (mod-spawned missiles re-enter
-			// DoProjectile with the flag false and so don't recurse).
-			ItemEventHandlers.DoProjectile(_actor, ev, ref _action, fireOnAttackMods: true);
+			// weaponShot: this is the weapon's own timeline shot — it is the
+			// recoverable ammo, and a ranged-slot boon's on-attack missiles fire off
+			// it. Mod-spawned missiles re-enter DoProjectile with the flag false.
+			ItemEventHandlers.DoProjectile(_actor, ev, ref _action, weaponShot: true);
 		}
 		if ((t & EItemEventType.SpawnAreaEffect) != 0)
 		{

@@ -55,6 +55,10 @@ public partial class MeshAutoCollider : Node3D
     // up rather than bumped into — stairs, ramps, boardwalks.
     [Export] public bool steppable;
 
+    // Off for a model that only wants the material swap — a breakable's rubble,
+    // which must block nothing. No collider is baked or built at runtime.
+    [Export] public bool collide = true;
+
     // Applied to every descendant MeshInstance3D, replacing the material the FBX
     // brings in through its import settings. Authored here rather than as a
     // surface_material_override in the .tscn because the meshes live INSIDE an
@@ -88,7 +92,7 @@ public partial class MeshAutoCollider : Node3D
     // there is no SceneTree and _Ready never fires. Idempotent.
     public void EnsureRuntimeColliders()
     {
-        if (HasBakedCollider())
+        if (!collide || HasBakedCollider())
         {
             return;
         }
@@ -126,7 +130,10 @@ public partial class MeshAutoCollider : Node3D
     private void Bake()
     {
         Recenter();
-        BakeCollision();
+        if (collide)
+        {
+            BakeCollision();
+        }
     }
 
     private void Recenter()

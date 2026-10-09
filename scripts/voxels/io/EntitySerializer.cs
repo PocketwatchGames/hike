@@ -100,6 +100,9 @@ public static class EntitySerializer
     // effects, boons and subclass state (pre-v12). Defaults true, so a reader
     // outside ReadList (the save game) always gets the current layout.
     [ThreadStatic] private static bool _noItemExtras;
+    // True while reading a subscene written when a torch still carried an
+    // AutoLightAtNight bool (pre-v19); the byte is consumed and discarded.
+    [ThreadStatic] private static bool _torchAutoLightByte;
 
     // How one ref-table slot stores its resource.
     private enum RefKind : byte
@@ -406,14 +409,16 @@ public static class EntitySerializer
         return ReadList(br);
     }
 
-    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true, bool hasScale = true, bool itemExtras = true, bool hasScriptFields = true, bool hasDiscovered = true)
+    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true, bool hasScale = true, bool itemExtras = true, bool hasScriptFields = true, bool hasDiscovered = true, bool torchAutoLightByte = false)
     {
         ReadPathTable outer = _readPaths;
         int outerRoofFormat = _roofFormat;
         bool outerLegacyRefs = _legacyPathRefs;
         bool outerNoItemExtras = _noItemExtras;
+        bool outerTorchAutoLightByte = _torchAutoLightByte;
         _legacyPathRefs = !tableRefs;
         _noItemExtras = !itemExtras;
+        _torchAutoLightByte = torchAutoLightByte;
         _readPaths = shared ?? ReadTable(r, tagged: tableRefs);
         _roofFormat = roofFormat;
         try
@@ -432,6 +437,7 @@ public static class EntitySerializer
             _roofFormat = outerRoofFormat;
             _legacyPathRefs = outerLegacyRefs;
             _noItemExtras = outerNoItemExtras;
+            _torchAutoLightByte = outerTorchAutoLightByte;
         }
     }
 
@@ -463,10 +469,7 @@ public static class EntitySerializer
                 WriteVec3(w, prop.WorldPosition);
                 WriteScene(w, prop.Scene);
                 w.Write((byte)prop.Type);
-                // Legacy "PickedUp" byte in the Tag.Prop payload. Tree and
-                // Foliage never pick up; write false to keep the wire shape
-                // unchanged so existing .hike files keep loading.
-                w.Write(false);
+                WriteBreak(w, prop.Break);
                 break;
 
             case LootSimState loot:
@@ -660,7 +663,6 @@ public static class EntitySerializer
                 WriteVec3(w, torch.WorldPosition);
                 WriteScene(w, torch.Scene);
                 w.Write(torch.Active);
-                w.Write(torch.AutoLightAtNight);
                 break;
 
             case ChestSimState chest:
@@ -745,6 +747,7 @@ public static class EntitySerializer
                 WriteScene(w, berry.Scene);
                 w.Write(berry.BerryCount);
                 w.Write(berry.RegrowAtClock);
+                WriteBreak(w, berry.Break);
                 break;
 
             case ClimbableTreeSimState climbTree:
@@ -866,6 +869,29 @@ public static class EntitySerializer
         }
     }
 
+    // A breakable's BreakState: one byte, false when standing (every prop ever
+    // written before props could break, whose byte here was an always-false
+    // legacy flag), then the restore deadlines only while broken.
+    private static void WriteBreak(BinaryWriter w, BreakState b)
+    {
+        w.Write(b.Broken);
+        if (b.Broken)
+        {
+            w.Write(b.RestsLeft);
+            w.Write(b.RestoreAtClock);
+        }
+    }
+
+    private static void ReadBreak(BinaryReader r, BreakState b)
+    {
+        b.Broken = r.ReadBoolean();
+        if (b.Broken)
+        {
+            b.RestsLeft = r.ReadInt32();
+            b.RestoreAtClock = r.ReadDouble();
+        }
+    }
+
     // Mirrors WriteOne: payload first, then the common trailing rotation. It has
     // to be assigned after the payload because the payload is what constructs
     // the state. A payload that returns null (an unknown tag) still consumes it,
@@ -903,7 +929,6 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 byte typeByte = r.ReadByte();
-                bool pickedUp = r.ReadBoolean();
                 // Legacy migration: pre-split PropSimState covered loot too.
                 // Old world files with the retired AutoLoot/Loot PropType
                 // bytes are upgraded to LootSimState on read; new code only
@@ -911,13 +936,16 @@ public static class EntitySerializer
                 // Loot's runtime pickup probe handles the null-Data path the
                 // same way it handled the legacy AutoLoot case (no item to
                 // deposit, just despawn).
+                // The byte that follows was its PickedUp flag.
                 if (typeByte == LegacyPropTypeAutoLoot || typeByte == LegacyPropTypeLoot)
                 {
                     var loot = new LootSimState(pos, data: null);
-                    loot.PickedUp = pickedUp;
+                    loot.PickedUp = r.ReadBoolean();
                     return loot;
                 }
-                return new PropSimState((PropType)typeByte, pos, scene);
+                var prop = new PropSimState((PropType)typeByte, pos, scene);
+                ReadBreak(r, prop.Break);
+                return prop;
             }
             case Tag.Loot:
             {
@@ -1111,10 +1139,12 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 bool active = r.ReadBoolean();
-                bool autoLightAtNight = r.ReadBoolean();
+                if (_torchAutoLightByte)
+                {
+                    r.ReadBoolean();
+                }
                 var torch = new TorchSimState(pos, scene);
                 torch.Active = active;
-                torch.AutoLightAtNight = autoLightAtNight;
                 return torch;
             }
             case Tag.Campfire:
@@ -1218,6 +1248,7 @@ public static class EntitySerializer
                 double berryRegrowAt = r.ReadDouble();
                 var berry = new BerryTreeSimState(pos, scene, berryCount);
                 berry.RegrowAtClock = berryRegrowAt;
+                ReadBreak(r, berry.Break);
                 return berry;
             }
             case Tag.ClimbableTree:

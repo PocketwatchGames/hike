@@ -30,5 +30,6 @@ displayName = &"Grilled Drake"
 description = "Rich, smoky meat with a fiery aftertaste."
 maxStack = 99
 spoilDays = 3
+value = 5
 inventorySprite = ExtResource("6_icon")
 typeTags = 5

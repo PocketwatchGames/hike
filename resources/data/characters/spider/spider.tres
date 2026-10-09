@@ -69,6 +69,7 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [resource]
 script = ExtResource("1_mobdata")
+carriesZoneLoot = true
 displayName = &"Spider"
 visionFovDegrees = 360.0
 dangerous = true

@@ -9,6 +9,9 @@ using Godot;
 // per-ingredient quality flags: a recipe whose ingredients all have
 // range=0 is the "exact" / high-quality variant; one with range>0 on
 // some ingredients is the "loose" / standard variant.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class RecipeInput : Resource
 {

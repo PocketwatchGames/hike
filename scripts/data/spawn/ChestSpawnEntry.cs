@@ -33,20 +33,8 @@ public partial class ChestSpawnEntry : SpawnEntryData
         // zone it spawned in (ZoneGenData.perChestLoot, threaded via
         // SpawnContext) — so a region's signature loot rides every chest without
         // forking the shared chest / spawn-group resources.
-        Resolve(contents, rng, chest.Contents);
-        Resolve(context?.ZonePerChestLoot, rng, chest.Contents);
+        ItemCountRange.ResolveAll(contents, rng, chest.Contents);
+        ItemCountRange.ResolveAll(context?.ZonePerChestLoot, rng, chest.Contents);
         ws.AddEntity(chest);
-    }
-
-    private static void Resolve(ItemCountRange[] ranges, Random rng, System.Collections.Generic.List<ItemState> into)
-    {
-        if (ranges == null)
-        {
-            return;
-        }
-        for (int i = 0; i < ranges.Length; i++)
-        {
-            ranges[i]?.Resolve(rng, into);
-        }
     }
 }

@@ -3,6 +3,28 @@
 [ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/world/ZoneData.cs" id="1_region"]
 [ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="2_weather"]
 [ext_resource type="Resource" path="res://resources/audio/sea_calm_ambience.tres" id="3_ambience"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="bl_range"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="bl_desc"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/ancient_bone.tres" id="bl_ancient_bone"]
+[ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="bl_oil_droplet"]
+
+[sub_resource type="Resource" id="BlDesc_oil_droplet"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_oil_droplet")
+
+[sub_resource type="Resource" id="BlLoot_oil_droplet"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_oil_droplet")
+chance = 0.1
+
+[sub_resource type="Resource" id="BlDesc_ancient_bone"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_ancient_bone")
+
+[sub_resource type="Resource" id="BlLoot_ancient_bone"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_ancient_bone")
+chance = 0.1
 
 [sub_resource type="Resource" id="Resource_weather"]
 script = ExtResource("2_weather")
@@ -17,6 +39,7 @@ metadata/_custom_type_script = "uid://d25sc6n2mi728"
 
 [resource]
 script = ExtResource("1_region")
+zoneLoot = [SubResource("BlLoot_ancient_bone"), SubResource("BlLoot_oil_droplet")]
 sunColor = Color(1, 0.98, 0.88, 1)
 moonColor = Color(0.55, 0.68, 0.8, 1)
 skyColor = Color(0.2, 0.55, 0.92, 1)

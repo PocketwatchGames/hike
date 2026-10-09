@@ -6,6 +6,9 @@ using Godot;
 // Routes through SimState.DiscoverSpecies so the appearsInBestiary
 // filter and the announcement bus pick it up the same way an in-world
 // sighting would.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class MobTeachable : TeachableConcept
 {

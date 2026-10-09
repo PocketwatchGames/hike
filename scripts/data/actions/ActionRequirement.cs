@@ -7,6 +7,9 @@ using Godot;
 //
 // Subclasses override Evaluate. Resource subclasses must be tagged
 // [GlobalClass] so they show up in the inspector picker.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class ActionRequirement : Resource
 {

@@ -26,3 +26,39 @@ A cascade's drop is **air** in the voxel grid and stays air (standing water ther
 **The shoreline surf is shared too** (`water_shore_foam`), and it has to be: the shoulder is drawn OVER the pool's last half-metre, so a band the pool paints and the sheet does not reads as a hole punched in the surf exactly at the lip. Each caller supplies only how its own water is running out — a pool measures that off its depth; the shoulder is water about to leave the ground and passes full shallowness. It lived in `voxel_water`, and that hole is what it cost.
 
 Size is one authored axis: `SimData.waterfalls` (a `WaterfallData`) holds four `WaterfallTierData` tiers picked by fall height, each carrying its own looping base ambience, lip/base spray `Fx` scenes, sheet thickness and foam. Spray emitters are **spaced** along the lip and landing lines rather than counted, so a one-column trickle gets one plume and a wide curtain mists along its whole width. A fall shorter than the first tier's `minFallHeight` draws nothing, and that threshold is the ONLY thing deciding how small a drop is worth drawing — the finder reports every lip it sees. The floor is 1 m (the `Rapids` tier): a one-voxel weir in a river is visible from the ground and reads as broken without a sheet, so "too small to be a waterfall" is not the same as "too small to draw".
+
+# Breakables (`Destructible.cs`, `BreakState.cs`)
+
+**A breakable scene is two branches: `Intact` (model, movement collider,
+HurtBox, any light) and `Rubble`.** `Destructible` names both, plus its HurtBox,
+and the root names the `Destructible` (`IBreakableEntity`). On spawn
+`Sim.RegisterEntity` binds it FIRST — before `OnSpawned` and before path blockers
+are rasterized — and the binding frees whichever branch the state doesn't show,
+so a broken crystal never lights its lamp and rubble blocks nothing unless its
+own branch carries a Solid collider. Rubble meshes that only want a material
+swap use `MeshAutoCollider` with `collide = false`.
+
+**Anything outside both branches survives the break.** The berry bush keeps its
+leaves and collider at the root and puts only its berries, HurtBox and pick
+prompt under `Intact`, with no `Rubble` at all — broken, it is a bare bush you
+still bump into. Moving a node under `Intact` moves its relative `NodePath`s one
+level deeper (`".."` becomes `"../.."`).
+
+**Breaking re-spawns the entity** (`Sim.RespawnEntity`, deferred out of the
+physics flush) instead of toggling it in place, so the moment of breaking and a
+later reload build exactly the same thing. `Destroyed` fires only at the real
+break, never on a spawn that is already broken — hang one-shot payloads on it
+(the berry bush's fruit, the exploding barrel's blast).
+
+**Restore deadlines are stored, the schedule is not.** `BreakState` keeps
+`RestsLeft` (counted down by `Sim.ResetSpawns`) and `RestoreAtClock`; the
+authored `ERestoreSchedule` is resolved into them at the break, so an unloaded
+breakable restores without its scene ever loading, and the enum never reaches a
+wire format. A clock deadline is applied when the entity next materializes —
+rubble the player is looking at stays rubble until its chunk reloads.
+`Never` with no rubble authored removes the entity outright (`Sim.DestroyEntity`).
+
+**Wire format:** a prop's break flag is the byte that used to be its
+always-false legacy `PickedUp` flag, so every older stamped scene reads as
+standing; the restore deadlines follow only while broken.
+

@@ -4,6 +4,9 @@ using Godot.Collections;
 // A recipe: the ingredients, and the station that accepts them. Embedded on the
 // consumable it cooks (ConsumableData.recipe, matched by Cooking.TryMatch).
 // Knowing it is keyed by that consumable (SimState.IsRecipeDiscovered).
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class RecipeData : Resource
 {

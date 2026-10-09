@@ -25,13 +25,11 @@ using Godot;
 //     reference, and a preset is a brush that is never written down — so the
 //     list is just what is on disk in name order, with no ledger at all.
 //
-// Directories are scanned NON-RECURSIVELY, and that is load-bearing rather than
-// incidental: `spawn_entries/mobs/` holds the composite entry an author places
-// (goblin.tres, which offers all thirteen goblins as variants) while
-// `spawn_entries/mobs/variants/` holds the leaves the generator's spawn lists
-// name. Both are MobSpawnEntry, so nothing but the directory can tell them
-// apart — which makes "which folder is it in" the authoring decision, visible
-// in the file browser instead of buried in an array.
+// Directories are scanned non-recursively unless a root says otherwise. The
+// entity palette's root is recursive, and there the FOLDER is the section: a
+// file directly in spawn_entries/ is an "Interactive", one in
+// spawn_entries/mobs/goblin/ files under "Mobs/Goblin". Every file is one row,
+// so where it sits is the whole of how it is grouped.
 
 // One directory a palette is made of, and what a tool that GROUPS its palette
 // should file that directory's contents under.
@@ -39,17 +37,19 @@ using Godot;
 // The section rides here rather than on the entries because it is already the
 // authoring decision the directory makes — `spawn_entries/mobs/` holds mobs by
 // definition — so an `[Export] category` on every entry would be the same fact
-// typed a second time, in a place it can disagree from. A tool with room for
-// one flat list (the painter's option row) ignores it.
+// typed a second time, in a place it can disagree from.
 public readonly struct PaletteRoot
 {
     public readonly string Path;
     public readonly string Section;
+    // Also take subdirectories, each a nested section named after its folders.
+    public readonly bool Recursive;
 
-    public PaletteRoot(string path, string section)
+    public PaletteRoot(string path, string section, bool recursive = false)
     {
         Path = path;
         Section = section;
+        Recursive = recursive;
     }
 }
 
@@ -66,7 +66,7 @@ public sealed class AuthoringPaletteSource
     // every MobSpawnEntry, ChestSpawnEntry and TorchSpawnEntry there is.
     public Type Type;
 
-    // Directories scanned, non-recursively. Null for a catalog-backed palette.
+    // Directories scanned. Null for a catalog-backed palette.
     public PaletteRoot[] Roots;
 
     // Catalog-backed palettes filter the game's block list rather than a
@@ -144,18 +144,15 @@ public sealed class AuthoringPaletteSource
         // FREE: EntityPlacement holds its entry by reference, so this list may
         // be reordered by a rename with no consequence at all.
         //
-        // One row per FAMILY — a buried spot, a knowledge stone, a chest — with
-        // what this one holds picked on the placement. The top of
-        // worlds/shared/spawn_entries/ is deliberately not a root: every file
-        // there is a complete stone or treasure the generator names, and a
+        // One row per FILE, filed by its folder (see PaletteRoot.Recursive). The
+        // top of worlds/shared/spawn_entries/ is deliberately not a root: every
+        // file there is a complete stone or treasure the generator names, and a
         // proper noun (a language, a song verse) belongs on a placement, not on
         // a palette row.
         new(Entities, "Entities", typeof(SpawnEntryData), indexed: false,
             roots: new[]
             {
-                new PaletteRoot(AUTHORING + "spawn_entries/", "Interactives"),
-                new PaletteRoot(AUTHORING + "spawn_entries/mobs/", "Mobs"),
-                new PaletteRoot(AUTHORING + "spawn_entries/props/", "Props"),
+                new PaletteRoot(AUTHORING + "spawn_entries/", "Interactives", recursive: true),
                 new PaletteRoot(SHARED + "spawn_entries/npcs/", "NPCs"),
             }),
 
@@ -196,16 +193,29 @@ public sealed class AuthoringPaletteSource
             return found.ToArray();
         }
         var paths = new string[Roots?.Length ?? 0];
+        var recursive = new bool[paths.Length];
         for (int i = 0; i < paths.Length; i++)
         {
             paths[i] = Roots[i].Path;
+            recursive[i] = Roots[i].Recursive;
         }
-        return ResourceTypeIndex.In(Type, paths);
+        string[] discovered = ResourceTypeIndex.In(Type, paths, recursive);
+        // Section order, then name, so stepping through the list (Q/E) walks it
+        // in the order a grouped view shows it.
+        Array.Sort(discovered, (a, b) =>
+        {
+            int bySection = string.CompareOrdinal(SectionFor(a), SectionFor(b));
+            return bySection != 0 ? bySection : string.CompareOrdinal(a, b);
+        });
+        return discovered;
     }
 
     // Which section a discovered path belongs to — the label on the root it was
     // found in, or "" for a catalog-backed palette. A tool that groups its
     // palette asks this; one that shows a flat list never does.
+    //
+    // Below a recursive root the section is the folder path, each folder
+    // capitalized: spawn_entries/props/furniture/ is "Props/Furniture".
     public string SectionFor(string path)
     {
         string dir = path.GetBaseDir() + "/";
@@ -214,6 +224,18 @@ public sealed class AuthoringPaletteSource
             if (root.Path == dir)
             {
                 return root.Section;
+            }
+        }
+        foreach (PaletteRoot root in Roots ?? Array.Empty<PaletteRoot>())
+        {
+            if (root.Recursive && dir.StartsWith(root.Path, StringComparison.Ordinal))
+            {
+                string[] folders = dir.Substring(root.Path.Length).TrimEnd('/').Split('/');
+                for (int i = 0; i < folders.Length; i++)
+                {
+                    folders[i] = folders[i].Capitalize();
+                }
+                return string.Join("/", folders);
             }
         }
         return "";

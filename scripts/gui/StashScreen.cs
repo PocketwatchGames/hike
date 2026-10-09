@@ -8,12 +8,12 @@ using Godot;
 //        anything else swaps. An equip slot takes only its own kind of gear.
 //        Hold on a stack to pick up only some of it.
 //   X  — equip / unequip; from the stash, equip gear or put a belt item on the belt.
-//   Y  — use, on the member's own items only.
+//   Y  — use, from the stash or the member's own items alike.
 //   LT — send the stack under the cursor to the other side, where it fits —
 //        from the stash, the backpack first.
 //        Hold on a stack to send only some of it.
-//   RT — hold to drop the stack under the cursor at the member's feet; on a
-//        stack, the hold asks how many.
+//   RT — drop the stack under the cursor at the member's feet.
+//        Hold on a stack to drop only some of it.
 //   B  — put the pick-up back; with nothing picked up, CampScreen backs out.
 // Every move goes through ItemTransfer, so the stash screen holds no move rules.
 [GlobalClass]
@@ -124,6 +124,12 @@ public partial class StashScreen : Control
 		{
 			_player.Inventory.onChanged += Refresh;
 		}
+		// A potion drunk from the stash spends partway through its timeline,
+		// after the press that started it.
+		if (_stash != null)
+		{
+			_stash.onChanged += Refresh;
+		}
 		ClearPick();
 		ResetHolds();
 		Visible = true;
@@ -140,6 +146,10 @@ public partial class StashScreen : Control
 		if (_player?.Inventory != null)
 		{
 			_player.Inventory.onChanged -= Refresh;
+		}
+		if (_stash != null)
+		{
+			_stash.onChanged -= Refresh;
 		}
 		_countPanel?.Dismiss();
 		_stashPanel?.ClearVisuals();
@@ -337,17 +347,16 @@ public partial class StashScreen : Control
 			return;
 		}
 
-		// Drop is hold-only: a tap must never throw anything away.
-		if (_drop.Tick(item != null, dt, _holdSeconds, _hintDrop) != PolledHold.EResult.Hold)
-		{
-			return;
-		}
-		if (item.stackCount <= 1)
+		PolledHold.EResult drop = _drop.Tick(item != null, dt, _holdSeconds, _hintDrop);
+		if (drop == PolledHold.EResult.Tap || (drop == PolledHold.EResult.Hold && item.stackCount <= 1))
 		{
 			Drop(slot, item.stackCount);
 			return;
 		}
-		_countPanel?.Open(item.stackCount, count => Drop(slot, count), prompt: Loc.Get(Loc.Keys.item_drop_how_many));
+		if (drop == PolledHold.EResult.Hold)
+		{
+			_countPanel?.Open(item.stackCount, count => Drop(slot, count), prompt: Loc.Get(Loc.Keys.item_drop_how_many));
+		}
 	}
 
 	void Send(Slot slot, int count)
@@ -413,7 +422,7 @@ public partial class StashScreen : Control
 		}
 		else if (e.IsActionPressed(UseAction) && UseVerb() != null)
 		{
-			InventoryScreen.Use(_player, ItemAt(_focused));
+			Use(_focused);
 			GetViewport().SetInputAsHandled();
 		}
 	}
@@ -495,9 +504,6 @@ public partial class StashScreen : Control
 		ShowHint(_hintDrop, DropAction, focused != null ? Loc.Get(Loc.Keys.stash_drop) : null);
 	}
 
-	// Use acts only on the member's own items, and not while something is
-	// picked up.
-	bool OnMemberItem => _picked.IsNone && !_focused.IsNone && _focused.side != ESide.Stash;
 
 	// From the stash, Equip brings the item straight to where it is used: gear
 	// into its equip slot, a belt item onto the belt.
@@ -540,7 +546,16 @@ public partial class StashScreen : Control
 		Refresh();
 	}
 
-	string UseVerb() => OnMemberItem ? InventoryScreen.UseVerb(_player, ItemAt(_focused)) : null;
+	string UseVerb()
+	{
+		return _picked.IsNone && !_focused.IsNone ? InventoryScreen.UseVerb(_player, ItemAt(_focused)) : null;
+	}
+
+	void Use(Slot slot)
+	{
+		InventoryScreen.Use(_player, ItemAt(slot), slot.side == ESide.Stash ? _stash : null);
+		Refresh();
+	}
 
 	// A null label hides the hint.
 	static void ShowHint(ButtonHint hint, string action, string label)

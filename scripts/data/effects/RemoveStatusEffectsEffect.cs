@@ -5,6 +5,9 @@ using Godot;
 // cure-poison potion sets tagMask = Poisoned so every effect of that family
 // (status_poison, status_food_poisoning) is cleared in a single sip. Matching buildup meters are also zeroed so a
 // partially-charged effect doesn't immediately re-apply after the cure.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class RemoveStatusEffectsEffect : ItemEffect
 {

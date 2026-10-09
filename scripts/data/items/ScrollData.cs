@@ -1,7 +1,9 @@
 using Godot;
 
 // A found scroll, read the moment it is picked up (IApplyOnPickup) rather than
-// carried. Reading grants a single TeachableConcept. Authoring is one line in
+// carried. One that reaches the bag another way (bought, out of the stash) is
+// read from the inventory or hotbar instead (IInstantUseItem). Reading grants a
+// single TeachableConcept. Authoring is one line in
 // the .tres: assign `concept` and the scroll's display name is derived from it
 // (TeachableConcept.ScrollTitle: "Scroll of <region name>", "Scroll of
 // <language>", or a treasure map's own name). Its knowledge-stone sibling
@@ -10,8 +12,11 @@ using Godot;
 // Read-side: SimState.GetItemDisplayName routes through here so the info panel
 // and cook-discovery announcement stay in sync with the (post-identification)
 // concept-derived name.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
-public partial class ScrollData : ItemData, IApplyOnPickup
+public partial class ScrollData : ItemData, IApplyOnPickup, IInstantUseItem
 {
 	[Export] public TeachableConcept concept;
 
@@ -24,12 +29,18 @@ public partial class ScrollData : ItemData, IApplyOnPickup
 
 	public bool Magnetized => false;
 
-	public bool ApplyOnPickup(Player player)
+	public bool ApplyOnPickup(Player player) => Read(player);
+
+	public bool CanUseInstantly => true;
+
+	public bool UseOn(Player player) => Read(player);
+
+	// Always spends the scroll, re-reads included: a misauthored one with no
+	// concept must not become an un-pickable blocker in the world.
+	bool Read(Player player)
 	{
 		if (player == null || concept == null)
 		{
-			// No concept to grant: still spend the scroll so a misauthored one
-			// doesn't become an un-pickable blocker in the world.
 			return true;
 		}
 		// Teach returns true only on a new grant, so the fx gates on first learn.

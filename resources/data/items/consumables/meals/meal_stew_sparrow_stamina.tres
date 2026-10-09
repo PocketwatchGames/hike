@@ -35,5 +35,6 @@ displayName = &"Energizing Sparrow Stew"
 description = "Sparrow meat and green mushrooms. Fills you up and quickens the step."
 maxStack = 99
 spoilDays = 3
+value = 5
 inventorySprite = ExtResource("6_icon")
 typeTags = 5

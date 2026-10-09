@@ -31,5 +31,5 @@ modifiers = Array[ExtResource("modifier_1")]([SubResource("m_pen"), SubResource(
 outfit = &"knight"
 displayName = &"Plate Armor"
 description = "A full harness of shaped steel — the best protection coin can buy, if you can bear the weight."
-value = 150
+value = 60
 inventorySprite = ExtResource("1_sprite")

@@ -26,5 +26,5 @@ modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource
 outfit = &"fighter"
 displayName = &"Leather Armor"
 description = "Protects against nicks and scratches."
-value = 25
+value = 60
 inventorySprite = ExtResource("1_kkvw5")

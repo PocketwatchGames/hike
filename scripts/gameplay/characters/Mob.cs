@@ -5321,6 +5321,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _world.EjectLoot(rolled, origin);
         }
         _world.EjectLoot(_simState?.Loot, origin);
+        if (_simState?.Species?.mob?.carriesZoneLoot == true)
+        {
+            ItemCountRange[] zoneLoot = _world.WorldState?.ZoneDataAt(GlobalPosition)?.zoneLoot;
+            if (zoneLoot != null && zoneLoot.Length > 0)
+            {
+                var carried = new List<ItemState>();
+                ItemCountRange.ResolveAll(zoneLoot, System.Random.Shared, carried);
+                _world.EjectLoot(carried, origin);
+            }
+        }
         // Elites drop the shared crown trophy on top of their species loot —
         // the same halo (SimData.EliteCrownScene) that marked them alive, now a
         // collectible. Authored once on SimData so it's species-agnostic, and

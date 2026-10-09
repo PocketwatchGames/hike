@@ -5,6 +5,9 @@ using Godot;
 // starting health potion reads as itself, not "Unknown Potion"), and as
 // the concept payload on identification scrolls / NPC rewards that just
 // tell the player what something is without granting it.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class ItemTeachable : TeachableConcept
 {

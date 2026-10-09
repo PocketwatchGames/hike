@@ -116,7 +116,7 @@ dotnet_style_namespace_match_folder = true:suggestion
 # Baseline at time of writing (files, not occurrences):
 #   HK001: 6
 #   HK002: 26
-#   HK003: 1
+#   HK003: 0
 #   HK004: 1
 #   HK005: 4
 #   HK006: 5
@@ -124,12 +124,9 @@ dotnet_style_namespace_match_folder = true:suggestion
 #   HK008: 44
 #   HK009: 0
 #
-# HK003 is the expensive one and the only one that loses authored data. The 1
-# baselined file is the same 5 sites `resource_check` reports. Closing them
-# means tagging ItemEffect / ItemData / TeachableConcept / AreaIntervalSpec /
-# MobDescriptor [Tool], and the rule cascades through
-# their exports and subclasses: measured at ~169 classes. That sweep is a task
-# of its own - a half-applied one leaves the bug in place.
+# HK003 is the only rule that loses authored data. Its baseline is closed: the
+# ItemData / ItemEffect / TeachableConcept closure went [Tool] with
+# ZoneData.breakableLoot. Keep it at zero.
 ##############################################################################
 
 [*.cs]
@@ -187,9 +184,6 @@ dotnet_diagnostic.HK002.severity = warning
 
 [scripts/client/SkyController.cs]
 dotnet_diagnostic.HK001.severity = warning
-
-[scripts/data/actions/ItemEvent.cs]
-dotnet_diagnostic.HK003.severity = warning
 
 [scripts/data/conversation/ConversationVisibility.cs]
 dotnet_diagnostic.HK008.severity = warning

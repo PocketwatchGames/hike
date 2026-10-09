@@ -693,7 +693,7 @@ public static class ItemEventHandlers
 	// fuse, whichever is first, so it can't pass through walls or bury itself.
 	// Used for delivery-style attacks (thrown explosive); pairs with an authored
 	// `impactEvent` that fires at the landing point.
-	public static void DoProjectile(IActionActor actor, ItemEvent ev, ref PlayerAction action, DamageData damageOverride = null, bool fireOnAttackMods = false)
+	public static void DoProjectile(IActionActor actor, ItemEvent ev, ref PlayerAction action, DamageData damageOverride = null, bool weaponShot = false)
 	{
 		if (ev.projectileScene == null)
 		{
@@ -720,12 +720,12 @@ public static class ItemEventHandlers
 		WeaponState firingWeapon = action.context.primaryItem as WeaponState;
 		DamageData damageData = damageOverride ?? firingWeapon?.data?.GetDamage(ev.damageProfileKey);
 		Rid? excludeBody = (attacker is CollisionObject3D body) ? body.GetRid() : null;
-		// Arrow-recovery binding is decided here at fire time: only populate
-		// arrowLootData if the firing tier flags useAmmo. A non-ammo tier on
-		// the same weapon (e.g. a melee-bash with a bow) leaves it null and
-		// the projectile skips the drop even though the weapon authors an
-		// arrowLootData reference.
-		ArrowLootData arrowLootData = (tier?.useAmmo == true) ? firingWeapon?.data?.arrowLootData : null;
+		// Arrow-recovery binding is decided here at fire time: only the weapon's
+		// own shot on a tier that flags useAmmo is an arrow. A non-ammo tier on
+		// the same weapon (a melee-bash with a bow) and a weapon-mod missile
+		// fired off an ammo tier (a boon's homing missiles) both leave it null,
+		// though they share the action and so the tier and weapon.
+		ArrowLootData arrowLootData = (weaponShot && tier?.useAmmo == true) ? firingWeapon?.data?.arrowLootData : null;
 		ProjectileImpact impact = new ProjectileImpact
 		{
 			miss = ev.impactMissEffect,
@@ -921,11 +921,11 @@ public static class ItemEventHandlers
 
 		// On-attack mods for a ranged-slot Fairy boon: a bow shot is a Projectile
 		// attack, so DoProjectile is where its body-mod missiles get a chance to
-		// fire. Gated by fireOnAttackMods, set only for the PRIMARY weapon attack
+		// fire. Gated by weaponShot, set only for the PRIMARY weapon attack
 		// (ActionRunner's timeline dispatch) — the mod-spawned missiles re-enter
 		// DoProjectile with the flag false, so they never spawn more missiles.
 		// connected is unknown at launch, so only OnSwing-triggered mods fire here.
-		if (fireOnAttackMods)
+		if (weaponShot)
 		{
 			FireWeaponModAttackProjectiles(actor, ref action, false);
 		}
@@ -1083,7 +1083,7 @@ public static class ItemEventHandlers
 	// body mods pass their own intrinsic damage since they may fire with no
 	// weapon profile to resolve against. Called at the tail of DoMelee / DoHitscan
 	// and (for the primary attack only) DoProjectile; the missiles it spawns
-	// re-enter DoProjectile with fireOnAttackMods=false, so there's no recursion.
+	// re-enter DoProjectile with weaponShot=false, so there's no recursion.
 	private static void FireWeaponModAttackProjectiles(IActionActor actor, ref PlayerAction action, bool connected)
 	{
 		EWeaponModAttackTrigger trigger = EWeaponModAttackTrigger.OnSwing;
@@ -1668,48 +1668,36 @@ public static class ItemEventHandlers
 
 	public static void DoDecrementStack(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
-		ConsumeOneFromStack(actor, action.context.primaryItem);
+		ConsumeOneFromStack(actor, action.context.primaryItem, action.context.source);
 	}
 
-	// Consume one unit of `item` from the using actor's stack: identify-on-first-
-	// use, decrement, and remove from inventory at zero. The canonical "actually
-	// consumed" hook. Split out of DoDecrementStack so the boon path — which must
+	// Consume one unit of `item` from `source`, the container the use took it
+	// from: identify-on-first-use, then the source spends it, clearing an emptied
+	// slot. A null source (an item no container holds, a mob's) just decrements.
+	// The canonical "actually consumed" hook. Split out of DoDecrementStack so the boon path — which must
 	// hold off consuming until the player commits to a pick — can call it from its
 	// own selection callback rather than via the synchronous DecrementStack event.
-	public static void ConsumeOneFromStack(IActionActor actor, ItemState item)
+	public static void ConsumeOneFromStack(IActionActor actor, ItemState item, IItemSource source)
 	{
 		if (item == null)
 		{
 			return;
 		}
-		Inventory inv = (actor as Player)?.Inventory;
-		// Reveal the item's real name on first successful use. Decrement is
-		// the canonical "actually consumed" hook — only consumables flow
-		// through here, and only ones whose timeline reached this event.
-		// Identification is shared across all stacks/recipes of the same
-		// ItemData; the read-side (SimState.GetItemDisplayName) picks it
-		// up immediately so the inventory row, recipe button, and cook
-		// announcement all reveal in lockstep.
-		if (actor is Player identifyingPlayer && identifyingPlayer.Sim?.WorldState?.SimState?.IdentifyItem(item.data) == true)
+		// Identification is shared across all stacks of the same ItemData and read
+		// through SimState.GetItemDisplayName, so the source's change pulse below
+		// repaints the revealed name along with the count.
+		if (actor is Player player)
 		{
-			inv?.NotifyChanged();
+			player.Sim?.WorldState?.SimState?.IdentifyItem(item.data);
 		}
-		item.Consume(1);
-		// We mutated the stack directly — Inventory has no other way to
-		// learn that an item changed under it. Fire its onChanged signal so
-		// any listening UI (e.g. the inventory screen's stack badge) can
-		// refresh without polling.
-		if (item.stackCount > 0)
+		if (source != null)
 		{
-			inv?.NotifyChanged();
-			return;
+			source.Spend(item, 1);
 		}
-		// Stack hit zero — remove from inventory. The Player's Inventory
-		// holds the canonical reference; route through it so equip/active-slot
-		// fields clear too (Remove fires onChanged itself). For non-Player
-		// actors (mobs), the item simply drops out of context with no further
-		// bookkeeping.
-		inv?.Remove(item);
+		else
+		{
+			item.Consume(1);
+		}
 	}
 
 	public static void DoExtinguish(IActionActor actor, ItemEvent ev, ref PlayerAction action)

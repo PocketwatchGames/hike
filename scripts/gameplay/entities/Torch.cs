@@ -100,18 +100,17 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
         var instance = data.Scene.Instantiate<Torch>();
         data.SeatTransform(instance);
         instance._interactiveState = data;
-        var baseWorldPos = new Vector3I(
-            Mathf.FloorToInt(data.WorldPosition.X),
-            Mathf.FloorToInt(data.WorldPosition.Y),
-            Mathf.FloorToInt(data.WorldPosition.Z)
-        );
-        instance._light.Initialize(sim.WorldState, sim, baseWorldPos);
         sim.AddChild(instance);
+        // Seeded at the light node, not the entity's feet — a lamp's flame is
+        // metres up its post.
+        Vector3 lightPos = instance._light.GlobalPosition;
+        var lightCell = new Vector3I(
+            Mathf.FloorToInt(lightPos.X),
+            Mathf.FloorToInt(lightPos.Y),
+            Mathf.FloorToInt(lightPos.Z)
+        );
+        instance._light.Initialize(sim.WorldState, sim, lightCell);
 
-        if (data.AutoLightAtNight)
-        {
-            data.Active = WorldState.IsNight(sim.WorldState.TimeOfDay01);
-        }
         instance._active = data.Active;
         instance.UpdateVisuals();
         // Snap to the spawned state — a streaming-in torch shouldn't fade up.

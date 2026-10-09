@@ -1,0 +1,108 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="2_porous"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="4_hurtbox"]
+[ext_resource type="Script" uid="uid://i33l7k1z81ng0" path="res://scripts/gameplay/entities/Destructible.cs" id="5_destructible"]
+[ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="8_autocoll"]
+[ext_resource type="PackedScene" uid="uid://iscy8cug1x4i" path="res://assets/models/bones/bone.fbx" id="b_bone"]
+[ext_resource type="PackedScene" uid="uid://c7auqcm2rag81" path="res://assets/models/bones/bone_broken.fbx" id="b_bone_broken"]
+[ext_resource type="PackedScene" uid="uid://dgl8rw0iuixv" path="res://assets/models/bones/bone_rib_cage.fbx" id="b_bone_rib_cage"]
+[ext_resource type="PackedScene" uid="uid://cbbd4d54u1kb7" path="res://assets/models/bones/skull_cheap.fbx" id="b_skull_cheap"]
+[ext_resource type="Material" path="res://assets/models/bones/bone_lit.tres" id="9_bone_mat"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="dr_range"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="dr_desc"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/ancient_bone.tres" id="dr_ancient_bone"]
+[ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="dr_oil_droplet"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_hurt"]
+size = Vector3(1.1000, 0.6064, 1.1000)
+
+[sub_resource type="Resource" id="DropDesc_ancient_bone"]
+script = ExtResource("dr_desc")
+item = ExtResource("dr_ancient_bone")
+
+[sub_resource type="Resource" id="Drop_ancient_bone"]
+script = ExtResource("dr_range")
+item = SubResource("DropDesc_ancient_bone")
+countRange = 1
+
+[sub_resource type="Resource" id="DropDesc_oil_droplet"]
+script = ExtResource("dr_desc")
+item = ExtResource("dr_oil_droplet")
+
+[sub_resource type="Resource" id="Drop_oil_droplet"]
+script = ExtResource("dr_range")
+item = SubResource("DropDesc_oil_droplet")
+countRange = 1
+chance = 0.25
+
+[node name="PropInstance" type="Node3D" node_paths=PackedStringArray("_destructible")]
+script = ExtResource("1_prop")
+_destructible = NodePath("Destructible")
+
+[node name="Intact" type="Node3D" parent="."]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0)
+
+[node name="Model" type="Node3D" parent="Intact"]
+script = ExtResource("8_autocoll")
+collide = false
+materialOverride = ExtResource("9_bone_mat")
+
+[node name="RibCage" parent="Intact/Model" instance=ExtResource("b_bone_rib_cage")]
+transform = Transform3D(1.7196, 0.0000, 0.5319, 0.0000, 1.8000, 0.0000, -0.5319, 0.0000, 1.7196, -1.2687, 0.2258, 0.6087)
+
+[node name="Skull" parent="Intact/Model" instance=ExtResource("b_skull_cheap")]
+transform = Transform3D(1.4856, 0.0000, -1.0164, 0.0000, 1.8000, 0.0000, 1.0164, 0.0000, 1.4856, 0.7196, 0.6072, 0.4213)
+
+[node name="Bone1" parent="Intact/Model" instance=ExtResource("b_bone")]
+transform = Transform3D(0.0000, -1.6579, 0.7010, 1.8000, 0.0000, 0.0000, -0.0000, 0.7010, 1.6579, -0.3109, -0.6940, 0.3663)
+
+[node name="Bone2" parent="Intact/Model" instance=ExtResource("b_bone")]
+transform = Transform3D(-0.0000, 0.5819, 1.7033, 1.8000, 0.0000, 0.0000, -0.0000, 1.7033, -0.5819, 0.1689, -0.6940, -0.4543)
+
+[node name="Bone3" parent="Intact/Model" instance=ExtResource("b_bone_broken")]
+transform = Transform3D(0.0000, -0.9725, -1.5146, 1.8000, 0.0000, 0.0000, 0.0000, -1.5146, 0.9725, -0.4994, -0.9167, -0.2637)
+
+
+[node name="HurtBox" type="Area3D" parent="Intact"]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("4_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Intact/HurtBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3032, 0)
+shape = SubResource("BoxShape3D_hurt")
+
+[node name="Rubble" type="Node3D" parent="."]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0)
+visible = false
+
+[node name="Model" type="Node3D" parent="Rubble"]
+script = ExtResource("8_autocoll")
+collide = false
+materialOverride = ExtResource("9_bone_mat")
+
+[node name="Bone1" parent="Rubble/Model" instance=ExtResource("b_bone_broken")]
+transform = Transform3D(0.0000, -1.0033, 1.0330, 1.4400, 0.0000, 0.0000, -0.0000, 1.0330, 1.0033, -0.2926, -0.7333, 0.2799)
+
+[node name="Bone2" parent="Rubble/Model" instance=ExtResource("b_bone_broken")]
+transform = Transform3D(-0.0000, 1.0797, 0.6495, 1.2600, 0.0000, 0.0000, -0.0000, 0.6495, -1.0797, 0.4166, -0.6417, -0.3222)
+
+[node name="Bone3" parent="Rubble/Model" instance=ExtResource("b_bone_broken")]
+transform = Transform3D(0.0000, -1.0318, -0.3192, 1.0800, 0.0000, 0.0000, 0.0000, -0.3192, 1.0318, -0.2009, -0.5500, -0.3478)
+
+[node name="Bone4" parent="Rubble/Model" instance=ExtResource("b_bone_broken")]
+transform = Transform3D(0.0000, -0.0955, 1.3466, 1.3500, 0.0000, 0.0000, -0.0000, 1.3466, 0.0955, 0.3036, -0.6875, 0.3528)
+
+[node name="Bone5" parent="Rubble/Model" instance=ExtResource("b_bone_broken")]
+transform = Transform3D(-0.0000, 0.3201, -0.9368, 0.9900, 0.0000, 0.0000, 0.0000, -0.9368, -0.3201, -0.0281, -0.5042, -0.0475)
+
+[node name="Destructible" type="Node3D" parent="." node_paths=PackedStringArray("_hurtBox", "_intact", "_rubble")]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0.375, 0)
+script = ExtResource("5_destructible")
+_drops = [SubResource("Drop_ancient_bone"), SubResource("Drop_oil_droplet")]
+_hurtBox = NodePath("../Intact/HurtBox")
+_fillWithZoneLoot = true
+_intact = NodePath("../Intact")
+_rubble = NodePath("../Rubble")

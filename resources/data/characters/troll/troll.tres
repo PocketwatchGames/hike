@@ -82,6 +82,7 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [resource]
 script = ExtResource("1_vvowg")
+carriesZoneLoot = true
 displayName = &"Troll"
 visionDotPower = 2.0
 smellStrength = 0.15

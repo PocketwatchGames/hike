@@ -387,7 +387,7 @@ public partial class WorldMapPainter : Node3D
         canvas.CursorRadiusTexels = ActiveTool.Radius;
         hud.SetActiveTool(index);
         hud.BuildOptionButtons(ActiveTool.Options(_ctx), ActiveTool.OptionColors(_ink),
-            ActiveTool.NumberKeys, SelectOption);
+            ActiveTool.NumberKeys, SelectOption, ActiveTool.OptionSections(_ctx));
         hud.SetActiveOption(ActiveTool.OptionIndex);
         _markedSelection = ActiveTool.SelectedEntity;
         _markedEntry = ActiveTool.SelectedEntry(_ctx);
@@ -841,8 +841,10 @@ public partial class WorldMapPainter : Node3D
         // Clicking the map means you are done typing — but the canvas takes no
         // focus, so the property panel would never hear about it and the typed
         // value would sit uncommitted until the row was destroyed. Ahead of the
-        // stroke's own edit, so a text change is its own undo step.
+        // stroke's own edit, so a text change is its own undo step. The option
+        // filter gives the keys back for the same reason.
         hud.entityInspector?.FlushPendingEdit();
+        hud.ReleaseOptionFilter();
         // alt+RMB aims the CUTAWAY at the floor under it, with headroom to stand
         // in — the one gesture that moves the plane without hunting for T/G.
         // Only where a cutaway is on screen: elsewhere it would silently consume

@@ -2601,7 +2601,7 @@ public class WorldMapState
     //     column the prop embeds into it, which is the honest answer for a
     //     barrier: a prop standing proud of the hill has a gap under it.
     //   - Never sink more than PropMaxEmbed. This is a visual bound only — the
-    //     nav blocker row comes from the voxels (PropSimState.StandingRow), not
+    //     nav blocker row comes from the voxels (EntitySimState.StandingRow), not
     //     from floor(Y), so a prop sunk into the top voxel still blocks the air
     //     cell above it.
     public float PropSeatY(int px, int pz)
@@ -2819,7 +2819,7 @@ public class WorldMapState
     // FairySpawner both pick from a reachability flood out of the player
     // (NavigationGoals.CollectReachableStandableCells), and a sealed interior is
     // unreachable once the props are in it — props block the nav grid through
-    // PropSimState.GetPathBlockerCells.
+    // EntitySimState.GetPathBlockerCells.
     public bool InBlockingRegion(int px, int pz)
         => PaintedPropIndex(BlockingProps, px, pz) >= 0;
 

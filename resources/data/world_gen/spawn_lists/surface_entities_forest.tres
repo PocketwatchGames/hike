@@ -3,15 +3,17 @@
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
 [ext_resource type="Resource" uid="uid://bptefqcxldi3l" path="res://resources/data/world_gen/spawn_groups/goblin_group_forest.tres" id="10_av785"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/berry_tree.tres" id="e_berry_tree"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/berry_bush_blue.tres" id="e_berry_bush_blue"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/berry_bush_yellow.tres" id="e_berry_bush_yellow"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/climbable_tree.tres" id="e_climbable_tree"]
-[ext_resource type="Resource" uid="uid://es8noshldion" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_forest.tres" id="e_goblin_forest"]
-[ext_resource type="Resource" uid="uid://buxj3mnoph6fj" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/goblin_forest_elite.tres" id="e_goblin_forest_elite"]
-[ext_resource type="Resource" uid="uid://o3ff37xu2itl" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/kun_kun_forest.tres" id="e_kun_kun_forest"]
+[ext_resource type="Resource" uid="uid://es8noshldion" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_forest.tres" id="e_goblin_forest"]
+[ext_resource type="Resource" uid="uid://buxj3mnoph6fj" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_forest_elite.tres" id="e_goblin_forest_elite"]
+[ext_resource type="Resource" uid="uid://o3ff37xu2itl" path="res://resources/data/world_authoring/spawn_entries/mobs/kun_kun/kun_kun_forest.tres" id="e_kun_kun_forest"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_green.tres" id="e_mushroom_green"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_red.tres" id="e_mushroom_red"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_white.tres" id="e_mushroom_white"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/sparrow_forest.tres" id="e_sparrow_forest"]
-[ext_resource type="Resource" uid="uid://bd06s81tpqdqu" path="res://resources/data/world_authoring/spawn_entries/mobs/variants/spider_forest.tres" id="e_spider_forest"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/sparrow/sparrow_forest.tres" id="e_sparrow_forest"]
+[ext_resource type="Resource" uid="uid://bd06s81tpqdqu" path="res://resources/data/world_authoring/spawn_entries/mobs/spider/spider_forest.tres" id="e_spider_forest"]
 [ext_resource type="Resource" uid="uid://e2ic4w0qeyl7" path="res://resources/data/world_authoring/spawn_entries/well.tres" id="e_well"]
 [ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 
@@ -60,6 +62,18 @@ squareMetersPerSpawn = 1000.0
 entry = ExtResource("10_av785")
 initialBehavior = null
 
+[sub_resource type="Resource" id="Row_berry_bush_blue"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 600.0
+entry = ExtResource("e_berry_bush_blue")
+initialBehavior = null
+
+[sub_resource type="Resource" id="Row_berry_bush_yellow"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 600.0
+entry = ExtResource("e_berry_bush_yellow")
+initialBehavior = null
+
 [sub_resource type="Resource" id="Row_berry_tree"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 300.0
@@ -94,4 +108,4 @@ initialBehaviorChance = 0.25
 
 [resource]
 script = ExtResource("1_list")
-rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_forest"), SubResource("Row_goblin_forest_elite"), SubResource("Row_kun_kun_forest"), SubResource("Row_mushroom_green"), SubResource("Row_mushroom_red"), SubResource("Row_mushroom_white"), SubResource("Row_goblin_group_forest"), SubResource("Row_berry_tree"), SubResource("Row_well"), SubResource("Row_sparrow_forest"), SubResource("Row_climbable_tree"), SubResource("Row_spider_forest")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_forest"), SubResource("Row_goblin_forest_elite"), SubResource("Row_kun_kun_forest"), SubResource("Row_mushroom_green"), SubResource("Row_mushroom_red"), SubResource("Row_mushroom_white"), SubResource("Row_goblin_group_forest"), SubResource("Row_berry_tree"), SubResource("Row_berry_bush_blue"), SubResource("Row_berry_bush_yellow"), SubResource("Row_well"), SubResource("Row_sparrow_forest"), SubResource("Row_climbable_tree"), SubResource("Row_spider_forest")])

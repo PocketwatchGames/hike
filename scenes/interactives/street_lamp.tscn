@@ -1,0 +1,131 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://fm8tun2kafj5" path="res://scripts/gameplay/entities/Torch.cs" id="1_torch"]
+[ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="2_light"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_interactivebox"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="4_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="5_event"]
+[ext_resource type="Texture2D" uid="uid://ghht8t77y7kx" path="res://assets/textures/interactions/light.png" id="6_light_icon"]
+[ext_resource type="Texture2D" uid="uid://bagjs7ylxtu6r" path="res://assets/textures/interactions/douse.png" id="7_douse_icon"]
+[ext_resource type="PackedScene" uid="uid://co37ekr23jxpo" path="res://scenes/fx/torch_light.tscn" id="8_lighton"]
+[ext_resource type="PackedScene" uid="uid://co37ed8hknxpo" path="res://scenes/fx/torch_extinguish.tscn" id="9_lightoff"]
+[ext_resource type="PackedScene" uid="uid://d25j0c66g5kyv" path="res://assets/models/street_lamp/SM_Env_Pillar_Round_Simple_01.fbx" id="10_post"]
+[ext_resource type="PackedScene" uid="uid://cnuxb20c86651" path="res://assets/models/street_lamp/SM_Prop_Lantern_01.fbx" id="11_lantern"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="12_modellit"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="13_meshhl"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="14_porous"]
+[ext_resource type="Script" uid="uid://x7gbvfcn55bl" path="res://scripts/gameplay/entities/ClipAnchor.cs" id="15_clipanchor"]
+
+[sub_resource type="Resource" id="Resource_lamp_event_toggle"]
+script = ExtResource("5_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_lamp_action_douse"]
+script = ExtResource("4_action")
+verb = 4
+displayName = &"Douse"
+icon = ExtResource("7_douse_icon")
+completionEvents = Array[ExtResource("5_event")]([SubResource("Resource_lamp_event_toggle")])
+
+[sub_resource type="Resource" id="Resource_lamp_action_light"]
+script = ExtResource("4_action")
+verb = 3
+displayName = &"Light"
+icon = ExtResource("6_light_icon")
+completionEvents = Array[ExtResource("5_event")]([SubResource("Resource_lamp_event_toggle")])
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(1.2, 2, 1.2)
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_post"]
+height = 3.3
+radius = 0.2
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_glow"]
+top_radius = 0.17
+bottom_radius = 0.15
+height = 0.48
+radial_segments = 6
+rings = 1
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_flame"]
+render_priority = 0
+shader = ExtResource("12_modellit")
+shader_parameter/form_strength = 0.0
+shader_parameter/color_tint = Color(1, 0.78, 0.42, 1)
+shader_parameter/emission_tint = Color(1.5, 0.8, 0.35, 1)
+shader_parameter/emission_strength = 3.0
+shader_parameter/specular_strength = 0.0
+shader_parameter/specular_color = Color(1, 1, 1, 1)
+shader_parameter/specular_shininess = 32.0
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.55
+
+[node name="StreetLamp" type="Node3D" node_paths=PackedStringArray("_flame", "_flameAnchor", "_light", "_hudNode")]
+script = ExtResource("1_torch")
+_flame = NodePath("Flame")
+_flameAnchor = NodePath("Flame")
+_light = NodePath("StationaryLight")
+_hudNode = NodePath("HUDNode")
+_litActions = Array[ExtResource("4_action")]([SubResource("Resource_lamp_action_douse")])
+_unlitActions = Array[ExtResource("4_action")]([SubResource("Resource_lamp_action_light")])
+_lightOnEffectScene = ExtResource("8_lighton")
+_lightOffEffectScene = ExtResource("9_lightoff")
+
+[node name="InteractiveBox" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_interactivebox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+shape = SubResource("BoxShape3D_interact")
+
+[node name="BlockCollider" type="StaticBody3D" parent="."]
+collision_layer = 2048
+script = ExtResource("14_porous")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.65, 0)
+shape = SubResource("CylinderShape3D_post")
+
+[node name="Model" type="Node3D" parent="."]
+
+[node name="Post" parent="Model" instance=ExtResource("10_post")]
+transform = Transform3D(0.26, 0, 0, 0, 0.5, 0, 0, 0, 0.26, 0, 0, 0)
+
+[node name="Lantern" parent="Model" instance=ExtResource("11_lantern")]
+transform = Transform3D(2.3, 0, 0, 0, 2.3, 0, 0, 0, 2.3, 0, 1.97, 0)
+
+[node name="Flame" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.6, 0)
+cast_shadow = 0
+mesh = SubResource("CylinderMesh_glow")
+surface_material_override/0 = SubResource("ShaderMaterial_flame")
+
+[node name="StationaryLight" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.6, 0)
+script = ExtResource("2_light")
+_distance = 10.0
+_falloff = 2.0
+_brightness = 0.8
+_flicker = true
+_flickerMin = 0.9
+_flickerHz = 6.0
+_fadeOutDuration = 0.2
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.6, 0)
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("13_meshhl")
+_collectFrom = NodePath("../Model")
+
+[node name="ClipAnchor" type="Node3D" parent="." node_paths=PackedStringArray("_anchor", "_meshRoots")]
+script = ExtResource("15_clipanchor")
+_anchor = NodePath("..")
+_meshRoots = [NodePath("../Model"), NodePath("../Flame")]

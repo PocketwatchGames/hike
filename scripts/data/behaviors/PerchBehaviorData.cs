@@ -3,6 +3,9 @@ using Godot;
 // Tuning for BehaviorPerch — the grounded/resting state of a flying mob. The
 // bird holds its perch (or stands) until a transition (e.g. aggro acquired)
 // pulls it into flight.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class PerchBehaviorData : BehaviorData
 {

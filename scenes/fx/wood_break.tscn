@@ -1,0 +1,93 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_shader"]
+[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="3_fade"]
+[ext_resource type="AudioStream" uid="uid://bku58vpngjtml" path="res://assets/audio/source/impact/sfx_wood_break.wav" id="4_shatter"]
+[ext_resource type="AudioStream" uid="uid://c4r5moesxhpl7" path="res://assets/audio/source/impact/sfx_wood_debris.wav" id="5_debris"]
+
+[sub_resource type="ParticleProcessMaterial" id="Proc_shards"]
+emission_shape = 1
+emission_sphere_radius = 0.3
+direction = Vector3(0, 1, 0)
+spread = 75.0
+initial_velocity_min = 2.0
+initial_velocity_max = 4.5
+angular_velocity_min = -360.0
+angular_velocity_max = 360.0
+gravity = Vector3(0, -12, 0)
+damping_min = 0.5
+damping_max = 1.5
+scale_min = 0.5
+scale_max = 1.4
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="Shader_shards"]
+render_priority = 0
+shader = ExtResource("2_shader")
+shader_parameter/albedo = Color(0.55, 0.38, 0.22, 1)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="Quad_shards"]
+material = SubResource("Shader_shards")
+size = Vector2(0.16, 0.05)
+
+[sub_resource type="ParticleProcessMaterial" id="Proc_dust"]
+emission_shape = 1
+emission_sphere_radius = 0.35
+direction = Vector3(0, 1, 0)
+spread = 180.0
+initial_velocity_min = 0.4
+initial_velocity_max = 1.4
+gravity = Vector3(0, -1, 0)
+damping_min = 1.5
+damping_max = 3.0
+scale_min = 0.5
+scale_max = 1.0
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="Shader_dust"]
+render_priority = 0
+shader = ExtResource("2_shader")
+shader_parameter/albedo = Color(0.62, 0.54, 0.42, 0.7)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="Quad_dust"]
+material = SubResource("Shader_dust")
+size = Vector2(0.04, 0.04)
+
+[node name="WoodBreak" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Shards" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 18
+lifetime = 0.9
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("Proc_shards")
+draw_pass_1 = SubResource("Quad_shards")
+
+[node name="Dust" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 24
+lifetime = 1.2
+one_shot = true
+explosiveness = 0.9
+randomness = 0.6
+process_material = SubResource("Proc_dust")
+draw_pass_1 = SubResource("Quad_dust")
+
+[node name="Shatter" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("4_shatter")
+unit_size = 6.0
+max_distance = 35.0
+bus = &"World3D"
+
+[node name="Debris" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("5_debris")
+unit_size = 4.0
+max_distance = 25.0
+volume_db = -4.0
+bus = &"World3D"

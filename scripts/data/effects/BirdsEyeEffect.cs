@@ -4,6 +4,9 @@ using Godot;
 // item. Mutation is delegated to Player.BeginBirdsEye — the effect just bridges
 // the action timeline to the player-side state. GameClient subscribes to
 // Player.onBirdsEye and drives the camera fly-up, motion blur, and return.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class BirdsEyeEffect : ItemEffect
 {

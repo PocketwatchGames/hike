@@ -3,6 +3,9 @@ using Godot;
 // Requires that the action's supportingItems include at least one ItemState
 // of the named ItemData with sufficient stack. Used for "lockpick a chest"
 // (reagent = lockpick) and "cook with these ingredients" (reagent = onion).
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class HasReagentRequirement : ActionRequirement
 {

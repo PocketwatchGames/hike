@@ -3,6 +3,9 @@ using Godot;
 // Tuning for BehaviorFairyEscape — the fairy's getaway. Once a fairy has fled
 // far enough from the player it shoots straight up `ascentHeight` metres over
 // `ascentSeconds` while fading out, then despawns for good.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class FairyEscapeBehaviorData : BehaviorData
 {

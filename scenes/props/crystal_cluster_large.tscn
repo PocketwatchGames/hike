@@ -9,29 +9,47 @@
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="7_light"]
 [ext_resource type="PackedScene" path="res://scenes/fx/crystal_shatter.tscn" id="8_shatter"]
 
+[ext_resource type="Material" path="res://assets/models/crystals/crystal_shards_lit.tres" id="9_shards"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="dr_range"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="dr_desc"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/crystal_shard.tres" id="dr_crystal_shard"]
 [sub_resource type="BoxShape3D" id="BoxShape3D_hurt"]
 size = Vector3(1.4, 1.6, 1.15)
 
-[node name="PropInstance" type="Node3D" node_paths=PackedStringArray("_light")]
-script = ExtResource("1_prop")
-_light = NodePath("StationaryLight")
+[sub_resource type="Resource" id="DropDesc_crystal_shard"]
+script = ExtResource("dr_desc")
+item = ExtResource("dr_crystal_shard")
 
-[node name="Model" type="Node3D" parent="."]
+[sub_resource type="Resource" id="Drop_crystal_shard"]
+script = ExtResource("dr_range")
+item = SubResource("DropDesc_crystal_shard")
+count = 2
+countRange = 1
+
+[node name="PropInstance" type="Node3D" node_paths=PackedStringArray("_destructible", "_light")]
+script = ExtResource("1_prop")
+_destructible = NodePath("Destructible")
+_light = NodePath("Intact/StationaryLight")
+
+[node name="Intact" type="Node3D" parent="."]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0)
+
+[node name="Model" type="Node3D" parent="Intact"]
 script = ExtResource("3_autocoll")
 materialOverride = ExtResource("4_mat")
 
-[node name="SM_Prop_Crystal_02" parent="Model" instance=ExtResource("2_model")]
+[node name="SM_Prop_Crystal_02" parent="Intact/Model" instance=ExtResource("2_model")]
 
-[node name="HurtBox" type="Area3D" parent="Model"]
+[node name="HurtBox" type="Area3D" parent="Intact/Model"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
 collision_layer = 32
 collision_mask = 0
 script = ExtResource("5_hurtbox")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Model/HurtBox"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Intact/Model/HurtBox"]
 shape = SubResource("BoxShape3D_hurt")
 
-[node name="StationaryLight" type="Node3D" parent="."]
+[node name="StationaryLight" type="Node3D" parent="Intact"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
 script = ExtResource("7_light")
 _lightColor = Color(0.65, 0.45, 1, 1)
@@ -39,8 +57,30 @@ _distance = 6.0
 _falloff = 1.5
 _brightness = 0.5
 
-[node name="Destructible" type="Node3D" parent="." node_paths=PackedStringArray("_hurtBox")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+[node name="Rubble" type="Node3D" parent="."]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0)
+visible = false
+
+[node name="Model" type="Node3D" parent="Rubble"]
+script = ExtResource("3_autocoll")
+collide = false
+materialOverride = ExtResource("9_shards")
+
+[node name="Piece1" parent="Rubble/Model" instance=ExtResource("2_model")]
+transform = Transform3D(0.3224, 0.0000, 0.1363, 0.0000, 0.3500, 0.0000, -0.1363, 0.0000, 0.3224, 0.4200, 0.0000, 0.1800)
+
+[node name="Piece2" parent="Rubble/Model" instance=ExtResource("2_model")]
+transform = Transform3D(-0.1767, 0.0000, 0.3021, 0.0000, 0.3500, 0.0000, -0.3021, 0.0000, -0.1767, -0.3000, 0.0000, 0.3200)
+
+[node name="Piece3" parent="Rubble/Model" instance=ExtResource("2_model")]
+transform = Transform3D(-0.2288, 0.0000, -0.2649, 0.0000, 0.3500, 0.0000, 0.2649, 0.0000, -0.2288, 0.0500, 0.0000, -0.4000)
+
+[node name="Destructible" type="Node3D" parent="." node_paths=PackedStringArray("_hurtBox", "_intact", "_rubble")]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0.825, 0)
 script = ExtResource("6_destructible")
-_hurtBox = NodePath("../Model/HurtBox")
+_drops = [SubResource("Drop_crystal_shard")]
+_hurtBox = NodePath("../Intact/Model/HurtBox")
 _destroyEffect = ExtResource("8_shatter")
+_intact = NodePath("../Intact")
+_rubble = NodePath("../Rubble")
+

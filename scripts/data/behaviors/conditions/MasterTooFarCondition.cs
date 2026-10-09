@@ -4,6 +4,9 @@ using Godot;
 // than `maxDistance`, or there is no player. Used to pull a wary guard dog off a
 // threat and back into Follow when the player walks away — a companion stays
 // with its master rather than committing to a standoff it was only watching.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class MasterTooFarCondition : BehaviorTransitionData
 {

@@ -30,5 +30,6 @@ displayName = &"Grilled Lurker"
 description = "Firm bog-meat that grills up hearty."
 maxStack = 99
 spoilDays = 3
+value = 5
 inventorySprite = ExtResource("6_icon")
 typeTags = 5

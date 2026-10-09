@@ -16,6 +16,9 @@ using Godot;
 // A per-mob reaction cooldown (Mob.ReactionReadyMs, set by the reacting
 // behavior) keeps a mob from chaining reactions every tick while shots keep
 // arriving.
+// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// the [Tool]-parent rule in the root CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class IncomingProjectileCondition : BehaviorTransitionData
 {
