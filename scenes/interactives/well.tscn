@@ -26,12 +26,12 @@ durationSeconds = 2.0
 locksMovement = true
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_n51pk"]
-height = 4.0
-radius = 1.25
+height = 2.667
+radius = 0.833
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_ojfqh"]
-height = 4.0
-radius = 2.5
+height = 2.667
+radius = 1.667
 
 [node name="Well" type="Node3D" unique_id=918273645 node_paths=PackedStringArray("_hudNode")]
 script = ExtResource("1_well")
@@ -42,7 +42,7 @@ _hudNode = NodePath("HUDNode")
 script = ExtResource("porous_body")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=918273647]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.333, 0)
 shape = SubResource("CylinderShape3D_n51pk")
 
 [node name="InteractiveBox" type="Area3D" parent="." unique_id=918273648 node_paths=PackedStringArray("_interactiveNode")]
@@ -53,16 +53,16 @@ script = ExtResource("8_interactivebox")
 _interactiveNode = NodePath("..")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=918273649]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.333, 0)
 shape = SubResource("CylinderShape3D_ojfqh")
 
 [node name="Model" type="Node3D" parent="." unique_id=1678413894]
-transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0.131296, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0875, 0)
 
 [node name="SM_Prop_Well_01" parent="Model" unique_id=1571398016 instance=ExtResource("18_wellfbx")]
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=918273651]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.639555, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.093, 0)
 
 [node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=1383154147 node_paths=PackedStringArray("_collectFrom")]
 script = ExtResource("17_meshhl")

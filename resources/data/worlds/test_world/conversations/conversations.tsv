@@ -54,5 +54,6 @@ intro_watchman		Watchman		greeting_busy		common	npcvar:customs		I am busy now, c
 swamp_witch		Swamp Witch		greeting	shop				Oooh what’s this come crawlin outta the mud I see?
 									Come a little closer tadpole! Do ya have anything shiny?
 			x	shop				open_shop	Shall we trade?
-intro_wanderer		Wanderer		greeting					Gate’s closed, friend
+intro_wanderer		Wanderer		greeting_open			var:town_gate_locked=false		Good luck out there. Be safe.
+				greeting_closed					Gate’s closed, friend
 									It will open tomorrow. You can pass the time by the fire.

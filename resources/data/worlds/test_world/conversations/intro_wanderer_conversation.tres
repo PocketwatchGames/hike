@@ -5,19 +5,36 @@
 [ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
 [ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
+[ext_resource type="Script" uid="uid://bt3svar0cond7" path="res://scripts/data/scripting/conditions/ScriptVarCondition.cs" id="Script_ScriptVarCondition"]
+
+[sub_resource type="Resource" id="Inline_1"]
+script = ExtResource("Script_ScriptVarCondition")
+variable = &"town_gate_locked"
+op = 1
+operand = 0
 
 [sub_resource type="Resource" id="Entry_1"]
 script = ExtResource("Script_ConversationEntry")
-branch = &"greeting"
+condition = SubResource("Inline_1")
+branch = &"greeting_open"
 
-[sub_resource type="Resource" id="Branch_greeting"]
+[sub_resource type="Resource" id="Entry_2"]
+script = ExtResource("Script_ConversationEntry")
+branch = &"greeting_closed"
+
+[sub_resource type="Resource" id="Branch_greeting_open"]
 script = ExtResource("Script_ConversationBranch")
-name = &"greeting"
-lineLocKeys = Array[StringName]([&"intro_wanderer_greeting_01", &"intro_wanderer_greeting_02"])
+name = &"greeting_open"
+lineLocKeys = Array[StringName]([&"intro_wanderer_greeting_open_01"])
+
+[sub_resource type="Resource" id="Branch_greeting_closed"]
+script = ExtResource("Script_ConversationBranch")
+name = &"greeting_closed"
+lineLocKeys = Array[StringName]([&"intro_wanderer_greeting_closed_01", &"intro_wanderer_greeting_closed_02"])
 
 [resource]
 script = ExtResource("Script_ConversationData")
-entryBranches = [SubResource("Entry_1")]
-branches = [SubResource("Branch_greeting")]
+entryBranches = [SubResource("Entry_1"), SubResource("Entry_2")]
+branches = [SubResource("Branch_greeting_open"), SubResource("Branch_greeting_closed")]
 responseGroups = []
 descriptionLocKey = &"intro_wanderer_description"

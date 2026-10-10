@@ -69,5 +69,6 @@ swamp_witch_greeting_01	Oooh what’s this come crawlin outta the mud I see?
 swamp_witch_greeting_02	Come a little closer tadpole! Do ya have anything shiny?
 swamp_witch_shop_end	Shall we trade?
 intro_wanderer_description	Wanderer
-intro_wanderer_greeting_01	Gate’s closed, friend
-intro_wanderer_greeting_02	It will open tomorrow. You can pass the time by the fire.
+intro_wanderer_greeting_open_01	Good luck out there. Be safe.
+intro_wanderer_greeting_closed_01	Gate’s closed, friend
+intro_wanderer_greeting_closed_02	It will open tomorrow. You can pass the time by the fire.
