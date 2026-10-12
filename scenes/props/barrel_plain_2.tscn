@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="2_porous"]
-[ext_resource type="PackedScene" uid="uid://cf4wle2nk84hi" path="res://assets/models/furniture/SM_Gen_Prop_Barrel_Wood_02.fbx" id="3_model"]
+[ext_resource type="PackedScene" uid="uid://dfayt3jalq0im" path="res://assets/models/furniture/SM_Prop_Barrel_01.fbx" id="3_model"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="4_hurtbox"]
 [ext_resource type="Script" uid="uid://i33l7k1z81ng0" path="res://scripts/gameplay/entities/Destructible.cs" id="5_destructible"]
 [ext_resource type="PackedScene" uid="uid://bn6xtn81s3bab" path="res://assets/models/furniture/SM_Prop_Barrel_Broken_01.fbx" id="6_rubble"]
@@ -12,10 +12,10 @@
 [ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="dr_oil_droplet"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_body"]
-size = Vector3(0.7735, 0.9715, 0.8009)
+size = Vector3(0.7676, 1.0312, 0.7677)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_hurt"]
-size = Vector3(0.8508, 1.0687, 0.8810)
+size = Vector3(0.85, 1.05, 0.85)
 
 [sub_resource type="Resource" id="DropDesc_oil_droplet"]
 script = ExtResource("dr_desc")
@@ -38,7 +38,7 @@ transform = Transform3D(1.25, 0, 0, 0, 1.25, 0, 0, 0, 1.25, 0, 0, 0)
 script = ExtResource("2_porous")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Intact/Body"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4857, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5156, 0)
 shape = SubResource("BoxShape3D_body")
 
 [node name="Model" type="Node3D" parent="Intact" instance=ExtResource("3_model")]
@@ -50,7 +50,7 @@ collision_mask = 0
 script = ExtResource("4_hurtbox")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Intact/HurtBox"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4857, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
 shape = SubResource("BoxShape3D_hurt")
 
 [node name="Rubble" type="Node3D" parent="."]
@@ -61,7 +61,7 @@ visible = false
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 
 [node name="Destructible" type="Node3D" parent="." node_paths=PackedStringArray("_hurtBox", "_intact", "_rubble")]
-transform = Transform3D(1.25, 0, 0, 0, 1.25, 0, 0, 0, 1.25, 0, 0.6072, 0)
+transform = Transform3D(1.25, 0, 0, 0, 1.25, 0, 0, 0, 1.25, 0, 0.6250, 0)
 script = ExtResource("5_destructible")
 _drops = [SubResource("Drop_oil_droplet")]
 _hurtBox = NodePath("../Intact/HurtBox")

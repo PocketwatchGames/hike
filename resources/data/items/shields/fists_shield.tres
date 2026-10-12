@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://jqmwdcmyi4tc" path="res://scripts/data/items/ShieldData.cs" id="1_shield"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="2_damage"]
 [ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="3_parryfx"]
-[ext_resource type="Texture2D" uid="uid://c4sexdkxy746h" path="res://assets/textures/items/NinjaCloak.png" id="4_icon"]
+[ext_resource type="Texture2D" uid="uid://kbe42hbs7n13" path="res://assets/textures/items/FistsGuard.png" id="4_icon"]
 
 [sub_resource type="Resource" id="Resource_counter"]
 script = ExtResource("2_damage")

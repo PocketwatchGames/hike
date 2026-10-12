@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ChestSpawnEntry" format=3 uid="uid://dah3iw84u2lm5"]
+
+[ext_resource type="PackedScene" uid="uid://vebw0x8877ui" path="res://scenes/interactives/chest_ornate.tscn" id="r1"]
+[ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="script"]
+
+[resource]
+script = ExtResource("script")
+scene = ExtResource("r1")

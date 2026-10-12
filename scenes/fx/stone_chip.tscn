@@ -6,6 +6,7 @@
 [ext_resource type="AudioStream" uid="uid://c350600kf16kv" path="res://assets/audio/source/impact/sfx_rock_chip_1.wav" id="4_s1"]
 [ext_resource type="AudioStream" uid="uid://cabrb8f478y8b" path="res://assets/audio/source/impact/sfx_rock_chip_2.wav" id="4_s2"]
 [ext_resource type="AudioStream" uid="uid://bbj07wy0imxjr" path="res://assets/audio/source/impact/sfx_rock_chip_3.wav" id="4_s3"]
+[ext_resource type="Resource" uid="uid://b8s23ayrqww3b" path="res://resources/data/audio/voice_groups/breakable_hit.tres" id="vg_breakable_hit"]
 
 [sub_resource type="ParticleProcessMaterial" id="Proc_chips"]
 emission_shape = 1
@@ -71,6 +72,7 @@ stream_2/weight = 1.0
 
 [node name="StoneChip" type="Node3D"]
 script = ExtResource("1_fx")
+_voiceGroup = ExtResource("vg_breakable_hit")
 
 [node name="Chips" type="GPUParticles3D" parent="."]
 emitting = false

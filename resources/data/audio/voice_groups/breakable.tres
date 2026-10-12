@@ -1,0 +1,6 @@
+[gd_resource type="Resource" script_class="AudioVoiceGroupData" format=3 uid="uid://dmf422u0e1i0u"]
+
+[ext_resource type="Script" uid="uid://bjtfb5okzo27v" path="res://scripts/data/audio/AudioVoiceGroupData.cs" id="1_group"]
+
+[resource]
+script = ExtResource("1_group")

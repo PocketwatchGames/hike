@@ -18,9 +18,20 @@ public partial class Fx : Node3D
 	// smoke puff fades 2 seconds later).
 	public event System.Action OnStopping;
 
+	// Shared voice budget this event's audio draws from (see
+	// AudioVoiceGroupData). Null = unlimited.
+	[Export] private AudioVoiceGroupData _voiceGroup;
+
 	readonly List<GpuParticles3D> _particles = new();
 	readonly List<AudioStreamPlayer3D> _audio = new();
 	bool _stopping;
+
+	// Live voices per group, oldest first, and when each group last accepted
+	// one. Wall clock: limiting is presentational, so slow-mo must not stretch
+	// the retrigger window.
+	private static readonly Dictionary<AudioVoiceGroupData, List<Fx>> _voices = new();
+	private static readonly Dictionary<AudioVoiceGroupData, ulong> _lastVoiceMs = new();
+	private bool _holdsVoice;
 
 	// Live counts of Fx, AudioStreamPlayer3D, and GpuParticles3D currently in
 	// the world. Surfaced as Godot custom monitors below ("hike/fx/active",
@@ -78,7 +89,12 @@ public partial class Fx : Node3D
 	{
 		using var _prof = Profiler.Sample("Fx.Ready");
 		EnsureMonitorsRegistered();
-		bool audioEnabled = CVars.debugFxAudio.Value;
+		bool hasAudio = false;
+		foreach (var c in GetChildren())
+		{
+			hasAudio |= c is AudioStreamPlayer3D;
+		}
+		bool audioEnabled = CVars.debugFxAudio.Value && hasAudio && AcquireVoice();
 		bool particlesEnabled = CVars.debugFxParticles.Value;
 		foreach (var c in GetChildren())
 		{
@@ -120,6 +136,7 @@ public partial class Fx : Node3D
 
 	public override void _ExitTree()
 	{
+		ReleaseVoice();
 		_activeFx--;
 		_activeAudio -= _audio.Count;
 		_activeParticles -= _particles.Count;
@@ -169,6 +186,56 @@ public partial class Fx : Node3D
 		Performance.AddCustomMonitor("hike/fx/active_particles", Callable.From(() => (double)_activeParticles));
 	}
 
+	// Claims a slot in _voiceGroup, stealing the oldest if the group says so.
+	// False means this event plays silent.
+	private bool AcquireVoice()
+	{
+		if (_voiceGroup == null)
+		{
+			return true;
+		}
+		ulong now = Time.GetTicksMsec();
+		if (_lastVoiceMs.TryGetValue(_voiceGroup, out ulong last) && now - last < (ulong)_voiceGroup.retriggerWindowMs)
+		{
+			return false;
+		}
+		if (!_voices.TryGetValue(_voiceGroup, out List<Fx> live))
+		{
+			live = new List<Fx>();
+			_voices[_voiceGroup] = live;
+		}
+		if (live.Count >= _voiceGroup.maxVoices)
+		{
+			if (_voiceGroup.steal == EVoiceSteal.RejectNew)
+			{
+				return false;
+			}
+			Fx oldest = live[0];
+			foreach (var a in oldest._audio)
+			{
+				a.Stop();
+			}
+			oldest.ReleaseVoice();
+		}
+		live.Add(this);
+		_holdsVoice = true;
+		_lastVoiceMs[_voiceGroup] = now;
+		return true;
+	}
+
+	private void ReleaseVoice()
+	{
+		if (!_holdsVoice)
+		{
+			return;
+		}
+		_holdsVoice = false;
+		if (_voices.TryGetValue(_voiceGroup, out List<Fx> live))
+		{
+			live.Remove(this);
+		}
+	}
+
 	// Loop-mode chain: re-Play the same player so any wrapped
 	// AudioStreamRandomizer rolls a fresh variant. Once Stop() has flipped
 	// _stopping the chain breaks and the loop winds down.
@@ -212,6 +279,13 @@ public partial class Fx : Node3D
 	public override void _Process(double delta)
 	{
 		using var _prof = Profiler.Sample("Fx.Process");
+
+		// A voice ends with its audio, not with the node — trailing particles
+		// must not hold a slot.
+		if (_holdsVoice && _audio.TrueForAll(a => !a.Playing))
+		{
+			ReleaseVoice();
+		}
 
 		if (_loop)
 		{

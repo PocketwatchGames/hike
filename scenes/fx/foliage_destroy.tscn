@@ -9,6 +9,7 @@
 [ext_resource type="AudioStream" uid="uid://c3hgxpotagbfd" path="res://assets/audio/source/movement/un_shr_move_bushrustle_03.wav" id="7_br03"]
 [ext_resource type="AudioStream" uid="uid://d0y4en725pcd7" path="res://assets/audio/source/movement/un_shr_move_bushrustle_04.wav" id="8_br04"]
 [ext_resource type="AudioStream" uid="uid://d0al28p7w3ypl" path="res://assets/audio/source/movement/un_shr_move_bushrustle_05.wav" id="9_br05"]
+[ext_resource type="Resource" uid="uid://dmf422u0e1i0u" path="res://resources/data/audio/voice_groups/breakable.tres" id="vg_breakable"]
 
 [sub_resource type="ParticleProcessMaterial" id="Proc_leaves"]
 emission_shape = 1
@@ -80,6 +81,7 @@ stream_4/weight = 1.0
 
 [node name="FoliageDestroy" type="Node3D"]
 script = ExtResource("1_fx")
+_voiceGroup = ExtResource("vg_breakable")
 
 [node name="Leaves" type="GPUParticles3D" parent="."]
 emitting = false

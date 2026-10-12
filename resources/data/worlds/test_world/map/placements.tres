@@ -81,22 +81,16 @@
 [ext_resource type="Resource" path="res://resources/data/items/consumables/ruby_rosaries.tres" id="84_cr071"]
 [ext_resource type="Resource" path="res://resources/data/items/keys/key.tres" id="85_cr071"]
 [ext_resource type="Resource" path="res://resources/data/items/weapons/wand.tres" id="90_61e6v"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_1.tres" id="96_axgr2"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_2.tres" id="97_c8824"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_3.tres" id="98_bx82r"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_4.tres" id="99_7lrfi"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_5.tres" id="100_61e6v"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_1.tres" id="101_wjs4y"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_2.tres" id="102_714vb"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_wood_1.tres" id="96_axgr2"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_wood_2.tres" id="97_c8824"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_wood_3.tres" id="98_bx82r"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_wood_4.tres" id="99_7lrfi"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_wood_5.tres" id="100_61e6v"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_plain_1.tres" id="101_wjs4y"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_upright.tres" id="102_714vb"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/stump_1.tres" id="102_ubhg3"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_3.tres" id="103_3yats"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_plain_3.tres" id="103_3yats"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/stump_2.tres" id="103_y5gjg"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_4.tres" id="104_5781h"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_5.tres" id="105_mh3we"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_6.tres" id="106_teqrv"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_7.tres" id="107_galmf"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_8.tres" id="108_mgvr4"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_9.tres" id="109_l74os"]
 [ext_resource type="Resource" path="res://resources/data/items/armor/chainmail_armor.tres" id="112_7lrfi"]
 [ext_resource type="Resource" path="res://resources/data/items/weapons/spear.tres" id="113_61e6v"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/ambient/firefly_swarm.tres" id="114_bx82r"]
@@ -1835,37 +1829,37 @@ facing = 6
 
 [sub_resource type="Resource" id="Resource_efsra"]
 script = ExtResource("2_4i2sm")
-source = ExtResource("104_5781h")
+source = ExtResource("101_wjs4y")
 anchorXZ = Vector2i(18, 135)
 facing = 6
 
 [sub_resource type="Resource" id="Resource_c1r22"]
 script = ExtResource("2_4i2sm")
-source = ExtResource("105_mh3we")
+source = ExtResource("102_714vb")
 anchorXZ = Vector2i(30, 146)
 facing = 6
 
 [sub_resource type="Resource" id="Resource_4hdtk"]
 script = ExtResource("2_4i2sm")
-source = ExtResource("106_teqrv")
+source = ExtResource("103_3yats")
 anchorXZ = Vector2i(-4, 141)
 facing = 2
 
 [sub_resource type="Resource" id="Resource_s6n6h"]
 script = ExtResource("2_4i2sm")
-source = ExtResource("107_galmf")
+source = ExtResource("101_wjs4y")
 anchorXZ = Vector2i(-28, 105)
 facing = 6
 
 [sub_resource type="Resource" id="Resource_48gop"]
 script = ExtResource("2_4i2sm")
-source = ExtResource("108_mgvr4")
+source = ExtResource("102_714vb")
 anchorXZ = Vector2i(8, 138)
 facing = 6
 
 [sub_resource type="Resource" id="Resource_d6vvl"]
 script = ExtResource("2_4i2sm")
-source = ExtResource("109_l74os")
+source = ExtResource("103_3yats")
 anchorXZ = Vector2i(-10, 177)
 facing = 6
 

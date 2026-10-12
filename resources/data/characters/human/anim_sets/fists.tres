@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="WeaponAnimSet" format=3 uid="uid://cgppl1e4iql2f"]
+
+[ext_resource type="Script" uid="uid://gd5bfwxfy08m" path="res://scripts/data/items/WeaponAnimSet.cs" id="1_animset"]
+[ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="2_animdata"]
+
+[sub_resource type="Resource" id="s_attack1"]
+script = ExtResource("2_animdata")
+name = &"swordattack1"
+
+[resource]
+script = ExtResource("1_animset")
+overrides = Dictionary[int, ExtResource("2_animdata")]({
+0: SubResource("s_attack1")
+})
+metadata/_custom_type_script = "uid://ebr0vht6y6v0e"

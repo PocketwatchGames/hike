@@ -323,16 +323,10 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			// Swinging near a triggered hostile commits the player to the fight,
 			// releasing a guard companion to attack even before any hit lands.
 			TryEngageCombatFromWeaponUse();
-			// The wielded weapon pops into the hand and persists there; using
-			// the other weapon next swaps it. No-op when it's already the held
-			// model (re-swinging the same weapon). Tracked for the anim system so
-			// this weapon's WeaponAnimSet drives the stance / charge / attack poses.
-			_heldVisual?.SetWeapon(weapon.data.heldModel, weapon.data.wieldHand);
-			// Push any mod-authored idle fx (a Flaming sword's flame) onto the
-			// in-hand model. Recomputed per draw since the wielded weapon changed.
-			_heldVisual?.SetWeaponIdleFx(weapon.statusEffects?.WeaponModIdleFx());
-			_wieldedWeapon = weapon;
-			ValidateAnimSet(weapon.data.animSet, weapon.data.displayName);
+			// The swung weapon pops into the hand and persists there; using the
+			// other weapon next swaps it. Re-pushed every swing so a mod gained
+			// since the last draw shows its idle fx.
+			WieldWeapon(weapon);
 		}
 	}
 

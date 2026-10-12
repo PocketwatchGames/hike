@@ -9,11 +9,17 @@ using Godot;
 // to `_meshInstance` carrying the weapon_smear material.
 //
 // The mesh is an annular sector in the actor's forward plane (forward = +Z),
-// spanning `arcDegrees` and reaching from `nearRange` to `range`. Per-vertex
-// UV2.x carries the normalized angular position from the entry side (0) to the
-// exit side (1) — `clockwise` chooses which angular end is the entry side. The
-// weapon_smear shader uses that coordinate plus the per-instance timing
-// uniforms to drive the reveal / erase wipes:
+// spanning `arcDegrees` and reaching from `nearRange` to `range`. `_motion`
+// picks the axis the smear travels along:
+//   - Sweep:  a side-to-side swing — the wipes run across the arc, and
+//             `clockwise` chooses which angular end is the entry side.
+//   - Thrust: a stab — the wipes run outward from nearRange to range, so a
+//             narrow arc shoots forward. `clockwise` is ignored.
+// Per-vertex UV2.x carries the normalized position along that travel axis from
+// the entry side (0) to the exit side (1); UV is (along travel, across travel)
+// so the shader's streaks and edge fade follow the motion either way. The
+// weapon_smear shader uses UV2.x plus the per-instance timing uniforms to drive
+// the reveal / erase wipes:
 //   - entryTime == 0: the smear shows instantly, then erases from the back
 //     (entry) side between exitStartTime and exitTime.
 //   - entryTime  > 0: the smear wipes on from the entry side toward the exit
@@ -21,7 +27,14 @@ using Godot;
 [GlobalClass]
 public partial class WeaponSmear : Fx
 {
+	public enum ESmearMotion
+	{
+		Sweep,
+		Thrust,
+	}
+
 	[Export] private MeshInstance3D _meshInstance;
+	[Export] private ESmearMotion _motion = ESmearMotion.Sweep;
 
 	// Geometry is driven by the attack shape through Initialize (so status
 	// effects that resize the swing resize the smear), not authored per scene.
@@ -38,10 +51,11 @@ public partial class WeaponSmear : Fx
 	// authored per scene.
 	[Export(PropertyHint.Range, "0,3,0.05")] private float _height = 0.3f;
 
-	// Smallest / largest sweep the derived arc is clamped to, so an extreme
+	// Smallest / largest arc the derived width is clamped to, so an extreme
 	// attack shape (e.g. a far disk that engulfs the actor) still reads sanely.
-	private const float MinArcDegrees = 20f;
-	private const float MaxArcDegrees = 200f;
+	// A thrust wants a much lower floor than a swing.
+	[Export(PropertyHint.Range, "1,360,1")] private float _minArcDegrees = 20f;
+	[Export(PropertyHint.Range, "1,360,1")] private float _maxArcDegrees = 200f;
 
 	// Timing, in seconds from spawn. See the class comment for the two modes.
 	[Export(PropertyHint.Range, "0,2,0.01")] private float _entryTime;
@@ -61,7 +75,7 @@ public partial class WeaponSmear : Fx
 	// Size the smear to a melee attack's shape. Call BEFORE adding the node to
 	// the tree so the values are in place when _Ready builds the mesh. The
 	// outer radius is the attack's reach; the quads begin at the near disk
-	// edge; the swept arc matches the angular width of the far disk as seen from
+	// edge; the arc matches the angular width of the far disk as seen from
 	// the actor, so a wider far cylinder (or a buff that widens it) opens the
 	// sweep. `range`/`nearWidth`/`farWidth` are the same scalars DoMelee feeds
 	// the damage query.
@@ -72,7 +86,7 @@ public partial class WeaponSmear : Fx
 		float farRadius = farWidth * 0.5f;
 		float farCenterDist = Mathf.Max(_range - farRadius, 0.01f);
 		float halfAngle = Mathf.Atan2(farRadius, farCenterDist);
-		_arcDegrees = Mathf.Clamp(Mathf.RadToDeg(halfAngle) * 2f, MinArcDegrees, MaxArcDegrees);
+		_arcDegrees = Mathf.RadToDeg(halfAngle) * 2f;
 		_clockwise = clockwise;
 	}
 
@@ -112,7 +126,7 @@ public partial class WeaponSmear : Fx
 		int radSeg = Mathf.Max(1, _radialSegments);
 		int cols = arcSeg + 1;
 		int rows = radSeg + 1;
-		float half = Mathf.DegToRad(_arcDegrees) * 0.5f;
+		float half = Mathf.DegToRad(Mathf.Clamp(_arcDegrees, _minArcDegrees, _maxArcDegrees)) * 0.5f;
 
 		int vertCount = cols * rows;
 		var verts = new Vector3[vertCount];
@@ -126,8 +140,8 @@ public partial class WeaponSmear : Fx
 			float angle = Mathf.Lerp(-half, half, u);
 			float sinA = Mathf.Sin(angle);
 			float cosA = Mathf.Cos(angle);
-			// Entry side depends on the sweep direction.
-			float s = _clockwise ? 1f - u : u;
+			// Sweep entry side depends on the swing direction.
+			float sweepS = _clockwise ? 1f - u : u;
 			for (int j = 0; j < rows; j++)
 			{
 				float v = (float)j / radSeg;
@@ -136,8 +150,16 @@ public partial class WeaponSmear : Fx
 				// Forward is +Z; rotating +Z by `angle` about +Y gives this.
 				verts[idx] = new Vector3(sinA * radius, _height, cosA * radius);
 				normals[idx] = Vector3.Up;
-				uvs[idx] = new Vector2(u, v);
-				uv2s[idx] = new Vector2(s, 0f);
+				if (_motion == ESmearMotion.Thrust)
+				{
+					uvs[idx] = new Vector2(v, u);
+					uv2s[idx] = new Vector2(v, 0f);
+				}
+				else
+				{
+					uvs[idx] = new Vector2(u, v);
+					uv2s[idx] = new Vector2(sweepS, 0f);
+				}
 			}
 		}
 

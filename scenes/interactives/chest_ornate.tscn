@@ -1,0 +1,99 @@
+[gd_scene format=3 uid="uid://vebw0x8877ui"]
+
+[ext_resource type="Script" uid="uid://c4jo1tbqt38rt" path="res://scripts/gameplay/entities/Chest.cs" id="1_chest"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_ibox"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="4_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="5_event"]
+[ext_resource type="Texture2D" uid="uid://74scss48uag0" path="res://assets/textures/interactions/open.png" id="6_open"]
+[ext_resource type="PackedScene" uid="uid://mjlru2fr7241" path="res://scenes/fx/chest_open.tscn" id="7_chestopen"]
+[ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="8_disc"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]
+[ext_resource type="PackedScene" uid="uid://4q3qmhft538x" path="res://assets/models/chest/SM_Prop_Chest_03.fbx" id="11_model"]
+[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="13_xray"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
+[ext_resource type="Resource" uid="uid://b22tobik8tsql" path="res://resources/data/locks/standard_lock.tres" id="standard_lock"]
+
+[sub_resource type="Resource" id="Resource_chest_event_open"]
+script = ExtResource("5_event")
+type = 256
+fx = ExtResource("7_chestopen")
+
+[sub_resource type="Resource" id="Resource_chest_action_open"]
+script = ExtResource("4_action")
+displayName = &"Open"
+icon = ExtResource("6_open")
+completionEvents = Array[ExtResource("5_event")]([SubResource("Resource_chest_event_open")])
+durationSeconds = 3.0
+locksMovement = true
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(2.5, 1.5, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_hurt"]
+size = Vector3(1.6, 1.2, 0.95)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_block"]
+size = Vector3(1.6, 1.2, 0.95)
+
+[node name="ChestOrnate" type="Node3D" node_paths=PackedStringArray("_hurtBox", "_discoverable", "_hudNode", "_lidHinge")]
+script = ExtResource("1_chest")
+_hurtBox = NodePath("HurtBox")
+_actions = Array[ExtResource("4_action")]([SubResource("Resource_chest_action_open")])
+_discoverable = NodePath("Discoverable")
+_hudNode = NodePath("HUDNode")
+_lidHinge = NodePath("ChestVisual/Model/SM_Prop_Chest_03/SM_Prop_Chest_03_Lid")
+_lidOpenAngleDeg = -100.0
+_lock = ExtResource("standard_lock")
+
+[node name="ChestVisual" type="Node3D" parent="."]
+transform = Transform3D(-1.3, 0, 0, 0, 1.3, 0, 0, 0, -1.3, 0, 0, 0)
+
+[node name="Model" parent="ChestVisual" instance=ExtResource("11_model")]
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_ibox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="HurtBox" type="Area3D" parent="."]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+shape = SubResource("BoxShape3D_hurt")
+
+[node name="BlockCollider" type="StaticBody3D" parent="."]
+collision_layer = 2048
+script = ExtResource("porous_body")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+shape = SubResource("BoxShape3D_block")
+
+[node name="Discoverable" type="Node3D" parent="." node_paths=PackedStringArray("_fadeMeshRoot", "_interactBox")]
+script = ExtResource("8_disc")
+discoveredThreshold = 0.1
+hudScale = 0.5
+_fadeMeshRoot = NodePath("../ChestVisual")
+_interactBox = NodePath("../InteractiveBox")
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("10_meshhl")
+_collectFrom = NodePath("../ChestVisual")
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, 0)
+
+[node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_meshRoots", "_discoverable")]
+script = ExtResource("13_xray")
+_meshRoots = [NodePath("../ChestVisual")]
+_discoverable = NodePath("../Discoverable")

@@ -1,8 +1,9 @@
-[gd_resource type="Resource" script_class="PropSpawnEntry" format=3]
+[gd_resource type="Resource" script_class="PropSpawnEntry" format=3 uid="uid://ddydeoa7mm304"]
 
-[ext_resource type="Script" uid="uid://qfwty8kuxrwxx" path="res://scripts/data/spawn/PropSpawnEntry.cs" id="script"]
 [ext_resource type="PackedScene" uid="uid://b1t85l0chfblm" path="res://scenes/props/crate_plain_1.tscn" id="scene"]
+[ext_resource type="Script" uid="uid://ybdm0vuoyfwv" path="res://scripts/data/spawn/PropSpawnEntry.cs" id="script"]
 
 [resource]
 script = ExtResource("script")
 scene = ExtResource("scene")
+disabledVariable = null

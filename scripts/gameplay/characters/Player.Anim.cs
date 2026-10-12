@@ -446,26 +446,25 @@ public partial class Player : CharacterBody3D
 		}
 		_heldVisual.SetActiveItem(itemModel);
 
-		// While aiming, draw the equipped ranged weapon so the bow is in hand
-		// for the full aim/draw — not just once an attack fires (the event-side
-		// SetWeapon in TryStartWeaponAction). The weapon channel is persistent,
-		// so the bow stays in hand after aim ends; a later melee swing swaps it
-		// back. Only ranged weapons are forced here — aiming with nothing but a
-		// melee weapon equipped leaves the existing held model untouched.
+		// The weapon in hand is persistent and changes only by drawing another:
+		// aiming draws the ranged weapon for the whole aim (not just once a shot
+		// fires), and raising the guard without aiming draws the melee weapon, which
+		// comes out as a set with the shield. Aiming with no ranged weapon equipped
+		// leaves the held model untouched.
 		if (_aiming)
 		{
 			WeaponState ranged = _inventory?.GetWeapon(EInventorySlot.WeaponRight);
-			PackedScene rangedModel = ranged?.data?.heldModel;
-			if (rangedModel != null)
+			if (ranged?.data?.heldModel != null && ranged != _wieldedWeapon)
 			{
-				_heldVisual.SetWeapon(rangedModel, ranged.data.wieldHand);
-				// Mod-authored idle fx (a Flaming bow's flame) rides the drawn bow
-				// for the whole aim, not just once a shot fires.
-				_heldVisual.SetWeaponIdleFx(ranged.statusEffects?.WeaponModIdleFx());
-				// The drawn bow becomes the wielded weapon, so its anim set drives
-				// the stance / charge poses while aiming and after aim ends.
-				_wieldedWeapon = ranged;
-				ValidateAnimSet(ranged.data.animSet, ranged.data.displayName);
+				WieldWeapon(ranged);
+			}
+		}
+		else if (_sneaking)
+		{
+			WeaponState melee = GetMeleeWeaponOrUnarmed(EInventorySlot.WeaponLeft);
+			if (melee?.data != null && melee != _wieldedWeapon)
+			{
+				WieldWeapon(melee);
 			}
 		}
 
@@ -473,8 +472,20 @@ public partial class Player : CharacterBody3D
 			&& data.AnimationHidesHeldItem(_animator.CurrentAnimation);
 		_heldVisual.SetWeaponConcealed(itemModel != null || animHides);
 		// The shield comes out with the guard stance, and stays away while a
-		// ranged weapon is the one in hand.
+		// ranged weapon is the one in hand (which, with the guard drawing the
+		// melee weapon, is only while aiming).
 		bool rangedInHand = _wieldedWeapon?.data != null && _wieldedWeapon.data.rightHandSlot;
 		_heldVisual.SetShieldShown(_sneaking && !rangedInHand && !animHides);
+	}
+
+	// Pops `weapon` into the hand as the wielded weapon: its model, its mods'
+	// idle fx (a Flaming sword's flame), and its anim set for the stance /
+	// charge / attack poses until another weapon is drawn.
+	private void WieldWeapon(WeaponState weapon)
+	{
+		_heldVisual?.SetWeapon(weapon.data.heldModel, weapon.data.wieldHand);
+		_heldVisual?.SetWeaponIdleFx(weapon.statusEffects?.WeaponModIdleFx());
+		_wieldedWeapon = weapon;
+		ValidateAnimSet(weapon.data.animSet, weapon.data.displayName);
 	}
 }

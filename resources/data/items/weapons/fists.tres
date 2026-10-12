@@ -12,11 +12,13 @@
 [ext_resource type="PackedScene" uid="uid://g2qnx2aoo0cy" path="res://scenes/fx/fists_kill.tscn" id="7_hitkill"]
 [ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="7_hitsolid"]
 [ext_resource type="PackedScene" uid="uid://l2a2i3yh3emq" path="res://scenes/fx/fists_attack_light.tscn" id="8_atklight"]
+[ext_resource type="PackedScene" path="res://scenes/fx/thrust_smear.tscn" id="9_smear"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_5mj5i"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="9_state"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="12_fgw35"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
 [ext_resource type="Texture2D" uid="uid://blgk5830chakx" path="res://assets/textures/items/Fists.png" id="22_sprite"]
+[ext_resource type="Resource" uid="uid://cgppl1e4iql2f" path="res://resources/data/characters/human/anim_sets/fists.tres" id="23_animset"]
 
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
@@ -24,6 +26,8 @@ type = 65
 range = 2.5
 nearWidth = 0.6
 farWidth = 3.0
+smearEffect = ExtResource("9_smear")
+animDuration = 0.4
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
@@ -50,7 +54,7 @@ forbidSwimming = true
 [sub_resource type="Resource" id="Resource_charged_light"]
 script = ExtResource("4_charged")
 chargeTime = 0.3
-activeDurationSeconds = 0.6
+activeDurationSeconds = 0.4
 staminaCost = 0.25
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
 comboWindowMs = 600
@@ -101,6 +105,7 @@ damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"primary": SubResource("Resource_damage")
 })
 actionProfile = SubResource("Resource_profile")
+animSet = ExtResource("23_animset")
 displayName = &"Fists"
 description = "Bare-handed."
 inventorySprite = ExtResource("22_sprite")
