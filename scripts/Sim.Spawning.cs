@@ -487,14 +487,14 @@ public partial class Sim
         }
     }
 
-    // Lay down a transient footprint mark at `position`. Delegated to
-    // FootprintScatter, which batches every print of the same actor texture
-    // into one MultiMesh (no per-print Node) and owns the lifetime fade plus
-    // the mob-print discovery gate. `gated` requests the perception-gated
-    // behavior for mob-laid prints; `yaw` aligns the print with the actor's
-    // facing so the toe points where they were walking.
-    public void SpawnFootprint(Texture2D texture, Vector2 size, Color tint, Vector3 position, float yaw, float durationSeconds, bool gated)
+    // Lay down a transient ground mark (footprint, blood stain) at `position`.
+    // Delegated to GroundMarkScatter, which batches every mark of the same
+    // texture into one MultiMesh (no per-mark Node) and owns the hold-then-fade
+    // lifetime plus the mob-print discovery gate. `gated` requests the
+    // perception-gated behavior for mob-laid prints; `yaw` turns the mark's
+    // local +Z (a print's toe) to face that way.
+    public void SpawnGroundMark(Texture2D texture, Vector2 size, Color tint, Vector3 position, float yaw, float holdSeconds, float fadeSeconds, bool gated)
     {
-        _footprintScatter?.Spawn(texture, size, tint, position, yaw, durationSeconds, gated);
+        _groundMarkScatter?.Spawn(texture, size, tint, position, yaw, holdSeconds, fadeSeconds, gated);
     }
 }

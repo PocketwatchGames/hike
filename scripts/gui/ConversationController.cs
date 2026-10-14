@@ -4,7 +4,9 @@ using System.Collections.Generic;
 
 // HUD panel that runs a ConversationData: types out a branch's lines into
 // `label`, then spawns one instance of `responseOptionScene` per visible
-// response into `responseOptionsContainer`. Picking a response fires its
+// response into `responseOptionsContainer`. The two halves take turns:
+// `dialogueContainer` + the speaker's portrait while the NPC talks,
+// `responseContainer` + the party member's portrait while they choose. Picking a response fires its
 // actions, advances to its destination branch (or closes the panel if the
 // destination is empty), and starts the next branch's typewriter.
 //
@@ -35,6 +37,13 @@ public partial class ConversationController : Control
 	[Export] Control responseOptionsContainer;
 	[Export] public Label nameLabel;
 	[Export] public Control nameContainer;
+	[Export] Control dialogueContainer;
+	[Export] Control responseContainer;
+	// Holds the choice buttons' row; hidden while they are shown so its empty
+	// line doesn't pad the panel.
+	[Export] Label responseLabel;
+	[Export] Control portraitContainer;
+	[Export] TextureRect portraitRect;
 
 	enum EState { Hidden, Typing, Choosing }
 	EState _state = EState.Hidden;
@@ -147,6 +156,7 @@ public partial class ConversationController : Control
 	{
 		_currentBranch = branch;
 		ClearResponseButtons();
+		ShowSpeaker(npcSpeaking: true);
 		RefreshNameBox();
 		ResolveAndScrambleLines(branch, _ctx);
 		_lineIndex = 0;
@@ -248,6 +258,7 @@ public partial class ConversationController : Control
 			Close();
 			return;
 		}
+		ShowSpeaker(npcSpeaking: false);
 		// CallDeferred — focus must be grabbed after the button is in the
 		// tree and laid out, otherwise GrabFocus is a silent no-op. Find
 		// the first enabled button so debug-disabled rows don't trap
@@ -513,6 +524,33 @@ public partial class ConversationController : Control
 		if (Visible)
 		{
 			RefreshNameBox();
+		}
+	}
+
+	// Swaps the panel between the NPC's line and the party member's choices,
+	// with the matching portrait. No texture hides the portrait.
+	void ShowSpeaker(bool npcSpeaking)
+	{
+		if (dialogueContainer != null)
+		{
+			dialogueContainer.Visible = npcSpeaking;
+		}
+		if (responseContainer != null)
+		{
+			responseContainer.Visible = !npcSpeaking;
+		}
+		if (responseLabel != null)
+		{
+			responseLabel.Visible = false;
+		}
+		Texture2D portrait = npcSpeaking ? _ctx.speakerPortrait : _ctx.player?.Member?.portrait;
+		if (portraitRect != null)
+		{
+			portraitRect.Texture = portrait;
+		}
+		if (portraitContainer != null)
+		{
+			portraitContainer.Visible = portrait != null;
 		}
 	}
 

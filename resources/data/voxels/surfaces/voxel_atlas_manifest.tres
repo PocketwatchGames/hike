@@ -21,8 +21,8 @@
 [ext_resource type="Resource" uid="uid://c2kcyv7do7ixy" path="res://resources/data/voxels/surfaces/surface_climb_moss.tres" id="surf_climb_moss"]
 [ext_resource type="Resource" uid="uid://8h4it463afvd" path="res://resources/data/voxels/surfaces/surface_moss.tres" id="surf_moss"]
 [ext_resource type="Resource" uid="uid://dwyv7abgsj0pn" path="res://resources/data/voxels/surfaces/surface_snow.tres" id="surf_snow"]
-[ext_resource type="Resource" path="res://resources/data/voxels/surfaces/surface_water_algae.tres" id="surf_walgae"]
-[ext_resource type="Resource" path="res://resources/data/voxels/surfaces/surface_water_scum.tres" id="surf_wscum"]
+[ext_resource type="Resource" uid="uid://b7owdi1lgua86" path="res://resources/data/voxels/surfaces/surface_water_algae.tres" id="surf_walgae"]
+[ext_resource type="Resource" uid="uid://btqsigt7q44ph" path="res://resources/data/voxels/surfaces/surface_water_scum.tres" id="surf_wscum"]
 [ext_resource type="Script" uid="uid://cxtdv6d8mndtk" path="res://scripts/data/AtlasLayer.cs" id="s_layer"]
 
 [sub_resource type="Resource" id="layer_0"]

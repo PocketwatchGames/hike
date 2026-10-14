@@ -165,11 +165,12 @@ with nothing enforcing it — the same reasoning that keeps the animation-clip l
 un-filtered. Authoring it also lets the author say where a family's edges are,
 e.g. whether a cube and a sphere slime are one creature.
 
-**An NPC's look is ONE pick.** `NpcAppearanceData` bundles the rig `scene`,
-an `OutfitData` (clothing parts for both rigs plus its 3-colour palette), a hair
-style index, hair colour and skin tone — the same ingredients as a party
-member's look. The outfit lists parts per gender and the rig resolves its own
-(`ModelAnimator.gender`), so a look cannot name meshes its rig lacks. It also
+**An NPC's look is ONE pick, authored in ONE file.** `NpcAppearanceData` holds
+the rig `scene`, an inline `OutfitData` (the body and head part names plus their
+3-colour dye — the same type armour carries inline, so a look can be copied
+between them in the inspector), a hair style index, hair colour, skin tone and
+portrait. Only the rig's own gender half of the outfit is read, and a part name
+the rig lacks is warned at spawn. It also
 sidesteps the panel's `PackedScene` read-only case (a rig choice). It is the
 ONLY way an `NpcSpawnEntry` sets a look — worldgen's house lists name an
 appearance file too — and `Rig` resolves it once so the spawn path and the

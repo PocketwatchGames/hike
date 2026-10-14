@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BloodBurstData" format=3 uid="uid://sse261y6rpsqt"]
+
+[ext_resource type="Script" uid="uid://cg9tzv3q5l2cb" path="res://scripts/data/combat/BloodBurstData.cs" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://ik3fpm83kf3ww" path="res://scenes/fx/blood_splatter_heavy.tscn" id="2_splatter"]
+[ext_resource type="PackedScene" uid="uid://mghsw0js1nky9" path="res://scenes/fx/blood_mist_heavy.tscn" id="3_mist"]
+
+[resource]
+script = ExtResource("1_script")
+splatter = ExtResource("2_splatter")
+mist = ExtResource("3_mist")
+stainCount = 7
+stainSizeMin = 0.8
+stainSizeMax = 1.4
+stainThrow = 2.4
+stainHoldSeconds = 60.0
+stainFadeSeconds = 30.0

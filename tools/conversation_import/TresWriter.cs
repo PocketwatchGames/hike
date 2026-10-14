@@ -17,7 +17,7 @@ class TresWriter
 
 	readonly List<ResRef> _externals = new List<ResRef>();
 	readonly Dictionary<string, string> _externalIds = new Dictionary<string, string>(StringComparer.Ordinal);
-	// Inline cells (npcvar: / var: / spawn_loot: / teach:) become sub-resources rather
+	// Inline cells (npcvar: / var: / spawn_loot: / teach: / understands) become sub-resources rather
 	// than named files, so they need ids of their own. Reset per character alongside
 	// the rest.
 	readonly StringBuilder _inlineSubResources = new StringBuilder();
@@ -181,7 +181,16 @@ class TresWriter
 		}
 		if (TeachCell.IsTeachToken(name))
 		{
-			_report.Error(row, $"'{name}' teaches something - that is an action, not a condition (the gate for 'does the player know it yet' is an authored condition, e.g. language_incomplete)");
+			_report.Error(row, $"'{name}' teaches something - that is an action, not a condition (the gate for 'does the player know it yet' is e.g. 'understands<100%')");
+			return;
+		}
+		if (UnderstandsCell.IsUnderstandsToken(name))
+		{
+			UnderstandsRef gate = UnderstandsCell.Parse(name, _index, character.World, row, _report);
+			if (gate != null)
+			{
+				body.AppendLine($"condition = SubResource(\"{AppendUnderstands(gate)}\")");
+			}
 			return;
 		}
 		if (ScriptVarCell.IsVarToken(name))
@@ -253,6 +262,11 @@ class TresWriter
 				{
 					ids.Add($"SubResource(\"{AppendGift(gift)}\")");
 				}
+				continue;
+			}
+			if (UnderstandsCell.IsUnderstandsToken(name))
+			{
+				_report.Error(row, $"'{name}' tests what the player understands - that is a condition, not an action");
 				continue;
 			}
 			if (TeachCell.IsTeachToken(name))
@@ -346,6 +360,24 @@ class TresWriter
 		_inlineSubResources.AppendLine($"concepts = Array[ExtResource(\"{ScriptId("TeachableConcept")}\")]([SubResource(\"{conceptId}\")])");
 		_inlineSubResources.AppendLine();
 		return teachId;
+	}
+
+	string AppendUnderstands(UnderstandsRef gate)
+	{
+		string id = NextInlineId();
+		_inlineSubResources.AppendLine($"[sub_resource type=\"Resource\" id=\"{id}\"]");
+		_inlineSubResources.AppendLine($"script = ExtResource(\"{ScriptId("UnderstandsLanguageCondition")}\")");
+		if (gate.Language != null)
+		{
+			_inlineSubResources.AppendLine($"language = ExtResource(\"{ExternalId(gate.Language, "Lang")}\")");
+		}
+		_inlineSubResources.AppendLine($"threshold = {gate.Threshold.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}");
+		if (gate.Below)
+		{
+			_inlineSubResources.AppendLine("below = true");
+		}
+		_inlineSubResources.AppendLine();
+		return id;
 	}
 
 	string NextInlineId()

@@ -43,6 +43,8 @@ public partial class Hud : Control
 	[Export] PackedScene _staminaBarScene;
 	// Persistent strip parent — usually an HBoxContainer above the health bar.
 	[Export] Control _statusEffectContainer;
+	// Effects that last until dawn or longer (StatusEffectData.LastsUntilDawn).
+	[Export] Control _boonContainer;
 	// Screen-space anchor for the transient over-the-player notification.
 	// Positioned each frame from _player.HudAnchor projected to screen so the
 	// icon floats above the character's head. Children (queued
@@ -1169,7 +1171,7 @@ public partial class Hud : Control
 			if (!_statusEffectHuds.TryGetValue(data, out StatusEffectHud hud))
 			{
 				hud = _statusEffectHudScene.Instantiate<StatusEffectHud>();
-				_statusEffectContainer.AddChild(hud);
+				(data.LastsUntilDawn ? _boonContainer : _statusEffectContainer).AddChild(hud);
 				_statusEffectHuds[data] = hud;
 			}
 			bool hasTimer = _statusEffectMinProgress.TryGetValue(data, out float progress);

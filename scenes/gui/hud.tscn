@@ -81,7 +81,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_staminaContainer", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_parryIcon", "_drainedHealthBar", "_bonusHealthBar", "_armorBar", "_blockArmorBar", "_oilBar", "_bonusOilBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_staminaContainer", "_statusEffectContainer", "_boonContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_parryIcon", "_drainedHealthBar", "_bonusHealthBar", "_armorBar", "_blockArmorBar", "_oilBar", "_bonusOilBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -104,6 +104,7 @@ _hotbarUseHints = [NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/Ma
 _staminaContainer = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/StaminaMarginContainer/StaminaBoxContainer")
 _staminaBarScene = ExtResource("6_552pg")
 _statusEffectContainer = NodePath("ScreenMarginContainer/UpperRight/VBoxContainer/StatusEffects")
+_boonContainer = NodePath("ScreenMarginContainer/UpperRight/VBoxContainer/Boons")
 _statusEffectNotificationAnchor = NodePath("StatusEffectNotificationAnchor")
 _questContainer = NodePath("ScreenMarginContainer/UpperLeft/QuestContainer")
 _questItemScene = ExtResource("13_o8nis")
@@ -618,6 +619,13 @@ size_flags_vertical = 0
 layout_mode = 2
 
 [node name="StatusEffects" type="HBoxContainer" parent="ScreenMarginContainer/UpperRight/VBoxContainer" unique_id=1450074486]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 4
+alignment = 2
+
+[node name="Boons" type="HBoxContainer" parent="ScreenMarginContainer/UpperRight/VBoxContainer" unique_id=1837215094]
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_horizontal = 8

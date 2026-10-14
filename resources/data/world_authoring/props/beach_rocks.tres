@@ -1,0 +1,51 @@
+[gd_resource type="Resource" script_class="PropListData" format=3 uid="uid://xrc501wa8vq0"]
+
+[ext_resource type="Script" uid="uid://c0mfvq6fqt4gq" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_big3.tscn" id="1_p2urg"]
+[ext_resource type="Script" uid="uid://qeki35ub243l" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_1.tscn" id="3_kdllo"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_2.tscn" id="4_3f22n"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_3.tscn" id="5_8rmlt"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_4.tscn" id="6_46xqt"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_5.tscn" id="7_5h534"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_6.tscn" id="8_qb83p"]
+
+[sub_resource type="Resource" id="e_0"]
+script = ExtResource("2_row")
+scene = ExtResource("1_p2urg")
+weight = 0.5
+
+[sub_resource type="Resource" id="e_1"]
+script = ExtResource("2_row")
+scene = ExtResource("3_kdllo")
+
+[sub_resource type="Resource" id="e_2"]
+script = ExtResource("2_row")
+scene = ExtResource("4_3f22n")
+
+[sub_resource type="Resource" id="e_3"]
+script = ExtResource("2_row")
+scene = ExtResource("5_8rmlt")
+
+[sub_resource type="Resource" id="e_4"]
+script = ExtResource("2_row")
+scene = ExtResource("6_46xqt")
+weight = 2.0
+
+[sub_resource type="Resource" id="e_5"]
+script = ExtResource("2_row")
+scene = ExtResource("7_5h534")
+weight = 2.0
+
+[sub_resource type="Resource" id="e_6"]
+script = ExtResource("2_row")
+scene = ExtResource("8_qb83p")
+weight = 2.0
+
+[resource]
+script = ExtResource("1_list")
+displayName = "Beach Rocks"
+scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("e_5"), SubResource("e_6")]
+canopySpacing = 0.8
+positionJitter = 0.4
+scaleJitter = 0.3

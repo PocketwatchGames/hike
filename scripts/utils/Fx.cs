@@ -62,13 +62,27 @@ public partial class Fx : Node3D
 	// VoiceData.pitchShift that turns one recording into several characters.
 	// 1 = play as authored. Set via the Create overload, applied once.
 	float _pitchScale = 1f;
+	// Pushed onto every child particle system's `tint` instance uniform in
+	// _Ready (particle_lit.gdshader), so one scene can be re-coloured per use —
+	// the blood of every creature from one splatter. Null = as authored.
+	Color? _tint;
+	private static readonly StringName TintParam = "tint";
 
 	public static Fx Create(PackedScene scene, Node parent, Vector3 position, float pitch = 1f)
 	{
+		return Create(scene, parent, new Transform3D(Basis.Identity, position), null, pitch);
+	}
+
+	// Oriented + tinted spawn. The transform is applied before the node enters
+	// the tree, so particles emitted on the first frame already face the way
+	// the caller asked (a blood splatter thrown along a hit).
+	public static Fx Create(PackedScene scene, Node parent, Transform3D transform, Color? tint, float pitch = 1f)
+	{
 		using var _prof = Profiler.Sample("Fx.Create");
 		Fx effect = scene.Instantiate<Fx>();
-		effect.Position = position;
+		effect.Transform = transform;
 		effect._pitchScale = pitch;
+		effect._tint = tint;
 		parent.AddChild(effect);
 		// Godot rejects AddChild when the parent is mid-setup (data.blocked > 0)
 		// — this happens when an Fx is spawned from a sibling's _Ready while
@@ -102,6 +116,10 @@ public partial class Fx : Node3D
 			{
 				_particles.Add(p);
 				_activeParticles++;
+				if (_tint.HasValue)
+				{
+					p.SetInstanceShaderParameter(TintParam, _tint.Value);
+				}
 				p.Emitting = particlesEnabled;
 			}
 			else if (c is AudioStreamPlayer3D a)

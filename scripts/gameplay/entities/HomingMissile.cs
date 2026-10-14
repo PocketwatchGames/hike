@@ -55,9 +55,11 @@ public partial class HomingMissile : Projectile
 	[Export(PropertyHint.Range, "0,180,1")] public float acquireConeDegrees = 100f;
 	[Export(PropertyHint.Range, "0.05,2,0.01")] public float retargetIntervalSeconds = 0.25f;
 
-	// Miss model: a small constant aim wobble (aimJitterDegrees), plus a per-
-	// acquisition chance (missChance) to commit to a deliberately deflected aim
+	// Miss model: a small constant aim wobble (aimJitterDegrees), plus a chance
+	// per NEW target (missChance) to commit to a deliberately deflected aim
 	// (missDeflectionDegrees) so the missile cleanly misses now and then.
+	// Rolled only when the target changes — rerolling on every retarget tick
+	// compounded it into a near-coin-flip per flight.
 	// Together with the capped impulse these let a fast crossing target evade.
 	[Export(PropertyHint.Range, "0,30,0.5")] public float aimJitterDegrees = 4f;
 	[Export(PropertyHint.Range, "0,1,0.01")] public float missChance = 0.1f;
@@ -158,6 +160,7 @@ public partial class HomingMissile : Projectile
 	// acquisition's deliberate-miss deflection.
 	private void AcquireTarget()
 	{
+		IAimTarget previous = _target;
 		_target = null;
 		Sim sim = Sim.Current;
 		if (sim == null)
@@ -220,6 +223,10 @@ public partial class HomingMissile : Projectile
 		}
 
 		_target = best;
+		if (_target == previous)
+		{
+			return;
+		}
 
 		if (_target != null && missChance > 0f && GD.Randf() < missChance)
 		{

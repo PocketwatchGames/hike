@@ -1,0 +1,55 @@
+[gd_resource type="Resource" script_class="DetailGroupData" format=3 uid="uid://bnr0060j0frlk"]
+
+[ext_resource type="Script" uid="uid://c8h7yqpjyorr3" path="res://scripts/voxels/detail/DetailEntry.cs" id="1_entry"]
+[ext_resource type="Texture2D" uid="uid://be560cphib5kw" path="res://assets/textures/details/reed_01.png" id="2_agpw7"]
+[ext_resource type="Texture2D" uid="uid://bip7mhyfk5xoj" path="res://assets/textures/details/reed_01_tint.png" id="3_52cqp"]
+[ext_resource type="Texture2D" uid="uid://dcc3t420yblga" path="res://assets/textures/details/reed_04.png" id="4_37ded"]
+[ext_resource type="Texture2D" uid="uid://cjnd6wghqc364" path="res://assets/textures/details/reed_04_tint.png" id="5_fbiba"]
+[ext_resource type="Script" uid="uid://bxmmuij45e6re" path="res://scripts/voxels/detail/DetailGroupData.cs" id="6_group"]
+[ext_resource type="Texture2D" uid="uid://bcuyj1tm3nc15" path="res://assets/textures/details/reed_03.png" id="6_ot1t2"]
+[ext_resource type="Texture2D" uid="uid://dplgcx7j75c0d" path="res://assets/textures/details/reed_03_tint.png" id="7_l6h7w"]
+[ext_resource type="Texture2D" uid="uid://2l1hxx17l6g1" path="res://assets/textures/details/reed_02.png" id="8_j5lcm"]
+[ext_resource type="Texture2D" uid="uid://ck0skh7p2lnvn" path="res://assets/textures/details/reed_02_tint.png" id="9_5g7fw"]
+
+[sub_resource type="Resource" id="Resource_reed_a"]
+script = ExtResource("1_entry")
+texture = ExtResource("2_agpw7")
+tintMap = ExtResource("3_52cqp")
+tintColorA = Color(0.5, 0.54, 0.36, 1)
+scaleMin = 0.75
+scaleMax = 1.25
+metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
+
+[sub_resource type="Resource" id="Resource_reed_b"]
+script = ExtResource("1_entry")
+texture = ExtResource("4_37ded")
+tintMap = ExtResource("5_fbiba")
+tintColorA = Color(0.5, 0.54, 0.36, 1)
+scaleMin = 0.75
+scaleMax = 1.25
+metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
+
+[sub_resource type="Resource" id="Resource_sqmf5"]
+script = ExtResource("1_entry")
+texture = ExtResource("6_ot1t2")
+tintMap = ExtResource("7_l6h7w")
+tintColorA = Color(0.5019608, 0.5411765, 0.36078432, 1)
+scaleMin = 0.75
+scaleMax = 1.25
+metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
+
+[sub_resource type="Resource" id="Resource_vaj2m"]
+script = ExtResource("1_entry")
+texture = ExtResource("8_j5lcm")
+tintMap = ExtResource("9_5g7fw")
+tintColorA = Color(0.5019608, 0.5411765, 0.36078432, 1)
+scaleMin = 0.75
+scaleMax = 1.25
+metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
+
+[resource]
+script = ExtResource("6_group")
+groupName = "reeds"
+entries = Array[ExtResource("1_entry")]([SubResource("Resource_reed_a"), SubResource("Resource_reed_b"), SubResource("Resource_sqmf5"), SubResource("Resource_vaj2m")])
+instancesPerVoxel = 3
+maxWaterDepthVoxels = 1

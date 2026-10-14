@@ -38,7 +38,7 @@ public static class EntitySerializer
         Lever = 26,
         PathHint = 27,
         Waterfall = 28,
-        CoiledRope = 29,
+        LadderKit = 29,
         DeathSack = 30,
     }
 
@@ -103,6 +103,9 @@ public static class EntitySerializer
     // True while reading a subscene written when a torch still carried an
     // AutoLightAtNight bool (pre-v19); the byte is consumed and discarded.
     [ThreadStatic] private static bool _torchAutoLightByte;
+    // False while reading a subscene written before a door carried its lock
+    // (pre-v20); those doors read unlocked.
+    [ThreadStatic] private static bool _noDoorLock;
 
     // How one ref-table slot stores its resource.
     private enum RefKind : byte
@@ -409,13 +412,15 @@ public static class EntitySerializer
         return ReadList(br);
     }
 
-    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true, bool hasScale = true, bool itemExtras = true, bool hasScriptFields = true, bool hasDiscovered = true, bool torchAutoLightByte = false)
+    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true, bool hasScale = true, bool itemExtras = true, bool hasScriptFields = true, bool hasDiscovered = true, bool torchAutoLightByte = false, bool doorLock = true)
     {
         ReadPathTable outer = _readPaths;
         int outerRoofFormat = _roofFormat;
         bool outerLegacyRefs = _legacyPathRefs;
         bool outerNoItemExtras = _noItemExtras;
         bool outerTorchAutoLightByte = _torchAutoLightByte;
+        bool outerNoDoorLock = _noDoorLock;
+        _noDoorLock = !doorLock;
         _legacyPathRefs = !tableRefs;
         _noItemExtras = !itemExtras;
         _torchAutoLightByte = torchAutoLightByte;
@@ -438,6 +443,7 @@ public static class EntitySerializer
             _legacyPathRefs = outerLegacyRefs;
             _noItemExtras = outerNoItemExtras;
             _torchAutoLightByte = outerTorchAutoLightByte;
+            _noDoorLock = outerNoDoorLock;
         }
     }
 
@@ -617,6 +623,7 @@ public static class EntitySerializer
                 WriteVec3(w, door.WorldPosition);
                 WriteScene(w, door.Scene);
                 w.Write(door.Active);
+                WriteResource(w, door.Lock);
                 break;
 
             case BoatSimState boat:
@@ -633,11 +640,11 @@ public static class EntitySerializer
                 w.Write(trapdoor.LinkTag ?? string.Empty);
                 break;
 
-            case CoiledRopeSimState rope:
-                w.Write((byte)Tag.CoiledRope);
-                WriteVec3(w, rope.WorldPosition);
-                WriteScene(w, rope.Scene);
-                w.Write(rope.Deployed);
+            case LadderKitSimState kit:
+                w.Write((byte)Tag.LadderKit);
+                WriteVec3(w, kit.WorldPosition);
+                WriteScene(w, kit.Scene);
+                w.Write(kit.Deployed);
                 break;
 
             case LeverSimState lever:
@@ -1093,8 +1100,10 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 bool active = r.ReadBoolean();
+                LockData doorLock = _noDoorLock ? null : ReadResource<LockData>(r);
                 var door = new DoorSimState(pos, rotationY: 0f, scene);
                 door.Active = active;
+                door.Lock = doorLock;
                 return door;
             }
             case Tag.Boat:
@@ -1114,14 +1123,14 @@ public static class EntitySerializer
                 trapdoor.LinkTag = linkTag;
                 return trapdoor;
             }
-            case Tag.CoiledRope:
+            case Tag.LadderKit:
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 bool deployed = r.ReadBoolean();
-                var rope = new CoiledRopeSimState(pos, rotationY: 0f, scene);
-                rope.Deployed = deployed;
-                return rope;
+                var kit = new LadderKitSimState(pos, rotationY: 0f, scene);
+                kit.Deployed = deployed;
+                return kit;
             }
             case Tag.Lever:
             {

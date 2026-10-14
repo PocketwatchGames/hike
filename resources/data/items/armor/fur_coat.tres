@@ -4,6 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://mfqa2y8v66b7" path="res://assets/textures/items/WolfCloak.png" id="2_sprite"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+[ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
 
 [sub_resource type="Resource" id="m_cold"]
 script = ExtResource("m_script")
@@ -17,13 +18,19 @@ stat = 14
 value = 0.2
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
+[sub_resource type="Resource" id="outfit"]
+script = ExtResource("outfit_script")
+bodyMeshNamesFemale = PackedStringArray("F_Archer_Top", "F_Archer_Bottom", "F_Archer_Cape")
+bodyMeshNamesMale = PackedStringArray("M_Archer_Top", "M_Archer_Bottom", "M_Archer_Cape")
+metadata/_custom_type_script = "uid://6h7yge1txki2"
+
 [resource]
 script = ExtResource("1_armor")
 maxArmor = 100.0
 beltSlots = 1
 weight = 0.5
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource("Resource_25iwx")])
-outfit = &"archer"
+outfit = SubResource("outfit")
 displayName = &"Fur Coat"
 description = "Polar bears stay warm in the winter!"
 value = 60

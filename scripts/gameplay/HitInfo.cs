@@ -103,6 +103,11 @@ public struct HitInfo
 	// static damage zones leave it zero so no knockback applies. Receivers
 	// normalize and strip Y before scaling.
 	public Vector3 hitDirection;
+	// World point where the hit met the receiver's body. Set by senders that
+	// strike a place on the body (melee, hitscan, projectiles); null for hits
+	// that land on the whole body (zones, traps), which receivers answer from
+	// their hurtbox center. Drives where the receiver bleeds.
+	public Vector3? hitPoint;
 	// Optional conditional override layers carried from the DamageData
 	// template. Receivers fold matching entries onto the fields above via
 	// ApplyTrigger when they detect the corresponding condition. Null on

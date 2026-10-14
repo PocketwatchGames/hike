@@ -2,11 +2,21 @@
 
 [ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="0_r"]
 [ext_resource type="Script" uid="uid://coe6a1xslanh7" path="res://scripts/data/characters/NpcAppearanceData.cs" id="1_app"]
-[ext_resource type="Resource" uid="uid://bmy44cfattdkp" path="res://resources/data/worlds/shared/npcs/outfits/hermit.tres" id="2_outfit"]
+[ext_resource type="Texture2D" uid="uid://hbuua0cpeohi" path="res://assets/textures/portraits/fairy.png" id="2_r3scg"]
+[ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
+
+[sub_resource type="Resource" id="outfit"]
+script = ExtResource("outfit_script")
+bodyMeshNamesMale = PackedStringArray("M_Sorcerer_Top", "M_Sorcerer_Bottom")
+primaryColor = Color(0.32, 0.28, 0.22, 1)
+secondaryColor = Color(0.22, 0.2, 0.17, 1)
+tertiaryColor = Color(0.45, 0.42, 0.36, 1)
+metadata/_custom_type_script = "uid://6h7yge1txki2"
 
 [resource]
 script = ExtResource("1_app")
 scene = ExtResource("0_r")
-outfit = ExtResource("2_outfit")
+outfit = SubResource("outfit")
 hairStyle = 7
 hairColor = Color(0.58, 0.56, 0.52, 1)
+portrait = ExtResource("2_r3scg")

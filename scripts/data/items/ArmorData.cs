@@ -33,12 +33,11 @@ public partial class ArmorData : ItemData
 	private ModifierSet _modifiersFlat;
 	public ModifierSet ModifiersFlat => _modifiersFlat ??= ModifierSet.From(modifiers);
 
-	// The outfit shown on the player's 3D model while this piece is equipped —
-	// a key into PlayerData.outfits, the central mesh-name registry. A body
-	// piece draws the outfit's body meshes, a head piece its head meshes; empty
-	// = no visual change on equip (the slot falls back to the class outfit /
-	// bare body).
-	[Export] public StringName outfit;
+	// The outfit shown on the player's 3D model while this piece is equipped. A
+	// body piece draws its body meshes, a head piece its head meshes; null = no
+	// visual change on equip (the slot falls back to the unarmored outfit /
+	// styled hair).
+	[Export] public OutfitData outfit;
 
 	public override ItemState CreateState()
 	{

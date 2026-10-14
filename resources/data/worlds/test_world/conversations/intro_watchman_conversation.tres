@@ -7,10 +7,6 @@
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
 [ext_resource type="Script" uid="uid://bt3svar0cond7" path="res://scripts/data/scripting/conditions/ScriptVarCondition.cs" id="Script_ScriptVarCondition"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/languages/common.tres" id="Lang_common"]
-[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="Script_ItemDescriptor"]
-[ext_resource type="Resource" uid="uid://nclu5e0owob5" path="res://resources/data/items/scrolls/scroll_vyeshal_vocab_1_2.tres" id="Item_scroll_vyeshal_vocab_1_2"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="Script_ItemCount"]
-[ext_resource type="Script" uid="uid://bruxndva544k7" path="res://scripts/data/conversation/actions/DropLootAction.cs" id="Script_DropLootAction"]
 [ext_resource type="Script" uid="uid://cs8svar0acta4" path="res://scripts/data/scripting/actions/SetScriptVarAction.cs" id="Script_SetScriptVarAction"]
 
 [sub_resource type="Resource" id="Inline_1"]
@@ -20,18 +16,6 @@ op = 0
 operand = 0
 
 [sub_resource type="Resource" id="Inline_2"]
-script = ExtResource("Script_ItemDescriptor")
-item = ExtResource("Item_scroll_vyeshal_vocab_1_2")
-
-[sub_resource type="Resource" id="Inline_3"]
-script = ExtResource("Script_ItemCount")
-descriptor = SubResource("Inline_2")
-
-[sub_resource type="Resource" id="Inline_4"]
-script = ExtResource("Script_DropLootAction")
-loot = Array[ExtResource("Script_ItemCount")]([SubResource("Inline_3")])
-
-[sub_resource type="Resource" id="Inline_5"]
 script = ExtResource("Script_SetScriptVarAction")
 variable = &"intro_watchman_customs"
 op = 0
@@ -79,7 +63,7 @@ script = ExtResource("Script_ConversationBranch")
 name = &"customs"
 language = ExtResource("Lang_common")
 lineLocKeys = Array[StringName]([&"intro_watchman_customs_01"])
-endActions = Array[Object]([SubResource("Inline_4"), SubResource("Inline_5")])
+endActions = Array[Object]([SubResource("Inline_2")])
 exitGroup = &"whittlebone"
 
 [sub_resource type="Resource" id="Resp_greeting_response_1"]

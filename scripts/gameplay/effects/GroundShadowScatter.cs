@@ -6,12 +6,12 @@ using Godot;
 // projector layer (layer 5); GroundStainProjector composites them into the lit
 // ground AND grass shaders. One draw call for the player and any number of mobs.
 //
-// Structural sibling of FootprintScatter, but simpler: blobs track live, moving
+// Structural sibling of GroundMarkScatter, but simpler: blobs track live, moving
 // bodies rather than being stamped-and-faded, so there's no per-instance
 // lifetime, no discovery gate, and no per-texture bucket — one shared material
 // (SimData.groundShadowMaterial, vertex_color_use_as_albedo so each blob's alpha
 // rides INSTANCE_COLOR.a). The whole instance set is rebuilt from the live
-// caster list each _Process, mirroring how WorldPropScatter / FootprintScatter
+// caster list each _Process, mirroring how WorldPropScatter / GroundMarkScatter
 // defer all GPU writes to _Process.
 //
 // Daylight fade: each blob's alpha is scaled by
@@ -139,7 +139,7 @@ public partial class GroundShadowScatter : Node3D
             // rgb stays white: the material's gradient carries the black shadow
             // color, and white * black = black. Alpha is the per-blob coverage.
             // Instance colors aren't sRGB-converted, but white/alpha need no
-            // conversion (see FootprintScatter's tint note).
+            // conversion (see GroundMarkScatter's tint note).
             _mm.SetInstanceColor(count, new Color(1f, 1f, 1f, alpha < 1f ? alpha : 1f));
             count++;
         }

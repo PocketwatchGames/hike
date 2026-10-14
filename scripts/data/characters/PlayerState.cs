@@ -39,6 +39,9 @@ public partial class PlayerState : Resource
 	[Export] public int hairStyle;
 	// Class icon, shown wherever the member's class is presented.
 	[Export] public Texture2D icon;
+	// Face shown in the conversation panel while this member is choosing what
+	// to say. Null hides the portrait.
+	[Export] public Texture2D portrait;
 
 	[ExportGroup("Stats")]
 	// The character sheet, folded into the shared stat-compose pipeline when

@@ -34,11 +34,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     [Export] private Godot.Collections.Array<InteractiveAction> _interactiveActions = new();
 
     [ExportGroup("FX")]
-    // One-shot blood spawned on a non-lethal hit. World-parented so the puff
-    // stays where the hit landed even as the mob keeps moving.
-    [Export] private PackedScene _bloodDamageFx;
-    // One-shot death blood. Per-mob in the .tscn so each species can pick the
-    // appropriate small/medium/large variant from scenes/fx/.
+    // One-shot death cue (the death splat). Blood is not here — it is the
+    // creature's MobData.blood, spilled per hit including the killing one.
     [Export] private PackedScene _deathFx;
     // One-shot burst played the moment this mob enters the world (OnSpawned).
     // World-parented so it stays put as the mob moves off. Null on species that
@@ -111,7 +108,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // frame-driven and ignores this.
     [Export] private float _movingMinSpeedSq = 0.25f;
     // Per-mob footprint texture projected onto the ground on each footfall.
-    // Batched by FootprintScatter into one MultiMesh per texture; the shared
+    // Batched by GroundMarkScatter into one MultiMesh per texture; the shared
     // material, per-ground tints, and mob-print discovery gate live on SimData.
     [Export] private Texture2D _footprintTexture;
     // World-space size (meters) of the projected footprint decal — X is the
@@ -1746,8 +1743,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             player = GameClient.Current?.Player,
             speaker = this,
             speakerLanguage = spokenLanguage,
+            speakerPortrait = ConversationPortrait(),
         };
         GameClient.Current?.onConversation?.Invoke(conversation, ctx);
+    }
+
+    // A villager's own look wins, then the species variant's, then the base mob's
+    // — the same species → mob fallback the bestiary uses.
+    private Texture2D ConversationPortrait()
+    {
+        return _simState?.Appearance?.portrait
+            ?? _simState?.Species?.portrait
+            ?? mobData?.bestiaryPortrait;
     }
 
     private void UpdateAnimation()
@@ -4716,17 +4723,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
 
         health -= incoming;
-        if (health <= 0f)
+        bool lethal = health <= 0f;
+        // Blood on every wounding hit, the killing one included. Suppressed for
+        // continuous DoT hits so a damage zone doesn't spurt every physics frame.
+        if (incoming > 0f && !hit.dot)
+        {
+            BloodSpill.Spill(_simState.MobData?.blood, _world, in hit, _hurtBox?.Center ?? GlobalPosition, lethal);
+        }
+        if (lethal)
         {
             Die();
         }
-        // Per-hit blood / hurt VO. Suppressed for continuous DoT hits (the
-        // owning DamageZone pulses these on its own fxIntervalSeconds via
-        // OnHurtBoxFxPulse) so a smear-damage zone doesn't spawn a fresh
-        // blood spurt every physics frame.
         else if (incoming > 0f && !hit.dot)
         {
-            SpawnWorldEffect(_bloodDamageFx);
             SpawnVoice(_voice?.hurt);
         }
 

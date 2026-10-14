@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BloodData" format=3 uid="uid://0527g5hrsz08k"]
+
+[ext_resource type="Script" uid="uid://lzpyat9dqp3wm" path="res://scripts/data/combat/BloodData.cs" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://ya5a65ktqbl0" path="res://assets/textures/effects/blood_stain_01.png" id="2_stain1"]
+[ext_resource type="Texture2D" uid="uid://d4iwadglgkda0" path="res://assets/textures/effects/blood_stain_02.png" id="2_stain2"]
+[ext_resource type="Texture2D" uid="uid://k5c3fpagsupi" path="res://assets/textures/effects/blood_stain_03.png" id="2_stain3"]
+[ext_resource type="Resource" uid="uid://a7hb5i06morkd" path="res://resources/data/blood/bursts/medium_hit.tres" id="3_hit"]
+[ext_resource type="Resource" uid="uid://hoe6xkh9qtdh2" path="res://resources/data/blood/bursts/medium_heavy.tres" id="4_heavy"]
+[ext_resource type="Resource" uid="uid://65yqzwol75k2t" path="res://resources/data/blood/bursts/medium_lethal.tres" id="5_lethal"]
+
+[resource]
+script = ExtResource("1_script")
+color = Color(0.55, 0.62, 0.15, 0.85)
+stainTextures = Array[Texture2D]([ExtResource("2_stain1"), ExtResource("2_stain2"), ExtResource("2_stain3")])
+hit = ExtResource("3_hit")
+heavy = ExtResource("4_heavy")
+lethal = ExtResource("5_lethal")

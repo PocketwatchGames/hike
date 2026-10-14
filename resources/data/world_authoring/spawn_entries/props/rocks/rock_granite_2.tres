@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="PropSpawnEntry" format=3 uid="uid://c6ehtlck4xuu8"]
+
+[ext_resource type="Script" uid="uid://qfwty8kuxrwxx" path="res://scripts/data/spawn/PropSpawnEntry.cs" id="script"]
+[ext_resource type="PackedScene" uid="uid://71b5s8b7mp0r" path="res://scenes/props/rock_granite_2.tscn" id="scene"]
+
+[resource]
+script = ExtResource("script")
+scene = ExtResource("scene")

@@ -149,6 +149,11 @@ public partial class StatusEffectData : Resource
 	// Sustained, the grace window it lingers after the sustaining condition clears.
 	[Export] public float duration;
 
+	// Permanent, or gone at the next sunrise — the player HUD shows these in its
+	// Boons row rather than the combat status strip.
+	public bool LastsUntilDawn => durationType == EDurationType.Persistent
+		|| (durationType == EDurationType.UntilTimeOfDay && Mathf.IsZeroApprox(Mathf.PosMod(expireAtTimeOfDay01, 1f)));
+
 	// Max simultaneous instances. A further Add refreshes the oldest instance's timer
 	// instead of stacking. 1 makes re-applying just extend the timer (consumables, Wet).
 	[Export] public int maxStack = 99;

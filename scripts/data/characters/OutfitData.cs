@@ -1,14 +1,19 @@
 using Godot;
 
-// One named outfit on the shared polysplit player rig: the MeshInstance3D parts
-// to show for each body type. Registered under a key in PlayerData.outfits;
-// ArmorData.outfit (worn armor) refers to entries by key, so rig mesh names are
-// authored once here rather than on every item.
+// What a wearer shows on the shared polysplit human rig: the MeshInstance3D
+// parts per body type, and the dye they are worn in. Always INLINE in its owner
+// — an armour piece, PlayerData's unarmored look, an NPC appearance — so one
+// file holds the whole look; copy the sub-resource in the inspector to reuse one.
 //
 // Split by gender because the two rigs prefix their parts differently (Female
 // F_, Male M_) and the outfits don't map by a simple prefix swap (the Male Mage
-// has no cape, the Male Knight no skirt). An empty set for a gender leaves that
-// rig on its bare-body / bare-head fallback.
+// has no cape, the Male Knight no skirt). Armour needs both, since the player
+// picks the body; an NPC appearance fills only its own rig's half. An empty set
+// for a gender leaves that rig on its bare-body / bare-head fallback.
+//
+// [Tool]: reachable from ArmorData — see the [Tool]-parent rule in the root
+// CLAUDE.md.
+[Tool]
 [GlobalClass]
 public partial class OutfitData : Resource
 {
@@ -16,9 +21,8 @@ public partial class OutfitData : Resource
 	[Export] public string[] bodyMeshNamesFemale = System.Array.Empty<string>();
 	[Export] public string[] bodyMeshNamesMale = System.Array.Empty<string>();
 
-	// Head parts (hood / helm / hat). On the player they replace the styled
-	// hair; an NPC wears them over its hair (pick a short style, like the "b"
-	// cuts). Empty = the outfit leaves the head bare.
+	// Head parts (hood / helm / hat), shown in place of the styled hair. Empty =
+	// the outfit leaves the head bare.
 	[Export] public string[] headMeshNamesFemale = System.Array.Empty<string>();
 	[Export] public string[] headMeshNamesMale = System.Array.Empty<string>();
 

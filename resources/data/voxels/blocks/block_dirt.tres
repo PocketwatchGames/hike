@@ -10,6 +10,7 @@ blockName = &"Dirt"
 blockId = 12
 top = ExtResource("2_dirt_overlay")
 minimapColor = Color(0.47843137, 0.45882353, 0.4, 1)
+minimapCategory = 3
 blendNoise = 0.55
 naturalGround = true
 defaultShape = 2

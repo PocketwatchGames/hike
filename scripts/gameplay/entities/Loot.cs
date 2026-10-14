@@ -458,7 +458,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			p = _attractor = null;
 		}
-		if (p == null || !IsMagnetEligible(p) || !HasLineOfSight(p))
+		if (p == null || !IsMagnetEligible(p) || !HasLineOfSight(p) || !IInteractive.CanSee(this, p))
 		{
 			if (_seeking)
 			{

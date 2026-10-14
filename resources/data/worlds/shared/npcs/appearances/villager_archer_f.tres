@@ -2,10 +2,20 @@
 
 [ext_resource type="PackedScene" uid="uid://pkm1b280lc1a" path="res://scenes/characters/friendly_villager_female.tscn" id="0_r"]
 [ext_resource type="Script" uid="uid://coe6a1xslanh7" path="res://scripts/data/characters/NpcAppearanceData.cs" id="1_app"]
-[ext_resource type="Resource" uid="uid://b84nwj7abeujg" path="res://resources/data/worlds/shared/npcs/outfits/villager_archer_f.tres" id="2_outfit"]
+[ext_resource type="Texture2D" uid="uid://rd8lhukcw0hw" path="res://assets/textures/portraits/slime_sphere.png" id="2_jkknk"]
+[ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
+
+[sub_resource type="Resource" id="outfit"]
+script = ExtResource("outfit_script")
+bodyMeshNamesFemale = PackedStringArray("F_Archer_Top", "F_Archer_Bottom", "F_Archer_Cape")
+primaryColor = Color(0.2, 0.45, 0.47, 1)
+secondaryColor = Color(0.3, 0.4, 0.7, 1)
+tertiaryColor = Color(0.22, 0.34, 0.55, 1)
+metadata/_custom_type_script = "uid://6h7yge1txki2"
 
 [resource]
 script = ExtResource("1_app")
 scene = ExtResource("0_r")
-outfit = ExtResource("2_outfit")
+outfit = SubResource("outfit")
 hairStyle = 2
+portrait = ExtResource("2_jkknk")

@@ -13,6 +13,9 @@ using Godot;
 public partial class DoorSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
+    // The lock this door is barred by until a key opens it; null = unlocked.
+    // Per-placement: set it on the placement's fork, never on a shared entry.
+    [Export] public LockData lockData;
 
     public override PackedScene PaletteScene => scene;
 
@@ -22,6 +25,6 @@ public partial class DoorSpawnEntry : SpawnEntryData
         {
             return;
         }
-        ws.AddEntity(new DoorSimState(position, FacingY(context), scene));
+        ws.AddEntity(new DoorSimState(position, FacingY(context), scene) { Lock = lockData });
     }
 }

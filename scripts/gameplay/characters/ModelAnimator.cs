@@ -383,19 +383,23 @@ public partial class ModelAnimator : Node
 
     // Dress the rig in an NPC's look — the NPC analog of the player's armor
     // compositor: base parts (head + face), the hair style, and the outfit's
-    // body and head parts, coloured by the outfit palette, skin tone and hair
-    // colour. Skin goes first because hair shares its surface material.
+    // body and head parts in its dye, plus skin tone and hair colour. Skin
+    // goes first because hair shares its surface material.
     public void ApplyAppearance(NpcAppearanceData look)
     {
-        if (look.outfit == null)
+        string[] body = look.outfit?.GetBodyMeshNames(gender) ?? Array.Empty<string>();
+        string[] head = look.outfit?.GetHeadMeshNames(gender) ?? Array.Empty<string>();
+        if (body.Length == 0)
         {
-            GD.PushError($"ModelAnimator: appearance '{look.ResourcePath}' has no outfit");
+            GD.PushError($"ModelAnimator: appearance '{look.ResourcePath}' has no {gender} body meshes");
             return;
         }
-        string[] clothes = [.. look.outfit.GetBodyMeshNames(gender), .. look.outfit.GetHeadMeshNames(gender)];
+        WarnMissingMeshes(look, body);
+        WarnMissingMeshes(look, head);
         string hair = GetHairStyleMesh(look.hairStyle);
         var set = new List<string>(baseMeshNames);
-        set.AddRange(clothes);
+        set.AddRange(body);
+        set.AddRange(head);
         if (hair != null)
         {
             set.Add(hair);
@@ -406,7 +410,22 @@ public partial class ModelAnimator : Node
         {
             SetMeshRecolor([hair], look.hairColor);
         }
-        SetMeshOutfitColors(clothes, look.outfit.primaryColor, look.outfit.secondaryColor, look.outfit.tertiaryColor);
+        OutfitData o = look.outfit;
+        SetMeshOutfitColors([.. body, .. head], o.primaryColor, o.secondaryColor, o.tertiaryColor);
+    }
+
+    // A mesh name is typed by hand and a miss would just hide the part, so say
+    // which look asked for what this rig doesn't have.
+    private void WarnMissingMeshes(NpcAppearanceData look, string[] names)
+    {
+        for (int i = 0; i < names.Length; i++)
+        {
+            if (visual?.FindChild(names[i], true, false) is not MeshInstance3D)
+            {
+                GD.PushWarning($"ModelAnimator: appearance '{look.ResourcePath}' names mesh '{names[i]}', "
+                    + $"which the {gender} rig does not have");
+            }
+        }
     }
 
     // Resolve the hair-style mesh name for a creation-menu index, or null (bald)

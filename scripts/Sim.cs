@@ -127,7 +127,7 @@ public partial class Sim : Node3D
     private ChunkManager _chunkManager;
     private WorldDetailScatter _detailScatter;
     private WorldPropScatter _propScatter;
-    private FootprintScatter _footprintScatter;
+    private GroundMarkScatter _groundMarkScatter;
     private GroundShadowScatter _groundShadowScatter;
     private AmbienceController _ambienceController;
     private ThunderScheduler _thunderScheduler;
@@ -179,10 +179,10 @@ public partial class Sim : Node3D
     // through chunk eviction without an explicit chunk-coord index.
     public WorldPropScatter PropScatter => _propScatter;
 
-    // Batched renderer for transient footprint ground marks — one MultiMesh
-    // per actor footprint texture, owning its own per-print lifetime fade and
-    // mob-print discovery gate. Sim.SpawnFootprint routes prints to it.
-    public FootprintScatter FootprintScatter => _footprintScatter;
+    // Batched renderer for transient ground marks (footprints, blood) — one
+    // MultiMesh per mark texture, owning its own per-mark lifetime fade and
+    // mob-print discovery gate. Sim.SpawnGroundMark routes marks to it.
+    public GroundMarkScatter GroundMarkScatter => _groundMarkScatter;
 
     public Player player => _player;
 
@@ -238,9 +238,9 @@ public partial class Sim : Node3D
         _propScatter.Name = "PropScatter";
         AddChild(_propScatter);
 
-        _footprintScatter = new FootprintScatter();
-        _footprintScatter.Name = "FootprintScatter";
-        AddChild(_footprintScatter);
+        _groundMarkScatter = new GroundMarkScatter();
+        _groundMarkScatter.Name = "GroundMarkScatter";
+        AddChild(_groundMarkScatter);
 
         _groundShadowScatter = new GroundShadowScatter();
         _groundShadowScatter.Name = "GroundShadowScatter";

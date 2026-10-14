@@ -265,7 +265,7 @@ public partial class SimData : Resource
     // the default any line falls back to. Real LanguageData rather than a null
     // "no language", so it can be named the way any other tongue is: picked in a
     // ConversationBranch / ConversationResponse language slot, tested by
-    // SpeaksLanguageCondition, resolved by the reserved [lang:common] span.
+    // UnderstandsLanguageCondition, resolved by the reserved [lang:common] span.
     //
     // Player.GetLearnedComponents answers All for it unconditionally — knowing it
     // is a fact about the world, not a per-world authoring step, so no world can
@@ -329,6 +329,14 @@ public partial class SimData : Resource
     // spotted lives in `prominence` and the detected/discovered
     // thresholds instead.
     [Export] public float targetLightMax = 0.75f;
+
+    // The player can only interact with what they can see: an interactive whose
+    // light factor (as above, lifted by night vision and dark adaptation) is
+    // below this is not highlighted, not usable, and its loot doesn't magnet.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float interactMinLightFactor = 0.1f;
+    // Height above an interactive's origin its light is sampled at — its origin
+    // usually sits on the floor, in the voxel the ground occupies.
+    [Export(PropertyHint.Range, "0,2,0.05")] public float interactLightSampleHeight = 0.5f;
 
     [ExportGroup("Time of Day")]
     // Seconds of wall-clock time for a full day/night cycle at time_scale = 1.
@@ -1367,13 +1375,15 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "5,100,1")] public float companionRescueMaxDistance = 30f;
     [Export(PropertyHint.Range, "0,10,0.1")] public float companionRescueMaxDistanceGraceSeconds = 1.5f;
 
+    [ExportGroup("Ground Marks")]
+    // Template material for the batched ground-mark MultiMesh (footprints,
+    // blood). GroundMarkScatter duplicates it once per mark texture (binding
+    // that texture's albedo) and drives the per-mark tint + animated alpha
+    // through INSTANCE_COLOR — so the template must be unshaded, alpha-blended,
+    // and have vertex_color_use_as_albedo enabled. See ground_mark_multimesh.tres.
+    [Export] public Material groundMarkMaterial;
+
     [ExportGroup("Footprints")]
-    // Template material for the batched footprint MultiMesh. FootprintScatter
-    // duplicates it once per actor footprint texture (binding that texture's
-    // albedo) and drives the per-print tint + animated alpha through
-    // INSTANCE_COLOR — so the template must be unshaded, alpha-blended, and
-    // have vertex_color_use_as_albedo enabled. See footprint_multimesh.tres.
-    [Export] public Material footprintMaterial;
 
     // ===== Mob-print discovery gate =====
     // Prints a mob lays while the player hasn't yet noticed it stay invisible

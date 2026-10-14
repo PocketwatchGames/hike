@@ -898,11 +898,11 @@
     public static CVarBool debugClimb = new CVarBool("debug_climb", false);
 
 
-    // Console command: the nearest coiled rope explains, gate by gate, why it
-    // does or does not offer to drop. A coil that resolves no drop shows no
+    // Console command: the nearest ladder kit explains, gate by gate, why it
+    // does or does not offer to build. A kit that resolves no drop shows no
     // prompt at all, so this is the only way to tell a mis-aimed one from a
     // broken one.
-    public static CVar debugRopeProbe = new CVar("debug_rope_probe", (cvar) => CoiledRope.Probe());
+    public static CVar debugLadderProbe = new CVar("debug_ladder_probe", (cvar) => LadderKit.Probe());
 
     // Console command: walk the climb probe's gates for the wall in front of the
     // player and print each verdict. "It won't attach" is always one specific

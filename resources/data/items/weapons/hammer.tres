@@ -24,7 +24,7 @@
 [ext_resource type="PackedScene" uid="uid://ncybxa3beup5" path="res://scenes/fx/club_smear_light.tscn" id="9_smearlight"]
 [ext_resource type="Texture2D" uid="uid://bna05g3ywr0ca" path="res://assets/textures/items/Hammer.png" id="15_3a20y"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="16_eda6u"]
-[ext_resource type="PackedScene" uid="uid://bs6g5vb3w6472" path="res://scenes/items/club_held.tscn" id="17_held"]
+[ext_resource type="PackedScene" uid="uid://bs6g5vb3w6472" path="res://scenes/items/hammer_held.tscn" id="17_held"]
 [ext_resource type="Resource" uid="uid://bswd4n1msetq7" path="res://resources/data/characters/human/anim_sets/sword.tres" id="20_animset"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
 

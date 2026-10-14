@@ -141,6 +141,14 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
             .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
     }
 
+    // Only a closed door is barred: one a world script swung open stays usable.
+    public LockData Lock => _interactiveState.Active ? _interactiveState.Lock : null;
+
+    public void Unlock()
+    {
+        _interactiveState.Lock = null;
+    }
+
     // Active == closed, so a toggle opens exactly when it is closed.
     public void Complete(int actionIndex)
     {

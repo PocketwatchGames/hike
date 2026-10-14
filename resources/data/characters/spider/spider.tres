@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="5_recolor"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="6_palette"]
+[ext_resource type="Resource" uid="uid://0527g5hrsz08k" path="res://resources/data/blood/spider_ichor.tres" id="blood_1"]
 
 [sub_resource type="Resource" id="anim_attack"]
 script = ExtResource("4_animdata")
@@ -69,6 +70,7 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [resource]
 script = ExtResource("1_mobdata")
+blood = ExtResource("blood_1")
 carriesZoneLoot = true
 displayName = &"Spider"
 visionFovDegrees = 360.0

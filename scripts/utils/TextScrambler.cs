@@ -109,6 +109,8 @@ public static class TextScrambler
     // from a case-insensitive, punctuation-stripped hash of the letters
     // only so "Hello,", "hello", and "HELLO!" all share a bucket — the
     // vocabulary mechanic treats them as the same word.
+    const int VOCABULARY_BUCKETS = 5;
+
     static ELanguageComponents VocabularyBucketFor(string token)
     {
         int h = 0;
@@ -123,7 +125,7 @@ public static class TextScrambler
         // mapping two buckets onto one flag made Vocabulary2 worth twice
         // Vocabulary1 and left every `components = 16` in the data teaching a bit
         // nothing tested.
-        int bucket = (h & 0x7FFFFFFF) % 5;
+        int bucket = (h & 0x7FFFFFFF) % VOCABULARY_BUCKETS;
         return bucket switch
         {
             0 => ELanguageComponents.Vocabulary1,
@@ -204,6 +206,26 @@ public static class TextScrambler
     // final = translatedPct × ((1 - grammarWeight) + orderPct × grammarWeight).
     // Lives on SimData.LanguageGrammarWeight so designers can retune
     // without touching code.
+    // How much of a language as a whole `learned` understands, in [0, 1] — what
+    // ComputeComprehension tends to over a long text rather than for any one
+    // line: each Vocabulary_N is one of five equal buckets, and missing Grammar
+    // leaves the order axis at ~0 (a shuffled sentence keeps almost no word in
+    // place). Numbers are ignored; digits are too rare in prose to move it.
+    public static float ComputeUnderstanding(ELanguageComponents learned, float grammarWeight)
+    {
+        int vocab = 0;
+        for (int bit = (int)ELanguageComponents.Vocabulary1; bit <= (int)ELanguageComponents.Vocabulary5; bit <<= 1)
+        {
+            if ((learned & (ELanguageComponents)bit) != 0)
+            {
+                vocab++;
+            }
+        }
+        float translatedPct = vocab / (float)VOCABULARY_BUCKETS;
+        bool grammarKnown = (learned & ELanguageComponents.Grammar) != 0;
+        return translatedPct * (grammarKnown ? 1f : 1f - grammarWeight);
+    }
+
     public static float ComputeComprehension(string text, LanguageData language, ELanguageComponents learned, float grammarWeight)
     {
         return ComputeComprehension(text, language, learned, grammarWeight, out _);

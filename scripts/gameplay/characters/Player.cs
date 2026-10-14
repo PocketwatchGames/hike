@@ -122,11 +122,8 @@ public partial class Player : CharacterBody3D
 	[Export] private StatusEffectData _muddyEffectData;
 
 	[ExportGroup("FX")]
-	// One-shot blood splatter spawned at the player's position on a non-lethal
-	// damage hit. Spawned in world space so the puff stays put as the player
-	// runs through it, matching the footstep effect convention.
-	[Export] private PackedScene _bloodDamageFx;
-	// One-shot death blood spawned the moment _health crosses to zero.
+	// One-shot death cue spawned the moment _health crosses to zero. Blood is
+	// PlayerData.blood, spilled per hit including the killing one.
 	[Export] private PackedScene _deathFx;
 	// One-shot splash spawned when the player first enters a water trigger
 	// (overlap count goes 0 → 1 in WaterAreaEntered).

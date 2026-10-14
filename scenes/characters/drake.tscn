@@ -2,8 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/characters/Mob.cs" id="1_mob"]
 [ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="2_hud"]
-[ext_resource type="PackedScene" uid="uid://s0t1uc6w6465" path="res://scenes/fx/blood_damage.tscn" id="3_blood"]
-[ext_resource type="PackedScene" uid="uid://dj7kicjpkco3y" path="res://scenes/fx/blood_death_small.tscn" id="4_death"]
+[ext_resource type="PackedScene" uid="uid://dj7kicjpkco3y" path="res://scenes/fx/death_splat_small.tscn" id="4_death"]
 [ext_resource type="PackedScene" uid="uid://bge0a3ixatdrt" path="res://assets/models/characters/birdy/birdy.fbx" id="5_birdyfbx"]
 [ext_resource type="AnimationLibrary" path="res://assets/models/characters/birdy/birdy_anims.res" id="6_birdyanims"]
 [ext_resource type="Material" uid="uid://cr8w5qp148pnb" path="res://resources/materials/birdy_lit.tres" id="7_birdymat"]
@@ -30,7 +29,6 @@ _visuals = NodePath("Visuals")
 _hurtBox = NodePath("HurtBox")
 hudAnchor = NodePath("Visuals/HudAnchor")
 hudScene = ExtResource("2_hud")
-_bloodDamageFx = ExtResource("3_blood")
 _deathFx = ExtResource("4_death")
 _dashFx = ExtResource("11_dashfx")
 

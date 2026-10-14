@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://36x3mntrleh1" path="res://scenes/characters/dog.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="5_itempref"]
+[ext_resource type="Resource" uid="uid://srangjfcynway" path="res://resources/data/blood/red_blood.tres" id="blood_1"]
 
 [sub_resource type="Resource" id="Resource_anim_attack"]
 script = ExtResource("4_animdata")
@@ -75,6 +76,7 @@ metadata/_custom_type_script = "uid://bxtvjnrohraru"
 
 [resource]
 script = ExtResource("1_mobdata")
+blood = ExtResource("blood_1")
 displayName = &"Dog"
 team = 4
 perceptionThresholdAlert = 0.85

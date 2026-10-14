@@ -14,18 +14,23 @@ intro_librarian_name	Ulga
 intro_librarian_description	Crone
 intro_librarian_greeting_01	Ah, come in, come in!
 intro_librarian_language_common	Do you speak the common tongue?
-intro_librarian_common_01	Yes, a bit, a bit. But you won’t get far in Whittlebone without speaking Vyeshal.
+intro_librarian_common_01	Yes, a bit, a bit. But you’ll want to learn some Vyeshal.
+intro_librarian_whittlebone_vyeshal	Vyeshal?
 intro_librarian_whittlebone_about	Can you tell me about this place?
-intro_librarian_about_01	Our seaside hamlet is sinking… into the mud to the south, or the mist to the east. We haven’t many seasons left. The inn, the seer, the watchfolk, all will be swallowed.
+intro_librarian_about_01	Our seaside hamlet is sinking… into the mud to the west, or the mist to the south. We haven’t many seasons left. The inn, the watchfolk, all left for higher ground. Even the Seer has decamped.
+intro_librarian_vyeshal_01	It’s a dying language. But it is all that my people know. Read this. It is not hard to learn.
+intro_librarian_topics_vyeshal	What is Vyeshal?
 intro_librarian_topics_inn	The inn?
 intro_librarian_topics_seer	Who is this Seer?
 intro_librarian_topics_watchfolk	Tell me about the watchfolk.
 intro_librarian_topics_mud	This town is sinking into… the mud?
-intro_librarian_inn_01	We have an inn, you’ll smell it surely. The stew is as fermented as the spirits.
-intro_librarian_seer_01	We were once famous for our Seer – he still serves us, as we do him.
-intro_librarian_watchfolk_01	You must have met Talia if you climbed up from the shore. Her counterpart Jacksaw is at rest. He was injured by a night drake.
+intro_librarian_topics_sanctuary	A man on the shore kept saying “Sanctuary”. Do you know what this is?
+intro_librarian_inn_01	There’s an inn in the foothills, you’ll smell it surely. The stew is as fermented as the spirits.
+intro_librarian_seer_01	We were once famous for our Seer – but she is long gone. Mucking about in the swamps I suspect.
+intro_librarian_watchfolk_01	You must have met Talia if you climbed up from the shore. Her counterpart, Jacksaw, disappeared in a cave to the north not too long ago.
 intro_librarian_mud_01	Yes… it is the fault of governance by a clairvoyant. All visions of doom and no civic planning.
 intro_librarian_mud_02	Tragic… the old city center sank, taking with it our primordial inheritance.
+intro_librarian_sanctuary_01	Yes, the Seer once spoke of it. Make your way through the swamp caves down to the mudflats. You may find her out there.
 intro_librarian_city_treasure	The old city?
 intro_librarian_treasure_01	Yes yes. I have some old maps here that could help you if you plan to go that way.
 intro_mayor_description	Seer
@@ -62,13 +67,13 @@ intro_watchman_greeting_response_common	I… I don’t know where I am.
 intro_watchman_common_01	Ah, common tongue. You’ve crossed into dangerous lands. But you can rest here in Whittlebone.
 intro_watchman_whittlebone_sanctuary	A man on the shore kept saying “Sanctuary”. Do you know what this is?
 intro_watchman_whittlebone_customs	Whittlebone?
-intro_watchman_sanctuary_01	The ramblings of a dying man? No. But you could ask Ulga, the crone in the broken house to the south.
-intro_watchman_customs_01	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now. Not many speak common tongue though. You’d do best to learn our customs. Here, take this.
+intro_watchman_sanctuary_01	The ramblings of a dying man? No. But you could ask Ulga, the crone in the only intact house to the north.
+intro_watchman_customs_01	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now.
 swamp_witch_description	Swamp Witch
 swamp_witch_greeting_01	Oooh what’s this come crawlin outta the mud I see?
 swamp_witch_greeting_02	Come a little closer tadpole! Do ya have anything shiny?
 swamp_witch_shop_end	Shall we trade?
 intro_wanderer_description	Wanderer
-intro_wanderer_greeting_open_01	Good luck out there. Be safe.
-intro_wanderer_greeting_closed_01	Gate’s closed, friend
-intro_wanderer_greeting_closed_02	It will open tomorrow. You can pass the time by the fire.
+intro_wanderer_seer_again_01	Yes, wanderer, if you seek the seer she is amidst the mudflats. You'll have to traverse the caves, and scale down the cliffs to get there. Be cautious, this is a land of savagery.
+intro_wanderer_seer_01	Yes, wanderer, if you seek the seer she is amidst the mudflats. You'll have to traverse the caves, and scale down the cliffs to get there. Be cautious, this is a land of savagery. Take this.
+intro_wanderer_greeting_01	I speak little common. Ulga can help you.

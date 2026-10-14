@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="LadderKitSpawnEntry" load_steps=3 format=3]
+
+[ext_resource type="Script" uid="uid://odmpjb8ymsl7m" path="res://scripts/data/spawn/LadderKitSpawnEntry.cs" id="1_entry"]
+[ext_resource type="PackedScene" uid="uid://djesb3eue6eeb" path="res://scenes/interactives/ladder_kit.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_entry")
+scene = ExtResource("2_scene")

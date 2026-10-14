@@ -168,7 +168,7 @@ class ResourceIndex
 	}
 
 	// Three folders, widest first, each shadowing the one before it: the
-	// reusable verbs in world_authoring/ (open_shop, language_incomplete - a
+	// reusable verbs in world_authoring/ (open_shop, recruit_to_party - a
 	// type, no proper noun), the game's own in worlds/shared/ (a verb that names
 	// a proper noun of the fiction), then this world's, so a world can override
 	// one without renaming it.

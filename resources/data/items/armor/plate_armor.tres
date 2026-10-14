@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
+[ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
 
 [sub_resource type="Resource" id="m_pen"]
 script = ExtResource("tagmod_1")
@@ -23,12 +24,18 @@ tag = 4096
 value = 0.7
 metadata/_custom_type_script = "uid://11t1a8dvp0j6n"
 
+[sub_resource type="Resource" id="outfit"]
+script = ExtResource("outfit_script")
+bodyMeshNamesFemale = PackedStringArray("F_Knight_Top", "F_Knight_Bottom", "F_Knight_Pauldrons", "F_Knight_Skirt")
+bodyMeshNamesMale = PackedStringArray("M_Knight_Top", "M_Knight_Bottom", "M_Knight_Pauldrons")
+metadata/_custom_type_script = "uid://6h7yge1txki2"
+
 [resource]
 script = ExtResource("2_armor")
 maxArmor = 300.0
 weight = 1.5
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_pen"), SubResource("m_fire"), SubResource("m_burning")])
-outfit = &"knight"
+outfit = SubResource("outfit")
 displayName = &"Plate Armor"
 description = "A full harness of shaped steel — the best protection coin can buy, if you can bear the weight."
 value = 60

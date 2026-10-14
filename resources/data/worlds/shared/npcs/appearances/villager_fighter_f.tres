@@ -2,9 +2,19 @@
 
 [ext_resource type="PackedScene" uid="uid://pkm1b280lc1a" path="res://scenes/characters/friendly_villager_female.tscn" id="0_r"]
 [ext_resource type="Script" uid="uid://coe6a1xslanh7" path="res://scripts/data/characters/NpcAppearanceData.cs" id="1_app"]
-[ext_resource type="Resource" uid="uid://bpqvggrrxo0pp" path="res://resources/data/worlds/shared/npcs/outfits/villager_fighter_f.tres" id="2_outfit"]
+[ext_resource type="Texture2D" uid="uid://gqt0ryhd324b" path="res://assets/textures/portraits/kun_kun.png" id="2_g7vwv"]
+[ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
+
+[sub_resource type="Resource" id="outfit"]
+script = ExtResource("outfit_script")
+bodyMeshNamesFemale = PackedStringArray("F_Fighter_Top", "F_Fighter_Bottom")
+primaryColor = Color(0.45, 0.16, 0.24, 1)
+secondaryColor = Color(0.52, 0.36, 0.64, 1)
+tertiaryColor = Color(0.796, 0.796, 0.678, 1)
+metadata/_custom_type_script = "uid://6h7yge1txki2"
 
 [resource]
 script = ExtResource("1_app")
 scene = ExtResource("0_r")
-outfit = ExtResource("2_outfit")
+outfit = SubResource("outfit")
+portrait = ExtResource("2_g7vwv")

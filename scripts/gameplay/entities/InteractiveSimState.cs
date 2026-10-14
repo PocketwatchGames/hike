@@ -4,6 +4,8 @@ using System.Collections.Generic;
 public class DoorSimState : EntitySimState, IVoxelStamper
 {
     public bool Active = true;
+    // Null once a key has opened it — unlocking is permanent.
+    public LockData Lock;
 
     // Bottom cell of the doorway column this door makes opaque while closed.
     // Runtime-only and deliberately NOT serialized: it is derived from the seat
@@ -82,14 +84,14 @@ public class TrapdoorSimState : EntitySimState
 
 // A coil of rope at the top of a drop. Persists only whether it has been thrown:
 // WHERE the rope hangs is re-derived from the coil's seat and authored facing
-// every time the entity materializes (CoiledRope.Deploy), so a stored line can
+// every time the entity materializes (LadderKit.Deploy), so a stored line can
 // never disagree with the voxels it hangs against.
-public class CoiledRopeSimState : EntitySimState
+public class LadderKitSimState : EntitySimState
 {
-    // True once the rope is over the edge. One-way — see CoiledRope.
+    // True once the ladder is built. One-way — see LadderKit.
     public bool Deployed;
 
-    public CoiledRopeSimState(Vector3 worldPosition, float rotationY, PackedScene scene)
+    public LadderKitSimState(Vector3 worldPosition, float rotationY, PackedScene scene)
         : base(worldPosition, scene)
     {
         RotationY = rotationY;
@@ -97,7 +99,7 @@ public class CoiledRopeSimState : EntitySimState
 
     public override Node3D CreateEntity(Sim sim)
     {
-        return CoiledRope.Create(sim, this);
+        return LadderKit.Create(sim, this);
     }
 }
 

@@ -1059,7 +1059,7 @@ public static class LightEngine
         Profiler.IncrementCounter("light_shade_voxels", footprint.Count);
     }
 
-    private static bool IsOpenVoxel(WorldState world, int wx, int wy, int wz)
+    public static bool IsOpenVoxel(WorldState world, int wx, int wy, int wz)
     {
         int v = world.GetBlockWorld(wx, wy, wz);
         return v == Blocks.AirId || Blocks.IsTransparent(v);

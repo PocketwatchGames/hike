@@ -9,8 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/fx/footstep_sand.tscn" id="11_fstsand"]
 [ext_resource type="PackedScene" uid="uid://7nfxgl33kg3n" path="res://scenes/fx/footstep_stone.tscn" id="11_fststone"]
 [ext_resource type="PackedScene" uid="uid://0gwx2qeenb5r" path="res://scenes/fx/footstep_water.tscn" id="11_fstwater"]
-[ext_resource type="PackedScene" uid="uid://s0t1uc6w6465" path="res://scenes/fx/blood_damage.tscn" id="12_blooddmg"]
-[ext_resource type="PackedScene" uid="uid://dj7kicjpkco3y" path="res://scenes/fx/blood_death_small.tscn" id="13_deathsml"]
+[ext_resource type="PackedScene" uid="uid://dj7kicjpkco3y" path="res://scenes/fx/death_splat_small.tscn" id="13_deathsml"]
 [ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/fx/water_enter_splash.tscn" id="14_watenter"]
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/fx/water_movement_loop.tscn" id="15_watloop"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="16_grassloop"]
@@ -48,7 +47,6 @@ _visuals = NodePath("Visuals")
 _hurtBox = NodePath("HurtBox")
 hudAnchor = NodePath("Visuals/HUDNode")
 hudScene = ExtResource("3_mobhud")
-_bloodDamageFx = ExtResource("12_blooddmg")
 _deathFx = ExtResource("13_deathsml")
 _waterEnterSplashFx = ExtResource("14_watenter")
 _waterMovementLoopFx = ExtResource("15_watloop")

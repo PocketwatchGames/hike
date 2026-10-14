@@ -119,6 +119,9 @@ public static class ItemEventHandlers
 				// the post-damage zero). Trigger flags ride alongside so a
 				// crit/backstab swing layers its tier overlay on the best
 				// hurtbox of a multi-target swing.
+				// The swing volume has no contact point of its own; the struck
+				// body's center is where it meets this target.
+				hit.hitPoint = hurtBox.Center;
 				HitPrediction prediction = hurtBox.QueryHit(hit);
 				EHitResult r = prediction.Result;
 				hurtBox.Hit(hit);
@@ -134,7 +137,7 @@ public static class ItemEventHandlers
 				{
 					bestResult = r;
 					bestTriggers = prediction.Triggers;
-					impactPos = hurtBox.GlobalPosition;
+					impactPos = hurtBox.Center;
 				}
 			}
 		}
@@ -389,12 +392,13 @@ public static class ItemEventHandlers
 				bool isSelf = selfHurtBox.HasValue && hurtBox.GetRid() == selfHurtBox.Value;
 				if (!isSelf && hurtBox.CanBeHit(hit))
 				{
+					hitPos = (Vector3)hurtResult["position"];
+					hit.hitPoint = hitPos;
 					// Query before Hit so Lethal sees pre-damage state. See DoMelee.
 					HitPrediction prediction = hurtBox.QueryHit(hit);
 					hitResult = prediction.Result;
 					hitTriggers = prediction.Triggers;
 					hurtBox.Hit(hit);
-					hitPos = (Vector3)hurtResult["position"];
 					hitHurtBox = hurtBox;
 					if (hitResult == EHitResult.Health || hitResult == EHitResult.Lethal)
 					{

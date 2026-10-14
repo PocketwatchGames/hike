@@ -484,6 +484,9 @@ public partial class PlayerData : Resource
 	// until it elapses. See Player.GetRaisedShield.
 	[Export] public float blockReengageCooldown = 0.5f;
 
+	// What the player bleeds when wounded (see BloodData).
+	[Export] public BloodData blood;
+
 	[ExportGroup("Armor")]
 	[Export] public float armorRechargeDelay = 3f;
 	// Seconds for armor to refill from empty to full (the equipped MaxArmor).
@@ -700,24 +703,8 @@ public partial class PlayerData : Resource
 	[Export(PropertyHint.Range, "0.5,600,0.5,or_greater")] public float muddyDrySeconds = 30f;
 
 	[ExportGroup("Appearance")]
-	// Central outfit registry: every named outfit's rig mesh sets, keyed by the
-	// StringName that ArmorData.outfit (worn armor) references. Mesh names are
-	// authored once here — no item carries raw rig part names.
-	[Export] public Godot.Collections.Dictionary<StringName, OutfitData> outfits = new();
-	// The outfit worn with nothing in the body armor slot — a key into
-	// `outfits`, like ArmorData.outfit.
-	[Export] public StringName unarmoredOutfit;
-
-	// Registry lookup. Null for a missing / empty key — the compositor then
-	// falls back to the bare body / styled hair.
-	public OutfitData GetOutfit(StringName key)
-	{
-		if (outfits == null || key == null || key.IsEmpty)
-		{
-			return null;
-		}
-		return outfits.TryGetValue(key, out OutfitData outfit) ? outfit : null;
-	}
+	// The outfit worn with nothing in the body armor slot.
+	[Export] public OutfitData unarmoredOutfit;
 
 	// Palettes the character's modular look is picked from. PlayerState
 	// stores the chosen INDEX into each (skinTone / hairColor / hairStyle), so a

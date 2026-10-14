@@ -2,10 +2,20 @@
 
 [ext_resource type="PackedScene" uid="uid://pkm1b280lc1a" path="res://scenes/characters/friendly_villager_female.tscn" id="0_r"]
 [ext_resource type="Script" uid="uid://coe6a1xslanh7" path="res://scripts/data/characters/NpcAppearanceData.cs" id="1_app"]
-[ext_resource type="Resource" uid="uid://cjrjrqa8qdrrb" path="res://resources/data/worlds/shared/npcs/outfits/wanderer_talia.tres" id="2_outfit"]
+[ext_resource type="Texture2D" uid="uid://6lsmbcmcajx1" path="res://assets/textures/portraits/dog.png" id="2_embos"]
+[ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
+
+[sub_resource type="Resource" id="outfit"]
+script = ExtResource("outfit_script")
+bodyMeshNamesFemale = PackedStringArray("F_Archer_Top", "F_Archer_Bottom", "F_Archer_Cape")
+primaryColor = Color(0.28, 0.42, 0.3, 1)
+secondaryColor = Color(0.55, 0.47, 0.36, 1)
+tertiaryColor = Color(0.5, 0.3, 0.2, 1)
+metadata/_custom_type_script = "uid://6h7yge1txki2"
 
 [resource]
 script = ExtResource("1_app")
 scene = ExtResource("0_r")
-outfit = ExtResource("2_outfit")
+outfit = SubResource("outfit")
 hairStyle = 2
+portrait = ExtResource("2_embos")

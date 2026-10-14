@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BlockSurfaceData" format=3]
+[gd_resource type="Resource" script_class="BlockSurfaceData" format=3 uid="uid://btqsigt7q44ph"]
 
 [ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockSurfaceData.cs" id="1_block"]
 

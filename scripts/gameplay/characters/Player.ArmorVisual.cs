@@ -1,10 +1,9 @@
 using System.Collections.Generic;
 using Godot;
 
-// Drives the player's outfit visuals on the shared polysplit rig. The member's
-// class outfit and any equipped ArmorData each name an entry in the central
-// outfit registry (PlayerData.outfits) by key; this resolves those to the live
-// gender's mesh sets, composites them with the always-on base (head + face) and
+// Drives the player's outfit visuals on the shared polysplit rig. Each equipped
+// ArmorData carries its outfit inline; this resolves those to the live gender's
+// mesh sets, composites them with the always-on base (head + face) and
 // the defaults for uncovered slots — PlayerData.unarmoredOutfit for the body,
 // the styled hair for the head — then hands the union to the model animator,
 // which toggles visibility on the one shared skeleton — no reload, no skin
@@ -60,7 +59,7 @@ public partial class Player : CharacterBody3D
 		}
 		List<string> visible = new(_animator.baseMeshNames);
 		AppendSlotMeshes(EInventorySlot.Helmet, null, _hairStyleMeshes, visible);
-		AppendSlotMeshes(EInventorySlot.Armor, data?.GetOutfit(data.unarmoredOutfit), System.Array.Empty<string>(), visible);
+		AppendSlotMeshes(EInventorySlot.Armor, data?.unarmoredOutfit, System.Array.Empty<string>(), visible);
 		_animator.SetVisibleMeshes(visible.ToArray());
 	}
 
@@ -71,7 +70,7 @@ public partial class Player : CharacterBody3D
 	private void AppendSlotMeshes(EInventorySlot slot, OutfitData fallbackOutfit, string[] fallbackMeshes, List<string> dst)
 	{
 		OutfitData worn = _inventory.GetEquipped(slot) is ArmorState { data: ArmorData armorData }
-			? data?.GetOutfit(armorData.outfit)
+			? armorData.outfit
 			: null;
 		if (AppendOutfit(worn, slot, dst) || AppendOutfit(fallbackOutfit, slot, dst))
 		{

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="SimData" format=3 uid="uid://vwejw0habed3"]
 
 [ext_resource type="Script" uid="uid://chvgahtb671mg" path="res://scripts/data/world/SimData.cs" id="1_1meao"]
-[ext_resource type="Material" uid="uid://dhl426xulqxbf" path="res://resources/materials/footprint_multimesh.tres" id="1_atie7"]
+[ext_resource type="Material" uid="uid://dftmm0prnt7kq2" path="res://resources/materials/ground_mark_multimesh.tres" id="1_atie7"]
 [ext_resource type="Material" uid="uid://vyod0jnbvh8p" path="res://resources/materials/ground_shadow_blob.tres" id="1_mobshadow"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/languages/common.tres" id="3_lang_common"]
 [ext_resource type="Resource" uid="uid://1td133j0mecv" path="res://resources/data/worlds/shared/languages/muddish.tres" id="3_lang_muddish"]
@@ -110,6 +110,7 @@
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="rc_health_potion_superior"]
 [ext_resource type="Resource" path="res://resources/data/test_scenarios/caltrops.tres" id="ts_caltrops"]
 [ext_resource type="Resource" path="res://resources/data/test_scenarios/dawn.tres" id="ts_dawn"]
+[ext_resource type="Resource" uid="uid://6ow0f00ovu6n9" path="res://resources/data/test_scenarios/blood.tres" id="ts_blood"]
 [ext_resource type="Resource" uid="uid://dy30sceg883qe" path="res://resources/data/test_scenarios/invisibility.tres" id="ts_invisibility"]
 [ext_resource type="Resource" path="res://resources/data/test_scenarios/oil_droplets.tres" id="ts_oil_droplets"]
 [ext_resource type="Resource" uid="uid://btwn5x5u68gc0" path="res://resources/data/test_scenarios/shockwave.tres" id="ts_shockwave"]
@@ -163,7 +164,7 @@ rippleWindRef = 30.0
 canopyDensity = 0.35
 nightSpawnMobs = Array[ExtResource("56_mobdesc_script")]([ExtResource("56_slime_cube"), ExtResource("56_slime_sphere")])
 fairySpawnSpecies = ExtResource("60_fairy_desc")
-footprintMaterial = ExtResource("1_atie7")
+groundMarkMaterial = ExtResource("1_atie7")
 roofCapMaskMaterial = ExtResource("75_roofcapmask")
 roofShadowCasterMaterial = ExtResource("76_roofshadow")
 roofInteriorMaterial = ExtResource("77_roofinterior")
@@ -177,5 +178,5 @@ weatherLightning = ExtResource("12_lightning")
 rainVisionReduction = 0.35
 weightSpeedModifier = -0.07999999999999996
 weightDashDistanceModifier = -0.25
-testScenarios = [ExtResource("ts_snow"), ExtResource("ts_shockwave"), ExtResource("ts_invisibility"), ExtResource("ts_caltrops"), ExtResource("ts_dawn"), ExtResource("ts_oil_droplets")]
+testScenarios = [ExtResource("ts_snow"), ExtResource("ts_shockwave"), ExtResource("ts_invisibility"), ExtResource("ts_caltrops"), ExtResource("ts_dawn"), ExtResource("ts_oil_droplets"), ExtResource("ts_blood")]
 metadata/_custom_type_script = "uid://chvgahtb671mg"

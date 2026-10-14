@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="10_palette"]
 [ext_resource type="Resource" uid="uid://b2yvplv8eksd2" path="res://resources/data/actions/mob_mantle_up_action.tres" id="11_mantleup"]
 [ext_resource type="Resource" uid="uid://dlvthyxyi2q6u" path="res://resources/data/actions/mob_mantle_down_action.tres" id="12_mantledown"]
+[ext_resource type="Resource" uid="uid://srangjfcynway" path="res://resources/data/blood/red_blood.tres" id="blood_1"]
 
 [sub_resource type="Resource" id="Resource_anim_attack"]
 script = ExtResource("7_animdata")
@@ -82,6 +83,7 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [resource]
 script = ExtResource("1_vvowg")
+blood = ExtResource("blood_1")
 carriesZoneLoot = true
 displayName = &"Goblin"
 visionDotPower = 2.0

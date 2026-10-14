@@ -751,7 +751,7 @@ wants falls straight out of it:
   any replaces the branch-condition rule wholesale — mixing the two is an error.
 - **`condition` / `action` cells NAME an authored `.tres`**, `;`-separated for
   several, resolved from `dialogue_scripts/<kind>/` (a verb with no
-  proper noun in it — `open_shop`, `language_incomplete`), then
+  proper noun in it — `open_shop`, `recruit_to_party`), then
   `worlds/shared/conversation/<kind>/` (the game's own, where a verb names a
   proper noun of the fiction), then the world's own folder, each shadowing the
   last. A new
@@ -770,6 +770,13 @@ wants falls straight out of it:
   cell reads (`npcvar:customs`, `=true`, `!=true`, `=2`, `>=2`, `<2`; a bare
   name means `=true`); an action cell writes (`=true`, `=false`, `=<int>`,
   `+=<int>`).
+- **A language gate is written inline too**: `understands>=60%` /
+  `understands<100%` in a condition cell, or `understands:<id>>=60%` to name a
+  language other than the speaker's. It scores the language AS A WHOLE
+  (`TextScrambler.ComputeUnderstanding`: each vocabulary tier is 20%, and missing
+  grammar takes off `SimData.languageGrammarWeight`), not the line about to be
+  spoken, so one threshold reads the same for every speaker of that tongue. Only
+  `>=` and `<` exist — the gate and its negation.
 - **A gift is written inline too**: `spawn_loot:<item> [count]` in an action cell,
   spelled exactly like the console's `spawn_loot` verb and resolving the item the same
   way — the basename of a `.tres` under `resources/data/items/`, or under the
@@ -872,7 +879,28 @@ Snapshot-on-touch: a tool opens an `EditorEdit` off `EditorHistory`, declares wh
 
 ### Ground Stains / Decals (`scripts/client/GroundStainProjector.cs`, `shaders/ground_stain.gdshaderinc`)
 
-Flat ground marks (scorch, footprints, blood) are **not** Godot `Decal`s (decals wash out wherever the terrain shader's `EMISSION` dominates). Instead a top-down `GroundStainProjector` renders proxy quads on visual layer 5 into `ground_stain_tex`, which the terrain shader composites into `base`; add a stain via a flat unshaded layer-5 quad (static in the prop scene, or batched via `FootprintScatter`). See [scripts/client/CLAUDE.md](scripts/client/CLAUDE.md).
+Flat ground marks (scorch, footprints, blood) are **not** Godot `Decal`s (decals wash out wherever the terrain shader's `EMISSION` dominates). Instead a top-down `GroundStainProjector` renders proxy quads on visual layer 5 into `ground_stain_tex`, which the terrain shader composites into `base`; add a stain via a flat unshaded layer-5 quad (static in the prop scene, or batched via `GroundMarkScatter` / `Sim.SpawnGroundMark`). See [scripts/client/CLAUDE.md](scripts/client/CLAUDE.md).
+
+### Blood (`scripts/gameplay/effects/BloodSpill.cs`, `scripts/data/combat/BloodData.cs`)
+
+**The receiver bleeds, not the weapon.** `Mob.Damage` / `Player.OnHurtBoxHit` call
+`BloodSpill.Spill` on every wounding non-DoT hit, the killing one included, because
+only the receiver knows for certain whether the hit was lethal or folded a crit /
+backstab (`hit.triggers`). The sender's whole job is `HitInfo.hitPoint` — melee,
+hitscan and projectiles set it; a hit without one bleeds from the hurtbox center.
+
+- **What bleeds is `MobData.blood` / `PlayerData.blood`** (a `BloodData`), a trait of
+  the body shared by every species variant; null is bloodless. `_deathFx` is the
+  death SOUND only (`death_splat_*`) — death blood is `BloodData.lethal`.
+- **A `BloodData` is a substance, a `BloodBurstData` is an amount.** The burst scenes
+  are white shapes tinted at spawn by `BloodData.color` (`Fx.Create(…, tint)` →
+  `particle_lit`'s `tint` instance uniform), so a new creature's blood is a colour
+  and three shared bursts (`resources/data/blood/bursts/{small,medium,large}_*`),
+  not new scenes. A splatter scene throws toward local -Z; `BloodSpill` turns -Z
+  down the hit.
+- Severity: lethal > heavy (crit or backstab) > hit, each falling back to the
+  next one down when unset. Stains go through `GroundMarkScatter` with
+  hold-then-fade. `setup blood` puts one of each substance in front of you.
 
 ### Waterfalls (`scripts/gameplay/entities/`)
 

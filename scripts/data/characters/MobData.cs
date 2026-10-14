@@ -469,6 +469,11 @@ public partial class MobData : Resource
     // ground far below them. Master darkness/material are shared on SimData.
     [Export(PropertyHint.Range, "0,4,0.05")] public float groundShadowRadius = 0.5f;
 
+    [ExportGroup("Blood")]
+    // What this creature bleeds when wounded — a trait of the body, so every
+    // species variant shares it. Null = bloodless (a fairy, a construct).
+    [Export] public BloodData blood;
+
     [ExportGroup("Loot & Death")]
     // NOTE: the loot drop list is NOT a base-species trait — it's a per-variant
     // concern that lives on SpeciesData.loot (so a forest vs desert kun-kun

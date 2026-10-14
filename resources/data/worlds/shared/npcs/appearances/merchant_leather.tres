@@ -2,10 +2,21 @@
 
 [ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="0_r"]
 [ext_resource type="Script" uid="uid://coe6a1xslanh7" path="res://scripts/data/characters/NpcAppearanceData.cs" id="1_app"]
-[ext_resource type="Resource" uid="uid://c5udm0y80ol1t" path="res://resources/data/worlds/shared/npcs/outfits/merchant_leather.tres" id="2_outfit"]
+[ext_resource type="Texture2D" uid="uid://f6bi7p5iomjp" path="res://assets/textures/portraits/slime_cube.png" id="2_dc82r"]
+[ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
+
+[sub_resource type="Resource" id="outfit"]
+script = ExtResource("outfit_script")
+bodyMeshNamesMale = PackedStringArray("M_Hunter_Top", "M_Hunter_Bottom")
+headMeshNamesMale = PackedStringArray("M_Hunter_FeltedHat")
+primaryColor = Color(0.34, 0.18, 0.42, 1)
+secondaryColor = Color(0.85, 0.66, 0.25, 1)
+tertiaryColor = Color(0.24, 0.14, 0.3, 1)
+metadata/_custom_type_script = "uid://6h7yge1txki2"
 
 [resource]
 script = ExtResource("1_app")
 scene = ExtResource("0_r")
-outfit = ExtResource("2_outfit")
+outfit = SubResource("outfit")
 hairStyle = 3
+portrait = ExtResource("2_dc82r")

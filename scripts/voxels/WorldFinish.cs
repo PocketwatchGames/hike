@@ -333,28 +333,6 @@ public static class WorldFinish
                     {
                         continue;
                     }
-                    // IsSurfaceVoxel accepts water above (it's "non-solid"),
-                    // which suits the terrain-tagging passes but would scatter
-                    // upright sprites at the water surface. Caves and test
-                    // lakes create new water voxels AFTER TagSubmergedTerrains
-                    // runs — the lake floor still carries SurfaceTerrain and
-                    // would otherwise spawn grass inside the water. Reject
-                    // any surface voxel whose air-above slot is water.
-                    if (Blocks.IsWater(ws.GetBlockWorld(wx, wy + 1, wz)))
-                    {
-                        continue;
-                    }
-                    // The water mesh also dilates a voxel laterally into the
-                    // shore and skins that shell cell's top face at the
-                    // waterline, so its ground is submerged even though the
-                    // slot above is air. Shore terrains carry real detail (grass on
-                    // shore_swamp, pebbles on shore_sand), so without this the
-                    // waterline row sprouts sprites standing in the water.
-                    if (WaterMesher.IsCoveredShell(getVoxel, wx, wy, wz))
-                    {
-                        continue;
-                    }
-
                     // Surface detail follows the DETERMINISTIC dominant zone
                     // (argmax of the smooth zone-weight kernel), NOT this voxel's
                     // stamped terrain. Terrain borders are assigned by a per-column random
@@ -376,6 +354,14 @@ public static class WorldFinish
                         ? (zones.DominantSurfaceTerrain(wx, wz) ?? ws.Terrains.TerrainAt(voxelTerrainId))
                         : ws.Terrains.TerrainAt(voxelTerrainId);
                     if (terrain == null || terrain.defaultDetail == null)
+                    {
+                        continue;
+                    }
+                    // IsSurfaceVoxel accepts water above (it's "non-solid"), and
+                    // a lake floor can still carry a surface terrain, so the
+                    // group decides how deep it will grow.
+                    if (WaterDepthOver(getVoxel, wx, wy, wz, terrain.defaultDetail.maxWaterDepthVoxels)
+                        > terrain.defaultDetail.maxWaterDepthVoxels)
                     {
                         continue;
                     }
@@ -405,6 +391,25 @@ public static class WorldFinish
                 }
             }
         }
+    }
+
+    // Voxels of water standing over the ground voxel at (wx, wy, wz), counted up
+    // to limit + 1 (enough to fail any group). The waterline shell counts as 1:
+    // the water mesh dilates laterally into the shore and skins that cell's top
+    // at the waterline, so its ground is submerged even though the slot above
+    // is air — without this a dry-only group sprouts sprites standing in water.
+    private static int WaterDepthOver(Func<int, int, int, int> getVoxel, int wx, int wy, int wz, int limit)
+    {
+        int depth = 0;
+        while (depth <= limit && Blocks.IsWater(getVoxel(wx, wy + 1 + depth, wz)))
+        {
+            depth++;
+        }
+        if (depth == 0 && WaterMesher.IsCoveredShell(getVoxel, wx, wy, wz))
+        {
+            return 1;
+        }
+        return depth;
     }
 
     // Dresses tall cliff faces with a climbable overlay, in cellular patches.

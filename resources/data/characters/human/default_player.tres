@@ -8,18 +8,22 @@
 [ext_resource type="Resource" uid="uid://b8nf3qkxr7m2p" path="res://resources/data/items/weapons/fists.tres" id="8_fists"]
 [ext_resource type="Resource" uid="uid://cwbdpohr5162r" path="res://resources/data/items/shields/fists_shield.tres" id="8_fists_shield"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="10_outfit_script"]
-[ext_resource type="Resource" uid="uid://cr4o8qr01hpj8" path="res://resources/data/characters/human/outfits/mage.tres" id="11_outfit_mage"]
-[ext_resource type="Resource" uid="uid://b63gmay2vqfyc" path="res://resources/data/characters/human/outfits/fighter.tres" id="12_outfit_fighter"]
-[ext_resource type="Resource" uid="uid://6f2ikvj87oxk" path="res://resources/data/characters/human/outfits/hunter.tres" id="13_outfit_hunter"]
-[ext_resource type="Resource" uid="uid://mvpqi27u1da2" path="res://resources/data/characters/human/outfits/knight.tres" id="14_outfit_knight"]
-[ext_resource type="Resource" uid="uid://d0mn4nja8uy4" path="res://resources/data/characters/human/outfits/swordsman.tres" id="15_outfit_swordsman"]
-[ext_resource type="Resource" uid="uid://b3nwttm032xw1" path="res://resources/data/characters/human/outfits/archer.tres" id="16_outfit_archer"]
-[ext_resource type="Resource" uid="uid://bdnkkinhowb8e" path="res://resources/data/characters/human/outfits/underwear.tres" id="17_outfit_underwear"]
 [ext_resource type="Resource" uid="uid://dofncd682i14n" path="res://resources/data/actions/mantle_up_action.tres" id="30_mantle_up"]
 [ext_resource type="Resource" uid="uid://dwk6aa74jfi6k" path="res://resources/data/actions/mantle_down_action.tres" id="31_mantle_down"]
+[ext_resource type="Resource" uid="uid://srangjfcynway" path="res://resources/data/blood/red_blood.tres" id="blood_1"]
+
+[sub_resource type="Resource" id="unarmored_outfit"]
+script = ExtResource("10_outfit_script")
+bodyMeshNamesFemale = PackedStringArray("F_Archer_Top", "F_Archer_Bottom")
+bodyMeshNamesMale = PackedStringArray("M_Archer_Top", "M_Archer_Bottom")
+primaryColor = Color(0.949, 0.937, 0.902, 1)
+secondaryColor = Color(0.851, 0.824, 0.765, 1)
+tertiaryColor = Color(1, 1, 1, 1)
+metadata/_custom_type_script = "uid://6h7yge1txki2"
 
 [resource]
 script = ExtResource("1_mknwc")
+blood = ExtResource("blood_1")
 baseAnims = ExtResource("7_unarmed")
 stepHeight = 1.1
 moveSpeed = 6.8
@@ -57,13 +61,4 @@ hotStatus = ExtResource("5_hot")
 wetnessDrySeconds = 60.0
 dryRateHumidityDamping = 0.8
 wetnessArmorCascadeRate = 0.1
-outfits = Dictionary[StringName, ExtResource("10_outfit_script")]({
-&"archer": ExtResource("16_outfit_archer"),
-&"fighter": ExtResource("12_outfit_fighter"),
-&"hunter": ExtResource("13_outfit_hunter"),
-&"knight": ExtResource("14_outfit_knight"),
-&"mage": ExtResource("11_outfit_mage"),
-&"swordsman": ExtResource("15_outfit_swordsman"),
-&"underwear": ExtResource("17_outfit_underwear")
-})
-unarmoredOutfit = &"underwear"
+unarmoredOutfit = SubResource("unarmored_outfit")

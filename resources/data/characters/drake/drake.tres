@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="5_recolor"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="6_palette"]
+[ext_resource type="Resource" uid="uid://bl6624gx6bons" path="res://resources/data/blood/red_blood_large.tres" id="blood_1"]
 
 [sub_resource type="Resource" id="Resource_anim_attack"]
 script = ExtResource("4_animdata")
@@ -60,6 +61,7 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [resource]
 script = ExtResource("1_mob")
+blood = ExtResource("blood_1")
 carriesZoneLoot = true
 displayName = &"Drake"
 visionDotPower = 2.0

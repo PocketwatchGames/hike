@@ -46,6 +46,12 @@ public partial class DetailGroupData : Resource
     [Export] public int edgeSetbackVoxels = 1;
     [Export] public int minLedgeWidthVoxels = 2;
 
+    // Deepest standing water (voxels over the ground) this group grows in —
+    // a reed emerges, a pebble does not. 0 = dry ground only, which also keeps
+    // it off the waterline column the water mesh skins over. The sprites must
+    // stand taller than this or they scatter invisibly under the surface.
+    [Export(PropertyHint.Range, "0,8,1")] public int maxWaterDepthVoxels = 0;
+
     // Index into MinimapFoliageColors palette. 0 = no minimap stamp (the
     // surface terrain color shows through). Non-zero stamps the group's
     // authored color over the terrain pixel covering the painted voxel.

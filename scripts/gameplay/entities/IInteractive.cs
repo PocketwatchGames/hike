@@ -42,12 +42,37 @@ public interface IInteractive
     void Unlock() { }
 
     // The one "can this player use it right now" question every interact site
-    // asks: the placement's disabled gate first, then the interactive's own
-    // answer. Ask this, never CanActorInteract directly, or a disabled entity
-    // is usable from that site.
+    // asks: the placement's disabled gate, the interactive's own answer, then
+    // whether the actor can see it. Ask this, never CanActorInteract directly,
+    // or a disabled or unseen entity is usable from that site.
     static bool CanUse(IInteractive interactive, Player actor)
     {
-        return interactive != null && !IsDisabled(interactive) && interactive.CanActorInteract(actor);
+        return interactive != null && !IsDisabled(interactive) && interactive.CanActorInteract(actor)
+            && CanSee(interactive, actor);
+    }
+
+    // Whether there is light enough at the interactive for `actor` to see it.
+    // Last in CanUse because it costs a sun-shadow raycast. Only world entities
+    // are gated — the player's own traversal and self-actions aren't Node3Ds.
+    static bool CanSee(IInteractive interactive, Player actor)
+    {
+        Sim sim = Sim.Current;
+        if (interactive is not Node3D node || actor == null || sim?.SimData == null)
+        {
+            return true;
+        }
+        Vector3 samplePos = node.GlobalPosition + Vector3.Up * sim.SimData.interactLightSampleHeight;
+        // An interactive can occupy a light-blocking voxel (a closed door stamps
+        // Barrier into its column; a lever sits in a wall), which always reads
+        // dark. Read the face the actor looks at instead: one voxel toward them.
+        if (!LightEngine.IsOpenVoxel(sim.WorldState, Mathf.FloorToInt(samplePos.X), Mathf.FloorToInt(samplePos.Y), Mathf.FloorToInt(samplePos.Z)))
+        {
+            Vector3 toActor = actor.GlobalPosition - samplePos;
+            samplePos += Mathf.Abs(toActor.X) >= Mathf.Abs(toActor.Z)
+                ? new Vector3(Mathf.Sign(toActor.X), 0f, 0f)
+                : new Vector3(0f, 0f, Mathf.Sign(toActor.Z));
+        }
+        return PlayerPerception.ComposeLightFactor(sim, actor, samplePos) >= sim.SimData.interactMinLightFactor;
     }
 
     static bool IsDisabled(IInteractive interactive)

@@ -122,8 +122,6 @@ public static class PlayerPerception
         {
             return result;
         }
-        float targetLightMax = sim.SimData?.targetLightMax ?? 0.75f;
-
         EPlayerPerceptionState prevState = state.state;
         Vector3 toTarget = targetPos - player.GlobalPosition;
         float distSq = toTarget.LengthSquared();
@@ -154,27 +152,7 @@ public static class PlayerPerception
 
         if (inRange)
         {
-            float lightAtTarget = sim.GetPerceivedLight(targetPos + new Vector3(0f, inputs.lightSampleHeight, 0f));
-            float lightFactor = targetLightMax > 0f ? Mathf.Clamp(lightAtTarget / targetLightMax, 0f, 1f) : 0f;
-            // Night vision lifts the darkness-suppression term toward full
-            // brightness: relief is the fraction of the darkness penalty the
-            // player's equipment removes (e.g. a NightVision modifier of 1.85
-            // yields 0.85, so darkness only costs 15% of what it normally would).
-            float nightVisionRelief = Mathf.Clamp(player.ComposeStat(EStat.NightVision) - 1f, 0f, 1f);
-            if (nightVisionRelief > 0f)
-            {
-                lightFactor = Mathf.Lerp(lightFactor, 1f, nightVisionRelief);
-            }
-            // Dark-adaptation relief: a dilated pupil partially lifts the same
-            // darkness-suppression term, scaled by eyeDilationVisionRelief so it's
-            // only a partial help (and stacks on top of equipment night vision).
-            // This is the gameplay half of EyeDilation — standing in the gloom long
-            // enough lets the player notice nearby dim things a little better.
-            float dilationRelief = player.EyeDilation * pd.eyeDilationVisionRelief;
-            if (dilationRelief > 0f)
-            {
-                lightFactor = Mathf.Lerp(lightFactor, 1f, dilationRelief);
-            }
+            float lightFactor = ComposeLightFactor(sim, player, targetPos + new Vector3(0f, inputs.lightSampleHeight, 0f));
             debug.lighting = lightFactor;
             // Clarity: how clearly the target reads right now. Darkness, fog, and
             // rain each obscure independently and multiply; the result times the
@@ -328,6 +306,33 @@ public static class PlayerPerception
 
         result.stateChanged = state.state != prevState;
         return result;
+    }
+
+    // How well `viewer` can make out what is at `pos` by light alone, 0..1: the
+    // darkness term of Tick's clarity, also the interact gate (IInteractive.CanSee).
+    // Carried lights (MovingLight) deposit into the block lightmap, so a lantern counts.
+    public static float ComposeLightFactor(Sim sim, Player viewer, Vector3 pos)
+    {
+        float targetLightMax = sim.SimData?.targetLightMax ?? 0.75f;
+        float lightFactor = targetLightMax > 0f ? Mathf.Clamp(sim.GetPerceivedLight(pos) / targetLightMax, 0f, 1f) : 0f;
+        // Night vision lifts the darkness-suppression term toward full
+        // brightness: relief is the fraction of the darkness penalty the
+        // player's equipment removes (e.g. a NightVision modifier of 1.85
+        // yields 0.85, so darkness only costs 15% of what it normally would).
+        float nightVisionRelief = Mathf.Clamp(viewer.ComposeStat(EStat.NightVision) - 1f, 0f, 1f);
+        if (nightVisionRelief > 0f)
+        {
+            lightFactor = Mathf.Lerp(lightFactor, 1f, nightVisionRelief);
+        }
+        // Dark-adaptation relief: a dilated pupil partially lifts the same
+        // darkness-suppression term, scaled by eyeDilationVisionRelief so it's
+        // only a partial help (and stacks on top of equipment night vision).
+        float dilationRelief = viewer.EyeDilation * (viewer.data?.eyeDilationVisionRelief ?? 0f);
+        if (dilationRelief > 0f)
+        {
+            lightFactor = Mathf.Lerp(lightFactor, 1f, dilationRelief);
+        }
+        return lightFactor;
     }
 
     // Speed → continuous-noise decibel mapping shared by Player and Mob.

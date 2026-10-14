@@ -2,8 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/characters/Mob.cs" id="1_vhwbc"]
 [ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="2_7n4er"]
-[ext_resource type="PackedScene" uid="uid://s0t1uc6w6465" path="res://scenes/fx/blood_damage.tscn" id="3_b85wh"]
-[ext_resource type="PackedScene" uid="uid://dj7kicjpkco3y" path="res://scenes/fx/blood_death_small.tscn" id="4_us5sg"]
+[ext_resource type="PackedScene" uid="uid://dj7kicjpkco3y" path="res://scenes/fx/death_splat_small.tscn" id="4_us5sg"]
 [ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/fx/water_enter_splash.tscn" id="5_k83x8"]
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/fx/water_movement_loop.tscn" id="6_7deve"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="7_su5fo"]
@@ -46,7 +45,6 @@ _visuals = NodePath("Visuals")
 _hurtBox = NodePath("HurtBox")
 hudAnchor = NodePath("Visuals/HUDNode")
 hudScene = ExtResource("2_7n4er")
-_bloodDamageFx = ExtResource("3_b85wh")
 _deathFx = ExtResource("4_us5sg")
 _waterEnterSplashFx = ExtResource("5_k83x8")
 _waterMovementLoopFx = ExtResource("6_7deve")

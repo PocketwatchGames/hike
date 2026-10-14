@@ -9,18 +9,23 @@ intro_hermit_		Hermit		greeting					Hello, traveler. The mold in this valley mak
 			x	topics	recruit				Then come with me!
 intro_librarian_	Ulga	Crone		greeting	language				Ah, come in, come in!
 			x	language	common	common			Do you speak the common tongue?
-				common	whittlebone	common			Yes, a bit, a bit. But you won’t get far in Whittlebone without speaking Vyeshal.
+				common	whittlebone	common			Yes, a bit, a bit. But you’ll want to learn some Vyeshal.
+			x	whittlebone	vyeshal	common	npcvar:learn=false		Vyeshal?
 			x	whittlebone	about	common			Can you tell me about this place?
-				about	topics	common			Our seaside hamlet is sinking… into the mud to the south, or the mist to the east. We haven’t many seasons left. The inn, the seer, the watchfolk, all will be swallowed.
+				about	topics	common			Our seaside hamlet is sinking… into the mud to the west, or the mist to the south. We haven’t many seasons left. The inn, the watchfolk, all left for higher ground. Even the Seer has decamped.
+				vyeshal	whittlebone	common		spawn_loot:scroll_vyeshal_vocab_1_2;npcvar:learn=true	It’s a dying language. But it is all that my people know. Read this. It is not hard to learn.
+			x	topics	vyeshal	common	npcvar:learn=false	spawn_loot:scroll_vyeshal_vocab_1_2;npcvar:learn=true	What is Vyeshal?
 			x	topics	inn	common			The inn?
 			x	topics	seer	common			Who is this Seer?
 			x	topics	watchfolk	common			Tell me about the watchfolk.
 			x	topics	mud	common			This town is sinking into… the mud?
-				inn	topics	common			We have an inn, you’ll smell it surely. The stew is as fermented as the spirits.
-				seer	topics	common			We were once famous for our Seer – he still serves us, as we do him.
-				watchfolk	topics	common			You must have met Talia if you climbed up from the shore. Her counterpart Jacksaw is at rest. He was injured by a night drake.
+			x	topics	sanctuary	common			A man on the shore kept saying “Sanctuary”. Do you know what this is?
+				inn	topics	common			There’s an inn in the foothills, you’ll smell it surely. The stew is as fermented as the spirits.
+				seer	topics	common			We were once famous for our Seer – but she is long gone. Mucking about in the swamps I suspect.
+				watchfolk	topics	common			You must have met Talia if you climbed up from the shore. Her counterpart, Jacksaw, disappeared in a cave to the north not too long ago.
 				mud		common			Yes… it is the fault of governance by a clairvoyant. All visions of doom and no civic planning.
 					city				Tragic… the old city center sank, taking with it our primordial inheritance.
+				sanctuary	topics	common			Yes, the Seer once spoke of it. Make your way through the swamp caves down to the mudflats. You may find her out there.
 			x	city	treasure		npcvar:map=false		The old city?
 				treasure	topics			spawn_loot:map_city_center;npcvar:map=true	Yes yes. I have some old maps here that could help you if you plan to go that way.
 intro_mayor_		Seer		greeting	topics				Hello, traveler.
@@ -28,7 +33,7 @@ intro_mayor_		Seer		greeting	topics				Hello, traveler.
 				shipwreck	topics				We saw the shipwreck from the coast. There are rarely survivors on these shores. The mist swallows them.
 				village	topics				Praise be the old gods, we still have stores of amber to keep the village lit for a few more seasons. But the mist will take us, that is sure.
 				sanctuary	topics				I’ve heard tell of it. But if it’s out there it’s beyond beast infested lands. No mudman would make the trek. Our lives are measured in amber.
-			x	topics	speak_common	common	language_incomplete		Do you speak the common tongue?
+			x	topics	speak_common	common	understands<100%		Do you speak the common tongue?
 			x	topics	shipwreck				My ship wrecked off the shore. I need help.
 			x	topics	village				What is this place?
 			x	topics	sanctuary				A man on the shore kept saying “Sanctuary”. Do you know what this is?
@@ -49,11 +54,11 @@ intro_watchman		Watchman		greeting_busy		common	npcvar:customs		I am busy now, c
 				common	whittlebone	common			Ah, common tongue. You’ve crossed into dangerous lands. But you can rest here in Whittlebone.
 			x	whittlebone	sanctuary	common			A man on the shore kept saying “Sanctuary”. Do you know what this is?
 			x	whittlebone	customs	common			Whittlebone?
-				sanctuary	whittlebone	common			The ramblings of a dying man? No. But you could ask Ulga, the crone in the broken house to the south.
-				customs	whittlebone	common		spawn_loot:scroll_vyeshal_vocab_1_2;npcvar:customs=true	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now. Not many speak common tongue though. You’d do best to learn our customs. Here, take this.
+				sanctuary	whittlebone	common			The ramblings of a dying man? No. But you could ask Ulga, the crone in the only intact house to the north.
+				customs	whittlebone	common		npcvar:customs=true	Yes. The Mist will make this place uninhabitable soon. But it’s safe for now.
 swamp_witch		Swamp Witch		greeting	shop				Oooh what’s this come crawlin outta the mud I see?
 									Come a little closer tadpole! Do ya have anything shiny?
 			x	shop				open_shop	Shall we trade?
-intro_wanderer		Wanderer		greeting_open			var:town_gate_locked=false		Good luck out there. Be safe.
-				greeting_closed					Gate’s closed, friend
-									It will open tomorrow. You can pass the time by the fire.
+intro_wanderer		Wanderer		seer_again			npcvar:key_given		Yes, wanderer, if you seek the seer she is amidst the mudflats. You'll have to traverse the caves, and scale down the cliffs to get there. Be cautious, this is a land of savagery.
+				seer			understands>=60%	spawn_loot:key_gate_whittlebone;npcvar:key_given=true	Yes, wanderer, if you seek the seer she is amidst the mudflats. You'll have to traverse the caves, and scale down the cliffs to get there. Be cautious, this is a land of savagery. Take this.
+				greeting		common			I speak little common. Ulga can help you.

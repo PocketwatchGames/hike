@@ -50,7 +50,7 @@ public static class StatFormat
 		switch (effect.durationType)
 		{
 			case EDurationType.UntilTimeOfDay:
-				return Mathf.IsZeroApprox(Mathf.PosMod(effect.expireAtTimeOfDay01, 1f))
+				return effect.LastsUntilDawn
 					? Loc.Get(Loc.Keys.status_duration_until_sunrise)
 					: Loc.Format(Loc.Keys.status_duration_until_time, ClockTime(effect.expireAtTimeOfDay01));
 			case EDurationType.Timed:

@@ -2,10 +2,20 @@
 
 [ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="0_r"]
 [ext_resource type="Script" uid="uid://coe6a1xslanh7" path="res://scripts/data/characters/NpcAppearanceData.cs" id="1_app"]
-[ext_resource type="Resource" uid="uid://c0gb8xrqepgvr" path="res://resources/data/worlds/shared/npcs/outfits/villager_plain_m.tres" id="2_outfit"]
+[ext_resource type="Texture2D" uid="uid://bhhvbkjjt3fmt" path="res://assets/textures/portraits/spider.png" id="2_aoqb6"]
+[ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
+
+[sub_resource type="Resource" id="outfit"]
+script = ExtResource("outfit_script")
+bodyMeshNamesMale = PackedStringArray("M_Swordsman_Top", "M_Swordsman_Bottom")
+primaryColor = Color(0.55, 0.28, 0.18, 1)
+secondaryColor = Color(0.6, 0.5, 0.34, 1)
+tertiaryColor = Color(0.796, 0.796, 0.678, 1)
+metadata/_custom_type_script = "uid://6h7yge1txki2"
 
 [resource]
 script = ExtResource("1_app")
 scene = ExtResource("0_r")
-outfit = ExtResource("2_outfit")
+outfit = SubResource("outfit")
 hairStyle = 4
+portrait = ExtResource("2_aoqb6")

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3 uid="uid://rn1pknod86l5"]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "blood"
+description = "A sword, a bow, and one of each blood: red (goblin, troll, kun-kun), slime goo and spider ichor. Backstab an unaware one for the heavy burst."
+commands = "spawn_loot sword
+spawn_loot bow
+spawn_mob goblin_forest 1
+spawn_mob troll_forest 1
+spawn_mob kun_kun_forest 1
+spawn_mob slime_cube_subspecies 1
+spawn_mob spider_forest 1"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

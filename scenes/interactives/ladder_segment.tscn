@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" uid="uid://eglksyblce57" path="res://assets/models/furniture/rpgpp_av_ladder_01a.fbx" id="1_ladder"]
+
+[node name="LadderSegment" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1_ladder")]
+transform = Transform3D(1, 0, 0, 0, 0.98825536, -0.15281144, 0, 0.15281144, 0.98825536, 0.002994, 0, -0.066171)

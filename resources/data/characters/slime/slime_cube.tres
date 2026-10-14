@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://bwvybycq0gt5j" path="res://scenes/characters/slime_cube.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="5_c2ojg"]
+[ext_resource type="Resource" uid="uid://jwmav4lkcm5yx" path="res://resources/data/blood/slime_goo.tres" id="blood_1"]
 
 [sub_resource type="Resource" id="anim_attack"]
 script = ExtResource("4_animdata")
@@ -55,6 +56,7 @@ metadata/_custom_type_script = "uid://jqeoac08u010"
 
 [resource]
 script = ExtResource("1_mobdata")
+blood = ExtResource("blood_1")
 displayName = &"Slime Cube"
 darknessPerceptionWeight = 1.0
 sunburnBuildupPerSecond = 0.5

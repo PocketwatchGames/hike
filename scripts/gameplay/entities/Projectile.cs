@@ -479,6 +479,7 @@ public partial class Projectile : Node3D
 							goto AfterHurtSweep;
 						}
 						Vector3 hitPos = (Vector3)hurtResult["position"];
+						hit.hitPoint = hitPos;
 						HitPrediction prediction = hurtBox.QueryHit(hit);
 						EHitResult hitResult = prediction.Result;
 						EDamageTriggerFlags hitTriggers = prediction.Triggers;

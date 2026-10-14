@@ -34,6 +34,10 @@ uniform vec4 emission : source_color = vec4(0.0);
 // `vertex_color_use_as_albedo`. Defaults false so existing particles that set a
 // process-material color purely for COLOR.a are unaffected.
 uniform bool use_vertex_color = false;
+// Per-node tint on the albedo term, set from code (Fx.Create's `tint`) so one
+// effect scene serves every color of a substance — blood is red, slime green,
+// ichor black, all from the same splatter. White leaves a particle as authored.
+instance uniform vec4 tint : source_color = vec4(1.0);
 
 global uniform sampler3D light_map : filter_linear, repeat_enable;
 global uniform vec3 light_map_origin;
@@ -124,9 +128,9 @@ void fragment() {
 	// is set — matching StandardMaterial3D's vertex_color_use_as_albedo, which
 	// defaults false (so the per-particle COLOR.rgb did NOT tint the output).
 	vec3 vertex_tint = use_vertex_color ? particle_color.rgb : vec3(1.0);
-	ALBEDO = (tex.rgb * albedo.rgb * lit + emission.rgb) * vertex_tint;
+	ALBEDO = (tex.rgb * albedo.rgb * tint.rgb * lit + emission.rgb) * vertex_tint;
 	// Unlit ends at the poche, not black — see poche.gdshaderinc.
 	ALBEDO += poche_unlit_light(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, lit);
 	EMISSION = vec3(0.0);
-	ALPHA = tex.a * max(albedo.a, emission.a) * particle_color.a;
+	ALPHA = tex.a * max(albedo.a * tint.a, emission.a) * particle_color.a;
 }

@@ -285,7 +285,11 @@ public static class WorldFile
     //      its always-false legacy PickedUp flag.
     // v74: a torch's payload dropped its AutoLightAtNight bool — a torch or
     //      lamp is lit until doused.
-    public const uint VERSION = 74;
+    // v75: the coiled rope became a ladder kit (Tag.LadderKit, same slot and
+    //      payload) and its scene moved, so a v74 file names a scene that is gone.
+    // v76: a door's payload carries its lock (a LockData ref, empty when
+    //      unlocked) after its Active flag.
+    public const uint VERSION = 76;
 
     public struct IndexEntry
     {

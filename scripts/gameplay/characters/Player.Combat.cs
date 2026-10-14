@@ -274,9 +274,15 @@ public partial class Player : CharacterBody3D
 
 		bool wasAlive = _health > 0f;
 		LoseHealth(incomingDamage);
+		// Blood on every wounding hit, the killing one included. Suppressed for
+		// continuous DoT hits so a damage zone doesn't spurt every physics frame.
+		if (wasAlive && incomingDamage > 0f && !hit.dot)
+		{
+			BloodSpill.Spill(data?.blood, _world, in hit, _hurtBox?.Center ?? GlobalPosition, _health <= 0f);
+		}
 		if (_health <= 0f)
 		{
-			// Death blood + VO are fired on the alive→dead transition only —
+			// Death cue + VO are fired on the alive→dead transition only —
 			// a follow-up hit on an already-dead body shouldn't re-emit.
 			if (wasAlive)
 			{
@@ -286,16 +292,12 @@ public partial class Player : CharacterBody3D
 			}
 			PlayOneShot(EAnimation.Die);
 		}
-		// Per-hit blood / hurt VO. Suppressed for continuous DoT hits (the
-		// owning DamageZone pulses these on its own fxIntervalSeconds via
-		// OnHurtBoxFxPulse) so a smear-damage zone doesn't spawn a fresh
-		// blood spurt every physics frame.
+		// Hurt VO, suppressed for continuous DoT hits like the blood above.
 		else if (incomingDamage > 0f && !hit.dot)
 		{
-			SpawnWorldEffect(_bloodDamageFx);
 			SpawnVoice(_voice?.hurt);
 			// Slight camera shake on actual health damage. Shares the !hit.dot
-			// gate with blood/VO so a continuous burn zone doesn't sustain
+			// gate with the VO so a continuous burn zone doesn't sustain
 			// shake every frame; range=0 since the player IS the camera target.
 			GameCamera.Current?.Shake?.AddImpulse(0.12f, 0.15f, GlobalPosition, 0f, GlobalPosition);
 		}

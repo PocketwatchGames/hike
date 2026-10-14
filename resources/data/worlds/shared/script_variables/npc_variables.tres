@@ -5,22 +5,34 @@
 
 [sub_resource type="Resource" id="Var_1"]
 script = ExtResource("2_variable")
-id = &"intro_librarian_map"
+id = &"intro_librarian_learn"
 type = 0
 description = "Declared by the test_world/intro_librarian conversation sheet."
 
 [sub_resource type="Resource" id="Var_2"]
 script = ExtResource("2_variable")
+id = &"intro_librarian_map"
+type = 0
+description = "Declared by the test_world/intro_librarian conversation sheet."
+
+[sub_resource type="Resource" id="Var_3"]
+script = ExtResource("2_variable")
 id = &"intro_innkeeper_greeting"
 type = 0
 description = "Declared by the test_world/intro_innkeeper conversation sheet."
 
-[sub_resource type="Resource" id="Var_3"]
+[sub_resource type="Resource" id="Var_4"]
 script = ExtResource("2_variable")
 id = &"intro_watchman_customs"
 type = 0
 description = "Declared by the test_world/intro_watchman conversation sheet."
 
+[sub_resource type="Resource" id="Var_5"]
+script = ExtResource("2_variable")
+id = &"intro_wanderer_key_given"
+type = 0
+description = "Declared by the test_world/intro_wanderer conversation sheet."
+
 [resource]
 script = ExtResource("1_registry")
-variables = Array[ExtResource("2_variable")]([SubResource("Var_1"), SubResource("Var_2"), SubResource("Var_3")])
+variables = Array[ExtResource("2_variable")]([SubResource("Var_1"), SubResource("Var_2"), SubResource("Var_3"), SubResource("Var_4"), SubResource("Var_5")])
