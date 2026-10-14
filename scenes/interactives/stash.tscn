@@ -3,8 +3,6 @@
 [ext_resource type="Script" uid="uid://xosq0aw4iya3c" path="res://scripts/gameplay/entities/Stash.cs" id="1_stash"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
-[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
-[ext_resource type="Script" uid="uid://b7kq3xn2wawdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="5_nodanger"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="6_ibox"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="7_meshhl"]
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="8_porous"]
@@ -15,16 +13,11 @@
 script = ExtResource("2_event")
 type = 256
 
-[sub_resource type="Resource" id="Resource_stash_nodanger"]
-script = ExtResource("5_nodanger")
-rejectMessage = &"danger_nearby"
-
 [sub_resource type="Resource" id="Resource_stash_action_open"]
 script = ExtResource("3_action")
 displayName = &"Stash"
 icon = ExtResource("10_open")
 completionEvents = Array[ExtResource("2_event")]([SubResource("Resource_stash_event")])
-requirements = Array[ExtResource("4_req")]([SubResource("Resource_stash_nodanger")])
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_body"]
 size = Vector3(1.5, 0.7, 1.3)

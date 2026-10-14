@@ -8,8 +8,6 @@
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="5_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="6_event"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="6_vhruw"]
-[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_req"]
-[ext_resource type="Script" uid="uid://b7kq3xn2wawdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="8_nodanger"]
 [ext_resource type="Texture2D" uid="uid://q5swbro44uym" path="res://assets/textures/items/GemRed.png" id="9_icon"]
 [ext_resource type="PackedScene" uid="uid://c4st1lkqam3rx" path="res://scenes/fx/cast_loop.tscn" id="10_castloop"]
 [ext_resource type="PackedScene" uid="uid://cvoui2mg0oxau" path="res://scenes/fx/interact_reject.tscn" id="11_reject"]
@@ -27,15 +25,10 @@ type = 16
 script = ExtResource("6_event")
 type = 16777216
 
-[sub_resource type="Resource" id="Req_no_danger"]
-script = ExtResource("8_nodanger")
-rejectMessage = &"danger_nearby"
-
 [sub_resource type="Resource" id="Action_pray"]
 script = ExtResource("5_action")
 chargeTime = 3.0
 events = Array[ExtResource("6_event")]([SubResource("Event_spend"), SubResource("Event_return_home")])
-requirements = Array[ExtResource("7_req")]([SubResource("Req_no_danger")])
 maxSpeedCharging = 0
 fadeToBlack = true
 chargeLoopEffect = ExtResource("10_castloop")

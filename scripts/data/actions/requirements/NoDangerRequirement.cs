@@ -4,9 +4,9 @@ using Godot;
 // Refuses a "safe-only" interactive action (cooking / sleeping at a campfire)
 // while a dangerous hostile makes the spot unsafe. Anchored at the interactive
 // being used (falling back to the actor) and scoped by `dangerRadius`: a mob
-// blocks only if it's within that radius AND either in an engaged posture or has
-// a clear line of sight to the object (see Sim.FindDanger). Fog/lighting-
-// independent and symmetric about the object.
+// blocks if it's in an engaged posture (any range), or if the player can see it
+// AND it's within that radius with a clear line of sight to the object (see
+// Sim.FindDanger). An unseen, unengaged mob never blocks.
 //
 // If the interactive implements IMobWard (a lit campfire), mobs it wards off
 // (fire-fearing slimes) are ignored — so lighting/camping isn't blocked by the
@@ -18,7 +18,7 @@ using Godot;
 public partial class NoDangerRequirement : ActionRequirement
 {
     // Horizontal meters from the interactive within which a merely-present
-    // hostile (one that can see the spot but isn't engaged) is considered —
+    // hostile (seen by the player, with a line to the spot, not engaged) counts —
     // roughly on-screen range so a clearly-visible mob blocks. Does NOT bound an
     // actively hunting mob (Mob.IsEngaging counts at any range). Per-interactive
     // so different stations can differ by feel.
@@ -49,7 +49,7 @@ public partial class NoDangerRequirement : ActionRequirement
             return null;
         }
         float dist = mob.GlobalPosition.DistanceTo(anchor);
-        string clause = engaging ? "engaging (any range)" : $"in sight within {dangerRadius:F0}m";
+        string clause = engaging ? "engaging (any range)" : $"seen and in sight within {dangerRadius:F0}m";
         return $"{mob.mobData?.displayName} ({mob.Name}) {clause}: dist={dist:F1} pos={mob.GlobalPosition} " +
             $"behavior={mob.CurrentBehaviorName} flags={mob.CurrentBehaviorFlags} nav={mob.Navigator.LastPlan} " +
             $"playerSeesMob={mob.playerCanSee}";

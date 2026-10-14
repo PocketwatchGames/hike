@@ -728,10 +728,10 @@ public partial class Sim
 
     // True when a dangerous hostile would make interacting at `anchor` unsafe:
     // within `radius` of it AND either in an engaged posture (coming for the
-    // player, even behind cover — see Mob.IsEngaging) or with a clear line of
-    // sight to the spot. Deliberately fog/lighting-independent and symmetric about
-    // the object — LOS is measured mob->anchor, so it doesn't matter which side of
-    // the object the player stands. Drives NoDangerRequirement. `isWarded`
+    // player, even behind cover — see Mob.IsEngaging) or both seen by the player
+    // and with a clear line of sight to the spot. The LOS leg is symmetric about
+    // the object — measured mob->anchor, so it doesn't matter which side of the
+    // object the player stands. Drives NoDangerRequirement. `isWarded`
     // optionally excludes mobs the interactive repels (a lit campfire's feared
     // slimes) so those never block it. Cheap enough to call at action-press time.
     // Returns the first mob that makes the spot unsafe (null = safe); `engaging`
@@ -758,10 +758,14 @@ public partial class Sim
                 engaging = true;
                 return mob;
             }
-            // A merely-present hostile (aware of the spot but not engaged) counts
-            // only when it's near AND has a clear line to it. Horizontal distance
-            // so a flier's altitude doesn't push it out of range while it hovers
-            // right over the spot.
+            // A merely-present hostile counts only when the player can see it, it's
+            // near, AND it has a clear line to the spot — an unseen, unengaged mob
+            // is no danger. Horizontal distance so a flier's altitude doesn't push
+            // it out of range while it hovers right over the spot.
+            if (!mob.playerCanSee)
+            {
+                continue;
+            }
             Vector3 toMob = mob.GlobalPosition - anchor;
             toMob.Y = 0f;
             if (toMob.LengthSquared() <= radiusSq && HasLineOfSight(mob.GlobalPosition, anchor, losExclude))
