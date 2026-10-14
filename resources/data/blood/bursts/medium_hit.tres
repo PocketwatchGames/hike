@@ -1,16 +1,11 @@
-[gd_resource type="Resource" script_class="BloodBurstData" format=3 uid="uid://a7hb5i06morkd"]
+[gd_resource type="Resource" script_class="BloodBurstData" format=3 uid="uid://7hb5i06morkd"]
 
-[ext_resource type="Script" uid="uid://cg9tzv3q5l2cb" path="res://scripts/data/combat/BloodBurstData.cs" id="1_script"]
-[ext_resource type="PackedScene" uid="uid://d7qrvrh3cmlii" path="res://scenes/fx/blood_splatter.tscn" id="2_splatter"]
-[ext_resource type="PackedScene" uid="uid://rvdl3bzk8a214" path="res://scenes/fx/blood_mist.tscn" id="3_mist"]
+[ext_resource type="Script" uid="uid://chat0v3q5l2cb" path="res://scripts/data/combat/BloodBurstData.cs" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://dcwbpktrfpqq" path="res://scenes/fx/blood_splatter.tscn" id="2_splatter"]
+[ext_resource type="PackedScene" uid="uid://cfp4p3ckyhk02" path="res://scenes/fx/blood_mist.tscn" id="3_mist"]
 
 [resource]
 script = ExtResource("1_script")
 splatter = ExtResource("2_splatter")
 mist = ExtResource("3_mist")
-stainCount = 1
-stainSizeMin = 0.4
 stainSizeMax = 0.7
-stainThrow = 0.8
-stainHoldSeconds = 20.0
-stainFadeSeconds = 15.0

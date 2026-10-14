@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="10_outfit_script"]
 [ext_resource type="Resource" uid="uid://dofncd682i14n" path="res://resources/data/actions/mantle_up_action.tres" id="30_mantle_up"]
 [ext_resource type="Resource" uid="uid://dwk6aa74jfi6k" path="res://resources/data/actions/mantle_down_action.tres" id="31_mantle_down"]
-[ext_resource type="Resource" uid="uid://srangjfcynway" path="res://resources/data/blood/red_blood.tres" id="blood_1"]
+[ext_resource type="Resource" uid="uid://dbm53bqcpue8w" path="res://resources/data/blood/red_blood.tres" id="blood_1"]
 
 [sub_resource type="Resource" id="unarmored_outfit"]
 script = ExtResource("10_outfit_script")
@@ -23,7 +23,6 @@ metadata/_custom_type_script = "uid://6h7yge1txki2"
 
 [resource]
 script = ExtResource("1_mknwc")
-blood = ExtResource("blood_1")
 baseAnims = ExtResource("7_unarmed")
 stepHeight = 1.1
 moveSpeed = 6.8
@@ -48,10 +47,9 @@ unarmedWeapon = ExtResource("8_fists")
 unarmedShield = ExtResource("8_fists_shield")
 modifiers = Array[Object]([])
 weaponQueueWindowSeconds = 0.25
+blood = ExtResource("blood_1")
 armorRechargeDelay = 5.0
 bloodRegenSpeed = 10.0
-maxBonusHealth = 1000.0
-maxBonusLanternOil = 100.0
 maxStamina = 2.0
 dashActionProfile = ExtResource("6_dash")
 dashExitSpeed = 11.0

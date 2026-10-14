@@ -539,7 +539,7 @@ void fragment() {
 
         ALBEDO = tinted * reflection_tint;
         // Unlit ends at the poche, not black — see poche.gdshaderinc.
-        ALBEDO += poche_unlit(vertex_world_var, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
+        ALBEDO += poche_unlit(sun_lit, block_lit);
         // Fade reflection opacity by water clarity so muddy water lets its
         // own surface dominate instead of stamping the reflection sprite
         // over it. Clear water → ALPHA=1 (full reflection); swamp /

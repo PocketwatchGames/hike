@@ -426,6 +426,6 @@ void fragment()
     // Both default to 1 (white/opaque) when no color_ramp is authored.
     ALBEDO = color * particle_color.rgb;
     // Unlit ends at the poche, not black — see poche.gdshaderinc.
-    ALBEDO += poche_unlit_light(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, light_col);
+    ALBEDO += poche_unlit_light(light_col);
     ALPHA = min(mote_alpha * dust_gain, 1.0) * coverage * beam * ground_fade * particle_color.a;
 }

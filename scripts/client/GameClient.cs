@@ -139,6 +139,10 @@ public partial class GameClient : Node3D
 	[Export] public ScreenFade campFade;
 	[Export] public UpgradeScreen upgradeScreen;
 	[Export] public ForgeScreen forgeScreen;
+	// Standalone station screens (Bed, Cookpot). The camp screen has its own copies.
+	[Export] public SleepScreen sleepScreen;
+	[Export] public CookingScreen cookingScreen;
+	[Export] public StashScreen stashScreen;
 	[Export] public Node worldHUD;
 	// Pool that leases MobHUDs to the mobs currently showing one, instead of
 	// every loaded mob owning one. Created in StartWorld under worldHUD.
@@ -425,7 +429,7 @@ public partial class GameClient : Node3D
 	// so subscribers get death reliably without racing the deferred player
 	// spawn the way subscribing to the player directly would.
 	public Action<Player> onPlayerDied;
-	// Fired by RespawnAtCampfire after a death respawn (distinct from onPlayerSpawned,
+	// Fired by RespawnAtHome after a death respawn (distinct from onPlayerSpawned,
 	// which fires once on the initial spawn — the player object is reused on
 	// respawn, so re-running onPlayerSpawned subscribers would double-bind). Music
 	// uses it to leave the death track for the current time-of-day ambient.
@@ -593,10 +597,13 @@ public partial class GameClient : Node3D
 	// CVars.debugSkyLight. Frame-rate independent; counts deltaTime in
 	// _Process and snaps the line whenever it crosses one second.
 	double _debugSkyLightAccum;
-	// The campfire the party is anchored to — the starting campfire until the
-	// player camps somewhere new (CampScreen.Open → NotifyCampedAt). A death wakes
-	// the party here.
-	Vector3 _lastCampfirePosition;
+	// Where the party last slept to sunrise: a campfire (NotifyCampedAt) or a bed
+	// (a bed sleep that reached sunrise). The start campfire until either happens.
+	// Loads, death wakes and the Ruby Rosaries all wake the party here.
+	RestSpot _home;
+	// The bed a sleep in progress started from; becomes _home if that sleep is a
+	// rest. Null for a camp sleep, whose campfire is already _home.
+	RestSpot? _sleepingAt;
 	// The campfire the party camps / respawns at is always the world's single lit fire:
 	// lighting one is the only way to camp, and it douses every other, so SimState.LitCampfire
 	// is the one source of truth. Its RuntimeNode is repopulated on chunk reload and nulled on
@@ -627,7 +634,7 @@ public partial class GameClient : Node3D
 	[Export] public BirdsEyeController birdsEye;
 
 	// Cinematic slow-motion + zoom on player death. Triggered in
-	// OnPlayerDiedInternal, released in RespawnAtCampfire; ticked in _Process.
+	// OnPlayerDiedInternal, released in RespawnAtHome; ticked in _Process.
 	[Export] public SlowMotionController slowMotion;
 	// Wall-clock deadline (Time.GetTicksMsec) to auto-release the finisher
 	// slow-mo, or 0 when none is pending. Wall-clock so the slow-mo it sets
@@ -689,6 +696,18 @@ public partial class GameClient : Node3D
 		{
 			forgeScreen.Visible = false;
 		}
+		if (sleepScreen != null)
+		{
+			sleepScreen.Visible = false;
+		}
+		if (cookingScreen != null)
+		{
+			cookingScreen.Visible = false;
+		}
+		if (stashScreen != null)
+		{
+			stashScreen.Visible = false;
+		}
 
 		_inputSuppressed = false;
 		_inputSuppressClearPending = false;
@@ -714,13 +733,14 @@ public partial class GameClient : Node3D
 		if (save != null)
 		{
 			save.ApplyToWorld(worldState);
-			playerPosition = save.Campfire;
+			playerPosition = save.Home.Position;
+			_home = save.Home;
 		}
 		else
 		{
 			worldState.BeginRun((int)GD.Randi());
+			_home = new RestSpot(playerPosition, AtCampfire: true);
 		}
-		_lastCampfirePosition = playerPosition;
 		onHudText += OnHudTextRequested;
 		onDamage += OnDamageRequested;
 		onHeal += OnHealRequested;
@@ -867,7 +887,7 @@ public partial class GameClient : Node3D
 
 		if (save != null)
 		{
-			WakeIntoCamp();
+			WakeAtHome();
 		}
 	}
 
@@ -889,11 +909,19 @@ public partial class GameClient : Node3D
 		worldState.SimState?.BankActiveKnowledge();
 	}
 
-	// A loaded save is a wake at sunrise, so it opens the way a real one leaves
-	// the player: in camp. The camp screen takes the input gate.
-	void WakeIntoCamp()
+	// A loaded save or a death is a wake at sunrise, so it opens the way a real one
+	// leaves the player: in camp at a campfire home (the camp screen takes the
+	// input gate), in plain play at a bed.
+	void WakeAtHome()
 	{
-		campScreen?.Open(_player, _lastCampfirePosition);
+		if (_home.AtCampfire && campScreen != null)
+		{
+			campScreen.Open(_player, _home.Position);
+		}
+		else
+		{
+			InputSuppressed = false;
+		}
 	}
 
 	// Every sunrise wake writes the save — there is no other save point. Called at
@@ -909,8 +937,8 @@ public partial class GameClient : Node3D
 		try
 		{
 			_world.FlushLiveEntities();
-			SaveGame.Save(CVars.savePath.Value, _world.WorldState, PlayerFor, _lastCampfirePosition);
-			GD.Print($"[Save] Autosaved day {_world.WorldState.DayNumber} at {_lastCampfirePosition} -> {CVars.savePath.Value}");
+			SaveGame.Save(CVars.savePath.Value, _world.WorldState, PlayerFor, _home);
+			GD.Print($"[Save] Autosaved day {_world.WorldState.DayNumber} at {_home} -> {CVars.savePath.Value}");
 		}
 		catch (Exception e)
 		{
@@ -1040,7 +1068,7 @@ public partial class GameClient : Node3D
 	// gathers survivors here. Called when the player camps (CampScreen.Open).
 	public void NotifyCampedAt(Vector3 campfirePosition)
 	{
-		_lastCampfirePosition = campfirePosition;
+		_home = new RestSpot(campfirePosition, AtCampfire: true);
 		// Returning to a campfire commits the camp: Sim banks the active member's
 		// provisional field knowledge into the permanent party pool (the "commit" in the
 		// two-tier knowledge model) and drains their carried materials into the shared
@@ -1108,7 +1136,7 @@ public partial class GameClient : Node3D
 		{
 			if (_partyPlayers[i] != null) { membersBefore++; }
 		}
-		Vector3 pos = CampSpot(_lastCampfirePosition, membersBefore, membersBefore + 1);
+		Vector3 pos = CampSpot(_home.Position, membersBefore, membersBefore + 1);
 		Player p = SpawnPartyMember(member, pos, active: false);
 		_partyPlayers.Add(p);
 
@@ -2845,6 +2873,77 @@ public partial class GameClient : Node3D
 		Input.MouseMode = Input.MouseModeEnum.Captured;
 	}
 
+	// Bed interact: the sleep menu, with the HUD hidden. Picking a duration hands
+	// the still-raised input gate straight to the sleep, which releases it on wake;
+	// ui_cancel releases it now.
+	public void OpenSleepScreen(Vector3 bedPosition, float healFractionPerHour)
+	{
+		SleepScreen screen = sleepScreen;
+		if (screen == null || _player == null || InputSuppressed || sleepOverlay == null || sleepOverlay.Busy)
+		{
+			return;
+		}
+		InputSuppressed = true;
+		if (hud != null) { hud.Visible = false; }
+		Input.MouseMode = Input.MouseModeEnum.Visible;
+		_player.ClearInteractive();
+		_sleepingAt = new RestSpot(bedPosition, AtCampfire: false);
+		screen.Open(_player, healFractionPerHour, OnStationSleepChosen, CancelBedSleep);
+	}
+
+	void CancelBedSleep()
+	{
+		_sleepingAt = null;
+		ReleaseStationScreen();
+	}
+
+	void OnStationSleepChosen(double hours, double healFractionPerHour)
+	{
+		sleepScreen?.Close();
+		if (hud != null) { hud.Visible = true; }
+		Input.MouseMode = Input.MouseModeEnum.Captured;
+		StartSleep(hours, healFractionPerHour, onWake: null);
+	}
+
+	// Cookpot interact: the cooking screen, with the HUD hidden. Closing it
+	// (ui_cancel) returns the slot contents to the cook and releases the gate.
+	public void OpenCookingScreen(ICookingStation station)
+	{
+		CookingScreen screen = cookingScreen;
+		if (screen == null || station == null || _player == null || InputSuppressed)
+		{
+			return;
+		}
+		InputSuppressed = true;
+		if (hud != null) { hud.Visible = false; }
+		Input.MouseMode = Input.MouseModeEnum.Visible;
+		_player.ClearInteractive();
+		screen.Open(_player, station, onClose: ReleaseStationScreen);
+	}
+
+	// Stash interact: the party stash beside the controlled member's inventory,
+	// with the HUD hidden. ui_cancel (with nothing picked up) closes it.
+	public void OpenStashScreen()
+	{
+		ItemGrid stash = _world?.WorldState?.SimState?.PartyStash;
+		if (stashScreen == null || stash == null || _player == null || InputSuppressed)
+		{
+			return;
+		}
+		InputSuppressed = true;
+		if (hud != null) { hud.Visible = false; }
+		Input.MouseMode = Input.MouseModeEnum.Visible;
+		_player.ClearInteractive();
+		stashScreen.Open(_player, stash, onClose: ReleaseStationScreen);
+	}
+
+	void ReleaseStationScreen()
+	{
+		InputSuppressed = false;
+		if (hud != null) { hud.Visible = true; }
+		Input.MouseMode = Input.MouseModeEnum.Captured;
+	}
+
 	void OnPlayerInteractChanged(IInteractive interactive)
 	{
 		UpdateHighlightOutline();
@@ -2927,7 +3026,7 @@ public partial class GameClient : Node3D
 		camera?.ClearFocus();
 
 		// The body lies where it fell through the fade-out; the wake happens once the
-		// screen is black (RespawnAtCampfire).
+		// screen is black (RespawnAtHome).
 		if (deathScreen != null)
 		{
 			deathScreen.Show(this);
@@ -2935,25 +3034,25 @@ public partial class GameClient : Node3D
 		else
 		{
 			// No screen wired (tests): resolve immediately so input isn't stranded.
-			RespawnAtCampfire();
+			RespawnAtHome();
 			OnRespawnRevealed();
 		}
 	}
 
 	// The death wake, run behind the black death screen. The fallen member's gear
-	// goes into a sack where they died, then they wake at the last campfire at the
+	// goes into a sack where they died, then they wake at home (_home) at the
 	// next sunrise with the rest of the party — the same wake a camp sleep, a pray
 	// or a loaded save ends in. No member is ever lost; the sack is the price.
-	public void RespawnAtCampfire()
+	public void RespawnAtHome()
 	{
 		if (_player == null || _world == null)
 		{
 			return;
 		}
 		_world.DropDeathSack(_player.DeathSackPosition(), _player.Inventory);
-		_world.RespawnAtSunrise(ControlledCampSpot(_lastCampfirePosition));
-		GatherPartyAt(_lastCampfirePosition);
-		camera?.SetInitialPosition(_lastCampfirePosition);
+		_world.RespawnAtSunrise(ControlledCampSpot(_home.Position));
+		GatherPartyAt(_home.Position);
+		camera?.SetInitialPosition(_home.Position);
 		// Ease back to real time + the resting zoom under the fade-in.
 		slowMotion?.Release();
 		// Clear the death wind-down so the heartbeat goes fully idle; a fresh
@@ -2976,18 +3075,11 @@ public partial class GameClient : Node3D
 		return CampSpot(anchor, 0, count);
 	}
 
-	// Called by DeathScreen once its fade-in has revealed the campfire: open camp
-	// with the day's leader to pick, which takes the input gate from here.
+	// Called by DeathScreen once its fade-in has revealed home: at a campfire, open
+	// camp with the day's leader to pick, which takes the input gate from here.
 	public void OnRespawnRevealed()
 	{
-		if (campScreen != null)
-		{
-			WakeIntoCamp();
-		}
-		else
-		{
-			InputSuppressed = false;
-		}
+		WakeAtHome();
 	}
 
 	// True while the player is dead — read by SleepOverlay to decide whether to
@@ -3000,31 +3092,13 @@ public partial class GameClient : Node3D
 	// wired (test scaffolding) reads as opaque so the overlay never strands.
 	public bool DeathScreenOpaque => deathScreen == null || deathScreen.State == DeathScreen.EState.Prompt;
 
-	// Tent / rest entry point. Fades to black, skips world time, then fades
-	// back in (or hands off to the death sequence if a status effect proved
-	// lethal during the skip). Input stays suppressed for the whole sequence;
-	// SleepOverlay releases it via EndSleep on a clean wake, or leaves it to the
-	// DeathScreen on a die-in-sleep.
-	public void BeginSleep(double hours, double healFractionPerHour)
-	{
-		if (_player == null || sleepOverlay == null || sleepOverlay.Busy || InputSuppressed)
-		{
-			return;
-		}
-		// Plain rest (tent): EndSleep releases the input gate on wake.
-		_onSleepWake = null;
-		InputSuppressed = true;
-		sleepOverlay.Show(this, hours, healFractionPerHour);
-	}
-
 	// Wake callback for a modal-driven rest. When set, EndSleep hands the input
 	// gate back to the caller (which stays open across the sleep) instead of
 	// releasing it. Cleared on a clean wake and on death-in-sleep.
 	Action _onSleepWake;
 
 	// Camp-screen rest entry point. The camp modal stays open (just hidden) across
-	// the sleep, so we skip the modal guard BeginSleep uses for the tent path and
-	// keep input gated the whole time. onWake fires when the fade-in completes so
+	// the sleep and keeps input gated the whole time. onWake fires when the fade-in completes so
 	// the camp screen can re-show itself, still in camp state.
 	public void BeginSleepFromCamp(double hours, double healFractionPerHour, Action onWake)
 	{
@@ -3032,11 +3106,21 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
-		_onSleepWake = onWake;
-		InputSuppressed = true;
 		// Camp music stops the moment the player sleeps; the wake plays the
 		// time-of-day ambient cue (MusicManager.OnCampSleepWake via EndSleep).
 		MusicManager.Instance?.OnCampSleepStart();
+		_sleepingAt = null;
+		StartSleep(hours, healFractionPerHour, onWake);
+	}
+
+	// Every sleep's fade + skip — the overlay fades to black, the skip runs, then it
+	// fades back in (or hands off to the death sequence if a status effect proved
+	// lethal during the skip). A null onWake means EndSleep releases the input gate
+	// on a clean wake.
+	void StartSleep(double hours, double healFractionPerHour, Action onWake)
+	{
+		_onSleepWake = onWake;
+		InputSuppressed = true;
 		sleepOverlay.Show(this, hours, healFractionPerHour);
 	}
 
@@ -3045,8 +3129,16 @@ public partial class GameClient : Node3D
 	// death-cam happen behind the curtain).
 	public void PerformSleepAdvance(double hours, double healFractionPerHour)
 	{
+		RestSpot? sleepingAt = _sleepingAt;
+		_sleepingAt = null;
 		if (_world != null && _world.Sleep(hours, healFractionPerHour))
 		{
+			// A bed sleep that reached sunrise makes the bed home, before the wake's
+			// autosave records it.
+			if (sleepingAt is RestSpot bed)
+			{
+				_home = bed;
+			}
 			WakeFromRest();
 		}
 	}
@@ -3080,22 +3172,40 @@ public partial class GameClient : Node3D
 	}
 
 	// Resolution of ReturnHomeEffect (the Ruby Rosaries, fired once the screen is
-	// fully black). Sends the player home to their last campfire and wakes them into
-	// the camp screen the next morning. Arriving home commits the camp exactly as
-	// walking up to the fire does (NotifyCampedAt), so nothing gathered is lost.
+	// fully black). Sends the party home and wakes them there the next morning. A
+	// campfire home wakes into the camp screen, and arriving commits the camp
+	// exactly as walking up to the fire does (NotifyCampedAt), so nothing gathered
+	// is lost. A bed home is a plain wake beside the bed.
 	public void ReturnHome()
 	{
 		if (_player == null || _world == null)
 		{
 			return;
 		}
-		NotifyCampedAt(_lastCampfirePosition);
-		_world.ReturnHomeToSunrise(ControlledCampSpot(_lastCampfirePosition));
-		camera?.SetInitialPosition(_lastCampfirePosition);
+		if (!_home.AtCampfire)
+		{
+			_world.ReturnHomeToSunrise(ControlledCampSpot(_home.Position));
+			GatherPartyAt(_home.Position);
+			camera?.SetInitialPosition(_home.Position);
+			InputSuppressed = true;
+			WakeFromRest();
+			if (campFade != null)
+			{
+				campFade.Reveal(() => WorldSettling, () => InputSuppressed = false);
+			}
+			else
+			{
+				InputSuppressed = false;
+			}
+			return;
+		}
+		NotifyCampedAt(_home.Position);
+		_world.ReturnHomeToSunrise(ControlledCampSpot(_home.Position));
+		camera?.SetInitialPosition(_home.Position);
 		// Open the camp screen without banking. Relight the home fire if it's resident;
 		// CampScreen reads the lit node live (full cook/craft) once it streams in.
 		LitCampfireNode?.Light();
-		campScreen?.Open(_player, _lastCampfirePosition);
+		campScreen?.Open(_player, _home.Position);
 		WakeFromRest();
 		// The action's own fade clears the instant it ends, so the camp fade takes
 		// the screen over at full black and holds it until the world is in.

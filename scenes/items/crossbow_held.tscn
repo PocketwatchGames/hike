@@ -12,6 +12,8 @@ shader_parameter/color_tint = Color(0.45, 0.32, 0.18, 1)
 render_priority = 0
 shader = ExtResource("model_lit_shader")
 shader_parameter/color_tint = Color(0.4, 0.41, 0.44, 1)
+shader_parameter/specular_shininess = 32.0
+shader_parameter/specular_strength = 0.8
 
 [sub_resource type="BoxMesh" id="BoxMesh_stock"]
 material = SubResource("Mat_wood")

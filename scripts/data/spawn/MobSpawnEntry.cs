@@ -36,6 +36,11 @@ public partial class MobSpawnEntry : SpawnEntryData
     // row's rather than replacing it.
     [Export] public Godot.Collections.Array<ItemCount> carriedLoot = new();
 
+    // Whether a rest brings this creature back after it dies. On for a
+    // population (the goblins of a camp); off for an individual — a named NPC,
+    // a one-off boss — who stays dead. NpcSpawnEntry defaults it off.
+    [Export] public bool respawnsOnRest = true;
+
     // Mobs require flat terrain to keep physics from knocking them off step
     // edges into the cliff face below. Water-bound mobs are exempt — they spawn
     // in the water column, where the dry-ground flatness test is meaningless
@@ -152,6 +157,7 @@ public partial class MobSpawnEntry : SpawnEntryData
             return;
         }
         state.SpawnConditions = context?.SpawnConditions ?? ESpawnConditions.None;
+        state.RespawnsOnRest = respawnsOnRest;
         StringName behavior = InitialBehaviorFor(rng, context);
         if (behavior != null)
         {

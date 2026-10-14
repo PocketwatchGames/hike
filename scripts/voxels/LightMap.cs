@@ -85,17 +85,11 @@ public class LightMap : WindowedVolumeMap
                 {
                     int o = rowOffset + lx * 4;
                     dst[o + 0] = sun[sunRow + lx];
-                    dst[o + 1] = EncodeChannel(blockR[lx, ly, lz]);
-                    dst[o + 2] = EncodeChannel(blockG[lx, ly, lz]);
-                    dst[o + 3] = EncodeChannel(blockB[lx, ly, lz]);
+                    ChunkState.EncodeBlockLight(blockR[lx, ly, lz], blockG[lx, ly, lz], blockB[lx, ly, lz],
+                        out dst[o + 1], out dst[o + 2], out dst[o + 3]);
                 }
             }
         }
-    }
-
-    private static byte EncodeChannel(ushort v)
-    {
-        return v > ChunkState.BLOCK_LIGHT_TEXTURE_MAX ? (byte)ChunkState.BLOCK_LIGHT_TEXTURE_MAX : (byte)v;
     }
 
     // The chunk's sun channel, rebuilt only when its stamp no longer matches.

@@ -10,3 +10,5 @@ shader = ExtResource("1_shader")
 shader_parameter/albedo_tex = ExtResource("2_tex")
 shader_parameter/form_strength = 0.3
 shader_parameter/color_tint = Color(0.42, 0.1, 0.75, 1)
+shader_parameter/specular_shininess = 64.0
+shader_parameter/specular_strength = 0.7

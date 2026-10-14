@@ -5,16 +5,20 @@
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
 [ext_resource type="PackedScene" uid="uid://dqghp00idjmuy" path="res://scenes/gui/almanac_screen.tscn" id="18_ofv2n"]
+[ext_resource type="Script" uid="uid://crab22qxwx2tl" path="res://scripts/gui/HudAnnouncementBanner.cs" id="19_announce"]
+[ext_resource type="AudioStream" uid="uid://b1omm8dfwrapy" path="res://assets/audio/source/ui/sfx_ui_announcement_01.wav" id="19_announce_sfx"]
 [ext_resource type="Script" uid="uid://b1lq7xv8n3eyk" path="res://scripts/gui/HudEventLog.cs" id="19_eventlog"]
 [ext_resource type="PackedScene" uid="uid://bkaby86guis4d" path="res://scenes/interactives/loot.tscn" id="20_loot"]
-[ext_resource type="PackedScene" uid="uid://cn3tkwyerft7v" path="res://scenes/characters/player.tscn" id="player_scene"]
 [ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
 [ext_resource type="PackedScene" uid="uid://bkn63m6xyu5a2" path="res://scenes/gui/upgrade_screen.tscn" id="27_upgrade"]
 [ext_resource type="PackedScene" uid="uid://carxk5v82cy87" path="res://scenes/gui/sleep_overlay.tscn" id="28_sleep"]
 [ext_resource type="PackedScene" uid="uid://blq0cn2x7hpke" path="res://scenes/gui/camp_screen.tscn" id="40_30f04"]
-[ext_resource type="PackedScene" uid="uid://iclwdeljyf5oi" path="res://scenes/gui/forge_screen.tscn" id="41_forge"]
+[ext_resource type="PackedScene" uid="uid://lr56aq1t1e5y" path="res://scenes/gui/forge_screen.tscn" id="41_forge"]
 [ext_resource type="Script" uid="uid://bt6ru7ovpj28n" path="res://scripts/gui/ScreenFade.cs" id="42_screenfade"]
+[ext_resource type="PackedScene" uid="uid://bvjwfiiuje7ra" path="res://scenes/gui/cooking_screen.tscn" id="43_cooking"]
+[ext_resource type="PackedScene" uid="uid://bfjaekwc2fo4t" path="res://scenes/gui/sleep_screen.tscn" id="44_sleepscreen"]
+[ext_resource type="PackedScene" uid="uid://cx320q2n7tosj" path="res://scenes/gui/stash_screen.tscn" id="50_2mmpf"]
 [ext_resource type="AudioStream" uid="uid://csnkhro8jjgy1" path="res://assets/audio/source/player/sfx_birdseye_swoosh.wav" id="birdseye_swoosh_sfx"]
 [ext_resource type="AudioStream" uid="uid://bmnjiu1d5wjoc" path="res://assets/audio/source/ambience/wind/amb_birdseye_wind_loop.wav" id="birdseye_wind_sfx"]
 [ext_resource type="Script" uid="uid://bjcyjqjs04viu" path="res://scripts/client/BirdsEyeController.cs" id="birds_eye_script"]
@@ -25,8 +29,9 @@
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
 [ext_resource type="Script" uid="uid://bd2qbk8yxpmjj" path="res://scripts/client/GroundStainProjector.cs" id="ground_stain_projector_script"]
 [ext_resource type="AudioStream" uid="uid://cltpadmtjyil1" path="res://assets/audio/source/player/sfx_heartbeat_01.wav" id="heartbeat_sfx"]
-[ext_resource type="PackedScene" uid="uid://chtfieldscene7y2b" path="res://scenes/subsystems/heat_field.tscn" id="heat_field_scene"]
+[ext_resource type="PackedScene" uid="uid://cwdqs8t0vrv7l" path="res://scenes/subsystems/heat_field.tscn" id="heat_field_scene"]
 [ext_resource type="Material" uid="uid://bodv5gd4psxkh" path="res://resources/materials/heat_shimmer.tres" id="heat_shimmer_mat"]
+[ext_resource type="PackedScene" path="res://scenes/hud/hud_item_icon.tscn" id="hud_item_icon"]
 [ext_resource type="PackedScene" uid="uid://cuyfeo5we7vxp" path="res://scenes/hud/hud_text_backstab.tscn" id="hud_text_backstab"]
 [ext_resource type="PackedScene" uid="uid://bv6kkm02f7457" path="res://scenes/hud/hud_text_crit.tscn" id="hud_text_crit"]
 [ext_resource type="PackedScene" uid="uid://bowf0uyhgkjdm" path="res://scenes/hud/hud_text_damage_blocked.tscn" id="hud_text_damage_blocked"]
@@ -37,17 +42,17 @@
 [ext_resource type="PackedScene" uid="uid://wrdegol14u0e" path="res://scenes/hud/hud_text_heal_heavy.tscn" id="hud_text_heal_heavy"]
 [ext_resource type="PackedScene" uid="uid://daw07fd8ckjrx" path="res://scenes/hud/hud_text_heal_light.tscn" id="hud_text_heal_light"]
 [ext_resource type="PackedScene" uid="uid://bajbqjuap3wxc" path="res://scenes/hud/hud_text_info.tscn" id="hud_text_info"]
-[ext_resource type="PackedScene" uid="uid://qc46wg03d3lm" path="res://scenes/hud/hud_item_icon.tscn" id="hud_item_icon"]
-[ext_resource type="PackedScene" uid="uid://cmnmapscene7x1a" path="res://scenes/subsystems/minimap.tscn" id="minimap_scene"]
+[ext_resource type="PackedScene" uid="uid://3ufqfjj386am" path="res://scenes/subsystems/minimap.tscn" id="minimap_scene"]
 [ext_resource type="PackedScene" uid="uid://daek4pk8ecen3" path="res://scenes/fx/motes.tscn" id="mote_scene"]
-[ext_resource type="Material" uid="uid://pr8w6684ve7dm" path="res://resources/materials/highlight_outline_flat.tres" id="outline_flat_mat"]
-[ext_resource type="Material" uid="uid://piugapxcfo8bk" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
+[ext_resource type="Material" uid="uid://cmgtyk4mlpck" path="res://resources/materials/highlight_outline_flat.tres" id="outline_flat_mat"]
+[ext_resource type="Material" uid="uid://dwmtij6kp3l1a" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
+[ext_resource type="PackedScene" uid="uid://cn3tkwyerft7v" path="res://scenes/characters/player.tscn" id="player_scene"]
 [ext_resource type="Material" uid="uid://b7yn6y1iuw3ht" path="res://resources/materials/post_process.tres" id="post_process_mat"]
 [ext_resource type="PackedScene" uid="uid://crv3c3c4y78as" path="res://scenes/fx/rain.tscn" id="rain_scene"]
 [ext_resource type="Script" uid="uid://bi7rs3e700k6x" path="res://scripts/client/ScreenEffectsController.cs" id="screen_effects_script"]
 [ext_resource type="Script" uid="uid://cr67nu6ygwlfj" path="res://scripts/client/SkyController.cs" id="sky_controller_script"]
 [ext_resource type="Script" uid="uid://cselyavrn014a" path="res://scripts/client/SlowMotionController.cs" id="slow_motion_script"]
-[ext_resource type="Material" uid="uid://ssmvopbv8hql1" path="res://resources/materials/upscale.tres" id="upscale_mat"]
+[ext_resource type="Material" uid="uid://dc0fchmvyn8ky" path="res://resources/materials/upscale.tres" id="upscale_mat"]
 [ext_resource type="Script" uid="uid://cjflrpaeqaulr" path="res://scripts/client/ViewportRig.cs" id="viewport_rig_script"]
 [ext_resource type="PackedScene" uid="uid://bwfoam4m5n6o7" path="res://scenes/fx/wind_foam.tscn" id="wind_foam_scene"]
 [ext_resource type="Script" uid="uid://cd6m5lgxxf0tx" path="res://scripts/gameplay/WindParticleManager.cs" id="wind_particle_manager_script"]
@@ -76,7 +81,6 @@ size = Vector2(2, 2)
 background_mode = 1
 ambient_light_color = Color(1, 1, 1, 1)
 ambient_light_energy = 0.0
-fog_enabled = false
 fog_mode = 1
 fog_light_color = Color(0.55, 0.62, 0.72, 1)
 fog_density = 1.0
@@ -88,7 +92,7 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "sleepOverlay", "campFade", "upgradeScreen", "forgeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "sleepOverlay", "campFade", "upgradeScreen", "forgeScreen", "sleepScreen", "cookingScreen", "stashScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
 script = ExtResource("1_mu8e5")
 mobLevelColors = PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0.48000002, 1, 0.48, 0, 0, 1, 0.49866652, 0, 0.68, 1)
 camera = NodePath("SceneViewport/MainCamera")
@@ -102,6 +106,9 @@ sleepOverlay = NodePath("SleepCanvas/SleepOverlay")
 campFade = NodePath("FadeCanvas/ScreenFade")
 upgradeScreen = NodePath("GUICanvas/UpgradeScreen")
 forgeScreen = NodePath("GUICanvas/ForgeScreen")
+sleepScreen = NodePath("GUICanvas/SleepScreen")
+cookingScreen = NodePath("GUICanvas/CookingScreen")
+stashScreen = NodePath("GUICanvas/StashScreen")
 worldHUD = NodePath("GUICanvas/WorldHUD")
 sceneViewport = NodePath("SceneViewport")
 sceneEnvironment = NodePath("SceneViewport/InnerEnv")
@@ -109,7 +116,6 @@ viewportRig = NodePath("ViewportRig")
 fogMaterial = ExtResource("fog_volumetric_mat")
 interactHudScene = ExtResource("3_0q6jn")
 lootScene = ExtResource("20_loot")
-playerScene = ExtResource("player_scene")
 hudTextInfoScene = ExtResource("hud_text_info")
 hudTextDamageLightScene = ExtResource("hud_text_damage_light")
 hudTextDamageHeavyScene = ExtResource("hud_text_damage_heavy")
@@ -133,9 +139,12 @@ foliagePlayerFadeActivationFallSeconds = 1.0
 clipIrisOpeningRadius = 6.0
 clipIrisEdgeSoftness = 0.25
 combatVictorySlowMoSeconds = 1.5
+playerScene = ExtResource("player_scene")
 birdsEye = NodePath("BirdsEye")
 slowMotion = NodePath("SlowMotion")
-eyeAdaptKnee = 1.0
+eyeAdaptDarkGain = 2.0
+eyeAdaptLightGain = 1.25
+eyeAdaptKnee = 0.5
 
 [node name="FlyCamera" type="Node" parent="." unique_id=1919340182 node_paths=PackedStringArray("camera")]
 script = ExtResource("fly_camera_script")
@@ -211,11 +220,6 @@ followTimeNormal = 0.35
 followTimeAirAscending = 0.65
 followTimeDashing = 1.5
 clipTargetStabilityFrames = 6
-pocheColor = Color(0.0336, 0.0336, 0.04, 1)
-pocheSwirlColor = Color(0.0567, 0.0567, 0.07, 1)
-pocheSwirlScale = 0.12
-pocheSwirlWarp = 4.0
-pocheSwirlSpeed = 0.05
 campDistance = 20.0
 campFov = 20.0
 campZoomPixelSteps = 4
@@ -413,9 +417,10 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="HUD" parent="GUICanvas" unique_id=993450555 node_paths=PackedStringArray("gameClient", "_eventLog") instance=ExtResource("4_lbhrr")]
+[node name="HUD" parent="GUICanvas" unique_id=993450555 node_paths=PackedStringArray("gameClient", "_eventLog", "_announcementBanner") instance=ExtResource("4_lbhrr")]
 gameClient = NodePath("../..")
 _eventLog = NodePath("../../AnnouncementCanvas/MarginContainer/BottomLeft/EventLog")
+_announcementBanner = NodePath("../../AnnouncementCanvas/MarginContainer/Banner/AnnouncementContainer")
 
 [node name="AlmanacScreen" parent="GUICanvas" unique_id=1182491772 instance=ExtResource("18_ofv2n")]
 visible = false
@@ -430,6 +435,16 @@ visible = false
 visible = false
 
 [node name="CampScreen" parent="GUICanvas" unique_id=1625914699 instance=ExtResource("40_30f04")]
+visible = false
+
+[node name="SleepScreen" parent="GUICanvas" unique_id=615977979 instance=ExtResource("44_sleepscreen")]
+visible = false
+
+[node name="CookingScreen" parent="GUICanvas" unique_id=1391817300 node_paths=PackedStringArray("gameClient") instance=ExtResource("43_cooking")]
+visible = false
+gameClient = NodePath("../..")
+
+[node name="StashScreen" parent="GUICanvas" unique_id=1337731578 instance=ExtResource("50_2mmpf")]
 visible = false
 
 [node name="AnnouncementCanvas" type="CanvasLayer" parent="." unique_id=1836062187]
@@ -466,6 +481,36 @@ bbcode_enabled = true
 fit_content = true
 scroll_active = false
 script = ExtResource("19_eventlog")
+
+[node name="Banner" type="MarginContainer" parent="AnnouncementCanvas/MarginContainer" unique_id=661268242]
+custom_minimum_size = Vector2(0, 600)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="AnnouncementContainer" type="PanelContainer" parent="AnnouncementCanvas/MarginContainer/Banner" unique_id=1343869195 node_paths=PackedStringArray("label", "sound")]
+layout_mode = 2
+size_flags_vertical = 0
+script = ExtResource("19_announce")
+label = NodePath("MarginContainer/AnnouncementLabel")
+sound = NodePath("Sound")
+
+[node name="MarginContainer" type="MarginContainer" parent="AnnouncementCanvas/MarginContainer/Banner/AnnouncementContainer" unique_id=1485847262]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="AnnouncementLabel" type="Label" parent="AnnouncementCanvas/MarginContainer/Banner/AnnouncementContainer/MarginContainer" unique_id=1191209949]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+text = "Vyeshal Learned!"
+horizontal_alignment = 1
+
+[node name="Sound" type="AudioStreamPlayer" parent="AnnouncementCanvas/MarginContainer/Banner/AnnouncementContainer" unique_id=1479803816]
+stream = ExtResource("19_announce_sfx")
+volume_db = -6.0
 
 [node name="PauseCanvas" type="CanvasLayer" parent="." unique_id=1733053098]
 layer = 10

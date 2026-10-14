@@ -1,0 +1,74 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://54my0szia7672" path="res://scripts/gameplay/entities/Bed.cs" id="1_bed"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
+[ext_resource type="Script" uid="uid://b7kq3xn2wawdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="5_nodanger"]
+[ext_resource type="Script" uid="uid://bbrh4rolb8use" path="res://scripts/data/actions/requirements/NoDamagingEffectRequirement.cs" id="6_nodamaging"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="7_interactivebox"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="8_meshhl"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="9_porous"]
+[ext_resource type="PackedScene" uid="uid://bhgq4eovp4e5l" path="res://assets/models/tent/SM_Prop_Camp_Tent_01.fbx" id="10_model"]
+[ext_resource type="Texture2D" uid="uid://ba2akoi7qnnje" path="res://assets/textures/interactions/sleep.png" id="11_sleep"]
+
+[sub_resource type="Resource" id="Resource_bed_event_sleep"]
+script = ExtResource("2_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_bed_req_nodanger"]
+script = ExtResource("5_nodanger")
+rejectMessage = &"danger_nearby"
+
+[sub_resource type="Resource" id="Resource_bed_req_nodamaging"]
+script = ExtResource("6_nodamaging")
+rejectMessage = &"too_hurt_to_rest"
+
+[sub_resource type="Resource" id="Resource_bed_action_sleep"]
+script = ExtResource("3_action")
+displayName = &"Sleep"
+icon = ExtResource("11_sleep")
+completionEvents = Array[ExtResource("2_event")]([SubResource("Resource_bed_event_sleep")])
+requirements = Array[ExtResource("4_req")]([SubResource("Resource_bed_req_nodanger"), SubResource("Resource_bed_req_nodamaging")])
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_body"]
+size = Vector3(2.2, 1.4, 2.6)
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_interact"]
+height = 4.0
+radius = 2.5
+
+[node name="Bed" type="Node3D" node_paths=PackedStringArray("_hudNode")]
+script = ExtResource("1_bed")
+_actions = Array[ExtResource("3_action")]([SubResource("Resource_bed_action_sleep")])
+_hudNode = NodePath("HUDNode")
+
+[node name="Body" type="StaticBody3D" parent="."]
+script = ExtResource("9_porous")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("BoxShape3D_body")
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("7_interactivebox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("CylinderShape3D_interact")
+
+[node name="Model" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.069, 0)
+
+[node name="SM_Prop_Camp_Tent_01" parent="Model" instance=ExtResource("10_model")]
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0)
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("8_meshhl")
+_collectFrom = NodePath("../Model")

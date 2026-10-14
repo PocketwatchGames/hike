@@ -11,10 +11,8 @@ public enum EActionVerb
 	// bubble anchored to the speaker. Authored as an InteractiveAction with
 	// verb=Talk on a friendly mob's _interactiveActions array.
 	Talk,
-	// Legacy direct-cook verb. Cooking now lives as a tab inside the camp
-	// screen (see Camp / CampScreen); lit campfires author Camp instead. Kept
-	// for save-data / combat-log stability and possible future standalone
-	// cook stations.
+	// Open the cooking screen at a standalone station (a lit Cookpot). Cooking
+	// at a campfire is the camp screen's Cook tab instead (see Camp).
 	Cook,
 	// Ignite an unlit fire / torch / campfire — the interactive's Complete
 	// flips the active state on and runs the on-fx.

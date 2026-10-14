@@ -274,7 +274,11 @@ public partial class Sim
         {
             if (state is MobSimState mobState && !mobState.Tamed)
             {
-                mobState.ResetToSpawn();
+                // An individual who died stays dead; a living one still resets.
+                if (mobState.Alive || mobState.RespawnsOnRest)
+                {
+                    mobState.ResetToSpawn();
+                }
             }
             else if (state is ArrowLootSimState arrow)
             {

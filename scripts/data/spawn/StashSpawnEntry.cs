@@ -1,10 +1,10 @@
 using System;
 using Godot;
 
-// Places a rest tent at the spawn point. No per-instance tuning — the sleep
-// duration lives on the Tent scene's [Export] _sleepHours.
+// Places an access point to the party stash. No per-instance state — every
+// stash opens the one SimState.PartyStash.
 [GlobalClass]
-public partial class TentSpawnEntry : SpawnEntryData
+public partial class StashSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene scene;
 
@@ -16,7 +16,7 @@ public partial class TentSpawnEntry : SpawnEntryData
         {
             return;
         }
-        ws.AddEntity(new TentSimState(position, scene)
+        ws.AddEntity(new StashSimState(position, scene)
         {
             RotationY = FacingY(context),
         });

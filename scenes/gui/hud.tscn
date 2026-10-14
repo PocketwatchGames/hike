@@ -104,7 +104,7 @@ _hotbarUseHints = [NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/Ma
 _staminaContainer = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/StaminaMarginContainer/StaminaBoxContainer")
 _staminaBarScene = ExtResource("6_552pg")
 _statusEffectContainer = NodePath("ScreenMarginContainer/UpperRight/VBoxContainer/StatusEffects")
-_boonContainer = NodePath("ScreenMarginContainer/UpperRight/VBoxContainer/Boons")
+_boonContainer = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/Boons")
 _statusEffectNotificationAnchor = NodePath("StatusEffectNotificationAnchor")
 _questContainer = NodePath("ScreenMarginContainer/UpperLeft/QuestContainer")
 _questItemScene = ExtResource("13_o8nis")
@@ -610,6 +610,12 @@ custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
 size_flags_horizontal = 0
 
+[node name="Boons" type="HBoxContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=1837215094]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 4
+
 [node name="UpperRight" type="MarginContainer" parent="ScreenMarginContainer" unique_id=1346909596]
 layout_mode = 2
 size_flags_horizontal = 8
@@ -619,13 +625,6 @@ size_flags_vertical = 0
 layout_mode = 2
 
 [node name="StatusEffects" type="HBoxContainer" parent="ScreenMarginContainer/UpperRight/VBoxContainer" unique_id=1450074486]
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 2
-size_flags_horizontal = 8
-size_flags_vertical = 4
-alignment = 2
-
-[node name="Boons" type="HBoxContainer" parent="ScreenMarginContainer/UpperRight/VBoxContainer" unique_id=1837215094]
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_horizontal = 8

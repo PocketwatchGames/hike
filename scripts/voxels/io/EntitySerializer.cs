@@ -26,7 +26,6 @@ public static class EntitySerializer
         ClimbableTree = 14,
         Boat = 15,
         BuriedSpot = 16,
-        Tent = 17,
         Forge = 18,
         Fountain = 19,
         ForageSpawner = 20,
@@ -40,6 +39,9 @@ public static class EntitySerializer
         Waterfall = 28,
         LadderKit = 29,
         DeathSack = 30,
+        Bed = 31,
+        Cookpot = 32,
+        Stash = 33,
     }
 
     // How much of the Roof payload a stream carries. Containers map their own
@@ -501,6 +503,7 @@ public static class EntitySerializer
                 WriteVec3(w, mob.SpawnPosition);
                 w.Write(mob.SpawnRotationY);
                 w.Write(mob.Alive);
+                w.Write(mob.RespawnsOnRest);
                 w.Write(mob.Burrowed);
                 w.Write(mob.Burrowing);
                 w.Write(mob.BurrowTimeMs);
@@ -775,10 +778,23 @@ public static class EntitySerializer
                 w.Write(buried.TreasureName ?? "");
                 break;
 
-            case TentSimState tent:
-                w.Write((byte)Tag.Tent);
-                WriteVec3(w, tent.WorldPosition);
-                WriteScene(w, tent.Scene);
+            case BedSimState bed:
+                w.Write((byte)Tag.Bed);
+                WriteVec3(w, bed.WorldPosition);
+                WriteScene(w, bed.Scene);
+                break;
+
+            case StashSimState stash:
+                w.Write((byte)Tag.Stash);
+                WriteVec3(w, stash.WorldPosition);
+                WriteScene(w, stash.Scene);
+                break;
+
+            case CookpotSimState cookpot:
+                w.Write((byte)Tag.Cookpot);
+                WriteVec3(w, cookpot.WorldPosition);
+                WriteScene(w, cookpot.Scene);
+                w.Write(cookpot.Lit);
                 break;
 
             case ForgeSimState forge:
@@ -973,6 +989,7 @@ public static class EntitySerializer
                 Vector3 spawnPos = ReadVec3(r);
                 float spawnRotationY = r.ReadSingle();
                 bool alive = r.ReadBoolean();
+                bool respawnsOnRest = r.ReadBoolean();
                 bool burrowed = r.ReadBoolean();
                 bool burrowing = r.ReadBoolean();
                 ulong burrowTimeMs = r.ReadUInt64();
@@ -1058,6 +1075,7 @@ public static class EntitySerializer
                 }
                 mob.SpawnConditions = spawnConditions;
                 mob.Alive = alive;
+                mob.RespawnsOnRest = respawnsOnRest;
                 mob.Burrowed = burrowed;
                 mob.Burrowing = burrowing;
                 mob.BurrowTimeMs = burrowTimeMs;
@@ -1280,11 +1298,26 @@ public static class EntitySerializer
                 };
                 return buried;
             }
-            case Tag.Tent:
+            case Tag.Bed:
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
-                return new TentSimState(pos, scene);
+                return new BedSimState(pos, scene);
+            }
+            case Tag.Stash:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                return new StashSimState(pos, scene);
+            }
+            case Tag.Cookpot:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                return new CookpotSimState(pos, scene)
+                {
+                    Lit = r.ReadBoolean(),
+                };
             }
             case Tag.Forge:
             {

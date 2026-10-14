@@ -1,8 +1,9 @@
 using Godot;
 
 // Categorizes an Announcement so the HUD can route it to the right surface.
-// Region announcements are dispatched to HudRegionBanner; every other type is
-// pushed as a line to the HudEventLog. Append new entries — never reorder — so
+// Region announcements are dispatched to HudRegionBanner, discoveries (recipe,
+// language, item identified) to HudAnnouncementBanner, and every other
+// type is pushed as a line to the HudEventLog. Append new entries — never reorder — so
 // future announcement subclasses don't shift existing tags around.
 public enum EAnnouncementType
 {

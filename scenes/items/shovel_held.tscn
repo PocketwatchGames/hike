@@ -16,6 +16,8 @@ height = 1.0
 render_priority = 0
 shader = ExtResource("model_lit_shader")
 shader_parameter/color_tint = Color(0.55, 0.57, 0.6, 1)
+shader_parameter/specular_shininess = 32.0
+shader_parameter/specular_strength = 0.7
 
 [sub_resource type="BoxMesh" id="Mesh_blade"]
 material = SubResource("Mat_blade")

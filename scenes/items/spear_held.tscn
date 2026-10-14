@@ -18,6 +18,8 @@ height = 2.0
 render_priority = 0
 shader = ExtResource("model_lit_shader")
 shader_parameter/color_tint = Color(0.55, 0.57, 0.6, 1)
+shader_parameter/specular_shininess = 40.0
+shader_parameter/specular_strength = 0.8
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_head"]
 material = SubResource("Mat_head")

@@ -1,0 +1,114 @@
+[gd_scene format=3 uid="uid://6eu1tw8hanif"]
+
+[ext_resource type="Script" path="res://scripts/gameplay/entities/Cookpot.cs" id="1_cookpot"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_ibox"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_lhux5"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_req"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_xvi33"]
+[ext_resource type="Script" uid="uid://b7kq3xn2wawdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="6_nodanger"]
+[ext_resource type="Texture2D" uid="uid://bplefhrwcau14" path="res://assets/textures/interactions/cook.png" id="7_cook"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="7_o1jpb"]
+[ext_resource type="Texture2D" uid="uid://ghht8t77y7kx" path="res://assets/textures/interactions/light.png" id="8_light"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="9_meshhl"]
+[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="10_xray"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw30e" path="res://scripts/gameplay/entities/PorousBody.cs" id="11_porous"]
+[ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="12_light"]
+[ext_resource type="PackedScene" uid="uid://duau51nseh2gv" path="res://assets/models/cauldron/SM_Prop_Cauldron_01.fbx" id="13_cauldronfbx"]
+[ext_resource type="PackedScene" uid="uid://drs27nnlht6ve" path="res://assets/models/campfire/SM_Prop_Camp_Fireplace_01.fbx" id="14_logs"]
+[ext_resource type="Material" uid="uid://cwfk2p8nxe7lq" path="res://assets/models/campfire/campfire_lit.tres" id="15_lit"]
+[ext_resource type="Material" uid="uid://bq7n0wkx2mhd5" path="res://assets/models/campfire/campfire_doused.tres" id="16_doused"]
+[ext_resource type="PackedScene" uid="uid://dfs3p6y8yc688" path="res://scenes/fx/campfire_light.tscn" id="17_lighton"]
+[ext_resource type="PackedScene" uid="uid://cetqhlokr0mrc" path="res://scenes/fx/campfire_loop.tscn" id="18_loop"]
+
+[sub_resource type="Resource" id="Resource_cookpot_event"]
+script = ExtResource("4_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_cookpot_nodanger"]
+script = ExtResource("6_nodanger")
+rejectMessage = &"danger_nearby"
+
+[sub_resource type="Resource" id="Resource_cookpot_action_cook"]
+script = ExtResource("3_action")
+verb = 2
+displayName = &"Cook"
+icon = ExtResource("7_cook")
+completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_cookpot_event")])
+requirements = Array[ExtResource("5_req")]([SubResource("Resource_cookpot_nodanger")])
+
+[sub_resource type="Resource" id="Resource_cookpot_action_light"]
+script = ExtResource("3_action")
+verb = 3
+displayName = &"Light"
+icon = ExtResource("8_light")
+completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_cookpot_event")])
+requirements = Array[ExtResource("5_req")]([SubResource("Resource_cookpot_nodanger")])
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(2.5, 2.5, 2.5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_block"]
+size = Vector3(1.1, 1.25, 1.3)
+
+[node name="Cookpot" type="Node3D" unique_id=569663279 node_paths=PackedStringArray("_hudNode", "_light", "_glowModel")]
+script = ExtResource("1_cookpot")
+_litActions = Array[ExtResource("3_action")]([SubResource("Resource_cookpot_action_cook")])
+_unlitActions = Array[ExtResource("3_action")]([SubResource("Resource_cookpot_action_light")])
+_hudNode = NodePath("HUDNode")
+_light = NodePath("StationaryLight")
+_glowModel = NodePath("Model/Logs")
+_litMaterial = ExtResource("15_lit")
+_dousedMaterial = ExtResource("16_doused")
+_lightOnEffectScene = ExtResource("17_lighton")
+_lightLoopEffectScene = ExtResource("18_loop")
+
+[node name="Model" type="Node3D" parent="." unique_id=1473368233]
+
+[node name="Logs" parent="Model" unique_id=691804012 instance=ExtResource("14_logs")]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0)
+
+[node name="Pot" type="Node3D" parent="Model" unique_id=1275223107]
+transform = Transform3D(200, 0, 0, 0, 150, 0, 0, 0, 200, 0, 0.3, 0)
+
+[node name="SM_Prop_Cauldron_01" parent="Model/Pot" unique_id=1084616944 instance=ExtResource("13_cauldronfbx")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.0018201021, 0)
+
+[node name="StationaryLight" type="Node3D" parent="." unique_id=1555365032]
+script = ExtResource("12_light")
+_flicker = true
+_flickerMin = 0.8
+_flickerHz = 6.0
+_fadeInDuration = 1.0
+_fadeOutDuration = 0.25
+
+[node name="InteractiveBox" type="Area3D" parent="." unique_id=2003556073 node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("2_ibox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=1988703173]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="BlockCollider" type="StaticBody3D" parent="." unique_id=1164267358]
+collision_layer = 2048
+script = ExtResource("11_porous")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=1154647651]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.625, 0)
+shape = SubResource("BoxShape3D_block")
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=517302545 node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("9_meshhl")
+_collectFrom = NodePath("../Model")
+
+[node name="HUDNode" type="Node3D" parent="." unique_id=131896189]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
+
+[node name="InteractiveXray" type="Node3D" parent="." unique_id=870868044 node_paths=PackedStringArray("_meshRoots")]
+script = ExtResource("10_xray")
+_meshRoots = [NodePath("../Model")]

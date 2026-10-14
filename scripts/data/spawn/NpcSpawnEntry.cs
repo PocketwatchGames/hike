@@ -39,7 +39,15 @@ public partial class NpcSpawnEntry : MobSpawnEntry
     // authored appearance.
     [Export] public NpcAppearanceData[] appearances = System.Array.Empty<NpcAppearanceData>();
 
-    public override PackedScene PaletteScene => Rig;
+    // An NPC is one individual: once dead, a rest does not bring them back.
+    public NpcSpawnEntry()
+    {
+        respawnsOnRest = false;
+    }
+
+    // No PaletteScene: the rig's root is a Mob, which cannot run without a
+    // MobSimState, so there is nothing safe to render an icon from.
+    public override Texture2D PaletteIcon => appearance?.portrait ?? base.PaletteIcon;
     // Idle-pose override: a clip name (e.g. "idle_happy", "idle_nervous") that
     // replaces the species' shared Idle animation for THIS individual, so
     // villagers built from one MobData each rest differently. Must name a clip
@@ -207,6 +215,7 @@ public partial class NpcSpawnEntry : MobSpawnEntry
             return;
         }
         state.SpawnConditions = context?.SpawnConditions ?? ESpawnConditions.None;
+        state.RespawnsOnRest = respawnsOnRest;
         state.Appearance = appearance;
         if (idleAnimation != null && (string)idleAnimation != "") { state.IdleAnimation = idleAnimation; }
         StringName behavior = InitialBehaviorFor(rng, context);

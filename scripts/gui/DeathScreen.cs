@@ -157,7 +157,7 @@ public partial class DeathScreen : Control
 		// until the world around the campfire has spawned, so the first frame of
 		// the fade-in already shows it complete. Input stays suppressed by
 		// GameClient for the full window.
-		_gameClient.RespawnAtCampfire();
+		_gameClient.RespawnAtHome();
 		if (promptRoot != null)
 		{
 			promptRoot.Visible = false;

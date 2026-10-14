@@ -101,7 +101,7 @@ void fragment() {
 		ALBEDO *= ea_gain;
 		EMISSION *= ea_gain;
 		// Unlit ends at the poche, not black — see poche.gdshaderinc.
-		EMISSION += poche_unlit(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
+		EMISSION += poche_unlit(sun_lit, block_lit);
 	}
 }
 

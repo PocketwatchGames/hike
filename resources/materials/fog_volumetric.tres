@@ -31,7 +31,6 @@ shader_parameter/shaft_light_floor = 0.0
 shader_parameter/wash_shadow_darkness = 0.5
 shader_parameter/wash_tint_strength = 0.15
 shader_parameter/shaft_color = Color(1, 0.96, 0.88, 1)
-shader_parameter/water_level = -1e+20
 shader_parameter/dust_reference_y = -1e+20
 shader_parameter/cloud_shaft_sharpness = 0.95000005
 shader_parameter/shaft_ground_fade = 0.2

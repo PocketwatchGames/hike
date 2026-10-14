@@ -284,14 +284,38 @@ uniform float shaft_sky_cover_max : hint_range(0.0, 1.0, 0.01) = 0.25;
 // whatever mood the weather author picked.
 uniform vec3 shaft_color : source_color = vec3(1.0, 0.96, 0.88);
 
-// World Y of the water surface. The water shader uses depth_draw_never, so
-// DEPTH_TEXTURE at water pixels returns the depth of the opaque terrain
-// BEHIND the water rather than the water surface itself. Without clamping,
-// the fog raymarch continues past the water surface and its alpha layer
-// masks the water's depth-tint, flattening the visible water. Rays that
-// cross this Y going downward get their march clamped to stop at the
-// water surface. Default -1e20 effectively disables the clamp.
-uniform float water_level = -1e20;
+// Water draws with depth_draw_never, so depth_tex at a water pixel holds the
+// terrain UNDER the water. Each ray finds the surface of the water it passed
+// through from fog_map.g (per-voxel water occupancy) instead.
+const float NO_WATER = -1e20;
+// Deepest water column the surface search climbs; deeper water clamps here.
+const int WATER_SURFACE_SEARCH_MAX = 64;
+
+bool is_water_voxel(vec3 voxel)
+{
+    return texture(fog_map, (voxel + 0.5 - fog_map_origin) * fog_map_inv_size).g > 0.5;
+}
+
+// World Y of the surface of the water a ray crossed before ending at
+// `surface_world`, or NO_WATER. Steps back off the hit into the voxel the ray
+// arrived through (a top face or a side face alike), then climbs its column.
+float water_surface_over(vec3 surface_world, vec3 ray_dir)
+{
+    vec3 voxel = floor(surface_world - ray_dir * 0.25);
+    if (!is_water_voxel(voxel))
+    {
+        return NO_WATER;
+    }
+    for (int i = 0; i < WATER_SURFACE_SEARCH_MAX; i++)
+    {
+        voxel.y += 1.0;
+        if (!is_water_voxel(voxel))
+        {
+            break;
+        }
+    }
+    return voxel.y;
+}
 
 // Absolute world-Y at which the dust CEILING sits when > -1e9. Dust is
 // at full density everywhere below (ceiling - dust_band_height) and fades
@@ -436,28 +460,20 @@ void fragment()
     surface_view.xyz /= surface_view.w;
     vec3 surface_world = (INV_VIEW_MATRIX * vec4(surface_view.xyz, 1.0)).xyz;
 
-    // Water is rendered with depth_draw_never, so depth_tex at water pixels
-    // contains the OPAQUE UNDERWATER TERRAIN's depth — the reconstructed
-    // surface_world.y can be tens of meters below sea level. Using that raw
-    // value as the dust-band reference puts the band entirely underwater,
-    // which keeps beams from rendering above water. Clamp the surface Y to
-    // water_level so water pixels are treated as terminating at the water
-    // surface for fog-shaft purposes (band above water, not under). Land
-    // pixels where surface_world.y > water_level are unaffected.
-    float effective_surface_y = max(surface_world.y, water_level);
-
     vec3 ray = surface_world - near_world;
     float ray_len = max(length(ray), 0.0001);
     float march_dist = min(ray_len, fog_max_distance);
     vec3 ray_dir = ray / ray_len;
 
-    // Clamp the march at the water surface for downward rays that cross it.
-    // The reconstructed "surface" for water pixels sits on the underwater
-    // terrain; letting the march run through the water column overstates
-    // fog coverage on water.
-    if (near_world.y > water_level && ray_dir.y < 0.0)
+    // A water pixel ends at the water's surface, not the terrain under it:
+    // otherwise the dust band sits underwater (no beams above the water) and
+    // the march runs down the whole water column, masking the water's depth
+    // tint. Sky (depth 0, the far plane) ends on nothing to look under.
+    float water_y = (depth > 0.0) ? water_surface_over(surface_world, ray_dir) : NO_WATER;
+    float effective_surface_y = max(surface_world.y, water_y);
+    if (near_world.y > water_y && ray_dir.y < 0.0)
     {
-        float t_water = (water_level - near_world.y) / ray_dir.y;
+        float t_water = (water_y - near_world.y) / ray_dir.y;
         if (t_water > 0.0)
         {
             march_dist = min(march_dist, t_water);
@@ -633,10 +649,6 @@ void fragment()
     // Dust + shaft inscatter stays live so you can see beams on a
     // fog-free baseline.
     float authored_scale = fog_enabled ? fog_density : 0.0;
-    // Constant along an ortho view ray, so resolving it once at the near plane
-    // gives the value every surface under this pixel resolves.
-    vec3 poche_px = poche_fill(near_world, INV_VIEW_MATRIX, FRAGCOORD.xy);
-
     if (band_range > 0.0)
     {
         for (int i = 0; i < v1_steps; i++)
@@ -879,7 +891,7 @@ void fragment()
             // haze_gate kills haze in unlit voxels. In a fully-lit
             // outdoor scene this matches the old `fog_color *
             // (1 - transmittance)` term exactly.
-            vec3 sample_haze = (haze_gate * fog_color + unlit * poche_px) * sigma_t * zone_transmittance * step_size;
+            vec3 sample_haze = (haze_gate * fog_color + unlit * poche_color) * sigma_t * zone_transmittance * step_size;
             if (above_clip)
             {
                 outdoor_halo += sample_halo_v;

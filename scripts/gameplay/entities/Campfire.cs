@@ -13,12 +13,12 @@ using Godot;
 //
 // Interact verb dispatch:
 //   * EActionVerb.Camp on a lit forge → opens the CampScreen, whose Cook tab
-//     binds to this forge and reads/writes CampfireSlots (experimentation
+//     binds to this forge and reads/writes CookingSlots (experimentation
 //     inputs). Cooking is instant — no job timer; eating a recipe applies its
 //     status effect to the chosen character immediately (see CookingScreen).
 //   * Light → lights the flame (and douses all others).
 [GlobalClass]
-public partial class Campfire : Node3D, IInteractive, IWorldEntity, IMobWard
+public partial class Campfire : Node3D, IInteractive, IWorldEntity, IMobWard, ICookingStation
 {
     [Export] private LitSpriteAnimator _animator;
     // Model-based forges (the 3D campfire) swap the mesh material between a
@@ -60,9 +60,10 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity, IMobWard
     private Fx _loopEffect;
 
     public CampfireSimState SimState => _simState;
-    public ItemState[] CampfireSlots => _simState?.CampfireSlots;
+    public ItemState[] CookingSlots => _simState?.CampfireSlots;
     public bool IsLit => _active;
     public ECampfireType CampfireType => _campfireType;
+    public bool IsCamp => true;
 
     // IMobWard: a campfire wards off mobs that fear it (slimes) so they never
     // block interacting here. Independent of lit state on purpose — the ward

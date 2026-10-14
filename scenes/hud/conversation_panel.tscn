@@ -96,7 +96,7 @@ alignment = 2
 [node name="Label" type="Label" parent="DialogueContainer/TextContainer/VBoxContainer" unique_id=1357652148]
 custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 36
+theme_override_font_sizes/font_size = 32
 vertical_alignment = 2
 autowrap_mode = 3
 
@@ -132,7 +132,7 @@ alignment = 2
 custom_minimum_size = Vector2(460, 0)
 layout_mode = 2
 size_flags_horizontal = 0
-theme_override_font_sizes/font_size = 36
+theme_override_font_sizes/font_size = 32
 vertical_alignment = 2
 autowrap_mode = 3
 

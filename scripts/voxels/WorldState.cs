@@ -249,8 +249,8 @@ public class WorldState
     // chunks. Populated automatically by SetSunlightWorld / AddBlockLightWorld
     // / SubtractBlockLightWorld — callers don't need to remember. The block-light
     // writers only mark when the write moved the value the texture would show
-    // (ChunkState.BLOCK_LIGHT_TEXTURE_MAX), so a flicker roll that only shuffles
-    // the saturated core or rounds to the same byte costs no upload.
+    // (ChunkState.EncodeBlockLight), so a flicker roll that rounds to the same
+    // bytes costs no upload.
     public readonly HashSet<Vector3I> LightChunkDirty = new();
 
     // Chunks whose stored sunlight moved during the most recent incremental
@@ -262,9 +262,8 @@ public class WorldState
     // wipes it.
     public readonly HashSet<Vector3I> SunlightChunkDirty = new();
 
-    // Same pattern for FogMap. Populated automatically by SetFogWorld.
-    // Currently only worldgen writes fog, so this only trips if something
-    // mutates fog at runtime (e.g. a weather CVar or future fog emitter).
+    // Same pattern for FogMap. Populated by SetFogWorld and by OnVoxelsChanged:
+    // the map encodes the voxels too (dust is air-only, and the water channel).
     public readonly HashSet<Vector3I> FogChunkDirty = new();
 
     // Same pattern for the SkyExposureMap GPU texture. Populated automatically
@@ -1005,12 +1004,9 @@ public class WorldState
     public int GetLightLevelWorld(int wx, int wy, int wz)
     {
         int sun = GetSunlightWorld(wx, wy, wz);
-        GetBlockLightWorld(wx, wy, wz, out int r, out int g, out int b);
-        // Rec.601 luminance, integer-scaled. Each channel saturates at 255
-        // for the GPU but the stored ushort can be larger; clamp here too.
-        if (r > 255) { r = 255; }
-        if (g > 255) { g = 255; }
-        if (b > 255) { b = 255; }
+        GetBlockLightWorld(wx, wy, wz, out int rawR, out int rawG, out int rawB);
+        // Rec.601 luminance of what the GPU sees, integer-scaled.
+        ChunkState.EncodeBlockLight(rawR, rawG, rawB, out byte r, out byte g, out byte b);
         int lum = (r * 299 + g * 587 + b * 114) / 1000;             // 0..255
         int blkScaled = (lum * LightEngine.MAX_LIGHT) / 255;        // 0..MAX_LIGHT
         return Math.Max(sun, blkScaled);
@@ -1832,6 +1828,10 @@ public class WorldState
 
     public void OnVoxelsChanged(List<Vector3I> changedPositions)
     {
+        foreach (Vector3I p in changedPositions)
+        {
+            FogChunkDirty.Add(WorldToChunkCoord(p.X, p.Y, p.Z));
+        }
         LightEngine.OnVoxelsChanged(this, changedPositions);
     }
 

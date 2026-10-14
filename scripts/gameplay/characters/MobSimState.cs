@@ -186,6 +186,10 @@ public class MobSimState : EntitySimState
     // SimData.EliteCrownScene. Only meaningful when Elite.
     public PackedScene EliteCrownScene;
     public bool Alive;
+    // Whether a rest (Sim.ResetSpawns) brings this mob back once it is dead — a
+    // population, as opposed to an individual who stays dead. Set from the spawn
+    // entry (MobSpawnEntry.respawnsOnRest).
+    public bool RespawnsOnRest = true;
     // Burrow is a two-phase state machine: Burrowing is the descent window
     // after aiOutput.burrow first goes true, BurrowTimeMs is the absolute
     // GameTimeMs at which the descent completes, and Burrowed is the fully-

@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://nu3f73e6jqr7"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_particle_lit"]
@@ -22,36 +22,39 @@ initial_velocity_max = 0.2
 gravity = Vector3(0, 0, 0)
 color_ramp = SubResource("GradientTexture1D_blink")
 turbulence_enabled = true
-turbulence_noise_strength = 1.0
 turbulence_noise_scale = 2.0
 turbulence_noise_speed_random = 0.5
 turbulence_influence_min = 0.05
 turbulence_influence_max = 0.15
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_halo"]
+render_priority = 0
+shader = ExtResource("2_particle_lit")
+shader_parameter/albedo_texture = ExtResource("3_puff")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(1, 0.53, 0.12, 0.35)
+shader_parameter/use_vertex_color = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_halo"]
+material = SubResource("ShaderMaterial_halo")
+size = Vector2(0.1, 0.1)
+
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_core"]
 render_priority = 0
 shader = ExtResource("2_particle_lit")
+shader_parameter/albedo = Color(0, 0, 0, 0)
 shader_parameter/emission = Color(1, 0.7, 0.22, 1)
+shader_parameter/use_vertex_color = false
 
 [sub_resource type="QuadMesh" id="QuadMesh_core"]
 material = SubResource("ShaderMaterial_core")
 size = Vector2(0.034, 0.034)
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_halo"]
-render_priority = 0
-shader = ExtResource("2_particle_lit")
-shader_parameter/albedo_texture = ExtResource("3_puff")
-shader_parameter/emission = Color(1, 0.53, 0.12, 0.35)
-
-[sub_resource type="QuadMesh" id="QuadMesh_halo"]
-material = SubResource("ShaderMaterial_halo")
-size = Vector2(0.26, 0.26)
-
-[node name="FireflySwarmLoop" type="Node3D"]
+[node name="FireflySwarmLoop" type="Node3D" unique_id=475556813]
 script = ExtResource("1_fx")
 _loop = true
 
-[node name="Fireflies" type="GPUParticles3D" parent="."]
+[node name="Fireflies" type="GPUParticles3D" parent="." unique_id=1040078276]
 amount = 14
 lifetime = 7.0
 preprocess = 8.0

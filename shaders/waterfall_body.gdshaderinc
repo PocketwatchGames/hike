@@ -609,7 +609,7 @@ void fragment() {
 	ALBEDO = water_adapt(composited, ea_exempt, sun_lit, block_lit);
 	// Unlit water scatters the poche over what it hides. Premultiplied blend,
 	// so it scales by coverage: over a poche background the sum is the poche.
-	ALBEDO += poche_unlit(world_vertex, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit) * clamp(hidden, 0.0, 1.0);
+	ALBEDO += poche_unlit(sun_lit, block_lit) * clamp(hidden, 0.0, 1.0);
 	ALPHA = clamp(hidden, 0.0, 1.0);
 
 	// 3 = surfaceness itself, flat and opaque: RED falling, GREEN surface. The

@@ -320,11 +320,11 @@ public partial class WorldMapPainter : Node3D
     // further. ONE answer, because three places have to agree about it and each
     // disagreement leaves stale pixels on the map: the repaint that cleans a mark
     // up, the reject that decides a mark is too far outside a rebuilt rect to
-    // draw, and the rect a stroke rebuilds. The line starts at the cell's centre,
-    // so it reaches half a cell past its own length; the extra metre covers that.
-    private int EntityMarkReach => Mathf.Max(
-        Mathf.Max(0, ink.entityMarkHighlightRadius),
-        Mathf.CeilToInt(ink.entityFacingLength) + 1);
+    // draw, and the rect a stroke rebuilds. The line starts at the grown mark's
+    // EDGE, so it reaches half a cell past growth plus length; the extra metre
+    // covers that.
+    private int EntityMarkReach =>
+        Mathf.Max(0, ink.entityMarkHighlightRadius) + Mathf.CeilToInt(ink.entityFacingLength) + 1;
 
     // The entity marks the map draws depend on the tool's selection as well as on
     // the document, and neither is spatial: selecting one entity unhighlights
@@ -1129,7 +1129,28 @@ public partial class WorldMapPainter : Node3D
                     FillCell(px, pz, mark);
                 }
             }
-            DrawFacingLine(placement, at, mark);
+        }
+        // Lines in a second pass, so a neighbour's grown mark drawn later in the
+        // list cannot paint over one.
+        foreach (EntityPlacement placement in _ctx.Placements.entities)
+        {
+            if (placement == null)
+            {
+                continue;
+            }
+            bool isSelected = placement == selected;
+            bool isMatch = !isSelected && placement.IsFrom(match);
+            int r = isSelected || isMatch || placement == _hoverEntity ? grow : 0;
+            Vector2I at = _ctx.TexelXZ(placement.anchorXZ);
+            if (at.X + reach < x0 || at.X - reach >= x1
+                || at.Y + reach < z0 || at.Y - reach >= z1)
+            {
+                continue;
+            }
+            Color mark = isSelected ? ink.entitySelectedInk
+                : isMatch ? ink.entityMatchInk
+                : ink.entityInk;
+            DrawFacingLine(placement, at, r, mark);
         }
         if (_ctx.Placements.hasSpawn)
         {
@@ -1152,20 +1173,24 @@ public partial class WorldMapPainter : Node3D
     // 8-connected and the repeats land on the pixel they already wrote. Opaque
     // for the same reason — BlendPixel at alpha 1 is idempotent, and a partial
     // rebuild over unchanged data has to reproduce a full one exactly.
-    private void DrawFacingLine(EntityPlacement placement, Vector2I at, Color mark)
+    //
+    // The line starts where it leaves the mark's (possibly grown) square, so its
+    // full length always shows OUTSIDE the mark — from the centre, a highlighted
+    // mark swallowed nearly all of it in its own colour.
+    private void DrawFacingLine(EntityPlacement placement, Vector2I at, int grownBy, Color mark)
     {
         if (ink.entityFacingLength <= 0f)
         {
             return;
         }
         Vector2 dir = EntityPlacement.Direction(placement.facing);
-        // From the centre of the mark's own cell, so the line reads as attached
-        // to it rather than as a separate dash beside it.
         float x = at.X * pixelsPerMeter + pixelsPerMeter * 0.5f;
         float z = at.Y * pixelsPerMeter + pixelsPerMeter * 0.5f;
+        float axis = Mathf.Max(Mathf.Abs(dir.X), Mathf.Abs(dir.Y));
+        int first = Mathf.CeilToInt((grownBy + 0.5f) / axis * pixelsPerMeter);
         int steps = Mathf.RoundToInt(ink.entityFacingLength * pixelsPerMeter);
         var line = new Color(mark.R, mark.G, mark.B, 1f);
-        for (int i = 1; i <= steps; i++)
+        for (int i = first; i <= first + steps; i++)
         {
             BlendPixel(Mathf.FloorToInt(x + dir.X * i), Mathf.FloorToInt(z + dir.Y * i), line);
         }

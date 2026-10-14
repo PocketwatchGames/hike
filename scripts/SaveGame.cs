@@ -12,14 +12,19 @@ using System.Text;
 // only records how the run changed it, so it is refused against any other.
 public readonly record struct WorldOrigin(string WorldFile, string GeneratorPath, string Fingerprint);
 
-// A save is the party WAKING AT A CAMPFIRE AT SUNRISE. It is written at that
+// Where the party last slept to sunrise — home for a load and a death wake. A
+// campfire home is lit on the wake and opens the camp screen; a bed home is a
+// plain wake in play.
+public readonly record struct RestSpot(Vector3 Position, bool AtCampfire);
+
+// A save is the party WAKING AT ITS REST SPOT AT SUNRISE. It is written at that
 // moment (GameClient.AutosaveAtWake) and a load reproduces it, so everything a
 // rest resets — health, transient effects, mobs, dropped loot, summoned pets
 // — is never saved: the load re-derives it the way a real wake does.
 // The day's rolls (weather, well-rested) are seeded from RunSeed + the day, so
 // they come back identical with nothing else stored.
 //
-// Layout: the HEADER (which world, the run seed, the clock, the campfire) is
+// Layout: the HEADER (which world, the run seed, the clock, the rest spot) is
 // read before any world exists; then the resource table every reference in the
 // body indexes — EntitySerializer's, the one WorldFile uses, so a reference into
 // the world's authoring document is stored by value here too; then the BODY,
@@ -28,7 +33,7 @@ public static class SaveGame
 {
 	// Anything that isn't exactly this version is rejected — pre-release saves
 	// are discarded, never upgraded (CLAUDE.md "Priorities").
-	private const int SAVE_VERSION = 42;
+	private const int SAVE_VERSION = 44;
 
 	public static string GlobalPath(string path) => ProjectSettings.GlobalizePath(path);
 
@@ -36,7 +41,7 @@ public static class SaveGame
 
 	// `nodeFor` finds the Player node hosting a roster member — where the member's
 	// inventory, effects and body live.
-	public static void Save(string path, WorldState worldState, Func<PlayerState, Player> nodeFor, Vector3 campfire)
+	public static void Save(string path, WorldState worldState, Func<PlayerState, Player> nodeFor, RestSpot home)
 	{
 		SimState simState = worldState.SimState;
 		if (simState.Party == null)
@@ -90,9 +95,10 @@ public static class SaveGame
 			w.Write(worldState.RunSeed);
 			w.Write(worldState.WorldClockDays);
 			w.Write(worldState.GameTimeMs);
-			w.Write(campfire.X);
-			w.Write(campfire.Y);
-			w.Write(campfire.Z);
+			w.Write(home.Position.X);
+			w.Write(home.Position.Y);
+			w.Write(home.Position.Z);
+			w.Write(home.AtCampfire);
 			EntitySerializer.WriteTable(w, table);
 			w.Write(body);
 		}
@@ -117,9 +123,9 @@ public static class SaveGame
 		int runSeed = r.ReadInt32();
 		double worldClockDays = r.ReadDouble();
 		ulong gameTimeMs = r.ReadUInt64();
-		var campfire = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
+		var home = new RestSpot(new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()), r.ReadBoolean());
 		EntitySerializer.ReadPathTable table = EntitySerializer.ReadTable(r);
-		return new SaveFile(origin, runSeed, worldClockDays, gameTimeMs, campfire, table, r);
+		return new SaveFile(origin, runSeed, worldClockDays, gameTimeMs, home, table, r);
 	}
 
 	// The name of the world a save plays, read off the header alone so a listing
@@ -262,8 +268,8 @@ public sealed class SaveFile
 	// sunrise.
 	public readonly double WorldClockDays;
 	public readonly ulong GameTimeMs;
-	// Where the party wakes. The campfire here, if there is one, is lit.
-	public readonly Vector3 Campfire;
+	// Where the party wakes. At a campfire home, that fire is lit.
+	public readonly RestSpot Home;
 
 	// How far a campfire's position may sit from the saved anchor and still be
 	// the fire the party slept at (the anchor is that fire's node position).
@@ -279,14 +285,14 @@ public sealed class SaveFile
 	// ReconcileStamps brings in line.
 	private readonly List<Vector3I> _savedChunks = new();
 
-	internal SaveFile(WorldOrigin origin, int runSeed, double worldClockDays, ulong gameTimeMs, Vector3 campfire,
+	internal SaveFile(WorldOrigin origin, int runSeed, double worldClockDays, ulong gameTimeMs, RestSpot home,
 		EntitySerializer.ReadPathTable table, BinaryReader body)
 	{
 		Origin = origin;
 		RunSeed = runSeed;
 		WorldClockDays = worldClockDays;
 		GameTimeMs = gameTimeMs;
-		Campfire = campfire;
+		Home = home;
 		_table = table;
 		_body = body;
 	}
@@ -342,8 +348,8 @@ public sealed class SaveFile
 	}
 
 	// 2. Before the Sim is built on this world: the clock and the day's rolls as
-	// the wake left them, and the anchor campfire as the world's one lit fire so
-	// it streams in lit.
+	// the wake left them, and a campfire home as the world's one lit fire so it
+	// streams in lit. A bed home leaves every fire as the saved entities have it.
 	public void ApplyToWorld(WorldState worldState)
 	{
 		Step(1);
@@ -351,6 +357,10 @@ public sealed class SaveFile
 		worldState.GameTimeMs = GameTimeMs;
 		worldState.BeginRun(RunSeed);
 
+		if (!Home.AtCampfire)
+		{
+			return;
+		}
 		// No fire at the anchor (a death before the party ever camped wakes at the
 		// world spawn) leaves every campfire as the world has it.
 		float matchSq = CAMPFIRE_MATCH_DISTANCE * CAMPFIRE_MATCH_DISTANCE;
@@ -361,7 +371,7 @@ public sealed class SaveFile
 			if (state is CampfireSimState campfire)
 			{
 				campfires.Add(campfire);
-				if (lit == null && (campfire.WorldPosition - Campfire).LengthSquared() <= matchSq)
+				if (lit == null && (campfire.WorldPosition - Home.Position).LengthSquared() <= matchSq)
 				{
 					lit = campfire;
 				}

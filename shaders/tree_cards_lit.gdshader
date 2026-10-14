@@ -54,11 +54,12 @@ uniform float alpha_cutoff : hint_range(0.0, 1.0) = 0.5;
 // Set on the material of the hidden ShadowsOnly proxy MultiMesh that
 // FoliageMultiMesh spawns alongside the visible canopy (the visible one is
 // CastShadow.Off). Godot runs fragment() during the directional-shadow depth
-// pass, so the player-occlusion `discard` below would otherwise punch the
-// cutaway hole straight through the shadow atlas — walk under a tree and its
-// sun shadow vanishes with its leaves. The proxy skips the cutaway entirely
-// and returns right after the alpha cutout, so the canopy keeps casting its
-// full silhouette no matter how much of it is dithered away on screen.
+// pass, so the ceiling-clip and player-occlusion `discard`s below would
+// otherwise punch their holes straight through the shadow atlas — walk under
+// a tree and its sun shadow vanishes with its leaves. The proxy skips both
+// cutaways and returns right after the alpha cutout, so the canopy keeps
+// casting its full silhouette no matter how much of it is cut away on screen
+// (the terrain's voxel_shadow_caster proxy does the same).
 uniform bool shadow_caster_pass = false;
 
 // Per-cluster player-occlusion fade-eligibility flag. FoliageMultiMesh
@@ -354,7 +355,7 @@ void vertex() {
 }
 
 void fragment() {
-	if (clip_dither_should_discard_anchored(model_origin, world_pos, FRAGCOORD.xy)) {
+	if (!shadow_caster_pass && clip_dither_should_discard_anchored(model_origin, world_pos, FRAGCOORD.xy)) {
 		discard;
 	}
 
@@ -556,7 +557,7 @@ void fragment() {
 		ALBEDO *= ea_gain;
 		EMISSION *= ea_gain;
 		// Unlit ends at the poche, not black — see poche.gdshaderinc.
-		EMISSION += poche_unlit(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
+		EMISSION += poche_unlit(sun_lit, block_lit);
 	}
 }
 

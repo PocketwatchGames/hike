@@ -200,7 +200,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
         {
             mat.SetShaderParameter("tree_origin", treeOrigin);
             mat.SetShaderParameter("canopy_height", canopyHeight);
-            RebuildShadowCaster(mm, mat, AnyClusterFades(clusters));
+            RebuildShadowCaster(mm, mat);
         }
 
         RebuildDetails(clusters, treeOrigin, canopyHeight);
@@ -235,28 +235,18 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
     // Splits the canopy into a visible non-casting MultiMesh (this node) and a
     // hidden ShadowsOnly twin that shares the same MultiMesh resource. Godot
     // runs fragment() during the shadow depth pass, so the visible material's
-    // player-occlusion `discard` used to cut the tree out of the sun shadow
-    // atlas too — stand under a tree and its cast shadow dissolved along with
-    // its leaves. The twin runs the identical vertex() (so the shadow tracks
-    // the wind sway card-for-card) with shadow_caster_pass = 1, skipping the
-    // cutaway. Net draw calls are unchanged: the shadow pass just sources the
-    // canopy from the twin instead of from this node.
+    // ceiling-clip and player-occlusion `discard`s would cut the tree out of
+    // the sun shadow atlas too — stand under a tree and its cast shadow
+    // dissolves along with its leaves. The twin runs the identical vertex() (so
+    // the shadow tracks the wind sway card-for-card) with shadow_caster_pass = 1,
+    // skipping both cutaways. Net draw calls are unchanged: the shadow pass just
+    // sources the canopy from the twin instead of from this node.
     //
-    // The split is only needed when some cluster actually opted into the
-    // cutaway: tree_cards_lit gates that discard on the per-cluster
-    // v_fade_eligible bit, so a canopy where no cluster fades never discards in
-    // the first place and can just cast for itself. Ground foliage (tall grass,
-    // bushes) is the whole population of that case, and it is the most numerous
-    // foliage in the world — skipping the twin there drops one
-    // MultiMeshInstance3D per clump with pixel-identical output.
-    private void RebuildShadowCaster(MultiMesh mm, ShaderMaterial cardMaterial, bool anyClusterFades)
+    // Every canopy needs the twin, ground foliage included: the ceiling clip
+    // cuts any canopy above the plane, whether or not a cluster opted into the
+    // player-occlusion fade.
+    private void RebuildShadowCaster(MultiMesh mm, ShaderMaterial cardMaterial)
     {
-        if (!anyClusterFades)
-        {
-            CastShadow = ShadowCastingSetting.On;
-            return;
-        }
-
         CastShadow = ShadowCastingSetting.Off;
 
         ShaderMaterial shadowMat = (ShaderMaterial)cardMaterial.Duplicate();
@@ -270,18 +260,6 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
             CastShadow = ShadowCastingSetting.ShadowsOnly,
         };
         AddChild(proxy);
-    }
-
-    private static bool AnyClusterFades(List<FoliageCluster> clusters)
-    {
-        for (int i = 0; i < clusters.Count; i++)
-        {
-            if (clusters[i].fadesWhenOccludingPlayer)
-            {
-                return true;
-            }
-        }
-        return false;
     }
 
     // Owner stays null (like _Details) so the proxy is never written into the

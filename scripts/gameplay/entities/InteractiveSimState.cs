@@ -340,18 +340,50 @@ public class KnowledgeStoneSimState : EntitySimState
     }
 }
 
-// Rest tent. No persistent per-instance state — interacting runs a one-shot
-// time-skip on the GameClient (see Tent), nothing on the tent changes.
-public class TentSimState : EntitySimState
+// A bed or tent. No persistent per-instance state — using it opens the sleep menu.
+public class BedSimState : EntitySimState
 {
-    public TentSimState(Vector3 worldPosition, PackedScene scene)
+    public BedSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
     {
     }
 
     public override Node3D CreateEntity(Sim sim)
     {
-        return Tent.Create(sim, this);
+        return Bed.Create(sim, this);
+    }
+}
+
+// An access point to the party stash. No persistent per-instance state — the
+// contents are SimState.PartyStash, shared by every stash and the camp.
+public class StashSimState : EntitySimState
+{
+    public StashSimState(Vector3 worldPosition, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+    }
+
+    public override Node3D CreateEntity(Sim sim)
+    {
+        return Stash.Create(sim, this);
+    }
+}
+
+// A cookpot over its own fire. Lit is one-way: the first use lights it and it
+// stays lit. Its experimentation slots are runtime-only on the node, since the
+// cooking screen drains them back to the cook on every close.
+public class CookpotSimState : EntitySimState
+{
+    public bool Lit;
+
+    public CookpotSimState(Vector3 worldPosition, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+    }
+
+    public override Node3D CreateEntity(Sim sim)
+    {
+        return Cookpot.Create(sim, this);
     }
 }
 

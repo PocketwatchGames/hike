@@ -15,7 +15,7 @@ public static class LightEngine
     // version rides in the worldgen-cache fingerprint, so a change here gives
     // every cached world a new cache path and regenerates it. A hand-authored
     // .hike is not covered by that: re-bake it, or run `relight` in the console.
-    public const int LIGHT_VERSION = 1;
+    public const int LIGHT_VERSION = 2;
 
     // The sun-channel fog and canopy extinctions live on SimData
     // (FogSunExtinction / CanopySunExtinction), read off world.SimData inside
@@ -775,14 +775,13 @@ public static class LightEngine
     //     geometry-dependent work; it only changes when the source crosses a
     //     voxel or nearby geometry changes.
     //
-    //   ShadeFloodField — turns that field into a quantized RGB footprint by
-    //     weighting each cell exp(-distanceToSource / FalloffLambda − opticalDepth)
-    //     and normalizing so total deposited energy = level × EnergyPerLevel.
+    //   ShadeFloodField — turns that field into a quantized RGB footprint: the
+    //     DIRECT term is the falloff curve at its open-air scale, so walls only
+    //     ever take light away; the BOUNCE term returns blockLightBounce of the
+    //     energy walls blocked as a broad fill over the reached cells.
     //     distanceToSource is measured from the light's FRACTIONAL position, so
     //     re-shading every frame as the source slides within a voxel glides the
-    //     falloff smoothly (sub-voxel smoothing) without re-flooding. The
-    //     normalization gives small-room-brighter — fewer reached voxels means
-    //     each gets a larger share.
+    //     falloff smoothly (sub-voxel smoothing) without re-flooding.
     //
     // DETOUR is what makes the walls actually shadow. Reachability alone does
     // not: a cell behind a wall that the flood can only get to the long way
@@ -815,17 +814,19 @@ public static class LightEngine
     // cost scale with the light's actual size, not a global worst case.
     public readonly struct BlockLightTuning
     {
-        public readonly float Lambda;       // internal exp scale, derived from Distance+Falloff
-        public readonly float Falloff;      // curve shape exponent
+        public readonly float Lambda;        // internal exp scale, derived from Distance+Falloff
+        public readonly float Falloff;       // curve shape exponent
         public readonly int FloodRadius;
-        public readonly float EnergyTarget; // total energy that yields a Brightness peak in open space
+        public readonly float DirectScale;   // windowed weight -> deposit; the core peaks at Brightness×255
+        public readonly float OpenWeightSum; // windowed weight a light in open air spreads over its ball
 
-        public BlockLightTuning(float lambda, float falloff, int floodRadius, float energyTarget)
+        public BlockLightTuning(float lambda, float falloff, int floodRadius, float directScale, float openWeightSum)
         {
             Lambda = lambda;
             Falloff = falloff;
             FloodRadius = floodRadius;
-            EnergyTarget = energyTarget;
+            DirectScale = directScale;
+            OpenWeightSum = openWeightSum;
         }
     }
 
@@ -839,10 +840,9 @@ public static class LightEngine
     // Resolve a light's authored Distance / Falloff / Brightness into the internal
     // falloff + energy. λ is solved so exp(-(r/λ)^Falloff) hits FLOOD_CUTOFF at
     // Distance; the flood radius is Distance + the 2-voxel window margin, clamped
-    // to [MIN_FLOOD_RADIUS, BlockLightMaxDistance]. EnergyTarget is the total
-    // energy the shade's geometry normalization spreads — pre-solved so the
-    // OPEN-SPACE core peaks at Brightness×255, while small enclosed spaces
-    // (smaller geometric sum) read brighter (small-room-brighter).
+    // to [MIN_FLOOD_RADIUS, BlockLightMaxDistance]. DirectScale makes the core
+    // peak at Brightness×255 wherever the light is; OpenWeightSum is what the
+    // shade compares the reached cells against to find how much walls blocked.
     public static BlockLightTuning ResolveTuning(WorldState world, float distance, float falloff, float brightness)
     {
         using var _prof = Profiler.Sample("LightEngine.ResolveTuning");
@@ -859,8 +859,7 @@ public static class LightEngine
         float peakWeight = 1f - windowFloor;
 
         // Reference open-space geometric sum, ∫ 4πr²·windowedWeight dr over the
-        // ball — approximates the discrete sum a light in the open would produce,
-        // so EnergyTarget/that ≈ Brightness peak at the core in open air.
+        // ball — approximates the discrete sum a light in the open would produce.
         float sumOpen = 0f;
         const float step = 0.25f;
         for (float r = step * 0.5f; r < radius; r += step)
@@ -869,8 +868,8 @@ public static class LightEngine
             if (w <= 0f) { continue; }
             sumOpen += 4f * Mathf.Pi * r * r * w * step;
         }
-        float energyTarget = peakWeight > 0f ? bright * BYTE_MAX * sumOpen / peakWeight : 0f;
-        return new BlockLightTuning(lambda, fall, radius, energyTarget);
+        float directScale = peakWeight > 0f ? bright * BYTE_MAX / peakWeight : 0f;
+        return new BlockLightTuning(lambda, fall, radius, directScale, sumOpen);
     }
 
     // Floods the reachable open voxels into `cells` out to floodRadius, storing
@@ -987,6 +986,7 @@ public static class LightEngine
         float lambda = tuning.Lambda;
         float shape = tuning.Falloff;
         float aoStrength = world.SimData.blockLightAO;
+        float bounce = world.SimData.blockLightBounce;
 
         // Window the geometric falloff to compact support: subtract the curve's
         // value at radius windowR so the weight reaches exactly zero there.
@@ -999,22 +999,29 @@ public static class LightEngine
         float windowR = Mathf.Max(1f, tuning.FloodRadius - 2f);
         float windowFloor = FalloffWeight(windowR, lambda, shape);
 
-        // Geometry normalization: spread EnergyTarget across the GEOMETRIC weight
-        // sum (no fog, no AO). Fewer reached voxels (a small enclosed space) ⇒
-        // smaller sum ⇒ brighter — that's small-room-brighter. In the open the
-        // sum ≈ the reference baked into EnergyTarget, so the core ≈ Brightness.
-        // Fog (exp(-depth)) and AO are applied per-voxel AFTER, so they dim
-        // absolutely instead of redistributing energy.
+        // BOUNCE. The share of the open-air weight that reached no cell was
+        // stopped by a surface; blockLightBounce of it comes back as a broad
+        // fill, 1 - (r/windowR)² over the same detour-scaled r and zero at the
+        // window like the direct term, rather than sharpening the core: an
+        // enclosed light lights its room instead of getting hotter at the
+        // source. Fog and AO dim both terms per voxel AFTER, absolutely.
+        float invWindowR2 = 1f / (windowR * windowR);
         float sumWgeom = 0f;
+        float sumBounce = 0f;
         for (int i = 0; i < cells.Count; i++)
         {
             var (pos, _, _, detour) = cells[i];
             float dx = pos.X - sourcePos.X, dy = pos.Y - sourcePos.Y, dz = pos.Z - sourcePos.Z;
-            float g = FalloffWeight(Mathf.Sqrt(dx * dx + dy * dy + dz * dz) * detour, lambda, shape) - windowFloor;
+            float r2 = (dx * dx + dy * dy + dz * dz) * detour * detour;
+            float g = FalloffWeight(Mathf.Sqrt(r2), lambda, shape) - windowFloor;
             if (g > 0f) { sumWgeom += g; }
+            float b = 1f - r2 * invWindowR2;
+            if (b > 0f) { sumBounce += b; }
         }
         if (sumWgeom <= 0f) { return; }
-        float scale = tuning.EnergyTarget / sumWgeom;
+        float scale = tuning.DirectScale;
+        float blocked = Mathf.Max(0f, tuning.OpenWeightSum - sumWgeom);
+        float bounceScale = sumBounce > 0f ? bounce * blocked * scale / sumBounce : 0f;
 
         int bMinX = int.MaxValue, bMinY = int.MaxValue, bMinZ = int.MaxValue;
         int bMaxX = int.MinValue, bMaxY = int.MinValue, bMaxZ = int.MinValue;
@@ -1028,12 +1035,14 @@ public static class LightEngine
             // Euclidean distance (re-evaluated per frame from the fractional
             // source, so sub-voxel motion still glides) scaled by the cell's
             // detour, which the flood measured against static geometry.
-            float r = Mathf.Sqrt(dx * dx + dy * dy + dz * dz) * detour;
-            float g = FalloffWeight(r, lambda, shape) - windowFloor;
-            if (g <= 0f) { continue; }
+            float r2 = (dx * dx + dy * dy + dz * dz) * detour * detour;
+            float g = Mathf.Max(0f, FalloffWeight(Mathf.Sqrt(r2), lambda, shape) - windowFloor);
+            float b = Mathf.Max(0f, 1f - r2 * invWindowR2);
+            float lit = g * scale + b * bounceScale;
+            if (lit <= 0f) { continue; }
             // AO darkens occluded corners (fewer open neighbours) absolutely.
             float ao = 1f - aoStrength * (1f - aoRaw);
-            float v = g * ao * Mathf.Exp(-depth) * scale;
+            float v = lit * ao * Mathf.Exp(-depth);
             ushort qr = ClampU16((int)(v * color.R + 0.5f));
             ushort qg = ClampU16((int)(v * color.G + 0.5f));
             ushort qb = ClampU16((int)(v * color.B + 0.5f));

@@ -5858,7 +5858,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         bool partiallyPerceived = IsKnownToPlayer
             || CVars.revealMobs.Value
             || _simState.DiscoveryState >= EPlayerPerceptionState.Detected;
-        if (!partiallyPerceived)
+        // A flier skimming low can dip its origin into the top water voxel;
+        // nothing is touching the surface, so it leaves no wake.
+        if (!partiallyPerceived || _simState.Airborne)
         {
             _rippleEmitter.Update(pos, false, 0f, 1f);
             return;
@@ -5896,7 +5898,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         int fx = Mathf.FloorToInt(pos.X);
         int fy = Mathf.FloorToInt(pos.Y);
         int fz = Mathf.FloorToInt(pos.Z);
-        bool inWater = Blocks.IsWater(ws.GetBlockWorld(fx, fy, fz));
+        // A flier is never wading, however low it skims (see UpdateWaterRipples).
+        bool inWater = !_simState.Airborne && Blocks.IsWater(ws.GetBlockWorld(fx, fy, fz));
         Vector2 horizVel = new(LinearVelocity.X, LinearVelocity.Z);
         float horizSpeedSq = horizVel.LengthSquared();
 

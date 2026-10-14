@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -138,18 +139,14 @@ public class ChunkState
     // still runs (Sunlight itself comes out of the file baked).
     public readonly byte[,,] SkyExposure;
 
-    // Block light: per-color-channel additive sums of post-pow contributions
-    // from registered LightSources. "Post-pow" means each light's BFS stores
-    // pow(level/MAX_LIGHT, exp) * 255 * color.channel at deposit time, so the
-    // shader can sum overlaps with correct perceptual brightness instead of
-    // getting a "brilliance bonus" from sum-then-pow. Ushort holds the raw
-    // sum so subtraction stays exact when stacked lights are removed; the
-    // LightMap upload clamps to 0-255 per channel for the GPU.
+    // Block light: per-color-channel additive sums of the linear contributions
+    // from registered LightSources (255 = Brightness 1 of a white light). Ushort
+    // holds the raw sum so subtraction stays exact when stacked lights are
+    // removed; the LightMap upload squeezes it into 0-255 via EncodeBlockLight.
     //
-    // TEXTURE_MAX is that GPU clamp. AddBlockLight reports whether a write
-    // moved the CLAMPED value, which is the only thing an upload could show —
-    // a flicker roll that only shuffles the saturated core, or rounds to the
-    // same byte out in the falloff tail, must not re-dirty the chunk.
+    // TEXTURE_MAX is that GPU ceiling. AddBlockLight reports whether a write
+    // moved the ENCODED value, which is the only thing an upload could show —
+    // a flicker roll that rounds to the same bytes must not re-dirty the chunk.
     public const int BLOCK_LIGHT_TEXTURE_MAX = 255;
     public readonly ushort[,,] BlockLightR;
     public readonly ushort[,,] BlockLightG;
@@ -582,9 +579,29 @@ public class ChunkState
         BlockLightR[x, y, z] = nr;
         BlockLightG[x, y, z] = ng;
         BlockLightB[x, y, z] = nb;
-        return Encoded(or) != Encoded(nr)
-            || Encoded(og) != Encoded(ng)
-            || Encoded(ob) != Encoded(nb);
+        EncodeBlockLight(or, og, ob, out byte oer, out byte oeg, out byte oeb);
+        EncodeBlockLight(nr, ng, nb, out byte ner, out byte neg, out byte neb);
+        return oer != ner || oeg != neg || oeb != neb;
+    }
+
+    // Raw block-light sums → the bytes the LightMap uploads. Over-bright light
+    // is scaled down as a whole so its brightest channel lands on TEXTURE_MAX,
+    // keeping the hue: clamping each channel on its own flattened a warm torch
+    // to white wherever it saturated.
+    public static void EncodeBlockLight(int r, int g, int b, out byte er, out byte eg, out byte eb)
+    {
+        int max = Math.Max(r, Math.Max(g, b));
+        if (max <= BLOCK_LIGHT_TEXTURE_MAX)
+        {
+            er = (byte)r;
+            eg = (byte)g;
+            eb = (byte)b;
+            return;
+        }
+        int half = max / 2;
+        er = (byte)((r * BLOCK_LIGHT_TEXTURE_MAX + half) / max);
+        eg = (byte)((g * BLOCK_LIGHT_TEXTURE_MAX + half) / max);
+        eb = (byte)((b * BLOCK_LIGHT_TEXTURE_MAX + half) / max);
     }
 
     public bool SubtractBlockLight(int x, int y, int z, int r, int g, int b)
@@ -598,11 +615,6 @@ public class ChunkState
         if (sum < 0) { return 0; }
         if (sum > ushort.MaxValue) { return ushort.MaxValue; }
         return (ushort)sum;
-    }
-
-    private static int Encoded(ushort v)
-    {
-        return v > BLOCK_LIGHT_TEXTURE_MAX ? BLOCK_LIGHT_TEXTURE_MAX : v;
     }
 
     // Returns this chunk's fill classification. Computes on first call;

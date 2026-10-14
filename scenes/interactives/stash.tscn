@@ -1,0 +1,68 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://xosq0aw4iya3c" path="res://scripts/gameplay/entities/Stash.cs" id="1_stash"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
+[ext_resource type="Script" uid="uid://b7kq3xn2wawdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="5_nodanger"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="6_ibox"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="7_meshhl"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="8_porous"]
+[ext_resource type="PackedScene" uid="uid://cr1fv1nsnxgma" path="res://assets/models/chest/SM_Prop_Chest_Wood_01.fbx" id="9_model"]
+[ext_resource type="Texture2D" uid="uid://74scss48uag0" path="res://assets/textures/interactions/open.png" id="10_open"]
+
+[sub_resource type="Resource" id="Resource_stash_event"]
+script = ExtResource("2_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_stash_nodanger"]
+script = ExtResource("5_nodanger")
+rejectMessage = &"danger_nearby"
+
+[sub_resource type="Resource" id="Resource_stash_action_open"]
+script = ExtResource("3_action")
+displayName = &"Stash"
+icon = ExtResource("10_open")
+completionEvents = Array[ExtResource("2_event")]([SubResource("Resource_stash_event")])
+requirements = Array[ExtResource("4_req")]([SubResource("Resource_stash_nodanger")])
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_body"]
+size = Vector3(1.5, 0.7, 1.3)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(2.5, 1.5, 2)
+
+[node name="Stash" type="Node3D" node_paths=PackedStringArray("_hudNode")]
+script = ExtResource("1_stash")
+_actions = Array[ExtResource("3_action")]([SubResource("Resource_stash_action_open")])
+_hudNode = NodePath("HUDNode")
+
+[node name="Body" type="StaticBody3D" parent="."]
+script = ExtResource("8_porous")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
+shape = SubResource("BoxShape3D_body")
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("6_ibox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="Model" type="Node3D" parent="."]
+transform = Transform3D(-1.3, 0, 0, 0, 1.3, 0, 0, 0, -1.3, 0, 0, 0)
+
+[node name="SM_Prop_Chest_Wood_01" parent="Model" instance=ExtResource("9_model")]
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, 0)
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("7_meshhl")
+_collectFrom = NodePath("../Model")

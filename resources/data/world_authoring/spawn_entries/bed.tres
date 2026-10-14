@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="BedSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://9hvomuz3vn5k2" path="res://scripts/data/spawn/BedSpawnEntry.cs" id="script"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/bed.tscn" id="r1"]
+
+[resource]
+script = ExtResource("script")
+scene = ExtResource("r1")

@@ -1285,14 +1285,17 @@ public class WorldMapState
 
     public readonly SpawnEntryData[] EntityPalette;
 
-    // Topmost hand-placed entity within `radius` metres of a texel, or null.
+    // NEAREST hand-placed entity within `radius` metres of a texel, or null.
     // Entities have no footprint to hit-test against — they are a point — so
-    // selection is a proximity test, and the LAST match wins to match the draw
-    // order the way the stamp hit-test does.
+    // selection is a proximity test. Nearest rather than topmost: with marks a
+    // couple of metres apart, last-in-the-list grabbed the neighbour of the one
+    // you clicked squarely on. A tie goes to the later one, matching draw order.
     public EntityPlacement EntityAt(int px, int pz, int radius)
     {
         Vector2I world = WorldXZ(new Vector2I(px, pz));
         EntityPlacement[] list = Placements.entities;
+        EntityPlacement best = null;
+        int bestDist = int.MaxValue;
         for (int i = list.Length - 1; i >= 0; i--)
         {
             if (list[i] == null)
@@ -1300,12 +1303,18 @@ public class WorldMapState
                 continue;
             }
             Vector2I d = list[i].anchorXZ - world;
-            if (Mathf.Abs(d.X) <= radius && Mathf.Abs(d.Y) <= radius)
+            if (Mathf.Abs(d.X) > radius || Mathf.Abs(d.Y) > radius)
             {
-                return list[i];
+                continue;
+            }
+            int dist = d.LengthSquared();
+            if (dist < bestDist)
+            {
+                best = list[i];
+                bestDist = dist;
             }
         }
-        return null;
+        return best;
     }
 
     // The spawn is a single point rather than a list, so it gets its own three

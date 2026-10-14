@@ -152,6 +152,6 @@ void fragment() {
     float lit = ambient + sun_mask * (1.0 - ambient);
     ALBEDO = albedo.rgb * sun_color * lit * sun_intensity;
     // Unlit ends at the poche, not black — see poche.gdshaderinc.
-    ALBEDO += poche_unlit_light(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_color * lit * sun_intensity);
+    ALBEDO += poche_unlit_light(sun_color * lit * sun_intensity);
     ALPHA = albedo.a * coverage * particle_color.a;
 }

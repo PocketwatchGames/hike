@@ -458,9 +458,14 @@ are idempotent and a partial rebuild over unchanged data still reproduces a full
 one exactly. Length is `WorldMapInkData.entityFacingLength` in metres, so it
 grows with zoom the way the step outlines do; 0 turns it off.
 
+**The line starts at the EDGE of the mark as drawn, grown or not, and lines are a
+second pass after every mark.** It used to start at the centre in the mark's own
+colour, so a highlighted mark — exactly the one being aimed — swallowed nearly
+all of it, and a neighbour's grown mark drawn later could cover the rest.
+
 **How far a mark reaches is ONE answer** (`WorldMapPainter.EntityMarkReach`): the
-growth it takes when the tool picks it out, or its facing line, whichever is
-further. Three places have to agree about it, and each was a way to leave stale
+growth it takes when the tool picks it out PLUS its facing line, which starts
+where the growth ends. Three places have to agree about it, and each was a way to leave stale
 pixels on the map — the repaint that cleans a mark up (`RefreshEntityMark`), the
 reject that decides a mark is too far outside a rebuilt rect to draw, and the
 rect a stroke rebuilds. That last one is why `OnCanvasPaint` GROWS the tool's
@@ -529,7 +534,9 @@ every entity draws the same one-metre dot and the map cannot say what one is.
 The mark under the cursor GROWS (`entityMarkHighlightRadius`) and the HUD names
 its entry, so a grab is aimed rather than guessed at — the hover asks the tool
 (`EntityUnder`), which runs the same proximity test the press grabs with, so what
-lights up is exactly what a click would pick up. Colour answers the other
+lights up is exactly what a click would pick up. That test is the entity's own
+one-metre cell and nothing around it: any wider made it impossible to drop a new
+entity beside an old one, and grabbed the neighbour of the mark you clicked on. Colour answers the other
 question: every placement of the entry the palette has SELECTED is inked as a
 match (`entityMatchInk`), so "where are the chests" is answered by choosing the
 chest rather than by clicking every dot, and the one placement being edited is

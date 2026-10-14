@@ -41,9 +41,9 @@ public class EntityTool : IWorldMapTool
     public EntityPlacement SelectedEntity => Selected;
 
     // How near a click has to be, in metres, to grab an entity rather than place
-    // a new one. Generous, because a 1m dot is hard to hit and placing an unwanted
-    // second chest on top of the first is worse than grabbing the first.
-    private const int GrabRadius = 2;
+    // a new one: 0 is the entity's own one-metre cell and nothing around it, so
+    // a new entity can be dropped in the very next cell.
+    private const int GrabRadius = 0;
 
     // How far the cursor must be from the anchor before an aiming drag adopts an
     // angle, in metres. An angle taken from a cursor sitting on top of the mark

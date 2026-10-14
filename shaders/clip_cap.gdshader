@@ -64,6 +64,6 @@ void fragment() {
 	if (clip_debug_mode == 2 || clip_debug_mode == 13) {
 		ALBEDO = vec3(1.0, 0.0, 0.0);
 	} else {
-		ALBEDO = poche_fill(cap_world, INV_VIEW_MATRIX, FRAGCOORD.xy);
+		ALBEDO = poche_color;
 	}
 }

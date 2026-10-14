@@ -51,6 +51,8 @@ public partial class Hud : Control
 	// StatusEffectIcons) inherit the position automatically.
 	[Export] Control _statusEffectNotificationAnchor;
 	[Export] HudEventLog _eventLog;
+	// Lives on the AnnouncementCanvas beside the event log (above the camp screen).
+	[Export] HudAnnouncementBanner _announcementBanner;
 	[Export] Control _questContainer;
 	[Export] PackedScene _questItemScene;
 	[Export] ProgressBar _healthBar;
@@ -139,8 +141,8 @@ public partial class Hud : Control
 	// FIFO of pending region banners. Chained region crossings can fire in a
 	// row; we serialize them so each gets its full visible window. The
 	// in-flight flag gates DispatchNext so the banner's onDone callback is the
-	// only thing that advances the queue. Non-region announcements bypass this
-	// entirely — they're pushed straight to the event log, which stacks lines.
+	// only thing that advances the queue. Discoveries queue on the announcement
+	// banner instead, and everything else goes straight to the event log.
 	readonly Queue<Announcement> _announcementQueue = new();
 	bool _announcementInFlight;
 	// Persistent strip above the health bar — one StatusEffectHud entry per
@@ -415,8 +417,9 @@ public partial class Hud : Control
 	{
 		if (a == null) { return; }
 		// Region keeps its dedicated full-width banner, serialized through the
-		// queue so chained crossings each get their full window. Everything else
-		// is a fading line in the event log.
+		// queue so chained crossings each get their full window. Something newly
+		// learned queues on the announcement banner; everything else is a fading
+		// line in the event log.
 		if (a.type == EAnnouncementType.Region)
 		{
 			_announcementQueue.Enqueue(a);
@@ -426,7 +429,19 @@ public partial class Hud : Control
 			}
 			return;
 		}
+		if (_announcementBanner != null && IsDiscovery(a.type))
+		{
+			_announcementBanner.Enqueue(a);
+			return;
+		}
 		_eventLog?.Push(FormatEventLine(a));
+	}
+
+	static bool IsDiscovery(EAnnouncementType type)
+	{
+		return type == EAnnouncementType.Recipe
+			|| type == EAnnouncementType.LanguageLearned
+			|| type == EAnnouncementType.ItemIdentified;
 	}
 
 	// Compose a one-line event-log entry from an announcement's title/subtitle.

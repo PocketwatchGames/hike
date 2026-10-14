@@ -1,8 +1,8 @@
 using Godot;
 
-// Stash tab of the camp screen: the party stash (SimState.PartyStash) beside the
-// chosen member's inventory — belt, backpack and equip slots — items moved to and fro
-// between them.
+// The party stash (SimState.PartyStash) beside a member's inventory — belt,
+// backpack and equip slots — items moved to and fro between them. The camp
+// screen's Stash tab, or standalone from a Stash interactive.
 //   A  — pick up the stack under the cursor; with one picked up, put it down
 //        here (any grid): an empty slot takes it, a matching stack merges,
 //        anything else swaps. An equip slot takes only its own kind of gear.
@@ -14,7 +14,8 @@ using Godot;
 //        Hold on a stack to send only some of it.
 //   RT — drop the stack under the cursor at the member's feet.
 //        Hold on a stack to drop only some of it.
-//   B  — put the pick-up back; with nothing picked up, CampScreen backs out.
+//   B  — put the pick-up back; with nothing picked up, the screen closes
+//        (standalone) or CampScreen backs out (camp tab).
 // Every move goes through ItemTransfer, so the stash screen holds no move rules.
 [GlobalClass]
 public partial class StashScreen : Control
@@ -65,6 +66,9 @@ public partial class StashScreen : Control
 
 	Player _player;
 	ItemGrid _stash;
+	// Set when opened standalone: the screen then dismisses itself on ui_cancel.
+	// Null as a camp tab, where CampScreen owns ui_cancel.
+	System.Action _onClose;
 
 	Slot _focused = Slot.None;
 	// The picked-up stack and how many of its units are moving.
@@ -114,12 +118,13 @@ public partial class StashScreen : Control
 		panel.onSlotButtonUp += (index, _) => OnSelectUp(new Slot(side, index));
 	}
 
-	// CampScreen owns the global gating (input, HUD, mouse, camp pose); this
-	// screen binds to the stash and the member's inventory.
-	public void Open(Player player, ItemGrid stash)
+	// The opener owns the global gating (input, HUD, mouse); this screen binds to
+	// the stash and the member's inventory.
+	public void Open(Player player, ItemGrid stash, System.Action onClose = null)
 	{
 		_player = player;
 		_stash = stash;
+		_onClose = onClose;
 		if (_player?.Inventory != null)
 		{
 			_player.Inventory.onChanged += Refresh;
@@ -159,6 +164,9 @@ public partial class StashScreen : Control
 		_player = null;
 		_focused = Slot.None;
 		ClearPick();
+		System.Action cb = _onClose;
+		_onClose = null;
+		cb?.Invoke();
 	}
 
 	// GrabFocus needs the slot visible-in-tree, hence deferred from Open.
@@ -413,6 +421,12 @@ public partial class StashScreen : Control
 		}
 		if (PickerOpen)
 		{
+			return;
+		}
+		if (_onClose != null && e.IsActionPressed("ui_cancel"))
+		{
+			Close();
+			GetViewport().SetInputAsHandled();
 			return;
 		}
 		if (e.IsActionPressed(EquipAction) && EquipVerb() != null)

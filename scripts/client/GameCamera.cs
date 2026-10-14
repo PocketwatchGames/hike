@@ -112,28 +112,7 @@ public partial class GameCamera : Camera3D
 	// Fill colour of the cut-open interior (the poche), for both cap planes —
 	// and the colour every lit shader fades to as its light goes to zero, so an
 	// unlit tunnel and the cut rock above it are one value (shaders/poche.gdshaderinc).
-	// Near-black but slightly lifted and cool so a sectioned building reads as
-	// solid rather than as a hole punched in the world.
-	[Export] public Color pocheColor = new("19191d");
-	// Crest colour of the swirl marbled through the poche. Set it equal to
-	// pocheColor for a flat fill; keep the two close — the poche has to recede.
-	[Export] public Color pocheSwirlColor = new("23232b");
-	// Noise cells per metre of the camera's image plane. 0.06 ≈ a 16 m cell, so
-	// the marbling reads as a few broad shapes across a room rather than texture.
-	[Export(PropertyHint.Range, "0.005,0.5,0.005")] public float pocheSwirlScale = 0.06f;
-	[Export(PropertyHint.Range, "0,4,0.1")] public float pocheSwirlWarp = 1.5f;
-	// Cells per second the swirl churns. Motion in a large peripheral fill is
-	// the easiest thing in the frame to over-do — at 0.03 a cell takes half a
-	// minute to turn over, which reads as "alive" only if you stop and look.
-	// 0 leaves it static; the pattern moves with the world either way, so
-	// walking still slides the poche over it.
-	[Export(PropertyHint.Range, "0,0.5,0.005")] public float pocheSwirlSpeed = 0.03f;
-	// De-banding jitter, as a fraction of the distance between the two poche
-	// colours. Those are ~10 8-bit codes apart, so the swirl posterizes into
-	// contour bands without this; 0.1 is worth about one code. Raise it in step
-	// with the colour separation — under-dithering shows as creases in the fill,
-	// over-dithering only as faint stipple.
-	[Export(PropertyHint.Range, "0,0.5,0.01")] public float pocheDither = 0.1f;
+	[Export] public Color pocheColor = Colors.Black;
 	// Light level at which a lit surface has fully left the poche, in the lit
 	// shaders' area-illuminance units (the same measure eye adaptation reads).
 	// Below it the surface crossfades in; 0 light is exactly the cap's fill.
@@ -200,7 +179,7 @@ public partial class GameCamera : Camera3D
 	private MeshInstance3D _irisCapPlane;
 	private MeshInstance3D _waterCapPlane;
 	// Last-pushed poche globals, so SyncPocheStyle pushes only on change.
-	private (Color, Color, float, float, float, float, float)? _pocheStyle;
+	private (Color, float)? _pocheStyle;
 	private SubViewport _capMaskViewport;
 	private Camera3D _capMaskCamera;
 	// Selection-outline plumbing (mirrors the cap-mask: off-screen mask
@@ -1222,10 +1201,10 @@ public partial class GameCamera : Camera3D
 
 	// Push the poche look to its shader globals. Runs per frame but only crosses
 	// into the engine when an authored value actually moved, so the look stays
-	// tunable in a running game without paying for seven setters a frame.
+	// tunable in a running game without paying for the setters every frame.
 	private void SyncPocheStyle()
 	{
-		var style = (pocheColor, pocheSwirlColor, pocheSwirlScale, pocheSwirlWarp, pocheSwirlSpeed, pocheDither, pocheLightKnee);
+		var style = (pocheColor, pocheLightKnee);
 		if (style.Equals(_pocheStyle))
 		{
 			return;
@@ -1234,11 +1213,6 @@ public partial class GameCamera : Camera3D
 		// The globals are linear: a global uniform carries no source_color hint to
 		// convert an sRGB Color the way the old per-material uniform did.
 		RenderingServer.GlobalShaderParameterSet("poche_color", ToLinearVector(pocheColor));
-		RenderingServer.GlobalShaderParameterSet("poche_swirl_color", ToLinearVector(pocheSwirlColor));
-		RenderingServer.GlobalShaderParameterSet("poche_swirl_scale", pocheSwirlScale);
-		RenderingServer.GlobalShaderParameterSet("poche_swirl_warp", pocheSwirlWarp);
-		RenderingServer.GlobalShaderParameterSet("poche_swirl_speed", pocheSwirlSpeed);
-		RenderingServer.GlobalShaderParameterSet("poche_dither", pocheDither);
 		RenderingServer.GlobalShaderParameterSet("poche_light_knee", pocheLightKnee);
 	}
 

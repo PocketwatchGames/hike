@@ -1441,6 +1441,27 @@
         Godot.RenderingServer.GlobalShaderParameterSet("debug_no_tint", ((CVarBool)cvar).Value);
     });
 
+    // PROTOTYPE: directional block / sky light on models, read off the light
+    // map's own gradient (model_lit_body). 0 = off, 1 = full. A/B them here.
+    public static CVarFloat debugModelBlockLightDir = new CVarFloat("debug_model_block_light_dir", 1f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_model_block_light_dir", ((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat debugModelSkyLightDir = new CVarFloat("debug_model_sky_light_dir", 1f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_model_sky_light_dir", ((CVarFloat)cvar).Value);
+    });
+    // ...and the specular highlight along that same direction, on materials with
+    // specular_strength > 0.
+    public static CVarFloat debugModelBlockLightSpec = new CVarFloat("debug_model_block_light_spec", 1f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_model_block_light_spec", ((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat debugModelSkyLightSpec = new CVarFloat("debug_model_sky_light_spec", 1f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_model_sky_light_spec", ((CVarFloat)cvar).Value);
+    });
+
     // Force cloud_dim to 1.0 everywhere — rules out cloud shadow as a
     // source of brightness mismatch between sprites and terrain.
     public static CVarBool debugCloudDisabled = new CVarBool("debug_cloud_disabled", false, (cvar) =>

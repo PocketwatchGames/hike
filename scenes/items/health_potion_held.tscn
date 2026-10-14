@@ -6,6 +6,8 @@
 render_priority = 0
 shader = ExtResource("model_lit_shader")
 shader_parameter/color_tint = Color(0.8, 0.12, 0.12, 1)
+shader_parameter/specular_shininess = 64.0
+shader_parameter/specular_strength = 0.9
 
 [sub_resource type="BoxMesh" id="Box_potion"]
 material = SubResource("Mat_potion")

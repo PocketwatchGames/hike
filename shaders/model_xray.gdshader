@@ -142,7 +142,7 @@ void fragment() {
 	// Occluded: alpha-blend translucent black. framebuffer *= (1 - ALPHA).
 	// Toward the poche rather than black, so a silhouette over unlit ground or
 	// the cap is the dark it sits in, not a blacker hole through it.
-	ALBEDO = poche_fill(poche_pixel_world(SCREEN_UV, FRAGCOORD.z, INV_PROJECTION_MATRIX, INV_VIEW_MATRIX), INV_VIEW_MATRIX, FRAGCOORD.xy);
+	ALBEDO = poche_color;
 	EMISSION = vec3(0.0);
 	ALPHA = xray_alpha * xray_amount;
 }

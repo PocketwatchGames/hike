@@ -289,7 +289,9 @@ public static class WorldFile
     //      payload) and its scene moved, so a v74 file names a scene that is gone.
     // v76: a door's payload carries its lock (a LockData ref, empty when
     //      unlocked) after its Active flag.
-    public const uint VERSION = 76;
+    // v77: a mob's payload carries RespawnsOnRest after Alive (an NPC stays
+    //      dead through a rest); Bed / Cookpot / Stash tags added, Tent removed.
+    public const uint VERSION = 77;
 
     public struct IndexEntry
     {

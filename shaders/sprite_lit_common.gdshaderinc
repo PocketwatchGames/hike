@@ -325,7 +325,7 @@ void fragment() {
 	lit_albedo *= ea_gain;
 	lit_emission *= ea_gain;
 	// Unlit ends at the poche, not black — see poche.gdshaderinc.
-	lit_emission += poche_unlit(frag_world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
+	lit_emission += poche_unlit(sun_lit, block_lit);
 	ALBEDO = mix(lit_albedo, vec3(0.0), silhouette_amount);
 	EMISSION = mix(lit_emission, silhouette_tint, silhouette_amount);
 }

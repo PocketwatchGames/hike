@@ -1076,6 +1076,13 @@ public partial class SimData : Resource
     // of the lighting (absolute, like fog — it doesn't redistribute energy).
     [Export(PropertyHint.Range, "0,1,0.01")] public float blockLightAO = 0.5f;
 
+    // BOUNCE — the share of a light's energy surfaces reflect rather than absorb
+    // (one reflectance for every surface). Walls never brighten a light's direct
+    // falloff; what they blocked returns as a soft fill over the space the light
+    // reaches. 0 = surfaces absorb everything; 1 = nothing is lost, and a small
+    // room gets ~5x the light it would in the open.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float blockLightBounce = 0.35f;
+
     // FLICKER CULL DISTANCE (voxels). A flickering light beyond this from the
     // player stops re-rolling and holds a steady full brightness — each flicker
     // tick re-deposits a footprint and re-dirties its chunks, so this caps that

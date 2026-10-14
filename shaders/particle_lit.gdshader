@@ -130,7 +130,7 @@ void fragment() {
 	vec3 vertex_tint = use_vertex_color ? particle_color.rgb : vec3(1.0);
 	ALBEDO = (tex.rgb * albedo.rgb * tint.rgb * lit + emission.rgb) * vertex_tint;
 	// Unlit ends at the poche, not black — see poche.gdshaderinc.
-	ALBEDO += poche_unlit_light(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, lit);
+	ALBEDO += poche_unlit_light(lit);
 	EMISSION = vec3(0.0);
 	ALPHA = tex.a * max(albedo.a * tint.a, emission.a) * particle_color.a;
 }

@@ -545,14 +545,20 @@ see [scripts/data/spawn/CLAUDE.md](scripts/data/spawn/CLAUDE.md).
 
 ### Save/Load System (`scripts/SaveGame.cs`)
 
-**A save is the party waking at a campfire at sunrise.** It is written at every
-sunrise wake (`GameClient.AutosaveAtWake`: camp sleep, Ruby Rosaries return-home, death wake)
-— there is no manual save — and a load reproduces that wake: it starts the world
-the header names (`WorldState.Origin`), sets the clock to the saved
-`WorldClockDays` (always a whole number — a sunrise), lights the saved campfire,
-spawns the party there and opens the camp screen. So
+**A save is the party waking at home at sunrise.** Home is a `RestSpot` —
+wherever the party last slept to sunrise: a campfire, or a `Bed` (beds and
+tents). It is written at every sunrise wake (`GameClient.AutosaveAtWake`: camp
+or bed sleep, Ruby Rosaries return-home, death wake) — there is no manual save —
+and a load reproduces that wake: it starts the world the header names
+(`WorldState.Origin`), sets the clock to the saved `WorldClockDays` (always a
+whole number — a sunrise) and spawns the party at home. A campfire home is lit
+and opens the camp screen; a bed home is a plain wake. Death wakes and the Ruby
+Rosaries go to the same home. So
 **nothing a rest resets is saved** (health, transient effects, mobs, dropped loot,
 weather): the load re-derives it the way a real wake does.
+A rest revives every dead mob EXCEPT one whose spawn entry has
+`respawnsOnRest` off (`NpcSpawnEntry`'s default): an individual stays dead,
+and the save carries that through the entity diff like any other change.
 Mid-day saves are a likely later extension.
 
 The header is read before a world exists (`SaveGame.Read` → `SaveFile`), then

@@ -31,6 +31,45 @@ global uniform float sun_ambient;
 // cloud_altitude are required by cloud_shadow.gdshaderinc and must be declared
 // before the include.
 global uniform vec3 sun_world_dir;
+// The two off-axis fills terrain is sculpted by (voxel_clip) — SkyController
+// owns them. Each darkens faces turned away from it by its tint, so a model
+// reads its shape the same way the ground under it does.
+global uniform vec3 fill_a_world_dir;
+global uniform vec3 fill_b_world_dir;
+global uniform vec3 fill_a_color;
+global uniform vec3 fill_b_color;
+global uniform bool debug_no_tint;
+// PROTOTYPE (CVars debug_model_*_light_dir / _spec): strength of the direction
+// read off the light map's gradient — for block light and for the ambient share
+// of sky light — as diffuse shaping and as a specular highlight.
+global uniform float debug_model_block_light_dir;
+global uniform float debug_model_sky_light_dir;
+global uniform float debug_model_block_light_spec;
+global uniform float debug_model_sky_light_spec;
+
+// PROTOTYPE. The light map stores no direction, but its gradient points toward
+// where the light is brighter — toward a torch, or out of a cave mouth. Writes
+// that direction and returns how far to trust it (0..1). `level` is the light's
+// value at the point: the gradient is judged RELATIVE to it, so confidence falls
+// to 0 where the field is flat — open sky, or a block light saturated at its byte
+// cap — instead of trusting a direction that is just quantization noise.
+float light_map_direction(vec3 gradient, float level, out vec3 dir)
+{
+	float len = length(gradient);
+	if (len < 1e-4) {
+		dir = vec3(0.0, 1.0, 0.0);
+		return 0.0;
+	}
+	dir = gradient / len;
+	return smoothstep(0.02, 0.25, len / (level + 0.02));
+}
+
+// Diffuse shaping along a light-map direction: a multiplier in [1 - s/2, 1 + s/2]
+// that averages to 1, so it reshapes the light without changing its total.
+float light_map_direction_term(vec3 dir, float confidence, vec3 n, float strength)
+{
+	return 1.0 + 0.5 * strength * confidence * dot(n, dir);
+}
 global uniform vec2 cloud_offset;
 global uniform float cloud_threshold;
 global uniform float cloud_sharpness;
@@ -109,11 +148,12 @@ uniform vec2 uv_scale = vec2(1.0);
 uniform vec3 emission_tint : source_color = vec3(0.0);
 uniform float emission_strength = 0.0;
 
-// Optional specular glint from the real sun DirectionalLight, for wet/glossy
-// surfaces (slimes). Default strength 0 is inert, so every other material that
-// shares this body renders exactly as before. Blinn-Phong, evaluated in
-// light(): specular_color tints the highlight, specular_shininess tightens it
-// (higher = smaller, glossier hotspot).
+// Optional specular glint for wet / glossy / metal surfaces (slimes, an iron
+// pot). Default strength 0 is inert. Blinn-Phong from every light that shades
+// the model: the sun/moon DirectionalLight in light(), and the two fills in
+// fragment() — they are shader globals, not engine lights, so light() never
+// runs for them. specular_color tints the highlight, specular_shininess
+// tightens it (higher = smaller, glossier hotspot).
 uniform float specular_strength : hint_range(0.0, 8.0) = 0.0;
 uniform vec3 specular_color : source_color = vec3(1.0);
 uniform float specular_shininess : hint_range(1.0, 128.0) = 32.0;
@@ -358,6 +398,11 @@ instance uniform float broken_rim_width : hint_range(0.001, 0.5) = 0.09;
 #endif
 
 varying vec3 world_pos;
+// fragment() -> light(): how much of the sun/moon may glint here — the light
+// map's sky mask, faded by the silhouette. light() runs for the DirectionalLight
+// everywhere, and its shadow atlas alone does not darken a cave or a cutaway
+// interior, so without this the specular glints in pitch black.
+varying float sun_specular_gate;
 varying vec3 world_normal;
 // Object-space Y forwarded for the contact-AO height ramp in fragment().
 varying float object_y;
@@ -542,6 +587,7 @@ void fragment() {
 	// model's atlas color without a cave-dimmed read. Mirrors particle_lit.
 	// (Godot disallows `return` in fragment(), so this is an if/else.)
 	bool globals_ready = length(light_map_inv_size) > 1e-6;
+	sun_specular_gate = 1.0;
 	vec3 out_albedo;
 	vec3 out_emission;
 	if (!globals_ready) {
@@ -558,6 +604,7 @@ void fragment() {
 		vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 		vec4 lm = textureLod(light_map, uvw, 0.0);
 		float sun_mask = pow(lm.r, light_falloff_exp);
+		sun_specular_gate = sun_mask;
 
 		// Wrap-lambert form term from the real surface normal. sun_world_dir
 		// points FROM the sun, so the surface-to-sun vector is -sun_world_dir.
@@ -574,6 +621,40 @@ void fragment() {
 		vec3 sun_lit = sun_mask * sun_intensity * sun_color * form;
 		vec3 block_lit = lm.gba;
 
+		// PROTOTYPE: directional block / sky light from the light map's gradient
+		// (central differences, one voxel each way).
+		float sky_dir_term = 1.0;
+		vec3 block_raw = lm.gba;
+		vec3 block_dir = vec3(0.0, 1.0, 0.0);
+		vec3 sky_dir = vec3(0.0, 1.0, 0.0);
+		float block_conf = 0.0;
+		float sky_conf = 0.0;
+		if (debug_model_block_light_dir > 0.0 || debug_model_sky_light_dir > 0.0
+			|| (specular_strength > 0.0 && (debug_model_block_light_spec > 0.0 || debug_model_sky_light_spec > 0.0))) {
+			vec3 dx = vec3(light_map_inv_size.x, 0.0, 0.0);
+			vec3 dy = vec3(0.0, light_map_inv_size.y, 0.0);
+			vec3 dz = vec3(0.0, 0.0, light_map_inv_size.z);
+			vec4 gx = textureLod(light_map, uvw + dx, 0.0) - textureLod(light_map, uvw - dx, 0.0);
+			vec4 gy = textureLod(light_map, uvw + dy, 0.0) - textureLod(light_map, uvw - dy, 0.0);
+			vec4 gz = textureLod(light_map, uvw + dz, 0.0) - textureLod(light_map, uvw - dz, 0.0);
+			const vec3 LM_LUMA = vec3(0.299, 0.587, 0.114);
+			vec3 block_gradient = vec3(dot(gx.gba, LM_LUMA), dot(gy.gba, LM_LUMA), dot(gz.gba, LM_LUMA));
+			vec3 sky_gradient = vec3(gx.r, gy.r, gz.r);
+			block_conf = light_map_direction(block_gradient, dot(lm.gba, LM_LUMA), block_dir);
+			sky_conf = light_map_direction(sky_gradient, lm.r, sky_dir);
+			block_lit *= light_map_direction_term(block_dir, block_conf, shading_normal, debug_model_block_light_dir);
+			sky_dir_term = light_map_direction_term(sky_dir, sky_conf, shading_normal, debug_model_sky_light_dir);
+		}
+
+		// Fills, exactly as voxel_clip applies them: a face turned away from a
+		// fill is multiplied by its tint, a face turned toward it is untouched.
+		float fill_a_facing = max(0.0, dot(shading_normal, -fill_a_world_dir));
+		float fill_b_facing = max(0.0, dot(shading_normal, -fill_b_world_dir));
+		if (!debug_no_tint) {
+			base *= mix(fill_a_color, vec3(1.0), fill_a_facing)
+				* mix(fill_b_color, vec3(1.0), fill_b_facing);
+		}
+
 		// AO (see uniforms above): baked vertex occlusion (real concavity, where a
 		// mesh provides it) plus the contact-height ramp (for un-baked meshes).
 		// Summed and clamped — for any given material typically only one source is
@@ -587,7 +668,31 @@ void fragment() {
 		// scales it by the shadow atlas), EMISSION carries ambient + block.
 		// AO multiplies both diffuse halves (matches voxel_clip's baked AO).
 		out_albedo = base * sun_lit * (1.0 - sun_ambient) * ao_factor;
-		out_emission = base * (block_lit + sun_lit * sun_ambient * cloud_dim) * ao_factor;
+		out_emission = base * (block_lit + sun_lit * sun_ambient * cloud_dim * sky_dir_term) * ao_factor;
+
+		// Fill highlights. A fill is as strong a light as it is a shade (1 - the
+		// luma of its tint), and it can only reflect the light actually reaching
+		// this surface, so nothing glints in the dark.
+		if (specular_strength > 0.0) {
+			vec3 view_world = normalize((INV_VIEW_MATRIX * vec4(VIEW, 0.0)).xyz);
+			vec3 incoming = sun_lit * sun_ambient * cloud_dim + block_lit;
+			const vec3 LUMA = vec3(0.299, 0.587, 0.114);
+			float spec_a = pow(max(dot(shading_normal, normalize(view_world - fill_a_world_dir)), 0.0), specular_shininess)
+				* (1.0 - dot(fill_a_color, LUMA));
+			float spec_b = pow(max(dot(shading_normal, normalize(view_world - fill_b_world_dir)), 0.0), specular_shininess)
+				* (1.0 - dot(fill_b_color, LUMA));
+			out_emission += (spec_a + spec_b) * specular_strength * specular_color * incoming * ao_factor;
+
+			// PROTOTYPE: highlights along the light-map directions — the torch-facing
+			// glint on a pot, a soft sheen toward a cave mouth. Each reflects only the
+			// light it carries, weighted by how far its direction can be trusted.
+			float spec_block = pow(max(dot(shading_normal, normalize(view_world + block_dir)), 0.0), specular_shininess)
+				* block_conf * debug_model_block_light_spec;
+			float spec_sky = pow(max(dot(shading_normal, normalize(view_world + sky_dir)), 0.0), specular_shininess)
+				* sky_conf * debug_model_sky_light_spec;
+			out_emission += (spec_block * block_raw + spec_sky * sun_lit * sun_ambient * cloud_dim)
+				* specular_strength * specular_color * ao_factor;
+		}
 
 		// Eye adaptation: lift in low local light when dark-adapted, push toward
 		// blowout in bright. light_est = area illuminance here (sun + block,
@@ -597,7 +702,7 @@ void fragment() {
 		out_albedo *= ea_gain;
 		out_emission *= ea_gain;
 		// Unlit ends at the poche, not black — see poche.gdshaderinc.
-		out_emission += poche_unlit(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
+		out_emission += poche_unlit(sun_lit, block_lit);
 	}
 
 	// Self-illumination (inert at default 0), modulated by albedo so the glow
@@ -611,6 +716,7 @@ void fragment() {
 	// the tint, yielding `silhouette_tint` at silhouette_amount = 1 regardless of
 	// the lighting state under the mesh.
 	ALBEDO = mix(out_albedo, vec3(0.0), silhouette_amount);
+	sun_specular_gate *= 1.0 - silhouette_amount;
 	EMISSION = mix(out_emission, silhouette_tint, silhouette_amount);
 
 #ifdef MODEL_ALPHA_CUTOUT
@@ -654,6 +760,7 @@ void light() {
 		vec3 half_vec = normalize(VIEW + LIGHT);
 		float ndh = max(dot(normalize(NORMAL), half_vec), 0.0);
 		float spec = pow(ndh, specular_shininess);
-		SPECULAR_LIGHT += spec * specular_strength * specular_color * light_energy * min(ATTENUATION, cloud_dim);
+		SPECULAR_LIGHT += spec * specular_strength * specular_color * light_energy * min(ATTENUATION, cloud_dim)
+			* sun_specular_gate;
 	}
 }

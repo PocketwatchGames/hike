@@ -2,10 +2,9 @@ using Godot;
 using System.Collections.Generic;
 using System.Text;
 
-// Bottom-left rolling event log. Replaces the center announcement panel as the
-// destination for routine notifications (recipes, item IDs, language learned,
-// bestiary, gifts) and for interactive-action refusals ("Danger Nearby", "Too
-// Hurt to Rest"). Holds the last `maxEvents` lines; each line lives
+// Bottom-left rolling event log: routine notifications (pickups, gifts, camp
+// knowledge banking) and interactive-action refusals ("Danger Nearby", "Too
+// Hurt to Rest"). Discoveries go to HudAnnouncementBanner instead. Holds the last `maxEvents` lines; each line lives
 // `lifetimeSeconds`, then fades over `fadeSeconds` and drops off the top.
 // Newest line sits at the bottom.
 //

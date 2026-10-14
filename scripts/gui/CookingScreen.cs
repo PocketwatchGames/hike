@@ -2,10 +2,14 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-// Cook tab of the camp screen. Left = the forge's experimentation slots + commit
-// button (CookingPanel); center = the cook's belt and backpack and the party
-// stash (BackpackPanels over Inventory.Belt / Backpack and SimState.PartyStash),
-// whose materials are the ingredient source.
+// Cooking at an ICookingStation: the camp screen's Cook tab (the lit campfire),
+// or standalone from the HUD at a cookpot. Left = the station's experimentation
+// slots + commit button (CookingPanel); center = the cook's belt and backpack and,
+// at camp only, the party stash (BackpackPanels over Inventory.Belt / Backpack and
+// SimState.PartyStash), whose materials are the ingredient source.
+//
+// Opened with an onClose callback (standalone) it dismisses itself on ui_cancel;
+// opened without one (the camp tab) its host owns ui_cancel.
 //
 // Cooking is INSTANT — there is no cook job or timer. A recipe is a cookable
 // ConsumableData, and cooking it grants one into the cook's backpack (then the
@@ -38,7 +42,7 @@ public partial class CookingScreen : Control
 
 	Action _onClose;
 	Player _player;
-	Campfire _forge;
+	ICookingStation _station;
 
 	public override void _Ready()
 	{
@@ -109,13 +113,17 @@ public partial class CookingScreen : Control
 		_player = player;
 	}
 
-	public void Open(Player player, Campfire forge = null, Action onClose = null)
+	public void Open(Player player, ICookingStation station, Action onClose = null)
 	{
 		if (player != null)
 		{
 			_player = player;
 		}
-		_forge = forge;
+		_station = station;
+		if (_stashPanel != null)
+		{
+			_stashPanel.Visible = station?.IsCamp == true;
+		}
 		_onClose = onClose;
 		_cookingPanel?.HideAnnouncement();
 		Visible = true;
@@ -156,7 +164,7 @@ public partial class CookingScreen : Control
 			return;
 		}
 		ReturnInputs();
-		_forge = null;
+		_station = null;
 		Visible = false;
 		Action cb = _onClose;
 		_onClose = null;
@@ -167,9 +175,9 @@ public partial class CookingScreen : Control
 	{
 		if (Visible)
 		{
-			if (_forge != null)
+			if (_station != null)
 			{
-				_cookingPanel?.Bind(_forge.CampfireSlots);
+				_cookingPanel?.Bind(_station.CookingSlots);
 			}
 			RefreshMaterials();
 			RefreshRecipeList();
@@ -183,7 +191,8 @@ public partial class CookingScreen : Control
 
 	SimState WorldSim => _player?.Sim?.WorldState?.SimState;
 	Inventory CookInventory => _player?.Inventory;
-	ItemGrid Stash => WorldSim?.PartyStash;
+	// The party stash is the camp's; away from camp there is none to draw on.
+	ItemGrid Stash => _station?.IsCamp == true ? WorldSim?.PartyStash : null;
 
 	// Only materials can be cooked, so everything else is greyed.
 	void RefreshMaterials()
@@ -210,7 +219,7 @@ public partial class CookingScreen : Control
 
 	void RefreshRecipeList()
 	{
-		if (_cookingPanel == null || _forge == null || _player == null)
+		if (_cookingPanel == null || _station == null || _player == null)
 		{
 			return;
 		}
@@ -221,7 +230,7 @@ public partial class CookingScreen : Control
 			return;
 		}
 		var materials = new List<ItemState>(_player.Materials(Stash));
-		_cookingPanel.RefreshRecipes(simData.recipes, worldSim, materials, _forge.CampfireType);
+		_cookingPanel.RefreshRecipes(simData.recipes, worldSim, materials, _station.CampfireType);
 	}
 
 	// ---- Material side (add to cooking slots) ------------------------------
@@ -332,7 +341,7 @@ public partial class CookingScreen : Control
 	// AND grants the item; a failed mix is wasted ("Yuck").
 	void OnCookCommit()
 	{
-		if (_cookingPanel == null || _player == null || _forge == null)
+		if (_cookingPanel == null || _player == null || _station == null)
 		{
 			return;
 		}
@@ -346,7 +355,7 @@ public partial class CookingScreen : Control
 			// Nothing loaded — the button does nothing (leaving camp is ui_cancel).
 			return;
 		}
-		Cooking.MatchResult match = Cooking.TryMatch(_cookingPanel.Inputs, simData.recipes, _forge.CampfireType);
+		Cooking.MatchResult match = Cooking.TryMatch(_cookingPanel.Inputs, simData.recipes, _station.CampfireType);
 		SimState worldSim = WorldSim;
 		_cookingPanel.DrainInputs();
 		if (!match.IsValid || worldSim == null)
@@ -355,10 +364,10 @@ public partial class CookingScreen : Control
 			UpdatePrimaryHint();
 			return;
 		}
-		if (worldSim.DiscoverRecipe(match.output))
+		if (worldSim.DiscoverRecipe(match.output) && _station.IsCamp)
 		{
-			// Learned AT the campfire, so commit it to the shared party pool right away
-			// (the same bank a camp visit does) — campfire knowledge is party knowledge,
+			// Learned AT camp, so commit it to the shared party pool right away
+			// (the same bank a camp visit does) — camp knowledge is party knowledge,
 			// visible to every character. Discovery otherwise lands only in the active
 			// member's provisional store.
 			worldSim.BankActiveKnowledge();
@@ -413,7 +422,7 @@ public partial class CookingScreen : Control
 	// is silently lost.
 	void ReturnInputs()
 	{
-		if (_cookingPanel == null || _forge == null)
+		if (_cookingPanel == null || _station == null)
 		{
 			return;
 		}
@@ -443,6 +452,21 @@ public partial class CookingScreen : Control
 		if (leftover != null)
 		{
 			_player.Sim?.DropItem(leftover, _player.GlobalPosition + Vector3.Up * 0.5f, Vector3.Zero, requireInteract: true);
+		}
+	}
+
+	public override void _UnhandledInput(InputEvent e)
+	{
+		// Children (CookingPanel) see ui_cancel first and consume it while they
+		// have an in-flight selection.
+		if (!Visible || _onClose == null)
+		{
+			return;
+		}
+		if (e.IsActionPressed("ui_cancel"))
+		{
+			Close();
+			GetViewport().SetInputAsHandled();
 		}
 	}
 }

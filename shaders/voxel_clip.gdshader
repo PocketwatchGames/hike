@@ -55,8 +55,9 @@ global uniform float light_falloff_exp; // power applied to lightmap value (>1 =
 global uniform float light_sample_offset;
 
 // RGBA8 light map: R = sunlight visibility mask 0..1 (single source, max-fill,
-// pow'd in this shader). GBA = per-color-channel block light, post-pow at
-// deposit time so overlapping lights add their perceptual brightness directly.
+// pow'd in this shader). GBA = per-color-channel block light, linear, summed
+// across lights; over-bright is scaled down hue-preserving at upload
+// (ChunkState.EncodeBlockLight), so 1.0 on the brightest channel = saturated.
 global uniform sampler3D light_map : filter_linear, repeat_enable;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
@@ -1159,7 +1160,7 @@ void fragment() {
 	// Unlit surfaces end at the poche, not at black, so a dark tunnel matches the
 	// cap cut above it. Added AFTER adaptation: the cap is not adapted, and the
 	// two must be the same value at zero light.
-	EMISSION += poche_unlit(world_vertex, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
+	EMISSION += poche_unlit(sun_lit, block_lit);
 
 	if (dot(debug_solid, vec3(1.0)) > 0.001) {
 		ALBEDO = vec3(0.0);

@@ -168,7 +168,7 @@ void fragment() {
 
 	// Unlit water scatters the poche (straight-alpha blend: over a poche floor
 	// the result stays the poche). See poche.gdshaderinc.
-	ALBEDO = final_col + poche_unlit(world_pos, INV_VIEW_MATRIX, FRAGCOORD.xy, sun_lit, block_lit);
+	ALBEDO = final_col + poche_unlit(sun_lit, block_lit);
 	ALPHA = max(clamp(1.0 - dot(transmittance, vec3(1.0 / 3.0)), 0.0, 1.0), foam_amount);
 	}
 }

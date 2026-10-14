@@ -18,6 +18,8 @@ height = 0.42
 render_priority = 0
 shader = ExtResource("model_lit_shader")
 shader_parameter/color_tint = Color(0.45, 0.6, 1, 1)
+shader_parameter/specular_shininess = 64.0
+shader_parameter/specular_strength = 0.9
 
 [sub_resource type="SphereMesh" id="SphereMesh_gem"]
 material = SubResource("Mat_gem")

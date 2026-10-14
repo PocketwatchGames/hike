@@ -1361,7 +1361,7 @@ void fragment() {
 	// like the cap.
 	vec3 seen_share = transmittance * (1.0 - refl_mix) * (1.0 - (is_top ? foam_amount : 0.0)) * (1.0 - cover_amount);
 	float water_unlit = poche_weight(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
-	ALBEDO += poche_fill(world_vertex, INV_VIEW_MATRIX, FRAGCOORD.xy) * water_unlit * (1.0 - seen_share);
+	ALBEDO += poche_color * water_unlit * (1.0 - seen_share);
 	ALPHA = 1.0;
 
 	// Term isolation, the same approach that located the sun banding. Each
