@@ -416,6 +416,9 @@ public partial class GameClient : Node3D
 	// derived from clipClearance rather than authored here — see ClipIris — so the
 	// disk and the base plane cannot be tuned apart.
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipIrisHeightSeconds = 0.25f;
+	// Metres within which the disk's plane takes the ceiling clip's height instead of
+	// its own, so two nearly-equal cuts read as one. 0 disables.
+	[Export(PropertyHint.Range, "0,4,0.25")] public float clipIrisSnapDistance = 1.5f;
 		// Temporal hysteresis on the disk's open gate: it stays open at least this
 		// long after the player stops being hidden or leaves an opening, so the
 		// quantised hidden-ladder ticking across zero at a wall edge cannot make it
@@ -1540,6 +1543,7 @@ public partial class GameClient : Node3D
 		_clipIris.IrisShrinkSeconds = clipIrisShrinkSeconds;
 		_clipIris.IrisHoldSeconds = clipIrisHoldSeconds;
 		_clipIris.IrisHeightSeconds = clipIrisHeightSeconds;
+		_clipIris.IrisSnapDistance = clipIrisSnapDistance;
 
 		Vector3 playerPos = _player.GlobalPosition;
 		// Swimmers and riders count as supported: they are held at a floor (the

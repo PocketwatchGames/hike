@@ -99,6 +99,8 @@ public class ClipIris
     // ground. The disk exists to reveal the space the player is IN, so it wants to
     // cut just over their head rather than a full plateau step up.
     private const float IRIS_UNDERCUT = 1f;
+    // Metres within which the eased disk plane is treated as having arrived.
+    private const float IRIS_LAND_EPSILON = 0.01f;
     // Voxels the player's own floor resolve will climb looking for air. Their Y is
     // fractional on slopes and the capsule settles into what it stands on, so the
     // feet voxel is often the solid underfoot.
@@ -184,6 +186,9 @@ public class ClipIris
     // target is quantised to the plateau lattice, so a change of storey arrives as
     // a whole step and cutting straight to it reads as a pop.
     public float IrisHeightSeconds = 0.25f;
+    // Metres within which the disk's plane adopts the ceiling clip's height instead
+    // of its own, so two nearly-equal cuts read as one rather than a ledge.
+    public float IrisSnapDistance = 1.5f;
     // Temporal hysteresis on the OPEN gate: once the disk opens it stays open at
     // least this long after the player stops being hidden / leaves the opening.
     // PlayerHiddenAmount is a quantised ladder that ticks across zero as the player
@@ -338,11 +343,24 @@ public class ClipIris
         // snap left the plane anywhere from 1.5 m to 5.5 m over the player's head
         // depending on where their floor happened to fall between two bands.
         float irisTarget = PlayerGroundY - IRIS_UNDERCUT + GameCamera.PLATEAU_STEP - Clearance;
+        // Close to the ceiling clip, take its height outright. Indoor mode only — a
+        // real ceiling or the manual reveal, never the open-ground backstop. Once the
+        // two match, the disk is redundant with the base and retires itself.
+        if (camera.IsIndoorMode && Mathf.Abs(camera.Clip - irisTarget) <= IrisSnapDistance)
+        {
+            irisTarget = camera.Clip;
+        }
         // First tick starts at NO_CEILING, and there is no easing from infinity.
         IrisClipY = float.IsInfinity(IrisClipY)
             ? irisTarget
             : Mathf.Lerp(IrisClipY, irisTarget,
                 1f - Mathf.Exp(-deltaSeconds / Mathf.Max(IrisHeightSeconds, 1e-3f)));
+        // Land exactly: an exponential ease never arrives, and the redundancy test in
+        // TickIris compares the two planes directly.
+        if (Mathf.Abs(IrisClipY - irisTarget) < IRIS_LAND_EPSILON)
+        {
+            IrisClipY = irisTarget;
+        }
 
         AtOpening = ResolveAtOpening(world, playerPosition);
 
