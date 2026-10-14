@@ -80,6 +80,7 @@ transitions = [SubResource("Resource_idle_to_retreat"), SubResource("Resource_id
 
 [sub_resource type="Resource" id="Resource_attack"]
 script = ExtResource("5_attack")
+behaviorFlags = 1
 
 [sub_resource type="Resource" id="Resource_cond_target_safe"]
 script = ExtResource("17_targetsafe")
@@ -105,6 +106,7 @@ transitions = [SubResource("Resource_attack_to_retreat"), SubResource("Resource_
 
 [sub_resource type="Resource" id="Resource_retreat"]
 script = ExtResource("18_retreat")
+behaviorFlags = 2
 
 [sub_resource type="Resource" id="Resource_retreat_to_attack"]
 script = ExtResource("4_transition")
@@ -158,6 +160,7 @@ transitions = [SubResource("Resource_wander_to_retreat"), SubResource("Resource_
 
 [sub_resource type="Resource" id="Resource_investigate"]
 script = ExtResource("9_investigate")
+behaviorFlags = 1
 
 [sub_resource type="Resource" id="Resource_investigate_to_attack"]
 script = ExtResource("4_transition")

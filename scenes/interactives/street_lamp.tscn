@@ -114,8 +114,8 @@ surface_material_override/0 = SubResource("ShaderMaterial_flame")
 [node name="StationaryLight" type="Node3D" parent="." unique_id=1224118551]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.6, 0)
 script = ExtResource("2_light")
-_falloff = 0.5
-_brightness = 0.5
+_falloff = 1.5
+_brightness = 1.0
 _flicker = true
 _flickerMin = 0.9
 _flickerHz = 6.0

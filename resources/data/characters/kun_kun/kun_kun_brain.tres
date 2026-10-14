@@ -52,6 +52,7 @@ transitions = [SubResource("Resource_idle_to_flee"), SubResource("Resource_idle_
 [sub_resource type="Resource" id="Resource_flee"]
 script = ExtResource("7_flee")
 fleeRange = 12.0
+behaviorFlags = 2
 
 [sub_resource type="Resource" id="Resource_cond_burrow"]
 script = ExtResource("9_burrow_cond")

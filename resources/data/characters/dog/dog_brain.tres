@@ -22,7 +22,6 @@ restApproachRadius = 6.0
 restMinDistance = 2.0
 getUpRadius = 10.0
 catchUpDistance = 10.0
-playerStillRadius = 0.4
 stopGraceSeconds = 1.0
 
 [sub_resource type="Resource" id="Resource_cond_alert"]
@@ -99,6 +98,7 @@ transitions = [SubResource("Resource_stay_to_attack"), SubResource("Resource_sta
 
 [sub_resource type="Resource" id="Resource_wary"]
 script = ExtResource("11_wary")
+behaviorFlags = 1
 
 [sub_resource type="Resource" id="Resource_wary_to_attack"]
 script = ExtResource("3_transition")
@@ -131,6 +131,7 @@ transitions = [SubResource("Resource_wary_to_attack"), SubResource("Resource_war
 [sub_resource type="Resource" id="Resource_dogattack"]
 script = ExtResource("8_dogattack")
 encircleDistance = 2.0
+behaviorFlags = 1
 
 [sub_resource type="Resource" id="Resource_cond_alert_none"]
 script = ExtResource("9_threat")
