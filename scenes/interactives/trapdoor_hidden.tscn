@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" uid="uid://byjufllnj0ow2" path="res://scenes/hud/discoverable_hud.tscn" id="9_hud"]
 [ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="10_modellit"]
 [ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="11_white"]
+[ext_resource type="PackedScene" uid="uid://ne4chrsrlwoi" path="res://scenes/fx/tinker_loop.tscn" id="90_loopfx"]
 
 [sub_resource type="Resource" id="Resource_td_event_disarm"]
 script = ExtResource("7_event")
@@ -21,6 +22,7 @@ script = ExtResource("6_action")
 displayName = &"jam shut"
 completionEvents = Array[ExtResource("7_event")]([SubResource("Resource_td_event_disarm")])
 durationSeconds = 2.0
+loopEffect = ExtResource("90_loopfx")
 locksMovement = true
 
 [sub_resource type="Resource" id="Resource_td_data"]

@@ -20,6 +20,8 @@ public partial class Player : CharacterBody3D
 		Velocity = Vector3.Zero;
 		_dashTimeRemaining = 0f;
 		_skating = false;
+		_sprintArmed = false;
+		_sprinting = false;
 		_skidding = false;
 		_sneaking = false;
 		SetCurInteractive(null);

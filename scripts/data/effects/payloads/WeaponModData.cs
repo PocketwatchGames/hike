@@ -45,6 +45,11 @@ public partial class WeaponModData : Resource
 	[ExportGroup("Compatibility")]
 	[Export] public EWeaponDelivery requiredDelivery = EWeaponDelivery.None;
 
+	// Acts only on a charged attack — a tier the attacker had to hold to reach
+	// (its start time on the charge timeline is past 0: a bow's Snipe, not its
+	// Quickshot). Applies to every field on this mod.
+	[Export] public bool chargedOnly = false;
+
 	// Projectiles carrying an impactEvent shatter on first contact instead of bouncing
 	// out their fuse. The "Fragile" mod.
 	[ExportGroup("Projectile")]
@@ -84,6 +89,22 @@ public partial class WeaponModData : Resource
 	// Extra stagger/lockout seconds added alongside knockbackBonus. 0 = shove the
 	// target without lengthening its knockback lockout window.
 	[Export(PropertyHint.Range, "0,2,0.05,or_greater")] public float knockbackTimeBonus = 0f;
+
+	// Multiplier on the weapon's reach: a melee swing's length (ItemEvent.range)
+	// and a hitscan / projectile's range, on top of the tier's chargedRangeScale.
+	// Multiplied across reaching mods. 1 = no change.
+	[ExportGroup("Reach & Speed")]
+	[Export(PropertyHint.Range, "0.25,3,0.05")] public float rangeScale = 1f;
+
+	// Multiplier on the speed of the weapon's whole action timeline — charge, swing,
+	// events, animation and recovery. Multiplied across reaching mods. 1 = no change.
+	[Export(PropertyHint.Range, "0.25,3,0.05")] public float attackSpeed = 1f;
+
+	// Extra blunt added to every landed hit (armor chip = healthDamage * (1 +
+	// blunt); see DamageData.blunt), which also tags the hit Blunt so blunt
+	// resistance applies. Summed across reaching mods. 0 = none.
+	[ExportGroup("Blunt")]
+	[Export(PropertyHint.Range, "0,3,0.05,or_greater")] public float bluntBonus = 0f;
 
 	// On each landed attack, arc lightning between nearby enemies from the impact
 	// point. The "Shocking" weapon mod (player) and the elite "Lightning" signature
@@ -162,4 +183,42 @@ public partial class WeaponModData : Resource
 	// Whether the affix reads before the noun ("Fragile bomb") or after it
 	// ("bow of Lightning").
 	[Export] public EAffixPosition affixPosition = EAffixPosition.Prefix;
+}
+
+// The firing charge tier a weapon-mod read is scoped to: its index in the weapon's
+// action profile (what a composed mod's SpecificCharge scope matches) and whether
+// the attacker had to hold to reach it (what WeaponModData.chargedOnly matches).
+public readonly struct WeaponModTier
+{
+	public readonly int index;
+	public readonly bool charged;
+
+	// No resolvable tier: matches only AllAttacks-scoped, non-chargedOnly mods.
+	public static readonly WeaponModTier None = new WeaponModTier(-1, false);
+
+	public WeaponModTier(int index, bool charged)
+	{
+		this.index = index;
+		this.charged = charged;
+	}
+
+	// `tier` is compared by reference against the weapon's own profile entries.
+	public static WeaponModTier Of(WeaponState weapon, ItemAction tier)
+	{
+		ItemActionProfile profile = weapon?.data?.actionProfile;
+		Godot.Collections.Array<ItemAction> tiers = profile?.chargedActions;
+		if (tiers == null || tier == null)
+		{
+			return None;
+		}
+		int count = tiers.Count;
+		for (int i = 0; i < count; i++)
+		{
+			if (tiers[i] == tier)
+			{
+				return new WeaponModTier(i, ItemActionProfile.GetTierStartTime(profile, i, tier.comboIndex) > 0f);
+			}
+		}
+		return None;
+	}
 }

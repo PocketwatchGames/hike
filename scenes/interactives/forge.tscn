@@ -23,6 +23,7 @@
 [ext_resource type="PackedScene" uid="uid://dpfuy5odul3sp" path="res://assets/models/forge_slots/SM_Wep_Shield_Heater_01.fbx" id="23_shield"]
 [ext_resource type="PackedScene" uid="uid://c5k6kb2ci6rim" path="res://assets/models/forge/Pedestal_01.fbx" id="24_ped01"]
 [ext_resource type="PackedScene" uid="uid://dm4j4qwk2puuw" path="res://assets/models/forge/Pedestal_03.fbx" id="25_ped03"]
+[ext_resource type="PackedScene" uid="uid://ne4chrsrlwoi" path="res://scenes/fx/tinker_loop.tscn" id="90_loopfx"]
 
 [sub_resource type="Resource" id="Resource_forge_event_open"]
 script = ExtResource("5_event")
@@ -34,6 +35,7 @@ displayName = &"Forge"
 icon = ExtResource("6_open")
 completionEvents = Array[ExtResource("5_event")]([SubResource("Resource_forge_event_open")])
 durationSeconds = 1.0
+loopEffect = ExtResource("90_loopfx")
 locksMovement = true
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]

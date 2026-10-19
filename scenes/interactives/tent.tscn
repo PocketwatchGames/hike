@@ -13,6 +13,7 @@
 [ext_resource type="PackedScene" uid="uid://cvoui2mg0oxau" path="res://scenes/fx/interact_reject.tscn" id="18_reject"]
 [ext_resource type="PackedScene" uid="uid://bhgq4eovp4e5l" path="res://assets/models/tent/SM_Prop_Camp_Tent_01.fbx" id="19_tentfbx"]
 [ext_resource type="Texture2D" uid="uid://ba2akoi7qnnje" path="res://assets/textures/interactions/sleep.png" id="20_sleep"]
+[ext_resource type="PackedScene" uid="uid://c0efv60kwrayo" path="res://scenes/fx/cloth_rustle_loop.tscn" id="90_loopfx"]
 
 [sub_resource type="Resource" id="Resource_tent_event_sleep"]
 script = ExtResource("2_event")
@@ -32,6 +33,7 @@ displayName = &"Sleep"
 icon = ExtResource("20_sleep")
 completionEvents = Array[ExtResource("2_event")]([SubResource("Resource_tent_event_sleep")])
 durationSeconds = 1.5
+loopEffect = ExtResource("90_loopfx")
 requirements = Array[ExtResource("4_req")]([SubResource("Resource_tent_req_nodanger"), SubResource("Resource_tent_req_nodamaging")])
 rejectEffect = ExtResource("18_reject")
 locksMovement = true

@@ -1,13 +1,25 @@
 [gd_scene format=3 uid="uid://dr1nk2lk5q8wn"]
 
-[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://bprcasvwnjfu4" path="res://assets/audio/source/player/DRINK_Long_mono.wav" id="2_a"]
+[ext_resource type="AudioStream" uid="uid://dy02nct3psmjb" path="res://assets/audio/source/player/DRINK_Surple_mono.wav" id="3_a"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_audio"]
+playback_mode = 1
+random_pitch = 1.05
+streams_count = 2
+stream_0/stream = ExtResource("2_a")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("3_a")
+stream_1/weight = 1.0
 
 [node name="DrinkLoop" type="Node3D"]
-script = ExtResource("1_oneshot")
+script = ExtResource("1_fx")
 _loop = true
 
 [node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_audio")
+volume_db = 6.0
 unit_size = 4.0
 max_distance = 18.0
-volume_db = -2.0
 bus = &"World3D"

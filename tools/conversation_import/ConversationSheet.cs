@@ -16,21 +16,30 @@ class SheetRow
 	public string Goto = "";
 	public string Language = "";
 	public string Condition = "";
-	public string Action = "";
+	public string OnStart = "";
+	public string OnComplete = "";
 	public string Text = "";
 
 	public bool IsPlayer => Player.Trim().Length > 0;
 	public string Where => $"{Path.GetFileName(File)}:{Line}";
 }
 
-// One NPC turn. `LineKeys` are the loc keys generated for this branch's
-// paragraphs, in order.
+// One paragraph of an NPC turn: its generated loc key and the actions that
+// bracket it.
+class SheetLine
+{
+	public string Key;
+	public List<string> StartActions;
+	public List<string> CompleteActions;
+	public SheetRow Row;
+}
+
+// One NPC turn: its paragraphs, in order.
 class SheetBranch
 {
 	public string Name;
 	public string Language;
-	public List<string> LineKeys = new List<string>();
-	public List<string> Actions = new List<string>();
+	public List<SheetLine> Lines = new List<SheetLine>();
 	public string ExitGroup = "";
 	// Gates opening the conversation on this branch; null when unconditional.
 	public string Condition;
@@ -49,7 +58,8 @@ class SheetResponse
 	public string Language;
 	public string Condition;
 	public string Destination = "";
-	public List<string> Actions = new List<string>();
+	public List<string> StartActions = new List<string>();
+	public List<string> CompleteActions = new List<string>();
 	public SheetRow Row;
 }
 
@@ -96,7 +106,7 @@ static class ConversationSheet
 
 	static readonly string[] RequiredColumns =
 	{
-		"character", "name", "description", "player", "conversation key", "goto", "language", "condition", "action", "text",
+		"character", "name", "description", "player", "conversation key", "goto", "language", "condition", "on start", "on complete", "text",
 	};
 
 	// Reads one sheet export into rows, applying the fill-down rule on the
@@ -164,12 +174,13 @@ static class ConversationSheet
 				Goto = Cell(cells, columns, "goto"),
 				Language = Cell(cells, columns, "language"),
 				Condition = Cell(cells, columns, "condition"),
-				Action = Cell(cells, columns, "action"),
+				OnStart = Cell(cells, columns, "on start"),
+				OnComplete = Cell(cells, columns, "on complete"),
 				Text = Cell(cells, columns, "text"),
 			};
 			if (row.Character.Length == 0 && row.Name.Length == 0 && row.Description.Length == 0 && row.Player.Length == 0 && row.Key.Length == 0
 				&& row.Goto.Length == 0 && row.Language.Length == 0 && row.Condition.Length == 0
-				&& row.Action.Length == 0 && row.Text.Length == 0)
+				&& row.OnStart.Length == 0 && row.OnComplete.Length == 0 && row.Text.Length == 0)
 			{
 				continue;
 			}
@@ -215,7 +226,7 @@ static class ConversationSheet
 
 			ApplyCharacterFields(character, row, report);
 			if (row.Player.Length == 0 && row.Key.Length == 0 && row.Goto.Length == 0 && row.Language.Length == 0
-				&& row.Condition.Length == 0 && row.Action.Length == 0 && row.Text.Length == 0)
+				&& row.Condition.Length == 0 && row.OnStart.Length == 0 && row.OnComplete.Length == 0 && row.Text.Length == 0)
 			{
 				// Nothing but the character's own name / description.
 				continue;
@@ -304,12 +315,11 @@ static class ConversationSheet
 		return branch;
 	}
 
-	// goto, language, condition and action describe the whole branch, not the
-	// paragraph they sit beside, and may be written on ANY of its rows: both the
-	// exit and the end actions take effect after the LAST line, so a
-	// multi-paragraph branch reads best with them at the bottom, next to the line
-	// they follow. Actions accumulate in row order; the rest are one per branch,
-	// and a second claim is an error rather than a silent overwrite.
+	// goto, language and condition describe the whole branch, not the paragraph
+	// they sit beside, and may be written on ANY of its rows - one each per
+	// branch, and a second claim is an error rather than a silent overwrite.
+	// `on start` / `on complete` are the exception: they belong to the paragraph
+	// on their own row (AddLine).
 	static void ApplyBranchFields(SheetBranch branch, SheetRow row, Report report)
 	{
 		if (row.Goto.Length > 0)
@@ -353,17 +363,26 @@ static class ConversationSheet
 				branch.ConditionRow = row;
 			}
 		}
-		branch.Actions.AddRange(SplitNames(row.Action));
 	}
 
 	static void AddLine(SheetCharacter character, SheetBranch branch, SheetRow row, Report report)
 	{
 		if (row.Text.Length == 0)
 		{
+			if (row.OnStart.Length > 0 || row.OnComplete.Length > 0)
+			{
+				report.Error(row, "'on start' / 'on complete' belong to the paragraph on their row, and this row has no text - put them beside a line");
+			}
 			return;
 		}
-		string key = $"{character.Name}_{branch.Name}_{(branch.LineKeys.Count + 1):00}";
-		branch.LineKeys.Add(key);
+		string key = $"{character.Name}_{branch.Name}_{(branch.Lines.Count + 1):00}";
+		branch.Lines.Add(new SheetLine
+		{
+			Key = key,
+			StartActions = SplitNames(row.OnStart),
+			CompleteActions = SplitNames(row.OnComplete),
+			Row = row,
+		});
 		character.Strings.Add(new KeyValuePair<string, string>(key, row.Text));
 	}
 
@@ -393,7 +412,8 @@ static class ConversationSheet
 		{
 			Language = NullIfEmpty(row.Language),
 			Destination = row.Goto,
-			Actions = SplitNames(row.Action),
+			StartActions = SplitNames(row.OnStart),
+			CompleteActions = SplitNames(row.OnComplete),
 			Row = row,
 		};
 		List<string> conditions = SplitNames(row.Condition);
@@ -437,9 +457,13 @@ static class ConversationSheet
 		var entry = new SheetEntry
 		{
 			Branch = row.Goto,
-			Actions = SplitNames(row.Action),
+			Actions = SplitNames(row.OnStart),
 			Row = row,
 		};
+		if (row.OnComplete.Length > 0)
+		{
+			report.Error(row, "an 'entry' row fires as the conversation opens - its actions go in 'on start'");
+		}
 		List<string> conditions = SplitNames(row.Condition);
 		if (conditions.Count > 1)
 		{

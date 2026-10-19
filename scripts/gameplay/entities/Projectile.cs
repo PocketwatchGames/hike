@@ -146,6 +146,8 @@ public partial class Projectile : Node3D
 	// Knockback-mod shove (m/s) + stagger (s) added to each hit. 0 = none.
 	private float _knockbackBonus;
 	private float _knockbackTimeBonus;
+	// Blunt-mod armor chip added to each hit. 0 = none.
+	private float _bluntBonus;
 	// Firing weapon's composed level damage multiplier (2^level), folded with the
 	// attacker's per-level offense scale (Ranged forge upgrade / mob Level). 1 = no
 	// scaling. The shot rebuilds its HitInfo from raw DamageData, so ResolveHit's
@@ -217,7 +219,8 @@ public partial class Projectile : Node3D
 		float damageMultiplier = 1f,
 		float potency = 1f,
 		float staminaOnHit = 0f,
-		Godot.Collections.Array<ItemEvent> onKillEvents = null)
+		Godot.Collections.Array<ItemEvent> onKillEvents = null,
+		float bluntBonus = 0f)
 	{
 		if (scene == null || parent == null)
 		{
@@ -232,6 +235,7 @@ public partial class Projectile : Node3D
 		inst._onKillEvents = onKillEvents;
 		inst._knockbackBonus = knockbackBonus;
 		inst._knockbackTimeBonus = knockbackTimeBonus;
+		inst._bluntBonus = bluntBonus;
 		inst._damageMultiplier = damageMultiplier;
 		inst._potency = potency;
 		inst._damageData = damageData;
@@ -451,6 +455,7 @@ public partial class Projectile : Node3D
 						// with the arrow's travel.
 						hit.knockbackDistance += _knockbackBonus;
 						hit.knockbackTime += _knockbackTimeBonus;
+						ItemEventHandlers.AddBluntBonus(ref hit, _bluntBonus);
 						// Team skip via the receiver's filter: an allied hurtbox is
 						// added to the exclude list and the projectile keeps flying.
 						// Falls through to the env-clip / continue branches below.

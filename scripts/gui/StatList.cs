@@ -381,6 +381,8 @@ public static class StatList
 			EStat.ColdResist => EStatName.ColdResist,
 			EStat.HeatResist => EStatName.HeatResist,
 			EStat.FortitudeResistance => EStatName.Fortitude,
+			EStat.OilCost => EStatName.OilCost,
+			EStat.DashDistance => EStatName.DashDistance,
 			_ => EStatName.Damage,
 		};
 	}

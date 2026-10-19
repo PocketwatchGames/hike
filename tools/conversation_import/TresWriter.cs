@@ -39,6 +39,7 @@ class TresWriter
 
 		string dataScript = ScriptId("ConversationData");
 		string branchScript = ScriptId("ConversationBranch");
+		string lineScript = ScriptId("ConversationLine");
 		string entryScript = ScriptId("ConversationEntry");
 		string responseScript = ScriptId("ConversationResponse");
 		string groupScript = ScriptId("ConversationResponseGroup");
@@ -63,22 +64,31 @@ class TresWriter
 
 		foreach (SheetBranch branch in character.Branches)
 		{
+			// A sub-resource must be declared before anything references it.
+			var lineIds = new List<string>();
+			for (int i = 0; i < branch.Lines.Count; i++)
+			{
+				SheetLine line = branch.Lines[i];
+				string lineId = $"Line_{branch.Name}_{i + 1}";
+				lineIds.Add(lineId);
+				body.AppendLine($"[sub_resource type=\"Resource\" id=\"{lineId}\"]");
+				body.AppendLine($"script = ExtResource(\"{lineScript}\")");
+				body.AppendLine($"locKey = &\"{line.Key}\"");
+				AppendActions(body, "startActions", character, line.StartActions, line.Row);
+				AppendActions(body, "completeActions", character, line.CompleteActions, line.Row);
+				body.AppendLine();
+			}
+
 			string id = "Branch_" + branch.Name;
 			branchIds.Add(id);
 			body.AppendLine($"[sub_resource type=\"Resource\" id=\"{id}\"]");
 			body.AppendLine($"script = ExtResource(\"{branchScript}\")");
 			body.AppendLine($"name = &\"{branch.Name}\"");
 			AppendLanguage(body, character, branch.Language, branch.Row);
-			if (branch.LineKeys.Count > 0)
+			if (lineIds.Count > 0)
 			{
-				var keys = new List<string>();
-				foreach (string key in branch.LineKeys)
-				{
-					keys.Add($"&\"{key}\"");
-				}
-				body.AppendLine($"lineLocKeys = Array[StringName]([{string.Join(", ", keys)}])");
+				body.AppendLine($"lines = [{SubList(lineIds)}]");
 			}
-			AppendActions(body, "endActions", character, branch.Actions, branch.Row);
 			if (branch.ExitGroup.Length > 0)
 			{
 				body.AppendLine($"exitGroup = &\"{branch.ExitGroup}\"");
@@ -110,7 +120,8 @@ class TresWriter
 				{
 					body.AppendLine($"destination = &\"{response.Destination}\"");
 				}
-				AppendActions(body, "actions", character, response.Actions, response.Row);
+				AppendActions(body, "startActions", character, response.StartActions, response.Row);
+				AppendActions(body, "completeActions", character, response.CompleteActions, response.Row);
 				body.AppendLine();
 			}
 

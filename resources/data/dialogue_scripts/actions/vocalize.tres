@@ -1,0 +1,6 @@
+[gd_resource type="Resource" script_class="VocalizeAction" format=3 uid="uid://cou3wkqipsg0x"]
+
+[ext_resource type="Script" uid="uid://che458wtapl6x" path="res://scripts/data/conversation/actions/VocalizeAction.cs" id="1_act"]
+
+[resource]
+script = ExtResource("1_act")

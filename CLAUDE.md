@@ -714,7 +714,7 @@ the master spreadsheet over it); `tools/conversation_import` turns it into one
 GENERATED — never hand-edit a conversation `.tres` in the Godot inspector, the
 next build overwrites it.
 
-Columns: `character  name  description  player  conversation key  goto  language  condition  action  text`.
+Columns: `character  name  description  player  conversation key  goto  language  condition  on start  on complete  text`.
 A row is one NPC turn or one player choice, and the bipartite graph the runtime
 wants falls straight out of it:
 
@@ -724,8 +724,9 @@ wants falls straight out of it:
 | goto | `branch.exitGroup` — blank ends the conversation | `response.destination` — blank ends it |
 | language | `branch.language` — blank = the speaker's | `response.language` — blank = the branch's |
 | condition | *(none — a branch has no condition slot)* | `response.condition` |
-| action | `branch.endActions` | `response.actions` |
-| text | a paragraph of `branch.lineLocKeys` | `response.textLocKey`; blank = a silent choice |
+| on start | `line.startActions` — as THIS paragraph starts typing | `response.startActions` — as the choice is offered |
+| on complete | `line.completeActions` — as the player advances past THIS paragraph | `response.completeActions` — as the choice is picked |
+| text | one `ConversationLine` of `branch.lines` | `response.textLocKey`; blank = a silent choice |
 
 - **`character` fills down** — type it once, every row under it belongs to that
   character. Its value is the loc-key prefix and names the output file.
@@ -737,13 +738,20 @@ wants falls straight out of it:
   provisional until camp like every other lesson.
 - **A blank conversation key on an NPC row continues the branch above** — another
   paragraph.
-- **`goto`, `language` and `action` describe the BRANCH, not the paragraph they
-  sit beside, and may be written on any of its rows.** Both the exit and the end
-  actions take effect after the LAST line, so a multi-paragraph branch reads
-  best with them at the bottom, beside the line they follow. Actions accumulate
-  in row order; `goto`, `language` and `condition` are one per branch, and a
-  second one is an error naming the row that claimed it rather than a silent
-  overwrite.
+- **`goto`, `language` and `condition` describe the BRANCH, not the paragraph
+  they sit beside, and may be written on any of its rows** — one each per
+  branch, and a second one is an error naming the row that claimed it rather
+  than a silent overwrite.
+- **`on start` / `on complete` belong to the ROW they sit on**: a paragraph, or
+  a choice. "After the NPC finishes talking" is the LAST paragraph's
+  `on complete`, which fires before the exit group's chooser is built — so an
+  action that closes the panel (`open_shop`) there suppresses the chooser. A
+  choice's `on start` fires each time the chooser offers it (only if the player
+  can actually pick it). Actions on a row with no text are an import error —
+  there is no paragraph to hang them on.
+- **A conversation opens with one grunt** (the speaker's `VoiceData.talk`);
+  `vocalize` in an `on start` cell adds one to any paragraph or offered choice,
+  cutting off a grunt still playing.
 - **A conversation opens on the first branch, top-down, whose `condition`
   passes**; the first unconditional branch is the fallback and ends the walk, so
   a greeting with gated variants reads like a switch (`intro_innkeeper`,
@@ -751,11 +759,12 @@ wants falls straight out of it:
   no branch condition — so a response that `goto`s a conditioned branch is an
   import error, as is a conditioned branch below the fallback (it can never open).
 - **`entry` is a reserved conversation key**, for the openings a branch condition
-  can't say: an opening with its own `action`s, or one branch opened several
+  can't say: an opening with its own actions (`on start` only — an `entry`
+  row has one moment), or one branch opened several
   ways. The row declares a `ConversationEntry` (`goto` = the branch it opens on,
   `condition` gates it, no text), walked in sheet order, and a character that has
   any replaces the branch-condition rule wholesale — mixing the two is an error.
-- **`condition` / `action` cells NAME an authored `.tres`**, `;`-separated for
+- **`condition` and action cells (`on start` / `on complete`) NAME an authored `.tres`**, `;`-separated for
   several, resolved from `dialogue_scripts/<kind>/` (a verb with no
   proper noun in it — `open_shop`, `recruit_to_party`), then
   `worlds/shared/conversation/<kind>/` (the game's own, where a verb names a
@@ -804,7 +813,7 @@ wants falls straight out of it:
   leave it off to teach the whole tongue. The importer emits the `TeachAction`
   and its `TeachableConcept`, one per token. **An authored action `.tres` is
   still right** when the lesson is a named concept reused across NPCs, grants
-  several things at once, wants `TeachAction.learnEffect`, or teaches one of the
+  several things at once, or teaches one of the
   two concepts whose payload is authored TEXT rather than a resource reference
   (`ScriptFlagTeachable.conceptName`, `TreasureMapTeachable.treasureName`).
 - **Teaching is idempotent but reaching it is not** — `TeachableConcept.Teach`

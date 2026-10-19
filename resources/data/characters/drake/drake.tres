@@ -61,15 +61,13 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [resource]
 script = ExtResource("1_mob")
-blood = ExtResource("blood_1")
-carriesZoneLoot = true
 displayName = &"Drake"
 visionDotPower = 2.0
 dangerous = true
 maxHealth = 280.0
-modifiers = null
+modifiers = []
 dizzyResistance = 1.5
-defaultBehavior = null
+defaultBehavior = &""
 brain = ExtResource("2_brain")
 animations = Dictionary[int, ExtResource("4_animdata")]({
 0: SubResource("Resource_anim_attack"),
@@ -86,6 +84,8 @@ hudScale = 0.6
 mobScene = ExtResource("3_scene")
 palette = SubResource("Resource_base_palette")
 levelColorMeshNames = PackedStringArray("Eyes", "Feathers")
+blood = ExtResource("blood_1")
+carriesZoneLoot = true
 movement = 87
 triggersTraps = false
 clearanceRadius = 0.5

@@ -41,6 +41,10 @@ public partial class MovingLight : Node3D
     // with flicker, so a torch still flickers while it fades in.
     [Export(PropertyHint.Range, "0,5,0.05")] public float fadeInDuration = 0.5f;
     [Export(PropertyHint.Range, "0,5,0.05")] public float fadeOutDuration = 0.5f;
+    // Seconds after activation before the light deactivates itself (fading over
+    // fadeOutDuration) — for a light inside a one-shot Fx, which nothing else
+    // will switch off before the Fx frees it. 0 = on until told otherwise.
+    [Export(PropertyHint.Range, "0,30,0.05")] public float autoDeactivateSeconds = 0f;
 
     [Export] public bool Active { get; set; } = true;
     [Export] public PackedScene lightOnEffectScene;
@@ -74,6 +78,7 @@ public partial class MovingLight : Node3D
     // Deactivate(freeWhenDone: true) hand-off).
     private bool _freeOnFadeOut;
     private float _flickerTimer;
+    private float _autoDeactivateTimer;
     private Fx _loopEffect;
 
     // The light's true emission position: the node origin (carrier feet) lifted
@@ -105,6 +110,15 @@ public partial class MovingLight : Node3D
             return;
         }
         if (!_registered) { return; }
+
+        if (autoDeactivateSeconds > 0f && !_deactivating)
+        {
+            _autoDeactivateTimer -= (float)delta;
+            if (_autoDeactivateTimer <= 0f)
+            {
+                Deactivate();
+            }
+        }
 
         Sim sim = Sim.Current;
         if (sim == null) { return; }
@@ -258,6 +272,7 @@ public partial class MovingLight : Node3D
         _fadeTarget = 1f;
         _amplitude = 0f;
         _flickerTimer = 0f;
+        _autoDeactivateTimer = autoDeactivateSeconds;
         _tuning = LightEngine.ResolveTuning(sim.WorldState, distance, falloff, brightness);
         LightEngine.ComputeFloodField(sim.WorldState, voxel, _tuning.FloodRadius, _cells);
         Reshade(sim.WorldState, pos);

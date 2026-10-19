@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://0r5x646wjhwx"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_mod"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
+
+[sub_resource type="Resource" id="m_noise"]
+script = ExtResource("3_mod")
+stat = 6
+value = 0.6
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_scent"]
+script = ExtResource("3_mod")
+stat = 7
+value = 0.7
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_camouflage"]
+script = ExtResource("3_mod")
+stat = 10
+value = 0.25
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Stealthy"
+description = "Harder for enemies to see, hear, and smell you until sunrise."
+upgradeSlot = 4
+durationType = 2
+maxStack = 1
+removesOnApply = []
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_noise"), SubResource("m_scent"), SubResource("m_camouflage")])
+conditionalModifiers = []

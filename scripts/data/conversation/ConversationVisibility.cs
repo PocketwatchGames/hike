@@ -26,7 +26,7 @@ using Godot;
 // where the lottery looks like an on/off switch.
 public static class ConversationVisibility
 {
-    // Aggregate comprehension across every line in `branch.lineLocKeys`
+    // Aggregate comprehension across every line in `branch.lines`
     // (simple average of per-line LanguageText.Comprehension), returned as
     // [0,1]. `language` is the DEFAULT language of the branch text; a line
     // may still switch tongues mid-sentence via [lang:...] spans, which is
@@ -36,7 +36,7 @@ public static class ConversationVisibility
     // SimData.LanguageGrammarWeight.
     public static float ComputeBranchComprehension(ConversationBranch branch, LanguageData language, Player player, float grammarWeight)
     {
-        if (branch?.lineLocKeys == null || branch.lineLocKeys.Count == 0)
+        if (branch?.lines == null || branch.lines.Count == 0)
         {
             return 1f;
         }
@@ -46,9 +46,10 @@ public static class ConversationVisibility
         }
         int validLines = 0;
         float sum = 0f;
-        for (int i = 0; i < branch.lineLocKeys.Count; i++)
+        int count = branch.lines.Count;
+        for (int i = 0; i < count; i++)
         {
-            StringName key = branch.lineLocKeys[i];
+            StringName key = branch.lines[i]?.locKey;
             if (key == default || key == "")
             {
                 continue;

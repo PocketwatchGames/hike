@@ -11,15 +11,16 @@ using Godot.Collections;
 //   1. On conversation start, walk `entryBranches` in order. The first
 //      entry whose condition evaluates true (or is null) picks the
 //      opening branch by name.
-//   2. The branch's lineLocKeys are typed out. After the last line,
-//      branch.endActions fire and the branch's `exitGroup` is shown
-//      (or the conversation closes if exitGroup is empty).
+//   2. The branch's lines are typed out, each firing its startActions as
+//      it begins and its completeActions as the player advances past it.
+//      After the last line the branch's `exitGroup` is shown (or the
+//      conversation closes if exitGroup is empty).
 //   3. The chooser presents the group's responses, filtered by
 //      ConversationVisibility. Visibility math uses the group's
 //      canonical entry branch (the one flagged isPrimaryGroupEntry),
 //      not whichever branch the player actually came from — so the
 //      visible set stays stable across loop-backs.
-//   4. Picking a response fires its actions and advances to its
+//   4. Picking a response fires its completeActions and advances to its
 //      destination branch by name. An empty destination ends the
 //      conversation.
 //

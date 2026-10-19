@@ -12,7 +12,7 @@ using System.Collections.Generic;
 //
 // State machine:
 //   Hidden    — panel offscreen, no conversation
-//   Typing    — typewriter walking branch.lineLocKeys; ui_accept reveals
+//   Typing    — typewriter walking branch.lines; ui_accept reveals
 //               then advances, ui_cancel closes
 //   Choosing  — response buttons visible, focus on the first one;
 //               gamepad ui_up/ui_down + ui_accept work via the buttons'
@@ -56,7 +56,12 @@ public partial class ConversationController : Control
 	ConversationBranch _currentBranch;
 
 	readonly List<string> _lines = new();
+	// The ConversationLine behind each entry of _lines, for its actions.
+	readonly List<ConversationLine> _lineData = new();
 	int _lineIndex;
+	// The speaker's running vocalization, cut off by the next one so a fast
+	// reader never stacks grunts.
+	Fx _voice;
 	// Float so the per-tick advance can roll fractional characters in
 	// without dropping a glyph per frame when speed × dt < 1.
 	float _revealedChars;
@@ -123,6 +128,7 @@ public partial class ConversationController : Control
 		{
 			return;
 		}
+		Vocalize();
 		StartBranch(branch);
 	}
 
@@ -135,6 +141,7 @@ public partial class ConversationController : Control
 		Visible = false;
 		ClearResponseButtons();
 		_lines.Clear();
+		_lineData.Clear();
 		_lineIndex = 0;
 		_revealedChars = 0f;
 		_state = EState.Hidden;
@@ -169,7 +176,26 @@ public partial class ConversationController : Control
 		if (_lines.Count == 0)
 		{
 			ShowResponseChooser();
+			return;
 		}
+		FireActions(_lineData[0].startActions, _ctx);
+	}
+
+	// The speaker's talk clip, from the speaker, in its voice's pitch. Plays as
+	// the conversation opens and wherever a `vocalize` action asks for it.
+	public void Vocalize()
+	{
+		if (_voice != null && IsInstanceValid(_voice))
+		{
+			_voice.Stop();
+		}
+		_voice = null;
+		VoiceData voice = _ctx.speakerVoice;
+		if (voice?.talk == null || _ctx.speaker == null || !IsInstanceValid(_ctx.speaker))
+		{
+			return;
+		}
+		_voice = Fx.Create(voice.talk, _ctx.speaker, Vector3.Zero, voice.pitchShift);
 	}
 
 	// Filter the current branch's responses through ConversationVisibility,
@@ -185,17 +211,8 @@ public partial class ConversationController : Control
 			Close();
 			return;
 		}
-		// Branch end-actions fire AFTER the typewriter and BEFORE the
-		// chooser — so OpenShopAction etc. can close the panel and take
-		// over the screen without needing a dummy silent response.
-		FireActions(_currentBranch.endActions, _ctx);
-		if (!Visible)
-		{
-			return;
-		}
-
 		// Look up the exit group. Empty exitGroup = clean end-of-branch
-		// (typewriter done, endActions fired, nothing left to show).
+		// (typewriter done, last line's completeActions fired, nothing left).
 		StringName exitGroup = _currentBranch.exitGroup;
 		if (exitGroup == default || exitGroup == "" || _conversation == null)
 		{
@@ -228,6 +245,7 @@ public partial class ConversationController : Control
 			? ConversationVisibility.ComputeBranchComprehension(primary, lang, _ctx.player, grammarWeight)
 			: 1f;
 		bool debug = CVars.debugConversation.Value;
+		var offered = new List<ConversationResponse>();
 		for (int i = 0; i < group.responses.Count; i++)
 		{
 			ConversationResponse r = group.responses[i];
@@ -252,11 +270,25 @@ public partial class ConversationController : Control
 			}
 			string debugSuffix = debug ? FormatDebugSuffix(vis) : null;
 			SpawnResponseButton(r, enabled: vis.Visible, debugSuffix);
+			if (vis.Visible)
+			{
+				offered.Add(r);
+			}
 		}
 		if (_responseButtons.Count == 0)
 		{
 			Close();
 			return;
+		}
+		// Only responses the player can actually pick are offered — a
+		// debug-shown, roll-hidden one stays silent.
+		foreach (ConversationResponse r in offered)
+		{
+			FireActions(r.startActions, _ctx);
+			if (!Visible)
+			{
+				return;
+			}
 		}
 		ShowSpeaker(npcSpeaking: false);
 		// CallDeferred — focus must be grabbed after the button is in the
@@ -377,7 +409,7 @@ public partial class ConversationController : Control
 		}
 		// Fire actions FIRST so an action can close / redirect before the
 		// destination lookup runs.
-		FireActions(response.actions, _ctx);
+		FireActions(response.completeActions, _ctx);
 		if (!Visible)
 		{
 			return;
@@ -463,6 +495,11 @@ public partial class ConversationController : Control
 			}
 			return;
 		}
+		FireActions(_lineData[_lineIndex].completeActions, _ctx);
+		if (!Visible)
+		{
+			return;
+		}
 		_lineIndex++;
 		if (_lineIndex >= _lines.Count)
 		{
@@ -474,6 +511,7 @@ public partial class ConversationController : Control
 		{
 			label.Text = string.Empty;
 		}
+		FireActions(_lineData[_lineIndex].startActions, _ctx);
 	}
 
 	// Walks entryBranches in order, returning the first entry whose
@@ -603,20 +641,23 @@ public partial class ConversationController : Control
 	void ResolveAndScrambleLines(ConversationBranch branch, ConversationContext ctx)
 	{
 		_lines.Clear();
-		if (branch.lineLocKeys == null)
+		_lineData.Clear();
+		if (branch.lines == null)
 		{
 			return;
 		}
 		LanguageData lang = branch.language ?? ctx.speakerLanguage;
-		int count = branch.lineLocKeys.Count;
+		int count = branch.lines.Count;
 		for (int i = 0; i < count; i++)
 		{
-			StringName key = branch.lineLocKeys[i];
-			if (key == default || key == "")
+			ConversationLine line = branch.lines[i];
+			StringName key = line?.locKey;
+			if (key == null || key.IsEmpty)
 			{
 				continue;
 			}
 			_lines.Add(LanguageText.Render(Loc.Get(key), lang, ctx.player));
+			_lineData.Add(line);
 		}
 	}
 }

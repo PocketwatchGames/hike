@@ -31,6 +31,10 @@ public class ActionRunner
 	private Fx _chargeLoop;
 	private PackedScene _chargeLoopScene;
 
+	// The running interactive's InteractiveAction.loopEffect, owned like
+	// _chargeLoop: stopped on every exit from the interactive's Active phase.
+	private Fx _interactLoop;
+
 	// Channeled-charge zone (summoner weapon). Spawned when the selected tier
 	// carries a `channelZoneScene`, repositioned to the aim cursor each Charging
 	// tick, and freed on any Charging exit (abort OR activation). Owned exactly
@@ -97,8 +101,7 @@ public class ActionRunner
 			{
 				return _action.chargeT;
 			}
-			float elapsed = (_actor.GameTimeMs - _action.pressMs) / 1000f;
-			return ComputeChargeT(_action.profile, _action.selectedTier, _action.selectedTierIndex, elapsed);
+			return ComputeChargeT(_action.profile, _action.selectedTier, _action.selectedTierIndex, _action.ChargeElapsedSeconds(_actor.GameTimeMs));
 		}
 	}
 	// Movement-speed MULTIPLIER the in-flight action imposes on the actor THIS
@@ -174,9 +177,8 @@ public class ActionRunner
 		{
 			return false;
 		}
-		float elapsed = (_actor.GameTimeMs - _action.pressMs) / 1000f;
 		float tierStart = ItemActionProfile.GetTierStartTime(_action.profile, _action.selectedTierIndex, tier.comboIndex);
-		return elapsed >= tierStart + tier.chargeTime;
+		return _action.ChargeElapsedSeconds(_actor.GameTimeMs) >= tierStart + tier.chargeTime;
 	}
 
 	// True when the current action fully roots the actor this phase — a 0 Active
@@ -211,7 +213,7 @@ public class ActionRunner
 			{
 				// Grace window: facing stays free for the first turnLockDelaySeconds
 				// of the swing so the actor can finish aiming before the lock engages.
-				ulong graceMs = (ulong)(tier.turnLockDelaySeconds * 1000f);
+				ulong graceMs = ScaledMs(tier.turnLockDelaySeconds);
 				if (_actor.GameTimeMs - _action.activateMs < graceMs)
 				{
 					return 1f;
@@ -299,7 +301,12 @@ public class ActionRunner
 			endMs = now + (ulong)(action.durationSeconds * 1000f),
 			selectedTierIndex = -1,
 			lastEventIndex = -1,
+			timeScale = 1f,
 		};
+		if (action.durationSeconds > 0f)
+		{
+			_interactLoop = ItemEventHandlers.SpawnOnActor(_actor, action.loopEffect);
+		}
 		WalkActiveEvents(now);
 		if (_action.phase == EActionPhase.Active && now >= _action.endMs)
 		{
@@ -541,6 +548,7 @@ public class ActionRunner
 			lastEventIndex = -1,
 			chargeT = 0f,
 			targetComboIndex = targetComboIndex,
+			timeScale = ResolveAttackSpeed(context, null),
 		};
 
 		// Fire chargeEvents at t=0 and announce the initial tier (always
@@ -600,8 +608,7 @@ public class ActionRunner
 		{
 			return;
 		}
-		float elapsed = (now - _action.pressMs) / 1000f;
-		int newIndex = SelectTierIndex(profile, _action.context, elapsed, _action.targetComboIndex);
+		int newIndex = SelectTierIndex(profile, _action.context, _action.ChargeElapsedSeconds(now), _action.targetComboIndex);
 		if (newIndex == _action.selectedTierIndex)
 		{
 			return;
@@ -647,8 +654,7 @@ public class ActionRunner
 		// immediately on press.
 		float topStart = ItemActionProfile.GetTierStartTime(profile, topIndex, top.comboIndex);
 		float fillTime = topStart + top.chargeTime;
-		float elapsed = (now - _action.pressMs) / 1000f;
-		if (elapsed + 1e-6f >= fillTime)
+		if (_action.ChargeElapsedSeconds(now) + 1e-6f >= fillTime)
 		{
 			EnterActive(top, now);
 		}
@@ -668,17 +674,19 @@ public class ActionRunner
 			// SelectTierIndex has already gated on the actor holding the whole
 			// cost. A lit lantern this drains to empty is extinguished by
 			// Player.TickLanternOil next tick.
-			_actor.SpendLanternOil(tier.oilCost);
+			_actor.SpendLanternOil(_actor.ActionOilCost(tier.oilCost));
 		}
 		FireChargeEndEvents();
 		StopChargeLoop();
 		StopChannelZone();
-		float chargeElapsed = (now - _action.pressMs) / 1000f;
+		// Sampled at the charging speed, before the committed tier re-resolves it.
+		float chargeElapsed = _action.ChargeElapsedSeconds(now);
+		_action.timeScale = ResolveAttackSpeed(_action.context, tier);
 		_action.phase = EActionPhase.Active;
 		_action.selectedTier = tier;
 		_action.selectedTierIndex = IndexOf(_action.profile, tier);
 		_action.activateMs = now;
-		_action.endMs = now + (ulong)(tier.activeDurationSeconds * 1000f);
+		_action.endMs = now + ScaledMs(tier.activeDurationSeconds);
 		_action.lastEventIndex = -1;
 		// Reclaimed before any t=0 event can rent one.
 		_swingHitSetsRented = 0;
@@ -720,7 +728,7 @@ public class ActionRunner
 		// windows below hang off the same cycle so a longer-recovery finisher
 		// also holds the chain open longer.
 		float cooldownSeconds = swing != null && swing.cooldownSeconds >= 0f ? swing.cooldownSeconds : tier.cooldownSeconds;
-		ulong cycleMs = (ulong)(tier.activeDurationSeconds * 1000f) + (ulong)(cooldownSeconds * 1000f);
+		ulong cycleMs = ScaledMs(tier.activeDurationSeconds) + ScaledMs(cooldownSeconds);
 
 		if (weapon != null)
 		{
@@ -775,6 +783,7 @@ public class ActionRunner
 		// already handles the swing's impact moment.
 		if (_action.interactiveAction != null)
 		{
+			StopInteractLoop();
 			// Spend the pooled reagent cost on natural completion only — aborts and
 			// interrupts skip EndActive, so a cancelled interaction costs nothing
 			// (mirrors a weapon's charge-abort not debiting). Affordability was gated
@@ -845,6 +854,7 @@ public class ActionRunner
 
 	private void AbortInteractive()
 	{
+		StopInteractLoop();
 		_sustainedMelee.Clear();
 		_action = default;
 		_queuedAction = default;
@@ -866,7 +876,7 @@ public class ActionRunner
 				_action.lastEventIndex = i;
 				continue;
 			}
-			if (now >= _action.pressMs + ev.time)
+			if (now >= _action.pressMs + ScaledMs(ev.time))
 			{
 				DispatchEvent(ev);
 				_action.lastEventIndex = i;
@@ -902,7 +912,7 @@ public class ActionRunner
 				_action.lastEventIndex = i;
 				continue;
 			}
-			if (now >= _action.activateMs + ev.time)
+			if (now >= _action.activateMs + ScaledMs(ev.time))
 			{
 				DispatchEvent(ev);
 				_action.lastEventIndex = i;
@@ -967,7 +977,7 @@ public class ActionRunner
 					anim = swing.animName;
 				}
 			}
-			_actor.PlayAnim(anim, ev.animDuration);
+			_actor.PlayAnim(anim, ev.animDuration / _action.TimeScale);
 		}
 		if ((t & EItemEventType.ApplyStatusEffect) != 0)
 		{
@@ -993,7 +1003,7 @@ public class ActionRunner
 			// Charging), so a charge-phase melee stays a single swing. The
 			// window is anchored to the timeline, not to `now`, so a late tick
 			// doesn't stretch it.
-			ulong meleeEndMs = _action.activateMs + ev.time + (ulong)(ev.meleeDuration * 1000f);
+			ulong meleeEndMs = _action.activateMs + ScaledMs(ev.time) + ScaledMs(ev.meleeDuration);
 			if (_action.phase == EActionPhase.Active && meleeEndMs > _actor.GameTimeMs)
 			{
 				_sustainedMelee.Add(new SustainedMelee { ev = ev, hits = RentSwingHitSet(), endMs = meleeEndMs });
@@ -1122,7 +1132,7 @@ public class ActionRunner
 	// actor holds the whole cost. Tiers with no oil cost always pass.
 	private bool CanAffordOil(ItemAction action)
 	{
-		return _actor.CanAffordLanternOil(action.oilCost);
+		return _actor.CanAffordLanternOil(_actor.ActionOilCost(action.oilCost));
 	}
 
 	// Same gates as SelectTierIndex but ignoring the chargeT timing filter —
@@ -1338,6 +1348,15 @@ public class ActionRunner
 		}
 	}
 
+	private void StopInteractLoop()
+	{
+		if (_interactLoop != null)
+		{
+			_interactLoop.Stop();
+			_interactLoop = null;
+		}
+	}
+
 	private void StopChargeLoop()
 	{
 		if (_chargeLoop != null)
@@ -1396,6 +1415,34 @@ public class ActionRunner
 			}
 			_channelZone = null;
 		}
+	}
+
+	// Lower bound on a resolved attack speed, so a mis-authored 0 can't freeze a
+	// timeline forever.
+	private const float MinTimeScale = 0.05f;
+
+	// Authored timeline seconds → game milliseconds at this action's speed.
+	private ulong ScaledMs(float seconds)
+	{
+		return (ulong)(seconds * 1000f / _action.TimeScale);
+	}
+
+	// ItemEvent.time (authored milliseconds) → game milliseconds.
+	private ulong ScaledMs(ushort authoredMs)
+	{
+		return (ulong)(authoredMs / _action.TimeScale);
+	}
+
+	// The driving weapon's attack-speed mods at `tier` (null = before a tier is
+	// committed, which only tier-agnostic mods reach). 1 for anything else.
+	private static float ResolveAttackSpeed(in ActionContext context, ItemAction tier)
+	{
+		if (context.primaryItem is not WeaponState weapon || weapon.statusEffects == null)
+		{
+			return 1f;
+		}
+		WeaponModTier modTier = tier == null ? WeaponModTier.None : WeaponModTier.Of(weapon, tier);
+		return Mathf.Max(MinTimeScale, weapon.statusEffects.WeaponModAttackSpeed(modTier));
 	}
 
 	public static float ComputeChargeT(ItemActionProfile profile, ItemAction selectedTier, int tierIndex, float chargeElapsedSeconds)

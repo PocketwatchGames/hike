@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://bj8u2rsyt3f4d"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://de6k2qkxq5p8u" path="res://assets/audio/source/vo/ORCH_Grunt_Short_01_mono.wav" id="2_a"]
+[ext_resource type="AudioStream" uid="uid://cjr4um8w5a5xu" path="res://assets/audio/source/vo/ORCH_Ugh_01_mono.wav" id="3_a"]
+[ext_resource type="AudioStream" uid="uid://l8aav3h4pu61" path="res://assets/audio/source/vo/MONSTER_Grunt_Short_01_mono.wav" id="4_a"]
+[ext_resource type="AudioStream" uid="uid://fskuhjrseva6" path="res://assets/audio/source/vo/MONSTER_Grunt_Short_02_mono.wav" id="5_a"]
+[ext_resource type="AudioStream" uid="uid://d3nu7i271s2wi" path="res://assets/audio/source/vo/MONSTER_Grunt_Short_03_mono.wav" id="6_a"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_audio"]
+playback_mode = 1
+random_pitch = 1.08
+streams_count = 5
+stream_0/stream = ExtResource("2_a")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("3_a")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("4_a")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("5_a")
+stream_3/weight = 1.0
+stream_4/stream = ExtResource("6_a")
+stream_4/weight = 1.0
+
+[node name="GoblinTalkVo" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_audio")
+volume_db = -4.0
+unit_size = 5.0
+max_distance = 30.0
+bus = &"World3D"

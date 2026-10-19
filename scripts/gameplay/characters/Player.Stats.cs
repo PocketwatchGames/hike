@@ -782,6 +782,37 @@ public partial class Player : CharacterBody3D
 		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
 	}
 
+	// Resolves _sprinting for this tick and drains for it. Runs before the
+	// speed table reads _sprinting. The sprint is on foot only and waits for
+	// the dash itself to finish; running dry drops the latch, so recovering
+	// stamina while still holding Dash does not restart it.
+	private void TickSprint(float dt)
+	{
+		if (_sprintArmed && _stamina <= 0f)
+		{
+			_sprintArmed = false;
+		}
+		_sprinting = _sprintArmed
+			&& data != null
+			&& _health > 0f
+			&& _dashTimeRemaining <= 0f
+			&& !_sneaking
+			&& _hitstunTime <= 0f
+			&& _waterState != EWaterState.Swimming
+			&& _mount == null
+			&& _curInteractive == null
+			&& !Climbing
+			&& !Mantling
+			&& _inputMove.LengthSquared() > 0.0001f;
+		if (!_sprinting)
+		{
+			return;
+		}
+		_stamina -= data.sprintStaminaDrainPerSecond * dt;
+		ulong now = _world?.GameTimeMs ?? 0;
+		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
+	}
+
 	// Fires the out-of-breath one-shot on the positive→exhausted crossing.
 	// Run after the stamina drains/recharge each tick so it reads the settled
 	// value. The latch clears only once stamina climbs back above zero, so the

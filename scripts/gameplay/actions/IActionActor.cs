@@ -49,6 +49,9 @@ public interface IActionActor
 	// no-op both.
 	bool CanAffordLanternOil(float amount);
 	void SpendLanternOil(float amount);
+	// What an action tier authored at `baseCost` oil actually costs this actor
+	// (EStat.OilCost). Both the gate and the spend go through it.
+	float ActionOilCost(float baseCost);
 
 	// Reagent-cost gate for InteractiveAction.reagents, paid from the actor's
 	// material pool. HasReagents is a non-mutating peek at press time (refuse an

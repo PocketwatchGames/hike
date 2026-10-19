@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://d31gyjy7s8feb"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://d1u67thngqfgk" path="res://assets/audio/source/interactives/sfx_interact_chest_loop_01.wav" id="2_a"]
+
+[node name="ChestUnlockLoop" type="Node3D"]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("2_a")
+volume_db = 0.0
+unit_size = 4.0
+max_distance = 18.0
+bus = &"World3D"

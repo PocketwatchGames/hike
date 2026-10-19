@@ -1369,7 +1369,6 @@ public partial class Hud : Control
 			return 1f;
 		}
 		float tierStart = ItemActionProfile.GetTierStartTime(profile, action.selectedTierIndex, tier.comboIndex);
-		float elapsed = (nowMs - action.pressMs) / 1000f;
-		return Mathf.Clamp((elapsed - tierStart) / tier.chargeTime, 0f, 1f);
+		return Mathf.Clamp((action.ChargeElapsedSeconds(nowMs) - tierStart) / tier.chargeTime, 0f, 1f);
 	}
 }

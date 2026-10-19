@@ -146,18 +146,12 @@ public partial class ItemEvent : Resource
 	// `languageComponents` is the bitset of pieces (Grammar / Numbers /
 	// Glyphs / Spelling) this event teaches — default All matches the
 	// pre-component "whole language" behavior so existing consumables/
-	// dialogue events keep working. `firstLearnEffect` plays on the actor
-	// only when this firing actually adds at least one new component to
-	// the player's learned-set; re-triggers on a fully-known language are
-	// silent.
+	// dialogue events keep working.
 	[Export] public LanguageData language;
 	[Export, CompactFlags] public ELanguageComponents languageComponents = ELanguageComponents.All;
-	[Export] public PackedScene firstLearnEffect;
 
 	// LearnConcept field. Polymorphic resource ref — any TeachableConcept
 	// subclass (LanguageTeachable, RecipeTeachable, RegionTeachable, ...).
-	// Shares `firstLearnEffect` with the LearnLanguage path: handler plays
-	// it on the actor when concept.Teach returns true (newly added).
 	[Export] public TeachableConcept concept;
 
 	// CameraShake fields. Magnitude is meters of camera offset at zero
@@ -439,7 +433,6 @@ public partial class ItemEvent : Resource
 			nameof(reagent) or nameof(consumeAmount) => EItemEventType.ConsumeFromInventory,
 			nameof(motionForwardSpeed) or nameof(motionDuration) or nameof(motionFreezeGravity) or nameof(motionDirection) => EItemEventType.ApplyMotion,
 			nameof(language) or nameof(languageComponents) => EItemEventType.LearnLanguage,
-			nameof(firstLearnEffect) => EItemEventType.LearnLanguage | EItemEventType.LearnConcept,
 			nameof(concept) => EItemEventType.LearnConcept,
 			nameof(damageProfileKey) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile,
 			nameof(impactMissEffect)

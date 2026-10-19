@@ -8,7 +8,7 @@ using Godot.Collections;
 // `interactEvents` over `durationSeconds` and then fires every entry in
 // `completionEvents` as the action ends naturally; an aborted or interrupted
 // action skips completion. Authoring "the chest opens after a 3s pick" is
-// therefore: durationSeconds=3, interactEvents=picking-anim/sfx,
+// therefore: durationSeconds=3, loopEffect=picking-sfx,
 // completionEvents=[OpenInteractive, chest-creak-sfx].
 // [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
 // the [Tool]-parent rule in the root CLAUDE.md.
@@ -46,6 +46,11 @@ public partial class InteractiveAction : Resource
 	// this elapses. May be 0 — interactEvents at t=0 and all completion
 	// events fire on the same tick (cheap "pick up the loot" with no animation).
 	[Export] public float durationSeconds = 0f;
+
+	// Looping Fx (Fx._loop = true) on the actor for the whole of a timed action —
+	// the crank of a well, the scrape of a lock. Stopped the moment the action
+	// completes, is cancelled or is interrupted. Ignored when durationSeconds is 0.
+	[Export] public PackedScene loopEffect;
 
 	// Pooled ingredient cost, paid from the party material pool (backpack +
 	// party stash) exactly like a recipe's inputs (RecipeData.inputs).

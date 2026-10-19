@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="8_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="9_pixelsnap"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]
-[ext_resource type="Resource" uid="uid://cx7ub2sgi3fui" path="res://resources/data/characters/human/friendly_villager_voice.tres" id="11_voice"]
+[ext_resource type="Resource" uid="uid://mfb2q32ies54" path="res://resources/data/characters/human/friendly_villager_female_voice.tres" id="11_voice"]
 [ext_resource type="Material" uid="uid://nsghx0dy6spm" path="res://resources/materials/model_lit_face_cutout.tres" id="12_facemat"]
 [ext_resource type="Material" uid="uid://oosffp50x8nw" path="res://resources/materials/model_lit_character_outfit.tres" id="13_outfitmat"]
 [ext_resource type="Script" uid="uid://btmjrrxy7m26w" path="res://scripts/gameplay/minimap/LiveMapMarker.cs" id="13_livemarker"]

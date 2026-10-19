@@ -55,6 +55,7 @@ approachRange = 35.0
 encircleMinSpacing = 4.0
 encircleDistance = 7.0
 attackFacingToleranceDegrees = 60.0
+behaviorFlags = 1
 
 [sub_resource type="Resource" id="Resource_cond_target_safe"]
 script = ExtResource("11_targetsafe")
@@ -93,6 +94,7 @@ stareSeconds = 1.5
 disengageDistance = 32.0
 retreatSpeed = 2.0
 legRange = 12.0
+behaviorFlags = 2
 
 [sub_resource type="Resource" id="Resource_retreat_to_attack"]
 script = ExtResource("3_transition")
@@ -107,6 +109,7 @@ transitions = [SubResource("Resource_retreat_to_attack")]
 
 [sub_resource type="Resource" id="Resource_dodge"]
 script = ExtResource("8_dodge")
+behaviorFlags = 1
 
 [sub_resource type="Resource" id="Resource_dodge_node"]
 script = ExtResource("2_node")

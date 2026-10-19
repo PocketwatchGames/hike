@@ -200,6 +200,13 @@ public partial class Player : CharacterBody3D
 		move = move.LengthSquared() > 1 ? move.Normalized() : move;
 		_inputMove = new Vector3(move.X, 0, move.Y).Rotated(Vector3.Up, cameraYaw);
 
+		// Released before every early-out below, so no lock (mount, bird's-eye,
+		// hitstun) can leave a sprint latched after the button comes up.
+		if (!Input.IsActionPressed("Dash"))
+		{
+			_sprintArmed = false;
+		}
+
 		// Look input. Gamepad: every frame from the right-stick axes (stick
 		// centered → _inputLook = Zero, so the rotation block falls back to
 		// move direction). KBM: ProcessMouseLook only writes _inputLook
@@ -394,6 +401,9 @@ public partial class Player : CharacterBody3D
 		// still refuses while a traversal owns the body.
 		if (Input.IsActionJustPressed("Dash") && !InteractMenuOpen)
 		{
+			// Arm before the dash spends, so the press that pays for the dash
+			// also carries into the sprint when the button is held.
+			_sprintArmed = _stamina > 0f;
 			TryStartDash();
 		}
 

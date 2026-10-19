@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cicb54ulbm8ov"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_mod"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
+
+[sub_resource type="Resource" id="m_stat"]
+script = ExtResource("3_mod")
+stat = 20
+value = 1.3
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Fleet"
+description = "Dashes carry you farther until sunrise."
+upgradeSlot = 4
+durationType = 2
+maxStack = 1
+removesOnApply = []
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_stat")])
+conditionalModifiers = []

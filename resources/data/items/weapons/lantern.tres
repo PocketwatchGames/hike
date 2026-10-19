@@ -12,6 +12,8 @@
 [ext_resource type="Texture2D" uid="uid://ytounbhlpcqb" path="res://assets/textures/items/BasicLanternActive.png" id="8_sprite_lit"]
 [ext_resource type="PackedScene" uid="uid://wnfsb2rd2l6t" path="res://scenes/fx/torch_douse.tscn" id="9_douse"]
 [ext_resource type="PackedScene" uid="uid://pwi4ejb1gusx" path="res://scenes/items/lantern_held.tscn" id="10_held"]
+[ext_resource type="PackedScene" uid="uid://cgua4oedfo8vp" path="res://scenes/fx/lantern_light.tscn" id="11_light"]
+[ext_resource type="PackedScene" uid="uid://dd1xgnms16bg6" path="res://scenes/fx/lantern_extinguish.tscn" id="12_snuff"]
 
 [sub_resource type="Resource" id="Resource_event_toggle"]
 script = ExtResource("4_event")
@@ -30,6 +32,8 @@ chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_tier_tog
 script = ExtResource("1_lantern")
 actionProfile = SubResource("Resource_profile")
 activeSprite = ExtResource("8_sprite_lit")
+lightEffect = ExtResource("11_light")
+extinguishEffect = ExtResource("12_snuff")
 douseEffectScene = ExtResource("9_douse")
 heldLanternScene = ExtResource("10_held")
 displayName = &"Lantern"

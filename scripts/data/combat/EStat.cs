@@ -28,4 +28,6 @@ public enum EStat
 	MaxHealth = 16,           // additive (flat health bonus)
 	MaxArmor = 17,            // additive (flat armor bonus)
 	FortitudeResistance = 18, // multiplicative — scale on EVERY combat buildup (<1 = resistant); PlayerState.fortitude folds in here too
+	OilCost = 19,             // multiplicative — scale on lantern oil an action tier spends (ItemAction.oilCost)
+	DashDistance = 20,        // multiplicative — scale on the dash's travel (not weapon lunges)
 }

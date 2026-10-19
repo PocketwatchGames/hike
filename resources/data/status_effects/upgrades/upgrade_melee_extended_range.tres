@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://bfgsj8it053r5"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("2_mod")
+onHitBuildups = []
+rangeScale = 1.3
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Long Reach"
+description = "Melee swings reach farther."
+upgradeSlot = 1
+category = 2
+durationType = 2
+maxStack = 1
+removesOnApply = []
+modifiers = []
+conditionalModifiers = []
+weaponMod = SubResource("weaponMod")

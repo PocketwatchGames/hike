@@ -1,0 +1,27 @@
+[gd_scene format=3 uid="uid://c3nsidl3qqopp"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://0mhbi5qbtonk" path="res://assets/audio/source/vo/VOICE_FEMALE_Ahh_1_mono.wav" id="2_a"]
+[ext_resource type="AudioStream" uid="uid://cg3xki01bm6mp" path="res://assets/audio/source/vo/VOICE_FEMALE_Uhh_1_mono.wav" id="3_a"]
+[ext_resource type="AudioStream" uid="uid://d4mlvjkkktf77" path="res://assets/audio/source/vo/vo_civilian_clearThroat_female_01.wav" id="4_a"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_audio"]
+playback_mode = 1
+random_pitch = 1.06
+streams_count = 3
+stream_0/stream = ExtResource("2_a")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("3_a")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("4_a")
+stream_2/weight = 1.0
+
+[node name="VillagerFemaleTalkVo" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_audio")
+volume_db = -4.0
+unit_size = 5.0
+max_distance = 30.0
+bus = &"World3D"

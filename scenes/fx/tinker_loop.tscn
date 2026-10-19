@@ -1,0 +1,43 @@
+[gd_scene format=3 uid="uid://ne4chrsrlwoi"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://crt6hr3b22ppu" path="res://assets/audio/source/interactives/MECHANICS_Metal_Mechanism_08_mono.wav" id="2_a"]
+[ext_resource type="AudioStream" uid="uid://bkmbnqia8h235" path="res://assets/audio/source/interactives/MECHANICS_Metal_Mechanism_09_mono.wav" id="3_a"]
+[ext_resource type="AudioStream" uid="uid://1b3e4pl56h5n" path="res://assets/audio/source/interactives/MECHANICS_Metal_Mechanism_10_mono.wav" id="4_a"]
+[ext_resource type="AudioStream" uid="uid://c0daj2t8puqub" path="res://assets/audio/source/interactives/MECHANICS_Metal_Mechanism_11_mono.wav" id="5_a"]
+[ext_resource type="AudioStream" uid="uid://cqr5h7dxew8v2" path="res://assets/audio/source/interactives/MECHANICS_Metal_Mechanism_14_mono.wav" id="6_a"]
+[ext_resource type="AudioStream" uid="uid://b3qiqp5k2mafh" path="res://assets/audio/source/interactives/MECHANICS_Metal_Mechanism_15_mono.wav" id="7_a"]
+[ext_resource type="AudioStream" uid="uid://boy583y215l24" path="res://assets/audio/source/interactives/MECHANICS_Metal_Mechanism_17_mono.wav" id="8_a"]
+[ext_resource type="AudioStream" uid="uid://cbwbfgyr2be3f" path="res://assets/audio/source/interactives/MECHANICS_Metal_Mechanism_20_mono.wav" id="9_a"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_audio"]
+playback_mode = 1
+random_pitch = 1.08
+streams_count = 8
+stream_0/stream = ExtResource("2_a")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("3_a")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("4_a")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("5_a")
+stream_3/weight = 1.0
+stream_4/stream = ExtResource("6_a")
+stream_4/weight = 1.0
+stream_5/stream = ExtResource("7_a")
+stream_5/weight = 1.0
+stream_6/stream = ExtResource("8_a")
+stream_6/weight = 1.0
+stream_7/stream = ExtResource("9_a")
+stream_7/weight = 1.0
+
+[node name="TinkerLoop" type="Node3D"]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_audio")
+volume_db = -6.0
+unit_size = 4.0
+max_distance = 18.0
+bus = &"World3D"

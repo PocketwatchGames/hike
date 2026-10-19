@@ -23,12 +23,12 @@ Both ride a per-weapon "press again before the window lapses" chain (`WeaponStat
 
 Pressed via Interact.
 
-- `InteractiveAction` (`scripts/data/actions/InteractiveAction.cs`): one verb's behavior on an interactive. Self-describes its `verb` (EActionVerb) + `displayName` (StringName, used by future radial UI). Carries `interactEvents` (timeline during the wait), `completionEvents` (fired as a batch at `durationSeconds` — this is where `OpenInteractive` lives, so authors don't have to align an event time to the duration), `requirements`, `locksMovement`, `interruptOnDamage`. No charging, queueing, combo, or auto-activate — interactives have one phase that runs to completion.
+- `InteractiveAction` (`scripts/data/actions/InteractiveAction.cs`): one verb's behavior on an interactive. Self-describes its `verb` (EActionVerb) + `displayName` (StringName, used by future radial UI). Carries `interactEvents` (timeline during the wait), `completionEvents` (fired as a batch at `durationSeconds` — this is where `OpenInteractive` lives, so authors don't have to align an event time to the duration), `loopEffect` (a looping Fx on the actor for the whole timed action — the well crank, the lock scrape — stopped on completion, cancel and interrupt alike), `requirements`, `locksMovement`, `interruptOnDamage`. No charging, queueing, combo, or auto-activate — interactives have one phase that runs to completion.
 - `IInteractive` (`scripts/gameplay/IInteractive.cs`): exposes `Array<InteractiveAction> GetActions(Player)` and `Complete(int actionIndex)`. The first entry is the default action; future radial UI iterates the array reading `displayName` for each entry. The `ActionRunner` calls `interactive.Complete(context.interactiveActionIndex)` from the `OpenInteractive` event handler.
 
 ## ActionRunner
 
-`scripts/gameplay/actions/ActionRunner.cs` — single-action runner with one in-flight `PlayerAction` plus an optional queued action. Two `TryStart` overloads (one per data shape) — `ItemActionProfile` enters Charging, walks tier selection, fires `readyEvents` on tier promotion, transitions to Active on release / `autoActivateAtMax`; `InteractiveAction` enters Active immediately, walks `interactEvents` over `durationSeconds`, fires `completionEvents` from `EndActive`. Aborts (player-initiated `TryAbort`, damage-driven `TryInterrupt`) skip `completionEvents` for interactives; weapons consult per-tier `canAbort` / `canInterrupt`.
+`scripts/gameplay/actions/ActionRunner.cs` — single-action runner with one in-flight `PlayerAction` plus an optional queued action. Two `TryStart` overloads (one per data shape) — `ItemActionProfile` enters Charging, walks tier selection, fires `readyEvents` on tier promotion, transitions to Active on release / `autoActivateAtMax`; `InteractiveAction` enters Active immediately, walks `interactEvents` over `durationSeconds`, fires `completionEvents` from `EndActive`. Aborts (player-initiated `TryAbort`, damage-driven `TryInterrupt`) skip `completionEvents` for interactives; every exit (`EndActive`, `AbortInteractive`) stops the `loopEffect`, mirroring the charge loop's `StopChargeLoop`; weapons consult per-tier `canAbort` / `canInterrupt`.
 
 ## ItemEvent
 
@@ -42,7 +42,7 @@ Pressed via Interact.
 
 ## Adding a new interactive
 
-Implement `IInteractive`, expose `[Export] Array<InteractiveAction> _actions`, return it from `GetActions`, branch on `actionIndex` (or `_actions[actionIndex].verb`) inside `Complete`. Author the `.tscn` with one or more inline `InteractiveAction` sub-resources, each carrying `verb`, `durationSeconds`, `interactEvents`, and `completionEvents` (typically `[OpenInteractive]`).
+Implement `IInteractive`, expose `[Export] Array<InteractiveAction> _actions`, return it from `GetActions`, branch on `actionIndex` (or `_actions[actionIndex].verb`) inside `Complete`. Author the `.tscn` with one or more inline `InteractiveAction` sub-resources, each carrying `verb`, `durationSeconds`, `interactEvents`, and `completionEvents` (typically `[OpenInteractive]`). A timed action gets a `loopEffect` — reuse a shared loop by kind (`chest_unlock_loop`, `drink_loop`, `tinker_loop`, `cloth_rustle_loop`, …) before authoring a new one.
 
 ## Adding a new weapon / consumable verb
 

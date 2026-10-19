@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="Script_ConversationData"]
 [ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]
+[ext_resource type="Script" uid="uid://drrpmtebgfwg0" path="res://scripts/data/conversation/ConversationLine.cs" id="Script_ConversationLine"]
 [ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
 [ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
@@ -17,36 +18,56 @@ below = true
 script = ExtResource("Script_ConversationEntry")
 branch = &"greeting"
 
+[sub_resource type="Resource" id="Line_greeting_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_mayor_greeting_01"
+
 [sub_resource type="Resource" id="Branch_greeting"]
 script = ExtResource("Script_ConversationBranch")
 name = &"greeting"
-lineLocKeys = Array[StringName]([&"intro_mayor_greeting_01"])
+lines = [SubResource("Line_greeting_1")]
 exitGroup = &"topics"
 isPrimaryGroupEntry = true
+
+[sub_resource type="Resource" id="Line_speak_common_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_mayor_speak_common_01"
 
 [sub_resource type="Resource" id="Branch_speak_common"]
 script = ExtResource("Script_ConversationBranch")
 name = &"speak_common"
 language = ExtResource("Lang_common")
-lineLocKeys = Array[StringName]([&"intro_mayor_speak_common_01"])
+lines = [SubResource("Line_speak_common_1")]
 exitGroup = &"topics"
+
+[sub_resource type="Resource" id="Line_shipwreck_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_mayor_shipwreck_01"
 
 [sub_resource type="Resource" id="Branch_shipwreck"]
 script = ExtResource("Script_ConversationBranch")
 name = &"shipwreck"
-lineLocKeys = Array[StringName]([&"intro_mayor_shipwreck_01"])
+lines = [SubResource("Line_shipwreck_1")]
 exitGroup = &"topics"
+
+[sub_resource type="Resource" id="Line_village_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_mayor_village_01"
 
 [sub_resource type="Resource" id="Branch_village"]
 script = ExtResource("Script_ConversationBranch")
 name = &"village"
-lineLocKeys = Array[StringName]([&"intro_mayor_village_01"])
+lines = [SubResource("Line_village_1")]
 exitGroup = &"topics"
+
+[sub_resource type="Resource" id="Line_sanctuary_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_mayor_sanctuary_01"
 
 [sub_resource type="Resource" id="Branch_sanctuary"]
 script = ExtResource("Script_ConversationBranch")
 name = &"sanctuary"
-lineLocKeys = Array[StringName]([&"intro_mayor_sanctuary_01"])
+lines = [SubResource("Line_sanctuary_1")]
 exitGroup = &"topics"
 
 [sub_resource type="Resource" id="Resp_topics_1"]

@@ -6,6 +6,7 @@
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("2_mod")
+chargedOnly = true
 projectilePierceCount = 3
 onHitBuildups = []
 affix = &"of Piercing"

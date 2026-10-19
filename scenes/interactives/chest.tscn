@@ -17,6 +17,7 @@
 [ext_resource type="PackedScene" uid="uid://nw4vqfkd6xqt" path="res://assets/models/chest/Treasure_Chest_lid_01.fbx" id="12_lid"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="13_xray"]
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
+[ext_resource type="PackedScene" uid="uid://d31gyjy7s8feb" path="res://scenes/fx/chest_unlock_loop.tscn" id="90_loopfx"]
 
 [sub_resource type="Resource" id="Resource_chest_event_open"]
 script = ExtResource("5_event")
@@ -29,6 +30,7 @@ displayName = &"Open"
 icon = ExtResource("6_open")
 completionEvents = Array[ExtResource("5_event")]([SubResource("Resource_chest_event_open")])
 durationSeconds = 3.0
+loopEffect = ExtResource("90_loopfx")
 locksMovement = true
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]

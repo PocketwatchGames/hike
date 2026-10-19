@@ -42,5 +42,21 @@ public struct PlayerAction
 	// swing's damage/cooldown. 0 for non-repeat tiers.
 	public int repeatIndex;
 
+	// Timeline speed (WeaponModData.attackSpeed): authored seconds are divided by
+	// it. Resolved at press from the mods that reach any tier, then re-resolved at
+	// activation for the committed tier. Read through TimeScale.
+	public float timeScale;
+
 	public bool IsBusy => phase != EActionPhase.Ready;
+
+	// Never 0: a default (idle) action reads as normal speed for any event a
+	// teardown path still dispatches.
+	public float TimeScale => timeScale > 0f ? timeScale : 1f;
+
+	// Charge-timeline seconds since press, in AUTHORED time — what chargeTime and
+	// tier start times are measured in.
+	public float ChargeElapsedSeconds(ulong nowMs)
+	{
+		return (nowMs - pressMs) / 1000f * TimeScale;
+	}
 }

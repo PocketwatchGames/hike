@@ -9,6 +9,7 @@ public static partial class Loc
 		status_duration_until_time,
 		danger_nearby,
 		too_hurt_to_rest,
+		game_saved,
 		not_enough_health_to_revive,
 		inventory_full,
 		picked_up,

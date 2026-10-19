@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cf7i1mnddepew"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="5_buildup"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/status_vulnerable.tres" id="6_vulnerable"]
+
+[sub_resource type="Resource" id="buildup_vulnerable"]
+script = ExtResource("5_buildup")
+effect = ExtResource("6_vulnerable")
+applyImmediately = true
+amount = 1.0
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("2_mod")
+chargedOnly = true
+onHitBuildups = Array[ExtResource("5_buildup")]([SubResource("buildup_vulnerable")])
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Marked"
+description = "Charged shots leave struck targets vulnerable to critical hits."
+upgradeSlot = 2
+category = 2
+durationType = 2
+maxStack = 1
+removesOnApply = []
+modifiers = []
+conditionalModifiers = []
+weaponMod = SubResource("weaponMod")

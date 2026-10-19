@@ -20,7 +20,7 @@ using System.Collections.Generic;
 // one-concept lesson needs no authored .tres - that was the whole content of
 // the old teach_vyeshal.tres. An authored .tres is still the answer when the
 // lesson is a named concept reused across NPCs, when it grants several things
-// at once, when it wants TeachAction.learnEffect, or when it teaches one of the
+// at once, or when it teaches one of the
 // two concepts whose payload is authored TEXT rather than a resource reference
 // (ScriptFlagTeachable.conceptName, TreasureMapTeachable.treasureName).
 class TeachRef

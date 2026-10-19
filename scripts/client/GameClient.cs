@@ -68,6 +68,7 @@ public partial class GameClient : Node3D
 		{ EStatName.Weight, "Weight" },
 		{ EStatName.Thorns, "Thorns" },
 		{ EStatName.OilCost, "Oil Cost" },
+		{ EStatName.DashDistance, "Dash Distance" },
 	};
 
 	// Damage modifier trigger labels. Used as the header of the conditional
@@ -186,6 +187,9 @@ public partial class GameClient : Node3D
 	[Export] public PackedScene hudTextParriedScene;
 	// A spent item's icon rising off the interactive that used it (ShowItemsUsed).
 	[Export] public PackedScene hudItemIconScene;
+	// Plays on the controlled member alongside every discovery banner (a recipe,
+	// a language, an identified item). The one "you learned something" cue.
+	[Export] public PackedScene discoveryFx;
 	// Several icons at once each land at a random screen offset up to this far
 	// (pixels) from the anchor, so they read as separate items.
 	[Export] public Vector2 usedItemIconJitterPixels = new Vector2(24f, 12f);
@@ -488,6 +492,9 @@ public partial class GameClient : Node3D
 	// or language. The downstream discovery events on SimState /
 	// Player still fire — only the visual announcement is suppressed.
 	public bool SuppressAnnouncements;
+	// The running discoveryFx. A burst of discoveries learned together plays it
+	// once: a new one is skipped while the last is still alive.
+	Fx _discoveryFxInstance;
 	public void Announce(Announcement a)
 	{
 		if (a == null || SuppressAnnouncements) { return; }
@@ -942,6 +949,7 @@ public partial class GameClient : Node3D
 			_world.FlushLiveEntities();
 			SaveGame.Save(CVars.savePath.Value, _world.WorldState, PlayerFor, _home);
 			GD.Print($"[Save] Autosaved day {_world.WorldState.DayNumber} at {_home} -> {CVars.savePath.Value}");
+			Announce(new Announcement { type = EAnnouncementType.Notice, title = Loc.Get(Loc.Keys.game_saved) });
 		}
 		catch (Exception e)
 		{
@@ -1264,6 +1272,21 @@ public partial class GameClient : Node3D
 		SwitchControlTo((active + 1) % _partyPlayers.Count);
 	}
 
+	// Raised by the same handlers that raise a discovery banner — gated by the
+	// same SuppressAnnouncements, so starting knowledge stays silent.
+	void CelebrateDiscovery()
+	{
+		if (SuppressAnnouncements || discoveryFx == null || _player == null)
+		{
+			return;
+		}
+		if (_discoveryFxInstance != null && IsInstanceValid(_discoveryFxInstance))
+		{
+			return;
+		}
+		_discoveryFxInstance = Fx.Create(discoveryFx, _player, Vector3.Zero);
+	}
+
 	void OnSimItemIdentified(ItemData data)
 	{
 		if (data == null) { return; }
@@ -1276,6 +1299,7 @@ public partial class GameClient : Node3D
 			subtitle = name,
 			icon = data.inventorySprite,
 		});
+		CelebrateDiscovery();
 	}
 
 	void OnSimRecipeDiscovered(ConsumableData recipe)
@@ -1288,6 +1312,7 @@ public partial class GameClient : Node3D
 			subtitle = recipe.displayName.ToString(),
 			icon = recipe.inventorySprite,
 		});
+		CelebrateDiscovery();
 	}
 
 	void OnMobKilled(SpeciesData species, bool damagedByPlayer)
@@ -1331,6 +1356,7 @@ public partial class GameClient : Node3D
 			title = "Language Learned",
 			subtitle = subtitle,
 		});
+		CelebrateDiscovery();
 	}
 
 	// Single-bit grants describe the specific component ("Vyeshal Grammar");

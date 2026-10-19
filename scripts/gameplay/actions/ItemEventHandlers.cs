@@ -19,9 +19,8 @@ public static class ItemEventHandlers
 		System.Collections.Generic.HashSet<ulong> alreadyHit, bool windowStart, bool windowEnd)
 	{
 		// Effective attack shape — single source of truth shared by the damage
-		// query and the smear visual, so a future status effect that scales the
-		// swing's reach / width feeds both together.
-		float shapeRange = ev.range;
+		// query and the smear visual, so a reach mod lengthens both together.
+		float shapeRange = ev.range * WeaponRangeScale(action.context.primaryItem as WeaponState, action.selectedTier);
 		float shapeNearWidth = ev.nearWidth;
 		float shapeFarWidth = ev.farWidth;
 
@@ -340,7 +339,7 @@ public static class ItemEventHandlers
 		// chargeT) so holding tightens.
 		ItemAction tier = action.selectedTier;
 		float chargeT = action.chargeT;
-		float rangeScale = ItemAction.SampleRangeScale(tier, chargeT);
+		float rangeScale = ResolveRangeScale(action.context.primaryItem as WeaponState, tier, chargeT);
 		float spreadHalfAngle = ItemAction.SampleAccuracySpread(tier, chargeT);
 
 		Vector3 origin = actor.ActorWorldPosition + Vector3.Up;
@@ -634,7 +633,7 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		Godot.Collections.Array<ChainLightningData> chains = weapon.statusEffects.WeaponModChainLightning(FindChargeIndex(weapon, action.selectedTier));
+		Godot.Collections.Array<ChainLightningData> chains = weapon.statusEffects.WeaponModChainLightning(WeaponModTier.Of(weapon, action.selectedTier));
 		if (chains == null)
 		{
 			return;
@@ -764,7 +763,7 @@ public static class ItemEventHandlers
 			lifetime = ev.projectileLifetimeSeconds;
 			// Charge ramp scales the throw's max horizontal reach (and with it the
 			// max launch speed, reach / fuse).
-			float arcRangeScale = ItemAction.SampleRangeScale(tier, action.chargeT);
+			float arcRangeScale = ResolveRangeScale(firingWeapon, tier, action.chargeT);
 			if (!TrySolveArcLaunch(actor, ev, action.context, origin, arcRangeScale, out velocity, out gravity, out Vector3 landing))
 			{
 				return;
@@ -791,7 +790,7 @@ public static class ItemEventHandlers
 			// The actual launch velocity is sampled per shot in the loop below.
 			float chargeT = action.chargeT;
 			flatSpreadHalfAngle = ItemAction.SampleAccuracySpread(tier, chargeT);
-			float rangeScale = ItemAction.SampleRangeScale(tier, chargeT);
+			float rangeScale = ResolveRangeScale(firingWeapon, tier, chargeT);
 			lifetime = ev.projectileLifetimeSeconds * rangeScale;
 		}
 
@@ -801,9 +800,9 @@ public static class ItemEventHandlers
 		// the shot when it's AllAttacks-scoped or its SpecificCharge index matches
 		// the firing tier (resolved by position in the weapon's action profile).
 		int pierceCount = Mathf.Max(0, ev.pierceCount);
-		// Charge-tier id used to scope this shot's weapon mods; -1 (no weapon /
-		// not found) matches only AllAttacks-scoped mods.
-		int firingChargeIndex = firingWeapon != null ? FindChargeIndex(firingWeapon, tier) : -1;
+		// Charge tier used to scope this shot's weapon mods; None (no weapon / not
+		// found) matches only AllAttacks-scoped, non-chargedOnly mods.
+		WeaponModTier firingTier = WeaponModTier.Of(firingWeapon, tier);
 		// Vampiric (lifesteal) fraction this shot carries — applied in-flight when
 		// it deals health damage, healing the firer back.
 		float lifestealFraction = 0f;
@@ -823,6 +822,8 @@ public static class ItemEventHandlers
 		// Knockback mod — extra shove + stagger added to each hit.
 		float knockbackBonus = 0f;
 		float knockbackTimeBonus = 0f;
+		// Blunt mod — extra armor chip added to each hit.
+		float bluntBonus = 0f;
 		// Loop fx the mods attach to the shot (a Flaming bow's flaming arrows),
 		// layered on top of any intrinsic trail authored as a child Fx of the
 		// projectile scene.
@@ -838,15 +839,16 @@ public static class ItemEventHandlers
 		float potency = levelScale;
 		if (firingWeapon != null)
 		{
-			pierceCount = System.Math.Max(pierceCount, firingWeapon.statusEffects.ProjectilePierceCount(firingChargeIndex));
-			lifestealFraction = firingWeapon.statusEffects.Vampiric(firingChargeIndex);
-			staminaOnHit = firingWeapon.statusEffects.StaminaOnHit(firingChargeIndex);
-			onHitBuildups = firingWeapon.statusEffects.WeaponModOnHitBuildups(firingChargeIndex);
-			chainLightning = firingWeapon.statusEffects.WeaponModChainLightning(firingChargeIndex);
-			onKillEvents = firingWeapon.statusEffects.WeaponModOnKillEvents(firingChargeIndex);
-			knockbackBonus = firingWeapon.statusEffects.WeaponModKnockbackBonus(firingChargeIndex);
-			knockbackTimeBonus = firingWeapon.statusEffects.WeaponModKnockbackTimeBonus(firingChargeIndex);
-			projectileFx = firingWeapon.statusEffects.WeaponModProjectileFx(firingChargeIndex);
+			pierceCount = System.Math.Max(pierceCount, firingWeapon.statusEffects.ProjectilePierceCount(firingTier));
+			lifestealFraction = firingWeapon.statusEffects.Vampiric(firingTier);
+			staminaOnHit = firingWeapon.statusEffects.StaminaOnHit(firingTier);
+			onHitBuildups = firingWeapon.statusEffects.WeaponModOnHitBuildups(firingTier);
+			chainLightning = firingWeapon.statusEffects.WeaponModChainLightning(firingTier);
+			onKillEvents = firingWeapon.statusEffects.WeaponModOnKillEvents(firingTier);
+			knockbackBonus = firingWeapon.statusEffects.WeaponModKnockbackBonus(firingTier);
+			knockbackTimeBonus = firingWeapon.statusEffects.WeaponModKnockbackTimeBonus(firingTier);
+			bluntBonus = firingWeapon.statusEffects.WeaponModBluntBonus(firingTier);
+			projectileFx = firingWeapon.statusEffects.WeaponModProjectileFx(firingTier);
 		}
 
 		// Fragile: a lob that would normally bounce and wait out its fuse instead
@@ -856,7 +858,7 @@ public static class ItemEventHandlers
 		// Disabling bounce drops the projectile into its default
 		// collision-detonation path (the first solid OR hurtbox ends it and fires
 		// impactEvent there); the gravity arc is untouched.
-		if (bounce && ArcDetonatesOnContact(ev, firingWeapon, firingChargeIndex))
+		if (bounce && ArcDetonatesOnContact(ev, firingWeapon, firingTier))
 		{
 			bounce = false;
 		}
@@ -920,7 +922,8 @@ public static class ItemEventHandlers
 				damageMultiplier,
 				potency,
 				staminaOnHit,
-				onKillEvents);
+				onKillEvents,
+				bluntBonus);
 		}
 
 		// On-attack mods for a ranged-slot Fairy boon: a bow shot is a Projectile
@@ -935,21 +938,52 @@ public static class ItemEventHandlers
 		}
 	}
 
+	// Range multiplier for a ranged event fired from `tier` at `chargeT`: the
+	// tier's charge ramp times the weapon's reach mods. Shared by the handlers and
+	// the aim previews (Player.GetWeaponRange, the reticle) so they agree.
+	public static float ResolveRangeScale(WeaponState weapon, ItemAction tier, float chargeT)
+	{
+		return ItemAction.SampleRangeScale(tier, chargeT) * WeaponRangeScale(weapon, tier);
+	}
+
+	// The weapon's reach-mod multiplier at `tier` alone (melee reach has no charge
+	// ramp). 1 for a null weapon (mob natural attacks with no WeaponState).
+	public static float WeaponRangeScale(WeaponState weapon, ItemAction tier)
+	{
+		if (weapon?.statusEffects == null)
+		{
+			return 1f;
+		}
+		return weapon.statusEffects.WeaponModRangeScale(WeaponModTier.Of(weapon, tier));
+	}
+
+	// Blunt mod: more armor chip, and the hit becomes Blunt so blunt resistance
+	// scales it like any authored blunt hit.
+	public static void AddBluntBonus(ref HitInfo hit, float bonus)
+	{
+		if (bonus <= 0f)
+		{
+			return;
+		}
+		hit.blunt += bonus;
+		hit.tags |= EHitTag.Blunt;
+	}
+
 	// Single source of truth for "does this arced lob shatter on first contact?":
 	// true when it carries an impactEvent (the shatter payload) AND is fragile
 	// from either source — the event's intrinsic projectileFragile flag (works
 	// for mobs, which have no WeaponState) or a Fragile weapon mod on the firing
 	// weapon at the given charge tier. Shared by the throw (DoProjectile), the
 	// reticle's dotted preview (AimingReticle.SolveArcForward), and the mob arc
-	// path so all three agree. chargeIndex -1 matches only AllAttacks-scoped mods.
-	public static bool ArcDetonatesOnContact(ItemEvent ev, WeaponState weapon, int chargeIndex)
+	// path so all three agree.
+	public static bool ArcDetonatesOnContact(ItemEvent ev, WeaponState weapon, WeaponModTier tier)
 	{
 		if (ev == null || ev.impactEvent == null)
 		{
 			return false;
 		}
 		return ev.projectileFragile
-			|| (weapon != null && weapon.statusEffects.ProjectilesDetonateOnContact(chargeIndex));
+			|| (weapon != null && weapon.statusEffects.ProjectilesDetonateOnContact(tier));
 	}
 
 	// Solve an arced lob's launch velocity (and report the predicted landing
@@ -1043,38 +1077,17 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		int chargeIndex = FindChargeIndex(weapon, action.selectedTier);
-		float fraction = weapon.statusEffects.Vampiric(chargeIndex);
+		WeaponModTier modTier = WeaponModTier.Of(weapon, action.selectedTier);
+		float fraction = weapon.statusEffects.Vampiric(modTier);
 		if (fraction > 0f)
 		{
 			actor.Heal(healthDamageDealt * fraction);
 		}
-		float stamina = weapon.statusEffects.StaminaOnHit(chargeIndex);
+		float stamina = weapon.statusEffects.StaminaOnHit(modTier);
 		if (stamina > 0f)
 		{
 			actor.RestoreStamina(stamina);
 		}
-	}
-
-	// Index of `tier` within the weapon's action profile (the charge-tier id
-	// used to scope weapon mods), or -1 if the weapon has no profile or the tier
-	// isn't found. Compared by reference — `tier` is one of the profile's own
-	// ItemAction instances.
-	private static int FindChargeIndex(WeaponState weapon, ItemAction tier)
-	{
-		Godot.Collections.Array<ItemAction> tiers = weapon?.data?.actionProfile?.chargedActions;
-		if (tiers == null)
-		{
-			return -1;
-		}
-		for (int i = 0; i < tiers.Count; i++)
-		{
-			if (tiers[i] == tier)
-			{
-				return i;
-			}
-		}
-		return -1;
 	}
 
 	// Launch any attack-triggered on-attack-projectile mods for this attack: a
@@ -1099,8 +1112,7 @@ public static class ItemEventHandlers
 		// off the wielding weapon's own damageProfiles via the event's damageProfileKey.
 		if (action.context.primaryItem is WeaponState weapon)
 		{
-			int chargeIndex = FindChargeIndex(weapon, action.selectedTier);
-			Godot.Collections.Array<ItemEvent> events = weapon.statusEffects.WeaponModOnAttackEvents(chargeIndex, trigger);
+			Godot.Collections.Array<ItemEvent> events = weapon.statusEffects.WeaponModOnAttackEvents(WeaponModTier.Of(weapon, action.selectedTier), trigger);
 			if (events != null)
 			{
 				for (int i = 0; i < events.Count; i++)
@@ -1273,7 +1285,7 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		Godot.Collections.Array<ItemEvent> events = weapon.statusEffects.WeaponModOnKillEvents(FindChargeIndex(weapon, action.selectedTier));
+		Godot.Collections.Array<ItemEvent> events = weapon.statusEffects.WeaponModOnKillEvents(WeaponModTier.Of(weapon, action.selectedTier));
 		if (events == null)
 		{
 			return;
@@ -1713,7 +1725,7 @@ public static class ItemEventHandlers
 		Inventory inventory = player.Inventory;
 		if (inventory != null && inventory.IsLit(action.context.primaryItem))
 		{
-			inventory.Extinguish();
+			player.SnuffLantern();
 		}
 	}
 
@@ -1747,10 +1759,7 @@ public static class ItemEventHandlers
 
 	// Grants ev.languageComponents of ev.language to the learner — for
 	// sources whose language is uniform across all uses (consumables, mob
-	// dialogue). LearnLanguageComponents returns true only when this call
-	// newly added at least one bit, so the firstLearnEffect doesn't fire on
-	// re-trigger of a fully-known language (or on a partial event whose
-	// pieces the player already had). Non-Player actors don't have a
+	// dialogue). Non-Player actors don't have a
 	// learned-language set — they no-op. Per-instance teaching
 	// (KnowledgeStone) doesn't go through this flag — it handles its own
 	// learn-and-display inside Complete() to guarantee ordering against the
@@ -1761,16 +1770,12 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		if (player.LearnLanguageComponents(ev.language, ev.languageComponents))
-		{
-			SpawnOnActor(actor, ev.firstLearnEffect);
-		}
+		player.LearnLanguageComponents(ev.language, ev.languageComponents);
 	}
 
 	// Generalized teach event — dispatches a TeachableConcept against the
 	// player's world-state collections (language pieces, recipe discovery
-	// set, region discovery set, ...). First-learn fx gates on concept.Teach
-	// returning true, matching DoLearnLanguage's silent-on-re-teach contract.
+	// set, region discovery set, ...).
 	//
 	// The concept is the event-authored ref (`ev.concept`). Scrolls don't
 	// route through here — a scroll teaches its concept directly when read from
@@ -1788,10 +1793,7 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		if (concept.Teach(player))
-		{
-			SpawnOnActor(actor, ev.firstLearnEffect);
-		}
+		concept.Teach(player);
 	}
 
 	public static void DoConsumeFromInventory(IActionActor actor, ItemEvent ev, ref PlayerAction action)
@@ -1908,10 +1910,11 @@ public static class ItemEventHandlers
 			{
 				hit.healthDamage *= swing.damageMultiplier;
 			}
-			int chargeIndex = FindChargeIndex(weapon2, action.selectedTier);
-			hit.AddBuildups(weapon2.statusEffects.WeaponModOnHitBuildups(chargeIndex));
-			hit.knockbackDistance += weapon2.statusEffects.WeaponModKnockbackBonus(chargeIndex);
-			hit.knockbackTime += weapon2.statusEffects.WeaponModKnockbackTimeBonus(chargeIndex);
+			WeaponModTier modTier = WeaponModTier.Of(weapon2, action.selectedTier);
+			hit.AddBuildups(weapon2.statusEffects.WeaponModOnHitBuildups(modTier));
+			hit.knockbackDistance += weapon2.statusEffects.WeaponModKnockbackBonus(modTier);
+			hit.knockbackTime += weapon2.statusEffects.WeaponModKnockbackTimeBonus(modTier);
+			AddBluntBonus(ref hit, weapon2.statusEffects.WeaponModBluntBonus(modTier));
 		}
 		return hit;
 	}

@@ -151,9 +151,9 @@ public class StatusEffectController
 	// composed onto the weapon item, which would mutate the shared inventory item and
 	// persist through save/load (EntitySerializer writes an item's statusEffects). Set
 	// per wield with the weapon's slot (see Player.TryStartWeaponAction); null folds in
-	// nothing (mob weapons, un-wielded items). Upgrade mods aren't charge-scoped — an
-	// upgrade modifies every attack the weapon makes — so ForEachWielderUpgradeMod
-	// skips the ModReachesCharge gate the weapon's own mods use.
+	// nothing (mob weapons, un-wielded items). Upgrade mods aren't index-scoped — an
+	// upgrade modifies every attack the weapon makes, unless it is chargedOnly — so
+	// ForEachWielderUpgradeMod skips the ModReachesCharge gate the weapon's own mods use.
 	private StatusEffectController _wielderUpgradeSource;
 	private EUpgradeSlot _wielderUpgradeSlot;
 
@@ -165,7 +165,7 @@ public class StatusEffectController
 
 	// Invoke `fold` for each of the wielder's active upgrade weaponMods applied to
 	// this weapon's slot (appliedUpgradeSlot). No-op when no wielder source is set.
-	private void ForEachWielderUpgradeMod(System.Action<WeaponModData> fold)
+	private void ForEachWielderUpgradeMod(WeaponModTier tier, System.Action<WeaponModData> fold, bool allCharges)
 	{
 		StatusEffectController src = _wielderUpgradeSource;
 		if (src == null || _wielderUpgradeSlot == EUpgradeSlot.None)
@@ -176,79 +176,86 @@ public class StatusEffectController
 		{
 			StatusEffectState s = src._statusEffects[i];
 			WeaponModData mod = s?.data?.weaponMod;
-			if (mod != null && s.appliedUpgradeSlot == _wielderUpgradeSlot)
+			if (mod != null && s.appliedUpgradeSlot == _wielderUpgradeSlot && (allCharges || ReachesChargedScope(mod, tier)))
 			{
 				fold(mod);
 			}
 		}
 	}
 
-	// Invoke `fold` for every weapon mod that applies at charge tier `chargeIndex`:
+	// Invoke `fold` for every weapon mod that applies at charge tier `tier`:
 	// this actor's own composed mods that reach the tier (ModReachesCharge), plus the
-	// wielder's slot-matching forge upgrade mods (never charge-scoped). The single
+	// wielder's slot-matching forge upgrade mods (not index-scoped). Either kind is
+	// skipped off a charged tier when it is chargedOnly. The single
 	// walk behind every WeaponMod* read below. Pass allCharges: true to skip the tier
 	// gate — the idle-fx visual rides the weapon at rest, independent of tier.
-	private void ForEachWeaponMod(int chargeIndex, System.Action<WeaponModData> fold, bool allCharges = false)
+	private void ForEachWeaponMod(WeaponModTier tier, System.Action<WeaponModData> fold, bool allCharges = false)
 	{
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
 			StatusEffectState s = _statusEffects[i];
 			WeaponModData mod = s?.data?.weaponMod;
-			if (mod == null || (!allCharges && !ModReachesCharge(s, chargeIndex)))
+			if (mod == null || (!allCharges && (!ModReachesCharge(s, tier.index) || !ReachesChargedScope(mod, tier))))
 			{
 				continue;
 			}
 			fold(mod);
 		}
-		ForEachWielderUpgradeMod(fold);
+		ForEachWielderUpgradeMod(tier, fold, allCharges);
 	}
 
-	// True when any active weapon mod reaching charge tier `chargeIndex` sets
+	// A chargedOnly mod acts only on a tier the attacker had to hold to reach.
+	private static bool ReachesChargedScope(WeaponModData mod, WeaponModTier tier)
+	{
+		return !mod.chargedOnly || tier.charged;
+	}
+
+	// True when any active weapon mod reaching charge tier `tier` sets
 	// projectilesDetonateOnContact (the "Fragile" mod).
-	public bool ProjectilesDetonateOnContact(int chargeIndex)
+	public bool ProjectilesDetonateOnContact(WeaponModTier tier)
 	{
 		bool detonate = false;
-		ForEachWeaponMod(chargeIndex, mod => detonate |= mod.projectilesDetonateOnContact);
+		ForEachWeaponMod(tier, mod => detonate |= mod.projectilesDetonateOnContact);
 		return detonate;
 	}
 
 	// Largest projectilePierceCount among active weapon mods reaching charge tier
-	// `chargeIndex` (0 if none); DoProjectile maxes it against the event's base.
-	public int ProjectilePierceCount(int chargeIndex)
+	// `tier` (0 if none); DoProjectile maxes it against the event's base.
+	public int ProjectilePierceCount(WeaponModTier tier)
 	{
 		int max = 0;
-		ForEachWeaponMod(chargeIndex, mod => { if (mod.projectilePierceCount > max) { max = mod.projectilePierceCount; } });
+		ForEachWeaponMod(tier, mod => { if (mod.projectilePierceCount > max) { max = mod.projectilePierceCount; } });
 		return max;
 	}
 
 	// Largest vampiric (lifesteal) fraction among active weapon mods reaching
-	// charge tier `chargeIndex` (0 if none); the melee/hitscan handlers heal the
+	// charge tier `tier` (0 if none); the melee/hitscan handlers heal the
 	// attacker by this fraction of the health damage a landed hit deals.
-	public float Vampiric(int chargeIndex)
+	public float Vampiric(WeaponModTier tier)
 	{
 		float max = 0f;
-		ForEachWeaponMod(chargeIndex, mod => { if (mod.vampiric > max) { max = mod.vampiric; } });
+		ForEachWeaponMod(tier, mod => { if (mod.vampiric > max) { max = mod.vampiric; } });
 		return max;
 	}
 
 	// Largest flat stamina-on-hit refund among active weapon mods reaching charge
-	// tier `chargeIndex` (0 if none); the melee/hitscan/projectile handlers refill
+	// tier `tier` (0 if none); the melee/hitscan/projectile handlers refill
 	// the attacker by this many stamina points on each landed creature hit.
-	public float StaminaOnHit(int chargeIndex)
+	public float StaminaOnHit(WeaponModTier tier)
 	{
 		float max = 0f;
-		ForEachWeaponMod(chargeIndex, mod => { if (mod.staminaOnHit > max) { max = mod.staminaOnHit; } });
+		ForEachWeaponMod(tier, mod => { if (mod.staminaOnHit > max) { max = mod.staminaOnHit; } });
 		return max;
 	}
 
 	// Buildup contributions every active weapon mod reaching charge tier
-	// `chargeIndex` funnels into the struck target's meters (a Venomous mob's
+	// `tier` funnels into the struck target's meters (a Venomous mob's
 	// Poison buildup, etc.). Returns null when no reaching mod authors any, so
 	// the common no-mod hot path allocates nothing.
-	public Godot.Collections.Array<StatusEffectBuildup> WeaponModOnHitBuildups(int chargeIndex)
+	public Godot.Collections.Array<StatusEffectBuildup> WeaponModOnHitBuildups(WeaponModTier tier)
 	{
 		Godot.Collections.Array<StatusEffectBuildup> result = null;
-		ForEachWeaponMod(chargeIndex, mod =>
+		ForEachWeaponMod(tier, mod =>
 		{
 			Godot.Collections.Array<StatusEffectBuildup> onHit = mod.onHitBuildups;
 			if (onHit == null || onHit.Count == 0)
@@ -265,12 +272,12 @@ public class StatusEffectController
 	}
 
 	// Chain-lightning payloads on active weapon mods reaching charge tier
-	// `chargeIndex` (the Shocking mod). Returns null when none reach, so the
+	// `tier` (the Shocking mod). Returns null when none reach, so the
 	// common no-mod hot path allocates nothing.
-	public Godot.Collections.Array<ChainLightningData> WeaponModChainLightning(int chargeIndex)
+	public Godot.Collections.Array<ChainLightningData> WeaponModChainLightning(WeaponModTier tier)
 	{
 		Godot.Collections.Array<ChainLightningData> result = null;
-		ForEachWeaponMod(chargeIndex, mod =>
+		ForEachWeaponMod(tier, mod =>
 		{
 			if (mod.chainLightning == null)
 			{
@@ -282,13 +289,13 @@ public class StatusEffectController
 		return result;
 	}
 
-	// On-kill events on active weapon mods reaching charge tier `chargeIndex`
+	// On-kill events on active weapon mods reaching charge tier `tier`
 	// (the Explosive Corpse mod). Returns null when none reach, so the common
 	// no-mod hot path allocates nothing.
-	public Godot.Collections.Array<ItemEvent> WeaponModOnKillEvents(int chargeIndex)
+	public Godot.Collections.Array<ItemEvent> WeaponModOnKillEvents(WeaponModTier tier)
 	{
 		Godot.Collections.Array<ItemEvent> result = null;
-		ForEachWeaponMod(chargeIndex, mod =>
+		ForEachWeaponMod(tier, mod =>
 		{
 			if (mod.onKillEvent == null)
 			{
@@ -301,21 +308,48 @@ public class StatusEffectController
 	}
 
 	// Summed extra knockback distance (m/s) from active weapon mods reaching
-	// charge tier `chargeIndex` (the Knockback mod); the melee/hitscan/projectile
+	// charge tier `tier` (the Knockback mod); the melee/hitscan/projectile
 	// paths add it to the hit's knockbackDistance. 0 if none reach.
-	public float WeaponModKnockbackBonus(int chargeIndex)
+	public float WeaponModKnockbackBonus(WeaponModTier tier)
 	{
 		float sum = 0f;
-		ForEachWeaponMod(chargeIndex, mod => sum += mod.knockbackBonus);
+		ForEachWeaponMod(tier, mod => sum += mod.knockbackBonus);
 		return sum;
 	}
 
 	// Summed extra knockback lockout (seconds) from active weapon mods reaching
-	// charge tier `chargeIndex`; added to the hit's knockbackTime. 0 if none reach.
-	public float WeaponModKnockbackTimeBonus(int chargeIndex)
+	// charge tier `tier`; added to the hit's knockbackTime. 0 if none reach.
+	public float WeaponModKnockbackTimeBonus(WeaponModTier tier)
 	{
 		float sum = 0f;
-		ForEachWeaponMod(chargeIndex, mod => sum += mod.knockbackTimeBonus);
+		ForEachWeaponMod(tier, mod => sum += mod.knockbackTimeBonus);
+		return sum;
+	}
+
+	// Product of rangeScale across active weapon mods reaching `tier`; the handlers
+	// multiply it into melee reach and into hitscan / projectile range. 1 if none.
+	public float WeaponModRangeScale(WeaponModTier tier)
+	{
+		float product = 1f;
+		ForEachWeaponMod(tier, mod => product *= mod.rangeScale);
+		return product;
+	}
+
+	// Product of attackSpeed across active weapon mods reaching `tier`; the
+	// ActionRunner divides the action's timeline by it. 1 if none.
+	public float WeaponModAttackSpeed(WeaponModTier tier)
+	{
+		float product = 1f;
+		ForEachWeaponMod(tier, mod => product *= mod.attackSpeed);
+		return product;
+	}
+
+	// Summed bluntBonus from active weapon mods reaching `tier`; added to the hit's
+	// blunt (armor chip). 0 if none reach.
+	public float WeaponModBluntBonus(WeaponModTier tier)
+	{
+		float sum = 0f;
+		ForEachWeaponMod(tier, mod => sum += mod.bluntBonus);
 		return sum;
 	}
 
@@ -326,7 +360,7 @@ public class StatusEffectController
 	public Godot.Collections.Array<PackedScene> WeaponModIdleFx()
 	{
 		Godot.Collections.Array<PackedScene> result = null;
-		ForEachWeaponMod(0, mod =>
+		ForEachWeaponMod(WeaponModTier.None, mod =>
 		{
 			if (mod.idleFx == null)
 			{
@@ -339,13 +373,13 @@ public class StatusEffectController
 	}
 
 	// Projectile-loop Fx scenes from active weapon mods reaching charge tier
-	// `chargeIndex` (a Flaming bow's flaming arrows). Layered on top of the
+	// `tier` (a Flaming bow's flaming arrows). Layered on top of the
 	// intrinsic trail authored as a child Fx of the projectile scene. Returns null when none
 	// reach, so the common no-mod hot path allocates nothing.
-	public Godot.Collections.Array<PackedScene> WeaponModProjectileFx(int chargeIndex)
+	public Godot.Collections.Array<PackedScene> WeaponModProjectileFx(WeaponModTier tier)
 	{
 		Godot.Collections.Array<PackedScene> result = null;
-		ForEachWeaponMod(chargeIndex, mod =>
+		ForEachWeaponMod(tier, mod =>
 		{
 			if (mod.projectileFx == null)
 			{
@@ -358,15 +392,15 @@ public class StatusEffectController
 	}
 
 	// On-attack projectile events from active weapon mods reaching charge tier
-	// `chargeIndex` whose onAttackTrigger overlaps `trigger` (a "Seeking" sword's
+	// `tier` whose onAttackTrigger overlaps `trigger` (a "Seeking" sword's
 	// homing missiles). The Melee / Hitscan handlers pass OnSwing for every
 	// attack and add OnHit when it connects, then dispatch each event through
 	// DoProjectile. Returns null when none reach, so the common no-mod hot path
 	// allocates nothing.
-	public Godot.Collections.Array<ItemEvent> WeaponModOnAttackEvents(int chargeIndex, EWeaponModAttackTrigger trigger)
+	public Godot.Collections.Array<ItemEvent> WeaponModOnAttackEvents(WeaponModTier tier, EWeaponModAttackTrigger trigger)
 	{
 		Godot.Collections.Array<ItemEvent> result = null;
-		ForEachWeaponMod(chargeIndex, mod =>
+		ForEachWeaponMod(tier, mod =>
 		{
 			if (mod.onAttackEvent == null || (mod.onAttackTrigger & trigger) == 0)
 			{

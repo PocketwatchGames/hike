@@ -3,9 +3,11 @@
 [ext_resource type="Script" uid="uid://6gpl01xr2q44v" path="res://scripts/data/characters/VoiceData.cs" id="1_voice"]
 [ext_resource type="PackedScene" uid="uid://dqsytkhv5j0zz" path="res://scenes/fx/player_hurt_vo_male.tscn" id="2_hurt"]
 [ext_resource type="PackedScene" uid="uid://pt7u8y1hyqc2v" path="res://scenes/fx/player_death_vo_male.tscn" id="3_death"]
+[ext_resource type="PackedScene" uid="uid://dre2neppgp64b" path="res://scenes/fx/villager_male_talk_vo.tscn" id="4_talk"]
 
 [resource]
 script = ExtResource("1_voice")
 hurt = ExtResource("2_hurt")
 death = ExtResource("3_death")
+talk = ExtResource("4_talk")
 pitchShift = 1.12

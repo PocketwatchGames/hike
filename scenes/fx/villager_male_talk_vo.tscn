@@ -1,0 +1,36 @@
+[gd_scene format=3 uid="uid://dre2neppgp64b"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://bsyia1qa5v8hm" path="res://assets/audio/source/vo/GRUNT_Male_Quick_mono.wav" id="2_a"]
+[ext_resource type="AudioStream" uid="uid://coesg4elpvhai" path="res://assets/audio/source/vo/GRUNT_Male_Quick_Deep_mono.wav" id="3_a"]
+[ext_resource type="AudioStream" uid="uid://csvd68fccdcf" path="res://assets/audio/source/vo/GRUNT_Male_Subtle_Quick_mono.wav" id="4_a"]
+[ext_resource type="AudioStream" uid="uid://dlvqrl2nnin7t" path="res://assets/audio/source/vo/VOICE_MALE_Ahh_1_Subtle_mono.wav" id="5_a"]
+[ext_resource type="AudioStream" uid="uid://cdpxm5jn4ow3d" path="res://assets/audio/source/vo/VOICE_MALE_Ahh_3_Satisfied_mono.wav" id="6_a"]
+[ext_resource type="AudioStream" uid="uid://dsq8ecvb62fq" path="res://assets/audio/source/vo/VOICE_MALE_Uhh_3_Confused_mono.wav" id="7_a"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_audio"]
+playback_mode = 1
+random_pitch = 1.06
+streams_count = 6
+stream_0/stream = ExtResource("2_a")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("3_a")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("4_a")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("5_a")
+stream_3/weight = 1.0
+stream_4/stream = ExtResource("6_a")
+stream_4/weight = 1.0
+stream_5/stream = ExtResource("7_a")
+stream_5/weight = 1.0
+
+[node name="VillagerMaleTalkVo" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_audio")
+volume_db = -4.0
+unit_size = 5.0
+max_distance = 30.0
+bus = &"World3D"

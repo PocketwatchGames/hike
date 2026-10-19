@@ -57,6 +57,7 @@
 [ext_resource type="PackedScene" uid="uid://bwfoam4m5n6o7" path="res://scenes/fx/wind_foam.tscn" id="wind_foam_scene"]
 [ext_resource type="Script" uid="uid://cd6m5lgxxf0tx" path="res://scripts/gameplay/WindParticleManager.cs" id="wind_particle_manager_script"]
 [ext_resource type="PackedScene" uid="uid://bwsand0j1k2l3" path="res://scenes/fx/wind_sand.tscn" id="wind_sand_scene"]
+[ext_resource type="PackedScene" uid="uid://bltjwssh6fblq" path="res://scenes/fx/discovery.tscn" id="discovery_fx"]
 
 [sub_resource type="Environment" id="Environment_bloom"]
 background_mode = 3
@@ -127,6 +128,7 @@ hudTextMissScene = ExtResource("hud_text_damage_miss")
 hudTextBlockedScene = ExtResource("hud_text_damage_blocked")
 hudTextParriedScene = ExtResource("hud_text_damage_parried")
 hudItemIconScene = ExtResource("hud_item_icon")
+discoveryFx = ExtResource("discovery_fx")
 outlineMaterial = ExtResource("outline_mat")
 outlineFlatMaterial = ExtResource("outline_flat_mat")
 screenEffects = NodePath("ScreenEffects")

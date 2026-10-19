@@ -1226,6 +1226,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public void DrainBlood(float amount) { }
     public bool CanAffordLanternOil(float amount) => true;
     public void SpendLanternOil(float amount) { }
+    public float ActionOilCost(float baseCost) => baseCost;
 
     // Mobs never run reagent-costed interactives (those are player-only), so the
     // ingredient gate always passes and the spend has nothing to deduct from.
@@ -1744,6 +1745,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             speaker = this,
             speakerLanguage = spokenLanguage,
             speakerPortrait = ConversationPortrait(),
+            speakerVoice = _voice,
         };
         GameClient.Current?.onConversation?.Invoke(conversation, ctx);
     }

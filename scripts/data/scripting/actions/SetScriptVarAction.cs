@@ -2,7 +2,7 @@ using Godot;
 
 // Conversation side-effect that writes a scripting variable in the central
 // bank — the write half of the quest / world-flag system. Author on a
-// response (or branch endActions / entry actions) to record permanent
+// response (or a line's / entry's actions) to record permanent
 // progress: Set boss_dragon_defeated = 1 when the player reports the kill, or
 // Add 1 to advance a quest stage / bump a counter. Persists via SaveGame.
 [GlobalClass]

@@ -434,11 +434,11 @@ public partial class InventoryScreen : Control
 		}
 		if (item is LanternState lantern && inv.IsLit(lantern))
 		{
-			inv.Extinguish();
+			player.SnuffLantern();
 		}
 		else if (item is LanternState && inv.IsEquipped(item) && player.HasLanternOil)
 		{
-			player.LightLantern();
+			player.LightLanternByHand();
 		}
 		else if (item.data is IInstantUseItem { CanUseInstantly: true })
 		{

@@ -12,6 +12,7 @@
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 [ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="19_mapmarker"]
 [ext_resource type="Texture2D" uid="uid://cci6ftqwqo18g" path="res://assets/textures/map_markers/well.png" id="20_mapicon"]
+[ext_resource type="PackedScene" uid="uid://duxcw6ihs2wxo" path="res://scenes/fx/well_crank_loop.tscn" id="90_loopfx"]
 
 [sub_resource type="Resource" id="Resource_well_event_drink"]
 script = ExtResource("2_event")
@@ -23,6 +24,7 @@ displayName = &"Drink"
 icon = ExtResource("16_drink")
 completionEvents = Array[ExtResource("2_event")]([SubResource("Resource_well_event_drink")])
 durationSeconds = 2.0
+loopEffect = ExtResource("90_loopfx")
 locksMovement = true
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_n51pk"]

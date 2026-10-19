@@ -294,7 +294,8 @@ public partial class Player : CharacterBody3D
 		}
 		else
 		{
-			loopAnim = PickMoveLoop(speedSq, intentMoving, EAnimation.Run, EAnimation.Idle);
+			EAnimation runAnim = _sprinting ? EAnimation.Sprint : EAnimation.Run;
+			loopAnim = PickMoveLoop(speedSq, intentMoving, runAnim, EAnimation.Idle);
 		}
 		// One path: every slot — locomotion, charge pose, anything — resolves
 		// through AnimName, preferring the wielded weapon's override and falling
@@ -327,7 +328,7 @@ public partial class Player : CharacterBody3D
 		if (_health > 0f)
 		{
 			if (loopAnim == EAnimation.Idle) animLoopTarget = _idleLoopFx;
-			else if (loopAnim == EAnimation.Run) animLoopTarget = _runLoopFx;
+			else if (loopAnim == EAnimation.Run || loopAnim == EAnimation.Sprint) animLoopTarget = _runLoopFx;
 			else if (loopAnim == EAnimation.SwimIdle) animLoopTarget = _swimIdleLoopFx;
 		}
 		UpdateAnimLoop(animLoopTarget);

@@ -556,7 +556,7 @@ public partial class Player : CharacterBody3D
 		_pendingWeaponPressActionName = null;
 		_contextSensitiveAttackSlot = null;
 		ClearQueuedInput();
-		_dashTimeRemaining = 0f;
+		CancelDash();
 		_sneaking = false;
 		_aiming = false;
 		_hitstunTime = 0f;
@@ -632,6 +632,8 @@ public partial class Player : CharacterBody3D
 		_staminaRechargeStartMs = 0;
 		_dashTimeRemaining = 0f;
 		_dashCooldownEndMs = 0;
+		_sprintArmed = false;
+		_sprinting = false;
 		_hitstunTime = 0f;
 		_knockbackTime = 0f;
 		_knockbackVelocity = Vector3.Zero;

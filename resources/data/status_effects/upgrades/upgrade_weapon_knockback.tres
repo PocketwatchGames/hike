@@ -7,8 +7,8 @@
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("2_mod")
 onHitBuildups = []
-knockbackBonus = 6.0
-knockbackTimeBonus = 0.3
+knockbackBonus = 3.0
+knockbackTimeBonus = 0.2
 
 [resource]
 script = ExtResource("1_data")

@@ -20,10 +20,6 @@ public partial class ScrollData : ItemData, IApplyOnPickup, IInstantUseItem
 {
 	[Export] public TeachableConcept concept;
 
-	// Optional one-shot fx spawned on the player the first time this scroll
-	// newly grants its concept (a re-read of an already-known scroll is silent).
-	[Export] public PackedScene learnEffect;
-
 	// Not a Material, so a field pickup takes an interact — reading is deliberate.
 	protected override EItemCategory ComputeCategory() => EItemCategory.Usable;
 
@@ -43,13 +39,8 @@ public partial class ScrollData : ItemData, IApplyOnPickup, IInstantUseItem
 		{
 			return true;
 		}
-		// Teach returns true only on a new grant, so the fx gates on first learn.
 		if (concept.Teach(player))
 		{
-			if (learnEffect != null)
-			{
-				Fx.Create(learnEffect, player, Vector3.Zero);
-			}
 			concept.OnLearnedFromScroll(player);
 		}
 		return true;

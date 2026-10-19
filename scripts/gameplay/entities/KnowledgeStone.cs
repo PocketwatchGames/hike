@@ -28,12 +28,8 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
     [Export(PropertyHint.MultilineText)] private string _text = "";
     // Language the inscription is written in (drives the TextScrambler gating).
     [Export] private LanguageData _inscriptionLanguage;
-    // Concepts granted on read. Each concept's Teach() is called in order;
-    // _firstLearnEffect fires once if ANY return true.
+    // Concepts granted on read, each concept's Teach() called in order.
     [Export] private Godot.Collections.Array<TeachableConcept> _concepts = new();
-    // FX spawned on the player the first time this read newly grants any
-    // concept. Subsequent reads are silent.
-    [Export] private PackedScene _firstLearnEffect;
     // Looping holy ambience (sound + rising particle column) spawned as a child
     // when the stone enters the world; freed with the stone on chunk unload.
     [Export] private PackedScene _ambientLoopEffect;
@@ -71,23 +67,14 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
             return;
         }
         Player player = gc?.Player;
-        // Learn first, then display. Teach() returns true only when it newly
-        // granted something, so firstLearnEffect gates on the OR across the array.
-        bool learnedSomething = false;
+        // Learn first, then display.
         if (player != null && _concepts != null)
         {
-            for (int i = 0; i < _concepts.Count; i++)
+            int count = _concepts.Count;
+            for (int i = 0; i < count; i++)
             {
-                TeachableConcept concept = _concepts[i];
-                if (concept != null && concept.Teach(player))
-                {
-                    learnedSomething = true;
-                }
+                _concepts[i]?.Teach(player);
             }
-        }
-        if (learnedSomething && _firstLearnEffect != null)
-        {
-            Fx.Create(_firstLearnEffect, player, Vector3.Zero);
         }
         // Display scramble is gated on the inscription language only — the
         // other concept types don't affect text legibility. A stone teaching

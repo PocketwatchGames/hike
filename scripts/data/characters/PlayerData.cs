@@ -552,6 +552,15 @@ public partial class PlayerData : Resource
 	// Same, for a dash that ends in water.
 	[Export] public float swimDashExitSpeed = 6f;
 
+	[ExportGroup("Sprint")]
+	// Holding Dash past the dash sprints, on foot only (swimming has its own
+	// drain). Slowed by equipped weight like moveSpeed. The sprint ends at
+	// stamina ≤ 0 and does not resume until Dash is pressed again.
+	[Export] public float sprintSpeed = 10f;
+	// Stamina (dash units) per second while sprinting. Re-arms the recharge
+	// delay every tick, so the bar only refills once the sprint stops.
+	[Export] public float sprintStaminaDrainPerSecond = 1f;
+
 	[ExportGroup("Exhaustion")]
 	// Fallback speeds when stamina runs out. tiredRunSpeed is the on-foot
 	// "exhausted run" — slower than moveSpeed; tiredSwimSpeed is the swim

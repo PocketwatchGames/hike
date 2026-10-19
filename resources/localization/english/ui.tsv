@@ -5,6 +5,7 @@ status_duration_until_sunrise	Until sunrise
 status_duration_until_time	Until %0
 danger_nearby	Danger Nearby
 too_hurt_to_rest	Too Hurt to Rest
+game_saved	Game Saved
 not_enough_health_to_revive	Not Enough Health
 inventory_full	Inventory Full
 picked_up	Picked up

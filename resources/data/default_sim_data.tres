@@ -115,6 +115,14 @@
 [ext_resource type="Resource" path="res://resources/data/test_scenarios/oil_droplets.tres" id="ts_oil_droplets"]
 [ext_resource type="Resource" uid="uid://btwn5x5u68gc0" path="res://resources/data/test_scenarios/shockwave.tres" id="ts_shockwave"]
 [ext_resource type="Resource" uid="uid://bp5jv2gwndnus" path="res://resources/data/test_scenarios/snow.tres" id="ts_snow"]
+[ext_resource type="Resource" uid="uid://cicb54ulbm8ov" path="res://resources/data/status_effects/upgrades/upgrade_armor_dash_range.tres" id="up_armor_dash_range"]
+[ext_resource type="Resource" uid="uid://y2pj4gl0q2fk" path="res://resources/data/status_effects/upgrades/upgrade_armor_oil_efficient.tres" id="up_armor_oil_efficient"]
+[ext_resource type="Resource" uid="uid://0r5x646wjhwx" path="res://resources/data/status_effects/upgrades/upgrade_armor_stealth.tres" id="up_armor_stealth"]
+[ext_resource type="Resource" uid="uid://bfgsj8it053r5" path="res://resources/data/status_effects/upgrades/upgrade_melee_extended_range.tres" id="up_melee_extended_range"]
+[ext_resource type="Resource" uid="uid://bfu4srffr05eq" path="res://resources/data/status_effects/upgrades/upgrade_ranged_extended_range.tres" id="up_ranged_extended_range"]
+[ext_resource type="Resource" uid="uid://cf7i1mnddepew" path="res://resources/data/status_effects/upgrades/upgrade_ranged_marked.tres" id="up_ranged_marked"]
+[ext_resource type="Resource" uid="uid://b15r2bn2hq86e" path="res://resources/data/status_effects/upgrades/upgrade_weapon_blunt.tres" id="up_weapon_blunt"]
+[ext_resource type="Resource" uid="uid://dh3b6y854xyjl" path="res://resources/data/status_effects/upgrades/upgrade_weapon_speed.tres" id="up_weapon_speed"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -135,7 +143,7 @@ waterfalls = ExtResource("97_waterfalls")
 fairyLoot = ExtResource("18_fairy_loot")
 fairyBoons = Array[ExtResource("19_boondata")]([ExtResource("21_boon_restore"), ExtResource("6_rmw2s"), ExtResource("7_c5a0h"), ExtResource("27_boon_stoneskin"), ExtResource("28_boon_seeking"), ExtResource("29_boon_ranged_seeking"), ExtResource("29_boon_night_vision"), ExtResource("29_boon_poison_thorns")])
 fairyBoonGold = ExtResource("22_boon_gold")
-forgeUpgrades = Array[ExtResource("37_statuseffect_script")]([ExtResource("37_up_melee"), ExtResource("38_up_ranged"), ExtResource("39_up_armor"), ExtResource("40_up_helmet"), ExtResource("45_up_vampiric"), ExtResource("46_up_pierce"), ExtResource("47_up_flaming"), ExtResource("47_up_frost"), ExtResource("48_up_fragile"), ExtResource("49_up_knockback"), ExtResource("50_up_seeking"), ExtResource("51_up_shocking"), ExtResource("52_up_venomous"), ExtResource("53_up_vigor"), ExtResource("54_up_siphon"), ExtResource("55_up_poison_thorns"), ExtResource("56_up_explosive_corpse")])
+forgeUpgrades = Array[ExtResource("37_statuseffect_script")]([ExtResource("37_up_melee"), ExtResource("38_up_ranged"), ExtResource("39_up_armor"), ExtResource("40_up_helmet"), ExtResource("45_up_vampiric"), ExtResource("46_up_pierce"), ExtResource("47_up_flaming"), ExtResource("47_up_frost"), ExtResource("48_up_fragile"), ExtResource("49_up_knockback"), ExtResource("50_up_seeking"), ExtResource("51_up_shocking"), ExtResource("52_up_venomous"), ExtResource("53_up_vigor"), ExtResource("54_up_siphon"), ExtResource("55_up_poison_thorns"), ExtResource("56_up_explosive_corpse"), ExtResource("up_melee_extended_range"), ExtResource("up_ranged_extended_range"), ExtResource("up_weapon_speed"), ExtResource("up_weapon_blunt"), ExtResource("up_armor_stealth"), ExtResource("up_armor_oil_efficient"), ExtResource("up_ranged_marked"), ExtResource("up_armor_dash_range")])
 forgeMeleeIcon = ExtResource("41_icon_melee")
 forgeRangedIcon = ExtResource("42_icon_ranged")
 forgeArmorIcon = ExtResource("43_icon_armor")
@@ -145,6 +153,7 @@ deathSackScene = ExtResource("30_death_sack")
 deathSackMarkerIcon = ExtResource("30_grave_icon")
 languages = Array[ExtResource("3_lang_script")]([ExtResource("3_lang_common"), ExtResource("3_lang_muddish"), ExtResource("3_lang_vyeshal")])
 commonTongue = ExtResource("3_lang_common")
+dayLengthSeconds = 1200.0
 sunMaxElevationDegrees = 65.0
 sunsetAngleDegrees = 25.0
 fillAFromSkyBias = 1.0

@@ -340,6 +340,11 @@ public partial class Player : CharacterBody3D
 	EInventorySlot? _queuedWeaponTapSlot;
 	string _queuedWeaponTapActionName;
 	bool _queuedDash;
+	// Sprint latch: set by a Dash press with stamina in hand, cleared on
+	// release, exhaustion, or anything that cancels the dash. _sprinting is
+	// the per-tick result (latch AND the body can sprint right now).
+	bool _sprintArmed;
+	bool _sprinting;
 	readonly List<IInteractive> _interactiveCollisions = new();
 	readonly List<Foliage> _foliageCollisions = new();
 	float _terrainSpeed = 1f;
@@ -616,6 +621,7 @@ public partial class Player : CharacterBody3D
 	public bool IsAiming => _aiming;
 	public bool IsSneaking => _sneaking;
 	public bool IsDashing => _dashTimeRemaining > 0f;
+	public bool IsSprinting => _sprinting;
 	public bool IsGrounded => _grounded;
 	public bool IsSliding => _sliding;
 	public bool IsSkating => _skating;
@@ -658,8 +664,7 @@ public partial class Player : CharacterBody3D
 	public bool HasLearnedLanguage(LanguageData language) => GetLearnedComponents(language) == ELanguageComponents.All;
 	// OR `components` into the active member's learned-set for `language`. Returns
 	// true only when this call newly added at least one component bit *relative to
-	// combined (party + individual) knowledge* — used by stones / consumables to
-	// gate the one-shot firstLearnEffect. Fires onLanguageLearned with the bits
+	// combined (party + individual) knowledge*. Fires onLanguageLearned with the bits
 	// that were NEWLY added so listeners can describe exactly what was gained
 	// ("Vyeshal Grammar" rather than the player's full known set). Banked into the
 	// party pool when the player camps.
@@ -1241,14 +1246,30 @@ public partial class Player : CharacterBody3D
 	}
 
 	// Puts the lantern out by circumstance (water, rain, an empty tank) rather
-	// than by the player's hand, so it plays the lantern's douse cue on top of
-	// the light's own off-cue.
+	// than by the player's hand, so it plays the lantern's douse cue.
 	private void DouseLantern(LanternState lantern)
 	{
 		_inventory.Extinguish();
-		if (lantern.data.douseEffectScene != null)
+		SpawnLanternCue(lantern.data.douseEffectScene);
+	}
+
+	// The player putting the lit lantern out by hand.
+	public void SnuffLantern()
+	{
+		LanternState lantern = _inventory?.LitLantern;
+		if (lantern == null)
 		{
-			Fx.Create(lantern.data.douseEffectScene, this, Vector3.Up * SkyExposureProbeHeight);
+			return;
+		}
+		_inventory.Extinguish();
+		SpawnLanternCue(lantern.data.extinguishEffect);
+	}
+
+	private void SpawnLanternCue(PackedScene scene)
+	{
+		if (scene != null)
+		{
+			Fx.Create(scene, this, Vector3.Up * SkyExposureProbeHeight);
 		}
 	}
 
@@ -1314,6 +1335,11 @@ public partial class Player : CharacterBody3D
 	}
 
 	// IActionActor — ItemAction.oilCost.
+	public float ActionOilCost(float baseCost)
+	{
+		return baseCost <= 0f ? 0f : baseCost * ComposeStat(EStat.OilCost);
+	}
+
 	public bool CanAffordLanternOil(float amount)
 	{
 		return amount <= 0f || _lanternOil + _bonusLanternOil >= amount;
@@ -1368,6 +1394,17 @@ public partial class Player : CharacterBody3D
 	public bool LightLantern()
 	{
 		return HasLanternOil && _inventory != null && _inventory.Light();
+	}
+
+	// The player lighting the lantern by hand: LightLantern plus its strike cue.
+	public bool LightLanternByHand()
+	{
+		if (!LightLantern())
+		{
+			return false;
+		}
+		SpawnLanternCue(_inventory.LitLantern?.data.lightEffect);
+		return true;
 	}
 
 	public void Initialize(Sim sim, PlayerState member, Vector3 position, Vector3 rotation)
@@ -1752,6 +1789,7 @@ public partial class Player : CharacterBody3D
 		TickAmmoRecharge(_world?.GameTimeMs ?? 0);
 		TickStamina(dt);
 		TickSwimStamina(dt);
+		TickSprint(dt);
 		TickStaminaExhaustion();
 		TickBloodDrain(dt);
 		TickHitstun(dt);
@@ -1759,7 +1797,7 @@ public partial class Player : CharacterBody3D
 		// Drop movement-trail hazards (e.g. the fairy-corpse buff's burning
 		// fairy-fire) while dashing. No-op unless an active effect authors a
 		// trailZoneScene.
-		_statusEffects.TickMovementTrail(this, IsDashing, GlobalPosition, dt);
+		_statusEffects.TickMovementTrail(this, IsDashing || _sprinting, GlobalPosition, dt);
 		UpdateNightVisionShaderGlobal();
 		TickWetEffect(dt);
 		DouseCarriedLantern();
@@ -1842,9 +1880,11 @@ public partial class Player : CharacterBody3D
 		// Stamina-gated speed table:
 		//   sneaking      → sneakSpeed
 		//   stamina ≤ 0   → tiredRunSpeed
-		//   else          → moveSpeed, slowed by equipped weight but never below sneakSpeed
+		//   sprinting     → sprintSpeed, slowed by equipped weight but never below sneakSpeed
+		//   else          → moveSpeed, likewise
 		bool exhausted = _stamina <= 0f;
-		float speed = Mathf.Max(data.sneakSpeed, data.moveSpeed * WeightSpeedMultiplier());
+		float baseSpeed = _sprinting ? data.sprintSpeed : data.moveSpeed;
+		float speed = Mathf.Max(data.sneakSpeed, baseSpeed * WeightSpeedMultiplier());
 		if (_sneaking)
 		{
 			speed = data.sneakSpeed;

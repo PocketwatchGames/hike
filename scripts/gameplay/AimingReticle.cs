@@ -1248,12 +1248,9 @@ public partial class AimingReticle : Node3D
 		// at the first solid hit instead of reflecting, so the dotted preview stops
 		// where the bomb will actually go off. Gated on an impactEvent (the payload
 		// on completion), matching DoProjectile's condition.
-		// Preview against weapon-global (AllAttacks) detonate mods only — the
-		// reticle doesn't track which charge tier the throw will commit to, and
-		// the only detonate mod in play (Fragile) is weapon-global. -1 matches
-		// AllAttacks-scoped mods and skips charge-specific ones.
+		// Preview against the tier the throw would commit to right now.
 		WeaponState rightWeapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
-		bool detonateOnContact = ItemEventHandlers.ArcDetonatesOnContact(arc, rightWeapon, -1);
+		bool detonateOnContact = ItemEventHandlers.ArcDetonatesOnContact(arc, rightWeapon, WeaponModTier.Of(rightWeapon, ResolveActiveTier(out _)));
 
 		Vector3 launchVel = bearing * (horizDist / fuse) + Vector3.Up * launchVy;
 
@@ -1938,7 +1935,8 @@ public partial class AimingReticle : Node3D
 			// the tier's charge ramp — the throw distance (and with it the lob's
 			// horizontal launch speed, reach / fuse) grows as the hold charges.
 			ItemEvent arc = FindArcEvent();
-			return arc != null ? arc.projectileMaxRange * ItemAction.SampleRangeScale(tier, chargeT) : tier.positionalRange;
+			WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
+			return arc != null ? arc.projectileMaxRange * ItemEventHandlers.ResolveRangeScale(weapon, tier, chargeT) : tier.positionalRange;
 		}
 		if (tier.aimType == EAimType.Positional)
 		{

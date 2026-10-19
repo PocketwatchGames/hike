@@ -64,7 +64,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			{
 				continue;
 			}
-			float rangeScale = ItemAction.SampleRangeScale(tier, chargeT);
+			float rangeScale = ItemEventHandlers.ResolveRangeScale(weapon, tier, chargeT);
 			if ((ev.type & EItemEventType.Hitscan) != 0)
 			{
 				return ev.hitScanRange * rangeScale;
@@ -80,7 +80,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			}
 			if ((ev.type & EItemEventType.Melee) != 0)
 			{
-				return ev.range + lunge;
+				return ev.range * ItemEventHandlers.WeaponRangeScale(weapon, tier) + lunge;
 			}
 		}
 		return 0f;
@@ -158,9 +158,9 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			_runner.TryAbort();
 		}
-		// Equipped weight shortens the dash (not weapon lunges): same speed, less
-		// distance.
-		var context = new ActionContext { motionDurationMultiplier = WeightDashDistanceMultiplier() };
+		// Equipped weight and EStat.DashDistance scale the dash (not weapon lunges):
+		// same speed, different distance.
+		var context = new ActionContext { motionDurationMultiplier = WeightDashDistanceMultiplier() * ComposeStat(EStat.DashDistance) };
 		if (!_runner.TryStart(data.dashActionProfile, context))
 		{
 			return;
@@ -367,7 +367,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		}
 		if (item is LanternState lantern && !_inventory.IsLit(lantern))
 		{
-			LightLantern();
+			LightLanternByHand();
 			return;
 		}
 		if (item.data is IUsableItem usable && usable.ActionProfile != null)

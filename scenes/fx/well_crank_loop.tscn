@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://duxcw6ihs2wxo"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://bi4sulknlbxrc" path="res://assets/audio/source/interactives/MECHANICS_Chain_Pull_01_loop_mono.wav" id="2_a"]
+[ext_resource type="AudioStream" uid="uid://b0b2m1kqpndo" path="res://assets/audio/source/interactives/CREAK_Wood_01_mono.wav" id="3_a"]
+
+[node name="WellCrankLoop" type="Node3D"]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Chain" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("2_a")
+volume_db = -4.0
+unit_size = 4.0
+max_distance = 18.0
+bus = &"World3D"
+
+[node name="Creak" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("3_a")
+volume_db = -4.0
+unit_size = 4.0
+max_distance = 18.0
+bus = &"World3D"

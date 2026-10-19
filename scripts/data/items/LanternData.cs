@@ -23,10 +23,12 @@ public partial class LanternData : ItemData, IUsableItem
 
 	public override Texture2D SlotIcon(bool active) => active && activeSprite != null ? activeSprite : inventorySprite;
 
+	// One-shot cues for the player lighting the lantern and snuffing it by hand.
+	// Only the deliberate act plays them — not a load, a swap or a sleep.
+	[Export] public PackedScene lightEffect;
+	[Export] public PackedScene extinguishEffect;
 	// One-shot steam/sizzle cue spawned on the player when the lantern is doused
 	// by the environment (heavy rain / swimming) rather than snuffed by hand.
-	// Layers on top of the lantern light's normal off-cue so a water douse reads
-	// distinctly wet. Optional — null falls back to just the off-cue.
 	[Export] public PackedScene douseEffectScene;
 	// The visible lantern prop (a HeldTorch scene) shown while the lantern is
 	// lit. The scene also carries its own world light (its

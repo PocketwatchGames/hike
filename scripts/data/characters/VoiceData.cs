@@ -30,6 +30,10 @@ public partial class VoiceData : Resource
 	// Gasp/pant spawned the moment stamina is exhausted (player only). Self-
 	// anchored and carries its own breath-puff particles.
 	[Export] public PackedScene outOfBreath;
+	// Short non-verbal vocalization (a grunt, a "hm") spawned at the start of
+	// every paragraph this character speaks in a conversation. Keep it brief —
+	// advancing to the next line cuts the previous one off.
+	[Export] public PackedScene talk;
 
 	// Multiplier applied to the pitch_scale of every voice clip this bank
 	// spawns (1 = as recorded). Drives cheap per-voice variation — e.g. a

@@ -17,6 +17,7 @@
 [ext_resource type="Material" uid="uid://cwfk2p8nxe7lq" path="res://assets/models/campfire/campfire_lit.tres" id="15_lit"]
 [ext_resource type="Material" uid="uid://bq7n0wkx2mhd5" path="res://assets/models/campfire/campfire_doused.tres" id="16_doused"]
 [ext_resource type="PackedScene" uid="uid://cetqhlokr0mrc" path="res://scenes/fx/campfire_loop.tscn" id="17_loop"]
+[ext_resource type="PackedScene" uid="uid://dr1nk2lk5q8wn" path="res://scenes/fx/drink_loop.tscn" id="90_loopfx"]
 
 [sub_resource type="Resource" id="Resource_cauldron_event_drink"]
 script = ExtResource("4_event")
@@ -28,6 +29,7 @@ displayName = &"Drink"
 icon = ExtResource("5_drink")
 completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_cauldron_event_drink")])
 durationSeconds = 2.0
+loopEffect = ExtResource("90_loopfx")
 locksMovement = true
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]

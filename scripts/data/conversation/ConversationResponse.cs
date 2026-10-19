@@ -37,10 +37,14 @@ public partial class ConversationResponse : Resource
     // conversation.
     [Export] public StringName destination;
 
+    // Side effects fired when this response is OFFERED — once per showing of
+    // the chooser, for every response the player can actually pick.
+    [Export] public Array<ConversationAction> startActions;
+
     // Side effects fired in order when the player picks this response. Run
     // before the destination branch's text is shown — an action that ends
     // the conversation (e.g. OpenShop) will suppress the unread destination.
-    [Export] public Array<ConversationAction> actions;
+    [Export] public Array<ConversationAction> completeActions;
 
     // Tongue this line is spoken in, given the language of the branch it
     // answers. The one implementation of the fallback — the display render and

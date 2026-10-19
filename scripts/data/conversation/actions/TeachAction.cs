@@ -8,7 +8,7 @@ using Godot;
 // treasure map, a quest flag.
 //
 // Authored on the response where the teaching actually lands ("[Teach me your
-// tongue.]"), or on a branch's endActions when the telling IS the line.
+// tongue.]"), or on the line's completeActions when the telling IS the line.
 //
 // An array rather than a single concept because one exchange plausibly grants
 // several at once (the tongue AND the name of the place it's spoken) — matching
@@ -24,10 +24,6 @@ public partial class TeachAction : ConversationAction
 {
     [Export] public Godot.Collections.Array<TeachableConcept> concepts = new();
 
-    // Optional one-shot fx on the player, fired once if ANY concept in the array
-    // was newly granted. Mirrors KnowledgeStone's firstLearnEffect.
-    [Export] public PackedScene learnEffect;
-
     public override void Execute(ConversationContext ctx)
     {
         Player player = ctx.player;
@@ -35,19 +31,10 @@ public partial class TeachAction : ConversationAction
         {
             return;
         }
-        bool learnedSomething = false;
         int count = concepts.Count;
         for (int i = 0; i < count; i++)
         {
-            TeachableConcept concept = concepts[i];
-            if (concept != null && concept.Teach(player))
-            {
-                learnedSomething = true;
-            }
-        }
-        if (learnedSomething && learnEffect != null)
-        {
-            Fx.Create(learnEffect, player, Vector3.Zero);
+            concepts[i]?.Teach(player);
         }
     }
 }

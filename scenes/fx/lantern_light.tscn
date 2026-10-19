@@ -1,0 +1,58 @@
+[gd_scene format=3 uid="uid://cgua4oedfo8vp"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://e7bxlncfc8qj" path="res://assets/audio/source/weapons/sfx_player_lantern_head.wav" id="2_lh"]
+[ext_resource type="AudioStream" uid="uid://b6u50t5e73j7f" path="res://assets/audio/source/weapons/FOLEY_Light_Match_mono.wav" id="3_match"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_torchlight"]
+emission_shape = 1
+emission_sphere_radius = 0.08
+direction = Vector3(0, 1, 0)
+spread = 15.0
+initial_velocity_min = 0.6
+initial_velocity_max = 1.6
+gravity = Vector3(0, 1.5, 0)
+damping_min = 0.4
+damping_max = 1.0
+scale_min = 0.4
+scale_max = 1.0
+color_ramp = ExtResource("fade_grad")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_torchlight"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(1, 0.7, 0.25, 0.85)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_torchlight"]
+material = SubResource("ShaderMaterial_torchlight")
+size = Vector2(0.08, 0.08)
+
+[node name="LanternLight" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Spark" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 8
+lifetime = 0.5
+one_shot = true
+explosiveness = 1.0
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_torchlight")
+draw_pass_1 = SubResource("QuadMesh_torchlight")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("2_lh")
+unit_size = 4.0
+max_distance = 22.0
+bus = &"World3D"
+
+[node name="Match" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("3_match")
+volume_db = -4.0
+unit_size = 4.0
+max_distance = 22.0
+bus = &"World3D"

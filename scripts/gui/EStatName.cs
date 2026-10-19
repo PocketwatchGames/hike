@@ -67,4 +67,5 @@ public enum EStatName
 	// Shield block counter-strike (ShieldData.blockCounter) context title.
 	Thorns,
 	OilCost,
+	DashDistance,
 }

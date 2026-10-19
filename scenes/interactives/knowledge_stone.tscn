@@ -7,7 +7,6 @@
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_wjlsr"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_wxwuj"]
 [ext_resource type="Texture2D" uid="uid://cekrs1qg2sois" path="res://assets/textures/interactions/look.png" id="5_look"]
-[ext_resource type="PackedScene" uid="uid://bltjwssh6fblq" path="res://scenes/fx/learn_language.tscn" id="6_learnfx"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_45v1k"]
 [ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="7_autocoll"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="8_meshhl"]
@@ -18,6 +17,7 @@
 [ext_resource type="PackedScene" uid="uid://due3oqhb0clen" path="res://scenes/fx/knowledge_stone_use.tscn" id="12_use"]
 [ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="13_mapmarker"]
 [ext_resource type="Texture2D" uid="uid://cc5oqi7tf0ylw" path="res://assets/textures/map_markers/knowledge_stone.png" id="14_mapicon"]
+[ext_resource type="PackedScene" uid="uid://bwh4veu2kt72u" path="res://scenes/fx/read_loop.tscn" id="90_loopfx"]
 
 [sub_resource type="Resource" id="Resource_ks_event_open"]
 script = ExtResource("4_event")
@@ -30,6 +30,7 @@ displayName = &"Read"
 icon = ExtResource("5_look")
 completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_ks_event_open")])
 durationSeconds = 3.0
+loopEffect = ExtResource("90_loopfx")
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_wjlsr"]
 height = 6.0
@@ -48,7 +49,6 @@ script = ExtResource("1_knowledgestone")
 _hudNode = NodePath("HUDNode")
 _actions = Array[ExtResource("3_action")]([SubResource("Resource_ks_action_read")])
 _text = "Worn glyphs spiral around the stone, just barely legible."
-_firstLearnEffect = ExtResource("6_learnfx")
 _ambientLoopEffect = ExtResource("11_ambloop")
 
 [node name="BaseModel" type="Node3D" parent="." unique_id=587131948]

@@ -4,18 +4,19 @@ using System.Collections.Generic;
 
 public partial class Player : CharacterBody3D
 {
-	// Gates aiming and look-driven rotation. Returns false during a dash so
+	// Gates aiming and look-driven rotation. Returns false during a dash or sprint so
 	// the player commits to facing movement direction for the burst — both
 	// _aiming (which drives the aim reticle, ranged routing, gamepad stick
 	// fallback) and the rotation block in _PhysicsProcess consult this single
 	// function so they can't drift out of sync.
 	private bool CanLook()
 	{
-		return _dashTimeRemaining <= 0f;
+		return _dashTimeRemaining <= 0f && !_sprinting;
 	}
 
 	// Centralized dash cancel. Called from attack handlers so committing to a
-	// swing always wins over an in-flight dash.
+	// swing always wins over an in-flight dash — and over a held sprint, which
+	// needs a fresh Dash press to resume.
 	// TryAbort on the runner only fires AbortActive when the active tier's
 	// canAbort is true (set on the dash tier in dash_action.tres), so this
 	// also explicitly zeroes the per-actor dash timers — AbortActive only
@@ -27,6 +28,8 @@ public partial class Player : CharacterBody3D
 			_runner.TryAbort();
 		}
 		_dashTimeRemaining = 0f;
+		_sprintArmed = false;
+		_sprinting = false;
 	}
 
 	// Active mantle. While _mantleEndMs is non-zero the player is being carried
