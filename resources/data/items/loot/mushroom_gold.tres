@@ -1,11 +1,13 @@
-[gd_resource type="Resource" script_class="LootData" format=3 uid="uid://b8q3p5krx0tww"]
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://b8q3p5krx0tww"]
 
-[ext_resource type="Script" uid="uid://3oa4sob21cmwb" path="res://scripts/data/items/LootData.cs" id="1_item_data"]
+[ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_item_data"]
 [ext_resource type="Texture2D" uid="uid://c56xlitxf10lu" path="res://assets/textures/items/MushroomGold.png" id="1_x4kx3"]
 [ext_resource type="Resource" uid="uid://45twv92ziyfu6" path="res://resources/data/items/loot/mushroom.tres" id="2_parent"]
 
 [resource]
 script = ExtResource("1_item_data")
+categoryOverride = 6
+satiation = 0.05
 displayName = &"Gold Mushroom"
 maxStack = 99
 value = 1

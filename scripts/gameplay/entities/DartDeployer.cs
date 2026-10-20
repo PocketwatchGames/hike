@@ -166,7 +166,9 @@ public partial class DartDeployer : Node3D, ITriggerable, IDisarmable
         for (int i = 0; i < bodies.Count; i++)
         {
             Node3D body = bodies[i];
-            if (body == null || !GodotObject.IsInstanceValid(body))
+            // Aim at whoever tripped the wire, not a light critter that happens
+            // to be standing in it.
+            if (body == null || !GodotObject.IsInstanceValid(body) || !ts.CanFire(body))
             {
                 continue;
             }

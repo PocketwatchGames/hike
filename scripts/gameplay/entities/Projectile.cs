@@ -26,6 +26,9 @@ public struct ProjectileImpact
 	public PackedScene backstab;
 	public WeaponState sourceWeapon;
 	public ArrowLootData arrowLootData;
+	// ItemEvent.durabilityCostOnHit: spent from sourceWeapon when the shot first
+	// strikes a target; a round that wear breaks drops no arrow.
+	public float durabilityCostOnHit;
 	// ItemEvent.impactDecibels, sounded where the shot lands.
 	public float impactDecibels;
 }
@@ -72,6 +75,10 @@ public partial class Projectile : Node3D
 	// (mob, player) sees the attacker for retaliation / aggro / etc. Protected
 	// so a homing subclass can read the firer when picking targets.
 	protected Node _source;
+	// Set on the first mob this shot strikes (ProjectileImpact.durabilityCostOnHit);
+	// breakables don't wear the weapon.
+	private bool _struckTarget;
+	private bool _roundBroken;
 	// Protected so movement-override subclasses (HomingMissile) can steer it.
 	protected Vector3 _velocity;
 	// Protected so subclasses can ramp/arm behavior off the projectile's age
@@ -490,6 +497,11 @@ public partial class Projectile : Node3D
 						EDamageTriggerFlags hitTriggers = prediction.Triggers;
 						hurtBox.Hit(hit);
 						GlobalPosition = hitPos;
+						if (!_struckTarget && ItemEventHandlers.FindOwningMob(hurtBox) != null)
+						{
+							_struckTarget = true;
+							_roundBroken = ItemEventHandlers.WearOnStrike(_source, _impact.sourceWeapon, _impact.durabilityCostOnHit);
+						}
 						// Record this creature so the shot can't strike it again as
 						// it passes through.
 						if (_hurtBoxExclude == null)
@@ -707,7 +719,7 @@ public partial class Projectile : Node3D
 
 		WeaponState weapon = _impact.sourceWeapon;
 		ArrowLootData arrowLootData = _impact.arrowLootData;
-		if (weapon == null || arrowLootData == null || Sim.Current == null)
+		if (weapon == null || arrowLootData == null || _roundBroken || Sim.Current == null)
 		{
 			return;
 		}

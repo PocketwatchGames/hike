@@ -8,13 +8,9 @@ using Godot;
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]
-public partial class ShieldData : ItemData
+public partial class ShieldData : GearData
 {
 	protected override EItemCategory ComputeCategory() => EItemCategory.Shield;
-
-	// Weight while equipped (see ItemData.EquipWeight).
-	[Export] public float weight = 0f;
-	public override float EquipWeight => weight;
 
 	[ExportGroup("Block")]
 	// Recharging guard pool, live only while sneaking. 0 = the shield never soaks

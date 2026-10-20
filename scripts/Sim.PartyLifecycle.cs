@@ -103,6 +103,26 @@ public partial class Sim
         }
     }
 
+    // Every member's node, or the controlled one alone before the party is bound.
+    private void ForEachPartyNode(System.Action<Player> action)
+    {
+        if (_partyNodes == null)
+        {
+            if (_player != null)
+            {
+                action(_player);
+            }
+            return;
+        }
+        for (int i = 0; i < _partyNodes.Count; i++)
+        {
+            if (_partyNodes[i] != null)
+            {
+                action(_partyNodes[i]);
+            }
+        }
+    }
+
     // Pass to Sleep to sleep until woken by the next sunrise.
     public const double SleepUntilDawn = double.PositiveInfinity;
 
@@ -119,22 +139,28 @@ public partial class Sim
             return false;
         }
         PutOutPartyLanterns();
+        // Settle the meters as the party lies down, so the sleep itself is
+        // drained (and rested) as sleep.
+        ForEachPartyNode(node => node.SettleNeeds());
         double hoursToDawn = (_worldState.NextClockAt(WorldState.SunriseTimeOfDay01) - _worldState.WorldClockDays) * HoursPerDay;
         bool rest = hours >= hoursToDawn;
+        double slept;
         if (rest)
         {
             RestToSunrise();
+            slept = hoursToDawn;
         }
         else
         {
             // Heals AFTER the nap's status effects resolve, so a DoT that ran
             // during it lands first — and a player it killed isn't revived by the heal.
-            Doze(hours);
+            slept = Doze(hours);
             if (!_player.IsDead)
             {
                 _player.Heal((float)(_player.MaxHealth * healFractionPerHour * hours));
             }
         }
+        ForEachPartyNode(node => node.WakeFromSleep(slept));
         Companion?.RecallToPlayer(_player.GlobalPosition);
         return rest;
     }

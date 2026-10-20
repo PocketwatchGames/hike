@@ -454,7 +454,7 @@ public partial class Player : CharacterBody3D
 		// leaves the held model untouched.
 		if (_aiming)
 		{
-			WeaponState ranged = _inventory?.GetWeapon(EInventorySlot.WeaponRight);
+			WeaponState ranged = GetUsableWeapon(EInventorySlot.WeaponRight);
 			if (ranged?.data?.heldModel != null && ranged != _wieldedWeapon)
 			{
 				WieldWeapon(ranged);

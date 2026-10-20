@@ -74,7 +74,7 @@ public partial class SimData : Resource
     // Authored once here — the drop is species-agnostic, the trophy form of the
     // EliteCrownScene halo — so any elite drops it without per-species wiring.
     // Null disables the trophy drop. See Mob.EjectLoot.
-    [Export] public LootData eliteLoot;
+    [Export] public ItemData eliteLoot;
 
     // Daily "well rested" buff. Each sunrise one idle party member is drawn (see
     // Party.AdvanceRestAndPickWellRested) and wears this until the next — a small

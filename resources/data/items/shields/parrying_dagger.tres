@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ShieldData" format=3]
+[gd_resource type="Resource" script_class="ShieldData" format=3 uid="uid://ds8dwvfjjyi4"]
 
 [ext_resource type="Script" uid="uid://jqmwdcmyi4tc" path="res://scripts/data/items/ShieldData.cs" id="1_shield"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="2_damage"]
@@ -18,9 +18,7 @@ modifiers = []
 
 [resource]
 script = ExtResource("1_shield")
-weight = 0.25
 guardArmor = 30.0
-guardRechargeDelay = 1.0
 guardRechargeTime = 0.4
 blockDecibels = 0.3
 parryTimeMs = 300
@@ -28,6 +26,8 @@ maxParryDamage = 250.0
 parryCounter = SubResource("Resource_counter")
 parryEffect = ExtResource("5_parryfx")
 parryDecibels = 0.8
+weight = 0.25
+maxDurability = 360
 displayName = &"Parrying Dagger"
 description = "An off-hand blade with a broad guard. It stops almost nothing on its own, but a well-timed crouch turns the blow aside and answers it with a killing riposte."
 value = 50

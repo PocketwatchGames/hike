@@ -174,6 +174,12 @@ public partial class Player : CharacterBody3D
 	[Export] private PackedScene _armorDepletedFx;
 	[Export] private PackedScene _armorRechargeStartFx;
 	[Export] private PackedScene _armorRecoverStartFx;
+	// Gear durability one-shots: warning when a piece first drops into worn
+	// (PlayerData.durabilityWarningFraction), broken when it breaks. An ammo
+	// weapon plays ammoBroken instead, every time wear costs it a round.
+	[Export] private PackedScene _durabilityWarningFx;
+	[Export] private PackedScene _durabilityBrokenFx;
+	[Export] private PackedScene _durabilityAmmoBrokenFx;
 	// Sneak-block guard cues. blockStart plays on the crouch that actually
 	// raises a live guard (skipped while the re-engage cooldown holds it down);
 	// parryWindowEnd plays when the parry window elapses with the guard still
@@ -696,8 +702,9 @@ public partial class Player : CharacterBody3D
 	// Stamina base is the member's flat unit count (PlayerState.stamina), not a
 	// multiplier — PlayerData.maxStamina only serves memberless spawns. Flat
 	// MaxStamina modifiers (status effects, traits) add whole units on top, and
-	// equipped weight over SimData.minWeightPenalty takes units away.
-	public float MaxStamina => Mathf.Max(0f, (Member?.stamina ?? data?.maxStamina ?? 0f) + ComposeStat(EStat.MaxStamina) - PenalizedWeight());
+	// equipped weight over SimData.minWeightPenalty takes units away. The needs
+	// meters add up to PlayerData.maxStaminaPerNeed each while full.
+	public float MaxStamina => Mathf.Max(0f, (Member?.stamina ?? data?.maxStamina ?? 0f) + ComposeStat(EStat.MaxStamina) + NeedsStaminaBonus() - PenalizedWeight());
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
 	// Catch up status effects by `dt` seconds in one call. Used by the sleep
@@ -709,13 +716,15 @@ public partial class Player : CharacterBody3D
 	// What a save carries for this member's node, inside a shared EntitySerializer
 	// table (SaveGame). Only what a sunrise keeps: the inventory, effects acquired
 	// in play that outlast the dawn, non-transient buildups, health (the wake heals
-	// only the controlled member), lantern oil, and where a fallen member's body lies.
+	// only the controlled member), lantern oil, the needs meters, and where a fallen
+	// member's body lies.
 	public void WriteMemberSave(System.IO.BinaryWriter w)
 	{
 		w.Write(_health);
 		w.Write(_bonusHealth);
 		w.Write(_lanternOil);
 		w.Write(_bonusLanternOil);
+		WriteNeeds(w);
 		_inventory.Serialize(w);
 		EntitySerializer.WriteStatusEffects(w, EnumerateAcquiredEffects());
 		var buildups = new List<(StatusEffectData data, float amount)>();
@@ -742,6 +751,7 @@ public partial class Player : CharacterBody3D
 		_bonusHealth = Mathf.Clamp(r.ReadSingle(), 0f, MaxBonusHealth);
 		_lanternOil = Mathf.Clamp(r.ReadSingle(), 0f, MaxLanternOil);
 		_bonusLanternOil = Mathf.Clamp(r.ReadSingle(), 0f, MaxBonusLanternOil);
+		ReadNeeds(r);
 		_inventory.Restore(r);
 		List<EntitySerializer.StatusEffectRecord> effects = EntitySerializer.ReadStatusEffects(r);
 		int buildupCount = r.ReadInt32();
@@ -1434,6 +1444,7 @@ public partial class Player : CharacterBody3D
 			data.scentStampInterval, data.scentStampMoveDistance, data.scentMaxCrumbs);
 		_health = MaxHealth;
 		_lanternOil = MaxLanternOil;
+		_needsSettledClock = sim.WorldClockDays;
 
 		// Adopt the hosted member's name (blank keeps the default).
 		if (!string.IsNullOrEmpty(member?.characterName))
@@ -1538,6 +1549,12 @@ public partial class Player : CharacterBody3D
 	// physics tick.
 	public void SetActive(bool active)
 	{
+		// Close the span at the rate it ran at: composed while controlled, base
+		// while idle (see Player.Needs).
+		if (active != IsActive)
+		{
+			SettleNeeds();
+		}
 		IsActive = active;
 		if (active)
 		{
@@ -1805,6 +1822,7 @@ public partial class Player : CharacterBody3D
 		TickDirtyEffect(dt);
 		TickMuddyEffect(dt);
 		TickBodyTemperature(dt);
+		TickNeeds();
 		// The player is always on their own screen — DoT feedback never suppressed.
 		DotHudFlush dotFlush = _dotHud.Tick(_world?.GameTimeMs ?? 0, GlobalPosition, showHudFeedback: true);
 		if (dotFlush.damage)

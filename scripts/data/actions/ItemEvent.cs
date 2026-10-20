@@ -203,6 +203,15 @@ public partial class ItemEvent : Resource
 	// raises mobs' perception of the player; a mob's raises the player's awareness
 	// of that mob. 0 = silent.
 	[Export] public float impactDecibels = 0f;
+	// Durability the driving weapon spends when this attack first strikes a MOB —
+	// a melee swing's first creature, a hitscan hit, a projectile's first creature
+	// (pierce-throughs don't add more). Breakables and props never wear it. A round that this wear breaks
+	// (an ammo weapon trading a round of capacity, WeaponState.Wear) drops no
+	// recoverable arrow. Player only. 0 = striking costs nothing.
+	[Export(PropertyHint.Range, "0,10,0.1,or_greater")] public float durabilityCostOnHit = 0f;
+
+	// UseDurability: spent from the driving weapon as the event fires, hit or not.
+	[Export(PropertyHint.Range, "0,10,0.1,or_greater")] public float durabilityCost = 1f;
 
 	// AreaBurst: the instant blast — damage, radius and fx in one. See
 	// EItemEventType.AreaBurst.
@@ -440,7 +449,9 @@ public partial class ItemEvent : Resource
 				or nameof(impactHealthEffect)
 				or nameof(impactArmorEffect)
 				or nameof(impactLethalEffect)
-				or nameof(impactDecibels) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile,
+				or nameof(impactDecibels)
+				or nameof(durabilityCostOnHit) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile,
+			nameof(durabilityCost) => EItemEventType.UseDurability,
 			nameof(projectileScene)
 				or nameof(projectileSpeed)
 				or nameof(projectileLifetimeSeconds)

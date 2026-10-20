@@ -82,6 +82,22 @@ public partial class ItemData : Resource
 	// in the world for hi-res UI sprites (e.g. a 200×200 potion icon).
 	[Export] public Texture2D worldSprite;
 
+	// --- On the ground (the shared Loot scene) ---
+	// Lifetime of the world pickup in milliseconds; 0 = never expires. Raw meat
+	// sets it so it rots off the ground if left. Once crossed the Loot plays its
+	// removeFX and despawns.
+	[Export] public int removeTimeMs = 0;
+
+	// 3D model shown in place of the flat world sprite while on the ground, for an
+	// item whose identity is a mesh rather than an icon (the crown reuses the
+	// elite halo). The model supplies its own material and idle animation; the
+	// inventorySprite is still used in the backpack.
+	[Export] public PackedScene worldModel;
+
+	// Hidden and non-interactive outside an authored time-of-day window, emerging
+	// from the ground during it (night-only forage). Null = always present.
+	[Export] public TimedEmergenceData timedEmergence;
+
 	public bool IsStackable => maxStack > 1;
 
 	// Resolved slot classification: the explicit override when set, else the
@@ -92,12 +108,6 @@ public partial class ItemData : Resource
 	// Material; WeaponData / ArmorData / LanternData / ConsumableData /
 	// ArrowLootData override.
 	protected virtual EItemCategory ComputeCategory() => EItemCategory.Material;
-
-	// This item's weight while it sits in an equipment slot. The total over
-	// SimData.minWeightPenalty costs max stamina, run/swim speed and dash distance
-	// (Player.PenalizedWeight). Only gear authors one — armor, shields and weapons
-	// override it with their `weight` field.
-	public virtual float EquipWeight => 0f;
 
 	// A cooking / spell reagent; picked up on contact, and placed past the hotbar.
 	public bool IsMaterial => Category == EItemCategory.Material;

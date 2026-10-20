@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_stat"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="3_mod"]
+
+[sub_resource type="Resource" id="mod_wear"]
+script = ExtResource("2_stat")
+stat = 21
+value = 0.5
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("3_mod")
+onHitBuildups = []
+metadata/_custom_type_script = "uid://fwmd5k3q8x2n"
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Sturdy"
+description = "This piece wears out at half the usual rate."
+category = 2
+maxStack = 1
+removesOnApply = []
+modifiers = [SubResource("mod_wear")]
+conditionalModifiers = []
+weaponMod = SubResource("weaponMod")

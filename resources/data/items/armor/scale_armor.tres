@@ -3,8 +3,8 @@
 [ext_resource type="Texture2D" uid="uid://whcsmapxod45" path="res://assets/textures/items/Armor.png" id="1_sprite"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
-[ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
+[ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
 
 [sub_resource type="Resource" id="m_pen"]
 script = ExtResource("tagmod_1")
@@ -20,10 +20,11 @@ metadata/_custom_type_script = "uid://6h7yge1txki2"
 
 [resource]
 script = ExtResource("2_armor")
-maxArmor = 200.0
-weight = 1.0
+maxArmor = 1050.0
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_pen")])
 outfit = SubResource("outfit")
+weight = 1.0
+maxDurability = 10500
 displayName = &"Scale Armor"
 description = "Overlapping metal scales spread the force of a blow — heavier than mail, and it shows in the stride."
 value = 60

@@ -36,3 +36,44 @@ Each attacking species authors one or more `WeaponData` `.tres` files **next to 
 At attack time `BehaviorAttack` reads `me.Weapons` and fires the **highest-`priority` weapon whose gates pass this tick** (in range, seen, off its own per-weapon cooldown, ally-count satisfied) — so a higher-priority gated special (the goblin's battle cry: `priority = 1`, `minAllies = 2`, long `cooldownSeconds`) is chosen when its conditions hold and otherwise falls through to the always-available basic attack (claw or torch, `priority = 0`). It sets that weapon's `WeaponState` (`Mob.GetWeapon(WeaponData)`, lazily created + cached, per-weapon cooldown tracked in `BehaviorAttack`) as the action's `primaryItem` — so damage resolution (`ItemEventHandlers.ResolveHit` / `DoProjectile` read `primaryItem.data.GetDamage`) and the **same** item-side weapon-mod path the player uses (`TriggerWeaponModChains`, `ProjectilePierceCount`, on-hit enchants, knockback) fire for mobs identically. The mob's visible in-hand prop is the `heldModel` of its highest-`priority` weapon that defines one (`Mob.PrimaryHeldWeapon`). A `HeldTorch` heldModel with `startLit = true` (the goblin torch) renders burning **and casts world light**: `HeldItemVisual` lights it via `SetLit(true, carrierRoot)` when the weapon prop is instanced, where `carrierRoot` is the nearest `PhysicsBody3D` ancestor (the mob body) so the deposit tracks the body, not the swinging hand. (Mobs no longer have the old conditional "light a torch when it's dark" feature — `MobData.heldTorchScene`, `Mob.ShouldUseTorch`, and `AIOutput.useTorch` were removed; a mob that should glow simply wields a `startLit` torch weapon.)
 
 **An elite is a property of the SPAWN, not of the species, and it is a mob-mod rather than a body status effect:** a spawn entry turns its mob elite by pointing `MobSpawnEntry.elite` at a shared `EliteData` signature (`resources/data/characters/elites/`, carrying `statusEffects` + a `badge` icon + an optional `crownScene`), and the elite entry is wired into spawn lists as a rarer separate row over the SAME `SpeciesData` — so an elite goblin stays one bestiary row, discovery and kill-quest target with the plain one, and no species is forked to make an elite of it. There is no runtime elite roll or zone signature pool. At spawn (`Mob.Initialize`) each `statusEffects` entry (the species' own, composed with the elite signature's) is routed by `ApplySpawnStatusEffect`: one whose effect has a `weaponMod` payload (e.g. `status_elite_weapon_lightning`) is captured as `Mob._eliteWeaponMod` and composed (`AllAttacks`) onto every weapon as `GetWeapon` creates it; one with no `weaponMod` (a plain body buff) is added to the mob's own controller instead. The HUD badge reads `MobSimState.Badge`; the effects list + badge persist via `EntitySerializer` (weapons themselves are runtime-only, rebuilt on first attack). Chain lightning therefore rides the weapon for player and elite alike; the actor-side `StatusEffectController.TriggerAttackImpact` fires only `attackImpact` body auras (no chain branch). Keep mob attack tiers at the per-tier `ItemAction.cooldownSeconds = 0` (the weapon's own `cooldownSeconds` governs cadence) — with `primaryItem` set, the `ActionRunner` also tracks the mob weapon's per-tier cooldown.
+
+## Gear durability (`GearData` / `GearState`)
+
+Weapons, armor and shields derive from `GearData` (`weight`, `maxDurability`) and
+their states from `GearState` (`durability`). `maxDurability = 0` never wears —
+mob weapons and the bare-hands fallbacks stay that way. **Only the player wears
+gear**, at the event's own site — weapons by uses, armor and shields by damage (`maxDurability` is in those units):
+
+| Gear | Wears on | Broken |
+|---|---|---|
+| melee weapon (no magazine) | its events' authored costs (below) | only tiers with charge start time 0 fire (`ActionRunner.IsBrokenGear`) |
+| ammo weapon with `wearCostsAmmoCapacity` (bow, crossbow) | its events' authored costs (below) | never stays broken: the round that takes it to 0 breaks — it drops/sticks no arrow — the magazine loses that round of capacity and durability refills to `maxDurability` × the fraction of capacity left (`WeaponState.Wear`); broken once the magazine is gone |
+| shield | damage absorbed: the guard a block consumes, the whole blow a parry negates | no guard, no parry, no bare-hands fallback |
+| armor | damage the pool soaks (DoT chips included), split across worn pieces by their share of the pool | the pool stops recharging |
+
+- **Weapon wear is authored on the `ItemEvent`, like ammo.** `durabilityCostOnHit`
+  (any Melee / Hitscan / Projectile event) is spent when the attack FIRST strikes
+  a MOB — breakables and props never wear a weapon — a swing's first creature, a
+  hitscan hit, a projectile's first creature
+  (`ItemEventHandlers.WearOnStrike`); the `UseDurability` flag spends
+  `durabilityCost` as the event fires, hit or not (`DoUseDurability`), the twin of
+  `UseAmmo`. A round whose strike breaks it (the wear cost the magazine a round)
+  drops and sticks no arrow. A weapon-mod missile carries no cost.
+- **All wear goes through `Player.WearGear`**, which plays the cues: warning once
+  on crossing `PlayerData.durabilityWarningFraction`, broken once at zero, and for
+  an ammo weapon its own snap every time wear costs a round (never the warning
+  again per shot). The HUD overlays read the same `GearState.Condition`.
+- **A spent ammo weapon (`WeaponState.IsSpent`: magazine worn to 0) is an empty
+  slot to gameplay** — no reticle, no draw, no fire, no aim assist — through
+  `Player.GetUsableWeapon`. The HUD still reads the equipped item, so it shows broken.
+- **Trading capacity is opt-in, not implied by a magazine.** Without
+  `WeaponData.wearCostsAmmoCapacity` an ammo weapon (the bomb) wears and breaks like
+  any other.
+- **Read magazine size through `WeaponState.MaxAmmo`, never `data.maxAmmo`** —
+  the authored value minus `ammoCapacityLost`. `UsesAmmo` asks whether it was
+  authored with a magazine at all.
+- **Wear rate is a per-ITEM mod**: an `EStat.DurabilityWear` `StatModifier` on a
+  `StatusEffectData` composed through `ItemDescriptor.statusEffects`
+  (`status_gear_sturdy` 0.5, `status_gear_brittle` 2.0). It is folded off the
+  item's own controller (`GearState.ComposeWearMultiplier`), never the wearer's.
+  Those mods carry an empty `weaponMod` only so the name affix applies.

@@ -212,6 +212,8 @@ public partial class Player : CharacterBody3D
 			absorbable = 0f;
 			bypassed = 0f;
 			SpendParryGuard(shield);
+			// The whole negated blow lands on the shield.
+			WearGear(shield, incomingDamage);
 			TryParry(shield, hit.source);
 			// Reaction one-shot over the sneak pose (the wielded weapon's Block
 			// override; no-op if it authors none).
@@ -227,6 +229,7 @@ public partial class Player : CharacterBody3D
 			blockAbsorbed = AbsorbShieldBlock(shield, ref absorbable, hit.blunt);
 			if (blockAbsorbed > 0f)
 			{
+				WearGear(shield, blockAbsorbed);
 				PlayOneShot(EAnimation.Block);
 				_world?.CreateNoiseEvent(GlobalPosition, shield.data.blockDecibels, this);
 				if (!hit.dot)
@@ -246,6 +249,8 @@ public partial class Player : CharacterBody3D
 		if (absorbable > 0f && _armor > 0f)
 		{
 			float armorDamage = absorbable * (1f + hit.blunt);
+			// Worn by what the pool actually loses — all of it on a breaking blow.
+			WearArmor(Mathf.Min(armorDamage, _armor));
 			if (armorDamage < _armor)
 			{
 				// Armor survives: soaks the whole remaining slice.
@@ -474,7 +479,8 @@ public partial class Player : CharacterBody3D
 			// central armor. Blunt isn't modeled on status ticks, so the chip is
 			// unscaled here. Status ticks don't break sneak, so the guard stays
 			// up across a burn/poison zone while the player keeps sneaking.
-			AbsorbShieldBlock(GetRaisedShield(), ref absorbable, 0f);
+			ShieldState raisedShield = GetRaisedShield();
+			WearGear(raisedShield, AbsorbShieldBlock(raisedShield, ref absorbable, 0f));
 			// A DoT that bypasses armor (poison / heal, armorPenetration=1) has
 			// armorDamage==0 and never enters here, so it can't stall recovery.
 			// One that chips armor (burn, armorPenetration<1) refreshes the
@@ -482,6 +488,7 @@ public partial class Player : CharacterBody3D
 			float armorDamage = absorbable;
 			if (armorDamage > 0f && _armor > 0f)
 			{
+				WearArmor(Mathf.Min(armorDamage, _armor));
 				_armor = Mathf.Max(0f, _armor - armorDamage);
 				RefreshArmorRecharge(_armor > 0f);
 			}

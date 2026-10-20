@@ -30,6 +30,7 @@ inputs = Array[ExtResource("4_input")]([SubResource("Resource_input_meat"), SubR
 [resource]
 script = ExtResource("1_consumable")
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_meal")])
+satiation = 0.75
 recipe = SubResource("Recipe")
 displayName = &"Fortifying Drake Stew"
 description = "Drake meat and blue mushrooms. Steels you against harm."

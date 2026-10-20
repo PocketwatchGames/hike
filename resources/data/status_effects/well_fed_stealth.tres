@@ -6,12 +6,6 @@
 [ext_resource type="PackedScene" uid="uid://bdr1he0fm3lyr" path="res://scenes/fx/status_well_fed_start.tscn" id="4_startfx"]
 [ext_resource type="PackedScene" uid="uid://cstguqovay7y0" path="res://scenes/fx/status_well_fed_end.tscn" id="5_endfx"]
 
-[sub_resource type="Resource" id="mod_health"]
-script = ExtResource("3_mod")
-stat = 16
-value = 100.0
-metadata/_custom_type_script = "uid://bovyciaikopwb"
-
 [sub_resource type="Resource" id="mod_noise"]
 script = ExtResource("3_mod")
 stat = 6
@@ -34,12 +28,12 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 script = ExtResource("1_data")
 icon = ExtResource("2_icon")
 displayName = &"Well Fed & Stealth"
-description = "+100 Health and harder for enemies to see, hear, and smell you until sunrise."
+description = "Harder for enemies to see, hear, and smell you until sunrise."
 category = 9
 durationType = 2
 maxStack = 1
 startFx = ExtResource("4_startfx")
 endFx = ExtResource("5_endfx")
 removesOnApply = []
-modifiers = [SubResource("mod_health"), SubResource("mod_noise"), SubResource("mod_scent"), SubResource("mod_camouflage")]
+modifiers = [SubResource("mod_noise"), SubResource("mod_scent"), SubResource("mod_camouflage")]
 conditionalModifiers = []

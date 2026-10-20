@@ -20,6 +20,10 @@ using System.Collections.Generic;
 //   * Experimentation: tap materials into the slots and press Cook — the slot
 //     contents are consumed instantly. A valid match discovers the recipe and
 //     grants the item; a failed mix is just wasted ("Yuck").
+//
+// On a belt / backpack / stash slot, as on the stash screen:
+//   Y  — use the item (eat a meal, drink a potion).
+//   RT — drop the stack at the cook's feet. Hold to drop only some of it.
 [GlobalClass]
 public partial class CookingScreen : Control
 {
@@ -35,14 +39,31 @@ public partial class CookingScreen : Control
 	// while ingredients are loaded, "Continue" (leave camp) when the slots are
 	// empty.
 	[Export] private ButtonHint _buttonHintPrimary;
+	[Export] private ButtonHint _hintUse;
+	[Export] private ButtonHint _hintDrop;
+	[Export] private ItemCountPanel _countPanel;
+	// How long Drop must be held on a stack to choose how many.
+	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _holdSeconds = 0.5f;
 
 	// Glyph action driving the primary button hint (the A button); matches the
 	// primary-verb convention used by the inventory-style screens.
 	const string PrimaryHintAction = "ui_select";
+	const string UseAction = "MenuTertiary";
+	const string DropAction = "MenuQuinary";
 
 	Action _onClose;
 	Player _player;
 	ICookingStation _station;
+
+	// The item slot under the cursor: its grid and panel. The panel is checked for
+	// focus at each press, so a cursor moved onto the cooking panel acts on nothing.
+	IItemGrid _focusedGrid;
+	int _focusedIndex = -1;
+	ItemSlotPanel _focusedPanel;
+	readonly PolledHold _drop = new(DropAction);
+	// What Open subscribed to, so Close detaches the same objects.
+	Inventory _watchedInventory;
+	ItemGrid _watchedStash;
 
 	public override void _Ready()
 	{
@@ -53,17 +74,17 @@ public partial class CookingScreen : Control
 		}
 		if (_beltPanel != null)
 		{
-			_beltPanel.onSlotFocused += OnMaterialFocused;
+			_beltPanel.onSlotFocused += OnBeltFocused;
 			_beltPanel.onSlotButtonUp += OnBeltMaterialTap;
 		}
 		if (_backpackPanel != null)
 		{
-			_backpackPanel.onSlotFocused += OnMaterialFocused;
+			_backpackPanel.onSlotFocused += OnBackpackFocused;
 			_backpackPanel.onSlotButtonUp += OnBackpackMaterialTap;
 		}
 		if (_stashPanel != null)
 		{
-			_stashPanel.onSlotFocused += OnMaterialFocused;
+			_stashPanel.onSlotFocused += OnStashFocused;
 			_stashPanel.onSlotButtonUp += OnStashMaterialTap;
 		}
 		if (_cookingPanel != null)
@@ -85,17 +106,17 @@ public partial class CookingScreen : Control
 		}
 		if (_beltPanel != null)
 		{
-			_beltPanel.onSlotFocused -= OnMaterialFocused;
+			_beltPanel.onSlotFocused -= OnBeltFocused;
 			_beltPanel.onSlotButtonUp -= OnBeltMaterialTap;
 		}
 		if (_backpackPanel != null)
 		{
-			_backpackPanel.onSlotFocused -= OnMaterialFocused;
+			_backpackPanel.onSlotFocused -= OnBackpackFocused;
 			_backpackPanel.onSlotButtonUp -= OnBackpackMaterialTap;
 		}
 		if (_stashPanel != null)
 		{
-			_stashPanel.onSlotFocused -= OnMaterialFocused;
+			_stashPanel.onSlotFocused -= OnStashFocused;
 			_stashPanel.onSlotButtonUp -= OnStashMaterialTap;
 		}
 		if (_cookingPanel != null)
@@ -125,6 +146,20 @@ public partial class CookingScreen : Control
 			_stashPanel.Visible = station?.IsCamp == true;
 		}
 		_onClose = onClose;
+		// A potion drunk from here spends partway through its timeline, after the
+		// press that started it.
+		_watchedInventory = CookInventory;
+		_watchedStash = Stash;
+		if (_watchedInventory != null)
+		{
+			_watchedInventory.onChanged += OnItemsChanged;
+		}
+		if (_watchedStash != null)
+		{
+			_watchedStash.onChanged += OnItemsChanged;
+		}
+		ClearFocusedSlot();
+		_drop.Arm(_hintDrop);
 		_cookingPanel?.HideAnnouncement();
 		Visible = true;
 		// Auto-highlight priority: a recipe the party can currently cook, else the
@@ -164,6 +199,18 @@ public partial class CookingScreen : Control
 			return;
 		}
 		ReturnInputs();
+		if (_watchedInventory != null)
+		{
+			_watchedInventory.onChanged -= OnItemsChanged;
+		}
+		if (_watchedStash != null)
+		{
+			_watchedStash.onChanged -= OnItemsChanged;
+		}
+		_watchedInventory = null;
+		_watchedStash = null;
+		_countPanel?.Dismiss();
+		ClearFocusedSlot();
 		_station = null;
 		Visible = false;
 		Action cb = _onClose;
@@ -233,14 +280,61 @@ public partial class CookingScreen : Control
 		_cookingPanel.RefreshRecipes(simData.recipes, worldSim, materials, _station.CampfireType);
 	}
 
+	void OnItemsChanged()
+	{
+		RefreshMaterials();
+		RefreshRecipeList();
+		_itemInfoPanel?.SetItem(FocusedItem());
+		UpdateItemHints();
+	}
+
 	// ---- Material side (add to cooking slots) ------------------------------
 
-	// A greyed (non-material) slot shows no info — it isn't part of cooking.
-	void OnMaterialFocused(int index, ItemSlotPanel panel)
+	void OnBeltFocused(int index, ItemSlotPanel panel)
 	{
-		ItemState item = panel?.Item;
-		_itemInfoPanel?.SetItem(IsCookable(item) ? item : null);
+		OnItemSlotFocused(CookInventory?.Belt, index, panel);
 	}
+
+	void OnBackpackFocused(int index, ItemSlotPanel panel)
+	{
+		OnItemSlotFocused(CookInventory?.Backpack, index, panel);
+	}
+
+	void OnStashFocused(int index, ItemSlotPanel panel)
+	{
+		OnItemSlotFocused(Stash, index, panel);
+	}
+
+	// Every item shows its info, not only materials: any of them can be used or dropped.
+	void OnItemSlotFocused(IItemGrid grid, int index, ItemSlotPanel panel)
+	{
+		_focusedGrid = grid;
+		_focusedIndex = index;
+		_focusedPanel = panel;
+		_drop.Reset(_hintDrop);
+		_itemInfoPanel?.SetItem(FocusedItem());
+		UpdateItemHints();
+	}
+
+	void ClearFocusedSlot()
+	{
+		_focusedGrid = null;
+		_focusedIndex = -1;
+		_focusedPanel = null;
+		UpdateItemHints();
+	}
+
+	// Null while the cursor is anywhere but an item slot.
+	ItemState FocusedItem()
+	{
+		if (_focusedGrid == null || _focusedPanel == null || !_focusedPanel.HasFocus())
+		{
+			return null;
+		}
+		return _focusedGrid.At(_focusedIndex);
+	}
+
+	bool PickerOpen => _countPanel != null && _countPanel.IsOpen;
 
 	void OnBeltMaterialTap(int index, ItemSlotPanel panel)
 	{
@@ -286,6 +380,7 @@ public partial class CookingScreen : Control
 
 	void OnCookingFocusChanged(ItemSlotPanel panel, ItemState item)
 	{
+		ClearFocusedSlot();
 		_itemInfoPanel?.SetItem(item);
 	}
 
@@ -327,6 +422,7 @@ public partial class CookingScreen : Control
 	// row. The recipe is discovered, so its output reads identified.
 	void OnRecipeFocused(ConsumableData recipe)
 	{
+		ClearFocusedSlot();
 		if (recipe == null)
 		{
 			return;
@@ -455,15 +551,81 @@ public partial class CookingScreen : Control
 		}
 	}
 
+	// ---- Use / drop ----------------------------------------------------------
+
+	void UpdateItemHints()
+	{
+		ItemState item = FocusedItem();
+		ShowHint(_hintUse, UseAction, InventoryScreen.UseVerb(_player, item));
+		ShowHint(_hintDrop, DropAction, item != null ? Loc.Get(Loc.Keys.stash_drop) : null);
+	}
+
+	// A null label hides the hint.
+	static void ShowHint(ButtonHint hint, string action, string label)
+	{
+		if (hint == null)
+		{
+			return;
+		}
+		hint.Visible = label != null;
+		if (label != null)
+		{
+			hint.SetHint(action, label);
+		}
+	}
+
+	// The member's own grids are the inventory's; only the stash is a foreign source.
+	void Use()
+	{
+		InventoryScreen.Use(_player, FocusedItem(), _focusedGrid == Stash ? Stash : null);
+		OnItemsChanged();
+	}
+
+	void Drop(IItemGrid grid, int index, int count)
+	{
+		if (grid == null || count <= 0)
+		{
+			return;
+		}
+		_player?.DropAtFeet(grid.Take(index, count));
+		OnItemsChanged();
+	}
+
+	public override void _Process(double delta)
+	{
+		if (!IsVisibleInTree() || _player == null || PickerOpen)
+		{
+			return;
+		}
+		ItemState item = FocusedItem();
+		IItemGrid grid = _focusedGrid;
+		int index = _focusedIndex;
+		PolledHold.EResult drop = _drop.Tick(item != null, (float)delta, _holdSeconds, _hintDrop);
+		if (drop == PolledHold.EResult.Tap || (drop == PolledHold.EResult.Hold && item.stackCount <= 1))
+		{
+			Drop(grid, index, item.stackCount);
+		}
+		else if (drop == PolledHold.EResult.Hold)
+		{
+			_countPanel?.Open(item.stackCount, count => Drop(grid, index, count), prompt: Loc.Get(Loc.Keys.item_drop_how_many));
+		}
+	}
+
 	public override void _UnhandledInput(InputEvent e)
 	{
 		// Children (CookingPanel) see ui_cancel first and consume it while they
 		// have an in-flight selection.
-		if (!Visible || _onClose == null)
+		if (!Visible || PickerOpen)
 		{
 			return;
 		}
-		if (e.IsActionPressed("ui_cancel"))
+		if (e.IsActionPressed(UseAction) && InventoryScreen.UseVerb(_player, FocusedItem()) != null)
+		{
+			Use();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+		if (_onClose != null && e.IsActionPressed("ui_cancel"))
 		{
 			Close();
 			GetViewport().SetInputAsHandled();

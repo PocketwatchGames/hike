@@ -57,6 +57,7 @@ impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 impactDecibels = 1.2
+durabilityCostOnHit = 1.0
 metadata/_custom_type_script = "uid://cmw4pa3roleml"
 
 [sub_resource type="Resource" id="Resource_sword_swing1"]
@@ -117,6 +118,7 @@ impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 impactDecibels = 1.5
+durabilityCostOnHit = 1.0
 
 [sub_resource type="Resource" id="Resource_charged_heavy"]
 script = ExtResource("4_charged")
@@ -199,13 +201,14 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), 
 
 [resource]
 script = ExtResource("2_weapon")
-weight = 0.5
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"charged": SubResource("Resource_charged_damage"),
 &"primary": SubResource("Resource_damage")
 })
 actionProfile = SubResource("Resource_profile")
 animSet = ExtResource("20_animset")
+weight = 0.5
+maxDurability = 80
 displayName = &"Sword"
 description = "A sturdy blade with a heavy charged slash."
 value = 50

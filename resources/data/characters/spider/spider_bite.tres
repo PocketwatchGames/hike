@@ -15,6 +15,7 @@
 [ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="9_poison"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="10_alupl"]
 [ext_resource type="PackedScene" uid="uid://c4qddyfo0jyu5" path="res://scenes/fx/spider_attack.tscn" id="10_attack"]
+[ext_resource type="PackedScene" path="res://scenes/fx/mob_smear_thrust.tscn" id="20_smear"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")
@@ -32,6 +33,7 @@ script = ExtResource("4_event")
 time = 200
 type = 1
 meleeDuration = 0.2
+smearEffect = ExtResource("20_smear")
 impactEnvironmentEffect = ExtResource("7_solidfx")
 impactHealthEffect = ExtResource("6_hitfx")
 impactArmorEffect = ExtResource("7_solidfx")

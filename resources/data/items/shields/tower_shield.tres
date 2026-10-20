@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ShieldData" format=3]
+[gd_resource type="Resource" script_class="ShieldData" format=3 uid="uid://bs5elx6ki1hhv"]
 
 [ext_resource type="Script" uid="uid://jqmwdcmyi4tc" path="res://scripts/data/items/ShieldData.cs" id="1_shield"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="2_damage"]
@@ -16,7 +16,6 @@ amount = 2.0
 [sub_resource type="Resource" id="Resource_counter"]
 script = ExtResource("2_damage")
 tags = 3200
-healthDamage = 0.0
 hitstun = 0.7
 knockbackDistance = 4.0
 knockbackTime = 0.4
@@ -25,7 +24,6 @@ modifiers = []
 
 [resource]
 script = ExtResource("1_shield")
-weight = 1.0
 guardArmor = 350.0
 guardRechargeDelay = 2.0
 blockDecibels = 1.0
@@ -34,6 +32,8 @@ maxParryDamage = 300.0
 parryCounter = SubResource("Resource_counter")
 parryEffect = ExtResource("5_parryfx")
 parryDecibels = 1.2
+weight = 1.0
+maxDurability = 960
 displayName = &"Tower Shield"
 description = "A wall of planks and iron. Crouch behind it to soak the heaviest blows, or time the crouch to shove the attacker back reeling."
 value = 70

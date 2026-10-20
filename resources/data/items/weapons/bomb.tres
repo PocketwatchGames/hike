@@ -45,7 +45,8 @@ areaBurst = SubResource("Resource_burst")
 
 [sub_resource type="Resource" id="Resource_proj_small"]
 script = ExtResource("3_event")
-type = 8260
+type = 33562692
+durabilityCost = 1.0
 animName = 37
 projectileScene = ExtResource("7_proj")
 projectileArcing = true
@@ -95,3 +96,4 @@ description = "Lob it onto a target."
 value = 40
 inventorySprite = ExtResource("11_inv")
 heldModel = ExtResource("10_held")
+maxDurability = 40

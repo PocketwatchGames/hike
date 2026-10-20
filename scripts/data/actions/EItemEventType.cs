@@ -123,4 +123,8 @@ public enum EItemEventType
 	// (a potion drunk over a hold), paired with DecrementStack. The payload lives
 	// once on the item, so the same consumable is equally usable instantly.
 	UseConsumable = 1 << 24,
+	// Spends ItemEvent.durabilityCost from the driving weapon as the event fires
+	// (GearState), the durability twin of UseAmmo. Player only. Wear on landing
+	// a hit is ItemEvent.durabilityCostOnHit instead, no flag needed.
+	UseDurability = 1 << 25,
 }

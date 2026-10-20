@@ -12,6 +12,12 @@ stat = 11
 value = -1.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
+[sub_resource type="Resource" id="m_thirst"]
+script = ExtResource("3_lphnm")
+stat = 23
+value = 2.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
 [resource]
 script = ExtResource("1_data")
 icon = ExtResource("2_icon")
@@ -22,5 +28,5 @@ maxStack = 1
 startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")
 removesOnApply = []
-modifiers = [SubResource("Resource_njb4c")]
+modifiers = [SubResource("Resource_njb4c"), SubResource("m_thirst")]
 conditionalModifiers = []

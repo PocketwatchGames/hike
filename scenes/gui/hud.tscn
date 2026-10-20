@@ -18,6 +18,10 @@
 [ext_resource type="PackedScene" uid="uid://6ccnnebatflu" path="res://scenes/gui/region_banner.tscn" id="13_is1ux"]
 [ext_resource type="PackedScene" uid="uid://2uhqrphkgsot" path="res://scenes/gui/quest_item.tscn" id="13_o8nis"]
 [ext_resource type="Texture2D" uid="uid://c5ogqm7cj0u3a" path="res://assets/textures/map_markers/question.png" id="mm_question"]
+[ext_resource type="Texture2D" uid="uid://7qpyogokbssb" path="res://assets/textures/gui/needs/need_disc.png" id="need_disc"]
+[ext_resource type="Texture2D" uid="uid://bd2uf20ywkjj6" path="res://assets/textures/gui/needs/fatigue_glyph.png" id="need_fatigue"]
+[ext_resource type="Texture2D" uid="uid://5o6mtl36eq3o" path="res://assets/textures/gui/needs/hunger_glyph.png" id="need_hunger"]
+[ext_resource type="Texture2D" uid="uid://dp4kn0uhg6kv0" path="res://assets/textures/gui/needs/thirst_glyph.png" id="need_thirst"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_drain_bg"]
 
@@ -81,7 +85,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_staminaContainer", "_statusEffectContainer", "_boonContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_parryIcon", "_drainedHealthBar", "_bonusHealthBar", "_armorBar", "_blockArmorBar", "_oilBar", "_bonusOilBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_armorSlot", "_dashHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_staminaContainer", "_statusEffectContainer", "_boonContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_parryIcon", "_drainedHealthBar", "_bonusHealthBar", "_armorBar", "_blockArmorBar", "_oilBar", "_bonusOilBar", "_hungerMeter", "_thirstMeter", "_fatigueMeter", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -91,12 +95,14 @@ grow_vertical = 2
 script = ExtResource("1_ahhtf")
 _statusEffectHudScene = ExtResource("2_ueg55")
 _statusEffectIconScene = ExtResource("2_icon")
-_weaponLeftSlot = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/WeaponLeft")
+_weaponLeftSlot = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/Armor")
 _weaponRightSlot = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer3/WeaponRight")
 _weaponLeftHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/ButtonHint")
 _weaponRightHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer3/ButtonHint2")
 _shieldSlot = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer2/Shield")
 _shieldHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer2/ButtonHint2")
+_armorSlot = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/Armor")
+_dashHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/ButtonHint")
 _hotbarSlots = [NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer2/VBoxContainer/Item1"), NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer2/VBoxContainer2/Item2"), NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer2/VBoxContainer3/Item3"), NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer2/VBoxContainer4/Item4"), NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer2/VBoxContainer5/Item5"), NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer2/VBoxContainer6/Item6"), NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer2/VBoxContainer7/Item7"), NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer2/VBoxContainer8/Item8")]
 _hotbarCycleLeftHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer2/MarginContainer2/ButtonHint")
 _hotbarCycleRightHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer2/MarginContainer/ButtonHint2")
@@ -116,6 +122,9 @@ _armorBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContaine
 _blockArmorBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/BlockArmorBar")
 _oilBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/HBoxContainer/OilBar")
 _bonusOilBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/HBoxContainer/BonusOil")
+_hungerMeter = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/Status/Hunger")
+_thirstMeter = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/Status/Thirst")
+_fatigueMeter = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/Status/Fatigue")
 _signpostPanel = NodePath("HudSignpostPanel")
 _dialoguePanel = NodePath("DialoguePanel")
 _regionBanner = NodePath("RegionBanner")
@@ -144,6 +153,249 @@ theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
+
+[node name="UpperLeft" type="MarginContainer" parent="ScreenMarginContainer" unique_id=853136875]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+
+[node name="QuestContainer" type="VBoxContainer" parent="ScreenMarginContainer/UpperLeft" unique_id=1630968885]
+visible = false
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScreenMarginContainer/UpperLeft" unique_id=1122704813]
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=1359460102]
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer" unique_id=565732422]
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="DrainedHealthBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/MarginContainer" unique_id=1068856624]
+custom_minimum_size = Vector2(250, 25)
+layout_mode = 2
+size_flags_horizontal = 0
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxEmpty_drain_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_drain")
+max_value = 1.0
+step = 0.001
+show_percentage = false
+
+[node name="HealthBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/MarginContainer" unique_id=1068856623]
+custom_minimum_size = Vector2(250, 25)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_styles/fill = SubResource("StyleBoxFlat_aoesn")
+max_value = 1.0
+step = 0.001
+value = 0.5
+show_percentage = false
+
+[node name="BonusHealth" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer" unique_id=1315976122]
+visible = false
+custom_minimum_size = Vector2(0, 25)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_styles/fill = SubResource("StyleBoxFlat_aoesn")
+max_value = 1.0
+step = 0.001
+value = 0.5
+show_percentage = false
+
+[node name="ArmorBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer" unique_id=181068372]
+custom_minimum_size = Vector2(50, 25)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_styles/fill = SubResource("StyleBoxFlat_2pnwd")
+max_value = 1.0
+value = 0.3
+show_percentage = false
+
+[node name="BlockArmorBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer" unique_id=181068374]
+custom_minimum_size = Vector2(50, 15)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 1
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxEmpty_drain_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_blockarmor")
+max_value = 1.0
+step = 0.001
+show_percentage = false
+
+[node name="TextureRect" type="TextureRect" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer" unique_id=735863281]
+layout_mode = 2
+texture = ExtResource("7_okx5l")
+expand_mode = 3
+stretch_mode = 5
+
+[node name="OilMarginContainer" type="MarginContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=1028124725]
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer" unique_id=824327331]
+layout_mode = 2
+
+[node name="OilBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/HBoxContainer" unique_id=1869558396]
+custom_minimum_size = Vector2(250, 15)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_styles/fill = SubResource("StyleBoxFlat_okx5l")
+max_value = 1.0
+step = 0.001
+value = 0.5
+show_percentage = false
+
+[node name="BonusOil" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/HBoxContainer" unique_id=1716515732]
+visible = false
+custom_minimum_size = Vector2(0, 15)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_styles/fill = SubResource("StyleBoxFlat_okx5l")
+max_value = 1.0
+step = 0.001
+value = 0.5
+show_percentage = false
+
+[node name="StaminaMarginContainer" type="MarginContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=565732423]
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="StaminaBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/StaminaMarginContainer" unique_id=900266894]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="Status" type="HBoxContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=615459712]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 4
+
+[node name="Fatigue" type="TextureProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/Status" unique_id=507622653]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+mouse_filter = 2
+max_value = 1.0
+step = 0.001
+value = 1.0
+fill_mode = 3
+nine_patch_stretch = true
+texture_under = ExtResource("need_disc")
+texture_progress = ExtResource("need_fatigue")
+tint_under = Color(0, 0, 0, 0.5)
+
+[node name="Hunger" type="TextureProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/Status" unique_id=1096948668]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+mouse_filter = 2
+max_value = 1.0
+step = 0.001
+value = 1.0
+fill_mode = 3
+nine_patch_stretch = true
+texture_under = ExtResource("need_disc")
+texture_progress = ExtResource("need_hunger")
+tint_under = Color(0, 0, 0, 0.5)
+
+[node name="Thirst" type="TextureProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/Status" unique_id=1835872204]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+mouse_filter = 2
+max_value = 1.0
+step = 0.001
+value = 1.0
+fill_mode = 3
+nine_patch_stretch = true
+texture_under = ExtResource("need_disc")
+texture_progress = ExtResource("need_thirst")
+tint_under = Color(0, 0, 0, 0.5)
+
+[node name="Boons" type="HBoxContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=1837215094]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 4
+
+[node name="UpperRight" type="MarginContainer" parent="ScreenMarginContainer" unique_id=1346909596]
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScreenMarginContainer/UpperRight" unique_id=1702337108]
+layout_mode = 2
+
+[node name="StatusEffects" type="HBoxContainer" parent="ScreenMarginContainer/UpperRight/VBoxContainer" unique_id=1450074486]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 4
+alignment = 2
+
+[node name="CenterContainer" type="CenterContainer" parent="ScreenMarginContainer" unique_id=532188045]
+custom_minimum_size = Vector2(400, 400)
+layout_mode = 2
+
+[node name="ItemWheel" type="MarginContainer" parent="ScreenMarginContainer" unique_id=366444203]
+visible = false
+custom_minimum_size = Vector2(400, 400)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="Control" type="Control" parent="ScreenMarginContainer/ItemWheel" unique_id=1028974244]
+layout_mode = 2
+
+[node name="BeltSlot1" parent="ScreenMarginContainer/ItemWheel/Control" unique_id=982744505 instance=ExtResource("11_1hqqq")]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -40.0
+offset_right = 40.0
+offset_bottom = 80.0
+grow_horizontal = 2
+
+[node name="BeltSlot2" parent="ScreenMarginContainer/ItemWheel/Control" unique_id=1045897119 instance=ExtResource("11_1hqqq")]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -80.0
+offset_top = -40.0
+offset_bottom = 40.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="BeltSlot3" parent="ScreenMarginContainer/ItemWheel/Control" unique_id=1824214992 instance=ExtResource("11_1hqqq")]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -40.0
+offset_top = -80.0
+offset_right = 40.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="BeltSlot4" parent="ScreenMarginContainer/ItemWheel/Control" unique_id=2130838496 instance=ExtResource("11_1hqqq")]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_top = -40.0
+offset_right = 80.0
+offset_bottom = 40.0
+grow_vertical = 2
 
 [node name="BottomMiddle" type="BoxContainer" parent="ScreenMarginContainer" unique_id=581751386]
 layout_mode = 2
@@ -178,7 +430,18 @@ alignment = 2
 [node name="ButtonHint" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer" unique_id=1480771226 instance=ExtResource("3_ueg55")]
 layout_mode = 2
 
-[node name="WeaponLeft" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer" unique_id=1708530212 instance=ExtResource("2_qxonp")]
+[node name="Armor" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer" unique_id=1708530212 instance=ExtResource("2_qxonp")]
+layout_mode = 2
+
+[node name="VBoxContainer4" type="VBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer" unique_id=816150128]
+layout_mode = 2
+size_flags_vertical = 8
+alignment = 2
+
+[node name="ButtonHint" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer4" unique_id=959365210 instance=ExtResource("3_ueg55")]
+layout_mode = 2
+
+[node name="WeaponLeft" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer4" unique_id=150891526 instance=ExtResource("2_qxonp")]
 layout_mode = 2
 
 [node name="VBoxContainer2" type="VBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer" unique_id=943158132]
@@ -188,14 +451,14 @@ alignment = 2
 [node name="ButtonHint2" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer2" unique_id=923460926 instance=ExtResource("3_ueg55")]
 layout_mode = 2
 
-[node name="Shield" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer2" unique_id=150891526 instance=ExtResource("2_qxonp")]
+[node name="Shield" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer2" unique_id=115307092 instance=ExtResource("2_qxonp")]
 layout_mode = 2
 
 [node name="VBoxContainer3" type="VBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer" unique_id=1099525753]
 layout_mode = 2
 alignment = 2
 
-[node name="ButtonHint2" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer3" unique_id=959365210 instance=ExtResource("3_ueg55")]
+[node name="ButtonHint2" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer3" unique_id=739872253 instance=ExtResource("3_ueg55")]
 layout_mode = 2
 
 [node name="WeaponRight" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer3" unique_id=1505909167 instance=ExtResource("2_qxonp")]
@@ -432,204 +695,6 @@ size_flags_vertical = 0
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
-
-[node name="CenterContainer" type="CenterContainer" parent="ScreenMarginContainer" unique_id=532188045]
-custom_minimum_size = Vector2(400, 400)
-layout_mode = 2
-
-[node name="ItemWheel" type="MarginContainer" parent="ScreenMarginContainer" unique_id=366444203]
-visible = false
-custom_minimum_size = Vector2(400, 400)
-layout_mode = 2
-size_flags_horizontal = 4
-size_flags_vertical = 4
-
-[node name="Control" type="Control" parent="ScreenMarginContainer/ItemWheel" unique_id=1028974244]
-layout_mode = 2
-
-[node name="BeltSlot1" parent="ScreenMarginContainer/ItemWheel/Control" unique_id=982744505 instance=ExtResource("11_1hqqq")]
-layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -40.0
-offset_right = 40.0
-offset_bottom = 80.0
-grow_horizontal = 2
-
-[node name="BeltSlot2" parent="ScreenMarginContainer/ItemWheel/Control" unique_id=1045897119 instance=ExtResource("11_1hqqq")]
-layout_mode = 1
-anchors_preset = 6
-anchor_left = 1.0
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -80.0
-offset_top = -40.0
-offset_bottom = 40.0
-grow_horizontal = 0
-grow_vertical = 2
-
-[node name="BeltSlot3" parent="ScreenMarginContainer/ItemWheel/Control" unique_id=1824214992 instance=ExtResource("11_1hqqq")]
-layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -40.0
-offset_top = -80.0
-offset_right = 40.0
-grow_horizontal = 2
-grow_vertical = 0
-
-[node name="BeltSlot4" parent="ScreenMarginContainer/ItemWheel/Control" unique_id=2130838496 instance=ExtResource("11_1hqqq")]
-layout_mode = 1
-anchors_preset = 4
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_top = -40.0
-offset_right = 80.0
-offset_bottom = 40.0
-grow_vertical = 2
-
-[node name="UpperLeft" type="MarginContainer" parent="ScreenMarginContainer" unique_id=853136875]
-layout_mode = 2
-size_flags_horizontal = 0
-size_flags_vertical = 0
-
-[node name="QuestContainer" type="VBoxContainer" parent="ScreenMarginContainer/UpperLeft" unique_id=1630968885]
-visible = false
-layout_mode = 2
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScreenMarginContainer/UpperLeft" unique_id=1122704813]
-layout_mode = 2
-size_flags_horizontal = 0
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=1359460102]
-layout_mode = 2
-size_flags_horizontal = 0
-
-[node name="MarginContainer" type="MarginContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer" unique_id=565732422]
-layout_mode = 2
-size_flags_horizontal = 0
-
-[node name="DrainedHealthBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/MarginContainer" unique_id=1068856624]
-custom_minimum_size = Vector2(250, 25)
-layout_mode = 2
-size_flags_horizontal = 0
-mouse_filter = 2
-theme_override_styles/background = SubResource("StyleBoxEmpty_drain_bg")
-theme_override_styles/fill = SubResource("StyleBoxFlat_drain")
-max_value = 1.0
-step = 0.001
-show_percentage = false
-
-[node name="HealthBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/MarginContainer" unique_id=1068856623]
-custom_minimum_size = Vector2(250, 25)
-layout_mode = 2
-size_flags_horizontal = 0
-theme_override_styles/fill = SubResource("StyleBoxFlat_aoesn")
-max_value = 1.0
-step = 0.001
-value = 0.5
-show_percentage = false
-
-[node name="BonusHealth" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer" unique_id=1315976122]
-visible = false
-custom_minimum_size = Vector2(0, 25)
-layout_mode = 2
-size_flags_horizontal = 0
-theme_override_styles/fill = SubResource("StyleBoxFlat_aoesn")
-max_value = 1.0
-step = 0.001
-value = 0.5
-show_percentage = false
-
-[node name="ArmorBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer" unique_id=181068372]
-custom_minimum_size = Vector2(50, 25)
-layout_mode = 2
-size_flags_horizontal = 0
-theme_override_styles/fill = SubResource("StyleBoxFlat_2pnwd")
-max_value = 1.0
-value = 0.3
-show_percentage = false
-
-[node name="BlockArmorBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer" unique_id=181068374]
-custom_minimum_size = Vector2(50, 15)
-layout_mode = 2
-size_flags_horizontal = 0
-size_flags_vertical = 1
-mouse_filter = 2
-theme_override_styles/background = SubResource("StyleBoxEmpty_drain_bg")
-theme_override_styles/fill = SubResource("StyleBoxFlat_blockarmor")
-max_value = 1.0
-step = 0.001
-show_percentage = false
-
-[node name="TextureRect" type="TextureRect" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer" unique_id=735863281]
-layout_mode = 2
-texture = ExtResource("7_okx5l")
-expand_mode = 3
-stretch_mode = 5
-
-[node name="OilMarginContainer" type="MarginContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=1028124725]
-layout_mode = 2
-size_flags_horizontal = 0
-
-[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer" unique_id=824327331]
-layout_mode = 2
-
-[node name="OilBar" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/HBoxContainer" unique_id=1869558396]
-custom_minimum_size = Vector2(250, 15)
-layout_mode = 2
-size_flags_horizontal = 0
-theme_override_styles/fill = SubResource("StyleBoxFlat_okx5l")
-max_value = 1.0
-step = 0.001
-value = 0.5
-show_percentage = false
-
-[node name="BonusOil" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/HBoxContainer" unique_id=1716515732]
-visible = false
-custom_minimum_size = Vector2(0, 15)
-layout_mode = 2
-size_flags_horizontal = 0
-theme_override_styles/fill = SubResource("StyleBoxFlat_okx5l")
-max_value = 1.0
-step = 0.001
-value = 0.5
-show_percentage = false
-
-[node name="StaminaMarginContainer" type="MarginContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=565732423]
-layout_mode = 2
-size_flags_horizontal = 0
-
-[node name="StaminaBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/StaminaMarginContainer" unique_id=900266894]
-custom_minimum_size = Vector2(0, 24)
-layout_mode = 2
-size_flags_horizontal = 0
-
-[node name="Boons" type="HBoxContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=1837215094]
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 2
-size_flags_horizontal = 0
-size_flags_vertical = 4
-
-[node name="UpperRight" type="MarginContainer" parent="ScreenMarginContainer" unique_id=1346909596]
-layout_mode = 2
-size_flags_horizontal = 8
-size_flags_vertical = 0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="ScreenMarginContainer/UpperRight" unique_id=1702337108]
-layout_mode = 2
-
-[node name="StatusEffects" type="HBoxContainer" parent="ScreenMarginContainer/UpperRight/VBoxContainer" unique_id=1450074486]
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 2
-size_flags_horizontal = 8
-size_flags_vertical = 4
-alignment = 2
 
 [node name="StatusEffectNotificationAnchor" type="Control" parent="." unique_id=1924019998]
 layout_mode = 1

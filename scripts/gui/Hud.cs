@@ -26,6 +26,9 @@ public partial class Hud : Control
 	// fallback — with the Sneak button hint.
 	[Export] WeaponHud _shieldSlot;
 	[Export] ButtonHint _shieldHint;
+	// The armor slot, also show button hint for dashing
+	[Export] WeaponHud _armorSlot;
+	[Export] ButtonHint _dashHint;
 	// The hotbar strip, in display order. The hotbar entries
 	// (Inventory.GetHotbarEntries — the lantern slot, empty or not, then the
 	// filled belt slots) are packed into the leading widgets and the rest
@@ -80,6 +83,16 @@ public partial class Hud : Control
 	[Export] ProgressBar _oilBar;
 	// Oil past MaxLanternOil (Player.BonusLanternOil), sized like _bonusHealthBar.
 	[Export] ProgressBar _bonusOilBar;
+	// The controlled member's needs meters (Player.GetNeed), each an icon that
+	// fills bottom to top: under = the disc, progress = the glyph.
+	[Export] TextureProgressBar _hungerMeter;
+	[Export] TextureProgressBar _thirstMeter;
+	[Export] TextureProgressBar _fatigueMeter;
+	// Draining: a translucent black disc under a white glyph. Empty: the whole
+	// glyph in the alarm colour, so a meter at zero is unmissable.
+	[Export] Color _needBackgroundColor = new Color(0f, 0f, 0f, 0.5f);
+	[Export] Color _needFillColor = Colors.White;
+	[Export] Color _needEmptyColor = new Color(1f, 0.1f, 0.1f, 1f);
 	[Export] HudSignpostPanel _signpostPanel;
 	[Export] ConversationController _dialoguePanel;
 	[Export] HudRegionBanner _regionBanner;
@@ -289,6 +302,7 @@ public partial class Hud : Control
 		_weaponLeftHint?.SetHint("AttackContextSensitive", "AttackMelee", string.Empty, string.Empty);
 		_weaponRightHint?.SetHint("AttackContextSensitive", "AttackRanged", "Aim", string.Empty);
 		_shieldHint?.SetHint("Sneak", string.Empty);
+		_dashHint?.SetHint("Dash", string.Empty);
 		_hotbarCycleLeftHint?.SetHint("ConsumableCycleLeft", string.Empty);
 		_hotbarCycleRightHint?.SetHint("ConsumableCycleRight", string.Empty);
 		_hotbarSlotsFlat = new WeaponHud[_hotbarSlots.Count];
@@ -598,6 +612,7 @@ public partial class Hud : Control
 		RefreshWeaponSlot(_weaponLeftSlot, _weaponLeftHint, EInventorySlot.WeaponLeft);
 		RefreshWeaponSlot(_weaponRightSlot, _weaponRightHint, EInventorySlot.WeaponRight);
 		RefreshShieldSlot();
+		RefreshArmorSlot();
 		_hotbarEntries.Clear();
 		_inventory?.GetHotbarEntries(_hotbarEntries);
 		int selected = _inventory?.SelectedHotbarIndex ?? -1;
@@ -673,6 +688,15 @@ public partial class Hud : Control
 		_shieldSlot?.SetHotbarState(selected: false, active: false);
 	}
 
+	// The worn body armor, sitting over the dash hint. With no armor on, the slot
+	// stays up and draws its empty icon (the dash), since dashing needs no gear.
+	void RefreshArmorSlot()
+	{
+		ArmorState armor = _inventory?.GetEquipped(EInventorySlot.Armor) as ArmorState;
+		_armorSlot?.SetItem(armor);
+		_armorSlot?.SetHotbarState(selected: false, active: false);
+	}
+
 	void OnInputDeviceChanged(InputDevice.EDevice device)
 	{
 		RefreshHotbar();
@@ -707,6 +731,9 @@ public partial class Hud : Control
 			SetBarWidth(_oilBar, _player.MaxLanternOil * _pixelsPerOilPoint);
 		}
 		UpdateBonusBar(_bonusOilBar, _player.BonusLanternOil, _pixelsPerOilPoint);
+		UpdateNeedMeter(_hungerMeter, _player.GetNeed(ENeed.Hunger));
+		UpdateNeedMeter(_thirstMeter, _player.GetNeed(ENeed.Thirst));
+		UpdateNeedMeter(_fatigueMeter, _player.GetNeed(ENeed.Fatigue));
 
 		if (_drainedHealthBar != null)
 		{
@@ -732,9 +759,13 @@ public partial class Hud : Control
 		ulong now = gameClient.Sim?.GameTimeMs ?? 0;
 		TickWeaponSlot(_weaponLeftSlot, _weaponLeftHint, EInventorySlot.WeaponLeft, now);
 		TickWeaponSlot(_weaponRightSlot, _weaponRightHint, EInventorySlot.WeaponRight, now);
+		float durabilityWarning = _player.data.durabilityWarningFraction;
+		// Ticked for their durability overlays; shields and armor have no cooldown or charge.
+		_shieldSlot?.Tick(now, false, durabilityWarning);
+		_armorSlot?.Tick(now, false, durabilityWarning);
 		for (int i = 0; i < _hotbarSlotsFlat.Length && i < _hotbarEntries.Count; i++)
 		{
-			_hotbarSlotsFlat[i]?.Tick(now, IsCharging(_inventory.Belt.At(_hotbarEntries[i])));
+			_hotbarSlotsFlat[i]?.Tick(now, IsCharging(_inventory.Belt.At(_hotbarEntries[i])), durabilityWarning);
 		}
 
 		UpdateStatusEffects(now);
@@ -780,6 +811,19 @@ public partial class Hud : Control
 			bar.Value = 1;
 			SetBarWidth(bar, bonus * pixelsPerPoint);
 		}
+	}
+
+	void UpdateNeedMeter(TextureProgressBar meter, float fill)
+	{
+		if (meter == null)
+		{
+			return;
+		}
+		bool empty = fill <= 0f;
+		meter.MaxValue = 1.0;
+		meter.Value = empty ? 1.0 : fill;
+		meter.TintUnder = _needBackgroundColor;
+		meter.TintProgress = empty ? _needEmptyColor : _needFillColor;
 	}
 
 	static void SetBarWidth(ProgressBar bar, float width)
@@ -1269,7 +1313,7 @@ public partial class Hud : Control
 	void TickWeaponSlot(WeaponHud widget, ButtonHint hint, EInventorySlot slot, ulong now)
 	{
 		WeaponState weapon = _player.GetMeleeWeaponOrUnarmed(slot);
-		widget?.Tick(now, IsCharging(weapon));
+		widget?.Tick(now, IsCharging(weapon), _player.data.durabilityWarningFraction);
 		hint?.SetProgress(GetChargeProgress(weapon, now));
 	}
 
@@ -1299,7 +1343,8 @@ public partial class Hud : Control
 			return;
 		}
 		ShieldState shield = _player?.GetShieldOrUnarmed();
-		float capacity = shield?.data?.guardArmor ?? 0f;
+		// A broken shield has no guard to show.
+		float capacity = shield == null || shield.IsBroken ? 0f : shield.data?.guardArmor ?? 0f;
 		if (capacity <= 0f)
 		{
 			_blockArmorBar.Visible = false;

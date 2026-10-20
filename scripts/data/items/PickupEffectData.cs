@@ -12,7 +12,7 @@ using Godot.Collections;
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]
-public partial class PickupEffectData : LootData, IApplyOnPickup
+public partial class PickupEffectData : ItemData, IApplyOnPickup
 {
 	[Export] public Array<ItemEffect> effects = new();
 

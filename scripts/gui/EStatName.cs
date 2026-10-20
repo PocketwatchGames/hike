@@ -62,10 +62,18 @@ public enum EStatName
 	Strength,
 	Perception,
 	Stealth,
-	// Equipped gear's weight (ItemData.EquipWeight).
+	// Equipped gear's weight (GearData.weight).
 	Weight,
 	// Shield block counter-strike (ShieldData.blockCounter) context title.
 	Thorns,
 	OilCost,
 	DashDistance,
+	// Gear durability (GearState.durability / GearData.maxDurability).
+	Durability,
+	DurabilityWear,
+	HungerDrain,
+	ThirstDrain,
+	FatigueDrain,
+	// Hunger a food restores (ConsumableData.satiation).
+	Satiation,
 }

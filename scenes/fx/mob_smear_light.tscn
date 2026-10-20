@@ -1,0 +1,14 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://bw8smr4tqe2k9p" path="res://scripts/gameplay/effects/WeaponSmear.cs" id="1_smear"]
+[ext_resource type="Material" path="res://resources/materials/weapon_smear_mob.tres" id="2_mat"]
+
+[node name="MobSmearLight" type="Node3D" node_paths=PackedStringArray("_meshInstance")]
+script = ExtResource("1_smear")
+_meshInstance = NodePath("Mesh")
+_entryTime = 0.04
+_exitStartTime = 0.1
+_exitTime = 0.24
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+material_override = ExtResource("2_mat")

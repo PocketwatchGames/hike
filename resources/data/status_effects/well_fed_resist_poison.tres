@@ -7,12 +7,6 @@
 [ext_resource type="PackedScene" uid="uid://cstguqovay7y0" path="res://scenes/fx/status_well_fed_end.tscn" id="5_endfx"]
 [ext_resource type="Script" uid="uid://11t1a8dvp0j6n" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
 
-[sub_resource type="Resource" id="mod_health"]
-script = ExtResource("3_mod")
-stat = 16
-value = 100.0
-metadata/_custom_type_script = "uid://bovyciaikopwb"
-
 [sub_resource type="Resource" id="mod_poisoned"]
 script = ExtResource("tagmod_1")
 tag = 8192
@@ -23,12 +17,12 @@ metadata/_custom_type_script = "uid://11t1a8dvp0j6n"
 script = ExtResource("1_data")
 icon = ExtResource("2_icon")
 displayName = &"Well Fed & Poison Resist"
-description = "+100 Health and half poison buildup until sunrise."
+description = "Half poison buildup until sunrise."
 category = 9
 durationType = 2
 maxStack = 1
 startFx = ExtResource("4_startfx")
 endFx = ExtResource("5_endfx")
 removesOnApply = []
-modifiers = [SubResource("mod_health"), SubResource("mod_poisoned")]
+modifiers = [SubResource("mod_poisoned")]
 conditionalModifiers = []

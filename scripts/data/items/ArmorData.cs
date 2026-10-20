@@ -4,7 +4,7 @@ using Godot;
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]
-public partial class ArmorData : ItemData
+public partial class ArmorData : GearData
 {
 	[Export] public float maxArmor = 0f;
 	[Export] public EInventorySlot armorSlot = EInventorySlot.Armor;
@@ -13,11 +13,8 @@ public partial class ArmorData : ItemData
 	// free ones, and drops what doesn't fit at the wearer's feet.
 	[Export] public int beltSlots = 0;
 	[Export] public int backpackSlots = 0;
-	// Weight while worn (see ItemData.EquipWeight).
-	[Export] public float weight = 0f;
 
 	protected override EItemCategory ComputeCategory() => armorSlot == EInventorySlot.Helmet ? EItemCategory.Helmet : EItemCategory.Armor;
-	public override float EquipWeight => weight;
 
 	// Stat modifications granted while this piece is equipped. Composed with
 	// the wearer's inherent modifiers and active status effects when the

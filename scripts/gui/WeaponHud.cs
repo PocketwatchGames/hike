@@ -12,6 +12,13 @@ public partial class WeaponHud : BoxContainer
 	// item that is active — the lit lantern.
 	[Export] CanvasItem _selectedMarker;
 	[Export] CanvasItem _activeMarker;
+	// Gear condition overlays (GearState.Condition): warning while worn, broken
+	// once it is. A weapon trading ammo for durability reads broken only when its
+	// magazine is worn away.
+	[Export] CanvasItem _durabilityWarning;
+	[Export] CanvasItem _durabilityBroken;
+	// Drawn while the slot holds no item (the armor slot's dash icon). Null = blank.
+	[Export] Texture2D _emptyIcon;
 
 	// Alpha applied to the guard gauge while the player isn't charging this
 	// weapon — the guard is dormant, so it reads as a faint ghost rather than
@@ -20,6 +27,7 @@ public partial class WeaponHud : BoxContainer
 
 	ItemState _item;
 	bool _active;
+	float _durabilityWarningFraction;
 
 	public void SetItem(ItemState item)
 	{
@@ -41,8 +49,10 @@ public partial class WeaponHud : BoxContainer
 		}
 	}
 
-	public void Tick(ulong nowMs, bool charging)
+	// `durabilityWarningFraction` is the wielder's PlayerData.durabilityWarningFraction.
+	public void Tick(ulong nowMs, bool charging, float durabilityWarningFraction)
 	{
+		_durabilityWarningFraction = durabilityWarningFraction;
 		Refresh(nowMs, charging);
 	}
 
@@ -51,17 +61,33 @@ public partial class WeaponHud : BoxContainer
 		UpdateIcon();
 		UpdateCounter(nowMs);
 		UpdateCooldown(nowMs);
+		UpdateDurability();
+	}
+
+	void UpdateDurability()
+	{
+		GearState.ECondition condition = _item is GearState gear
+			? gear.Condition(_durabilityWarningFraction)
+			: GearState.ECondition.Sound;
+		if (_durabilityWarning != null)
+		{
+			_durabilityWarning.Visible = condition == GearState.ECondition.Worn;
+		}
+		if (_durabilityBroken != null)
+		{
+			_durabilityBroken.Visible = condition == GearState.ECondition.Broken;
+		}
 	}
 
 
 	void UpdateIcon()
 	{
-		_icon.Texture = _item?.data?.SlotIcon(_active);
+		_icon.Texture = _item?.data != null ? _item.data.SlotIcon(_active) : _emptyIcon;
 	}
 
 	void UpdateCounter(ulong nowMs)
 	{
-		if (_item is WeaponState weapon && weapon.data is WeaponData weaponData && weaponData.maxAmmo > 0)
+		if (_item is WeaponState weapon && weapon.data is WeaponData weaponData && weapon.UsesAmmo)
 		{
 			_ammoGroup.Visible = true;
 			_ammoText.Text = weapon.ammo.ToString();
@@ -87,7 +113,7 @@ public partial class WeaponHud : BoxContainer
 		_ammoProgress.MinValue = 0;
 		_ammoProgress.MaxValue = 1;
 		ulong durationMs = (ulong)(weaponData.ammoRechargeSeconds * 1000f);
-		if (weapon.ammo >= weaponData.maxAmmo || weapon.ammoRechargeReadyMs == 0 || durationMs == 0)
+		if (weapon.ammo >= weapon.MaxAmmo || weapon.ammoRechargeReadyMs == 0 || durationMs == 0)
 		{
 			_ammoProgress.Value = 0;
 			return;

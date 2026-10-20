@@ -1,10 +1,13 @@
 using System.Collections.Generic;
 using Godot;
 
-// Body-driven trigger. Any Player or Mob entering the Area3D pings every
+// Body-driven trigger. A Player or Mob entering the Area3D pings every
 // ITriggerable in _targets, subject to oneShot / cooldown / SetEnabled
 // gating. _bodiesInArea is maintained for targets that need to know who
-// to damage (SpikeDeployer reads source.BodiesInArea on Spiked-enter);
+// to damage (SpikeDeployer reads source.BodiesInArea on Spiked-enter) and
+// holds EVERY body in the area — weight gates who fires the trap, never who
+// it catches, so a light critter that can't spring a plate still gets
+// spiked when someone heavier does;
 // targets that don't care (a PoisonCloudDeployer that just spawns at its
 // own position) ignore it.
 //
@@ -31,7 +34,8 @@ public partial class TriggerSource : Area3D, ITriggerable
     [Export] public float cooldown = 0.5f;
 
     // True = pressure-plate semantics: only bodies heavy enough to press a
-    // plate (MobData.triggersTraps) are seen at all. False = contact
+    // plate (MobData.triggersTraps) fire it, though lighter ones standing in
+    // the area are still in BodiesInArea when it goes off. False = contact
     // semantics: any Player or Mob touching the area fires it, weight
     // irrelevant — a cactus spines whatever brushes it, and a light critter is
     // exactly the thing that would blunder into one.
@@ -67,8 +71,8 @@ public partial class TriggerSource : Area3D, ITriggerable
             SetPhysicsProcess(false);
             // Cooldown finished. A body that stayed on the pad the whole time
             // never raised a fresh BodyEntered, so re-fire here to retrigger
-            // for anyone still standing in the area.
-            if (_bodiesInArea.Count > 0)
+            // for anyone still standing in the area who can press it.
+            if (AnyFiringBodyInArea())
             {
                 TryFire();
             }
@@ -80,17 +84,32 @@ public partial class TriggerSource : Area3D, ITriggerable
         _enabled = enabled;
     }
 
+    // Whether this body is one that fires the source, as opposed to one merely
+    // caught in the area (a light mob on a pressure plate).
+    public bool CanFire(Node3D body)
+    {
+        if (requiresWeight && body is Mob mob && mob.mobData != null && !mob.mobData.triggersTraps)
+        {
+            return false;
+        }
+        return true;
+    }
+
+    private bool AnyFiringBodyInArea()
+    {
+        for (int i = 0; i < _bodiesInArea.Count; i++)
+        {
+            if (CanFire(_bodiesInArea[i]))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void OnBodyEntered(Node3D body)
     {
         if (body == this)
-        {
-            return;
-        }
-        // Light/small mobs (MobData.triggersTraps == false) are invisible to
-        // weight-driven traps — they neither arm the trap nor end up in the
-        // body list a sprung trap damages. Contact sources (requiresWeight
-        // false) skip the check and take everyone.
-        if (requiresWeight && body is Mob mob && mob.mobData != null && !mob.mobData.triggersTraps)
         {
             return;
         }
@@ -98,7 +117,10 @@ public partial class TriggerSource : Area3D, ITriggerable
         {
             _bodiesInArea.Add(body);
         }
-        TryFire();
+        if (CanFire(body))
+        {
+            TryFire();
+        }
     }
 
     private void OnBodyExited(Node3D body)

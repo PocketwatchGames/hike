@@ -69,6 +69,12 @@ public partial class GameClient : Node3D
 		{ EStatName.Thorns, "Thorns" },
 		{ EStatName.OilCost, "Oil Cost" },
 		{ EStatName.DashDistance, "Dash Distance" },
+		{ EStatName.Durability, "Durability" },
+		{ EStatName.DurabilityWear, "Durability Wear" },
+		{ EStatName.HungerDrain, "Hunger Rate" },
+		{ EStatName.ThirstDrain, "Thirst Rate" },
+		{ EStatName.FatigueDrain, "Fatigue Rate" },
+		{ EStatName.Satiation, "Satiation" },
 	};
 
 	// Damage modifier trigger labels. Used as the header of the conditional

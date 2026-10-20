@@ -23,7 +23,8 @@
 
 [sub_resource type="Resource" id="Resource_event_missile"]
 script = ExtResource("3_event")
-type = 8396800
+type = 41951232
+durabilityCost = 1.0
 fx = ExtResource("11_fire")
 noiseDecibels = 0.1
 impactMissEffect = ExtResource("13_expire")
@@ -79,7 +80,8 @@ areaBurst = SubResource("Resource_burst")
 
 [sub_resource type="Resource" id="Resource_event_explosive"]
 script = ExtResource("3_event")
-type = 8396800
+type = 41951232
+durabilityCost = 1.0
 fx = ExtResource("11_fire")
 damageProfileKey = &"charged"
 noiseDecibels = 0.2
@@ -142,3 +144,4 @@ description = "Fires seeking missiles. Hold to loose one that bursts where it la
 value = 50
 inventorySprite = ExtResource("16_inv")
 heldModel = ExtResource("15_held")
+maxDurability = 100

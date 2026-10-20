@@ -87,6 +87,10 @@ public static class ItemEventHandlers
 		// closing tick of a swing that never connects) from later ticks of the
 		// same window, which only need their own per-victim impact fx.
 		bool connectedBefore = alreadyHit.Count > 0;
+		// Durability is spent on the swing's first MOB, not on breakables, so a
+		// swing that opened on a crate still wears once it reaches a creature.
+		bool mobStruckBefore = AnyMobAmong(alreadyHit);
+		bool mobStruck = false;
 		EHitResult bestResult = EHitResult.None;
 		EDamageTriggerFlags bestTriggers = EDamageTriggerFlags.None;
 		Vector3 impactPos = damagePos;
@@ -124,6 +128,7 @@ public static class ItemEventHandlers
 				HitPrediction prediction = hurtBox.QueryHit(hit);
 				EHitResult r = prediction.Result;
 				hurtBox.Hit(hit);
+				mobStruck |= FindOwningMob(hurtBox) != null;
 				if (r == EHitResult.Health || r == EHitResult.Lethal)
 				{
 					healthDamageDealt += hit.healthDamage;
@@ -141,6 +146,10 @@ public static class ItemEventHandlers
 			}
 		}
 		ApplyLifesteal(actor, action, healthDamageDealt);
+		if (mobStruck && !mobStruckBefore)
+		{
+			WearOnStrike(actor.AttackerNode, action.context.primaryItem as WeaponState, ev.durabilityCostOnHit);
+		}
 
 		// Whiff / environment thunk. A window can only be called a whiff once it
 		// has closed having never connected — an empty tick mid-window is just a
@@ -185,6 +194,7 @@ public static class ItemEventHandlers
 		{
 			EmitImpactNoise(actor, ev, impactPos);
 		}
+
 		// Status-effect on-impact bursts (elite lightning aura, shock enchant,
 		// etc.) fire at the swing's resolved impact point — the best hurtbox
 		// when one was hit, else the swing center. See StatusEffectController.
@@ -383,6 +393,7 @@ public static class ItemEventHandlers
 		EHitResult hitResult = EHitResult.None;
 		EDamageTriggerFlags hitTriggers = EDamageTriggerFlags.None;
 		HurtBox hitHurtBox = null;
+		bool roundBroken = false;
 		if (hurtResult.Count > 0)
 		{
 			var collider = hurtResult["collider"].Obj;
@@ -399,6 +410,10 @@ public static class ItemEventHandlers
 					hitTriggers = prediction.Triggers;
 					hurtBox.Hit(hit);
 					hitHurtBox = hurtBox;
+					if (FindOwningMob(hurtBox) != null)
+					{
+						roundBroken = WearOnStrike(actor.AttackerNode, action.context.primaryItem as WeaponState, ev.durabilityCostOnHit);
+					}
 					if (hitResult == EHitResult.Health || hitResult == EHitResult.Lethal)
 					{
 						ApplyLifesteal(actor, action, hit.healthDamage);
@@ -443,6 +458,7 @@ public static class ItemEventHandlers
 		if (action.context.primaryItem is WeaponState shootingWeapon
 			&& shootingWeapon.data?.arrowLootData != null
 			&& action.selectedTier?.useAmmo == true
+			&& !roundBroken
 			&& Sim.Current != null)
 		{
 			Mob targetMob = hitResult != EHitResult.None ? FindOwningMob(hitHurtBox) : null;
@@ -650,6 +666,20 @@ public static class ItemEventHandlers
 	// always find the Mob within a handful of hops. Non-mob hurtboxes (the
 	// player's own, environmental damageables) return null and fall through
 	// to the loose-loot path.
+	// Whether any hurtbox this swing already struck (DoMelee's alreadyHit) belongs
+	// to a mob.
+	private static bool AnyMobAmong(System.Collections.Generic.HashSet<ulong> hurtBoxIds)
+	{
+		foreach (ulong id in hurtBoxIds)
+		{
+			if (GodotObject.InstanceFromId(id) is Node node && FindOwningMob(node) != null)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public static Mob FindOwningMob(Node node)
 	{
 		while (node != null)
@@ -740,6 +770,7 @@ public static class ItemEventHandlers
 			backstab = tier?.impactBackstabEffect,
 			sourceWeapon = firingWeapon,
 			arrowLootData = arrowLootData,
+			durabilityCostOnHit = weaponShot ? ev.durabilityCostOnHit : 0f,
 			impactDecibels = ev.impactDecibels,
 		};
 
@@ -877,7 +908,7 @@ public static class ItemEventHandlers
 		int projectileCount = Mathf.Max(1, ev.projectileCount);
 		// An ammo-spending launch fires what the magazine can pay for, one ammo
 		// per projectile. A weapon with no magazine (maxAmmo 0) fires the full count.
-		if ((ev.type & EItemEventType.UseAmmo) != 0 && firingWeapon != null && firingWeapon.data.maxAmmo > 0)
+		if ((ev.type & EItemEventType.UseAmmo) != 0 && firingWeapon != null && firingWeapon.UsesAmmo)
 		{
 			projectileCount = Mathf.Min(projectileCount, firingWeapon.ammo);
 			firingWeapon.ammo -= projectileCount;
@@ -1543,6 +1574,27 @@ public static class ItemEventHandlers
 			weapon.ammo--;
 		}
 	}
+
+	public static void DoUseDurability(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		if (actor is Player player && action.context.primaryItem is WeaponState weapon)
+		{
+			player.WearGear(weapon, ev.durabilityCost);
+		}
+	}
+
+	// ItemEvent.durabilityCostOnHit, spent when an attack first strikes a target.
+	// True when that wear broke something — for an ammo weapon, the round that
+	// struck, which then drops no recoverable arrow. Only the player wears gear.
+	public static bool WearOnStrike(Node source, WeaponState weapon, float cost)
+	{
+		if (cost <= 0f || weapon == null || !GodotObject.IsInstanceValid(source) || source is not Player player)
+		{
+			return false;
+		}
+		return player.WearGear(weapon, cost);
+	}
+
 
 	public static void DoApplyEffect(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{

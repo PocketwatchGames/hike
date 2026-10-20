@@ -383,6 +383,10 @@ public static class StatList
 			EStat.FortitudeResistance => EStatName.Fortitude,
 			EStat.OilCost => EStatName.OilCost,
 			EStat.DashDistance => EStatName.DashDistance,
+			EStat.DurabilityWear => EStatName.DurabilityWear,
+			EStat.HungerDrainRate => EStatName.HungerDrain,
+			EStat.ThirstDrainRate => EStatName.ThirstDrain,
+			EStat.FatigueDrainRate => EStatName.FatigueDrain,
 			_ => EStatName.Damage,
 		};
 	}
@@ -615,25 +619,46 @@ public static class StatList
 		}
 	}
 
+	// How much of the hunger meter a food restores.
+	public static IEnumerable<(string name, string value)> Food(ItemData item)
+	{
+		if (item is ConsumableData food && food.satiation > 0f)
+		{
+			yield return (GameClient.Current.statNames[EStatName.Satiation], StatFormat.Percent(food.satiation));
+		}
+	}
+
 	// Item-level ammo readout. Labeled "Ammo" when shots are recoverable
 	// (arrowLootData wired, like the bow's arrows) and "Charges" when
 	// they're consumed permanently (wands, single-use throwables).
 	public static IEnumerable<(string name, string value)> Ammo(WeaponState weapon)
 	{
 		WeaponData data = weapon?.data;
-		if (data == null || data.maxAmmo <= 0)
+		if (data == null || !weapon.UsesAmmo)
 		{
 			yield break;
 		}
 		EStatName key = data.arrowLootData != null ? EStatName.Ammo : EStatName.Charges;
-		yield return (GameClient.Current.statNames[key], weapon.ammo + " / " + data.maxAmmo);
+		yield return (GameClient.Current.statNames[key], weapon.ammo + " / " + weapon.MaxAmmo);
+	}
+
+	// Gear's remaining durability, as uses left of its max. Rounded up so a piece
+	// reads 0 only once it is actually broken. No row for gear that never wears.
+	public static IEnumerable<(string name, string value)> Durability(ItemState item)
+	{
+		if (item is not GearState gear || !gear.Wears)
+		{
+			yield break;
+		}
+		int left = Mathf.CeilToInt(gear.durability);
+		yield return (GameClient.Current.statNames[EStatName.Durability], left + " / " + gear.data.maxDurability);
 	}
 
 	// Equipped gear's Weight row: the stamina units it takes off the wearer's
 	// max. 0 = no row.
 	public static IEnumerable<(string name, string value)> Weight(ItemData item)
 	{
-		float weight = item?.EquipWeight ?? 0f;
+		float weight = (item as GearData)?.weight ?? 0f;
 		if (weight != 0f)
 		{
 			yield return (GameClient.Current.statNames[EStatName.Weight], StatFormat.Number(weight));

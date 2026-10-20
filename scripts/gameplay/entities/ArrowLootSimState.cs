@@ -3,7 +3,7 @@ using Godot;
 // Per-instance state for an arrow dropped at a shot's impact point. Carries
 // a runtime reference back to the WeaponState that fired the arrow so the
 // weapon can recover ammo when the arrow is removed (player pickup or
-// LootData.removeTimeMs timeout). The reference is runtime-only — save/load
+// ItemData.removeTimeMs timeout). The reference is runtime-only — save/load
 // flattens this back to a plain LootSimState (the weapon binding is not
 // part of the persisted shape, mirroring how WeaponState itself isn't
 // world-serialized). After a reload the arrow becomes a generic pickup.

@@ -1,4 +1,4 @@
-public class ShieldState : ItemState
+public class ShieldState : GearState
 {
 	// Live guard pool and the game-time at which its recharge may resume. Starts
 	// full so a freshly-equipped shield guards the first crouch. Not saved: a load

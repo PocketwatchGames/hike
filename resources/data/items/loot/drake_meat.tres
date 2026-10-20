@@ -1,15 +1,25 @@
-[gd_resource type="Resource" script_class="LootData" format=3 uid="uid://khjswp5qnpnm"]
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://khjswp5qnpnm"]
 
-[ext_resource type="Script" uid="uid://3oa4sob21cmwb" path="res://scripts/data/items/LootData.cs" id="1_loot_data"]
+[ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_loot_data"]
 [ext_resource type="Texture2D" uid="uid://b1nib5hr1yvoa" path="res://assets/textures/items/DrakeMeat.png" id="2_inv"]
-[ext_resource type="Resource" uid="uid://4hiwjcj7oqg79" path="res://resources/data/items/loot/meat.tres" id="3_parent"]
+[ext_resource type="Resource" uid="uid://cfntew4gqccww" path="res://resources/data/items/loot/meat.tres" id="3_parent"]
+[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="apply_status"]
+[ext_resource type="Resource" uid="uid://cfgrdp0ehape4" path="res://resources/data/status_effects/status_food_poisoning.tres" id="food_poisoning"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="item_effect"]
+
+[sub_resource type="Resource" id="eat_poison"]
+script = ExtResource("apply_status")
+statusEffect = ExtResource("food_poisoning")
 
 [resource]
 script = ExtResource("1_loot_data")
-removeTimeMs = 60000
+effects = Array[ExtResource("item_effect")]([SubResource("eat_poison")])
+satiation = 0.15
 displayName = &"Drake Meat"
 maxStack = 99
 spoilDays = 3
 inventorySprite = ExtResource("2_inv")
 typeTags = 129
+categoryOverride = 6
 parent = ExtResource("3_parent")
+removeTimeMs = 60000

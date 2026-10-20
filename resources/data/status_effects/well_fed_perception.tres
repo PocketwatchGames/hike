@@ -6,12 +6,6 @@
 [ext_resource type="PackedScene" uid="uid://bdr1he0fm3lyr" path="res://scenes/fx/status_well_fed_start.tscn" id="4_startfx"]
 [ext_resource type="PackedScene" uid="uid://cstguqovay7y0" path="res://scenes/fx/status_well_fed_end.tscn" id="5_endfx"]
 
-[sub_resource type="Resource" id="mod_health"]
-script = ExtResource("3_mod")
-stat = 16
-value = 100.0
-metadata/_custom_type_script = "uid://bovyciaikopwb"
-
 [sub_resource type="Resource" id="mod_vision"]
 script = ExtResource("3_mod")
 stat = 4
@@ -28,12 +22,12 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 script = ExtResource("1_data")
 icon = ExtResource("2_icon")
 displayName = &"Well Fed & Perception"
-description = "+100 Health and +25% sight and hearing until sunrise."
+description = "+25% sight and hearing until sunrise."
 category = 9
 durationType = 2
 maxStack = 1
 startFx = ExtResource("4_startfx")
 endFx = ExtResource("5_endfx")
 removesOnApply = []
-modifiers = [SubResource("mod_health"), SubResource("mod_vision"), SubResource("mod_hearing")]
+modifiers = [SubResource("mod_vision"), SubResource("mod_hearing")]
 conditionalModifiers = []

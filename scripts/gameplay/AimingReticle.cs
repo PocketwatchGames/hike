@@ -547,7 +547,8 @@ public partial class AimingReticle : Node3D
 	bool IsRangedWeaponEquipped()
 	{
 		if (_player?.Inventory == null) { return false; }
-		WeaponState weapon = _player.Inventory.GetWeapon(EInventorySlot.WeaponRight);
+		// A spent ammo weapon reads as no ranged weapon at all.
+		WeaponState weapon = _player.GetUsableWeapon(EInventorySlot.WeaponRight);
 		if (weapon?.data?.actionProfile == null) { return false; }
 		ActionRunner runner = _player.Runner;
 		if (runner != null && runner.IsBusy && runner.Current.context.sourceSlot != EInventorySlot.WeaponRight)
@@ -571,7 +572,7 @@ public partial class AimingReticle : Node3D
 	bool IsRangedWeaponOutOfAmmo()
 	{
 		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
-		return weapon?.data != null && weapon.data.maxAmmo > 0 && weapon.ammo <= 0;
+		return weapon != null && weapon.UsesAmmo && weapon.ammo <= 0;
 	}
 
 	// Fresh active update: resolve aim type → update cursor + cached state → render.

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "needs"
+description = "One of each kind of food for the hunger meter: safe and sickening forage, raw meat (sickens), and both meal tiers."
+commands = "spawn_loot berry_blue 3
+spawn_loot mushroom_red 2
+spawn_loot mushroom_purple 1
+spawn_loot troll_meat 1
+spawn_loot meal_grilled_troll 1
+spawn_loot meal_stew_troll_stamina 1"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

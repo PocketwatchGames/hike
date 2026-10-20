@@ -26,11 +26,12 @@ metadata/_custom_type_script = "uid://6h7yge1txki2"
 
 [resource]
 script = ExtResource("1_armor")
-maxArmor = 100.0
+maxArmor = 600.0
 beltSlots = 1
-weight = 0.5
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource("Resource_25iwx")])
 outfit = SubResource("outfit")
+weight = 0.5
+maxDurability = 6000
 displayName = &"Fur Coat"
 description = "Polar bears stay warm in the winter!"
 value = 60

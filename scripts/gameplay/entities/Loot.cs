@@ -21,12 +21,12 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 	[Export] private HurtBox _hurtBox;
 	[Export] private Node3D _hudNode;
 	[Export] private Sprite3D _sprite;
-	// Anchor a LootData.worldModel is parented under when the dropped item
+	// Anchor a ItemData.worldModel is parented under when the dropped item
 	// renders as a 3D mesh instead of the flat sprite (e.g. the elite crown).
 	[Export] private Node3D _modelAnchor;
 	[Export] private PackedScene _pickupEffectScene;
 	[Export] private PackedScene _spawnEffectScene;
-	// Played at the loot's position when it expires (LootData.removeTimeMs).
+	// Played at the loot's position when it expires (ItemData.removeTimeMs).
 	// Same Fx.Create one-shot pattern as the pickup/spawn effects; null leaves
 	// the despawn silent (e.g. test scenes that don't author a remove cue).
 	[Export] private PackedScene _removeEffectScene;
@@ -88,7 +88,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 	private Player _picker;
 	private bool _playSpawnEffects;
 	// GameTimeMs stamp captured the first frame the pickup ticks, so its
-	// pickup-ready delay and LootData.removeTimeMs despawn run on the sim clock
+	// pickup-ready delay and ItemData.removeTimeMs despawn run on the sim clock
 	// (slow with slow-mo, frame-rate independent, matching the codebase's
 	// duration convention) rather than wall-clock frames. Local to the live
 	// instance — re-stamps at 0 age if the chunk unloads and re-streams the loot.
@@ -128,7 +128,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 	// (see UpdateMagnet).
 	private float _seekSpeed;
 
-	// Timed-emergence state (LootData.timedEmergence). Drives a buried->risen
+	// Timed-emergence state (ItemData.timedEmergence). Drives a buried->risen
 	// animation of the visual only — the rigidbody stays settled on the ground.
 	// All timing runs on the sim clock (GameTimeMs) so interactivity unlocks
 	// deterministically once the rise completes. Inert unless IsTimedEmergent.
@@ -145,7 +145,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 	private float _emergeFraction;  // 0 = buried/hidden, 1 = fully risen.
 
 	private TimedEmergenceData TimedEmergence =>
-		(_simState?.Item?.data ?? _simState?.Data) is LootData ld ? ld.timedEmergence : null;
+		(_simState?.Item?.data ?? _simState?.Data)?.timedEmergence;
 	private bool IsTimedEmergent => TimedEmergence != null;
 
 	public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
@@ -220,7 +220,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 			}
 		}
 		ItemData data = _simState?.Item?.data ?? _simState?.Data;
-		if (data is LootData lootData && lootData.removeTimeMs > 0 && ageMs >= (ulong)lootData.removeTimeMs)
+		if (data != null && data.removeTimeMs > 0 && ageMs >= (ulong)data.removeTimeMs)
 		{
 			Expire();
 			return;
@@ -613,7 +613,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		_animationPlayer?.Play(_initialImpulse != Vector3.Zero ? "Bob" : "Idle");
 	}
 
-	// --- Timed emergence (LootData.timedEmergence) -------------------------
+	// --- Timed emergence (ItemData.timedEmergence) -------------------------
 	// The visual rises out of the ground while the current time-of-day is inside
 	// the authored window and sinks back when it leaves. Only the visual (sprite
 	// or model anchor) moves — the rigidbody stays settled — and the pickup is
@@ -747,7 +747,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		}
 		// Animate the active visual: the 3D model anchor when this loot renders a
 		// mesh, otherwise the flat sprite.
-		bool hasModel = (_simState?.Item?.data ?? _simState?.Data) is LootData ld && ld.worldModel != null;
+		bool hasModel = (_simState?.Item?.data ?? _simState?.Data)?.worldModel != null;
 		_emergeVisual = hasModel ? _modelAnchor : _sprite;
 		if (_emergeVisual != null)
 		{
@@ -1144,7 +1144,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		// for loot that has been lying there all along.
 		instance._playSpawnEffects = data.PlaySpawnEffects;
 		ItemData itemData = data.Item?.data ?? data.Data;
-		PackedScene worldModel = (itemData as LootData)?.worldModel;
+		PackedScene worldModel = itemData?.worldModel;
 		if (worldModel != null && instance._modelAnchor != null)
 		{
 			// 3D-model loot (the elite crown halo) renders its authored mesh

@@ -2,9 +2,11 @@
 
 [ext_resource type="Script" uid="uid://c7pjuf5dv31v1" path="res://scripts/gui/WeaponHud.cs" id="1_06rsg"]
 [ext_resource type="Texture2D" uid="uid://c6brfyavs14am" path="res://assets/textures/gui/item_button_focused.png" id="2_qf7mk"]
+[ext_resource type="Texture2D" uid="uid://bslte0xntnyh7" path="res://assets/textures/gui/item_durability_warning.png" id="2_qwv5p"]
 [ext_resource type="Texture2D" uid="uid://ci5kswtk3206n" path="res://assets/textures/gui/item_button_pressed.png" id="3_6sirm"]
+[ext_resource type="Texture2D" uid="uid://l7q8l1ny2r7s" path="res://assets/textures/gui/item_durability_broken.png" id="3_yhxco"]
 
-[node name="WeaponHud" type="BoxContainer" unique_id=150891526 node_paths=PackedStringArray("_cooldownBar", "_icon", "_ammoGroup", "_ammoProgress", "_ammoText", "_selectedMarker", "_activeMarker")]
+[node name="WeaponHud" type="BoxContainer" unique_id=150891526 node_paths=PackedStringArray("_cooldownBar", "_icon", "_ammoGroup", "_ammoProgress", "_ammoText", "_selectedMarker", "_activeMarker", "_durabilityWarning", "_durabilityBroken")]
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -26,6 +28,8 @@ _ammoProgress = NodePath("VBoxContainer/PanelContainer/AmmoContainer/AmmoBar")
 _ammoText = NodePath("VBoxContainer/PanelContainer/AmmoContainer/AmmoBar/Ammo")
 _selectedMarker = NodePath("VBoxContainer/PanelContainer/MarginContainer/Selected")
 _activeMarker = NodePath("VBoxContainer/PanelContainer/Equipped")
+_durabilityWarning = NodePath("VBoxContainer/PanelContainer/DurabilityWarning")
+_durabilityBroken = NodePath("VBoxContainer/PanelContainer/DurabilityBroken")
 metadata/_custom_type_script = "uid://c7pjuf5dv31v1"
 
 [node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1947861846]
@@ -45,6 +49,20 @@ show_percentage = false
 
 [node name="Icon" type="TextureRect" parent="VBoxContainer/PanelContainer" unique_id=1625218392]
 layout_mode = 2
+expand_mode = 4
+stretch_mode = 5
+
+[node name="DurabilityWarning" type="TextureRect" parent="VBoxContainer/PanelContainer" unique_id=1594544326]
+visible = false
+layout_mode = 2
+texture = ExtResource("2_qwv5p")
+expand_mode = 4
+stretch_mode = 5
+
+[node name="DurabilityBroken" type="TextureRect" parent="VBoxContainer/PanelContainer" unique_id=1272482342]
+visible = false
+layout_mode = 2
+texture = ExtResource("3_yhxco")
 expand_mode = 4
 stretch_mode = 5
 

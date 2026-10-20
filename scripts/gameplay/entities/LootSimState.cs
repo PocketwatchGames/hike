@@ -72,7 +72,7 @@ public class LootSimState : EntitySimState
     public virtual bool ShouldDepositToInventory() => true;
 
     // Called from Loot after the world-removal commit (PickedUp set true)
-    // for any removal cause — player pickup, LootData.removeTimeMs timeout,
+    // for any removal cause — player pickup, ItemData.removeTimeMs timeout,
     // future causes. Not invoked by deserialization; load-time PickedUp
     // values from disk skip this hook.
     public virtual void OnRemovedFromWorld() { }

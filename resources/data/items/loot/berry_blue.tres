@@ -1,10 +1,12 @@
-[gd_resource type="Resource" script_class="LootData" format=3]
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
 
-[ext_resource type="Script" uid="uid://3oa4sob21cmwb" path="res://scripts/data/items/LootData.cs" id="1_loot_data"]
+[ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_loot_data"]
 [ext_resource type="Texture2D" uid="uid://bptqj1l2sfaks" path="res://assets/textures/items/BerriesBlue.png" id="2_icon"]
 
 [resource]
 script = ExtResource("1_loot_data")
+categoryOverride = 6
+satiation = 0.05
 displayName = &"Blue Berry"
 maxStack = 99
 value = 1

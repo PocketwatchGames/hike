@@ -129,6 +129,70 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// The one way the player wears gear (see GearState), so every piece plays
+	// its cue on the use that tips it into worn or broken. True when this wear
+	// broke something: the piece, or for an ammo weapon the round that struck.
+	public bool WearGear(GearState gear, float amount = 1f)
+	{
+		if (gear == null || !gear.Wears)
+		{
+			return false;
+		}
+		float warningFraction = data.durabilityWarningFraction;
+		GearState.ECondition before = gear.Condition(warningFraction);
+		WeaponState ammoWeapon = gear is WeaponState weapon && weapon.TradesAmmoForDurability ? weapon : null;
+		int capacityLostBefore = ammoWeapon?.ammoCapacityLost ?? 0;
+		gear.Wear(amount);
+		GearState.ECondition after = gear.Condition(warningFraction);
+		if (ammoWeapon != null && ammoWeapon.ammoCapacityLost > capacityLostBefore)
+		{
+			SpawnWorldEffect(_durabilityAmmoBrokenFx);
+			return true;
+		}
+		if (after == GearState.ECondition.Broken && before != after)
+		{
+			SpawnWorldEffect(_durabilityBrokenFx);
+			return true;
+		}
+		if (after == GearState.ECondition.Worn && before == GearState.ECondition.Sound)
+		{
+			SpawnWorldEffect(_durabilityWarningFx);
+		}
+		return false;
+	}
+
+	// Armor wears by the damage its pool soaks, shared between the worn pieces
+	// by how much of the pool each one contributes.
+	private void WearArmor(float absorbed)
+	{
+		if (_inventory == null || absorbed <= 0f)
+		{
+			return;
+		}
+		ArmorState helmet = _inventory.GetEquipped(EInventorySlot.Helmet) as ArmorState;
+		ArmorState body = _inventory.GetEquipped(EInventorySlot.Armor) as ArmorState;
+		float helmetShare = helmet?.EffectiveMaxArmor ?? 0f;
+		float bodyShare = body?.EffectiveMaxArmor ?? 0f;
+		float total = helmetShare + bodyShare;
+		if (total <= 0f)
+		{
+			return;
+		}
+		WearGear(helmet, absorbed * helmetShare / total);
+		WearGear(body, absorbed * bodyShare / total);
+	}
+
+	// Broken armor still soaks with what is left of the pool but never refills it.
+	private bool IsWornArmorBroken()
+	{
+		if (_inventory == null)
+		{
+			return false;
+		}
+		return (_inventory.GetEquipped(EInventorySlot.Helmet) as ArmorState)?.IsBroken == true
+			|| (_inventory.GetEquipped(EInventorySlot.Armor) as ArmorState)?.IsBroken == true;
+	}
+
 	// Compose a single stat across inherent PlayerData modifiers, the hosted
 	// member's class modifiers, equipped armor modifiers, and active
 	// status-effect modifiers. Seeds with the stat's neutral identity (1 for
@@ -245,14 +309,14 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Summed ItemData.EquipWeight across every equipment slot.
+	// Summed GearData.weight across every equipment slot.
 	public float EquippedWeight()
 	{
 		if (_inventory == null) { return 0f; }
 		float total = 0f;
 		for (EInventorySlot slot = EInventorySlot.None + 1; slot < EInventorySlot.Count; slot++)
 		{
-			total += _inventory.GetEquipped(slot)?.data?.EquipWeight ?? 0f;
+			total += (_inventory.GetEquipped(slot)?.data as GearData)?.weight ?? 0f;
 		}
 		return total;
 	}
@@ -356,7 +420,7 @@ public partial class Player : CharacterBody3D
 		// MaxArmor (not the raw _maxArmor equipment sum) so a MaxArmor stat
 		// modifier actually expands the rechargeable pool, not just the readout.
 		float maxArmor = MaxArmor;
-		if (maxArmor <= 0f || _armor >= maxArmor)
+		if (maxArmor <= 0f || _armor >= maxArmor || IsWornArmorBroken())
 		{
 			return;
 		}
@@ -399,8 +463,9 @@ public partial class Player : CharacterBody3D
 		{
 			return null;
 		}
+		// A broken shield guards nothing, and does not fall back to bare hands.
 		ShieldState shield = GetShieldOrUnarmed();
-		return shield?.data != null && shield.data.CanGuard ? shield : null;
+		return shield?.data != null && shield.data.CanGuard && !shield.IsBroken ? shield : null;
 	}
 
 	// True while a well-timed parry would deflect an incoming blow: the guard is
@@ -428,7 +493,7 @@ public partial class Player : CharacterBody3D
 		get
 		{
 			ShieldState shield = GetShieldOrUnarmed();
-			return shield?.data != null && shield.data.CanParry && IsGuardReadyToParry(shield);
+			return shield?.data != null && shield.data.CanParry && !shield.IsBroken && IsGuardReadyToParry(shield);
 		}
 	}
 
@@ -644,7 +709,7 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		float per = weapon.data.ammoRechargeSeconds;
-		int max = weapon.data.maxAmmo;
+		int max = weapon.MaxAmmo;
 		if (per <= 0f || max <= 0)
 		{
 			return;
@@ -720,9 +785,17 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
+		SpendStamina(amount);
+	}
+
+	// Every stamina spend — actions, the dash, sprint and swim drain. Overdraws
+	// into the negative, re-arms the recharge delay, and costs the needs meters.
+	private void SpendStamina(float amount)
+	{
 		_stamina -= amount;
 		ulong now = _world?.GameTimeMs ?? 0;
 		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
+		SpendNeedsForStamina(amount);
 	}
 
 	// IActionActor — refill stamina from the stamina-on-hit weapon mod. Clamped at
@@ -740,8 +813,8 @@ public partial class Player : CharacterBody3D
 	private void TickStamina(float dt)
 	{
 		float max = MaxStamina;
-		// A status effect with maxStaminaBonus can shrink the cap when it
-		// expires (e.g. Hydrated wearing off). Clamp before the recharge
+		// The cap shrinks as a MaxStamina effect expires or the needs meters
+		// drain. Clamp before the recharge
 		// early-out so a higher-than-cap value comes back down to the new max.
 		if (_stamina > max)
 		{
@@ -777,9 +850,7 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		_stamina -= data.swimStaminaDrainPerSecond * dt;
-		ulong now = _world?.GameTimeMs ?? 0;
-		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
+		SpendStamina(data.swimStaminaDrainPerSecond * dt);
 	}
 
 	// Resolves _sprinting for this tick and drains for it. Runs before the
@@ -808,9 +879,7 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		_stamina -= data.sprintStaminaDrainPerSecond * dt;
-		ulong now = _world?.GameTimeMs ?? 0;
-		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
+		SpendStamina(data.sprintStaminaDrainPerSecond * dt);
 	}
 
 	// Fires the out-of-breath one-shot on the positive→exhausted crossing.

@@ -456,7 +456,7 @@ public partial class Sim : Node3D
 
     // In-world hours spanned by TimeOfDay01 [0, 1]. The clock is a full 24-hour
     // cycle (sunrise → the next sunrise), so this is the whole day.
-    private const double HoursPerDay = 24.0;
+    public const double HoursPerDay = 24.0;
 
     // Sleep's nap branch (always short of the next sunrise): fast-forwards
     // `hours` in one-second steps, replaying the status-effect tick path so timed

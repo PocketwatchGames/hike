@@ -2,11 +2,15 @@
 
 [ext_resource type="Script" uid="uid://cuyu2uykmhfid" path="res://scripts/data/spawn/FountainSpawnEntry.cs" id="1_entry"]
 [ext_resource type="PackedScene" uid="uid://b7gskto31x441" path="res://scenes/interactives/well.tscn" id="2_scene"]
-[ext_resource type="Resource" uid="uid://cssqwmsx7gyi6" path="res://resources/data/fountain_effects/hydrate.tres" id="3_effect"]
+[ext_resource type="Script" uid="uid://djthfxu6qg30" path="res://scripts/data/effects/RestoreNeedsEffect.cs" id="3_restore"]
+
+[sub_resource type="Resource" id="quench_thirst"]
+script = ExtResource("3_restore")
+metadata/_custom_type_script = "uid://djthfxu6qg30"
 
 [resource]
 script = ExtResource("1_entry")
 scene = ExtResource("2_scene")
-effects = [ExtResource("3_effect")]
+effects = [SubResource("quench_thirst")]
 detailSuppressionRadius = 0.0
 metadata/_custom_type_script = "uid://cuyu2uykmhfid"

@@ -5,10 +5,10 @@
 
 [resource]
 script = ExtResource("1_armor")
-maxArmor = 180.0
+maxArmor = 720.0
 armorSlot = 1
 modifiers = Array[Object]([])
-outfit = null
+maxDurability = 7200
 displayName = &"Gosbark Helm"
 description = "Thick bark-plated headgear that turns aside heavy blows."
 value = 30

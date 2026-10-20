@@ -34,6 +34,11 @@ public partial class ConsumableData : ItemData, IInstantUseItem, IUsableItem
 	public ItemActionProfile ActionProfile => actionProfile;
 	public bool CanUseInstantly => actionProfile == null;
 
+	// Fraction of the hunger meter eating this restores; 0 = not food. Raw
+	// forage and meat set it too, authored with categoryOverride = Material so
+	// they stay backpack ingredients that can also be eaten.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float satiation;
+
 	// What cooks into this item. Null = not cookable.
 	[Export] public RecipeData recipe;
 
@@ -62,6 +67,7 @@ public partial class ConsumableData : ItemData, IInstantUseItem, IUsableItem
 		// Self-targeted context — a consumable buffs/heals the user; there's no
 		// weapon swing or interactive behind it.
 		var context = new ActionContext { verb = EActionVerb.Use, target = player, worldPosition = player.GlobalPosition };
+		player.RestoreNeed(ENeed.Hunger, satiation);
 		if (effects != null)
 		{
 			for (int i = 0; i < effects.Count; i++)

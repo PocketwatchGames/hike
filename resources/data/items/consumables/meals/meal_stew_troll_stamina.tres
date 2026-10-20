@@ -29,6 +29,7 @@ inputs = Array[ExtResource("4_input")]([SubResource("Resource_input_meat"), SubR
 
 [resource]
 script = ExtResource("1_consumable")
+satiation = 0.75
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_meal")])
 recipe = SubResource("Recipe")
 displayName = &"Energizing Troll Stew"

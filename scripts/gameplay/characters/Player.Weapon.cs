@@ -168,8 +168,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		_dashCooldownEndMs = now + (ulong)(data.dashCooldown * 1000f);
 		// Spend stamina unconditionally — stamina is allowed to go negative,
 		// and the recharge delay re-arms either way.
-		_stamina -= data.dashStaminaCost;
-		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
+		SpendStamina(data.dashStaminaCost);
 		// Dash is an overt action — like the swing/use cluster in
 		// ProcessInput's sneak-break list. Cleared here as well so the intent
 		// stays local to dash if that list is ever refactored.
@@ -196,6 +195,15 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			return _unarmedShield;
 		}
 		return null;
+	}
+
+	// The weapon in `slot` that can actually be used: a spent ammo weapon
+	// (WeaponState.IsSpent) reads as an empty slot. The HUD keeps reading the
+	// equipped item so the spent weapon still shows, broken.
+	public WeaponState GetUsableWeapon(EInventorySlot slot)
+	{
+		WeaponState weapon = _inventory?.GetWeapon(slot);
+		return weapon != null && weapon.IsSpent ? null : weapon;
 	}
 
 	public WeaponState GetMeleeWeaponOrUnarmed(EInventorySlot slot)
@@ -262,7 +270,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			return;
 		}
 		WeaponState weapon = GetMeleeWeaponOrUnarmed(slot);
-		if (weapon?.data?.actionProfile == null)
+		if (weapon?.data?.actionProfile == null || weapon.IsSpent)
 		{
 			return;
 		}
@@ -270,7 +278,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		// empty one (ammo <= 0) blocks the press even if individual tiers on
 		// the profile don't all flag useAmmo — the bow shouldn't dry-fire
 		// just because you walked over to its melee-bash tier.
-		if (weapon.data.maxAmmo > 0 && weapon.ammo <= 0)
+		if (weapon.UsesAmmo && weapon.ammo <= 0)
 		{
 			return;
 		}
@@ -640,7 +648,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		{
 			return;
 		}
-		WeaponData weaponData = _inventory?.GetWeapon(slot)?.data;
+		WeaponData weaponData = GetUsableWeapon(slot)?.data;
 		if (weaponData == null)
 		{
 			ClearAimAssist();

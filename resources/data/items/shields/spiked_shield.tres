@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ShieldData" format=3]
+[gd_resource type="Resource" script_class="ShieldData" format=3 uid="uid://fi5efd0a26yy"]
 
 [ext_resource type="Script" uid="uid://jqmwdcmyi4tc" path="res://scripts/data/items/ShieldData.cs" id="1_shield"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="2_damage"]
@@ -29,7 +29,6 @@ modifiers = []
 
 [resource]
 script = ExtResource("1_shield")
-weight = 1.0
 guardArmor = 220.0
 guardRechargeDelay = 1.75
 guardRechargeTime = 0.55
@@ -40,6 +39,8 @@ maxParryDamage = 275.0
 parryCounter = SubResource("Resource_counter")
 parryEffect = ExtResource("5_parryfx")
 parryDecibels = 1.0
+weight = 1.0
+maxDurability = 600
 displayName = &"Spiked Shield"
 description = "Iron spikes bristle from its face. Anything that strikes it bleeds for the trouble, and a timed crouch drives the spikes home."
 value = 75

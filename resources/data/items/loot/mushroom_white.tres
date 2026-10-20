@@ -1,14 +1,24 @@
-[gd_resource type="Resource" script_class="LootData" format=3 uid="uid://151tfntcxm62z"]
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://dyllvcbtkfxjf"]
 
-[ext_resource type="Script" uid="uid://3oa4sob21cmwb" path="res://scripts/data/items/LootData.cs" id="1_item_data"]
+[ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_item_data"]
 [ext_resource type="Texture2D" uid="uid://boh7khsaxa3dj" path="res://assets/textures/items/MushroomWhite.png" id="2_sprite"]
-[ext_resource type="Resource" uid="uid://45twv92ziyfu6" path="res://resources/data/items/loot/mushroom.tres" id="3_parent"]
+[ext_resource type="Resource" uid="uid://c3ytrvm8kkbkt" path="res://resources/data/items/loot/mushroom.tres" id="3_parent"]
+[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="apply_status"]
+[ext_resource type="Resource" uid="uid://cfgrdp0ehape4" path="res://resources/data/status_effects/status_food_poisoning.tres" id="food_poisoning"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="item_effect"]
+
+[sub_resource type="Resource" id="eat_poison"]
+script = ExtResource("apply_status")
+statusEffect = ExtResource("food_poisoning")
 
 [resource]
 script = ExtResource("1_item_data")
+effects = Array[ExtResource("item_effect")]([SubResource("eat_poison")])
+satiation = 0.05
 displayName = &"White Mushroom"
 maxStack = 99
+spoilDays = 3
 value = 1
 inventorySprite = ExtResource("2_sprite")
+categoryOverride = 6
 parent = ExtResource("3_parent")
-spoilDays = 3

@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="7_solidfx"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="7_wsm2b"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="9_hg7m0"]
+[ext_resource type="PackedScene" path="res://scenes/fx/mob_smear_thrust.tscn" id="20_smear"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")
@@ -28,6 +29,7 @@ metadata/_custom_type_script = "uid://cmw4pa3roleml"
 script = ExtResource("4_event")
 time = 300
 type = 1
+smearEffect = ExtResource("20_smear")
 impactEnvironmentEffect = ExtResource("7_solidfx")
 impactHealthEffect = ExtResource("6_hitfx")
 impactArmorEffect = ExtResource("7_solidfx")

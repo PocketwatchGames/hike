@@ -17,6 +17,7 @@
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="12_buildup"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="13_burning"]
 [ext_resource type="Resource" uid="uid://dl57yasg4uaks" path="res://resources/data/characters/ability_tells/ability_tell_fire.tres" id="14_tell"]
+[ext_resource type="PackedScene" path="res://scenes/fx/mob_smear_heavy.tscn" id="20_smear"]
 
 [sub_resource type="Resource" id="Resource_event_windup_anim"]
 script = ExtResource("4_event")
@@ -35,6 +36,7 @@ script = ExtResource("4_event")
 time = 450
 type = 1
 farWidth = 3.0
+smearEffect = ExtResource("20_smear")
 impactEnvironmentEffect = ExtResource("10_solidfx")
 impactHealthEffect = ExtResource("9_hitfx")
 impactArmorEffect = ExtResource("10_solidfx")

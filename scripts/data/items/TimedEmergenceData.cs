@@ -4,7 +4,7 @@ using Godot;
 // outside an authored time-of-day window, and during it emerges from the ground
 // by scaling up from zero and rising to its rest pose — becoming interactive
 // only once that rise completes — then retracts back into the ground when the
-// window ends. Authored as a sub-resource on LootData (null = ordinary
+// window ends. Authored as a sub-resource on ItemData (null = ordinary
 // always-present loot) so it sits with the other world-on-ground loot dynamics.
 // See Loot's emergence section for the runtime.
 // [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see

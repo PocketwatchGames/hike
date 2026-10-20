@@ -5,8 +5,9 @@
 [ext_resource type="PackedScene" uid="uid://dpdp3rplt633u" path="res://scenes/gui/cooking_panel.tscn" id="3_2sopy"]
 [ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="4_vv7vb"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="5_m6qmy"]
+[ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="6_count"]
 
-[node name="CookingScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_beltPanel", "_backpackPanel", "_stashPanel", "_cookingPanel", "_itemInfoPanel", "_buttonHintPrimary")]
+[node name="CookingScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_beltPanel", "_backpackPanel", "_stashPanel", "_cookingPanel", "_itemInfoPanel", "_buttonHintPrimary", "_hintUse", "_hintDrop", "_countPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,6 +21,9 @@ _stashPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContai
 _cookingPanel = NodePath("MarginContainer/HBoxContainer/CookingContainer/CookingPanel")
 _itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/ItemInfoPanel")
 _buttonHintPrimary = NodePath("MarginContainer/ButtonHints/ButtonHintA")
+_hintUse = NodePath("MarginContainer/ButtonHints/ButtonHintUse")
+_hintDrop = NodePath("MarginContainer/ButtonHints/ButtonHintDrop")
+_countPanel = NodePath("MarginContainer/MarginContainer2/ItemCountPanel")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1767524930]
 layout_mode = 1
@@ -44,17 +48,17 @@ layout_mode = 2
 ActionName = "Cook"
 InputAction = "ui_select"
 
-[node name="ButtonHintX" parent="MarginContainer/ButtonHints" unique_id=1258403697 instance=ExtResource("2_f2qv6")]
-visible = false
-layout_mode = 2
-ActionName = "Drop"
-InputAction = "X"
-
-[node name="ButtonHintY" parent="MarginContainer/ButtonHints" unique_id=2009547151 instance=ExtResource("2_f2qv6")]
+[node name="ButtonHintUse" parent="MarginContainer/ButtonHints" unique_id=2009547151 instance=ExtResource("2_f2qv6")]
 visible = false
 layout_mode = 2
 ActionName = "Use"
-InputAction = "Y"
+InputAction = "MenuTertiary"
+
+[node name="ButtonHintDrop" parent="MarginContainer/ButtonHints" unique_id=1258403697 instance=ExtResource("2_f2qv6")]
+visible = false
+layout_mode = 2
+ActionName = "Drop"
+InputAction = "MenuQuinary"
 
 [node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=270012993]
 layout_mode = 2
@@ -101,3 +105,11 @@ layout_mode = 2
 
 [node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer2" unique_id=638608018 instance=ExtResource("5_m6qmy")]
 layout_mode = 2
+
+[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/margin_bottom = 100
+
+[node name="ItemCountPanel" parent="MarginContainer/MarginContainer2" instance=ExtResource("6_count")]
+layout_mode = 2
+size_flags_vertical = 8

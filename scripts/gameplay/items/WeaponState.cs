@@ -1,6 +1,28 @@
-public class WeaponState : ItemState
+using Godot;
+
+public class WeaponState : GearState
 {
 	public int ammo;
+
+	// Magazine capacity worn away — see Wear. MaxAmmo is the live capacity.
+	public int ammoCapacityLost;
+
+	// An ammo weapon's authored magazine, minus what wear has cost it.
+	public int MaxAmmo => _data == null ? 0 : System.Math.Max(0, _data.maxAmmo - ammoCapacityLost);
+
+	// True for a weapon authored with a magazine, even one worn down to none.
+	public bool UsesAmmo => _data != null && _data.maxAmmo > 0;
+
+	// An ammo weapon whose whole magazine wear has taken. It can never fire again
+	// until repaired, so aiming and firing treat the slot as empty.
+	public bool IsSpent => UsesAmmo && MaxAmmo == 0;
+
+	// WeaponData.wearCostsAmmoCapacity: wear trades magazine for durability.
+	public bool TradesAmmoForDurability => UsesAmmo && _data.wearCostsAmmoCapacity;
+
+	// A weapon trading capacity for durability is broken only once the magazine
+	// is gone.
+	public override bool IsBroken => TradesAmmoForDurability ? Wears && MaxAmmo == 0 : base.IsBroken;
 
 	// Game-time (ms) at which the next passive ammo charge completes, for
 	// weapons with WeaponData.ammoRechargeSeconds > 0. 0 = no recharge in
@@ -63,16 +85,50 @@ public class WeaponState : ItemState
 	public override WeaponData data => _data;
 	private readonly WeaponData _data;
 
-	// Combo cursors are live-combat state that restarts on its own; ammo is the
-	// one thing a quiver carries.
+	// Combo cursors are live-combat state that restarts on its own; ammo and
+	// what wear has taken from the magazine are what a quiver carries.
 	public override void WriteSubclassState(System.IO.BinaryWriter w)
 	{
+		base.WriteSubclassState(w);
 		w.Write(ammo);
+		w.Write(ammoCapacityLost);
 	}
 
 	public override void ReadSubclassState(System.IO.BinaryReader r)
 	{
+		base.ReadSubclassState(r);
 		ammo = r.ReadInt32();
+		ammoCapacityLost = r.ReadInt32();
+	}
+
+	// A weapon trading capacity for durability never stays broken: every time
+	// its durability runs out it loses one round of capacity and durability
+	// refills to maxDurability scaled by the capacity left (4 of 5 rounds → 80%),
+	// so each lost round comes sooner than the last. The loop settles an
+	// overdraft that spans more than one refill.
+	public override void Wear(float amount = 1f)
+	{
+		if (!TradesAmmoForDurability)
+		{
+			base.Wear(amount);
+			return;
+		}
+		if (!Wears || amount <= 0f)
+		{
+			return;
+		}
+		durability -= amount * ComposeWearMultiplier();
+		while (durability <= 0f && MaxAmmo > 0)
+		{
+			ammoCapacityLost++;
+			durability += _data.maxDurability * (float)MaxAmmo / _data.maxAmmo;
+		}
+		// A magazine worn down to nothing has nothing left to trade.
+		durability = Mathf.Max(0f, durability);
+		if (ammo > MaxAmmo)
+		{
+			ammo = MaxAmmo;
+		}
 	}
 
 	public WeaponState(WeaponData d) : base(d)
@@ -109,7 +165,7 @@ public class WeaponState : ItemState
 		{
 			return;
 		}
-		if (_data != null && ammo < _data.maxAmmo)
+		if (ammo < MaxAmmo)
 		{
 			ammo++;
 		}
@@ -118,7 +174,7 @@ public class WeaponState : ItemState
 		// last arrow while the timer was running" case; the timer re-arms on
 		// the next shot. (The auto-recovery path in Player.TickAmmoRecharge
 		// re-evaluates the deadline itself, so this clear is harmless there.)
-		if (_data != null && ammo >= _data.maxAmmo)
+		if (ammo >= MaxAmmo)
 		{
 			ammoRechargeReadyMs = 0;
 		}

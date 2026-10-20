@@ -30,4 +30,8 @@ public enum EStat
 	FortitudeResistance = 18, // multiplicative — scale on EVERY combat buildup (<1 = resistant); PlayerState.fortitude folds in here too
 	OilCost = 19,             // multiplicative — scale on lantern oil an action tier spends (ItemAction.oilCost)
 	DashDistance = 20,        // multiplicative — scale on the dash's travel (not weapon lunges)
+	DurabilityWear = 21,      // multiplicative — scale on the durability a piece of gear spends per use (<1 = sturdier). Read off the ITEM's own composed mods (GearState.ComposeWearMultiplier), never the wearer's
+	HungerDrainRate = 22,     // multiplicative — scale on how fast the hunger meter empties (Cold sets it)
+	ThirstDrainRate = 23,     // multiplicative — scale on how fast the thirst meter empties (Hot sets it)
+	FatigueDrainRate = 24,    // multiplicative — scale on how fast the fatigue meter empties
 }

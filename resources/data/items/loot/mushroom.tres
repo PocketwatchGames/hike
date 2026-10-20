@@ -1,9 +1,11 @@
-[gd_resource type="Resource" script_class="LootData" format=3 uid="uid://45twv92ziyfu6"]
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://45twv92ziyfu6"]
 
-[ext_resource type="Script" uid="uid://3oa4sob21cmwb" path="res://scripts/data/items/LootData.cs" id="1_loot_data"]
+[ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_loot_data"]
 
 [resource]
 script = ExtResource("1_loot_data")
+categoryOverride = 6
+satiation = 0.05
 displayName = &"Mushroom"
 maxStack = 99
 spoilDays = 3

@@ -487,6 +487,11 @@ public partial class PlayerData : Resource
 	// What the player bleeds when wounded (see BloodData).
 	[Export] public BloodData blood;
 
+	[ExportGroup("Durability")]
+	// Fraction of max durability below which gear reads as worn: the HUD shows
+	// its warning and the warning cue plays once on the way down.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float durabilityWarningFraction = 0.25f;
+
 	[ExportGroup("Armor")]
 	[Export] public float armorRechargeDelay = 3f;
 	// Seconds for armor to refill from empty to full (the equipped MaxArmor).
@@ -518,6 +523,21 @@ public partial class PlayerData : Resource
 	[Export] public float maxStamina = 3f;
 	[Export] public float staminaRechargeDelay = 1.5f;
 	[Export] public float staminaRechargeTime = 3f;
+
+	[ExportGroup("Needs")]
+	// Hunger, thirst and fatigue (Player.Needs): in-game hours for each meter to
+	// empty from full at a drain rate of 1. EStat.*DrainRate scales them — the
+	// Hot status doubles thirst's, Cold taxes hunger's.
+	[Export(PropertyHint.Range, "1,240,0.5,or_greater")] public float hungerHoursToEmpty = 16f;
+	[Export(PropertyHint.Range, "1,240,0.5,or_greater")] public float thirstHoursToEmpty = 12f;
+	[Export(PropertyHint.Range, "1,240,0.5,or_greater")] public float fatigueHoursToEmpty = 24f;
+	// Fraction of EACH meter one unit of stamina spent costs.
+	[Export(PropertyHint.Range, "0,0.1,0.0005")] public float needCostPerStamina = 0.005f;
+	// Hours of sleep that refill fatigue from empty; a shorter sleep refills
+	// that fraction of it.
+	[Export(PropertyHint.Range, "0.5,24,0.5")] public float sleepHoursForFullRest = 8f;
+	// Max stamina each meter adds while full, scaling with how full it is.
+	[Export(PropertyHint.Range, "0,4,0.05")] public float maxStaminaPerNeed = 0.5f;
 
 	[ExportGroup("Dash")]
 	// The motion itself (speed / duration / freeze-gravity) is authored on

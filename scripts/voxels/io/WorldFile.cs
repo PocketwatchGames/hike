@@ -291,7 +291,9 @@ public static class WorldFile
     //      unlocked) after its Active flag.
     // v77: a mob's payload carries RespawnsOnRest after Alive (an NPC stays
     //      dead through a rest); Bed / Cookpot / Stash tags added, Tent removed.
-    public const uint VERSION = 77;
+    // v78: an item's subclass state leads with gear durability (GearState), and
+    //      a weapon's adds the magazine capacity wear has cost it after its ammo.
+    public const uint VERSION = 78;
 
     public struct IndexEntry
     {

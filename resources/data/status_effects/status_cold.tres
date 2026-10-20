@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://dvlpurgxthixs" path="res://scenes/fx/status_cold_end.tscn" id="4_endfx"]
 [ext_resource type="PackedScene" uid="uid://cqlccjviyqona" path="res://scenes/fx/status_cold_loop.tscn" id="5_loopfx"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="statmod_1"]
 [ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
 
 [sub_resource type="Resource" id="m_movespeed"]
@@ -13,6 +14,12 @@ script = ExtResource("tagmod_1")
 tag = 1
 value = 2.0
 metadata/_custom_type_script = "uid://11t1a8dvp0j6n"
+
+[sub_resource type="Resource" id="m_hunger"]
+script = ExtResource("statmod_1")
+stat = 22
+value = 1.25
+metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("1_data")
@@ -25,5 +32,5 @@ startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")
 loopFx = ExtResource("5_loopfx")
 removesOnApply = []
-modifiers = Array[ExtResource("modifier_1")]([SubResource("m_movespeed")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_movespeed"), SubResource("m_hunger")])
 conditionalModifiers = []

@@ -27,10 +27,11 @@ metadata/_custom_type_script = "uid://6h7yge1txki2"
 
 [resource]
 script = ExtResource("2_armor")
-maxArmor = 150.0
-weight = 0.75
+maxArmor = 900.0
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_pen"), SubResource("m_noise")])
 outfit = SubResource("outfit")
+weight = 0.75
+maxDurability = 150
 displayName = &"Chainmail"
 description = "Interlocking steel rings turn a blade's edge, though the links jingle with every step."
 value = 60

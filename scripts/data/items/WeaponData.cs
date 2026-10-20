@@ -5,7 +5,7 @@ using Godot.Collections;
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]
-public partial class WeaponData : ItemData
+public partial class WeaponData : GearData
 {
 	// Non-zero = this is an ammo-bearing weapon. Drives the equip-slot pick
 	// (ammo weapons go to WeaponRight), the HUD ammo counter, and the
@@ -14,6 +14,13 @@ public partial class WeaponData : ItemData
 	// `maxAmmo > 0` is just the weapon-level rollup callers use without
 	// having to walk the profile.
 	[Export] public int maxAmmo = 0;
+
+	// Wear costs magazine instead of breaking the weapon: each time durability
+	// runs out it loses a round of capacity and refills to maxDurability × the
+	// fraction of capacity left, and the round that did it drops no arrow
+	// (WeaponState.Wear). Broken once the magazine is gone. Off = an ammo weapon
+	// breaks like any other (the bomb). Only meaningful with maxAmmo > 0.
+	[Export] public bool wearCostsAmmoCapacity = false;
 
 	// Ability tell: the shared accent color this weapon stamps onto its wielder
 	// at spawn, so any mob carrying it reads as "does this" regardless of region
@@ -34,10 +41,6 @@ public partial class WeaponData : ItemData
 
 	protected override EItemCategory ComputeCategory() => rightHandSlot ? EItemCategory.WeaponRight : EItemCategory.WeaponLeft;
 
-	// Weight while equipped (see ItemData.EquipWeight). Mobs ignore it.
-	[Export] public float weight = 0f;
-	public override float EquipWeight => weight;
-
 	// How this weapon delivers its attacks. A capability set — a weapon may
 	// carry several bits (a melee weapon with a charged throw). Gates which
 	// weapon mods may attach: a mod's WeaponModData.requiredDelivery must be
@@ -49,7 +52,7 @@ public partial class WeaponData : ItemData
 	// removed (player pickup, or auto-reclaimed oldest-first by the central
 	// ammoRechargeSeconds timer below). Null = no drop, ammo decrements
 	// permanently. Arrows themselves carry no self-expiry timer — set their
-	// LootData.removeTimeMs to 0; the weapon's central timer owns recovery.
+	// ItemData.removeTimeMs to 0; the weapon's central timer owns recovery.
 	[Export] public ArrowLootData arrowLootData;
 
 	// Seconds per unit of the weapon's single central ammo-recharge timer.

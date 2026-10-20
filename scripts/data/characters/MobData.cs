@@ -563,10 +563,9 @@ public partial class MobData : Resource
     // maxFallHeight don't accidentally wander themselves off a cliff.
     [Export] public int maxFallHeight = 4;
     // True if the mob is heavy/large enough to set off body-driven traps
-    // (pressure-plate spike traps, etc). False = the trap's TriggerSource
-    // ignores it entirely, so it neither springs the trap nor is caught by
-    // one another body sprung. Small critters (dog, sparrow, kun-kun) set
-    // this false.
+    // (pressure-plate spike traps, etc). False = it never springs one, but is
+    // still caught by a trap another body springs while it stands in the
+    // area. Small critters (dog, sparrow, kun-kun) set this false.
     [Export] public bool triggersTraps = true;
     // Mob's half-width for clearance checks. Used to validate that a path
     // cell has enough horizontal room and to size the separation kernel.
