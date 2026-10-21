@@ -11,18 +11,28 @@ using Godot;
 // which fields to suppress, what unit suffix to use, etc.
 public static class StatList
 {
+	// Knockback below this reads as a flinch, not a shove that relocates the
+	// target, so it gets no stat row.
+	const float MinShownKnockback = 3f;
+	// A tier's forward motion below this is a step into the swing, not a lunge.
+	const float MinShownLunge = 3f;
+
 	// Direct-hit damage block: Damage / ArmorPenetration / Knockback, plus one entry
 	// per inflicted status effect and one per buildup contribution.
-	public static IEnumerable<(string name, string value)> BaseDamage(DamageData damage)
+	// `hits` is how many times one use of the attack lands this profile
+	// (CountHits, at least 1): damage and buildups read as the attack's total; chances and
+	// per-hit effects (crit, armor pen, knockback) stay per hit.
+	public static IEnumerable<(string name, string value)> BaseDamage(DamageData damage, int hits = 1)
 	{
 		if (damage == null)
 		{
 			yield break;
 		}
+		hits = Mathf.Max(1, hits);
 		Dictionary<EStatName, string> names = GameClient.Current.statNames;
 		if (damage.healthDamage > 0f)
 		{
-			yield return (names[EStatName.Damage], DamageRange(damage));
+			yield return (names[EStatName.Damage], DamageValue(damage, hits));
 		}
 		if (damage.critChance > 0f)
 		{
@@ -34,16 +44,13 @@ public static class StatList
 		}
 		if (damage.blunt > 0f)
 		{
-			yield return (names[EStatName.Blunt], StatFormat.Percent(damage.blunt));
+			yield return (names[EStatName.ArmorChip], StatFormat.ScaleDelta(1f + damage.blunt));
 		}
-		// Knockback < 1m reads as flinch / shrug — not worth surfacing. The
-		// threshold matches the design distinction between hitstun (always
-		// applied) and "real" knockback that actually relocates the target.
-		if (damage.knockbackDistance > 1f)
+		if (damage.knockbackDistance >= MinShownKnockback)
 		{
 			yield return (names[EStatName.Knockback], StatFormat.Number(damage.knockbackDistance));
 		}
-		foreach (var entry in Buildups(damage.buildups))
+		foreach (var entry in Buildups(damage.buildups, hits))
 		{
 			yield return entry;
 		}
@@ -133,40 +140,38 @@ public static class StatList
 		}
 	}
 
-	// Action-level costs + cooldown. Cooldown read by the player includes
-	// the Active phase — the weapon is unusable for both windows back-to-
-	// back, so showing only cooldownSeconds undercounts felt time between
-	// presses.
-	public static IEnumerable<(string name, string value)> ActionCostsAndCooldown(ItemAction action)
+	// A blood cost is the one action cost shown as a stat row; attack time,
+	// stamina and oil sit on the action's title line (ItemActionPanel).
+	public static IEnumerable<(string name, string value)> BloodCost(ItemAction action)
 	{
-		if (action == null)
+		if (action != null && action.bloodCost > 0f)
 		{
-			yield break;
-		}
-		Dictionary<EStatName, string> names = GameClient.Current.statNames;
-		if (action.bloodCost > 0f)
-		{
-			yield return (names[EStatName.BloodCost], StatFormat.Number(action.bloodCost));
-		}
-		if (action.staminaCost > 0f)
-		{
-			yield return (names[EStatName.StaminaCost], StatFormat.Number(action.staminaCost));
-		}
-		if (action.oilCost > 0f)
-		{
-			yield return (names[EStatName.OilCost], StatFormat.Number(action.oilCost));
-		}
-		float cooldown = action.cooldownSeconds + action.activeDurationSeconds;
-		if (cooldown > 0f)
-		{
-			yield return (names[EStatName.Cooldown], StatFormat.Seconds(cooldown));
+			yield return (GameClient.Current.statNames[EStatName.BloodCost], StatFormat.Number(action.bloodCost));
 		}
 	}
 
-	// Reach / Range for the damage event. Range scales with how long the
-	// tier was held — SampleRangeScale lerps base → base*chargedRangeScale
-	// across the hold. Renders as a span ("8-16m") when the tier actually
-	// ramps; melee Reach doesn't ramp in the current model.
+	// Press until the weapon can fire again: the hold to reach this tier, the
+	// swing, and the recovery tail.
+	public static float AttackTime(ItemActionProfile profile, int tierIndex, ItemAction action)
+	{
+		return ItemActionProfile.GetTierFireTime(profile, tierIndex)
+			+ action.activeDurationSeconds + action.cooldownSeconds;
+	}
+
+	// How far the tier carries the wielder forward, when it's far enough to count.
+	public static IEnumerable<(string name, string value)> Lunge(ItemAction action)
+	{
+		float distance = action?.ComputeLungeDistance() ?? 0f;
+		if (distance >= MinShownLunge)
+		{
+			yield return (GameClient.Current.statNames[EStatName.Lunge], StatFormat.Meters(distance));
+		}
+	}
+
+	// Range for a ranged damage event (melee reach isn't shown). Range scales
+	// with how long the tier was held — SampleRangeScale lerps base →
+	// base*chargedRangeScale across the hold. Renders as a span ("8-16m") when
+	// the tier actually ramps.
 	public static IEnumerable<(string name, string value)> Range(ItemAction action, ItemEvent damageEvent)
 	{
 		if (action == null || damageEvent == null)
@@ -175,14 +180,7 @@ public static class StatList
 		}
 		Dictionary<EStatName, string> names = GameClient.Current.statNames;
 		float scale = Mathf.Max(1f, action.chargedRangeScale);
-		if ((damageEvent.type & EItemEventType.Melee) != 0)
-		{
-			if (damageEvent.range > 0f)
-			{
-				yield return (names[EStatName.Reach], StatFormat.Meters(damageEvent.range));
-			}
-		}
-		else if ((damageEvent.type & EItemEventType.Hitscan) != 0)
+		if ((damageEvent.type & EItemEventType.Hitscan) != 0)
 		{
 			if (damageEvent.hitScanRange > 0f)
 			{
@@ -219,9 +217,10 @@ public static class StatList
 
 	// One entry per on-hit effect contribution — name = "<effect>". An
 	// immediate-apply entry reads as the effect's authored duration (like a flat
-	// status effect); a meter entry reads as its amount (a fraction of the 1.0
-	// apply threshold). Null entries and zero-amount meter entries are skipped.
-	public static IEnumerable<(string name, string value)> Buildups(Godot.Collections.Array<StatusEffectBuildup> buildups)
+	// status effect); a meter entry reads as the percent of the meter the attack
+	// fills, uncapped — past 100% a stacking effect applies again, and a
+	// clear-on-apply one (Stun) starts refilling between hits. Null entries and zero-amount meter entries are skipped.
+	public static IEnumerable<(string name, string value)> Buildups(Godot.Collections.Array<StatusEffectBuildup> buildups, int hits = 1)
 	{
 		if (buildups == null)
 		{
@@ -244,26 +243,23 @@ public static class StatList
 			}
 			else if (entry.amount > 0f)
 			{
-				yield return (effectName, StatFormat.Number(entry.amount));
+				yield return (effectName, StatFormat.UncappedPercent(entry.amount * hits));
 			}
 		}
 	}
 
-	// "30" for a fixed hit, "23-38" when the damage rolls ±variance per hit.
-	static string DamageRange(DamageData damage)
+	// The centre of the ±damageVariance roll, which is the authored damage itself,
+	// summed over `hits` and rounded up.
+	static string DamageValue(DamageData damage, int hits)
 	{
-		if (damage.damageVariance <= 0f)
-		{
-			return StatFormat.Number(damage.healthDamage);
-		}
-		return StatFormat.Number(damage.healthDamage * (1f - damage.damageVariance)) + "-"
-			+ StatFormat.Number(damage.healthDamage * (1f + damage.damageVariance));
+		return Mathf.CeilToInt(damage.healthDamage * hits).ToString();
 	}
 
-	// Conditional damage layer (On Crit / On Dizzy / On Backstab). Only the
-	// fields the modifier's `overrides` mask selects are emitted; the rest
-	// flow through from the base damage at runtime.
-	public static IEnumerable<(string name, string value)> DamageModifier(DamageDataModifier mod)
+	// Conditional damage layer (On Crit / On Dizzy / On Backstab). Only what the
+	// modifier changes beyond the standard bonus gets a row.
+	// `standardMultiplier` is that bonus (StandardMultiplier), folded into an
+	// authored Damage multiplier so the row reads the total.
+	public static IEnumerable<(string name, string value)> DamageModifier(DamageDataModifier mod, float standardMultiplier = 1f)
 	{
 		if (mod == null || mod.overrides == EDamageFields.None)
 		{
@@ -276,7 +272,7 @@ public static class StatList
 		}
 		if ((mod.overrides & EDamageFields.DamageMultiplier) != 0 && mod.damageMultiplier != 1f)
 		{
-			yield return (names[EStatName.Damage], StatFormat.Multiplier(mod.damageMultiplier));
+			yield return (names[EStatName.Damage], StatFormat.Multiplier(standardMultiplier * mod.damageMultiplier));
 		}
 		if ((mod.overrides & EDamageFields.ArmorPenetration) != 0 && mod.armorPenetration > 0f)
 		{
@@ -284,9 +280,9 @@ public static class StatList
 		}
 		if ((mod.overrides & EDamageFields.Blunt) != 0 && mod.blunt > 0f)
 		{
-			yield return (names[EStatName.Blunt], StatFormat.Percent(mod.blunt));
+			yield return (names[EStatName.ArmorChip], StatFormat.ScaleDelta(1f + mod.blunt));
 		}
-		if ((mod.overrides & EDamageFields.KnockbackDistance) != 0 && mod.knockbackDistance > 1f)
+		if ((mod.overrides & EDamageFields.KnockbackDistance) != 0 && mod.knockbackDistance >= MinShownKnockback)
 		{
 			yield return (names[EStatName.Knockback], StatFormat.Number(mod.knockbackDistance));
 		}
@@ -297,6 +293,24 @@ public static class StatList
 				yield return entry;
 			}
 		}
+	}
+
+	// The standard bonus a hit of `damage` gets on `trigger` (HitInfo.ApplyCrit /
+	// ApplyBackstab): SimData's crit multiplier, its backstab multiplier for a
+	// melee hit, else 1.
+	public static float StandardMultiplier(EDamageTrigger trigger, DamageData damage)
+	{
+		SimData simData = Sim.Current?.SimData;
+		if (simData == null)
+		{
+			return 1f;
+		}
+		return trigger switch
+		{
+			EDamageTrigger.OnCrit => simData.critMultiplier,
+			EDamageTrigger.OnBackstab when damage != null && (damage.tags & EHitTag.Melee) != 0 => simData.backstabMultiplier,
+			_ => 1f,
+		};
 	}
 
 	// Full readout for one StatusEffectData — the dials it actually moves.
@@ -657,18 +671,6 @@ public static class StatList
 		yield return (GameClient.Current.statNames[key], weapon.ammo + " / " + weapon.MaxAmmo);
 	}
 
-	// Gear's remaining durability, as uses left of its max. Rounded up so a piece
-	// reads 0 only once it is actually broken. No row for gear that never wears.
-	public static IEnumerable<(string name, string value)> Durability(ItemState item)
-	{
-		if (item is not GearState gear || !gear.Wears)
-		{
-			yield break;
-		}
-		int left = Mathf.CeilToInt(gear.durability);
-		yield return (GameClient.Current.statNames[EStatName.Durability], left + " / " + gear.data.maxDurability);
-	}
-
 	// Equipped gear's Weight row: the stamina units it takes off the wearer's
 	// max. 0 = no row.
 	public static IEnumerable<(string name, string value)> Weight(ItemData item)
@@ -756,7 +758,7 @@ public static class StatList
 				continue;
 			}
 			DamageData damage = weapon.GetDamage(damageEvent.damageProfileKey ?? new StringName("primary"));
-			foreach (var entry in BaseDamage(damage))
+			foreach (var entry in BaseDamage(damage, CountHits(action, damageEvent.damageProfileKey)))
 			{
 				yield return entry;
 			}
@@ -768,24 +770,44 @@ public static class StatList
 		}
 	}
 
+	private const EItemEventType DamageEventFlags = EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile;
+
 	// Walks an action's events and returns the first one that actually deals
 	// damage (Melee, Hitscan, or Projectile). That event's authored damage
 	// override (if any) wins over the weapon-level default — same resolution
 	// order the runtime uses in ItemEventHandlers.
+	// How many of the action's damage events resolve `profileKey` — each sweeps its
+	// own target set (ActionRunner.RentSwingHitSet), so one target takes every hit.
+	public static int CountHits(ItemAction action, StringName profileKey)
+	{
+		if (action?.events == null)
+		{
+			return 0;
+		}
+		int hits = 0;
+		foreach (ItemEvent ev in action.events)
+		{
+			if (ev != null && (ev.type & DamageEventFlags) != 0 && ev.damageProfileKey == profileKey)
+			{
+				hits++;
+			}
+		}
+		return hits;
+	}
+
 	public static ItemEvent FindDamageEvent(ItemAction action)
 	{
 		if (action?.events == null)
 		{
 			return null;
 		}
-		const EItemEventType damageFlags = EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile;
 		foreach (ItemEvent ev in action.events)
 		{
 			if (ev == null)
 			{
 				continue;
 			}
-			if ((ev.type & damageFlags) != 0)
+			if ((ev.type & DamageEventFlags) != 0)
 			{
 				return ev;
 			}

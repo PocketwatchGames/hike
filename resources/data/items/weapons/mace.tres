@@ -154,13 +154,6 @@ script = ExtResource("1_buildup")
 effect = ExtResource("1_dizzy")
 amount = 1.5
 
-[sub_resource type="Resource" id="Resource_charged_mod_crit"]
-script = ExtResource("1_modifier")
-overrides = 512
-damageMultiplier = 3.0
-knockbackDistance = 8.0
-addBuildups = []
-
 [sub_resource type="Resource" id="Resource_buildup_dizzy_backstab"]
 script = ExtResource("1_buildup")
 effect = ExtResource("1_dizzy")
@@ -169,9 +162,7 @@ amount = 1.0
 [sub_resource type="Resource" id="Resource_charged_mod_backstab"]
 script = ExtResource("1_modifier")
 trigger = 2
-overrides = 768
-healthDamage = 120.0
-damageMultiplier = 2.0
+overrides = 256
 addBuildups = Array[ExtResource("1_buildup")]([SubResource("Resource_buildup_dizzy_backstab")])
 
 [sub_resource type="Resource" id="Resource_charged_damage"]
@@ -185,26 +176,17 @@ hitstun = 0.5
 knockbackDistance = 6.0
 knockbackTime = 0.5
 buildups = Array[ExtResource("1_buildup")]([SubResource("Resource_charged_buildup_dizzy")])
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_charged_mod_crit"), SubResource("Resource_charged_mod_backstab")])
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_charged_mod_backstab")])
 
 [sub_resource type="Resource" id="Resource_buildup_dizzy"]
 script = ExtResource("1_buildup")
 effect = ExtResource("1_dizzy")
 amount = 0.85
 
-[sub_resource type="Resource" id="Resource_mod_crit"]
-script = ExtResource("1_modifier")
-overrides = 512
-damageMultiplier = 3.0
-knockbackDistance = 4.0
-addBuildups = []
-
 [sub_resource type="Resource" id="Resource_mod_backstab"]
 script = ExtResource("1_modifier")
 trigger = 2
-overrides = 768
-healthDamage = 60.0
-damageMultiplier = 1.5
+overrides = 256
 addBuildups = Array[ExtResource("1_buildup")]([SubResource("Resource_buildup_dizzy_backstab")])
 
 [sub_resource type="Resource" id="Resource_damage"]
@@ -218,7 +200,7 @@ hitstun = 0.25
 knockbackDistance = 2.0
 knockbackTime = 0.25
 buildups = Array[ExtResource("1_buildup")]([SubResource("Resource_buildup_dizzy")])
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_backstab")])
 
 [sub_resource type="Resource" id="salvage_yield_steel"]
 script = ExtResource("material_count")

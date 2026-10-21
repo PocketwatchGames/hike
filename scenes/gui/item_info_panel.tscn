@@ -8,7 +8,7 @@
 [ext_resource type="PackedScene" uid="uid://cbnyp5wql6yh5" path="res://scenes/gui/status_effect_info_panel.tscn" id="4_t78nj"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="6_t8nb6"]
 
-[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_actionPanelContainer", "_statContainer", "_statusContainer", "_reagentsRoot", "_reagentSlots")]
+[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_durabilityBar", "_durabilityLabel", "_actionPanelContainer", "_statContainer", "_statusContainer", "_reagentsRoot", "_reagentSlots")]
 custom_minimum_size = Vector2(500, 0)
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -16,6 +16,8 @@ script = ExtResource("1_55ro3")
 _nameLabel = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Name")
 _descriptionLabel = NodePath("MarginContainer/VBoxContainer/Description")
 _icon = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Icon")
+_durabilityBar = NodePath("MarginContainer/VBoxContainer/DurabilityBar")
+_durabilityLabel = NodePath("MarginContainer/VBoxContainer/DurabilityBar/Label")
 _actionPanel = ExtResource("2_p0emx")
 _actionPanelContainer = NodePath("MarginContainer/VBoxContainer")
 _contextPanelScene = ExtResource("7_prycx")
@@ -58,6 +60,29 @@ custom_minimum_size = Vector2(400, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 autowrap_mode = 3
+
+[node name="DurabilityBar" type="ProgressBar" parent="MarginContainer/VBoxContainer" unique_id=1006564955]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+max_value = 1.0
+step = 0.001
+show_percentage = false
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/DurabilityBar" unique_id=1602310526]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -11.5
+offset_right = 20.0
+offset_bottom = 11.5
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+text = "Durability"
 
 [node name="StatusEffectContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=237535431]
 layout_mode = 2

@@ -17,8 +17,8 @@ corner_detail = 5
 
 [node name="PanelContainer" type="PanelContainer" unique_id=1963051441 node_paths=PackedStringArray("_nameLabel", "_statContainer")]
 script = ExtResource("1_tnb7g")
-_nameLabel = NodePath("MarginContainer/VBoxContainer/HFlowContainer/PanelContainer/MarginContainer/Name")
-_statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
+_nameLabel = NodePath("MarginContainer/VBoxContainer/Row/PanelContainer/MarginContainer/Name")
+_statContainer = NodePath("MarginContainer/VBoxContainer/Row")
 _statScene = ExtResource("2_won3n")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=828820688]
@@ -31,19 +31,19 @@ theme_override_constants/margin_bottom = 5
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=1411801328]
 layout_mode = 2
 
-[node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer/VBoxContainer" unique_id=1013627073]
+[node name="Row" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=1013627073]
 layout_mode = 2
 
-[node name="PanelContainer" type="PanelContainer" parent="MarginContainer/VBoxContainer/HFlowContainer" unique_id=40666242]
+[node name="PanelContainer" type="PanelContainer" parent="MarginContainer/VBoxContainer/Row" unique_id=40666242]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_won3n")
 
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer/HFlowContainer/PanelContainer" unique_id=365815169]
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer/Row/PanelContainer" unique_id=365815169]
 layout_mode = 2
 theme_override_constants/margin_left = 3
 theme_override_constants/margin_right = 3
 
-[node name="Name" type="Label" parent="MarginContainer/VBoxContainer/HFlowContainer/PanelContainer/MarginContainer" unique_id=1165216803]
+[node name="Name" type="Label" parent="MarginContainer/VBoxContainer/Row/PanelContainer/MarginContainer" unique_id=1165216803]
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
 text = "Context"

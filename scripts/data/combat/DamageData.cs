@@ -63,9 +63,9 @@ public partial class DamageData : Resource
 	// receiver's Vulnerable score as independent probabilities —
 	// 1 - (1 - critChance) * (1 - vulnerable) — against the pre-rolled
 	// HitInfo.critRoll (see Mob.IsCritEligible). An untriggered (unaware) receiver
-	// always crits regardless. 0 = only vulnerability / sneak attacks crit. The
-	// crit's payload is a DamageDataModifier in `modifiers` with trigger OnCrit —
-	// without one, an eligible crit changes nothing.
+	// always crits regardless. 0 = only vulnerability / sneak attacks crit. A crit
+	// scales the hit by SimData.critMultiplier; an OnCrit entry in `modifiers` is an
+	// extra on top.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float critChance = 0f;
 
 	// Uniform per-hit damage variance: healthDamage rolls a multiplier in

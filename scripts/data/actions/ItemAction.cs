@@ -281,6 +281,23 @@ public partial class ItemAction : Resource
 	[Export] public PackedScene impactCritEffect;
 	[Export] public PackedScene impactBackstabEffect;
 
+	// How far forward this tier's ApplyMotion events carry the body (m): speed ×
+	// duration, summed. A backward hop contributes nothing.
+	public float ComputeLungeDistance()
+	{
+		float distance = 0f;
+		int eventCount = events?.Count ?? 0;
+		for (int e = 0; e < eventCount; e++)
+		{
+			ItemEvent ev = events[e];
+			if (ev != null && (ev.type & EItemEventType.ApplyMotion) != 0)
+			{
+				distance += Mathf.Max(0f, ev.motionForwardSpeed) * ev.motionDuration;
+			}
+		}
+		return distance;
+	}
+
 	// Range multiplier at the given chargeT. Lerps from 1 (chargeT=0, fire
 	// at the event's base range) to `chargedRangeScale` (chargeT=1).
 	// Handlers multiply the event's authored range by this value.

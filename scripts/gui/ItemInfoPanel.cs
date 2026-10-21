@@ -10,6 +10,9 @@ public partial class ItemInfoPanel : PanelContainer
 	[Export] private Label _nameLabel;
 	[Export] private Label _descriptionLabel;
 	[Export] private TextureRect _icon;
+	// Gear's remaining durability; hidden for anything that never wears.
+	[Export] private ProgressBar _durabilityBar;
+	[Export] private Label _durabilityLabel;
 	[Export] private PackedScene _actionPanel;
 	[Export] private Control _actionPanelContainer;
 	// Titled sub-panel (header + stat rows) for the weapon's Parry counter-strike,
@@ -61,6 +64,7 @@ public partial class ItemInfoPanel : PanelContainer
 		{
 			_icon.Texture = data.inventorySprite;
 		}
+		UpdateDurability(item, identified);
 		RebuildItemStats(item, identified);
 		RebuildStatusEffects(item);
 		RebuildActionPanels(item, identified);
@@ -166,6 +170,29 @@ public partial class ItemInfoPanel : PanelContainer
 		}
 	}
 
+	// Uses left of the max, rounded up so a piece reads 0 only once it is broken.
+	private void UpdateDurability(ItemState item, bool identified)
+	{
+		if (_durabilityBar == null)
+		{
+			return;
+		}
+		if (!identified || item is not GearState gear || !gear.Wears)
+		{
+			_durabilityBar.Visible = false;
+			return;
+		}
+		float max = gear.data.maxDurability;
+		_durabilityBar.MinValue = 0;
+		_durabilityBar.MaxValue = 1;
+		_durabilityBar.Value = Mathf.Clamp(gear.durability / max, 0f, 1f);
+		if (_durabilityLabel != null)
+		{
+			_durabilityLabel.Text = $"{GameClient.Current.statNames[EStatName.Durability]} {Mathf.CeilToInt(gear.durability)} / {max}";
+		}
+		_durabilityBar.Visible = true;
+	}
+
 	// Item-level stats live above the per-action panels. StatList picks
 	// the appropriate generator per item type; each generator suppresses
 	// neutral-value rows so a plain item reads as just its name + icon.
@@ -177,7 +204,6 @@ public partial class ItemInfoPanel : PanelContainer
 			return;
 		}
 		AddStats(StatList.Weight(item.data));
-		AddStats(StatList.Durability(item));
 		AddStats(StatList.Food(item.data));
 		AddStats(StatList.Contents(item));
 		switch (item)

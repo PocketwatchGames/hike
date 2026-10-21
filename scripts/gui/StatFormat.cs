@@ -77,10 +77,17 @@ public static class StatFormat
 		return $"{total / MinutesPerHour:00}:{total % MinutesPerHour:00}";
 	}
 
+	// A chance, clamped to 0..100%.
 	public static string Percent(float fraction)
 	{
 		int pct = Mathf.Clamp(Mathf.RoundToInt(fraction * 100f), 0, 100);
 		return pct + "%";
+	}
+
+	// A quantity of a 0..1 scale that can run past full (a buildup meter's fill).
+	public static string UncappedPercent(float fraction)
+	{
+		return Mathf.RoundToInt(fraction * 100f) + "%";
 	}
 
 	// Renders a multiplier as a signed delta from neutral 1.0 ("-25%" for

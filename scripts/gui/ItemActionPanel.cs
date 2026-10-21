@@ -5,10 +5,17 @@ using Godot;
 public partial class ItemActionPanel : PanelContainer
 {
 	[Export] private Label _nameLabel;
+	// Cost chips on the title line, each hidden when the action doesn't cost it.
+	[Export] private Control _attackTimeCost;
+	[Export] private Label _attackTimeLabel;
+	[Export] private Control _staminaCost;
+	[Export] private Label _staminaLabel;
+	[Export] private Control _oilCost;
+	[Export] private Label _oilLabel;
 	[Export] private Label _descriptionLabel;
-	[Export] private Control _actionContextContainer;
-	[Export] private PackedScene _actionContextScene;
+	// Holds the stat rows and, after them, the conditional-damage context panels.
 	[Export] private Control _statContainer;
+	[Export] private PackedScene _actionContextScene;
 	[Export] private PackedScene _statScene;
 
 	// showDetails false lists just the attack name — the per-attack stat rows
@@ -31,8 +38,12 @@ public partial class ItemActionPanel : PanelContainer
 		}
 
 		ClearStats();
-		ClearContextPanels();
-		if (action == null || !showDetails)
+		bool details = action != null && showDetails;
+		SetCost(_attackTimeCost, _attackTimeLabel,
+			details ? StatList.AttackTime(weapon?.actionProfile, index, action) : 0f, StatFormat.Seconds);
+		SetCost(_staminaCost, _staminaLabel, details ? action.staminaCost : 0f, StatFormat.Number);
+		SetCost(_oilCost, _oilLabel, details ? action.oilCost : 0f, StatFormat.Number);
+		if (!details)
 		{
 			return;
 		}
@@ -51,14 +62,15 @@ public partial class ItemActionPanel : PanelContainer
 		{
 			ItemEvent damageEvent = StatList.FindDamageEvent(action);
 			damage = weapon?.GetDamage(damageEvent?.damageProfileKey ?? new StringName("primary"));
-			AddStats(StatList.BaseDamage(damage));
+			AddStats(StatList.BaseDamage(damage, StatList.CountHits(action, damageEvent?.damageProfileKey)));
 			AddStats(StatList.Range(action, damageEvent));
+			AddStats(StatList.Lunge(action));
 		}
-		AddStats(StatList.ActionCostsAndCooldown(action));
+		AddStats(StatList.BloodCost(action));
 
-		// Conditional damage layers (Crit / Dizzy / Backstab) get their own
-		// panels because their stats only apply when the trigger fires —
-		// they can't share the row with the unconditional base.
+		// A weapon's own extras on a trigger (the knife's backstab) are titled
+		// panels in the same flow — their stats only apply when it fires. The
+		// standard crit / backstab bonus every weapon gets has no panel of its own.
 		if (damage?.modifiers != null)
 		{
 			foreach (DamageDataModifier mod in damage.modifiers)
@@ -71,8 +83,21 @@ public partial class ItemActionPanel : PanelContainer
 				{
 					continue;
 				}
-				BuildModifierContext(mod);
+				BuildModifierContext(mod, damage);
 			}
+		}
+	}
+
+	private static void SetCost(Control chip, Label label, float value, System.Func<float, string> format)
+	{
+		if (chip == null)
+		{
+			return;
+		}
+		chip.Visible = value > 0f;
+		if (label != null && value > 0f)
+		{
+			label.Text = format(value);
 		}
 	}
 
@@ -84,7 +109,7 @@ public partial class ItemActionPanel : PanelContainer
 		}
 		foreach (Node child in _statContainer.GetChildren())
 		{
-			if (child is StatPanel)
+			if (child is StatPanel || child is ItemActionContextPanel)
 			{
 				child.QueueFree();
 			}
@@ -105,24 +130,10 @@ public partial class ItemActionPanel : PanelContainer
 		}
 	}
 
-	private void ClearContextPanels()
+	private void BuildModifierContext(DamageDataModifier mod, DamageData damage)
 	{
-		if (_actionContextContainer == null)
-		{
-			return;
-		}
-		foreach (Node child in _actionContextContainer.GetChildren())
-		{
-			if (child is ItemActionContextPanel existing)
-			{
-				existing.QueueFree();
-			}
-		}
-	}
-
-	private void BuildModifierContext(DamageDataModifier mod)
-	{
-		ItemActionContextPanel.Populate(_actionContextScene, _actionContextContainer,
-			GameClient.Current.damageTriggerLabels[mod.trigger], StatList.DamageModifier(mod));
+		ItemActionContextPanel.Populate(_actionContextScene, _statContainer,
+			GameClient.Current.damageTriggerLabels[mod.trigger],
+			StatList.DamageModifier(mod, StatList.StandardMultiplier(mod.trigger, damage)));
 	}
 }

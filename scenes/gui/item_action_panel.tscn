@@ -3,6 +3,9 @@
 [ext_resource type="Script" uid="uid://cmdcjcbxyhcav" path="res://scripts/gui/ItemActionPanel.cs" id="1_5fgcr"]
 [ext_resource type="PackedScene" uid="uid://cxvwydwbyuusq" path="res://scenes/gui/item_action_context_panel.tscn" id="2_mj708"]
 [ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="3_moshc"]
+[ext_resource type="Texture2D" uid="uid://doh7nuijlnfww" path="res://assets/textures/gui/cost_attack_time.png" id="4_costtime"]
+[ext_resource type="Texture2D" uid="uid://bal3lnf4ps1yk" path="res://assets/textures/gui/cost_stamina.png" id="5_coststamina"]
+[ext_resource type="Texture2D" uid="uid://b5n47mxfquums" path="res://assets/textures/gui/cost_oil.png" id="6_costoil"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_moshc"]
 content_margin_left = 0.0
@@ -16,14 +19,19 @@ corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 corner_detail = 5
 
-[node name="PanelContainer" type="PanelContainer" unique_id=2043349948 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_actionContextContainer", "_statContainer")]
+[node name="PanelContainer" type="PanelContainer" unique_id=2043349948 node_paths=PackedStringArray("_nameLabel", "_attackTimeCost", "_attackTimeLabel", "_staminaCost", "_staminaLabel", "_oilCost", "_oilLabel", "_descriptionLabel", "_statContainer")]
 offset_right = 203.0
 offset_bottom = 81.0
 size_flags_vertical = 0
 script = ExtResource("1_5fgcr")
-_nameLabel = NodePath("MarginContainer/VBoxContainer/PanelContainer/MarginContainer/Name")
+_nameLabel = NodePath("MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow/Name")
+_attackTimeCost = NodePath("MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow/AttackTime")
+_attackTimeLabel = NodePath("MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow/AttackTime/Value")
+_staminaCost = NodePath("MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow/Stamina")
+_staminaLabel = NodePath("MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow/Stamina/Value")
+_oilCost = NodePath("MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow/Oil")
+_oilLabel = NodePath("MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow/Oil/Value")
 _descriptionLabel = NodePath("MarginContainer/VBoxContainer/Description")
-_actionContextContainer = NodePath("MarginContainer/VBoxContainer")
 _actionContextScene = ExtResource("2_mj708")
 _statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
 _statScene = ExtResource("3_moshc")
@@ -49,10 +57,75 @@ layout_mode = 2
 theme_override_constants/margin_left = 5
 theme_override_constants/margin_right = 5
 
-[node name="Name" type="Label" parent="MarginContainer/VBoxContainer/PanelContainer/MarginContainer" unique_id=1165216803]
+[node name="TitleRow" type="HBoxContainer" parent="MarginContainer/VBoxContainer/PanelContainer/MarginContainer" unique_id=1165216900]
 layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Name" type="Label" parent="MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow" unique_id=1165216803]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 20
 text = "Action"
+
+[node name="AttackTime" type="HBoxContainer" parent="MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow" unique_id=1165216910]
+visible = false
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 3
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow/AttackTime" unique_id=1165216911]
+texture_filter = 1
+custom_minimum_size = Vector2(16, 16)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("4_costtime")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow/AttackTime" unique_id=1165216912]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "0"
+
+[node name="Stamina" type="HBoxContainer" parent="MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow" unique_id=1165216920]
+visible = false
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 3
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow/Stamina" unique_id=1165216921]
+texture_filter = 1
+custom_minimum_size = Vector2(16, 16)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("5_coststamina")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow/Stamina" unique_id=1165216922]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "0"
+
+[node name="Oil" type="HBoxContainer" parent="MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow" unique_id=1165216930]
+visible = false
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 3
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow/Oil" unique_id=1165216931]
+texture_filter = 1
+custom_minimum_size = Vector2(16, 16)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("6_costoil")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="MarginContainer/VBoxContainer/PanelContainer/MarginContainer/TitleRow/Oil" unique_id=1165216932]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "0"
 
 [node name="Description" type="Label" parent="MarginContainer/VBoxContainer" unique_id=957630041]
 layout_mode = 2

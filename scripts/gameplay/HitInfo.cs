@@ -131,13 +131,12 @@ public struct HitInfo
 	// attacker walking the receiver's tree. Defaults to Hostile when a sender
 	// doesn't set it (only matters for senders that actually gate).
 	public ETeam attackerTeam;
-	// Crit / backstab modifiers that actually folded onto this hit via
-	// ApplyTrigger. Populated receiver-side (Mob.ResolveTriggers) so a receiver
+	// Crit / backstab bonuses that actually applied to this hit (ApplyCrit /
+	// ApplyBackstab). Populated receiver-side (Mob.ResolveTriggers) so a receiver
 	// can classify its floating HUD number as CRIT! / BACKSTAB! without
-	// recomputing the decision. Set only when a matching modifier was present and
-	// applied — a hit that is geometrically a crit/backstab but carries no such
-	// modifier leaves these clear, so the flag always reflects an applied result,
-	// not mere eligibility. OnDizzy has no HUD-text counterpart so isn't recorded.
+	// recomputing the decision. A ranged backstab with no authored bonus leaves
+	// Backstab clear — the flag reflects an applied result, not mere geometry.
+	// OnDizzy has no HUD-text counterpart so isn't recorded.
 	public EDamageTriggerFlags triggers;
 	// Copy-on-first-write guard for `buildups` — the first AddBuildups fold
 	// clones the authored list before appending so the template is never mutated.
@@ -282,6 +281,37 @@ public struct HitInfo
 	// [0,1), so an armorPenetration of 0 never fires and an armorPenetration
 	// of 1 always fires.
 	public bool ArmorPenetrated => armorPenetrationRoll < armorPenetration;
+
+	// A crit: the standard bonus (SimData.critMultiplier), then any OnCrit
+	// modifiers the weapon authors on top.
+	public void ApplyCrit(float standardMultiplier)
+	{
+		triggers |= EDamageTriggerFlags.Crit;
+		ScaleImpact(standardMultiplier);
+		ApplyTrigger(EDamageTrigger.OnCrit);
+	}
+
+	// A backstab: the standard bonus (SimData.backstabMultiplier) for a melee hit
+	// only, then any OnBackstab modifiers the weapon authors on top.
+	public void ApplyBackstab(float standardMultiplier)
+	{
+		if ((tags & EHitTag.Melee) != 0)
+		{
+			triggers |= EDamageTriggerFlags.Backstab;
+			ScaleImpact(standardMultiplier);
+		}
+		ApplyTrigger(EDamageTrigger.OnBackstab);
+	}
+
+	// Scales what the hit DOES to the receiver: damage (and the armor chip and
+	// aggro derived from it), knockback, and every buildup it deposits — including
+	// ones a modifier appends afterwards, since the multiplier applies on receipt.
+	private void ScaleImpact(float multiplier)
+	{
+		healthDamage *= multiplier;
+		knockbackDistance *= multiplier;
+		buildupAmountMultiplier *= multiplier;
+	}
 
 	// Fold every modifier whose trigger equals `trigger` onto the live
 	// fields. Callers fire one trigger per condition crossing (OnCrit when

@@ -31,6 +31,13 @@ public partial class SimData : Resource
     // draws the item shows its warning, and the warning cue plays once on the way down.
     [Export(PropertyHint.Range, "0,1,0.01")] public float durabilityWarningFraction = 0.25f;
 
+    // Multiplier every crit applies to the hit's damage, knockback and buildups
+    // (HitInfo.ScaleImpact). A weapon's own OnCrit modifiers fold on top.
+    [Export(PropertyHint.Range, "1,10,0.05")] public float critMultiplier = 2f;
+    // The same for a MELEE backstab; a ranged hit gets none by default. A weapon's
+    // own OnBackstab modifiers fold on top (the knife's bonus).
+    [Export(PropertyHint.Range, "1,10,0.05")] public float backstabMultiplier = 2f;
+
     // Master recipe library: every cookable ConsumableData (one with a
     // recipe). CookingScreen matches the cooking inputs against this list,
     // and discovery is recorded in SimState.DiscoveredRecipes keyed by the same

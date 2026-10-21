@@ -118,18 +118,21 @@ public partial class ItemActionProfile : Resource
 		for (int i = 0; i < tierCount; i++)
 		{
 			ItemAction tier = chargedActions[i];
-			int eventCount = tier?.events?.Count ?? 0;
-			float tierDistance = 0f;
+			if (tier == null)
+			{
+				continue;
+			}
+			int eventCount = tier.events?.Count ?? 0;
 			for (int e = 0; e < eventCount; e++)
 			{
 				ItemEvent ev = tier.events[e];
 				if (ev != null && (ev.type & EItemEventType.ApplyMotion) != 0)
 				{
 					found = true;
-					tierDistance += Mathf.Max(0f, ev.motionForwardSpeed) * ev.motionDuration;
+					break;
 				}
 			}
-			longest = Mathf.Max(longest, tierDistance);
+			longest = Mathf.Max(longest, tier.ComputeLungeDistance());
 		}
 		_lungeDistance = longest;
 		_lunges = found;
@@ -150,6 +153,26 @@ public partial class ItemActionProfile : Resource
 			if (a == null) { continue; }
 			if (a.comboIndex != comboIndex) { continue; }
 			t += a.chargeTime;
+		}
+		return t;
+	}
+
+	// Earliest time-from-press at which the tier at `tierIndex` can fire: its
+	// start, plus its own chargeTime when the press can only commit at full
+	// charge (requireFullCharge on profile or tier, or commitOnPress).
+	public static float GetTierFireTime(ItemActionProfile profile, int tierIndex)
+	{
+		ItemAction tier = profile?.chargedActions != null && tierIndex >= 0 && tierIndex < profile.chargedActions.Count
+			? profile.chargedActions[tierIndex]
+			: null;
+		if (tier == null)
+		{
+			return 0f;
+		}
+		float t = GetTierStartTime(profile, tierIndex, tier.comboIndex);
+		if (profile.requireFullCharge || profile.commitOnPress || tier.requireFullCharge)
+		{
+			t += tier.chargeTime;
 		}
 		return t;
 	}

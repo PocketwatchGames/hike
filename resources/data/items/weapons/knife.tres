@@ -167,14 +167,7 @@ queueWindowSeconds = 0.25
 script = ExtResource("1_modifier")
 trigger = 2
 overrides = 512
-damageMultiplier = 5.0
-addBuildups = []
-metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
-
-[sub_resource type="Resource" id="Resource_lqdfk"]
-script = ExtResource("1_modifier")
-overrides = 512
-damageMultiplier = 3.0
+damageMultiplier = 2.5
 addBuildups = []
 metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
 
@@ -187,21 +180,14 @@ critChance = 0.25
 damageVariance = 0.25
 hitstun = 0.3
 buildups = []
-modifiers = Array[Object]([SubResource("Resource_74twt"), SubResource("Resource_lqdfk")])
+modifiers = Array[Object]([SubResource("Resource_74twt")])
 metadata/_custom_type_script = "uid://dvmit3ddkahg8"
-
-[sub_resource type="Resource" id="Resource_mod_crit"]
-script = ExtResource("1_modifier")
-overrides = 520
-damageMultiplier = 3.0
-knockbackDistance = 1.0
-addBuildups = []
 
 [sub_resource type="Resource" id="Resource_mod_backstab"]
 script = ExtResource("1_modifier")
 trigger = 2
 overrides = 576
-damageMultiplier = 5.0
+damageMultiplier = 2.5
 armorPenetration = 1.0
 addBuildups = []
 
@@ -216,7 +202,7 @@ hitstun = 0.15
 knockbackDistance = 0.2
 knockbackTime = 0.15
 buildups = []
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_backstab")])
 
 [sub_resource type="Resource" id="salvage_yield_steel"]
 script = ExtResource("material_count")

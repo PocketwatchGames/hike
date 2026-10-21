@@ -13,10 +13,7 @@ public enum EStatName
 	Block,
 	Parry,
 	BloodCost,
-	StaminaCost,
-	Cooldown,
 	Range,
-	Reach,
 	TargetRange,
 	Dps,
 	Radius,
@@ -78,4 +75,9 @@ public enum EStatName
 	Satiation,
 	// What a flask or lantern holds now, out of its capacity.
 	Contents,
+	// How far an attack carries the wielder forward (ItemAction.ComputeLungeDistance).
+	Lunge,
+	// Extra armor chip a hit deals (DamageData.blunt) — distinct from Blunt, the
+	// hit tag a resistance row names.
+	ArmorChip,
 }

@@ -4717,12 +4717,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
 
     // Single crit/backstab test + fold — the one place these conditions are
-    // evaluated per hit. Runs each check once and folds the matching OnCrit /
-    // OnBackstab modifiers via ApplyTrigger, which records the trigger flag only
-    // when a modifier actually folds (so hit.triggers reflects an applied result,
-    // not mere eligibility). Crit is swapped first, then backstab folds on top
-    // independently — a purely positional gate (no awareness requirement), so
-    // OnCrit and OnBackstab fire together on an unaware backstab and OnBackstab
+    // evaluated per hit. Runs each check once and applies the standard bonus plus
+    // any authored OnCrit / OnBackstab modifiers (HitInfo.ApplyCrit /
+    // ApplyBackstab), which record the trigger flag only when a bonus applies.
+    // Crit applies first, then backstab on top independently — a purely
+    // positional gate (no awareness requirement), so they fire together on an unaware backstab and OnBackstab
     // alone on an alerted one. Shared by PredictHit (on a copy) and Hit (the
     // authoritative apply); the attacker reads the resulting flags to spawn
     // ItemAction.impactCritEffect / impactBackstabEffect on the base impact cue.
@@ -4730,8 +4729,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // folded later in Damage's ApplyHitBuildups pass).
     private HitInfo ResolveTriggers(HitInfo hit)
     {
-        if (IsCritEligible(hit)) { hit.ApplyTrigger(EDamageTrigger.OnCrit); }
-        if (IsBackstab(hit)) { hit.ApplyTrigger(EDamageTrigger.OnBackstab); }
+        SimData simData = _world.SimData;
+        if (IsCritEligible(hit)) { hit.ApplyCrit(simData.critMultiplier); }
+        if (IsBackstab(hit)) { hit.ApplyBackstab(simData.backstabMultiplier); }
         return hit;
     }
 

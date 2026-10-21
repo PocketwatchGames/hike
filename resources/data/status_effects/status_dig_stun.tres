@@ -22,7 +22,7 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 [resource]
 script = ExtResource("1_data")
 icon = ExtResource("1_yp3he")
-displayName = &"Dizzy"
+displayName = &"Stun"
 tags = 8
 duration = 2.0
 maxStack = 1

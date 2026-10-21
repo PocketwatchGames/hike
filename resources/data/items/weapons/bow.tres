@@ -1,7 +1,6 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://b6n2vvhvirjdk"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
-[ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/combat/DamageDataModifier.cs" id="1_modifier"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_kw5rh"]
@@ -105,20 +104,6 @@ chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_
 autoActivateAtMax = false
 queueWindowSeconds = 0.0
 
-[sub_resource type="Resource" id="Resource_mod_crit"]
-script = ExtResource("1_modifier")
-overrides = 512
-damageMultiplier = 3.0
-addBuildups = []
-
-[sub_resource type="Resource" id="Resource_t06ie"]
-script = ExtResource("1_modifier")
-trigger = 2
-overrides = 512
-damageMultiplier = 1.5
-addBuildups = []
-metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
-
 [sub_resource type="Resource" id="Resource_charged_damage"]
 script = ExtResource("1_damage")
 tags = 2113
@@ -130,15 +115,6 @@ hitstun = 0.25
 knockbackDistance = 0.5
 knockbackTime = 0.25
 buildups = []
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_t06ie")])
-
-[sub_resource type="Resource" id="Resource_gsna1"]
-script = ExtResource("1_modifier")
-trigger = 2
-overrides = 512
-damageMultiplier = 1.5
-addBuildups = []
-metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
@@ -151,7 +127,6 @@ hitstun = 0.25
 knockbackDistance = 0.5
 knockbackTime = 0.25
 buildups = []
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_gsna1")])
 
 [sub_resource type="Resource" id="salvage_yield_sinew"]
 script = ExtResource("material_count")
