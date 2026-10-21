@@ -17,6 +17,7 @@
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="11_1hqqq"]
 [ext_resource type="PackedScene" uid="uid://6ccnnebatflu" path="res://scenes/gui/region_banner.tscn" id="13_is1ux"]
 [ext_resource type="PackedScene" uid="uid://2uhqrphkgsot" path="res://scenes/gui/quest_item.tscn" id="13_o8nis"]
+[ext_resource type="Texture2D" uid="uid://ddo1rj0ar8j0p" path="res://assets/textures/gui/hud_dash.png" id="99_dash_icon"]
 [ext_resource type="Texture2D" uid="uid://c5ogqm7cj0u3a" path="res://assets/textures/map_markers/question.png" id="mm_question"]
 [ext_resource type="Texture2D" uid="uid://7qpyogokbssb" path="res://assets/textures/gui/needs/need_disc.png" id="need_disc"]
 [ext_resource type="Texture2D" uid="uid://bd2uf20ywkjj6" path="res://assets/textures/gui/needs/fatigue_glyph.png" id="need_fatigue"]
@@ -85,7 +86,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_armorSlot", "_dashHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_staminaContainer", "_statusEffectContainer", "_boonContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_parryIcon", "_drainedHealthBar", "_bonusHealthBar", "_armorBar", "_blockArmorBar", "_oilBar", "_bonusOilBar", "_hungerMeter", "_thirstMeter", "_fatigueMeter", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_armorSlot", "_dashHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_staminaContainer", "_statusEffectContainer", "_boonContainer", "_statusEffectNotificationAnchor", "_questContainer", "_healthBar", "_parryIcon", "_drainedHealthBar", "_bonusHealthBar", "_armorBar", "_blockArmorBar", "_oilBar", "_hungerMeter", "_thirstMeter", "_fatigueMeter", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -95,9 +96,9 @@ grow_vertical = 2
 script = ExtResource("1_ahhtf")
 _statusEffectHudScene = ExtResource("2_ueg55")
 _statusEffectIconScene = ExtResource("2_icon")
-_weaponLeftSlot = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/Armor")
+_weaponLeftSlot = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer4/WeaponLeft")
 _weaponRightSlot = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer3/WeaponRight")
-_weaponLeftHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/ButtonHint")
+_weaponLeftHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer4/ButtonHint")
 _weaponRightHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer3/ButtonHint2")
 _shieldSlot = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer2/Shield")
 _shieldHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer2/ButtonHint2")
@@ -121,7 +122,6 @@ _bonusHealthBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxCo
 _armorBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/ArmorBar")
 _blockArmorBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/HBoxContainer/BlockArmorBar")
 _oilBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/HBoxContainer/OilBar")
-_bonusOilBar = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/HBoxContainer/BonusOil")
 _hungerMeter = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/Status/Hunger")
 _thirstMeter = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/Status/Thirst")
 _fatigueMeter = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/Status/Fatigue")
@@ -251,17 +251,6 @@ step = 0.001
 value = 0.5
 show_percentage = false
 
-[node name="BonusOil" type="ProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/OilMarginContainer/HBoxContainer" unique_id=1716515732]
-visible = false
-custom_minimum_size = Vector2(0, 15)
-layout_mode = 2
-size_flags_horizontal = 0
-theme_override_styles/fill = SubResource("StyleBoxFlat_okx5l")
-max_value = 1.0
-step = 0.001
-value = 0.5
-show_percentage = false
-
 [node name="StaminaMarginContainer" type="MarginContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=565732423]
 layout_mode = 2
 size_flags_horizontal = 0
@@ -287,8 +276,10 @@ value = 1.0
 fill_mode = 3
 nine_patch_stretch = true
 texture_under = ExtResource("need_disc")
-texture_progress = ExtResource("need_fatigue")
+texture_over = ExtResource("need_fatigue")
+texture_progress = ExtResource("need_disc")
 tint_under = Color(0, 0, 0, 0.5)
+tint_progress = Color(0.5, 0.5, 0.5, 1)
 
 [node name="Hunger" type="TextureProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/Status" unique_id=1096948668]
 custom_minimum_size = Vector2(40, 40)
@@ -300,8 +291,10 @@ value = 1.0
 fill_mode = 3
 nine_patch_stretch = true
 texture_under = ExtResource("need_disc")
-texture_progress = ExtResource("need_hunger")
+texture_over = ExtResource("need_hunger")
+texture_progress = ExtResource("need_disc")
 tint_under = Color(0, 0, 0, 0.5)
+tint_progress = Color(0.5, 0.5, 0.5, 1)
 
 [node name="Thirst" type="TextureProgressBar" parent="ScreenMarginContainer/UpperLeft/VBoxContainer/Status" unique_id=1835872204]
 custom_minimum_size = Vector2(40, 40)
@@ -313,8 +306,10 @@ value = 1.0
 fill_mode = 3
 nine_patch_stretch = true
 texture_under = ExtResource("need_disc")
-texture_progress = ExtResource("need_thirst")
+texture_over = ExtResource("need_thirst")
+texture_progress = ExtResource("need_disc")
 tint_under = Color(0, 0, 0, 0.5)
+tint_progress = Color(0.5, 0.5, 0.5, 1)
 
 [node name="Boons" type="HBoxContainer" parent="ScreenMarginContainer/UpperLeft/VBoxContainer" unique_id=1837215094]
 custom_minimum_size = Vector2(0, 40)
@@ -432,6 +427,7 @@ layout_mode = 2
 
 [node name="Armor" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer" unique_id=1708530212 instance=ExtResource("2_qxonp")]
 layout_mode = 2
+_emptyIcon = ExtResource("99_dash_icon")
 
 [node name="VBoxContainer4" type="VBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer" unique_id=816150128]
 layout_mode = 2

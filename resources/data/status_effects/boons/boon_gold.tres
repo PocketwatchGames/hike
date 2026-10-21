@@ -6,7 +6,7 @@
 
 [resource]
 script = ExtResource("1_boon")
-displayName = &"Gold"
+displayName = &"Silver"
 description = "A fairy's parting gift of coin."
 icon = ExtResource("2_icon")
 grantedItem = ExtResource("3_gold")

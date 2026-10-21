@@ -8,6 +8,11 @@
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="5_recolor"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="6_palette"]
 [ext_resource type="Resource" uid="uid://bl6624gx6bons" path="res://resources/data/blood/red_blood_large.tres" id="blood_1"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="harvest_row"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="harvest_desc"]
+[ext_resource type="Resource" uid="uid://khjswp5qnpnm" path="res://resources/data/items/loot/drake_meat.tres" id="harvest_drake_meat"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/feather.tres" id="harvest_feather"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/hide.tres" id="harvest_hide"]
 
 [sub_resource type="Resource" id="Resource_anim_attack"]
 script = ExtResource("4_animdata")
@@ -59,6 +64,37 @@ script = ExtResource("6_palette")
 recolors = [SubResource("Resource_base_entry")]
 metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
+[sub_resource type="Resource" id="HarvestDesc_drake_meat"]
+script = ExtResource("harvest_desc")
+item = ExtResource("harvest_drake_meat")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Harvest_drake_meat"]
+script = ExtResource("harvest_row")
+item = SubResource("HarvestDesc_drake_meat")
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
+[sub_resource type="Resource" id="HarvestDesc_feather"]
+script = ExtResource("harvest_desc")
+item = ExtResource("harvest_feather")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Harvest_feather"]
+script = ExtResource("harvest_row")
+item = SubResource("HarvestDesc_feather")
+countRange = 1
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
+[sub_resource type="Resource" id="HarvestDesc_hide"]
+script = ExtResource("harvest_desc")
+item = ExtResource("harvest_hide")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Harvest_hide"]
+script = ExtResource("harvest_row")
+item = SubResource("HarvestDesc_hide")
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
 [resource]
 script = ExtResource("1_mob")
 displayName = &"Drake"
@@ -96,3 +132,4 @@ hoverHeight = 1.5
 flySpeed = 10.0
 verticalSpeed = 6.0
 hoverStiffness = 4.0
+harvestLoot = [SubResource("Harvest_drake_meat"), SubResource("Harvest_feather"), SubResource("Harvest_hide")]

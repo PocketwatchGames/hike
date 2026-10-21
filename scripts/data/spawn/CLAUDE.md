@@ -11,7 +11,7 @@ so a zone's entity list reads as a list of named files with a number each:
 | Row type | Container | Adds |
 |---|---|---|
 | `SpawnRow` (base) | — | `entry`, `spawnConditions`, `initialBehavior` + `initialBehaviorChance` |
-| `SpawnListRow` | `SpawnListData.rows` | `squareMetersPerSpawn` (per-column area rate) |
+| `SpawnListRow` | `SpawnListData.rows` | `squareMetersPerSpawn` (per-column area rate), `bands` (which columns it rolls on) |
 | `SpawnGroupRow` | `SpawnGroupData.rows` | `countMin`/`countMax`, `placeAtAnchor` |
 
 The two containers ask different questions — a list wants a rate per area, a
@@ -34,6 +34,16 @@ container is worse than a missing one: it invites tuning that does nothing.
   torchbearers minus a wander. `MobSpawnEntry.initialBehavior` survives only as
   what ONE individual starts in — set on a painter placement's fork, never on a
   shared file — and wins outright when set.
+- **Where a row spawns relative to water is its `bands`** (`ESpawnBand`: Dry,
+  Shore, Submerged; default Dry + Shore = "anywhere on land"). One list covers a
+  whole place, water included: a goblin roams the beach and the woods, a mushroom
+  only the woods, a shell only the beach, a lurker only the water. Each producer
+  classifies a column with the SAME test that stamps its shore terrain
+  (`WorldGen.IsShoreColumn`, `WorldMapState.IsShoreAt`), so a beach's sand and
+  its Shore rows are the same columns. Submerged needs `SpawnBands.SUBMERGED_MIN_DEPTH`
+  of water and anchors inside the top water voxel. A cave or passage floor is
+  Dry and a flooded cave pocket Submerged. That is why `ZoneGenData` has no
+  separate water / shore / cave-water lists.
 - **The row's statements reach `Spawn` on the `SpawnContext`**, stamped by the row
   immediately before each spawn and RESTORED after it (`SpawnRow.Stamp`).
   `Spawn` is overridden by ~20 entry types and only three (mob, npc, chest) read

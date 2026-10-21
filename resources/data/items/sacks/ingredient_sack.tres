@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="SackData" format=3]
+
+[ext_resource type="Script" uid="uid://i8dy8rxu6240p" path="res://scripts/data/items/SackData.cs" id="1_sack"]
+[ext_resource type="Texture2D" uid="uid://bms3jdulpwcwg" path="res://assets/textures/items/Sack.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_sack")
+capacity = 8
+accepts = Array[int]([6])
+displayName = &"Ingredient Sack"
+description = "A sturdy sack for foraged ingredients, meat and treasure. Anything it can hold goes into it first."
+value = 8
+inventorySprite = ExtResource("2_icon")
+metadata/_custom_type_script = "uid://i8dy8rxu6240p"

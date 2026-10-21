@@ -951,7 +951,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 	// Called from the action's OpenInteractive event handler at the
 	// authored t=N moment. Deposits the carried item into the picker's
 	// inventory (if any) and removes the loot from the world.
-	public void Complete(int actionIndex)
+	public void Complete(InteractiveAction action)
 	{
 		if (_pickedUp || _picker == null)
 		{

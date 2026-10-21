@@ -526,7 +526,7 @@ public class WorldMapBake
         ZoneTerrains terrains = TerrainsAt(px, pz);
         byte topTerrain = wsurf > th
             ? terrains.Submerged
-            : th - ShoreWaterSurface(px, pz) <= Map.Data.shoreBandVoxels ? terrains.Shore : terrains.Surface;
+            : Map.IsShoreAt(px, pz) ? terrains.Shore : terrains.Surface;
 
         // The chunk is resolved once per 16 voxels of column instead of per
         // write. WorldState's world-space setters each hash a Vector3I, and the
@@ -624,25 +624,6 @@ public class WorldMapBake
         }
     }
 
-    // The water a column could have a BEACH against: its own surface, or the
-    // highest standing in the four columns around it.
-    //
-    // Measured from the water rather than from seaLevel, because there is no
-    // waterline to measure from any more — and because seaLevel was the wrong
-    // reference in both directions anyway: it sanded the floor of a dry basin
-    // dug below zero, and it never gave a mountain lake a shore at all. A column
-    // with no water anywhere near it comes out far above NoWater's Y and takes
-    // the surface terrain, which is the answer it wanted.
-    private int ShoreWaterSurface(int px, int pz)
-    {
-        int best = Map.WaterSurface(px, pz);
-        for (int d = 0; d < 4; d++)
-        {
-            best = Mathf.Max(best, Map.WaterSurface(px + WorldMapState.NeighbourDx[d], pz + WorldMapState.NeighbourDz[d]));
-        }
-        return best;
-    }
-
     // Re-evaluate the spawn layers for every column under a texel rect: the two
     // prop layers place whatever the painted list stands there, and the mob
     // layer rolls its rows' own rates. Adds sim states on WorldState during the
@@ -667,12 +648,18 @@ public class WorldMapBake
         // Props first and unconditionally: their own gate is CanPlacePropAt, and
         // CanSpawnAt now refuses the very region they are filling.
         ScatterProps(px, pz);
-        if (Map.CanSpawnAt(px, pz))
+        ESpawnBand band = Map.SpawnBandAt(px, pz);
+        if (band != ESpawnBand.None)
         {
-            var pos = new Vector3(Map.Data.WorldMinX + px + 0.5f, Map.TerrainHeight(px, pz) + 1f,
-                Map.Data.WorldMinZ + pz + 0.5f);
+            // A swimmer anchors INSIDE the top water voxel, not on its top face:
+            // its feet must sample water on the first tick for buoyancy to take
+            // it, exactly as WorldGen's water pass anchors.
+            float anchorY = band == ESpawnBand.Submerged
+                ? Map.WaterSurface(px, pz) + 0.5f
+                : Map.TerrainHeight(px, pz) + 1f;
+            var pos = new Vector3(Map.Data.WorldMinX + px + 0.5f, anchorY, Map.Data.WorldMinZ + pz + 0.5f);
             SpawnScatterData set = Map.MobSetAt(px, pz, out float mobDensity);
-            ScatterMobColumn(set, mobDensity, pos,
+            ScatterMobColumn(set, band, mobDensity, pos,
                 i => WorldMapState.Hash(px, pz, WorldMapState.ENTITY_SALT + (uint)i));
         }
         // Then every passage floor in the column, each off its own scatter. The
@@ -689,7 +676,7 @@ public class WorldMapBake
             }
             var pos = new Vector3(Map.Data.WorldMinX + px + 0.5f, floor + 1f, Map.Data.WorldMinZ + pz + 0.5f);
             int floorY = floor;
-            ScatterMobColumn(set, density, pos, i => WorldMapState.PassageHash(px, pz, floorY, i));
+            ScatterMobColumn(set, ESpawnBand.Dry, density, pos, i => WorldMapState.PassageHash(px, pz, floorY, i));
         }
     }
 
@@ -734,7 +721,8 @@ public class WorldMapBake
     // Mobs: each row's OWN authored rate, then its own Spawn logic. The hash
     // decides placement; the seeded Random only fills in details, so the map
     // preview stays exact.
-    private void ScatterMobColumn(SpawnScatterData set, float density, Vector3 pos, System.Func<int, uint> rowHash)
+    private void ScatterMobColumn(SpawnScatterData set, ESpawnBand band, float density, Vector3 pos,
+        System.Func<int, uint> rowHash)
     {
         SpawnListRow[] rows = set?.RowsFlat;
         if (rows == null)
@@ -744,7 +732,7 @@ public class WorldMapBake
         for (int i = 0; i < rows.Length; i++)
         {
             SpawnListRow row = rows[i];
-            if (row?.entry == null)
+            if (row?.entry == null || !row.SpawnsIn(band))
             {
                 continue;
             }
@@ -753,11 +741,33 @@ public class WorldMapBake
             {
                 continue;
             }
-            row.TrySpawn(WorldState, pos, new System.Random((int)h), SpawnContextForBake());
+            SpawnContext context = band == ESpawnBand.Submerged ? WaterSpawnContextForBake() : SpawnContextForBake();
+            row.TrySpawn(WorldState, pos, new System.Random((int)h), context);
         }
     }
 
     private SpawnContext _bakeContext;
+    private SpawnContext _bakeWaterContext;
+
+    // The bake context for a Submerged row: the same answers, except that the
+    // column a group may scatter a member onto is one more swimmable column —
+    // a lurker pack spilling onto the beach is not a lurker pack.
+    private SpawnContext WaterSpawnContextForBake()
+    {
+        if (_bakeWaterContext == null)
+        {
+            SpawnContext land = SpawnContextForBake();
+            _bakeWaterContext = new SpawnContext
+            {
+                SurfaceYAt = land.SurfaceYAt,
+                IsValidColumn = (wx, wz) =>
+                    Map.SpawnBandAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ) == ESpawnBand.Submerged,
+                MobLevelOverride = land.MobLevelOverride,
+                ForgeLevelOverride = land.ForgeLevelOverride,
+            };
+        }
+        return _bakeWaterContext;
+    }
 
     // Minimal context: the three column queries entries ask about, answered off
     // the painted document rather than a HeightMap.

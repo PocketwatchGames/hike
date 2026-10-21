@@ -80,6 +80,23 @@ public partial class InteractiveAction : Resource
 	// work unchanged.
 	[Export] public Array<ActionRequirement> requirements = new();
 
+	// Whether this action is offered to `actor` at all: every requirement marked
+	// hidesActionWhenUnmet passes (a corpse with no blade around offers nothing).
+	// The rest still refuse at the press, with their message.
+	public bool IsOfferedTo(IActionActor actor)
+	{
+		int count = requirements.Count;
+		for (int i = 0; i < count; i++)
+		{
+			ActionRequirement requirement = requirements[i];
+			if (requirement != null && requirement.hidesActionWhenUnmet && !requirement.Evaluate(actor, default))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
 	// One-shot Fx spawned on the actor when a press is refused because a
 	// requirement failed (e.g. trying to sleep in a tent while poisoned or in
 	// danger). Mirrors ItemActionProfile.rejectEffect — author a "can't do that"

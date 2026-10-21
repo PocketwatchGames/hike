@@ -112,7 +112,7 @@ public class SimState
 
     // Collected treasure maps — each a pre-rolled dig location + heading pointing
     // at a buried payload, shown as switchable tabs on the world-map screen and
-    // removed when the treasure is dug up (Sim.TryDig). Persisted by SaveGame (v5).
+    // removed when the treasure is dug up (BuriedSpot.Dig). Persisted by SaveGame (v5).
     public readonly List<TreasureMapState> TreasureMaps = new();
 
     // Fired when a treasure map is added or removed so the map screen rebuilds

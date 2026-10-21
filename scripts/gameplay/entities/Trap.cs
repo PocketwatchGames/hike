@@ -73,7 +73,7 @@ public partial class Trap : Node3D, IInteractive, IWorldEntity, IDiscoverableHos
         return _actions != null && _actions.Count > 0 ? _actions : null;
     }
 
-    public void Complete(int actionIndex)
+    public void Complete(InteractiveAction action)
     {
         _disarmed = true;
         if (_simState != null)

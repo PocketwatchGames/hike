@@ -67,25 +67,7 @@ public partial class Sim
     // the map-reveal bookkeeping stays client-side (it's presentation).
     public EKnowledgeCategory CommitCamp()
     {
-        EKnowledgeCategory banked = _worldState?.SimState?.BankActiveKnowledge() ?? EKnowledgeCategory.None;
-        RefuelPartyLanterns();
-        return banked;
-    }
-
-    // Top off every carried lantern on every member. The campfire's refill: run
-    // by the campfire interaction (CommitCamp) and by arriving home at one
-    // (ReturnHomeToSunrise) — never by a dawn or a sleep alone.
-    private void RefuelPartyLanterns()
-    {
-        if (_partyNodes == null)
-        {
-            _player?.RefuelLantern();
-            return;
-        }
-        for (int i = 0; i < _partyNodes.Count; i++)
-        {
-            _partyNodes[i]?.RefuelLantern();
-        }
+        return _worldState?.SimState?.BankActiveKnowledge() ?? EKnowledgeCategory.None;
     }
 
     // Every member blows out their lantern on lying down, so the party wakes in
@@ -221,8 +203,7 @@ public partial class Sim
     }
 
     // Teleport the controlled member to `pos` (their standing spot at the
-    // campfire — never the fire itself), sleep there until dawn, and refill
-    // lanterns at the fire. Does NOT bank: the Ruby Rosaries bank first
+    // campfire — never the fire itself) and sleep there until dawn. Does NOT bank: the Ruby Rosaries bank first
     // (GameClient.ReturnHome), a death wake does not. The client keeps the
     // camera reframe, campfire relight, and camp screen.
     public void ReturnHomeToSunrise(Vector3 pos)
@@ -233,7 +214,6 @@ public partial class Sim
         }
         _player.TeleportTo(pos);
         Sleep(SleepUntilDawn, 0.0);
-        RefuelPartyLanterns();
     }
 
     // The death wake: the controlled member stands back up at `pos` (their spot

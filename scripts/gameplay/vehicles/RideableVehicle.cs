@@ -89,9 +89,9 @@ public partial class RideableVehicle : CharacterBody3D, IInteractive, IWorldEnti
         return _actions != null && _actions.Count > 0 ? _actions : null;
     }
 
-    public void Complete(int actionIndex)
+    public void Complete(InteractiveAction action)
     {
-        // Single Board verb today; branch on _actions[actionIndex].verb when a
+        // Single Board verb today; branch on action.verb when a
         // vehicle grows secondary interactions (e.g. a horse's Feed).
         _pendingRider?.Mount(this);
     }

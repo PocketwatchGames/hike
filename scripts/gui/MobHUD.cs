@@ -249,7 +249,11 @@ public partial class MobHUD : Node2D
 		// the perception/health bar happens to be on screen this tick. As a
 		// direct child of the (unscaled, unmodulated) root they ride their
 		// authored offset and are untouched by the _bars fade below.
-		bool perceivedOnScreen = !behindCamera && _mob.alive && _mob.playerPerceptionState != EPlayerPerceptionState.Hidden;
+		// A mob the ceiling cutaway is hiding (on a roof or an upper floor) is as
+		// out of view as one behind the camera — only the debug label above
+		// ignores it, since inspecting an unseen mob is its job.
+		bool outOfView = behindCamera || _mob.IsCutAway();
+		bool perceivedOnScreen = !outOfView && _mob.alive && _mob.playerPerceptionState != EPlayerPerceptionState.Hidden;
 		if (_statusEffectContainer != null)
 		{
 			_statusEffectContainer.Visible = perceivedOnScreen;
@@ -260,7 +264,7 @@ public partial class MobHUD : Node2D
 		}
 		bool statusStripShowing = perceivedOnScreen && _statusEffectIcons.Count > 0;
 
-		if (behindCamera)
+		if (outOfView)
 		{
 			_bars.Visible = false;
 			if (_levelContainer != null)

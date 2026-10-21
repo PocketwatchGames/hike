@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1_s")
 scenarioName = "blood"
-description = "A sword, a bow, and one of each blood: red (goblin, troll, kun-kun), slime goo and spider ichor. Backstab an unaware one for the heavy burst."
-commands = "spawn_loot sword
+description = "A saber, a bow, and one of each blood: red (goblin, troll, kun-kun), slime goo and spider ichor. Backstab an unaware one for the heavy burst."
+commands = "spawn_loot saber
 spawn_loot bow
 spawn_mob goblin_forest 1
 spawn_mob troll_forest 1

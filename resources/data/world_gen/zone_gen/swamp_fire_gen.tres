@@ -8,9 +8,7 @@
 [ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="13_5miyb"]
 [ext_resource type="Resource" uid="uid://crwiul27krdig" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp.tres" id="14_08puj"]
 [ext_resource type="Resource" uid="uid://gpdraqwf22b8" path="res://resources/data/world_authoring/terrain/marsh.tres" id="15_e12v7"]
-[ext_resource type="Resource" uid="uid://cwvam7wm5c6ql" path="res://resources/data/world_gen/spawn_lists/water_entities_swamp.tres" id="16_bxt8m"]
 [ext_resource type="Resource" uid="uid://c8lt1k3vpx7di" path="res://resources/data/world_authoring/zones/swamp_fire.tres" id="17_1xuj7"]
-[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_script"]
 [ext_resource type="Resource" uid="uid://ikft0bki0wpe" path="res://resources/data/items/scrolls/treasure_map_swamp_fire.tres" id="96_map"]
@@ -120,8 +118,6 @@ forgeCount = 4
 forgeLevelMax = 1
 surfaceEntities = ExtResource("14_08puj")
 caveEntities = ExtResource("1_1xuj7")
-caveWaterEntities = ExtResource("90_cave_water")
-waterEntities = ExtResource("16_bxt8m")
 distributedLoot = [SubResource("Dist_treasure"), SubResource("Rc0"), SubResource("Rc1"), SubResource("Rc2"), SubResource("Rc3"), SubResource("Rc4")]
 treasureName = "swamp_fire"
 treasureSpot = ExtResource("97_spot")

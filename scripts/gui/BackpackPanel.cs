@@ -13,6 +13,12 @@ using System.Collections.Generic;
 [GlobalClass]
 public partial class BackpackPanel : Control
 {
+	// The title bar over the grid, hidden while the panel has no title.
+	[Export] private Label _nameLabel;
+	[Export] private Control _nameContainer;
+	// Per-instance title, a ui.tsv key (panel_backpack, panel_stash). Unset = no
+	// title, unless the screen names the panel itself (SetTitle — a sack).
+	[Export] private StringName _titleLocKey;
 	[Export] private PackedScene _slotScene;
 	[Export] private Container _slotContainer;
 	// Overrides a GridContainer's column count per instance (a belt is one row);
@@ -28,6 +34,11 @@ public partial class BackpackPanel : Control
 	// Every slot ever instanced; the first `_shown` are the live grid.
 	readonly List<ItemSlotPanel> _slots = new();
 	int _shown;
+	// Slots ahead of the grid's at the front of _slotContainer (AddLeadingSlot).
+	int _leadingSlots;
+
+	// A title set at runtime; wins over _titleLocKey while non-null.
+	string _title;
 
 	public int SlotCount => _shown;
 
@@ -37,6 +48,38 @@ public partial class BackpackPanel : Control
 		{
 			grid.Columns = _columns;
 		}
+		ApplyTitle();
+	}
+
+	public override void _EnterTree()
+	{
+		Loc.OnLanguageChanged += ApplyTitle;
+	}
+
+	public override void _ExitTree()
+	{
+		Loc.OnLanguageChanged -= ApplyTitle;
+	}
+
+	// Name the panel from code (a sack, by its item name); null falls back to the
+	// scene's _titleLocKey.
+	public void SetTitle(string title)
+	{
+		_title = title;
+		ApplyTitle();
+	}
+
+	void ApplyTitle()
+	{
+		string title = _title ?? (_titleLocKey is null || _titleLocKey.IsEmpty ? null : Loc.Get(_titleLocKey));
+		if (_nameLabel != null)
+		{
+			_nameLabel.Text = title ?? string.Empty;
+		}
+		if (_nameContainer != null)
+		{
+			_nameContainer.Visible = !string.IsNullOrEmpty(title);
+		}
 	}
 
 	void WireSlot(int index, ItemSlotPanel panel)
@@ -44,6 +87,22 @@ public partial class BackpackPanel : Control
 		panel.onFocusEntered += p => onSlotFocused?.Invoke(index, p);
 		panel.onButtonDown += p => onSlotButtonDown?.Invoke(index, p);
 		panel.onButtonUp += p => onSlotButtonUp?.Invoke(index, p);
+	}
+
+	// A slot laid out ahead of the grid's, in the same row, but NOT one of its
+	// indexed slots: no slot events, absent from IndexOf / GetSlot /
+	// EnumerateSlots. The caller wires and fills it (the belt's lantern slot).
+	public ItemSlotPanel AddLeadingSlot()
+	{
+		if (_slotScene == null || _slotContainer == null)
+		{
+			GD.PushError($"BackpackPanel '{Name}': no slot scene / container to build a leading slot in.");
+			return null;
+		}
+		ItemSlotPanel panel = _slotScene.Instantiate<ItemSlotPanel>();
+		_slotContainer.AddChild(panel);
+		_slotContainer.MoveChild(panel, _leadingSlots++);
+		return panel;
 	}
 
 	// Show exactly `count` slots, instancing any the grid hasn't had yet.

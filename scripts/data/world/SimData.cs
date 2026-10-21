@@ -27,6 +27,10 @@ public partial class SimData : Resource
     // grows to show them all. Shrinking it packs a save's stash into what is left.
     [Export(PropertyHint.Range, "0,256,1")] public int partyStashCapacity = 32;
 
+    // Fraction of max durability below which gear reads as worn: every slot that
+    // draws the item shows its warning, and the warning cue plays once on the way down.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float durabilityWarningFraction = 0.25f;
+
     // Master recipe library: every cookable ConsumableData (one with a
     // recipe). CookingScreen matches the cooking inputs against this list,
     // and discovery is recorded in SimState.DiscoveredRecipes keyed by the same
@@ -246,6 +250,14 @@ public partial class SimData : Resource
     [Export] public InteractiveAction talkAction;
     [Export] public InteractiveAction giveItemAction;
     [Export] public InteractiveAction tradeAction;
+    // What a dead mob offers, shared by every species like talkAction: Pick Up
+    // its carcass (MobData.carcass), and Butcher it with a carried Blade
+    // for its MobData.HarvestRows.
+    [Export] public InteractiveAction carryCarcassAction;
+    [Export] public InteractiveAction butcherAction;
+    // Dig a burrowed mob out of the ground with a carried Digging tool — the same
+    // Dig a buried spot offers, shared by every species.
+    [Export] public InteractiveAction digUpAction;
 
     // The sack a fallen member's gear is left in (DeathSack). Null leaves the
     // gear on the member, with an error.

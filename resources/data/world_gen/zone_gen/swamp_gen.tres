@@ -8,9 +8,7 @@
 [ext_resource type="Resource" uid="uid://blrncmkcsytp7" path="res://resources/data/world_authoring/terrain/shore_swamp.tres" id="10_nd86w"]
 [ext_resource type="Resource" uid="uid://crwiul27krdig" path="res://resources/data/world_gen/spawn_lists/surface_entities_swamp.tres" id="11_surface"]
 [ext_resource type="Resource" uid="uid://bc33yar2jihy1" path="res://resources/data/world_gen/spawn_lists/cave_entities_swamp.tres" id="12_cave"]
-[ext_resource type="Resource" uid="uid://cwvam7wm5c6ql" path="res://resources/data/world_gen/spawn_lists/water_entities_swamp.tres" id="14_water"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="16_grp"]
-[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_script"]
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="92_health"]
@@ -177,8 +175,6 @@ forgeCount = 2
 forgeLevelMax = 1
 surfaceEntities = ExtResource("11_surface")
 caveEntities = ExtResource("12_cave")
-caveWaterEntities = ExtResource("90_cave_water")
-waterEntities = ExtResource("14_water")
 perChestLoot = [SubResource("PerChest_health"), SubResource("PerChest_oil"), SubResource("PerChest_rosaries")]
 distributedLoot = [SubResource("Dist0"), SubResource("Dist1"), SubResource("Dist2"), SubResource("Dist3"), SubResource("Dist4"), SubResource("Dist5"), SubResource("Dist6"), SubResource("Dist7"), SubResource("Dist_treasure")]
 treasureName = "swamp"

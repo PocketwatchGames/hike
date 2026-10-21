@@ -60,6 +60,7 @@ hairColor = 1
 hairStyle = 1
 icon = ExtResource("11_icon")
 health = 1.2
+stamina = 3.5
 fortitude = 1.1
 perception = 0.8
 stealth = 0.9

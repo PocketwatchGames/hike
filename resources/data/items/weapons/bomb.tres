@@ -16,6 +16,8 @@
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_68y43"]
 [ext_resource type="Texture2D" uid="uid://ck8w0sjssnkkb" path="res://assets/textures/items/Bomb.png" id="11_inv"]
 [ext_resource type="Script" uid="uid://cbrtam2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="20_burst"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/gunpowder.tres" id="repair_gunpowder"]
 
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("1_damage")
@@ -82,6 +84,12 @@ chargedActions = Array[ExtResource("4_action")]([SubResource("Resource_tier_toss
 autoActivateAtMax = false
 queueWindowSeconds = 0.0
 
+[sub_resource type="Resource" id="repair_cost_gunpowder"]
+script = ExtResource("material_count")
+item = ExtResource("repair_gunpowder")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
 [resource]
 script = ExtResource("2_weapon")
 maxAmmo = 3
@@ -97,3 +105,4 @@ value = 40
 inventorySprite = ExtResource("11_inv")
 heldModel = ExtResource("10_held")
 maxDurability = 40
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_gunpowder")])

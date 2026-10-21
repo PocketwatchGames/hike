@@ -25,6 +25,9 @@
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
 [ext_resource type="PackedScene" uid="uid://b6xvvkhj2thr" path="res://scenes/items/bow_held.tscn" id="20_kwtcm"]
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/sinew.tres" id="salvage_sinew"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/fiber.tres" id="salvage_fiber"]
 
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")
@@ -150,6 +153,30 @@ knockbackTime = 0.25
 buildups = []
 modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_gsna1")])
 
+[sub_resource type="Resource" id="salvage_yield_sinew"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_sinew")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_yield_fiber"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_fiber")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="repair_cost_sinew"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_sinew")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="repair_cost_fiber"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_fiber")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
 [resource]
 script = ExtResource("2_weapon")
 maxAmmo = 5
@@ -169,8 +196,10 @@ wieldHand = 1
 animSet = ExtResource("21_animset")
 weight = 0.25
 maxDurability = 30
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_sinew"), SubResource("repair_cost_fiber")])
 displayName = &"Short Bow"
 description = "Fires arrows at range."
 value = 50
 inventorySprite = ExtResource("15_tnjmy")
 heldModel = ExtResource("20_kwtcm")
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_sinew"), SubResource("salvage_yield_fiber")])

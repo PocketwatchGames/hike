@@ -2676,7 +2676,8 @@ public class WorldMapState
     public int PreviewMobAt(int px, int pz)
     {
         SpawnScatterData set = MobSetAt(px, pz, out float density);
-        if (set == null || !CanSpawnAt(px, pz))
+        ESpawnBand band = set != null ? SpawnBandAt(px, pz) : ESpawnBand.None;
+        if (band == ESpawnBand.None)
         {
             return -1;
         }
@@ -2687,7 +2688,7 @@ public class WorldMapState
         }
         for (int i = 0; i < rows.Length; i++)
         {
-            if (rows[i] != null
+            if (rows[i] != null && rows[i].SpawnsIn(band)
                 && AreaRoll(Hash(px, pz, ENTITY_SALT + (uint)i), rows[i].squareMetersPerSpawn, density))
             {
                 return IndexOfSet(ScatterSets, set);
@@ -2698,7 +2699,8 @@ public class WorldMapState
 
     // The same answer for the scatter of the passage standing on `floorY`. Each
     // floor rolls on its own hash, salted with its height, so two passages
-    // stacked in one column do not spawn in lockstep.
+    // stacked in one column do not spawn in lockstep. A passage floor is always
+    // Dry: PassageSpawnSetAt refuses a flooded one, and a tunnel has no beach.
     public int PreviewPassageMobAt(int px, int pz, int floorY)
     {
         SpawnScatterData set = PassageSpawnSetAt(px, pz, floorY, out float density);
@@ -2709,7 +2711,7 @@ public class WorldMapState
         }
         for (int i = 0; i < rows.Length; i++)
         {
-            if (rows[i] != null
+            if (rows[i] != null && rows[i].SpawnsIn(ESpawnBand.Dry)
                 && AreaRoll(PassageHash(px, pz, floorY, i), rows[i].squareMetersPerSpawn, density))
             {
                 return IndexOfSet(ScatterSets, set);
@@ -2814,6 +2816,53 @@ public class WorldMapState
     public bool CanSpawnAt(int px, int pz)
     {
         return !IsGradeAt(px, pz) && !InBlockingRegion(px, pz) && CanPlacePropAt(px, pz);
+    }
+
+    // The band a column's scatter rows are rolled for, or None where nothing may
+    // spawn. Like CanSpawnAt, the ONE gate the bake and the map preview share.
+    // Water deep enough to swim in is Submerged; shallower water is nothing,
+    // since a land spawn would stand in it and a swimmer would not fit.
+    public ESpawnBand SpawnBandAt(int px, int pz)
+    {
+        if (Underwater(px, pz))
+        {
+            return WaterSurface(px, pz) - TerrainHeight(px, pz) >= SpawnBands.SUBMERGED_MIN_DEPTH
+                && !InBlockingRegion(px, pz)
+                && PlacementAt(px, pz) == null
+                    ? ESpawnBand.Submerged
+                    : ESpawnBand.None;
+        }
+        if (!CanSpawnAt(px, pz))
+        {
+            return ESpawnBand.None;
+        }
+        return IsShoreAt(px, pz) ? ESpawnBand.Shore : ESpawnBand.Dry;
+    }
+
+    // Dry ground at or within shoreBandVoxels above the water beside it. The ONE
+    // shore test: the bake stamps these columns with the kit's shore terrain and
+    // rolls its Shore rows here, so a beach's sand and its spawns are the same
+    // columns.
+    public bool IsShoreAt(int px, int pz)
+    {
+        return !Underwater(px, pz)
+            && TerrainHeight(px, pz) - ShoreWaterSurface(px, pz) <= Data.shoreBandVoxels;
+    }
+
+    // The water a column could have a BEACH against: its own surface, or the
+    // highest of its four neighbours'. Measured from the water rather than from
+    // seaLevel, because seaLevel was the wrong reference in both directions: it
+    // sanded the floor of a dry basin dug below zero, and it never gave a
+    // mountain lake a shore at all. A column with no water anywhere near it
+    // comes out far above NoWater's Y and is not shore.
+    private int ShoreWaterSurface(int px, int pz)
+    {
+        int best = WaterSurface(px, pz);
+        for (int d = 0; d < 4; d++)
+        {
+            best = Mathf.Max(best, WaterSurface(px + NeighbourDx[d], pz + NeighbourDz[d]));
+        }
+        return best;
     }
 
     // Is this column inside a painted BLOCKING region? Nothing spawns in one.

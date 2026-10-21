@@ -1,20 +1,19 @@
 using Godot;
 
-// Tops up the player's lantern oil — the payload of a lantern-oil flask, an oil
-// droplet and a fountain's refuel. Oil is the carrier's (Player.LanternOil),
-// not any one lantern's.
+// Tops up the player's lantern oil — the payload of the Lantern Oil consumable,
+// an oil droplet and an oil fountain. Fills the equipped lantern first, then the
+// carried oil flasks (Player.AddLanternOil).
 // [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]
 public partial class RefillLanternOilEffect : ItemEffect
 {
-	// Oil restored per use (a default supply is 100).
+	// Oil restored per use (a lantern holds 100). Ignored when fillCompletely.
 	[Export(PropertyHint.Range, "0,1000,1")] public float amount = 50f;
 
-	// Oil past the player's max is kept as bonus oil instead of discarded (a
-	// fountain). Flasks and droplets cap.
-	[Export] public bool overflow;
+	// Fill the lantern and every oil flask to the brim (an oil fountain).
+	[Export] public bool fillCompletely;
 
 	// Optional one-shot fx spawned on the player (a refuel cue).
 	[Export] public PackedScene effectScene;
@@ -23,7 +22,14 @@ public partial class RefillLanternOilEffect : ItemEffect
 	{
 		if (actor is Player player)
 		{
-			player.AddLanternOil(amount, overflow);
+			if (fillCompletely)
+			{
+				player.RefillAllOil();
+			}
+			else
+			{
+				player.AddLanternOil(amount);
+			}
 		}
 		if (effectScene != null)
 		{

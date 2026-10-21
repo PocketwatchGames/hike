@@ -5,6 +5,9 @@
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/fur.tres" id="salvage_fur"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/sinew.tres" id="repair_sinew"]
 
 [sub_resource type="Resource" id="m_cold"]
 script = ExtResource("m_script")
@@ -24,6 +27,24 @@ bodyMeshNamesFemale = PackedStringArray("F_Archer_Top", "F_Archer_Bottom", "F_Ar
 bodyMeshNamesMale = PackedStringArray("M_Archer_Top", "M_Archer_Bottom", "M_Archer_Cape")
 metadata/_custom_type_script = "uid://6h7yge1txki2"
 
+[sub_resource type="Resource" id="salvage_yield_fur"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_fur")
+count = 2
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="repair_cost_fur"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_fur")
+count = 2
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="repair_cost_sinew"]
+script = ExtResource("material_count")
+item = ExtResource("repair_sinew")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
 [resource]
 script = ExtResource("1_armor")
 maxArmor = 600.0
@@ -32,7 +53,9 @@ modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource
 outfit = SubResource("outfit")
 weight = 0.5
 maxDurability = 6000
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_fur"), SubResource("repair_cost_sinew")])
 displayName = &"Fur Coat"
 description = "Polar bears stay warm in the winter!"
 value = 60
 inventorySprite = ExtResource("2_sprite")
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_fur")])

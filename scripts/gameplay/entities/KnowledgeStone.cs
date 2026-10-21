@@ -58,7 +58,7 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
         return _actions != null && _actions.Count > 0 ? _actions : null;
     }
 
-    public void Complete(int actionIndex)
+    public void Complete(InteractiveAction action)
     {
         GameClient gc = GameClient.Current;
         Hud hud = gc?.hud;

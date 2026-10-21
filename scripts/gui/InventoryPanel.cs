@@ -20,13 +20,16 @@ public partial class InventoryPanel : Control
 	[Export] private ItemSlotPanel _armorBodyPanel;
 	[Export] private ItemSlotPanel _weaponLeftPanel;
 	[Export] private ItemSlotPanel _weaponRightPanel;
-	// The lantern slot — the HUD's first hotbar entry, laid out ahead of the belt.
-	[Export] private ItemSlotPanel _lanternPanel;
+	// The lantern slot — the HUD's first hotbar entry, so it is built in _Ready as
+	// the belt panel's leading slot.
+	private ItemSlotPanel _lanternPanel;
 	// The belt and backpack grids. Their slots are owned by each BackpackPanel,
 	// sized to the inventory's grids; this panel only listens to their events and
 	// repaints them from the bound inventory.
 	[Export] private BackpackPanel _belt;
 	[Export] private BackpackPanel _backpack;
+	// One grid per carried sack, under the backpack.
+	[Export] private SackPanels _sacks;
 	[Export] private ButtonHint _buttonHintPrimary;
 	[Export] private ButtonHint _buttonHintSecondary;
 	[Export] private ButtonHint _buttonHintTertiary;
@@ -57,6 +60,13 @@ public partial class InventoryPanel : Control
 	public System.Action<ItemSlotPanel, ItemState> onSecondaryTap;
 	public System.Action<ItemSlotPanel, ItemState> onSecondaryHoldComplete;
 
+	// Raw slot events from every carried grid — belt, backpack and each sack —
+	// with the grid and slot index, resolved against the last painted inventory.
+	// A screen addresses a carried slot by these and needs no case per grid.
+	public System.Action<Inventory.CarriedGrid, int, ItemSlotPanel> onGridSlotFocused;
+	public System.Action<Inventory.CarriedGrid, int, ItemSlotPanel> onGridSlotButtonDown;
+	public System.Action<Inventory.CarriedGrid, int, ItemSlotPanel> onGridSlotButtonUp;
+
 	// Button hint references — screen sets `.Visible` / `.ActionName` /
 	// `.SetHint(...)` to control labels per-context. Visibility is left to
 	// the screen: the panel does NOT auto-hide hints based on item presence.
@@ -82,6 +92,8 @@ public partial class InventoryPanel : Control
 
 	Player _player;
 	Inventory _inventory;
+	// What Paint last showed — the inventory the grid slot events resolve against.
+	Inventory _painted;
 	ItemSlotPanel _focused;
 	ItemState _lastFocusedItem;
 	// Panel-identity half of the EmitFocusedItem dedupe. A focus move from
@@ -120,9 +132,20 @@ public partial class InventoryPanel : Control
 		WirePanel(_armorBodyPanel);
 		WirePanel(_weaponLeftPanel);
 		WirePanel(_weaponRightPanel);
+		// Ahead of the screens' own _Ready (a child readies first), which wire
+		// EquipPanel(Lantern).
+		_lanternPanel = _belt?.AddLeadingSlot();
 		WirePanel(_lanternPanel);
 		WireGrid(_belt);
 		WireGrid(_backpack);
+		WireCarried(_belt, () => _painted?.Belt);
+		WireCarried(_backpack, () => _painted?.Backpack);
+		if (_sacks != null)
+		{
+			_sacks.onSlotFocused += OnSackSlotFocused;
+			_sacks.onSlotButtonDown += OnSackButtonDown;
+			_sacks.onSlotButtonUp += OnSackButtonUp;
+		}
 
 		// Seed every hint with its bound action's glyph. The screen overrides
 		// `ActionName` per-context (Equip / Cook / Use / Drop) but the glyph
@@ -219,6 +242,44 @@ public partial class InventoryPanel : Control
 		grid.onSlotButtonUp += (_, p) => OnPanelButtonUp(p);
 	}
 
+	void WireCarried(BackpackPanel panel, System.Func<Inventory.CarriedGrid> grid)
+	{
+		if (panel == null)
+		{
+			return;
+		}
+		panel.onSlotFocused += (index, p) => RaiseGrid(onGridSlotFocused, grid(), index, p);
+		panel.onSlotButtonDown += (index, p) => RaiseGrid(onGridSlotButtonDown, grid(), index, p);
+		panel.onSlotButtonUp += (index, p) => RaiseGrid(onGridSlotButtonUp, grid(), index, p);
+	}
+
+	static void RaiseGrid(System.Action<Inventory.CarriedGrid, int, ItemSlotPanel> handler, Inventory.CarriedGrid grid, int index, ItemSlotPanel panel)
+	{
+		if (grid != null)
+		{
+			handler?.Invoke(grid, index, panel);
+		}
+	}
+
+	// A sack slot drives the panel's own focus / press tracking like any other slot.
+	void OnSackSlotFocused(Inventory.CarriedGrid grid, int index, ItemSlotPanel panel)
+	{
+		OnPanelFocused(panel);
+		onGridSlotFocused?.Invoke(grid, index, panel);
+	}
+
+	void OnSackButtonDown(Inventory.CarriedGrid grid, int index, ItemSlotPanel panel)
+	{
+		OnPanelButtonDown(panel);
+		onGridSlotButtonDown?.Invoke(grid, index, panel);
+	}
+
+	void OnSackButtonUp(Inventory.CarriedGrid grid, int index, ItemSlotPanel panel)
+	{
+		OnPanelButtonUp(panel);
+		onGridSlotButtonUp?.Invoke(grid, index, panel);
+	}
+
 	void OnInventoryChanged(EInventorySlot _) => RefreshAll();
 	void OnInventoryGenericChanged() => RefreshAll();
 
@@ -246,16 +307,44 @@ public partial class InventoryPanel : Control
 	}
 
 	// Repaint every slot from `inventory`, the lit lantern marked. Each grid shows
-	// as many slots as the inventory's grid has. Needs no Bind.
+	// as many slots as the inventory's grid has, and each carried sack gets one.
+	// Needs no Bind.
 	public void Paint(Inventory inventory)
 	{
+		_painted = inventory;
 		foreach (EInventorySlot slot in EquipSlots)
 		{
 			EquipPanel(slot)?.SetItem(inventory?.GetEquipped(slot));
 		}
 		_belt?.Refresh(inventory?.Belt.Slots);
 		_backpack?.Refresh(inventory?.Backpack.Slots);
+		_sacks?.Refresh(inventory);
 		_lanternPanel?.SetActive(inventory?.LitLantern != null);
+	}
+
+	// Every carried grid's panel with the grid it shows — belt, backpack, then
+	// each sack — as of the last Paint.
+	public IEnumerable<(Inventory.CarriedGrid grid, BackpackPanel panel)> EnumerateCarriedPanels()
+	{
+		if (_painted == null)
+		{
+			yield break;
+		}
+		if (_belt != null)
+		{
+			yield return (_painted.Belt, _belt);
+		}
+		if (_backpack != null)
+		{
+			yield return (_painted.Backpack, _backpack);
+		}
+		if (_sacks != null)
+		{
+			foreach ((Inventory.CarriedGrid grid, BackpackPanel panel) sack in _sacks.EnumeratePanels())
+			{
+				yield return sack;
+			}
+		}
 	}
 
 	public void RefreshAll()
@@ -360,6 +449,7 @@ public partial class InventoryPanel : Control
 		_lanternPanel?.SetFocusable(focusable);
 		_belt?.SetFocusable(focusable);
 		_backpack?.SetFocusable(focusable);
+		_sacks?.SetFocusable(focusable);
 	}
 
 	// Put focus back on the last-focused slot — used after a sub-modal that
@@ -375,10 +465,11 @@ public partial class InventoryPanel : Control
 		return _belt?.GetSlot(0) ?? _backpack?.GetSlot(0) ?? _shieldPanel ?? _armorBodyPanel ?? _weaponLeftPanel ?? _weaponRightPanel ?? _lanternPanel;
 	}
 
-	// True for a slot of the belt or backpack grid, false for an equip slot.
+	// True for a slot of a carried grid (belt, backpack or sack), false for an
+	// equip slot.
 	public bool IsGridPanel(ItemSlotPanel panel)
 	{
-		return GridIndexOf(panel, out _) >= 0;
+		return GridIndexOf(panel, out _) >= 0 || (_sacks != null && _sacks.TryGetSlot(panel, out _, out _));
 	}
 
 	// Resolve a panel to its EInventorySlot identity (Armor, Shield, WeaponLeft,
@@ -399,6 +490,10 @@ public partial class InventoryPanel : Control
 	// slot, or when nothing is bound.
 	public bool TryGetGridSlot(ItemSlotPanel panel, out Inventory.CarriedGrid grid, out int index)
 	{
+		if (_sacks != null && _sacks.TryGetSlot(panel, out grid, out index))
+		{
+			return true;
+		}
 		index = GridIndexOf(panel, out bool belt);
 		grid = index < 0 || _inventory == null ? null : belt ? _inventory.Belt : _inventory.Backpack;
 		return grid != null;
@@ -488,6 +583,16 @@ public partial class InventoryPanel : Control
 			foreach (ItemSlotPanel p in _backpack.EnumerateSlots())
 			{
 				yield return p;
+			}
+		}
+		if (_sacks != null)
+		{
+			foreach ((Inventory.CarriedGrid _, BackpackPanel panel) in _sacks.EnumeratePanels())
+			{
+				foreach (ItemSlotPanel p in panel.EnumerateSlots())
+				{
+					yield return p;
+				}
 			}
 		}
 	}

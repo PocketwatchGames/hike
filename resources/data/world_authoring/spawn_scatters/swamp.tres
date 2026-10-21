@@ -16,6 +16,7 @@
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/stump_1.tres" id="e_stump_1"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/stump_2.tres" id="e_stump_2"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/berry_tree.tres" id="e_berry_tree"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/shell.tres" id="e_shell"]
 
 [sub_resource type="Resource" id="Row_goblin_swamp"]
 script = ExtResource("listrow")
@@ -91,8 +92,14 @@ script = ExtResource("listrow")
 squareMetersPerSpawn = 400.0
 entry = ExtResource("e_berry_tree")
 
+[sub_resource type="Resource" id="Row_shell"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 400.0
+entry = ExtResource("e_shell")
+bands = 2
+
 [resource]
 script = ExtResource("1_list")
 displayName = "Swamp"
 mapColor = Color(0.55, 0.7, 0.3, 1)
-rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_swamp"), SubResource("Row_goblin_swamp_elite"), SubResource("Row_mushroom_green"), SubResource("Row_mushroom_purple"), SubResource("Row_bone_pile_1"), SubResource("Row_bone_pile_2"), SubResource("Row_stump_1"), SubResource("Row_stump_2"), SubResource("Row_berry_tree")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_swamp"), SubResource("Row_goblin_swamp_elite"), SubResource("Row_mushroom_green"), SubResource("Row_mushroom_purple"), SubResource("Row_bone_pile_1"), SubResource("Row_bone_pile_2"), SubResource("Row_stump_1"), SubResource("Row_stump_2"), SubResource("Row_berry_tree"), SubResource("Row_shell")])

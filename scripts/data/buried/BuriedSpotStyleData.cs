@@ -25,13 +25,8 @@ public partial class BuriedSpotStyleData : Resource
     // Null = nothing is drawn once excavated.
     [Export] public PackedScene dirtPileScene;
 
-    // One-shot audio-visual fired at the spot the moment the dig completes.
-    // Spawned through Fx, so author it as an Fx scene. The shovel's own Dig
-    // event also plays the result-class feedback (see resultClass).
+    // One-shot audio-visual fired at the spot the moment the dig completes — the
+    // whole of the find's feedback (a modest burst for a carrot, a celebration
+    // for treasure). Spawned through Fx, so author it as an Fx scene.
     [Export] public PackedScene digEffect;
-
-    // Which result-class feedback the shovel plays when this spot is dug — a
-    // carrot reads Common, a buried chest reads Treasure. Maps to the shovel Dig
-    // event's digCommonEffect / digTreasureEffect.
-    [Export] public EDigResult resultClass = EDigResult.Common;
 }

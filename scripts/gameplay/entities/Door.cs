@@ -150,7 +150,7 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     }
 
     // Active == closed, so a toggle opens exactly when it is closed.
-    public void Complete(int actionIndex)
+    public void Complete(InteractiveAction action)
     {
         _world.SetDoorOpen(_interactiveState, _interactiveState.Active);
     }

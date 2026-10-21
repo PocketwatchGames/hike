@@ -169,10 +169,6 @@ public partial class BlockData : Resource
     // nearly nothing; a wall face has no Y component to damp.
     [Export(PropertyHint.Range, "0,1,0.01")] public float edgeRoughnessVerticalScale = 0.35f;
 
-    // Scooped up when the player digs a bare hole here and finds nothing buried
-    // (see Sim.TryDig). Marsh yields mud; most blocks leave this null.
-    [Export] public ItemData digItem;
-
     // Nothing to draw — the mesher emits no geometry for this block, but its
     // flags are still read (Barrier blocks light while drawing nothing).
     public bool IsInvisible()

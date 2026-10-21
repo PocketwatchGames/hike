@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ItemData" format=3]
+
+[ext_resource type="Script" uid="uid://ct3276hu7bc1v" path="res://scripts/data/items/ItemData.cs" id="1_item_data"]
+[ext_resource type="Texture2D" uid="uid://cukfvve7rchmv" path="res://assets/textures/items/Shell.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/beads.tres" id="salvage_beads"]
+
+[sub_resource type="Resource" id="salvage_yield_beads"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_beads")
+count = 3
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[resource]
+script = ExtResource("1_item_data")
+displayName = &"Shell"
+description = "A ribbed shell, pale and smooth inside. It could be broken down into beads."
+maxStack = 99
+value = 3
+inventorySprite = ExtResource("2_icon")
+typeTags = 256
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_beads")])

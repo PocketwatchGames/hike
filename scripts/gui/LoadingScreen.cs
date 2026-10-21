@@ -15,8 +15,8 @@ public partial class LoadingScreen : CanvasLayer
 	[Export] public Label statusLabel;
 	[Export] public ProgressBar progressBar;
 	[Export(PropertyHint.Range, "0.1,5,0.05")] public float fadeOutSeconds = 0.5f;
-	// Decibels the World3D + Ambience2D buses are dropped to while the
-	// screen is up. -80 dB is Godot's effective silence floor; matches the
+	// Duck (dB) on the World3D + Ambience2D buses while the screen is up.
+	// -80 dB reaches Godot's silence floor from any setting; matches the
 	// DeathScreen audio fade so a respawn sequence and a fresh-spawn
 	// sequence sound the same.
 	[Export(PropertyHint.Range, "-80,0,0.5")] public float audioFadeFloorDb = -80f;
@@ -34,11 +34,6 @@ public partial class LoadingScreen : CanvasLayer
 
 	EState _state = EState.Hidden;
 	float _darkness = 1f;
-	bool _audioBaselineCaptured;
-	int _world3DBusIdx = -1;
-	int _ambience2DBusIdx = -1;
-	float _world3DBaselineDb;
-	float _ambience2DBaselineDb;
 
 	public override void _Ready()
 	{
@@ -53,7 +48,6 @@ public partial class LoadingScreen : CanvasLayer
 		LoadStopwatch = Stopwatch.StartNew();
 		SetStatus(status);
 		SetProgress(0f);
-		CaptureAudioBaseline();
 		ApplyDarkness();
 	}
 
@@ -99,9 +93,15 @@ public partial class LoadingScreen : CanvasLayer
 		ApplyDarkness();
 		if (_darkness <= 0f)
 		{
-			RestoreAudioBaseline();
 			QueueFree();
 		}
+	}
+
+	// Not on fade completion: StartGame's failure paths free the screen
+	// mid-load, and a duck left behind silences every later session.
+	public override void _ExitTree()
+	{
+		AudioVolume.ClearDuck(this);
 	}
 
 	void ApplyDarkness()
@@ -124,54 +124,6 @@ public partial class LoadingScreen : CanvasLayer
 			c.A = Mathf.Clamp(_darkness, 0f, 1f);
 			progressBar.Modulate = c;
 		}
-		if (_audioBaselineCaptured)
-		{
-			if (_world3DBusIdx >= 0)
-			{
-				float db = Mathf.Lerp(_world3DBaselineDb, audioFadeFloorDb, _darkness);
-				AudioServer.SetBusVolumeDb(_world3DBusIdx, db);
-			}
-			if (_ambience2DBusIdx >= 0)
-			{
-				float db = Mathf.Lerp(_ambience2DBaselineDb, audioFadeFloorDb, _darkness);
-				AudioServer.SetBusVolumeDb(_ambience2DBusIdx, db);
-			}
-		}
-	}
-
-	void CaptureAudioBaseline()
-	{
-		if (_audioBaselineCaptured)
-		{
-			return;
-		}
-		_world3DBusIdx = AudioServer.GetBusIndex("World3D");
-		_ambience2DBusIdx = AudioServer.GetBusIndex("Ambience2D");
-		if (_world3DBusIdx >= 0)
-		{
-			_world3DBaselineDb = AudioServer.GetBusVolumeDb(_world3DBusIdx);
-		}
-		if (_ambience2DBusIdx >= 0)
-		{
-			_ambience2DBaselineDb = AudioServer.GetBusVolumeDb(_ambience2DBusIdx);
-		}
-		_audioBaselineCaptured = true;
-	}
-
-	void RestoreAudioBaseline()
-	{
-		if (!_audioBaselineCaptured)
-		{
-			return;
-		}
-		if (_world3DBusIdx >= 0)
-		{
-			AudioServer.SetBusVolumeDb(_world3DBusIdx, _world3DBaselineDb);
-		}
-		if (_ambience2DBusIdx >= 0)
-		{
-			AudioServer.SetBusVolumeDb(_ambience2DBusIdx, _ambience2DBaselineDb);
-		}
-		_audioBaselineCaptured = false;
+		AudioVolume.SetDuck(this, ESfxBus.All, audioFadeFloorDb * Mathf.Clamp(_darkness, 0f, 1f));
 	}
 }

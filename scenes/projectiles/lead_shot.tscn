@@ -1,0 +1,27 @@
+[gd_scene format=3 uid="uid://b3la8d0l81l6i"]
+
+[ext_resource type="Script" uid="uid://rmy8owd5hawv" path="res://scripts/gameplay/entities/Projectile.cs" id="1_toxrf"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="2_lit"]
+[ext_resource type="PackedScene" uid="uid://b8wq3n7rvtak2" path="res://scenes/fx/arrow_trail.tscn" id="3_pihhc"]
+
+[sub_resource type="ShaderMaterial" id="Mat_lead"]
+render_priority = 0
+shader = ExtResource("2_lit")
+shader_parameter/color_tint = Color(0.3, 0.31, 0.33, 1)
+shader_parameter/specular_shininess = 24.0
+shader_parameter/specular_strength = 0.5
+
+[sub_resource type="SphereMesh" id="SphereMesh_ball"]
+material = SubResource("Mat_lead")
+radius = 0.04
+height = 0.08
+radial_segments = 8
+rings = 4
+
+[node name="LeadShot" type="Node3D" unique_id=1342996802]
+script = ExtResource("1_toxrf")
+
+[node name="Model" type="MeshInstance3D" parent="." unique_id=571566976]
+mesh = SubResource("SphereMesh_ball")
+
+[node name="Trail" parent="." unique_id=1277595200 instance=ExtResource("3_pihhc")]

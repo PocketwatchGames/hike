@@ -26,7 +26,7 @@ radius = 1.0
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hurt"]
 radius = 1.25
-height = 3.0
+height = 2.5
 
 [node name="Mob" type="RigidBody3D" unique_id=313612078 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "hudAnchor")]
 axis_lock_angular_x = true
@@ -81,7 +81,7 @@ collision_mask = 0
 script = ExtResource("2_hurtbox")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=1556765731]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("CapsuleShape3D_hurt")
 
 [node name="PixelSnap" type="Node" parent="." unique_id=2044146142 node_paths=PackedStringArray("_target")]

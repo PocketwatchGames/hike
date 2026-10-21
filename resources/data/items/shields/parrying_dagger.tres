@@ -5,6 +5,8 @@
 [ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="5_parryfx"]
 [ext_resource type="PackedScene" uid="uid://ce444jxc8syqg" path="res://scenes/items/knife_held.tscn" id="6_held"]
 [ext_resource type="Texture2D" uid="uid://e1r7kjk5qyau" path="res://assets/textures/items/Knife.png" id="7_icon"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
 
 [sub_resource type="Resource" id="Resource_counter"]
 script = ExtResource("2_damage")
@@ -15,6 +17,18 @@ damageVariance = 0.25
 hitstun = 0.5
 buildups = []
 modifiers = []
+
+[sub_resource type="Resource" id="salvage_yield_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="repair_cost_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
 script = ExtResource("1_shield")
@@ -28,8 +42,10 @@ parryEffect = ExtResource("5_parryfx")
 parryDecibels = 0.8
 weight = 0.25
 maxDurability = 360
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")])
 displayName = &"Parrying Dagger"
 description = "An off-hand blade with a broad guard. It stops almost nothing on its own, but a well-timed crouch turns the blow aside and answers it with a killing riposte."
 value = 50
 inventorySprite = ExtResource("7_icon")
 heldModel = ExtResource("6_held")
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])

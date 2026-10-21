@@ -169,26 +169,20 @@ public partial class ZoneGenData : Resource
     [Export(PropertyHint.Range, "0,4,1")] public int forgeLevelMin = 0;
     [Export(PropertyHint.Range, "0,4,1")] public int forgeLevelMax = 4;
 
-    // Per-zone authored entity spawn lists. WorldGen iterates the matching
-    // list per candidate cell:
-    //   SurfaceEntities — rolled per grass column (mobs, campfires, loot,
-    //     berry trees, fire traps, etc.).
-    //   CaveEntities      — rolled per cave-pocket AIR cell with solid floor
-    //     and ceiling within reach (mobs, chests, loot, torches).
-    //   CaveWaterEntities — rolled per flooded cave pocket: the top voxel of a
-    //     roofed underwater body. Separate from WaterEntities because caves
-    //     below sea level flood by construction, and what belongs in a drowned
-    //     tunnel is not what belongs in the open sea.
-    //   ShoreEntities     — reserved for shore-band columns. Currently unused;
-    //     wire up when shore-specific authoring lands.
-    //   WaterEntities     — rolled per open water-surface column (lakes, sea).
+    // Per-zone authored entity spawn lists, one under the sky and one under
+    // rock. Each row's `bands` says which candidate cells it rolls on:
+    //   SurfaceEntities — Dry and Shore rows per land column (mobs, campfires,
+    //     loot, berry trees, fire traps; shells on the beach), Submerged rows
+    //     per open water-surface column (lakes, sea).
+    //   CaveEntities    — Dry rows per cave-pocket AIR cell with solid floor and
+    //     ceiling within reach (mobs, chests, loot, torches), Submerged rows per
+    //     flooded pocket: the top voxel of a roofed underwater body. Caves below
+    //     sea level flood by construction, and what belongs in a drowned tunnel
+    //     is not what belongs in the open sea.
     // Lists are SpawnListData assets so multiple zones can share the same
     // file (e.g. all biomes pointing at one shared cave_entities.tres).
     [Export] public SpawnListData surfaceEntities;
     [Export] public SpawnListData caveEntities;
-    [Export] public SpawnListData caveWaterEntities;
-    [Export] public SpawnListData shoreEntities;
-    [Export] public SpawnListData waterEntities;
 
     // Zone-unique chest loot, in two distribution modes:
     //

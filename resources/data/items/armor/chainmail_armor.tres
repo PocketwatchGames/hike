@@ -6,6 +6,8 @@
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
 [ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
 
 [sub_resource type="Resource" id="m_pen"]
 script = ExtResource("tagmod_1")
@@ -25,6 +27,18 @@ bodyMeshNamesFemale = PackedStringArray("F_Swordsman_Top", "F_Swordsman_Bottom")
 bodyMeshNamesMale = PackedStringArray("M_Swordsman_Top", "M_Swordsman_Bottom")
 metadata/_custom_type_script = "uid://6h7yge1txki2"
 
+[sub_resource type="Resource" id="salvage_yield_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 3
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="repair_cost_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 2
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
 [resource]
 script = ExtResource("2_armor")
 maxArmor = 900.0
@@ -32,7 +46,9 @@ modifiers = Array[ExtResource("modifier_1")]([SubResource("m_pen"), SubResource(
 outfit = SubResource("outfit")
 weight = 0.75
 maxDurability = 150
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")])
 displayName = &"Chainmail"
 description = "Interlocking steel rings turn a blade's edge, though the links jingle with every step."
 value = 60
 inventorySprite = ExtResource("1_sprite")
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])

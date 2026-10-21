@@ -179,6 +179,7 @@ public partial class ItemInfoPanel : PanelContainer
 		AddStats(StatList.Weight(item.data));
 		AddStats(StatList.Durability(item));
 		AddStats(StatList.Food(item.data));
+		AddStats(StatList.Contents(item));
 		switch (item)
 		{
 			case WeaponState weapon:

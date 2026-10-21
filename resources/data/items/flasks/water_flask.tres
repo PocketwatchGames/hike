@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="FlaskData" format=3 uid="uid://c08o73a8m1yox"]
+
+[ext_resource type="Script" uid="uid://fqmhesovetny" path="res://scripts/data/items/FlaskData.cs" id="1_flask"]
+[ext_resource type="Texture2D" uid="uid://mxjemlpkwisu" path="res://assets/textures/items/FlaskWater.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_flask")
+displayName = &"Water Flask"
+description = "Carries water to drink from on the road, keeping thirst at bay. Refill it at a well."
+value = 6
+inventorySprite = ExtResource("2_icon")
+metadata/_custom_type_script = "uid://fqmhesovetny"

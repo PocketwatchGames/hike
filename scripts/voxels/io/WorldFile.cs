@@ -293,7 +293,9 @@ public static class WorldFile
     //      dead through a rest); Bed / Cookpot / Stash tags added, Tent removed.
     // v78: an item's subclass state leads with gear durability (GearState), and
     //      a weapon's adds the magazine capacity wear has cost it after its ammo.
-    public const uint VERSION = 78;
+    // v79: a hotbar tool (ToolData — the shovel) is gear, so its item state
+    //      writes durability.
+    public const uint VERSION = 79;
 
     public struct IndexEntry
     {

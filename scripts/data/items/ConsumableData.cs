@@ -34,7 +34,8 @@ public partial class ConsumableData : ItemData, IInstantUseItem, IUsableItem
 	public ItemActionProfile ActionProfile => actionProfile;
 	public bool CanUseInstantly => actionProfile == null;
 
-	// Fraction of the hunger meter eating this restores; 0 = not food. Raw
+	// Stages of hunger eating this takes away (one stage is
+	// PlayerData.hungerHoursPerStage); 0 = not food. Raw
 	// forage and meat set it too, authored with categoryOverride = Material so
 	// they stay backpack ingredients that can also be eaten.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float satiation;

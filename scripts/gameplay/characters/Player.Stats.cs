@@ -129,6 +129,29 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Use a carried `kind` tool once (Inventory.FindTool) and wear it. False, with
+	// nothing worn, when the member carries none.
+	public bool UseTool(EToolKind kind)
+	{
+		ItemState tool = _inventory?.FindTool(kind, out _);
+		if (tool == null)
+		{
+			return false;
+		}
+		WearTool(tool, kind);
+		return true;
+	}
+
+	// Wear `item` by its use as a `kind` tool. Items without durability don't wear.
+	public void WearTool(ItemState item, EToolKind kind)
+	{
+		ToolUse use = item?.data?.FindToolUse(kind);
+		if (use != null && use.wear > 0f && item is GearState gear)
+		{
+			WearGear(gear, use.wear);
+		}
+	}
+
 	// The one way the player wears gear (see GearState), so every piece plays
 	// its cue on the use that tips it into worn or broken. True when this wear
 	// broke something: the piece, or for an ammo weapon the round that struck.
@@ -138,7 +161,7 @@ public partial class Player : CharacterBody3D
 		{
 			return false;
 		}
-		float warningFraction = data.durabilityWarningFraction;
+		float warningFraction = Sim.SimData.durabilityWarningFraction;
 		GearState.ECondition before = gear.Condition(warningFraction);
 		WeaponState ammoWeapon = gear is WeaponState weapon && weapon.TradesAmmoForDurability ? weapon : null;
 		int capacityLostBefore = ammoWeapon?.ammoCapacityLost ?? 0;

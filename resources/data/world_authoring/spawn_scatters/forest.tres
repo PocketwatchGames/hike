@@ -15,6 +15,7 @@
 [ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/stump_1.tres" id="e_stump_1"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/stump_2.tres" id="e_stump_2"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/shell.tres" id="e_shell"]
 
 [sub_resource type="Resource" id="Row_goblin_forest"]
 script = ExtResource("listrow")
@@ -90,8 +91,14 @@ script = ExtResource("listrow")
 squareMetersPerSpawn = 800.0
 entry = ExtResource("e_stump_2")
 
+[sub_resource type="Resource" id="Row_shell"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 15.0
+entry = ExtResource("e_shell")
+bands = 2
+
 [resource]
 script = ExtResource("1_list")
 displayName = "Forest"
 mapColor = Color(0.8, 0.3, 0.3, 1)
-rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_forest"), SubResource("Row_goblin_forest_elite"), SubResource("Row_kun_kun_forest"), SubResource("Row_mushroom_green"), SubResource("Row_mushroom_red"), SubResource("Row_mushroom_white"), SubResource("Row_berry_tree"), SubResource("Row_berry_bush_blue"), SubResource("Row_berry_bush_yellow"), SubResource("Row_sparrow_forest"), SubResource("Row_spider_forest"), SubResource("Row_stump_1"), SubResource("Row_stump_2")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_forest"), SubResource("Row_goblin_forest_elite"), SubResource("Row_kun_kun_forest"), SubResource("Row_mushroom_green"), SubResource("Row_mushroom_red"), SubResource("Row_mushroom_white"), SubResource("Row_berry_tree"), SubResource("Row_berry_bush_blue"), SubResource("Row_berry_bush_yellow"), SubResource("Row_sparrow_forest"), SubResource("Row_spider_forest"), SubResource("Row_stump_1"), SubResource("Row_stump_2"), SubResource("Row_shell")])

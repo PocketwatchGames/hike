@@ -9,7 +9,6 @@
 [ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="7_cave"]
 [ext_resource type="Resource" uid="uid://bdm2ltl5kau8n" path="res://resources/data/world_gen/spawn_lists/surface_entities_hub.tres" id="7_surface"]
 [ext_resource type="Resource" uid="uid://c4lym14iaoht2" path="res://resources/data/world_gen/spawn_groups/hub_fixtures.tres" id="8_fixtures"]
-[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_script"]
 [ext_resource type="Resource" uid="uid://chvv0wjmu7jh1" path="res://resources/data/items/scrolls/treasure_map_hub.tres" id="96_map"]
@@ -52,7 +51,6 @@ undergroundMobLevelMax = 1
 forgeLevelMax = 0
 surfaceEntities = ExtResource("7_surface")
 caveEntities = ExtResource("7_cave")
-caveWaterEntities = ExtResource("90_cave_water")
 distributedLoot = [SubResource("Dist_treasure")]
 treasureName = "hub"
 treasureSpot = ExtResource("97_spot")

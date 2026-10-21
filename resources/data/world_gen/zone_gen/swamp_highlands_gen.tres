@@ -10,7 +10,6 @@
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="10_grp"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab2.tres" id="12_stone"]
 [ext_resource type="Resource" uid="uid://xbjl27pt7p61" path="res://resources/data/world_authoring/zones/swamp_highlands.tres" id="14_cpg00"]
-[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_script"]
 [ext_resource type="Resource" uid="uid://8dvmhkjhd6ma" path="res://resources/data/items/scrolls/treasure_map_swamp_highlands.tres" id="96_map"]
@@ -93,7 +92,6 @@ forgeLevelMin = 3
 forgeLevelMax = 3
 surfaceEntities = ExtResource("5_4w8xh")
 caveEntities = ExtResource("1_4w8xh")
-caveWaterEntities = ExtResource("90_cave_water")
 distributedLoot = [SubResource("Dist_treasure"), SubResource("Rc0"), SubResource("Rc1"), SubResource("Rc2")]
 treasureName = "swamp_highlands"
 treasureSpot = ExtResource("97_spot")

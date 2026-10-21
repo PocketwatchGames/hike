@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ItemData" format=3]
+
+[ext_resource type="Script" uid="uid://ct3276hu7bc1v" path="res://scripts/data/items/ItemData.cs" id="1_item_data"]
+[ext_resource type="Texture2D" uid="uid://bwxddckhthk61" path="res://assets/textures/items/GemWhite.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_item_data")
+displayName = &"Steel"
+description = "Worked steel, reclaimed from a blade or a harness. Good for forging."
+maxStack = 99
+value = 4
+inventorySprite = ExtResource("2_icon")
+typeTags = 256

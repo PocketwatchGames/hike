@@ -19,7 +19,7 @@ public class LootSimState : EntitySimState
     // rather than authored worldgen ground loot. A full spawn-state reset
     // (Sim.ResetSpawns) sweeps these so a revived encounter doesn't leave
     // the last life's spoils lying around, while authored loot (Dropped == false)
-    // stays put. In-memory only, like RequireInteract.
+    // and a dropped sack stay put. In-memory only, like RequireInteract.
     public bool Dropped;
     // Whether the next materialization should play the spawn puff + sound.
     // CreateEntity runs on every chunk stream-in, not just when loot first

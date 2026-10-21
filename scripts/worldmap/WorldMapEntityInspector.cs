@@ -280,9 +280,15 @@ public partial class WorldMapEntityInspector : PanelContainer
             listed.Add((SpawnEntryData.Describe(row.entry),
                 // A rate of 0 keeps the row out of the area scan entirely, which
                 // is a different statement from "very few" and reads as one.
-                perKm <= 0f ? "never" : $"{perKm:N0} / km²"));
+                perKm <= 0f ? "never" : $"{perKm:N0} / km²{BandSuffix(row.bands)}"));
         }
         return listed;
+    }
+
+    // Said only when a row is pickier than "anywhere on land", which is most rows.
+    private static string BandSuffix(ESpawnBand bands)
+    {
+        return bands == ESpawnBand.Land ? "" : $" ({bands.ToString().ToLowerInvariant()})";
     }
 
     // Expected spawns per square kilometre of eligible ground. The roll is

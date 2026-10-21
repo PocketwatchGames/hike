@@ -11,3 +11,10 @@
 # (Listed for the day someone re-adds it; the symbol does not exist today, and
 # an entry for a missing symbol is inert rather than an error.)
 F:Blocks.WaterId;Water is several blocks - use Blocks.IsWater(id) to test, Blocks.DefaultWaterId to write.
+
+# AudioVolume is the one writer of bus volume: a bus plays at the player's
+# setting plus the active ducks. A direct write (or a fade that snapshots the
+# live level as its baseline) is how a failed load left every later session
+# with no sound effects.
+M:Godot.AudioServer.SetBusVolumeDb(System.Int32,System.Single);Bus volume is AudioVolume's - duck with AudioVolume.SetDuck / ClearDuck.
+M:Godot.AudioServer.GetBusVolumeDb(System.Int32);Never snapshot a bus level as a baseline - duck with AudioVolume.SetDuck / ClearDuck.

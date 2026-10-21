@@ -54,7 +54,7 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
         return active != null && active.Count > 0 ? active : null;
     }
 
-    public void Complete(int actionIndex)
+    public void Complete(InteractiveAction action)
     {
         _active = !_active;
         _interactiveState.Active = _active;

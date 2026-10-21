@@ -32,11 +32,15 @@ public static class ItemTransfer
 		bool whole = count >= source.stackCount;
 		ItemState target = to.At(toIndex);
 		bool merges = ItemGrid.Merges(target, source);
+		if (!to.Accepts(source.data))
+		{
+			return false;
+		}
 		if (merges && target.RemainingStackSpace() <= 0)
 		{
 			return false;
 		}
-		if (target != null && !merges && !whole)
+		if (target != null && !merges && (!whole || !from.Accepts(target.data)))
 		{
 			return false;
 		}
@@ -129,6 +133,10 @@ public static class ItemTransfer
 		{
 			return false;
 		}
+		if (!to.Accepts(item.data))
+		{
+			return false;
+		}
 		ItemState target = to.At(toIndex);
 		if (target != null)
 		{
@@ -158,6 +166,59 @@ public static class ItemTransfer
 		inventory.Remove(item);
 		Return(to, -1, to.Add(item));
 		return true;
+	}
+
+	// Break one unit of the stack at `from[fromIndex]` into its salvage yields.
+	// They go back into `from` first — salvaging in the stash fills the stash —
+	// then the member's grids, and whatever still doesn't fit lands at the
+	// member's feet, so a full bag never loses a yield. False when nothing happened.
+	public static bool Salvage(IItemGrid from, int fromIndex, Player player)
+	{
+		ItemState source = from?.At(fromIndex);
+		if (!CanSalvage(source, player))
+		{
+			return false;
+		}
+		ItemData data = source.data;
+		from.Take(fromIndex, 1);
+		GiveSalvageYields(data, from, player);
+		return true;
+	}
+
+	// Salvage the member's equipped gear in `slot`.
+	public static bool SalvageEquipped(Player player, EInventorySlot slot)
+	{
+		Inventory inventory = player?.Inventory;
+		ItemState item = inventory?.GetEquipped(slot);
+		if (!CanSalvage(item, player))
+		{
+			return false;
+		}
+		inventory.Remove(item);
+		GiveSalvageYields(item.data, null, player);
+		return true;
+	}
+
+	// What can be salvaged is the item's say (ItemData.CanSalvage). A filled sack
+	// is refused: its contents leave with it, and salvage would destroy them.
+	public static bool CanSalvage(ItemState item, Player player)
+	{
+		return player != null && item?.data != null && item.data.CanSalvage(player) && !SackState.IsFilled(item);
+	}
+
+	static void GiveSalvageYields(ItemData data, IItemGrid first, Player player)
+	{
+		var yields = new System.Collections.Generic.List<ItemState>();
+		data.Salvage(player, yields);
+		foreach (ItemState state in yields)
+		{
+			ItemState leftover = first != null ? first.Add(state) : state;
+			if (leftover != null && player.Inventory != null)
+			{
+				leftover = player.Inventory.PreferredGrid(state.data).Add(leftover);
+			}
+			player.DropAtFeet(leftover);
+		}
 	}
 
 	static bool OwnedBy(IItemGrid grid, Inventory inventory)

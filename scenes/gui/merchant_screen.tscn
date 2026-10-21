@@ -30,9 +30,9 @@ _countPanel = NodePath("MarginContainer/MarginContainer2/ItemCountPanel")
 _itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/ItemInfoPanel")
 _hintSelect = NodePath("MarginContainer/ButtonHints/ButtonHintA")
 _hintEquip = NodePath("MarginContainer/ButtonHints/ButtonHintEquip")
+_hintUse = NodePath("MarginContainer/ButtonHints/ButtonHintUse")
 _hintSend = NodePath("MarginContainer/ButtonHints/ButtonHintSend")
 _hintDrop = NodePath("MarginContainer/ButtonHints/ButtonHintDrop")
-_hintUse = NodePath("MarginContainer/ButtonHints/ButtonHintUse")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1234338051]
 layout_mode = 1
@@ -104,6 +104,7 @@ theme_override_constants/margin_bottom = 5
 [node name="BackpackPanel" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer" unique_id=576435687 instance=ExtResource("3_32vq5")]
 layout_mode = 2
 size_flags_horizontal = 4
+_titleLocKey = &"panel_merchant_stock"
 _columns = 3
 
 [node name="Center" type="VBoxContainer" parent="MarginContainer/HBoxContainer" unique_id=1977373439]
@@ -125,14 +126,9 @@ theme_override_constants/margin_bottom = 5
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer" unique_id=1669142151]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer" unique_id=1858934461]
-layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "Give"
-horizontal_alignment = 1
-
 [node name="BackpackPanel" parent="MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer" unique_id=1207785587 instance=ExtResource("3_32vq5")]
 layout_mode = 2
+_titleLocKey = &"panel_merchant_give"
 _columns = 3
 
 [node name="Button" type="Button" parent="MarginContainer/HBoxContainer/Center" unique_id=268450485]
@@ -153,14 +149,9 @@ theme_override_constants/margin_bottom = 5
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer" unique_id=1637884364]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer" unique_id=2008969112]
-layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "Get"
-horizontal_alignment = 1
-
 [node name="BackpackPanel" parent="MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer" unique_id=2082510771 instance=ExtResource("3_32vq5")]
 layout_mode = 2
+_titleLocKey = &"panel_merchant_get"
 _columns = 3
 
 [node name="Inventory" parent="MarginContainer/HBoxContainer" unique_id=518559378 instance=ExtResource("4_pl1cs")]
@@ -185,7 +176,7 @@ alignment = 1
 layout_mode = 2
 ActionName = "Equip"
 
-[node name="ButtonHintEquip" parent="MarginContainer/ButtonHints" instance=ExtResource("5_fvgyx")]
+[node name="ButtonHintEquip" parent="MarginContainer/ButtonHints" unique_id=86032678 instance=ExtResource("5_fvgyx")]
 layout_mode = 2
 ActionName = "Equip"
 InputAction = "MenuSecondary"
@@ -195,7 +186,7 @@ layout_mode = 2
 ActionName = "Use"
 InputAction = "MenuTertiary"
 
-[node name="ButtonHintSend" parent="MarginContainer/ButtonHints" instance=ExtResource("5_fvgyx")]
+[node name="ButtonHintSend" parent="MarginContainer/ButtonHints" unique_id=961259748 instance=ExtResource("5_fvgyx")]
 layout_mode = 2
 ActionName = "Offer"
 InputAction = "MenuQuaternary"

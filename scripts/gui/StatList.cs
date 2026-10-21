@@ -628,6 +628,21 @@ public static class StatList
 		}
 	}
 
+	// How full a flask or lantern is: water in hours, oil in units.
+	public static IEnumerable<(string name, string value)> Contents(ItemState item)
+	{
+		string label = GameClient.Current.statNames[EStatName.Contents];
+		if (item is FlaskState flask)
+		{
+			string held = $"{StatFormat.Number(flask.amount)} / {StatFormat.Number(flask.data.capacity)}";
+			yield return (label, flask.data.liquid == ELiquid.Water ? held + " h" : held);
+		}
+		else if (item is LanternState lantern)
+		{
+			yield return (label, $"{StatFormat.Number(lantern.oil)} / {StatFormat.Number(lantern.data.oilCapacity)}");
+		}
+	}
+
 	// Item-level ammo readout. Labeled "Ammo" when shots are recoverable
 	// (arrowLootData wired, like the bow's arrows) and "Charges" when
 	// they're consumed permanently (wands, single-use throwables).

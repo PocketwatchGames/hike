@@ -284,7 +284,8 @@ public partial class Sim
             {
                 arrowsToRecover.Add(arrow);
             }
-            else if (state is LootSimState loot && loot.Dropped)
+            // A sack set down is kept with what's in it, like a death sack.
+            else if (state is LootSimState loot && loot.Dropped && loot.Item is not SackState)
             {
                 lootToPurge.Add(state);
             }

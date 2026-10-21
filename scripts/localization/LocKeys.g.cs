@@ -50,12 +50,19 @@ public static partial class Loc
 		stash_send_how_many,
 		stash_drop,
 		item_drop_how_many,
+		item_salvage,
 		merchant_offer,
 		merchant_take_back,
 		merchant_request,
 		merchant_return,
 		requires_key,
 		item_used,
-		item_used_count
+		item_used_count,
+		panel_backpack,
+		panel_stash,
+		panel_belt,
+		panel_merchant_stock,
+		panel_merchant_give,
+		panel_merchant_get
 	}
 }

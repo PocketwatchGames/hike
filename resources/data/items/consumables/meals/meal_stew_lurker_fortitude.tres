@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="3_apply"]
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="4_input"]
 [ext_resource type="Resource" uid="uid://dbvd7jcdq0p7l" path="res://resources/data/status_effects/well_fed_fortitude.tres" id="5_status"]
-[ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="6_icon"]
+[ext_resource type="Texture2D" path="res://assets/textures/items/StewMeal.png" id="6_icon"]
 [ext_resource type="Resource" uid="uid://cdl46y53kpu67" path="res://resources/data/items/loot/lurker_meat.tres" id="7_lurker_meat"]
 [ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="8_mushroom_blue"]
 [ext_resource type="Script" uid="uid://cy238vqb2k86o" path="res://scripts/data/items/RecipeData.cs" id="recipe_data"]

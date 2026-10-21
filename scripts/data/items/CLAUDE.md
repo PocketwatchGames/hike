@@ -60,7 +60,7 @@ gear**, at the event's own site — weapons by uses, armor and shields by damage
   `UseAmmo`. A round whose strike breaks it (the wear cost the magazine a round)
   drops and sticks no arrow. A weapon-mod missile carries no cost.
 - **All wear goes through `Player.WearGear`**, which plays the cues: warning once
-  on crossing `PlayerData.durabilityWarningFraction`, broken once at zero, and for
+  on crossing `SimData.durabilityWarningFraction`, broken once at zero, and for
   an ammo weapon its own snap every time wear costs a round (never the warning
   again per shot). The HUD overlays read the same `GearState.Condition`.
 - **A spent ammo weapon (`WeaponState.IsSpent`: magazine worn to 0) is an empty
@@ -77,3 +77,100 @@ gear**, at the event's own site — weapons by uses, armor and shields by damage
   (`status_gear_sturdy` 0.5, `status_gear_brittle` 2.0). It is folded off the
   item's own controller (`GearState.ComposeWearMultiplier`), never the wearer's.
   Those mods carry an empty `weaponMod` only so the name affix applies.
+
+## Sacks (`SackData` / `SackState`)
+
+A sack is an item that owns an `ItemGrid` (`SackState.contents`) and takes only the
+`EItemCategory`s in `SackData.accepts` — never another sack, whatever it lists.
+Its contents ride in its subclass state, so a dropped, stashed, death-sacked or
+saved sack keeps them with no help from the container. A dropped sack is exempt
+from the rest sweep (`ResetSpawns`).
+
+- **A carried sack's slots are carried slots.** `Inventory` keeps one
+  `CarriedGrid` per sack in the belt or backpack (`Inventory.Sacks`, rebuilt by
+  `SyncSacks`), and every owned-item query walks all of them. **A new reader of
+  what a member carries goes through `EnumerateAll` / `Contains` / the carried
+  grids — never `Belt` and `Backpack` alone**, or sack contents silently drop out
+  of it. `ItemGrid.EnumerateAll` / `SpendMaterial` / `PruneExpired` recurse into
+  sacks, so a sack in the stash still spoils and still cooks.
+- **Placement asks the grid** (`IItemGrid.Accepts`): `PlaceAt`, `Add`, `Move` and
+  `ItemTransfer` refuse what a sack won't take, both sides of a swap included.
+- **Pickup order** (`Inventory.PlacementOrder`): top up existing stacks — sacks
+  first — then a sack's empty slot, then the backpack / belt.
+- A screen addresses a member's slot as (`CarriedGrid`, index) through
+  `InventoryPanel.onGridSlot*`, and a sack that leaves detaches its grid (reads
+  empty, refuses everything), so a held reference can't reach a sack no longer
+  carried.
+
+## Salvage (`ItemData.salvage` / `ItemTransfer.Salvage`)
+
+**An item breaks into what its `salvage` list names** — `SalvageYield` rows of a
+plain `ItemData` and a count, certain rather than rolled, and no `ItemDescriptor`
+because a material carries no mods. Empty = not salvageable, and the hint hides.
+The materials live in `resources/data/items/materials/`.
+
+- **One unit per Salvage, hold-only** (the `Salvage` action, F / RS — bound in
+  `InputBindings`): it destroys the item, so a tap does nothing. Inventory and
+  Stash screens only.
+- **Yields land where the item was** (the stash, when salvaged there), then in the
+  member's grids, then at their feet — a full bag never loses one.
+- A filled sack is refused (`CanSalvage`): its contents would leave with it.
+- **A salvage can need a tool** (`ItemData.salvageTool`, an `EToolKind`): the
+  hint hides until one is carried, and each unit wears it. A subclass may yield
+  from elsewhere by overriding `RollSalvageYields` (`CarcassData` rolls its harvest).
+
+## Tools (`EToolKind`, `ItemData.toolUses`)
+
+**What an item can do besides its main use is a row on the item; what an action
+needs is a requirement naming the kind.** A knife and a sword are Blades, the
+shovel is a Digging tool. Carrying one anywhere counts — equipped, belt, backpack
+or a sack.
+
+- **`Inventory.FindTool(kind)` is the one search**, broken gear skipped,
+  non-allocating (prompts ask it every frame). **`Player.UseTool(kind)` /
+  `WearTool(item, kind)` is the one wear path**, by the row's `wear`; an item
+  that isn't `GearData` never wears.
+- **An action gates on `CarriesToolRequirement`**, marked
+  `hidesActionWhenUnmet` so no tool means no prompt at all
+  (`InteractiveAction.IsOfferedTo`); a gate without the flag refuses at the press
+  with its message instead. An interactive whose offered set can change filters
+  its `GetActions` by it — safe because `IInteractive.Complete` receives the
+  action that ran, never an index into a list that may since have changed.
+- **Tool work is not done in combat** — butchering, digging, and a salvage that
+  needs a tool. Combat is `CombatTracker` (a perceived dangerous enemy attacking,
+  what the combat music follows), NOT `NoDangerRequirement`'s merely-nearby
+  hostile: `NotInCombatRequirement` (hiding) on the actions, `ItemData.CanSalvage`
+  for salvage. In combat the prompts simply aren't there — picking up a
+  carcass included.
+- **A kind has code behind it** (the butcher and dig paths), which is why it is
+  an enum and not a resource — APPEND-ONLY, stored as an int.
+- **A tool has no use of its own.** `ToolData` (the shovel) is `GearData` in the
+  `Tool` category: it rides in the backpack, never the hotbar, and wears only
+  through the interactions it enables. Digging is ONLY the `BuriedSpot`
+  interaction — a Dig prompt within 1 m with a shovel carried, and for a
+  treasure spot only while its map is held.
+- **A burrowed mob is dug out the same way** (`SimData.digUpAction`, the same
+  Dig): offered only while it is fully burrowed AND shows its dirt mound, so the
+  prompt never reveals a mob that left no trace. Like a corpse it is targeted by
+  its hurtbox (`ECollisionLayer.BurrowedHurtBox`, in the player's interact mask).
+
+## Carcasses and butchering (`CarcassData`, `MobData.harvestLoot` / `.carcass`)
+
+**Meat never comes from a death drop — a body is cut up.** What a body yields is
+a trait of the body (`MobData`), not the variant, and it is taken one of two ways:
+
+| Body | Without a blade | With a blade |
+|---|---|---|
+| carryable (`MobData.carcass` set — kun-kun, sparrow) | Pick Up: the whole corpse becomes its carcass item | also Butcher where it lies; Salvage the carried carcass |
+| not carryable (`MobData.harvestLoot`) | nothing — no prompt | Butcher where it lies |
+
+- **One harvest per body, in one place.** A carryable body's rows live on its
+  `CarcassData.harvest` and `MobData.harvestLoot` stays empty (`MobData.HarvestRows`
+  picks); butchering in place and salvaging the carcass roll the same rows.
+  `resource_check` refuses both set, an empty row, and a carcass that stacks.
+- **Butchering wears the blade once** (`Player.UseTool(Blade)`), in place or as a
+  carcass salvage (`salvageTool = Blade`).
+- **A corpse is targeted by its hurtbox** (`ECollisionLayer.DeadHurtBox`, in the
+  player's interact mask), so no mob scene authors an `InteractiveBox` for it.
+  Taking the body frees the node and keeps the dead sim state: a rest revives a
+  population mob as usual.

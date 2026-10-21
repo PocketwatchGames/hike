@@ -262,7 +262,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity, IDiscoverableHo
         return _actions != null && _actions.Count > 0 ? _actions : null;
     }
 
-    public void Complete(int actionIndex)
+    public void Complete(InteractiveAction action)
     {
         if (!CanInteract() || _offeredUpgrade == null)
         {

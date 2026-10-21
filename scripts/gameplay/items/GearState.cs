@@ -36,7 +36,7 @@ public class GearState : ItemState
 
 	public virtual bool IsBroken => Wears && durability <= 0f;
 
-	// Worn = under `warningFraction` of max durability (PlayerData
+	// Worn = under `warningFraction` of max durability (SimData
 	// .durabilityWarningFraction), the HUD warning and its one-shot cue.
 	public ECondition Condition(float warningFraction)
 	{

@@ -20,6 +20,9 @@
 [ext_resource type="PackedScene" path="res://scenes/items/wand_held.tscn" id="15_held"]
 [ext_resource type="Texture2D" uid="uid://cvij6l7jgefxe" path="res://assets/textures/items/Wand.png" id="16_inv"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="17_s8kpl"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/bone.tres" id="repair_bone"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/beads.tres" id="repair_beads"]
 
 [sub_resource type="Resource" id="Resource_event_missile"]
 script = ExtResource("3_event")
@@ -130,6 +133,18 @@ hitstun = 0.15
 buildups = []
 modifiers = []
 
+[sub_resource type="Resource" id="repair_cost_bone"]
+script = ExtResource("material_count")
+item = ExtResource("repair_bone")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="repair_cost_beads"]
+script = ExtResource("material_count")
+item = ExtResource("repair_beads")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
 [resource]
 script = ExtResource("2_weapon")
 rightHandSlot = true
@@ -145,3 +160,4 @@ value = 50
 inventorySprite = ExtResource("16_inv")
 heldModel = ExtResource("15_held")
 maxDurability = 100
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_bone"), SubResource("repair_cost_beads")])

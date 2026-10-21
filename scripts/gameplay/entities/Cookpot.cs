@@ -54,7 +54,7 @@ public partial class Cookpot : Node3D, IInteractive, IWorldEntity, ICookingStati
         return active != null && active.Count > 0 ? active : null;
     }
 
-    public void Complete(int actionIndex)
+    public void Complete(InteractiveAction action)
     {
         if (!IsLit)
         {

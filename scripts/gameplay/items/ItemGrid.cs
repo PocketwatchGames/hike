@@ -105,6 +105,30 @@ public class ItemGrid : IItemGrid, IItemSource
 		Array.Clear(_slots);
 	}
 
+	// A plain grid takes anything; a sack's rule is its owner's (Inventory.CarriedGrid).
+	public bool Accepts(ItemData data) => data != null;
+
+	// Every stack here, each sack followed by its contents.
+	public IEnumerable<ItemState> EnumerateAll()
+	{
+		for (int i = 0; i < _slots.Length; i++)
+		{
+			ItemState item = _slots[i];
+			if (item == null)
+			{
+				continue;
+			}
+			yield return item;
+			if (item is SackState sack)
+			{
+				foreach (ItemState inner in sack.contents.EnumerateAll())
+				{
+					yield return inner;
+				}
+			}
+		}
+	}
+
 	// Same kind is not enough: two swords are the same kind but never one stack.
 	public static bool Merges(ItemState into, ItemState from)
 	{
@@ -267,15 +291,21 @@ public class ItemGrid : IItemGrid, IItemSource
 		return true;
 	}
 
-	// Spend up to `count` units of a reagent from the materials here, matching by
-	// the item's parent chain (Cooking.Satisfies). Emptied stacks free their slot.
-	// Returns how many units were spent; `spentItems`, when given, collects them.
+	// Spend up to `count` units of a reagent from the materials here and in any
+	// sack here, matching by the item's parent chain (Cooking.Satisfies). Emptied
+	// stacks free their slot. Returns how many units were spent; `spentItems`,
+	// when given, collects them.
 	public int SpendMaterial(ItemData reagentItem, int count, List<SpentItem> spentItems = null)
 	{
 		int spent = 0;
 		for (int i = 0; i < _slots.Length && spent < count; i++)
 		{
 			ItemState s = _slots[i];
+			if (s is SackState sack)
+			{
+				spent += sack.contents.SpendMaterial(reagentItem, count - spent, spentItems);
+				continue;
+			}
 			if (s?.data == null || !s.data.IsMaterial || s.stackCount <= 0 || !Cooking.Satisfies(s.data, reagentItem))
 			{
 				continue;
@@ -308,7 +338,8 @@ public class ItemGrid : IItemGrid, IItemSource
 		onChanged?.Invoke();
 	}
 
-	// Drop every spoiled cohort; a stack that empties leaves its slot.
+	// Drop every spoiled cohort, sacks' contents included; a stack that empties
+	// leaves its slot.
 	public void PruneExpired(double nowClock)
 	{
 		for (int i = 0; i < _slots.Length; i++)
@@ -317,6 +348,10 @@ public class ItemGrid : IItemGrid, IItemSource
 			if (item == null)
 			{
 				continue;
+			}
+			if (item is SackState sack)
+			{
+				sack.contents.PruneExpired(nowClock);
 			}
 			item.PruneExpired(nowClock);
 			if (item.stackCount <= 0)

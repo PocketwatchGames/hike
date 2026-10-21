@@ -49,7 +49,7 @@ public partial class WeaponHud : BoxContainer
 		}
 	}
 
-	// `durabilityWarningFraction` is the wielder's PlayerData.durabilityWarningFraction.
+	// `durabilityWarningFraction` is SimData.durabilityWarningFraction.
 	public void Tick(ulong nowMs, bool charging, float durabilityWarningFraction)
 	{
 		_durabilityWarningFraction = durabilityWarningFraction;

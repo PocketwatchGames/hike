@@ -31,6 +31,14 @@ using System.Text;
 //   Day-clock curves — a Curve over TimeOfDay01 ([TimeOfDayCurve]) must read
 //   the same at 0 and 1. The clock wraps from 1 straight to 0 at sunrise in
 //   plain sight, so a mismatch is an audible / visible jump every dawn.
+//
+//   Harvest — every MobData.harvestLoot / CarcassData.harvest row names an item
+//   (an empty row rolls nothing, so a butchered corpse vanishes short of its
+//   yield); a carryable body's harvest lives only on its carcass; and a carcass
+//   never stacks, being one whole animal.
+//
+//   Tool uses — every ItemData.toolUses row names a kind; a None row makes the
+//   item serve as nothing while reading as if it did.
 public static class ResourceCheck
 {
     private const string ResourceRoot = "res://resources";
@@ -178,6 +186,10 @@ public static class ResourceCheck
         Collect(ResourceRoot, paths);
         paths.Sort();
 
+        // Every wrapper stays referenced until the sweep is done: a GodotObject
+        // finalized mid-sweep can trip the engine's `gchandle.is_released()`
+        // FATAL, which kills the process depending only on GC timing.
+        var keepAlive = new List<Resource>(paths.Count);
         int loaded = 0;
         foreach (string path in paths)
         {
@@ -196,9 +208,11 @@ public static class ResourceCheck
                 problems.Add($"{path}: failed to load (missing dependency or parse error)");
                 continue;
             }
+            keepAlive.Add(res);
             loaded++;
             WalkForDamageTags(res, path, problems);
             CheckTimeOfDayCurves(res, path, problems);
+            CheckHarvestLoot(res, path, problems);
 
             string declared = DeclaredScriptClass(path);
             if (string.IsNullOrEmpty(declared))
@@ -213,7 +227,54 @@ public static class ResourceCheck
             }
         }
 
+        GC.KeepAlive(keepAlive);
         return loaded;
+    }
+
+    private static void CheckHarvestLoot(Resource res, string path, List<string> problems)
+    {
+        if (res is MobData mob)
+        {
+            CheckHarvestRows(mob.harvestLoot, nameof(MobData.harvestLoot), path, problems);
+            if (mob.carcass != null && mob.harvestLoot != null && mob.harvestLoot.Length > 0)
+            {
+                problems.Add($"{path}: has a carcass AND harvestLoot — a carryable body's harvest lives on its carcass only");
+            }
+        }
+        if (res is ItemData item && item.toolUses != null)
+        {
+            int count = item.toolUses.Count;
+            for (int i = 0; i < count; i++)
+            {
+                if (item.toolUses[i] == null || item.toolUses[i].kind == EToolKind.None)
+                {
+                    problems.Add($"{path}: toolUses[{i}] names no tool kind");
+                }
+            }
+        }
+        if (res is CarcassData carcass)
+        {
+            CheckHarvestRows(carcass.harvest, nameof(CarcassData.harvest), path, problems);
+            if (carcass.IsStackable)
+            {
+                problems.Add($"{path}: a carcass must not stack (maxStack {carcass.maxStack})");
+            }
+        }
+    }
+
+    private static void CheckHarvestRows(ItemCountRange[] rows, string field, string path, List<string> problems)
+    {
+        if (rows == null)
+        {
+            return;
+        }
+        for (int i = 0; i < rows.Length; i++)
+        {
+            if (rows[i]?.item?.item == null)
+            {
+                problems.Add($"{path}: {field}[{i}] names no item");
+            }
+        }
     }
 
     // --- pass 4: day-clock curves wrap ------------------------------------

@@ -5,7 +5,7 @@ using Godot;
 // found) and a random map heading. It only points at the treasure — the actual
 // buried object exists independently in the world (a BuriedSpot placed when the
 // map is revealed). Held in SimState.TreasureMaps and serialized by SaveGame; the
-// map removes itself when its tracked object is unearthed (Sim.TryDig →
+// map removes itself when its tracked object is unearthed (BuriedSpot.Dig →
 // SimState.RemoveTreasureMapAt). Runtime state, not authored data.
 public class TreasureMapState
 {

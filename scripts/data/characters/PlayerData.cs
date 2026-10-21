@@ -487,11 +487,6 @@ public partial class PlayerData : Resource
 	// What the player bleeds when wounded (see BloodData).
 	[Export] public BloodData blood;
 
-	[ExportGroup("Durability")]
-	// Fraction of max durability below which gear reads as worn: the HUD shows
-	// its warning and the warning cue plays once on the way down.
-	[Export(PropertyHint.Range, "0,1,0.01")] public float durabilityWarningFraction = 0.25f;
-
 	[ExportGroup("Armor")]
 	[Export] public float armorRechargeDelay = 3f;
 	// Seconds for armor to refill from empty to full (the equipped MaxArmor).
@@ -525,19 +520,27 @@ public partial class PlayerData : Resource
 	[Export] public float staminaRechargeTime = 3f;
 
 	[ExportGroup("Needs")]
-	// Hunger, thirst and fatigue (Player.Needs): in-game hours for each meter to
-	// empty from full at a drain rate of 1. EStat.*DrainRate scales them — the
-	// Hot status doubles thirst's, Cold taxes hunger's.
-	[Export(PropertyHint.Range, "1,240,0.5,or_greater")] public float hungerHoursToEmpty = 16f;
-	[Export(PropertyHint.Range, "1,240,0.5,or_greater")] public float thirstHoursToEmpty = 12f;
-	[Export(PropertyHint.Range, "1,240,0.5,or_greater")] public float fatigueHoursToEmpty = 24f;
-	// Fraction of EACH meter one unit of stamina spent costs.
+	// Hunger, thirst and fatigue (Player.Needs): deprivation rises one stage per
+	// this many in-game hours at a drain rate of 1. EStat.*DrainRate scales
+	// them — the Hot status doubles thirst's, Cold taxes hunger's.
+	[Export(PropertyHint.Range, "1,240,0.5,or_greater")] public float hungerHoursPerStage = 16f;
+	[Export(PropertyHint.Range, "1,240,0.5,or_greater")] public float thirstHoursPerStage = 12f;
+	[Export(PropertyHint.Range, "1,240,0.5,or_greater")] public float fatigueHoursPerStage = 24f;
+	// Stages of EACH need one unit of stamina spent costs.
 	[Export(PropertyHint.Range, "0,0.1,0.0005")] public float needCostPerStamina = 0.005f;
-	// Hours of sleep that refill fatigue from empty; a shorter sleep refills
-	// that fraction of it.
-	[Export(PropertyHint.Range, "0.5,24,0.5")] public float sleepHoursForFullRest = 8f;
-	// Max stamina each meter adds while full, scaling with how full it is.
-	[Export(PropertyHint.Range, "0,4,0.05")] public float maxStaminaPerNeed = 0.5f;
+	// Hours of sleep that take one stage of fatigue away.
+	[Export(PropertyHint.Range, "0.25,24,0.01")] public float sleepHoursPerFatigueStage = 8f / 3f;
+	// Per need. The first phase is free. The second costs MaxStamina growing to
+	// needMiddleStaminaPenalty as it nears the third; the third keeps that and
+	// costs needLowestStaminaPenaltyPerStage of MaxStamina and
+	// needMaxHealthPenaltyPerStage of MaxHealth per stage into it, without end
+	// — MaxHealth at 0 is death.
+	[Export(PropertyHint.Range, "0,4,0.05")] public float needMiddleStaminaPenalty = 0.5f;
+	[Export(PropertyHint.Range, "0,4,0.05")] public float needLowestStaminaPenaltyPerStage = 0.5f;
+	[Export(PropertyHint.Range, "0,2000,10,or_greater")] public float needMaxHealthPenaltyPerStage = 500f;
+	// A death wake caps every need at this many stages, so the sleep to sunrise
+	// that follows cannot carry it back to a death.
+	[Export(PropertyHint.Range, "0,2,0.05")] public float needStagesAfterRespawn = 1f;
 
 	[ExportGroup("Dash")]
 	// The motion itself (speed / duration / freeze-gravity) is authored on
@@ -671,12 +674,6 @@ public partial class PlayerData : Resource
 	// never auto-relights when conditions ease. 1.0 disables rain dousing
 	// (only a full downpour would ever hit it).
 	[Export(PropertyHint.Range, "0.01,1,0.01")] public float lanternDouseRainThreshold = 0.6f;
-	// How much lantern oil a full supply holds (Player.LanternOil). Oil costs,
-	// refills and burn rates are absolute amounts, so a bigger supply lasts
-	// proportionally longer.
-	[Export(PropertyHint.Range, "10,1000,1")] public float maxLanternOil = 100f;
-	// Ceiling on oil kept past maxLanternOil by an overflowing refill (a fountain).
-	[Export(PropertyHint.Range, "0,1000,1")] public float maxBonusLanternOil = 100f;
 	// Wind accelerates drying via evaporation. SampleWindSpeed already
 	// zeroes out under overhead cover, so this only contributes outdoors.
 	// Default 0.1 means the dry rate doubles at 10 m/s of wind and triples

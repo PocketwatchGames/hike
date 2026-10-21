@@ -119,7 +119,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity, IDiscoverableHo
         }
     }
 
-    public void Complete(int actionIndex)
+    public void Complete(InteractiveAction action)
     {
         // Mark "found + used" so the discovery X-ray stops.
         _opened = true;

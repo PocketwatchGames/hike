@@ -4,6 +4,9 @@
 [ext_resource type="Texture2D" uid="uid://lf6o4djji52u" path="res://assets/textures/items/HelmetGlimp.png" id="2_inv"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="repair_steel"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/beads.tres" id="repair_beads"]
 
 [sub_resource type="Resource" id="m_nightvision"]
 script = ExtResource("m_script")
@@ -11,12 +14,25 @@ stat = 15
 value = 1.85
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
+[sub_resource type="Resource" id="repair_cost_steel"]
+script = ExtResource("material_count")
+item = ExtResource("repair_steel")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="repair_cost_beads"]
+script = ExtResource("material_count")
+item = ExtResource("repair_beads")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
 [resource]
 script = ExtResource("1_armor")
 maxArmor = 360.0
 armorSlot = 1
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_nightvision")])
 maxDurability = 3600
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel"), SubResource("repair_cost_beads")])
 displayName = &"Glimp Visor"
 description = "Luminous lenses pierce the gloom, granting sight in near-total darkness."
 value = 40

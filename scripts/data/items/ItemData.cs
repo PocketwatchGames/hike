@@ -98,7 +98,82 @@ public partial class ItemData : Resource
 	// from the ground during it (night-only forage). Null = always present.
 	[Export] public TimedEmergenceData timedEmergence;
 
+	// What one unit breaks down into on Salvage (ItemTransfer.Salvage). Empty =
+	// the item can't be salvaged.
+	[Export] public Godot.Collections.Array<MaterialCount> salvage = new();
+	// The tool a salvage needs carried, worn once per unit (a carcass needs a
+	// Blade). None = bare hands.
+	[Export] public EToolKind salvageTool = EToolKind.None;
+
+	// What else this item serves as while carried (a knife is a Blade, a shovel a
+	// Digging tool). Read through FindToolUse.
+	[Export] public Godot.Collections.Array<ToolUse> toolUses = new();
+
 	public bool IsStackable => maxStack > 1;
+
+	public virtual bool IsSalvageable => salvage != null && salvage.Count > 0;
+
+	// Whether `salvager` can break one unit of this down right now. Tool work is
+	// not done in combat (CombatTracker), the same rule as butchering and digging.
+	public bool CanSalvage(Player salvager)
+	{
+		if (!IsSalvageable)
+		{
+			return false;
+		}
+		return salvageTool == EToolKind.None
+			|| (salvager?.Inventory?.FindTool(salvageTool, out _) != null && !(GameClient.Current?.InCombat ?? false));
+	}
+
+	// Break one unit down into `into`, wearing the salvage tool. Nothing when the
+	// tool has gone.
+	public void Salvage(Player salvager, System.Collections.Generic.List<ItemState> into)
+	{
+		if (salvageTool != EToolKind.None && !salvager.UseTool(salvageTool))
+		{
+			return;
+		}
+		RollSalvageYields(into);
+	}
+
+	// The `salvage` rows: one stack per stackable yield, one state per unit
+	// otherwise. A subclass may yield from elsewhere (CarcassData rolls its harvest).
+	protected virtual void RollSalvageYields(System.Collections.Generic.List<ItemState> into)
+	{
+		foreach (MaterialCount yield in salvage)
+		{
+			if (yield?.item == null || yield.count <= 0)
+			{
+				continue;
+			}
+			int states = yield.item.IsStackable ? 1 : yield.count;
+			for (int i = 0; i < states; i++)
+			{
+				ItemState state = yield.item.CreateState();
+				if (yield.item.IsStackable)
+				{
+					state.SetCount(yield.count);
+				}
+				into.Add(state);
+			}
+		}
+	}
+
+	// The row saying this item serves as `kind`, or null. Read every frame while a
+	// corpse or a dig spot is in reach, so it walks a managed mirror of toolUses.
+	public ToolUse FindToolUse(EToolKind kind)
+	{
+		_toolUsesFlat ??= System.Linq.Enumerable.ToArray(toolUses ?? new Godot.Collections.Array<ToolUse>());
+		for (int i = 0; i < _toolUsesFlat.Length; i++)
+		{
+			if (_toolUsesFlat[i] != null && _toolUsesFlat[i].kind == kind)
+			{
+				return _toolUsesFlat[i];
+			}
+		}
+		return null;
+	}
+	private ToolUse[] _toolUsesFlat;
 
 	// Resolved slot classification: the explicit override when set, else the
 	// per-subclass default.

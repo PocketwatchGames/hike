@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_consumable"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="4_input"]
-[ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="6_icon"]
+[ext_resource type="Texture2D" path="res://assets/textures/items/GrilledMeal.png" id="6_icon"]
 [ext_resource type="Resource" uid="uid://bimryqq5iitw3" path="res://resources/data/items/loot/troll_meat.tres" id="7_troll_meat"]
 [ext_resource type="Script" uid="uid://cy238vqb2k86o" path="res://scripts/data/items/RecipeData.cs" id="recipe_data"]
 

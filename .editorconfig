@@ -139,6 +139,8 @@ dotnet_diagnostic.HK006.severity = error
 dotnet_diagnostic.HK007.severity = error
 dotnet_diagnostic.HK008.severity = error
 dotnet_diagnostic.HK009.severity = error
+# BannedSymbols.txt - every entry is a name that must not come back.
+dotnet_diagnostic.RS0030.severity = error
 
 # --- baseline: pre-existing violations, downgraded per file ---
 

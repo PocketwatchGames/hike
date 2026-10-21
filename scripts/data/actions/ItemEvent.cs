@@ -261,20 +261,6 @@ public partial class ItemEvent : Resource
 	// ItemEventHandlers.DoSummonMinion.
 	[Export] public SpeciesData minionSpecies;
 
-	// Dig fields. The dig is centered on the player's positional aim cursor
-	// when one is active, else a point `digReach` meters in front of the
-	// actor. `digRadius` is how close a buried spot / burrowed mob must be to
-	// the dig center to be uncovered. Authored on the shovel's Use timeline.
-	[Export] public float digRadius = 1.5f;
-	[Export] public float digReach = 1.5f;
-	// Dig completion effects, picked by the dig's result class (see
-	// Sim.TryDig / EDigResult). One-shot Fx spawned at the dig point: a sad
-	// puff when the hole comes up empty, a modest burst for a common find
-	// (carrot / loot), a celebratory one for treasure. Any may be null.
-	[Export] public PackedScene digNothingEffect;
-	[Export] public PackedScene digCommonEffect;
-	[Export] public PackedScene digTreasureEffect;
-
 	// Projectile fields. Spawned by DoProjectile at the actor's position,
 	// flying along the actor's forward (with the tier's accuracy spread
 	// applied via ItemAction.spreadDegrees). Damage on impact is resolved from the
@@ -486,10 +472,6 @@ public partial class ItemEvent : Resource
 				or nameof(screenFlashIntensity)
 				or nameof(screenFlashFadeSeconds) => EItemEventType.ScreenFlash,
 			nameof(noiseDecibels) => EItemEventType.Noise,
-			nameof(digRadius) or nameof(digReach)
-				or nameof(digNothingEffect)
-				or nameof(digCommonEffect)
-				or nameof(digTreasureEffect) => EItemEventType.Dig,
 			nameof(minionSpecies) => EItemEventType.SummonMinion,
 			_ => 0,
 		};

@@ -72,9 +72,9 @@ public partial class SpeciesData : Resource
     // row. Empty = a mob that never attacks.
     [Export] public Godot.Collections.Array<WeaponData> weapons = new();
 
-    // Loot ejected from the mob's body when it dies (was a MobData field; lives
-    // here so each zone variant sets its own spoils — all kun-kun variants drop
-    // the shared kun_kun_meat, all goblins goblin_meat, etc.).
+    // Loot ejected from the mob's body when it dies, per zone variant. Never the
+    // body itself: meat and materials are cut from the corpse with a blade
+    // (MobData.harvestLoot / MobData.carcass).
     // Each row is rolled when the mob dies (Mob.EjectLoot) and fired outward on
     // the same upward arc chests use. Empty = no drops.
     [Export] public Godot.Collections.Array<ItemCountRange> loot = new();

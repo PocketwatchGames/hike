@@ -7,8 +7,9 @@
 [ext_resource type="Texture2D" uid="uid://b8keti2u2iu5d" path="res://assets/textures/gui/inventory_bg_left_hand.png" id="5_lgndl"]
 [ext_resource type="Script" uid="uid://b8m03p4f7q2nk" path="res://scripts/gui/InventoryPanel.cs" id="5_panel"]
 [ext_resource type="Texture2D" uid="uid://gcw65djqyj64" path="res://assets/textures/gui/inventory_bg_right_hand.png" id="6_058gu"]
+[ext_resource type="Script" uid="uid://kiv07fhhmhay5" path="res://scripts/gui/SackPanels.cs" id="7_sacks"]
 
-[node name="Inventory" type="HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_shieldPanel", "_armorBodyPanel", "_weaponLeftPanel", "_weaponRightPanel", "_lanternPanel", "_belt", "_backpack")]
+[node name="Inventory" type="HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_shieldPanel", "_armorBodyPanel", "_weaponLeftPanel", "_weaponRightPanel", "_belt", "_backpack", "_sacks")]
 size_flags_horizontal = 4
 size_flags_vertical = 0
 theme_override_constants/separation = 100
@@ -17,9 +18,9 @@ _shieldPanel = NodePath("MarginContainer3/VBoxContainer/Equipped/Shield")
 _armorBodyPanel = NodePath("MarginContainer3/VBoxContainer/Equipped/Armor")
 _weaponLeftPanel = NodePath("MarginContainer3/VBoxContainer/Equipped/WeaponLeft")
 _weaponRightPanel = NodePath("MarginContainer3/VBoxContainer/Equipped/WeaponRight")
-_lanternPanel = NodePath("MarginContainer3/VBoxContainer/Hotbar/Lantern")
-_belt = NodePath("MarginContainer3/VBoxContainer/Hotbar/BeltPanel")
+_belt = NodePath("MarginContainer3/VBoxContainer/BeltPanel")
 _backpack = NodePath("MarginContainer3/VBoxContainer/BackpackPanel")
+_sacks = NodePath("MarginContainer3/VBoxContainer/Sacks")
 
 [node name="MarginContainer3" type="MarginContainer" parent="." unique_id=1482364205]
 layout_mode = 2
@@ -54,19 +55,19 @@ BackgroundTexture = ExtResource("5_lgndl")
 layout_mode = 2
 BackgroundTexture = ExtResource("6_058gu")
 
-[node name="Hotbar" type="HBoxContainer" parent="MarginContainer3/VBoxContainer"]
+[node name="BeltPanel" parent="MarginContainer3/VBoxContainer" unique_id=1583559512 instance=ExtResource("2_dxbjq")]
 layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 0
-
-[node name="Lantern" parent="MarginContainer3/VBoxContainer/Hotbar" instance=ExtResource("2_4x1s7")]
-layout_mode = 2
-
-[node name="BeltPanel" parent="MarginContainer3/VBoxContainer/Hotbar" unique_id=1583559512 instance=ExtResource("2_dxbjq")]
-layout_mode = 2
-size_flags_horizontal = 4
+_titleLocKey = &"panel_belt"
 _columns = 16
 
 [node name="BackpackPanel" parent="MarginContainer3/VBoxContainer" unique_id=1913399409 instance=ExtResource("2_dxbjq")]
 layout_mode = 2
 size_flags_horizontal = 4
+_titleLocKey = &"panel_backpack"
+
+[node name="Sacks" type="VBoxContainer" parent="MarginContainer3/VBoxContainer" unique_id=1868716009]
+layout_mode = 2
+size_flags_horizontal = 4
+script = ExtResource("7_sacks")
+_panelScene = ExtResource("2_dxbjq")

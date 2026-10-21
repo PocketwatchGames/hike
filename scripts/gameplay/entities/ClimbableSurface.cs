@@ -118,7 +118,7 @@ public partial class ClimbableSurface : StaticBody3D, IInteractive
 
     // Deferred by a tick like the mantle's: the runner is still tearing this
     // action down, so a climb started here would fail its own runner-busy gate.
-    public void Complete(int actionIndex)
+    public void Complete(InteractiveAction action)
     {
         _actor?.OnClimbSurfaceInteractComplete(this);
     }

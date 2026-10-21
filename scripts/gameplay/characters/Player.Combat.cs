@@ -621,6 +621,7 @@ public partial class Player : CharacterBody3D
 	public void Respawn(Vector3 position)
 	{
 		_statusEffects?.Clear();
+		CapNeedsForRespawn();
 		_coldState = null;
 		_hotState = null;
 		_drainedHealth = 0f;

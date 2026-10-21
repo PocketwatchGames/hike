@@ -92,7 +92,7 @@ public sealed class TraversalInteractive : IInteractive
 	// The runner fires this from the action's OpenInteractive completion event.
 	// Starting the traversal directly from here would race the runner's own
 	// teardown, so the player defers it by a tick.
-	public void Complete(int actionIndex)
+	public void Complete(InteractiveAction action)
 	{
 		_player.OnTraversalInteractComplete();
 	}

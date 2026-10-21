@@ -16,6 +16,17 @@ public partial class SpawnListRow : SpawnRow
     // 0 keeps the row out of the area scan entirely.
     [Export(PropertyHint.Range, "0,5000,1,or_greater")] public float squareMetersPerSpawn;
 
+    // Which columns of the scan this row rolls on: a goblin roams the beach as
+    // well as the woods, a mushroom only the woods, a shell only the beach, a
+    // lurker only the water. Read by the per-column scans only; an authored
+    // position (POI, subscene marker) places the row wherever it was put.
+    [Export, CompactFlags] public ESpawnBand bands = ESpawnBand.Land;
+
+    public bool SpawnsIn(ESpawnBand band)
+    {
+        return (bands & band) != 0;
+    }
+
     public bool RollAreaChance(Random rng)
     {
         if (squareMetersPerSpawn <= 0f)

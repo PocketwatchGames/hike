@@ -9,7 +9,6 @@
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_m0lsp"]
 [ext_resource type="Resource" uid="uid://cyjva4b6lpasi" path="res://resources/data/world_gen/spawn_groups/swamp_village_fixtures.tres" id="9_village"]
 [ext_resource type="Resource" uid="uid://c4823dvmhngig" path="res://resources/data/world_authoring/zones/swamp_village.tres" id="10_kyxs2"]
-[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="90_cave_water"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_script"]
 [ext_resource type="Resource" uid="uid://b5t2mhf4t5fs2" path="res://resources/data/items/scrolls/treasure_map_swamp_village.tres" id="96_map"]
@@ -69,7 +68,6 @@ forgeCount = 0
 forgeLevelMax = 0
 surfaceEntities = ExtResource("5_5w857")
 caveEntities = ExtResource("1_5w857")
-caveWaterEntities = ExtResource("90_cave_water")
 distributedLoot = [SubResource("Dist_treasure"), SubResource("Rc0"), SubResource("Rc1")]
 treasureName = "swamp_village"
 treasureSpot = ExtResource("97_spot")

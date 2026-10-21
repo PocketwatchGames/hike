@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "butcher"
+description = "A hunting knife (any blade works) and one of every butcherable creature. Kill one: Butcher its corpse (meat and materials eject, the body is gone, the knife wears), or Pick Up a kun-kun or sparrow and Salvage the carcass in the inventory."
+commands = "spawn_loot knife
+spawn_mob goblin_forest 1
+spawn_mob troll_forest 1
+spawn_mob kun_kun_forest 1
+spawn_mob spider_forest 1
+spawn_mob drake_mountain 1
+spawn_mob sparrow_forest 1
+spawn_mob lurker_swamp 1"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

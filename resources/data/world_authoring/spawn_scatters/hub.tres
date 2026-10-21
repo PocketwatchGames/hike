@@ -3,14 +3,22 @@
 [ext_resource type="Script" uid="uid://hl0oi1pwfpm94" path="res://scripts/data/worldmap/SpawnScatterData.cs" id="2_list"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_gold.tres" id="e_mushroom_gold"]
 [ext_resource type="Script" uid="uid://mbzfhxhlk71ji" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/shell.tres" id="e_shell"]
 
 [sub_resource type="Resource" id="Row_mushroom_gold"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 350.0
 entry = ExtResource("e_mushroom_gold")
+bands = 1
+
+[sub_resource type="Resource" id="Row_shell"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 15.0
+entry = ExtResource("e_shell")
+bands = 2
 
 [resource]
 script = ExtResource("2_list")
 displayName = "Hub"
 mapColor = Color(0.6, 0.55, 0.75, 1)
-rows = Array[ExtResource("listrow")]([SubResource("Row_mushroom_gold")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_mushroom_gold"), SubResource("Row_shell")])

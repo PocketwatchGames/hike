@@ -79,20 +79,24 @@ public partial class Hud : Control
 	// sneaking (the only state in which block armor actually absorbs), and
 	// bright blue while the parry window is open.
 	[Export] ProgressBar _blockArmorBar;
-	// The controlled member's lantern oil, out of their MaxLanternOil.
+	// The controlled member's lantern oil, out of their MaxLanternOil (the
+	// lantern plus oil flasks, so the bar lengthens as flasks are carried).
 	[Export] ProgressBar _oilBar;
-	// Oil past MaxLanternOil (Player.BonusLanternOil), sized like _bonusHealthBar.
-	[Export] ProgressBar _bonusOilBar;
-	// The controlled member's needs meters (Player.GetNeed), each an icon that
-	// fills bottom to top: under = the disc, progress = the glyph.
+	// The controlled member's needs meters, each a glyph (over) on a disc fill
+	// (progress) whose level falls top to bottom, on a translucent disc
+	// (under). The fill drains
+	// through each phase (Player.GetNeedPhaseRemaining); the last phase has no
+	// end, so it shows full and the glyph flashes instead.
 	[Export] TextureProgressBar _hungerMeter;
 	[Export] TextureProgressBar _thirstMeter;
 	[Export] TextureProgressBar _fatigueMeter;
-	// Draining: a translucent black disc under a white glyph. Empty: the whole
-	// glyph in the alarm colour, so a meter at zero is unmissable.
 	[Export] Color _needBackgroundColor = new Color(0f, 0f, 0f, 0.5f);
-	[Export] Color _needFillColor = Colors.White;
-	[Export] Color _needEmptyColor = new Color(1f, 0.1f, 0.1f, 1f);
+	[Export] Color _needFillColor = new Color(0.5f, 0.5f, 0.5f, 1f);
+	// Glyph colour per phase (Player.GetNeedPhase).
+	[Export] Color[] _needPhaseColors = { Colors.White, new Color(1f, 0.85f, 0.1f, 1f), new Color(1f, 0.1f, 0.1f, 1f) };
+	// Last-phase glyph flash: seconds per on/off cycle, and the alpha it dips to.
+	[Export] float _needFlashPeriod = 0.8f;
+	[Export(PropertyHint.Range, "0,1,0.05")] float _needFlashMinAlpha = 0.2f;
 	[Export] HudSignpostPanel _signpostPanel;
 	[Export] ConversationController _dialoguePanel;
 	[Export] HudRegionBanner _regionBanner;
@@ -730,10 +734,9 @@ public partial class Hud : Control
 			_oilBar.Value = _player.LanternOil;
 			SetBarWidth(_oilBar, _player.MaxLanternOil * _pixelsPerOilPoint);
 		}
-		UpdateBonusBar(_bonusOilBar, _player.BonusLanternOil, _pixelsPerOilPoint);
-		UpdateNeedMeter(_hungerMeter, _player.GetNeed(ENeed.Hunger));
-		UpdateNeedMeter(_thirstMeter, _player.GetNeed(ENeed.Thirst));
-		UpdateNeedMeter(_fatigueMeter, _player.GetNeed(ENeed.Fatigue));
+		UpdateNeedMeter(_hungerMeter, _player, ENeed.Hunger);
+		UpdateNeedMeter(_thirstMeter, _player, ENeed.Thirst);
+		UpdateNeedMeter(_fatigueMeter, _player, ENeed.Fatigue);
 
 		if (_drainedHealthBar != null)
 		{
@@ -759,7 +762,7 @@ public partial class Hud : Control
 		ulong now = gameClient.Sim?.GameTimeMs ?? 0;
 		TickWeaponSlot(_weaponLeftSlot, _weaponLeftHint, EInventorySlot.WeaponLeft, now);
 		TickWeaponSlot(_weaponRightSlot, _weaponRightHint, EInventorySlot.WeaponRight, now);
-		float durabilityWarning = _player.data.durabilityWarningFraction;
+		float durabilityWarning = _player.Sim.SimData.durabilityWarningFraction;
 		// Ticked for their durability overlays; shields and armor have no cooldown or charge.
 		_shieldSlot?.Tick(now, false, durabilityWarning);
 		_armorSlot?.Tick(now, false, durabilityWarning);
@@ -813,17 +816,30 @@ public partial class Hud : Control
 		}
 	}
 
-	void UpdateNeedMeter(TextureProgressBar meter, float fill)
+	void UpdateNeedMeter(TextureProgressBar meter, Player player, ENeed need)
 	{
 		if (meter == null)
 		{
 			return;
 		}
-		bool empty = fill <= 0f;
 		meter.MaxValue = 1.0;
-		meter.Value = empty ? 1.0 : fill;
+		meter.Value = player.GetNeedPhaseRemaining(need);
 		meter.TintUnder = _needBackgroundColor;
-		meter.TintProgress = empty ? _needEmptyColor : _needFillColor;
+		meter.TintProgress = _needFillColor;
+		int phase = player.GetNeedPhase(need);
+		if (_needPhaseColors == null || _needPhaseColors.Length == 0)
+		{
+			return;
+		}
+		Color color = _needPhaseColors[Mathf.Min(phase, _needPhaseColors.Length - 1)];
+		if (phase >= Player.NeedLastPhase && _needFlashPeriod > 0f)
+		{
+			// Presentational, so wall clock: it keeps flashing through slow-mo.
+			float t = (Time.GetTicksMsec() / 1000f) / _needFlashPeriod;
+			float pulse = 0.5f + 0.5f * Mathf.Cos(t * Mathf.Tau);
+			color.A *= Mathf.Lerp(_needFlashMinAlpha, 1f, pulse);
+		}
+		meter.TintOver = color;
 	}
 
 	static void SetBarWidth(ProgressBar bar, float width)
@@ -1313,7 +1329,7 @@ public partial class Hud : Control
 	void TickWeaponSlot(WeaponHud widget, ButtonHint hint, EInventorySlot slot, ulong now)
 	{
 		WeaponState weapon = _player.GetMeleeWeaponOrUnarmed(slot);
-		widget?.Tick(now, IsCharging(weapon), _player.data.durabilityWarningFraction);
+		widget?.Tick(now, IsCharging(weapon), _player.Sim.SimData.durabilityWarningFraction);
 		hint?.SetProgress(GetChargeProgress(weapon, now));
 	}
 

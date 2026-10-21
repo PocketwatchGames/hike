@@ -38,7 +38,7 @@ public partial class Trapdoor : Node3D, IInteractive, IWorldEntity, ITriggerable
         return _actions != null && _actions.Count > 0 ? _actions : null;
     }
 
-    public void Complete(int actionIndex)
+    public void Complete(InteractiveAction action)
     {
         Toggle();
     }

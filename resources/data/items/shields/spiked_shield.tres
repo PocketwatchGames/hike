@@ -5,6 +5,8 @@
 [ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="5_parryfx"]
 [ext_resource type="PackedScene" path="res://scenes/items/shield_spiked_held.tscn" id="6_held"]
 [ext_resource type="Texture2D" uid="uid://s0u3880g3w8n" path="res://assets/textures/items/ShieldLarge.png" id="7_icon"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
 
 [sub_resource type="Resource" id="Resource_thorns"]
 script = ExtResource("2_damage")
@@ -27,6 +29,18 @@ knockbackTime = 0.25
 buildups = []
 modifiers = []
 
+[sub_resource type="Resource" id="salvage_yield_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 2
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="repair_cost_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 2
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
 [resource]
 script = ExtResource("1_shield")
 guardArmor = 220.0
@@ -41,8 +55,10 @@ parryEffect = ExtResource("5_parryfx")
 parryDecibels = 1.0
 weight = 1.0
 maxDurability = 600
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")])
 displayName = &"Spiked Shield"
 description = "Iron spikes bristle from its face. Anything that strikes it bleeds for the trouble, and a timed crouch drives the spikes home."
 value = 75
 inventorySprite = ExtResource("7_icon")
 heldModel = ExtResource("6_held")
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])

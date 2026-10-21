@@ -6,6 +6,8 @@
 
 [sub_resource type="Resource" id="quench_thirst"]
 script = ExtResource("3_restore")
+restoresFully = true
+refillsWaterFlasks = true
 metadata/_custom_type_script = "uid://djthfxu6qg30"
 
 [resource]

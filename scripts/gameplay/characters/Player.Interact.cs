@@ -237,6 +237,10 @@ public partial class Player : CharacterBody3D
 
 		IInteractive prevHighlight = _highlightInteractive;
 
+		// A corpse targeted by its hurtbox can free with it (butchered) before the
+		// exit signal can map the hurtbox back to the mob, so drop the dead entry.
+		_interactiveCollisions.RemoveAll(i => i is GodotObject o && !GodotObject.IsInstanceValid(o));
+
 		if (_interactiveCollisions.Count == 0)
 		{
 			_highlightInteractive = null;
@@ -306,20 +310,36 @@ public partial class Player : CharacterBody3D
 		return _interactiveCollisions.Contains(interactive);
 	}
 
+	// The interact area masks Interactive, DeadHurtBox and BurrowedHurtBox: a
+	// corpse or a burrowed mob is targeted by its hurtbox, so no mob scene has to
+	// author an InteractiveBox to be butchered or dug up. A mob that has both (a
+	// villager) is listed once.
 	private void OnInteractAreaEntered(Area3D area)
 	{
-		if (area is InteractiveBox box && box.Interactive != null)
+		IInteractive interactive = InteractiveOf(area);
+		if (interactive != null && !_interactiveCollisions.Contains(interactive))
 		{
-			_interactiveCollisions.Add(box.Interactive);
+			_interactiveCollisions.Add(interactive);
 		}
 	}
 
 	private void OnInteractAreaExited(Area3D area)
 	{
-		if (area is InteractiveBox box && box.Interactive != null)
+		IInteractive interactive = InteractiveOf(area);
+		if (interactive != null)
 		{
-			_interactiveCollisions.Remove(box.Interactive);
+			_interactiveCollisions.Remove(interactive);
 		}
+	}
+
+	private static IInteractive InteractiveOf(Area3D area)
+	{
+		return area switch
+		{
+			InteractiveBox box => box.Interactive,
+			HurtBox hurtBox => hurtBox.Owner as Mob,
+			_ => null,
+		};
 	}
 
 	// The pickup-attract sphere overlaps Loot rigid bodies (ECollisionLayer.Passive).

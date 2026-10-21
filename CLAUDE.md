@@ -619,14 +619,18 @@ Two events, and the split is the design:
   `WorldClockDays` value: an `UntilTimeOfDay` effect (`expireAtTimeOfDay01`,
   0 = dawn — fairy boons), each spoil cohort, the regrow deadline of berry trees,
   forges, fountains and forage. The only reads of `DayNumber` are RNG seeds.
-- **Lanterns refill at a campfire** (`Sim.RefuelPartyLanterns`: camping there or
-  returning home to one by the Ruby Rosaries) — never at a dawn or a sleep alone.
-  A fountain instead ADDS a flat amount and keeps what overflows the max
-  (`BonusLanternOil`, as its heal does `BonusHealth`). It is preserved overflow,
-  not a second pool: spent first by every kind of loss (blood costs included,
-  and never refunded by blood regen), untouched by capped refills and by changes
-  to the max, and itself capped (`PlayerData.maxBonusHealth` /
-  `maxBonusLanternOil`). Potions and spells cap at the max.
+- **Nothing a rest or a campfire does refills oil.** Oil lives in the equipped
+  lantern (`LanternState.oil`, `LanternData.oilCapacity`) backed by carried oil
+  flasks (`FlaskData`): burned lantern-first, refilled lantern-first (droplets,
+  the Lantern Oil consumable), and filled to the brim only by an oil fountain
+  (`RefillLanternOilEffect.fillCompletely`). Water flasks extend thirst the same
+  way and a well refills them. Flasks are the only way to carry more — there is
+  no oil overflow.
+- **A health fountain heals past the max** and keeps the overflow as
+  `BonusHealth`: spent first by every kind of loss (blood costs included, and
+  never refunded by blood regen), untouched by capped heals and by changes to
+  the max, and itself capped (`PlayerData.maxBonusHealth`). Potions and spells
+  cap at the max.
 - **A `[TimeOfDayCurve]` must read the same at 0 and 1** — the wrap is played,
   not hidden behind a fade, so `resource_check` refuses a curve that would jump.
 

@@ -93,12 +93,8 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity, IMobWard, IC
         return active != null && active.Count > 0 ? active : null;
     }
 
-    public void Complete(int actionIndex)
+    public void Complete(InteractiveAction action)
     {
-        Godot.Collections.Array<InteractiveAction> active = _active ? _litActions : _unlitActions;
-        InteractiveAction action = active != null && actionIndex >= 0 && actionIndex < active.Count
-            ? active[actionIndex]
-            : null;
         if (action == null)
         {
             return;

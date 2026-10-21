@@ -25,7 +25,7 @@ public sealed class PlayerSelfInteractive : IInteractive
 	public bool CanActorInteract(Player player) => true;
 
 	// Behavior lives on each action's completion ItemEffects, not here.
-	public void Complete(int actionIndex) { }
+	public void Complete(InteractiveAction action) { }
 
 	public Array<InteractiveAction> GetActions(Player player) => _player.SelfActions;
 }

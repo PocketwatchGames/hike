@@ -76,4 +76,6 @@ public enum EStatName
 	FatigueDrain,
 	// Hunger a food restores (ConsumableData.satiation).
 	Satiation,
+	// What a flask or lantern holds now, out of its capacity.
+	Contents,
 }

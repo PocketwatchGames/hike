@@ -46,6 +46,7 @@ stash_pick_how_many	Pick up how many?
 stash_send_how_many	Move how many?
 stash_drop	Drop
 item_drop_how_many	Drop how many?
+item_salvage	Salvage
 merchant_offer	Offer
 merchant_take_back	Take back
 merchant_request	Request
@@ -53,3 +54,9 @@ merchant_return	Return
 requires_key	Requires a Key
 item_used	%0 used
 item_used_count	%0 x%1 used
+panel_backpack	Backpack
+panel_stash	Stash
+panel_belt	Belt
+panel_merchant_stock	Wares
+panel_merchant_give	Give
+panel_merchant_get	Get

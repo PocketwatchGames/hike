@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="CarcassData" format=3]
+
+[ext_resource type="Script" uid="uid://tuewz3bb09f48" path="res://scripts/data/items/CarcassData.cs" id="1_carcass"]
+[ext_resource type="Texture2D" path="res://assets/textures/items/SparrowCarcass.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="harvest_row"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="harvest_desc"]
+[ext_resource type="Resource" uid="uid://uq5vwg0wvv0" path="res://resources/data/items/loot/sparrow_meat.tres" id="harvest_sparrow_meat"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/feather.tres" id="harvest_feather"]
+
+[sub_resource type="Resource" id="HarvestDesc_sparrow_meat"]
+script = ExtResource("harvest_desc")
+item = ExtResource("harvest_sparrow_meat")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Harvest_sparrow_meat"]
+script = ExtResource("harvest_row")
+item = SubResource("HarvestDesc_sparrow_meat")
+count = 2
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
+[sub_resource type="Resource" id="HarvestDesc_feather"]
+script = ExtResource("harvest_desc")
+item = ExtResource("harvest_feather")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Harvest_feather"]
+script = ExtResource("harvest_row")
+item = SubResource("HarvestDesc_feather")
+countRange = 1
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
+[resource]
+script = ExtResource("1_carcass")
+harvest = [SubResource("Harvest_sparrow_meat"), SubResource("Harvest_feather")]
+displayName = &"Sparrow Carcass"
+description = "A small bird, wings folded. Cut it up with a hunting knife."
+value = 1
+inventorySprite = ExtResource("2_icon")
+salvageTool = 1

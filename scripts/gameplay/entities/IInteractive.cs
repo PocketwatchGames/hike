@@ -21,11 +21,12 @@ public interface IInteractive
     // player has found and opened it.
     bool ShouldShowXray() => CanInteract();
 
-    // Resolution callback for the action at `actionIndex` in GetActions().
-    // Implementers look the action up themselves and branch on `action.verb`
-    // when behavior differs by verb (Open swings a door open while Lockpick
-    // reveals the lock state, Break smashes the chest, etc.).
-    void Complete(int actionIndex);
+    // Resolution callback for `action`, the one that just ran to completion.
+    // Branch on `action.verb` when behavior differs by verb (Open swings a door
+    // open while Lockpick reveals the lock state, Break smashes the chest, etc.).
+    // Given the action itself, not an index: GetActions may answer differently
+    // by the time the action completes (a corpse's Butcher hides in combat).
+    void Complete(InteractiveAction action);
 
     // Action-runner-driven interactivity. The Player's interact press starts
     // the action at the player's current index (default 0 — author the

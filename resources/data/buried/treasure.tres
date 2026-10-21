@@ -2,8 +2,9 @@
 
 [ext_resource type="Script" uid="uid://t427ud03hw9j3" path="res://scripts/data/buried/BuriedSpotStyleData.cs" id="1_style"]
 [ext_resource type="PackedScene" uid="uid://cmd7r8wq3n2va" path="res://scenes/props/dirt_mound.tscn" id="2_mound"]
+[ext_resource type="PackedScene" uid="uid://b8trz5wq4mkpv" path="res://scenes/fx/dig_treasure.tscn" id="3_fx"]
 
 [resource]
 script = ExtResource("1_style")
 dirtPileScene = ExtResource("2_mound")
-resultClass = 2
+digEffect = ExtResource("3_fx")

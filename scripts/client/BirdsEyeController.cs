@@ -85,10 +85,6 @@ public partial class BirdsEyeController : Node
 	// Eased fog-reveal radius (world metres). -1 = "snap to the frontier on the
 	// next overlook frame" (set on FlyUp start and after FlyDown completes).
 	float _revealRadius = -1f;
-	// Ground ambience bus name + its pre-overlook volume, captured on FlyUp so
-	// the eased duck restores cleanly even if the authored level changes.
-	const string AMBIENCE_BUS_NAME = "Ambience2D";
-	float _ambienceBaseVolumeDb;
 	// Authored built-in depth-fog range, captured on FlyUp so the eased push
 	// (and restore) ride the values the Environment was actually authored with.
 	float _builtinFogDepthBeginBase;
@@ -163,18 +159,8 @@ public partial class BirdsEyeController : Node
 
 	public override void _ExitTree()
 	{
-		// Safety net: a quit or scene change mid-overlook never runs the FlyDown
-		// teardown, so the globally-shared ground ambience bus would stay ducked
-		// — and the next overlook would snapshot that ducked level as its base,
-		// accumulating the duck across runs. Undo it here if still active.
-		if (_phase != EPhase.None)
-		{
-			int ambBus = AudioServer.GetBusIndex(AMBIENCE_BUS_NAME);
-			if (ambBus >= 0)
-			{
-				AudioServer.SetBusVolumeDb(ambBus, _ambienceBaseVolumeDb);
-			}
-		}
+		// A quit or scene change mid-overlook never runs the FlyDown teardown.
+		AudioVolume.ClearDuck(this);
 	}
 
 	// Player.onBirdsEye bridge. active=true starts the fly-up; active=false
@@ -217,18 +203,12 @@ public partial class BirdsEyeController : Node
 				_cloudOverheadPlane.Visible = CVars.clouds.Value;
 			}
 			// Audio: whoosh the lift, start the (silent) high-altitude wind loop
-			// that UpdateCamera fades in, and snapshot the ground ambience bus
-			// level so the eased duck restores to it on the descent.
+			// that UpdateCamera fades in.
 			swooshAudio?.Play();
 			if (windAudio != null)
 			{
 				windAudio.VolumeDb = WIND_DB_FLOOR;
 				windAudio.Play();
-			}
-			int ambBusUp = AudioServer.GetBusIndex(AMBIENCE_BUS_NAME);
-			if (ambBusUp >= 0)
-			{
-				_ambienceBaseVolumeDb = AudioServer.GetBusVolumeDb(ambBusUp);
 			}
 			// Snapshot the authored built-in depth-fog range so the eased push
 			// (and the restore on completion) stay relative to it.
@@ -428,11 +408,7 @@ public partial class BirdsEyeController : Node
 		{
 			windAudio.VolumeDb = Mathf.Lerp(WIND_DB_FLOOR, windVolumeDb, eased);
 		}
-		int ambBus = AudioServer.GetBusIndex(AMBIENCE_BUS_NAME);
-		if (ambBus >= 0)
-		{
-			AudioServer.SetBusVolumeDb(ambBus, _ambienceBaseVolumeDb - ambienceDuckDb * eased);
-		}
+		AudioVolume.SetDuck(this, ESfxBus.Ambience2D, -ambienceDuckDb * eased);
 
 		// Push the cloud band's world-Y bounds to the 2D cloud shader.
 		//
@@ -505,17 +481,13 @@ public partial class BirdsEyeController : Node
 				_cloudOverheadPlane.Visible = false;
 			}
 			// Restore audio: listener back to the player's head, wind loop off,
-			// ground ambience bus back to its pre-overlook level. eased is 0 at
+			// ground ambience duck cleared. eased is 0 at
 			// FlyDown completion, so these all landed at their rest values on the
 			// final frame already; this makes the reset explicit and stops the
 			// looping stream.
 			player.SetAudioListenerWorldOverride(null);
 			windAudio?.Stop();
-			int ambBusDone = AudioServer.GetBusIndex(AMBIENCE_BUS_NAME);
-			if (ambBusDone >= 0)
-			{
-				AudioServer.SetBusVolumeDb(ambBusDone, _ambienceBaseVolumeDb);
-			}
+			AudioVolume.ClearDuck(this);
 			player.OnBirdsEyeReturnComplete();
 		}
 	}

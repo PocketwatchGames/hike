@@ -28,6 +28,11 @@ public interface IItemGrid
 	// True when at least `count` units of `data` would fit through Add.
 	bool CanFullyAdd(ItemData data, int count);
 
+	// Whether `data` may sit in this grid at all — a sack takes only what it
+	// lists. PlaceAt and Add refuse what this refuses; a mover checks it first so
+	// a refused move detaches nothing.
+	bool Accepts(ItemData data);
+
 	// Move `count` units from one slot to another of this grid: onto an empty slot
 	// or a matching stack, or — for a whole stack — swapping with what is there.
 	// False when nothing moved.

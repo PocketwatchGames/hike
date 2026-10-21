@@ -22,6 +22,7 @@
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/bone_pile_2.tres" id="e_bone_pile_2"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/stump_1.tres" id="e_stump_1"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/stump_2.tres" id="e_stump_2"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/shell.tres" id="e_shell"]
 
 [sub_resource type="Resource" id="Row_goblin_swamp"]
 script = ExtResource("listrow")
@@ -155,8 +156,14 @@ script = ExtResource("listrow")
 squareMetersPerSpawn = 800.0
 entry = ExtResource("e_stump_2")
 
+[sub_resource type="Resource" id="Row_shell"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 400.0
+entry = ExtResource("e_shell")
+bands = 2
+
 [resource]
 script = ExtResource("1_list")
 displayName = "Swamp Fire"
 mapColor = Color(0.9, 0.35, 0.15, 1)
-rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_swamp"), SubResource("Row_goblin_swamp_elite"), SubResource("Row_mushroom_black"), SubResource("Row_mushroom_purple"), SubResource("Row_mushroom_red"), SubResource("Row_fire_trap"), SubResource("Resource_iyi6h"), SubResource("Resource_h43a1"), SubResource("Resource_yax8t"), SubResource("Resource_eq1gi"), SubResource("Row_bone_pile_1"), SubResource("Row_bone_pile_2"), SubResource("Row_stump_1"), SubResource("Row_stump_2")])
+rows = Array[ExtResource("listrow")]([SubResource("Row_goblin_swamp"), SubResource("Row_goblin_swamp_elite"), SubResource("Row_mushroom_black"), SubResource("Row_mushroom_purple"), SubResource("Row_mushroom_red"), SubResource("Row_fire_trap"), SubResource("Resource_iyi6h"), SubResource("Resource_h43a1"), SubResource("Resource_yax8t"), SubResource("Resource_eq1gi"), SubResource("Row_bone_pile_1"), SubResource("Row_bone_pile_2"), SubResource("Row_stump_1"), SubResource("Row_stump_2"), SubResource("Row_shell")])

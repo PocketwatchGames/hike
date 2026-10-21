@@ -9,7 +9,7 @@ using Godot;
 // in project.godot.
 //
 // THIS CODE OWNS the bindings for Interact / InteractCancel / Dash / UseItem /
-// Sneak: it overwrites whatever project.godot authored for them on
+// Sneak / Salvage: it overwrites whatever project.godot authored for them on
 // startup. Edit the set here, not the editor's Input Map, or your change is
 // silently undone.
 // If player-facing rebinding lands later, this becomes the supplier of defaults
@@ -21,6 +21,7 @@ public static class InputBindings
     private const string Dash = "Dash";
     private const string UseItem = "UseItem";
     private const string Sneak = "Sneak";
+    private const string Salvage = "Salvage";
 
     public static void Apply()
     {
@@ -41,6 +42,9 @@ public static class InputBindings
         SetBindings(InteractCancel, Key.Escape, JoyButton.B);
         SetBindings(UseItem, Key.Ctrl, JoyButton.Y);
         SetBindings(Sneak, Key.Shift, JoyAxis.TriggerLeft);
+        // A menu verb (break the highlighted item into its materials). F, not R:
+        // R is MenuQuaternary, the stash and merchant screens' Send.
+        SetBindings(Salvage, Key.F, JoyButton.RightStick);
     }
 
     // Replaces every binding on the action. Passing no key/button clears it.

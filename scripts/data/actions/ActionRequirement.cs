@@ -21,6 +21,12 @@ public partial class ActionRequirement : Resource
 	// path — weapon tier gating stays silent.
 	[Export] public StringName rejectMessage = "";
 
+	// Whether failing this gate HIDES the action rather than refusing the press —
+	// for a condition the player should never be prompted without (no tool
+	// carried), not one worth explaining (in combat). Only read where an
+	// interactive asks InteractiveAction.IsOfferedTo.
+	[Export] public bool hidesActionWhenUnmet = false;
+
 	public virtual bool Evaluate(IActionActor actor, in ActionContext context)
 	{
 		GD.PushError($"ActionRequirement subclass {GetType().Name} must override Evaluate.");

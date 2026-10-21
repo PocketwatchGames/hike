@@ -37,6 +37,15 @@ public partial class HurtBox : Area3D
     // stands on, so a ray aimed there terminates on the ground itself.
     public Vector3 Center => Shape != null ? Shape.GlobalPosition : GlobalPosition;
 
+    // Half the shape's vertical extent, for spatial queries that sample the body
+    // above and below Center. 0 for an unrecognised shape.
+    public float HalfHeight { get; private set; }
+
+    // Fraction of HalfHeight above and below Center that the reach rays aim at:
+    // well inside the body, so the lower ray stays clear of the ground the owner
+    // stands on.
+    private const float ReachSampleFraction = 0.5f;
+
     public override void _Ready()
     {
         foreach (Node child in GetChildren())
@@ -47,6 +56,46 @@ public partial class HurtBox : Area3D
                 break;
             }
         }
+        HalfHeight = Shape?.Shape switch
+        {
+            CapsuleShape3D capsule => capsule.Height * 0.5f,
+            CylinderShape3D cylinder => cylinder.Height * 0.5f,
+            SphereShape3D sphere => sphere.Radius,
+            BoxShape3D box => box.Size.Y * 0.5f,
+            _ => 0f,
+        };
+    }
+
+    // Whether something at `origin` can reach this body without passing through
+    // terrain. Several heights are tried and any clear one passes: a single ray
+    // grazing stepped voxel terrain catches a lip on a cm-scale change, so a mob
+    // one step down would flicker between reachable and not. Masks Environment
+    // only, so porous props (bushes, trees) don't shield what's behind them. A
+    // ray stopped by this body's own collider (a door's BlockCollider sits on
+    // Environment) has reached it: anything sharing this hurtbox's scene owner is
+    // the target, not cover.
+    public bool IsReachableFrom(PhysicsDirectSpaceState3D space, Vector3 origin)
+    {
+        Vector3 center = Center;
+        float offset = HalfHeight * ReachSampleFraction;
+        // Center first: the common case passes on one ray.
+        return IsRayClear(space, origin, center)
+            || (offset > 0f && IsRayClear(space, origin, center + Vector3.Up * offset))
+            || (offset > 0f && IsRayClear(space, origin, center - Vector3.Up * offset));
+    }
+
+    private bool IsRayClear(PhysicsDirectSpaceState3D space, Vector3 from, Vector3 to)
+    {
+        using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+        query.CollideWithAreas = false;
+        query.CollideWithBodies = true;
+        Godot.Collections.Dictionary result = space.IntersectRay(query);
+        if (result.Count == 0)
+        {
+            return true;
+        }
+        Node owner = Owner;
+        return owner != null && result["collider"].AsGodotObject() is Node blocker && blocker.Owner == owner;
     }
 
     // Safe wrapper for senders. A receiver that wires no CanHit filter accepts

@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="2_itemcount"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="3_desc"]
 [ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="3_ue510"]
-[ext_resource type="Resource" uid="uid://dibo02cdspray" path="res://resources/data/items/weapons/hammer.tres" id="4_club"]
+[ext_resource type="Resource" uid="uid://dibo02cdspray" path="res://resources/data/items/weapons/mace.tres" id="4_mace"]
 [ext_resource type="Resource" uid="uid://b6n2vvhvirjdk" path="res://resources/data/items/weapons/bow.tres" id="5_77kmh"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="9_g0m43"]
 [ext_resource type="Texture2D" uid="uid://cxfdn0d5db6mw" path="res://assets/textures/items/LeatherArmor.png" id="11_icon"]
@@ -12,7 +12,7 @@
 
 [sub_resource type="Resource" id="Desc_club"]
 script = ExtResource("3_desc")
-item = ExtResource("4_club")
+item = ExtResource("4_mace")
 metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [sub_resource type="Resource" id="Item_club"]
@@ -46,6 +46,7 @@ characterName = "The Hermit"
 gender = 1
 icon = ExtResource("11_icon")
 health = 0.9
+stamina = 2.0
 fortitude = 1.2
 perception = 1.3
 stealth = 1.1

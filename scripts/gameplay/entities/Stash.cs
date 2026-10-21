@@ -28,7 +28,7 @@ public partial class Stash : Node3D, IInteractive, IWorldEntity
         return _actions != null && _actions.Count > 0 ? _actions : null;
     }
 
-    public void Complete(int actionIndex)
+    public void Complete(InteractiveAction action)
     {
         GameClient.Current?.OpenStashScreen();
     }

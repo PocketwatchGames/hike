@@ -11,6 +11,11 @@
 [ext_resource type="Resource" uid="uid://b2yvplv8eksd2" path="res://resources/data/actions/mob_mantle_up_action.tres" id="11_mantleup"]
 [ext_resource type="Resource" uid="uid://dlvthyxyi2q6u" path="res://resources/data/actions/mob_mantle_down_action.tres" id="12_mantledown"]
 [ext_resource type="Resource" uid="uid://bl6624gx6bons" path="res://resources/data/blood/red_blood_large.tres" id="blood_1"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="harvest_row"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="harvest_desc"]
+[ext_resource type="Resource" uid="uid://bimryqq5iitw3" path="res://resources/data/items/loot/troll_meat.tres" id="harvest_troll_meat"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/hide.tres" id="harvest_hide"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/bone.tres" id="harvest_bone"]
 
 [sub_resource type="Resource" id="Resource_anim_attack"]
 script = ExtResource("7_animdata")
@@ -81,6 +86,37 @@ script = ExtResource("10_palette")
 recolors = [SubResource("Resource_base_entry")]
 metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
+[sub_resource type="Resource" id="HarvestDesc_troll_meat"]
+script = ExtResource("harvest_desc")
+item = ExtResource("harvest_troll_meat")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Harvest_troll_meat"]
+script = ExtResource("harvest_row")
+item = SubResource("HarvestDesc_troll_meat")
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
+[sub_resource type="Resource" id="HarvestDesc_hide"]
+script = ExtResource("harvest_desc")
+item = ExtResource("harvest_hide")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Harvest_hide"]
+script = ExtResource("harvest_row")
+item = SubResource("HarvestDesc_hide")
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
+[sub_resource type="Resource" id="HarvestDesc_bone"]
+script = ExtResource("harvest_desc")
+item = ExtResource("harvest_bone")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Harvest_bone"]
+script = ExtResource("harvest_row")
+item = SubResource("HarvestDesc_bone")
+countRange = 1
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
 [resource]
 script = ExtResource("1_vvowg")
 displayName = &"Troll"
@@ -124,4 +160,5 @@ mantleUpAction = ExtResource("11_mantleup")
 mantleDownAction = ExtResource("12_mantledown")
 maxFallHeight = 2
 maxSpeed = 8.0
+harvestLoot = [SubResource("Harvest_troll_meat"), SubResource("Harvest_hide"), SubResource("Harvest_bone")]
 metadata/_custom_type_script = "uid://b1016kfgr80a5"

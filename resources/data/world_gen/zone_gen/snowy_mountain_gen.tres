@@ -8,7 +8,6 @@
 [ext_resource type="Resource" uid="uid://plfdm4z98g767" path="res://resources/data/world_authoring/terrain/shore_stony.tres" id="6_kit_shore"]
 [ext_resource type="Resource" uid="uid://crwit5kc7vxce" path="res://resources/data/world_gen/spawn_lists/surface_entities_mountain.tres" id="7_surface_entities"]
 [ext_resource type="Resource" uid="uid://d2hbjjt516pxk" path="res://resources/data/world_gen/spawn_lists/cave_entities_mountain.tres" id="8_cave_entities"]
-[ext_resource type="Resource" uid="uid://vynhn4587uwg" path="res://resources/data/world_gen/spawn_lists/cave_water_entities_default.tres" id="9_cave_water"]
 [ext_resource type="Resource" uid="uid://ok7jp66gk0al" path="res://resources/data/world_gen/spawn_groups/zone_campfire_fixtures.tres" id="10_fixtures"]
 [ext_resource type="Script" uid="uid://38wffcrscjmc" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="11_zoneterrain"]
 [ext_resource type="Resource" uid="uid://bo7ej1snf13qx" path="res://resources/data/world_gen/foliage_gen/snowy_mountain.tres" id="F_foliage"]
@@ -40,6 +39,5 @@ forgeCount = 1
 forgeLevelMax = 1
 surfaceEntities = ExtResource("7_surface_entities")
 caveEntities = ExtResource("8_cave_entities")
-caveWaterEntities = ExtResource("9_cave_water")
 fixtures = ExtResource("10_fixtures")
 metadata/_custom_type_script = "uid://wwpw4gghcevs"

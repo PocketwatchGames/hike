@@ -9,6 +9,9 @@
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="6_recolor"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="7_palette"]
 [ext_resource type="Resource" uid="uid://f3gy8ulig0ypy" path="res://resources/data/blood/red_blood_small.tres" id="blood_1"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="harvest_row"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="harvest_desc"]
+[ext_resource type="Resource" uid="uid://cdl46y53kpu67" path="res://resources/data/items/loot/lurker_meat.tres" id="harvest_lurker_meat"]
 
 [sub_resource type="Resource" id="Resource_anim_dead"]
 script = ExtResource("2_anim")
@@ -59,6 +62,17 @@ script = ExtResource("7_palette")
 recolors = [SubResource("entry_lurker_body")]
 metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
+[sub_resource type="Resource" id="HarvestDesc_lurker_meat"]
+script = ExtResource("harvest_desc")
+item = ExtResource("harvest_lurker_meat")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Harvest_lurker_meat"]
+script = ExtResource("harvest_row")
+item = SubResource("HarvestDesc_lurker_meat")
+count = 2
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
 [resource]
 script = ExtResource("5_mobdata")
 blood = ExtResource("blood_1")
@@ -95,4 +109,5 @@ maxSpeed = 6.0
 foliageSpeedModifier = 0.0
 swimDepthThreshold = 1.0
 swimSpeed = 6.0
+harvestLoot = [SubResource("Harvest_lurker_meat")]
 metadata/_custom_type_script = "uid://b1016kfgr80a5"

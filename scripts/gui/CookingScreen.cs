@@ -32,6 +32,8 @@ public partial class CookingScreen : Control
 	// materials can be cooked.
 	[Export] private BackpackPanel _beltPanel;
 	[Export] private BackpackPanel _backpackPanel;
+	// One grid per sack the cook carries, under the backpack.
+	[Export] private SackPanels _sackPanels;
 	[Export] private BackpackPanel _stashPanel;
 	[Export] private CookingPanel _cookingPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
@@ -82,6 +84,11 @@ public partial class CookingScreen : Control
 			_backpackPanel.onSlotFocused += OnBackpackFocused;
 			_backpackPanel.onSlotButtonUp += OnBackpackMaterialTap;
 		}
+		if (_sackPanels != null)
+		{
+			_sackPanels.onSlotFocused += OnItemSlotFocused;
+			_sackPanels.onSlotButtonUp += OnSackMaterialTap;
+		}
 		if (_stashPanel != null)
 		{
 			_stashPanel.onSlotFocused += OnStashFocused;
@@ -113,6 +120,11 @@ public partial class CookingScreen : Control
 		{
 			_backpackPanel.onSlotFocused -= OnBackpackFocused;
 			_backpackPanel.onSlotButtonUp -= OnBackpackMaterialTap;
+		}
+		if (_sackPanels != null)
+		{
+			_sackPanels.onSlotFocused -= OnItemSlotFocused;
+			_sackPanels.onSlotButtonUp -= OnSackMaterialTap;
 		}
 		if (_stashPanel != null)
 		{
@@ -162,8 +174,7 @@ public partial class CookingScreen : Control
 		_drop.Arm(_hintDrop);
 		_cookingPanel?.HideAnnouncement();
 		Visible = true;
-		// Auto-highlight priority: a recipe the party can currently cook, else the
-		// first available ingredient, else the commit button. Deferred so the just-
+		// Auto-highlight: see ApplyInitialFocus. Deferred so the just-
 		// shown nodes are visible-in-tree (GrabFocus needs that) and so it runs after
 		// the visibility-change refresh has rebuilt the recipe list / repainted the
 		// stash.
@@ -171,22 +182,23 @@ public partial class CookingScreen : Control
 	}
 
 	// Choose the initial keyboard/gamepad focus when the tab opens, in priority
-	// order: a recipe the party can currently cook, otherwise the first available
-	// ingredient, otherwise the Cook button.
+	// order: the first item in the backpack, otherwise the first item anywhere
+	// else carried or stashed, otherwise a recipe the party can currently cook,
+	// otherwise the Cook button.
 	void ApplyInitialFocus()
 	{
 		if (!Visible)
 		{
 			return;
 		}
-		if (_cookingPanel != null && _cookingPanel.GrabFirstAvailableRecipeFocus())
+		ItemSlotPanel firstItem = _backpackPanel?.FirstOccupied() ?? _sackPanels?.FirstOccupied() ?? _beltPanel?.FirstOccupied() ?? _stashPanel?.FirstOccupied();
+		if (firstItem != null)
 		{
+			firstItem.GrabFocus();
 			return;
 		}
-		ItemSlotPanel firstIngredient = _backpackPanel?.FirstOccupied() ?? _beltPanel?.FirstOccupied() ?? _stashPanel?.FirstOccupied();
-		if (firstIngredient != null)
+		if (_cookingPanel != null && _cookingPanel.GrabFirstAvailableRecipeFocus())
 		{
-			firstIngredient.GrabFocus();
 			return;
 		}
 		_cookingPanel?.GrabCookButtonFocus();
@@ -247,6 +259,14 @@ public partial class CookingScreen : Control
 		RefreshMaterials(_beltPanel, CookInventory?.Belt?.Slots);
 		RefreshMaterials(_backpackPanel, CookInventory?.Backpack?.Slots);
 		RefreshMaterials(_stashPanel, Stash?.Slots);
+		if (_sackPanels != null)
+		{
+			_sackPanels.Refresh(CookInventory);
+			foreach ((Inventory.CarriedGrid _, BackpackPanel panel) in _sackPanels.EnumeratePanels())
+			{
+				MarkUncookable(panel);
+			}
+		}
 	}
 
 	static void RefreshMaterials(BackpackPanel panel, IReadOnlyList<ItemState> slots)
@@ -256,6 +276,11 @@ public partial class CookingScreen : Control
 			return;
 		}
 		panel.Refresh(slots);
+		MarkUncookable(panel);
+	}
+
+	static void MarkUncookable(BackpackPanel panel)
+	{
 		foreach (ItemSlotPanel slot in panel.EnumerateSlots())
 		{
 			slot.SetUnavailable(slot.Item != null && !IsCookable(slot.Item));
@@ -327,7 +352,7 @@ public partial class CookingScreen : Control
 	// Null while the cursor is anywhere but an item slot.
 	ItemState FocusedItem()
 	{
-		if (_focusedGrid == null || _focusedPanel == null || !_focusedPanel.HasFocus())
+		if (_focusedGrid == null || _focusedPanel == null || !_focusedPanel.HasButtonFocus())
 		{
 			return null;
 		}
@@ -349,6 +374,11 @@ public partial class CookingScreen : Control
 	void OnStashMaterialTap(int index, ItemSlotPanel panel)
 	{
 		CookMaterial(Stash, index, 1);
+	}
+
+	void OnSackMaterialTap(Inventory.CarriedGrid grid, int index, ItemSlotPanel panel)
+	{
+		CookMaterial(grid, index, 1);
 	}
 
 	// Move up to `count` units of the material at `grid[index]` into the cooking

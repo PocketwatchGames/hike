@@ -24,11 +24,13 @@
 [ext_resource type="PackedScene" uid="uid://ce444jxc8syqg" path="res://scenes/items/knife_held.tscn" id="17_held"]
 [ext_resource type="Resource" uid="uid://ctqy5r6q3jmsx" path="res://resources/data/characters/human/anim_sets/knife.tres" id="20_animset"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
+[ext_resource type="Script" uid="uid://65nod8j9othuq" path="res://scripts/data/items/ToolUse.cs" id="tool_use"]
 
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
 type = 65
-durabilityCostOnHit = 1.0
 nearWidth = 0.4
 farWidth = 1.6
 smearEffect = ExtResource("8_lqdfk")
@@ -37,6 +39,7 @@ impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 impactDecibels = 0.3
+durabilityCostOnHit = 1.0
 
 [sub_resource type="Resource" id="Resource_knife_swing1"]
 script = ExtResource("21_repeat")
@@ -84,7 +87,6 @@ impactBackstabEffect = ExtResource("7_hitkill")
 [sub_resource type="Resource" id="Resource_event_flurry1"]
 script = ExtResource("3_event")
 type = 65
-durabilityCostOnHit = 1.0
 range = 3.0
 nearWidth = 0.6
 farWidth = 0.6
@@ -96,12 +98,12 @@ impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 impactDecibels = 0.6
+durabilityCostOnHit = 1.0
 
 [sub_resource type="Resource" id="Resource_event_flurry2"]
 script = ExtResource("3_event")
 time = 300
 type = 1089
-durabilityCostOnHit = 1.0
 range = 4.0
 nearWidth = 0.6
 farWidth = 0.6
@@ -115,12 +117,12 @@ impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 impactDecibels = 0.6
+durabilityCostOnHit = 1.0
 
 [sub_resource type="Resource" id="Resource_event_flurry3"]
 script = ExtResource("3_event")
 time = 600
 type = 1089
-durabilityCostOnHit = 1.0
 range = 5.0
 nearWidth = 0.6
 farWidth = 0.6
@@ -133,6 +135,7 @@ impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 impactDecibels = 0.6
+durabilityCostOnHit = 1.0
 
 [sub_resource type="Resource" id="Resource_wqpe1"]
 script = ExtResource("4_charged")
@@ -215,18 +218,39 @@ knockbackTime = 0.15
 buildups = []
 modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
 
+[sub_resource type="Resource" id="salvage_yield_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="ToolUse_main"]
+script = ExtResource("tool_use")
+kind = 1
+wear = 5.0
+metadata/_custom_type_script = "uid://65nod8j9othuq"
+
+[sub_resource type="Resource" id="repair_cost_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
 [resource]
 script = ExtResource("2_weapon")
-weight = 0.1
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"charged": SubResource("Resource_qsf28"),
 &"primary": SubResource("Resource_damage")
 })
 actionProfile = SubResource("Resource_profile")
 animSet = ExtResource("20_animset")
-displayName = &"Knife"
-description = "A light, fast blade. Extra damage from behind."
+weight = 0.1
+maxDurability = 150
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")])
+displayName = &"Hunting Knife"
+description = "A light, fast blade. Extra damage from behind, and keen enough to butcher a kill."
 value = 50
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("17_held")
-maxDurability = 150
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])
+toolUses = Array[ExtResource("tool_use")]([SubResource("ToolUse_main")])

@@ -1,0 +1,48 @@
+[gd_scene format=3 uid="uid://c5bkrvppvc08t"]
+
+[ext_resource type="Script" uid="uid://b7hwld3k9mxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_5jjap"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="2_e6rim"]
+
+[sub_resource type="ShaderMaterial" id="Mat_4ty7l"]
+render_priority = 0
+shader = ExtResource("2_e6rim")
+shader_parameter/form_strength = 0.55
+shader_parameter/light_normal_bias = 0.0
+shader_parameter/color_tint = Color(0.23, 0.18745, 0.1449, 1)
+shader_parameter/emission_tint = Color(0, 0, 0, 1)
+shader_parameter/emission_strength = 0.0
+shader_parameter/specular_strength = 0.0
+shader_parameter/specular_color = Color(1, 1, 1, 1)
+shader_parameter/specular_shininess = 32.0
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.55
+
+[sub_resource type="ShaderMaterial" id="Mat_blade"]
+render_priority = 0
+shader = ExtResource("2_e6rim")
+shader_parameter/color_tint = Color(0.55, 0.57, 0.6, 1)
+shader_parameter/specular_shininess = 40.0
+shader_parameter/specular_strength = 0.8
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_4ty7l"]
+material = SubResource("Mat_4ty7l")
+top_radius = 0.045
+bottom_radius = 0.04
+height = 0.75
+
+[sub_resource type="BoxMesh" id="BoxMesh_5jjap"]
+material = SubResource("Mat_blade")
+size = Vector3(0.24, 0.18, 0.025)
+
+[node name="HatchetHeld" type="Node3D" unique_id=521571708]
+script = ExtResource("1_5jjap")
+
+[node name="Haft" type="MeshInstance3D" parent="." unique_id=749498337]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.37, 0)
+mesh = SubResource("CylinderMesh_4ty7l")
+
+[node name="Head" type="MeshInstance3D" parent="." unique_id=1770705554]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.1, 0.66, 0)
+mesh = SubResource("BoxMesh_5jjap")

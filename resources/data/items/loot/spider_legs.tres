@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://d0y12rtrmtgie"]
 
 [ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_loot_data"]
-[ext_resource type="Texture2D" uid="uid://ujfdpwtjasil" path="res://assets/textures/items/SpiderLegs.png" id="2_inv"]
+[ext_resource type="Texture2D" path="res://assets/textures/items/CurvedLegs.png" id="2_inv"]
 [ext_resource type="Resource" uid="uid://cfntew4gqccww" path="res://resources/data/items/loot/meat.tres" id="3_parent"]
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="apply_status"]
 [ext_resource type="Resource" uid="uid://cfgrdp0ehape4" path="res://resources/data/status_effects/status_food_poisoning.tres" id="food_poisoning"]

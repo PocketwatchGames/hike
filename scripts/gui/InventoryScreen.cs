@@ -1,7 +1,7 @@
 using Godot;
 
 // Inventory tab rendered inside AlmanacScreen: player stats, the member's equip
-// slots, the belt and the whole backpack slot for slot — highlighting a slot reads its item
+// slots, the belt, the whole backpack and each carried sack slot for slot — highlighting a slot reads its item
 // out in the detail panel. Everything is editable:
 //   A  — select the highlighted item; with one selected, move it to the
 //        highlighted slot. Grid to grid (belt or backpack) swaps with whatever is there; an
@@ -11,6 +11,7 @@ using Godot;
 //   Y  — use / light / put out the highlighted item, per its kind and state.
 //   RT — drop the highlighted item at the member's feet: a tap drops the whole
 //        stack, a hold asks how many.
+//   RS — hold to salvage one unit of the highlighted item into its materials.
 // The button hints belong to AlmanacScreen, which hands them over
 // (BindActionHints) and hides them on every other tab.
 [GlobalClass]
@@ -23,6 +24,8 @@ public partial class InventoryScreen : Control
 	[Export] private ItemCountPanel _countPanel;
 	// How long Drop must be held to ask how many instead of dropping the stack.
 	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _dropHoldSeconds = 0.6f;
+	// Salvage destroys the item, so it is hold-only — a tap does nothing.
+	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _salvageHoldSeconds = 0.6f;
 
 	// A's glyph follows the primary-verb convention of the other inventory-style
 	// screens; the press itself arrives as the slot button's own activation.
@@ -30,32 +33,35 @@ public partial class InventoryScreen : Control
 	const string EquipAction = "MenuSecondary";
 	const string UseAction = "MenuTertiary";
 	const string DropAction = "MenuQuinary";
+	const string SalvageAction = "Salvage";
 
 	enum ESide
 	{
 		None,
-		Belt,
-		Backpack,
+		// A slot of one of the member's grids — belt, backpack or a sack.
+		Carried,
 		// The equip slots; the index is the EInventorySlot.
 		Equip,
 	}
 
-	// A slot of the member's inventory: a belt or backpack index, or an equip slot.
+	// A slot of the member's inventory: a grid and its index, or an equip slot.
 	readonly struct Slot
 	{
 		public readonly ESide side;
+		public readonly Inventory.CarriedGrid grid;
 		public readonly int index;
 
-		public Slot(ESide side, int index)
+		public Slot(ESide side, int index, Inventory.CarriedGrid grid = null)
 		{
 			this.side = side;
+			this.grid = grid;
 			this.index = index;
 		}
 
 		public static readonly Slot None = new(ESide.None, -1);
 		public bool IsNone => side == ESide.None;
 		public bool equip => side == ESide.Equip;
-		public bool Is(Slot other) => side == other.side && index == other.index;
+		public bool Is(Slot other) => side == other.side && grid == other.grid && index == other.index;
 		public EInventorySlot EquipSlot => equip ? (EInventorySlot)index : EInventorySlot.None;
 	}
 
@@ -65,33 +71,36 @@ public partial class InventoryScreen : Control
 	ButtonHint _hintEquip;
 	ButtonHint _hintUse;
 	ButtonHint _hintDrop;
+	ButtonHint _hintSalvage;
 
 	// The slot under the cursor, and the slot picked up for a move.
 	Slot _focused = Slot.None;
 	Slot _selected = Slot.None;
 	readonly PolledHold _drop = new(DropAction);
+	readonly PolledHold _salvage = new(SalvageAction);
 
 	public void Initialize(GameClient gameClient)
 	{
 		_gameClient = gameClient;
 	}
 
-	public void BindActionHints(ButtonHint select, ButtonHint equip, ButtonHint use, ButtonHint drop)
+	public void BindActionHints(ButtonHint select, ButtonHint equip, ButtonHint use, ButtonHint drop, ButtonHint salvage)
 	{
 		_hintSelect = select;
 		_hintEquip = equip;
 		_hintUse = use;
 		_hintDrop = drop;
+		_hintSalvage = salvage;
 		UpdateHints();
 	}
 
 	public override void _Ready()
 	{
 		VisibilityChanged += OnVisibilityChanged;
-		WireGrid(_inventoryPanel?.BeltGrid, ESide.Belt);
-		WireGrid(_inventoryPanel?.BackpackGrid, ESide.Backpack);
 		if (_inventoryPanel != null)
 		{
+			_inventoryPanel.onGridSlotFocused += (grid, index, _) => OnSlotFocused(new Slot(ESide.Carried, index, grid));
+			_inventoryPanel.onGridSlotButtonUp += (grid, index, _) => OnSlotActivated(new Slot(ESide.Carried, index, grid));
 			foreach (EInventorySlot equip in InventoryPanel.EquipSlots)
 			{
 				ItemSlotPanel panel = _inventoryPanel.EquipPanel(equip);
@@ -107,16 +116,6 @@ public partial class InventoryScreen : Control
 		_highlightPanel?.SetItem(null);
 	}
 
-	void WireGrid(BackpackPanel grid, ESide side)
-	{
-		if (grid == null)
-		{
-			return;
-		}
-		grid.onSlotFocused += (index, _) => OnSlotFocused(new Slot(side, index));
-		grid.onSlotButtonUp += (index, _) => OnSlotActivated(new Slot(side, index));
-	}
-
 	void OnVisibilityChanged()
 	{
 		if (Visible)
@@ -129,6 +128,7 @@ public partial class InventoryScreen : Control
 			}
 			Refresh();
 			_drop.Arm(_hintDrop);
+			_salvage.Arm(_hintSalvage);
 			// Deferred: GrabFocus needs the slot visible-in-tree, and the focus it
 			// takes is what fills the highlight panel.
 			Callable.From(ApplyInitialFocus).CallDeferred();
@@ -159,16 +159,6 @@ public partial class InventoryScreen : Control
 
 	Inventory Inv => _player?.Inventory;
 
-	static Inventory.CarriedGrid Grid(Inventory inv, Slot slot)
-	{
-		return slot.side switch
-		{
-			ESide.Belt => inv?.Belt,
-			ESide.Backpack => inv?.Backpack,
-			_ => null,
-		};
-	}
-
 	ItemState ItemAt(Slot slot)
 	{
 		Inventory inv = Inv;
@@ -176,7 +166,7 @@ public partial class InventoryScreen : Control
 		{
 			return null;
 		}
-		return slot.equip ? inv.GetEquipped(slot.EquipSlot) : Grid(inv, slot)?.At(slot.index);
+		return slot.equip ? inv.GetEquipped(slot.EquipSlot) : slot.grid?.At(slot.index);
 	}
 
 	// A slot took focus (D-pad / keyboard, or the mouse hovering it —
@@ -218,7 +208,7 @@ public partial class InventoryScreen : Control
 
 	static void MoveTo(Inventory inv, Slot from, Slot to)
 	{
-		ItemState moving = from.equip ? inv.GetEquipped(from.EquipSlot) : Grid(inv, from)?.At(from.index);
+		ItemState moving = from.equip ? inv.GetEquipped(from.EquipSlot) : from.grid?.At(from.index);
 		if (moving == null || (from.equip && to.equip))
 		{
 			return;
@@ -233,10 +223,10 @@ public partial class InventoryScreen : Control
 		}
 		if (from.equip)
 		{
-			inv.UnequipTo(from.EquipSlot, Grid(inv, to), to.index);
+			inv.UnequipTo(from.EquipSlot, to.grid, to.index);
 			return;
 		}
-		inv.Move(Grid(inv, from), from.index, Grid(inv, to), to.index, moving.stackCount);
+		inv.Move(from.grid, from.index, to.grid, to.index, moving.stackCount);
 	}
 
 	public override void _UnhandledInput(InputEvent e)
@@ -272,6 +262,7 @@ public partial class InventoryScreen : Control
 			return;
 		}
 		TickDropHold((float)delta);
+		TickSalvageHold((float)delta);
 	}
 
 	void TickDropHold(float dt)
@@ -289,9 +280,27 @@ public partial class InventoryScreen : Control
 		}
 	}
 
+	void TickSalvageHold(float dt)
+	{
+		ItemState item = _selected.IsNone ? ItemAt(_focused) : null;
+		if (_salvage.Tick(ItemTransfer.CanSalvage(item, _player), dt, _salvageHoldSeconds, _hintSalvage) != PolledHold.EResult.Hold)
+		{
+			return;
+		}
+		if (_focused.equip)
+		{
+			ItemTransfer.SalvageEquipped(_player, _focused.EquipSlot);
+		}
+		else
+		{
+			ItemTransfer.Salvage(_focused.grid, _focused.index, _player);
+		}
+	}
+
 	void ResetDropHold()
 	{
 		_drop.Reset(_hintDrop);
+		_salvage.Reset(_hintSalvage);
 	}
 
 	void SetSelection(Slot slot)
@@ -309,25 +318,18 @@ public partial class InventoryScreen : Control
 		{
 			return;
 		}
-		ApplySlotStates(_inventoryPanel.BeltGrid, ESide.Belt);
-		ApplySlotStates(_inventoryPanel.BackpackGrid, ESide.Backpack);
+		foreach ((Inventory.CarriedGrid grid, BackpackPanel panel) in _inventoryPanel.EnumerateCarriedPanels())
+		{
+			int i = 0;
+			foreach (ItemSlotPanel slot in panel.EnumerateSlots())
+			{
+				slot.SetDimmed(_selected.Is(new Slot(ESide.Carried, i, grid)));
+				i++;
+			}
+		}
 		foreach (EInventorySlot equip in InventoryPanel.EquipSlots)
 		{
 			_inventoryPanel.EquipPanel(equip)?.SetDimmed(_selected.Is(new Slot(ESide.Equip, (int)equip)));
-		}
-	}
-
-	void ApplySlotStates(BackpackPanel grid, ESide side)
-	{
-		if (grid == null)
-		{
-			return;
-		}
-		int i = 0;
-		foreach (ItemSlotPanel slot in grid.EnumerateSlots())
-		{
-			slot.SetDimmed(_selected.Is(new Slot(side, i)));
-			i++;
 		}
 	}
 
@@ -340,12 +342,14 @@ public partial class InventoryScreen : Control
 			ShowHint(_hintEquip, EquipAction, null);
 			ShowHint(_hintUse, UseAction, null);
 			ShowHint(_hintDrop, DropAction, null);
+			ShowHint(_hintSalvage, SalvageAction, null);
 			return;
 		}
 		ShowHint(_hintSelect, SelectAction, focused != null ? "Select" : null);
 		ShowHint(_hintEquip, EquipAction, EquipVerb(_player, focused));
 		ShowHint(_hintUse, UseAction, UseVerb(_player, focused));
 		ShowHint(_hintDrop, DropAction, focused != null ? "Drop" : null);
+		ShowHint(_hintSalvage, SalvageAction, ItemTransfer.CanSalvage(focused, _player) ? Loc.Get(Loc.Keys.item_salvage) : null);
 	}
 
 	// A null label hides the hint.

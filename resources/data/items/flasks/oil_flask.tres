@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="FlaskData" format=3 uid="uid://dbndoexg17nni"]
+
+[ext_resource type="Script" uid="uid://fqmhesovetny" path="res://scripts/data/items/FlaskData.cs" id="1_flask"]
+[ext_resource type="Texture2D" uid="uid://or166uu7rs4p" path="res://assets/textures/items/FlaskOil.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_flask")
+liquid = 1
+capacity = 50.0
+displayName = &"Oil Flask"
+description = "Spare lamp oil that feeds your lantern once it runs dry. Refill it at an oil fountain."
+value = 8
+inventorySprite = ExtResource("2_icon")
+metadata/_custom_type_script = "uid://fqmhesovetny"

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "salvage"
+description = "Salvageable gear at your feet: a saber, a hatchet and plate armor (Steel), a musket, a pistol and an air rifle (Steel), a bow (Sinew + Fiber), leather and fur armor, and shells (Beads). Hold Salvage (F / RS) on one in the inventory."
+commands = "spawn_loot saber 1
+spawn_loot hatchet 1
+spawn_loot plate_armor 1
+spawn_loot musket 1
+spawn_loot pistol 1
+spawn_loot air_rifle 1
+spawn_loot bow 1
+spawn_loot leather_armor 1
+spawn_loot fur_coat 1
+spawn_loot shell 3"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

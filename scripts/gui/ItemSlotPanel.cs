@@ -15,6 +15,10 @@ public partial class ItemSlotPanel : PanelContainer
 	// commit. Authored hidden in the scene; null safely no-ops in SetGhost.
 	[Export] private TextureRect _ghostOverlay;
 	[Export] private Control _statusContainer;
+	// Gear condition overlays (GearState.Condition), the same art the HUD's
+	// WeaponHud draws: warning while worn, broken once it is.
+	[Export] private CanvasItem _durabilityWarning;
+	[Export] private CanvasItem _durabilityBroken;
 	// Icon tint for an item the current screen can't act on (a non-material on
 	// the cooking screen).
 	[Export] private Color _unavailableTint = new Color(0.35f, 0.35f, 0.35f, 0.6f);
@@ -140,6 +144,23 @@ public partial class ItemSlotPanel : PanelContainer
 			}
 		}
 		RebuildStatusIcons(item);
+		UpdateDurability(item);
+	}
+
+	private void UpdateDurability(ItemState item)
+	{
+		float warningFraction = Sim.Current?.SimData.durabilityWarningFraction ?? 0f;
+		GearState.ECondition condition = item is GearState gear
+			? gear.Condition(warningFraction)
+			: GearState.ECondition.Sound;
+		if (_durabilityWarning != null)
+		{
+			_durabilityWarning.Visible = condition == GearState.ECondition.Worn;
+		}
+		if (_durabilityBroken != null)
+		{
+			_durabilityBroken.Visible = condition == GearState.ECondition.Broken;
+		}
 	}
 
 	// Refresh `_statusContainer` to one StatusEffectIcon per *armed* effect

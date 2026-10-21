@@ -2923,6 +2923,51 @@ public sealed class WorldGen
         return h == heightMap.GetPlateau(wx, wz) && h >= TerrainMath.WaterYAt(heightMap, wx, wz);
     }
 
+    // Is this column the dry lip of a beach? The ONE beach test: the fill stamps
+    // its top voxel with the zone's shore terrain, and the spawn scan rolls its
+    // Shore rows here, so the beach's sand and the beach's spawns are the same
+    // columns. Geometry only — a zone with no shore terrain still has a shore to
+    // spawn on, it is just not drawn as sand.
+    //
+    // A beach, not a contour line. The elevation band alone (a per-column random
+    // height in [shoreElevationMin, shoreElevationMax] above the waterline, so the
+    // shoreline is jagged rather than an isobar) dressed every voxel in it, which
+    // put sand on the face of any cliff rising out of the sea and on lowland
+    // plains nowhere near water. So the column's TOP must sit in the band, and
+    // some column within shoreWaterDistance must hold water — answered off the
+    // heightmap, because the fill asks while the voxel grid is still being
+    // written: a column holds water when its ground sits below its own waterline.
+    private static bool IsShoreColumn(int wx, int wz, ZoneGenData zone, HeightMap heightMap)
+    {
+        if (zone == null)
+        {
+            return false;
+        }
+        int solidHeight = heightMap.GetHeight(wx, wz);
+        int waterY = TerrainMath.WaterYAt(heightMap, wx, wz);
+        float shoreUpperMeters = Mathf.Lerp(zone.shoreElevationMin, zone.shoreElevationMax,
+            TerrainMath.HashFloat01(wx, wz, SHORE_UPPER_HASH_SALT));
+        int shoreUpperY = waterY + (int)Math.Round(shoreUpperMeters);
+        if (solidHeight <= waterY || solidHeight > shoreUpperY)
+        {
+            return false;
+        }
+        int shoreReach = Math.Max(zone.shoreWaterDistance, 1);
+        for (int dx = -shoreReach; dx <= shoreReach; dx++)
+        {
+            for (int dz = -shoreReach; dz <= shoreReach; dz++)
+            {
+                int nx = wx + dx;
+                int nz = wz + dz;
+                if (heightMap.GetHeight(nx, nz) < TerrainMath.WaterYAt(heightMap, nx, nz))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     // True iff (wx, wz) sits on an obvious flat patch — the column itself
     // is flat-dry-grass AND all 8 neighbors share the same Height. Rejects
     // both step-edge columns (neighbor lower = cliff drop) and ramp-adjacent
@@ -2990,65 +3035,16 @@ public sealed class WorldGen
                     ? SharpAxes.None
                     : SharpAxes.Y);
 
-                // Per-column terrain pick + above-water shore band, hoisted out of
-                // the y loop because both depend only on (wx, wz). The shore
-                // upper bound is a per-column random value in
-                // [ShoreElevationMin, ShoreElevationMax] meters above sea
-                // level — keeps the shoreline jagged instead of a flat
-                // isobar. Columns whose zone has no ShoreTerrain get an empty
-                // band (shoreUpperY = TerrainMath.SEA_LEVEL → no voxel falls in it).
-                // The waterline this column answers to — the sea, or a river /
-                // lake surface above it. Both the fill below and the shore band
-                // are measured from it, so a lake gets the same beach lip at its
-                // own level that the coast gets at sea level.
+                // Per-column terrain pick + beach test, hoisted out of the y loop
+                // because both depend only on (wx, wz). The waterline this column
+                // answers to is the sea, or a river / lake surface above it.
                 int waterY = TerrainMath.WaterYAt(heightMap, wx, wz);
                 int terrainZone = _zones.PickTerrainZone(wx, wz, data.ZoneIndex);
                 ZoneGenData terrainZoneData = terrainZone >= 0 ? genData.ZoneGens[terrainZone] : null;
                 byte surfaceTerrainId = palette.SlotOf(terrainZoneData?.surfaceTerrain);
-                byte shoreTerrainId = surfaceTerrainId;
-                int shoreUpperY = waterY;
-                if (terrainZoneData != null && terrainZoneData.shoreTerrain != null)
-                {
-                    shoreTerrainId = palette.SlotOf(terrainZoneData.shoreTerrain);
-                    float shoreUpperR = TerrainMath.HashFloat01(wx, wz, SHORE_UPPER_HASH_SALT);
-                    float shoreUpperMeters = Mathf.Lerp(
-                        terrainZoneData.shoreElevationMin,
-                        terrainZoneData.shoreElevationMax,
-                        shoreUpperR);
-                    shoreUpperY = waterY + (int)Math.Round(shoreUpperMeters);
-                }
-
-                // Sand is a BEACH, not a contour line. The elevation band alone
-                // dressed every solid voxel inside it, which put sand on the FACE
-                // of any cliff rising out of the sea and on lowland plains nowhere
-                // near water — and because the block carries footsteps and climb
-                // growth, all of that followed the wrong material too.
-                //
-                // Two extra tests, hoisted here because both depend only on the
-                // column: its top must be the voxel in the band (a wall face is
-                // not a beach, so the surface voxel alone qualifies below), and it
-                // must actually be beside water. The submerged pass answers that
-                // by finding a Water voxel; up here the grid is still being
-                // written, so the heightmap answers instead — a neighbouring
-                // column holds water when its ground sits below its own waterline.
-                bool columnIsBeach = false;
-                if (terrainZoneData != null && terrainZoneData.shoreTerrain != null
-                    && solidHeight > waterY && solidHeight <= shoreUpperY)
-                {
-                    int shoreReach = Math.Max(terrainZoneData.shoreWaterDistance, 1);
-                    for (int dx = -shoreReach; dx <= shoreReach && !columnIsBeach; dx++)
-                    {
-                        for (int dz = -shoreReach; dz <= shoreReach && !columnIsBeach; dz++)
-                        {
-                            int nx = wx + dx;
-                            int nz = wz + dz;
-                            if (heightMap.GetHeight(nx, nz) < TerrainMath.WaterYAt(heightMap, nx, nz))
-                            {
-                                columnIsBeach = true;
-                            }
-                        }
-                    }
-                }
+                bool hasShoreTerrain = terrainZoneData?.shoreTerrain != null;
+                byte shoreTerrainId = hasShoreTerrain ? palette.SlotOf(terrainZoneData.shoreTerrain) : surfaceTerrainId;
+                bool columnIsBeach = hasShoreTerrain && IsShoreColumn(wx, wz, terrainZoneData, heightMap);
 
                 for (int y = 0; y < ChunkState.SIZE; y++)
                 {
@@ -3115,10 +3111,9 @@ public sealed class WorldGen
                     // on actual water adjacency, so buried rock under above-
                     // water cliffs stays SurfaceTerrain (no sand bleed on cliff
                     // faces). Cave interiors are later re-stamped to CaveTerrain
-                    // by MarkCaveSurfaceShapes. Above-water voxels in the
-                    // shore band (wy in (TerrainMath.SEA_LEVEL, shoreUpperY]) take the
-                    // zone's ShoreTerrain so the beach lip at water's edge reads
-                    // as sand even on land.
+                    // by MarkCaveSurfaceShapes. The top voxel of a beach column
+                    // (IsShoreColumn) takes the zone's ShoreTerrain so the lip at
+                    // water's edge reads as sand even on land.
                     data.TerrainId[x, y, z] = (byte)terrain;
                 }
             }
@@ -3755,9 +3750,15 @@ public sealed class WorldGen
                     // here (a camp-group chest forwards the context to its
                     // sub-entries). Distributed loot is applied in a later pass.
                     surfaceContext.ZonePerChestLoot = spawnZone.perChestLoot;
+                    // Asked of the TERRAIN zone, as the fill asked it, so a
+                    // column's Shore rows land exactly on its sand.
+                    int terrainZone = _zones.PickTerrainZone(wx, wz, data.ZoneIndex);
+                    ESpawnBand band = terrainZone >= 0 && IsShoreColumn(wx, wz, zonesArr[terrainZone], heightMap)
+                        ? ESpawnBand.Shore
+                        : ESpawnBand.Dry;
                     foreach (SpawnListRow row in spawnZone.surfaceEntities.rows)
                     {
-                        if (row?.entry == null) { continue; }
+                        if (row?.entry == null || !row.SpawnsIn(band)) { continue; }
                         bool isMob = row.entry is MobSpawnEntry;
                         if (isMob ? skipMobs : skipInteractives) { continue; }
                         if (!row.RollAreaChance(rng)) { continue; }
@@ -3768,9 +3769,9 @@ public sealed class WorldGen
         }
 
         // Water pass: per water-surface column, roll the matching zone's
-        // WaterEntities — aquatic mobs that live submerged. Mirrors the surface
-        // pass but anchors at the water surface instead of dry ground. Gated on
-        // the zone actually authoring a WaterEntities list (most don't), so the
+        // SurfaceEntities rows that spawn Submerged — aquatic mobs. Mirrors the
+        // surface pass but anchors at the water surface instead of dry ground.
+        // Gated on the list having any Submerged row (most don't), so the
         // full-column water-surface scan stays off the hot path everywhere but
         // the zones that want underwater life.
         if (!skipMobs || !skipInteractives)
@@ -3791,8 +3792,6 @@ public sealed class WorldGen
                 }
                 return int.MinValue;
             }
-            // Minimum water-column depth (voxels) a spawned swimmer needs to fit.
-            const int MIN_WATER_DEPTH = 2;
             var waterContext = Ctx(ws, new SpawnContext {
                 SurfaceYAt = SurfaceYAt,
                 IsValidColumn = (wx, wz) => WaterSurfaceYAt(wx, wz) != int.MinValue,
@@ -3815,12 +3814,12 @@ public sealed class WorldGen
                         int idx = _zones.PickWeighted(wx, wz, rng, reach);
                         if (idx >= 0) { spawnZone = zonesArr[idx]; }
                     }
-                    if (spawnZone?.waterEntities?.rows == null) { continue; }
+                    if (spawnZone?.surfaceEntities == null || !spawnZone.surfaceEntities.HasRowsIn(ESpawnBand.Submerged)) { continue; }
 
                     int surfaceY = WaterSurfaceYAt(wx, wz);
                     if (surfaceY == int.MinValue) { continue; }
                     // Reject puddles too shallow for a swimmer to occupy.
-                    if (!Blocks.IsWater(ws.GetBlockWorld(wx, surfaceY - (MIN_WATER_DEPTH - 1), wz))) { continue; }
+                    if (!Blocks.IsWater(ws.GetBlockWorld(wx, surfaceY - (SpawnBands.SUBMERGED_MIN_DEPTH - 1), wz))) { continue; }
 
                     // Anchor inside the top water voxel, NOT on its top face
                     // (surfaceY + 1f) — that boundary floors into the air voxel
@@ -3833,9 +3832,9 @@ public sealed class WorldGen
                     // locomotion gate needs water, and the auto-freeze pins a
                     // zero-velocity body before gravity can drop it in).
                     var pos = new Vector3(wx + 0.5f, surfaceY + 0.5f, wz + 0.5f);
-                    foreach (SpawnListRow row in spawnZone.waterEntities.rows)
+                    foreach (SpawnListRow row in spawnZone.surfaceEntities.rows)
                     {
-                        if (row?.entry == null) { continue; }
+                        if (row?.entry == null || !row.SpawnsIn(ESpawnBand.Submerged)) { continue; }
                         bool isMob = row.entry is MobSpawnEntry;
                         if (isMob ? skipMobs : skipInteractives) { continue; }
                         if (!row.RollAreaChance(rng)) { continue; }
@@ -3873,8 +3872,8 @@ public sealed class WorldGen
                     // Flooded cave pocket: the top voxel of a water body with rock
                     // overhead. The ceiling probe is what separates a submerged
                     // cave from open lake/ocean surface (only sky above those), so
-                    // swimmers stay out of the sea unless a zone's WaterEntities
-                    // asks for them there.
+                    // cave swimmers stay out of the sea unless the zone's
+                    // SurfaceEntities asks for them there.
                     //
                     // Anchored on the pocket's TOP water voxel, not its floor: the
                     // navigation grid reports a water column's surface as its top
@@ -3903,15 +3902,15 @@ public sealed class WorldGen
                             continue;
                         }
                         ZoneGenData waterZone = _zones.PickWeightedData(wx, wz, rng);
-                        if (waterZone?.caveWaterEntities?.rows == null)
+                        if (waterZone?.caveEntities == null || !waterZone.caveEntities.HasRowsIn(ESpawnBand.Submerged))
                         {
                             continue;
                         }
                         caveContext.ZonePerChestLoot = waterZone.perChestLoot;
                         var waterPos = new Vector3(wx + 0.5f, wy + 0.5f, wz + 0.5f);
-                        foreach (SpawnListRow row in waterZone.caveWaterEntities.rows)
+                        foreach (SpawnListRow row in waterZone.caveEntities.rows)
                         {
-                            if (row?.entry == null) { continue; }
+                            if (row?.entry == null || !row.SpawnsIn(ESpawnBand.Submerged)) { continue; }
                             bool isWaterMob = row.entry is MobSpawnEntry;
                             if (isWaterMob ? skipMobs : skipInteractives) { continue; }
                             if (!row.RollAreaChance(rng)) { continue; }
@@ -3961,7 +3960,7 @@ public sealed class WorldGen
                     var pos = new Vector3(wx + 0.5f, wy, wz + 0.5f);
                     foreach (SpawnListRow row in rg.caveEntities.rows)
                     {
-                        if (row?.entry == null) { continue; }
+                        if (row?.entry == null || !row.SpawnsIn(ESpawnBand.Dry)) { continue; }
                         bool isMob = row.entry is MobSpawnEntry;
                         if (isMob ? skipMobs : skipInteractives) { continue; }
                         if (!row.RollAreaChance(rng)) { continue; }

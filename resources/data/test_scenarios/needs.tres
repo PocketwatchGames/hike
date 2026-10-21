@@ -5,11 +5,13 @@
 [resource]
 script = ExtResource("1_s")
 scenarioName = "needs"
-description = "One of each kind of food for the hunger meter: safe and sickening forage, raw meat (sickens), and both meal tiers."
+description = "One of each kind of food for the hunger meter (safe and sickening forage, raw meat, both meal tiers), plus a water flask and an oil flask."
 commands = "spawn_loot berry_blue 3
 spawn_loot mushroom_red 2
 spawn_loot mushroom_purple 1
 spawn_loot troll_meat 1
 spawn_loot meal_grilled_troll 1
-spawn_loot meal_stew_troll_stamina 1"
+spawn_loot meal_stew_troll_stamina 1
+spawn_loot water_flask 1
+spawn_loot oil_flask 1"
 metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

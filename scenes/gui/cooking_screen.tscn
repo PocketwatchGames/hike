@@ -6,8 +6,9 @@
 [ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="4_vv7vb"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="5_m6qmy"]
 [ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="6_count"]
+[ext_resource type="Script" uid="uid://kiv07fhhmhay5" path="res://scripts/gui/SackPanels.cs" id="7_sacks"]
 
-[node name="CookingScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_beltPanel", "_backpackPanel", "_stashPanel", "_cookingPanel", "_itemInfoPanel", "_buttonHintPrimary", "_hintUse", "_hintDrop", "_countPanel")]
+[node name="CookingScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_beltPanel", "_backpackPanel", "_sackPanels", "_stashPanel", "_cookingPanel", "_itemInfoPanel", "_buttonHintPrimary", "_hintUse", "_hintDrop", "_countPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -17,6 +18,7 @@ grow_vertical = 2
 script = ExtResource("1_f2qv6")
 _beltPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/BeltPanel")
 _backpackPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/BackpackPanel")
+_sackPanels = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/Sacks")
 _stashPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/StashPanel")
 _cookingPanel = NodePath("MarginContainer/HBoxContainer/CookingContainer/CookingPanel")
 _itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/ItemInfoPanel")
@@ -88,15 +90,24 @@ alignment = 1
 
 [node name="BeltPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1854400172 instance=ExtResource("4_vv7vb")]
 layout_mode = 2
+_titleLocKey = &"panel_belt"
 size_flags_horizontal = 6
 _columns = 16
 
 [node name="BackpackPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1854400171 instance=ExtResource("4_vv7vb")]
 layout_mode = 2
+_titleLocKey = &"panel_backpack"
 size_flags_horizontal = 6
+
+[node name="Sacks" type="VBoxContainer" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 6
+script = ExtResource("7_sacks")
+_panelScene = ExtResource("4_vv7vb")
 
 [node name="StashPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" instance=ExtResource("4_vv7vb")]
 layout_mode = 2
+_titleLocKey = &"panel_stash"
 size_flags_horizontal = 6
 
 [node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=443121301]

@@ -19,8 +19,8 @@ public partial class DeathScreen : Control
 	[Export] public ButtonHint respawnHint;
 	[Export(PropertyHint.Range, "0.1,5,0.05")] public float fadeOutSeconds = 1.0f;
 	[Export(PropertyHint.Range, "0.1,5,0.05")] public float fadeInSeconds = 1.0f;
-	// Decibels the World3D + Ambience2D buses are dropped to at full fade.
-	// -80 dB is Godot's effective silence floor.
+	// Duck (dB) on the World3D + Ambience2D buses at full fade. -80 dB
+	// reaches Godot's silence floor from any setting.
 	[Export(PropertyHint.Range, "-80,0,0.5")] public float audioFadeFloorDb = -80f;
 
 	public enum EState
@@ -40,11 +40,6 @@ public partial class DeathScreen : Control
 	// so during the slow-mo death cam it would stretch this overlay's fade (a 1s
 	// fade became ~5s at timeScale 0.2). The world stays slowed; this UI does not.
 	ulong _lastRealMs;
-	bool _audioBaselineCaptured;
-	int _world3DBusIdx = -1;
-	int _ambience2DBusIdx = -1;
-	float _world3DBaselineDb;
-	float _ambience2DBaselineDb;
 
 	public EState State => _state;
 
@@ -80,7 +75,12 @@ public partial class DeathScreen : Control
 		{
 			promptRoot.Visible = false;
 		}
-		CaptureAudioBaseline();
+	}
+
+	// A quit to menu mid-death never reaches FinishFadeIn.
+	public override void _ExitTree()
+	{
+		AudioVolume.ClearDuck(this);
 	}
 
 	public override void _Process(double delta)
@@ -171,7 +171,7 @@ public partial class DeathScreen : Control
 		_darkness = 0f;
 		ApplyDarkness();
 		Visible = false;
-		RestoreAudioBaseline();
+		AudioVolume.ClearDuck(this);
 		// The campfire is revealed — the camp screen takes the input gate from here.
 		_gameClient?.OnRespawnRevealed();
 	}
@@ -184,54 +184,6 @@ public partial class DeathScreen : Control
 			c.A = Mathf.Clamp(_darkness, 0f, 1f);
 			overlay.Color = c;
 		}
-		if (_audioBaselineCaptured)
-		{
-			if (_world3DBusIdx >= 0)
-			{
-				float db = Mathf.Lerp(_world3DBaselineDb, audioFadeFloorDb, _darkness);
-				AudioServer.SetBusVolumeDb(_world3DBusIdx, db);
-			}
-			if (_ambience2DBusIdx >= 0)
-			{
-				float db = Mathf.Lerp(_ambience2DBaselineDb, audioFadeFloorDb, _darkness);
-				AudioServer.SetBusVolumeDb(_ambience2DBusIdx, db);
-			}
-		}
-	}
-
-	void CaptureAudioBaseline()
-	{
-		if (_audioBaselineCaptured)
-		{
-			return;
-		}
-		_world3DBusIdx = AudioServer.GetBusIndex("World3D");
-		_ambience2DBusIdx = AudioServer.GetBusIndex("Ambience2D");
-		if (_world3DBusIdx >= 0)
-		{
-			_world3DBaselineDb = AudioServer.GetBusVolumeDb(_world3DBusIdx);
-		}
-		if (_ambience2DBusIdx >= 0)
-		{
-			_ambience2DBaselineDb = AudioServer.GetBusVolumeDb(_ambience2DBusIdx);
-		}
-		_audioBaselineCaptured = true;
-	}
-
-	void RestoreAudioBaseline()
-	{
-		if (!_audioBaselineCaptured)
-		{
-			return;
-		}
-		if (_world3DBusIdx >= 0)
-		{
-			AudioServer.SetBusVolumeDb(_world3DBusIdx, _world3DBaselineDb);
-		}
-		if (_ambience2DBusIdx >= 0)
-		{
-			AudioServer.SetBusVolumeDb(_ambience2DBusIdx, _ambience2DBaselineDb);
-		}
-		_audioBaselineCaptured = false;
+		AudioVolume.SetDuck(this, ESfxBus.All, audioFadeFloorDb * Mathf.Clamp(_darkness, 0f, 1f));
 	}
 }

@@ -1411,14 +1411,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     //   - mesh not drawn (culled / faded out), or a remembered-silhouette mob
     //     that's outside the line-of-sight window (playerCanSee false) and not
     //     known to the player — you can't see where it really is.
-    //   - cut away by the ceiling cutaway (an upper floor removed overhead). The
-    //     cutaway is inert outdoors, so this only bites indoors.
-    public bool ShowsHudFeedback => ShowsHudFeedbackAt(hudPosition);
-
-    // Same gate against an already-resolved hud position. `hudPosition` walks a
-    // node transform, so callers that also need the position pass it in rather
-    // than resolving it twice.
-    public bool ShowsHudFeedbackAt(Vector3 hudPos)
+    //   - cut away by the ceiling cutaway (see IsCutAway).
+    public bool ShowsHudFeedback()
     {
         if (_mesh == null || !_mesh.Visible)
         {
@@ -1428,34 +1422,147 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return false;
         }
-        return !(GameClient.Current?.IsCutAway(hudPos) ?? false);
+        return !IsCutAway();
+    }
+
+    // Whether the ceiling cutaway is hiding this mob — standing on an upper floor
+    // or a roof removed overhead. The cutaway is a shader discard, so the mesh
+    // stays Visible and only this can say so. Tested at the feet, not the HUD
+    // anchor: under a low ceiling the anchor sits above the clip while the mob
+    // itself is plainly in view. Inert outdoors.
+    public bool IsCutAway()
+    {
+        return GameClient.Current?.IsCutAway(GlobalPosition) ?? false;
     }
 
     public bool CanInteract()
     {
-        if (!alive || burrowed || burrowing)
+        if (!alive)
         {
-            return false;
+            return CorpseActions().Count > 0;
+        }
+        if (burrowed || burrowing)
+        {
+            return CanBeDugUp();
         }
         bool hasAuthored = _interactiveActions != null && _interactiveActions.Count > 0;
         bool hasConversation = _simState?.Conversation != null;
         return hasAuthored || hasConversation;
     }
 
-    public bool CanActorInteract(Player player) => CanInteract();
+    // A mob the player hasn't perceived offers nothing, or the interact prompt
+    // would give away a creature the perception model is still hiding. A corpse
+    // or a burrowed mob offers only the actions offered to this member (a Blade
+    // carried to Butcher, a shovel to Dig, and neither in combat).
+    public bool CanActorInteract(Player player)
+    {
+        if (!CanInteract())
+        {
+            return false;
+        }
+        if (!alive)
+        {
+            return OfferedCorpseActions(player).Count > 0;
+        }
+        if (burrowed)
+        {
+            return _world.SimData.digUpAction.IsOfferedTo(player);
+        }
+        return IsKnownToPlayer || _simState.DiscoveryState == EPlayerPerceptionState.Discovered;
+    }
+
+    // A burrowed mob is dug up only where it shows — its dirt mound — so the
+    // prompt never gives away one that left no trace. Targeted by its hurtbox on
+    // the BurrowedHurtBox layer (in the player's interact mask).
+    private bool CanBeDugUp()
+    {
+        return burrowed && _burrowMound != null && _world?.SimData?.digUpAction != null;
+    }
+
+    // What this corpse can offer: Pick Up for a carryable body, Butcher for one
+    // with a harvest. Empty once the body is taken.
+    private Godot.Collections.Array<InteractiveAction> CorpseActions()
+    {
+        if (_corpseTaken || IsVanishing)
+        {
+            return EmptyActions;
+        }
+        if (_corpseActions == null)
+        {
+            _corpseActions = new Godot.Collections.Array<InteractiveAction>();
+            SimData simData = _world?.SimData;
+            if (mobData?.carcass != null && simData?.carryCarcassAction != null)
+            {
+                _corpseActions.Add(simData.carryCarcassAction);
+            }
+            if (mobData?.CanBeButchered == true && simData?.butcherAction != null)
+            {
+                _corpseActions.Add(simData.butcherAction);
+            }
+        }
+        return _corpseActions;
+    }
+    private static readonly Godot.Collections.Array<InteractiveAction> EmptyActions = new();
+
+    // The CorpseActions this member is offered right now (InteractiveAction
+    // .IsOfferedTo). One cached list per offered subset, so the HUD — which reads
+    // GetActions every frame and refreshes when the reference changes — sees a
+    // stable list until the subset actually changes.
+    private Godot.Collections.Array<InteractiveAction> OfferedCorpseActions(Player player)
+    {
+        Godot.Collections.Array<InteractiveAction> all = CorpseActions();
+        int count = all.Count;
+        int mask = 0;
+        for (int i = 0; i < count; i++)
+        {
+            if (all[i].IsOfferedTo(player))
+            {
+                mask |= 1 << i;
+            }
+        }
+        _offeredCorpseActions ??= new Godot.Collections.Array<InteractiveAction>[1 << MaxCorpseActions];
+        if (_offeredCorpseActions[mask] == null)
+        {
+            var offered = new Godot.Collections.Array<InteractiveAction>();
+            for (int i = 0; i < count; i++)
+            {
+                if ((mask & (1 << i)) != 0)
+                {
+                    offered.Add(all[i]);
+                }
+            }
+            _offeredCorpseActions[mask] = offered;
+        }
+        return _offeredCorpseActions[mask];
+    }
+    // Pick Up and Butcher.
+    private const int MaxCorpseActions = 2;
+    private Godot.Collections.Array<InteractiveAction>[] _offeredCorpseActions;
 
     // Authored actions prepended with SimData.TalkAction + GiveItemAction
     // for any mob carrying a Conversation. Cached so we don't allocate the
     // merged array per HUD refresh — neither input mutates at runtime.
     private Godot.Collections.Array<InteractiveAction> _resolvedActions;
     private bool _resolvedActionsBuilt;
+    private Godot.Collections.Array<InteractiveAction> _corpseActions;
+    private Godot.Collections.Array<InteractiveAction> _burrowedActions;
+    // Set the moment the body is carried off or butchered, so it offers nothing
+    // while it frees.
+    private bool _corpseTaken;
 
-    // Resolves the action list for the mob's current state: its authored actions
-    // merged with any conversation verbs. GetActions and Complete both route
-    // through here so the index Complete receives indexes the same list
-    // GetActions surfaced to the player.
-    private Godot.Collections.Array<InteractiveAction> ResolveActions()
+    // The action list for the mob's current state: a corpse's offered actions, a
+    // burrowed mob's Dig, or its authored actions merged with any conversation verbs.
+    private Godot.Collections.Array<InteractiveAction> ResolveActions(Player player)
     {
+        if (!alive)
+        {
+            return OfferedCorpseActions(player);
+        }
+        if (burrowed || burrowing)
+        {
+            _burrowedActions ??= new Godot.Collections.Array<InteractiveAction> { _world?.SimData?.digUpAction };
+            return _burrowedActions;
+        }
         if (!_resolvedActionsBuilt)
         {
             _resolvedActionsBuilt = true;
@@ -1495,7 +1602,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return null;
         }
-        Godot.Collections.Array<InteractiveAction> result = ResolveActions();
+        Godot.Collections.Array<InteractiveAction> result = ResolveActions(player);
         if (result == null || result.Count == 0)
         {
             return null;
@@ -1503,14 +1610,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         return result;
     }
 
-    public void Complete(int actionIndex)
+    public void Complete(InteractiveAction action)
     {
-        Godot.Collections.Array<InteractiveAction> actions = ResolveActions();
-        if (actions == null || actionIndex < 0 || actionIndex >= actions.Count)
-        {
-            return;
-        }
-        InteractiveAction action = actions[actionIndex];
         if (action == null)
         {
             return;
@@ -1526,7 +1627,77 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             case EActionVerb.Trade:
                 OpenMerchantScreen(trade: true, onClose: null);
                 break;
+            case EActionVerb.Butcher:
+                Butcher(GameClient.Current?.Player);
+                break;
+            case EActionVerb.Carry:
+                CarryOff(GameClient.Current?.Player);
+                break;
+            case EActionVerb.Dig:
+                DigOut(GameClient.Current?.Player);
+                break;
         }
+    }
+
+    // Cut the body's harvest out with the member's blade (worn once), eject it,
+    // and remove the corpse.
+    private void Butcher(Player player)
+    {
+        if (_corpseTaken || alive || _world == null)
+        {
+            return;
+        }
+        Vector3 center = _hurtBox?.Center ?? GlobalPosition;
+        if (player == null || !player.UseTool(EToolKind.Blade))
+        {
+            return;
+        }
+        var harvest = new List<ItemState>();
+        ItemCountRange.ResolveAll(mobData.HarvestRows, System.Random.Shared, harvest);
+        _world.EjectLoot(harvest, center);
+        BloodSpill.Spill(mobData.blood, _world, new HitInfo(), center, lethal: true);
+        RemoveCorpse();
+    }
+
+    // Dig a burrowed mob out with the member's digging tool (worn once). Nothing
+    // if it surfaced on its own during the dig.
+    private void DigOut(Player player)
+    {
+        if (!burrowed || !alive || player == null || !player.UseTool(EToolKind.Digging))
+        {
+            return;
+        }
+        DigUp(player);
+    }
+
+    // Take the whole body into the member's inventory as its carcass item. A full
+    // inventory leaves the corpse where it lies.
+    private void CarryOff(Player player)
+    {
+        if (_corpseTaken || alive || mobData.carcass == null || player == null)
+        {
+            return;
+        }
+        if (!player.TakeItem(mobData.carcass.CreateState()))
+        {
+            GameClient.Current?.Announce(new Announcement
+            {
+                type = EAnnouncementType.Notice,
+                title = Loc.Get(Loc.Keys.inventory_full),
+            });
+            return;
+        }
+        RemoveCorpse();
+    }
+
+    // The node goes; the sim state stays the dead mob it already was, so a rest
+    // revives a population mob exactly as it would an untouched corpse, and an
+    // individual stays gone.
+    private void RemoveCorpse()
+    {
+        _corpseTaken = true;
+        _world.RemoveEntity(this);
+        QueueFree();
     }
 
     public void OpenMerchantScreen(bool trade, Action onClose)
@@ -3056,8 +3227,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 DotHudFlush dotFlush = default;
                 if (_dotHud.WantsTick(dotNowMs))
                 {
-                    Vector3 dotHudPos = hudPosition;
-                    dotFlush = _dotHud.Tick(dotNowMs, dotHudPos, ShowsHudFeedbackAt(dotHudPos));
+                    dotFlush = _dotHud.Tick(dotNowMs, hudPosition, ShowsHudFeedback());
                 }
                 if (dotFlush.damage)
                 {
@@ -4755,7 +4925,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 _dotHud.AddDamage(totalShown);
             }
         }
-        else if (ShowsHudFeedback)
+        else if (ShowsHudFeedback())
         {
             // Round to what the number would actually read — a hit resisted below
             // 0.5 shows no positive number on its own.
@@ -4870,7 +5040,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // what actually moved.
         float change = health - before;
         GameClient client = GameClient.Current;
-        if (client != null && ShowsHudFeedback)
+        if (client != null && ShowsHudFeedback())
         {
             if (change > 0f)
             {
@@ -5428,7 +5598,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         base._ExitTree();
     }
 
-    // Dug up by the player's shovel (Sim.TryDig). Latches full awareness of
+    // Dug up — out of a buried spot (BuriedSpot.Dig), or out of its own burrow by
+    // a member with a shovel (DigOut). Latches full awareness of
     // the digger onto the primary perception slot — same edge the hit handler
     // writes. For a burrowed mob this makes its Burrow behavior fail its
     // out-of-range gate and transition to attack/chase, which drops

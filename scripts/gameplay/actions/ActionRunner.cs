@@ -1084,10 +1084,6 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoScreenFlash(_actor, ev, ref _action);
 		}
-		if ((t & EItemEventType.Dig) != 0)
-		{
-			ItemEventHandlers.DoDig(_actor, ev, ref _action);
-		}
 		if ((t & EItemEventType.Noise) != 0)
 		{
 			ItemEventHandlers.DoNoise(_actor, ev, ref _action);

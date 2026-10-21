@@ -110,6 +110,14 @@ public static class ItemEventHandlers
 				{
 					continue;
 				}
+				// The volume is a 3m prism and knows nothing of terrain, so it
+				// overlaps hurtboxes through a ceiling, floor or thin wall. Checked
+				// before the claim so a later tick can still land once the path
+				// clears.
+				if (!hurtBox.IsReachableFrom(world3D.DirectSpaceState, basePos))
+				{
+					continue;
+				}
 				// One hit per target per swing. Add() is the claim: a target
 				// already struck by this swing (an earlier tick of the same
 				// window) is skipped outright.
@@ -553,6 +561,11 @@ public static class ItemEventHandlers
 				{
 					continue;
 				}
+				// The sphere reaches through rock; the arc must not.
+				if (!hurtBox.IsReachableFrom(world3D.DirectSpaceState, current))
+				{
+					continue;
+				}
 				seen++;
 				if (GD.Randi() % (uint)seen == 0)
 				{
@@ -565,7 +578,9 @@ public static class ItemEventHandlers
 			}
 			struck.Add(pick.GetRid().Id);
 			Vector3 from = current;
-			Vector3 targetPos = pick.GlobalPosition;
+			// The body, not the feet: the next hop's reach rays start here, and a
+			// ray from the feet starts on the ground the target stands on.
+			Vector3 targetPos = pick.Center;
 			// Bolt from the previous link (or the impact point on the first hop) to
 			// this one — drawn whether or not the link crosses, so a fizzled arc
 			// still visibly reaches the target before dying.
@@ -1518,50 +1533,6 @@ public static class ItemEventHandlers
 		client.Rumble.AddImpulse(ev.controllerRumbleWeak, ev.controllerRumbleStrong, ev.controllerRumbleDuration, actor.ActorWorldPosition, ev.controllerRumbleRange, playerPos);
 	}
 
-	// Digs at the player's aim cursor (positional-aim tiers) or a short reach
-	// in front of the actor (directional / no cursor). Routes to Sim.TryDig,
-	// which uncovers the nearest buried-item spot in range — or, failing that,
-	// forces the nearest burrowed mob to the surface. Only the player digs;
-	// mob actors have no shovel.
-	public static void DoDig(IActionActor actor, ItemEvent ev, ref PlayerAction action)
-	{
-		if (actor is not Player player)
-		{
-			return;
-		}
-		Sim sim = Sim.Current;
-		if (sim == null)
-		{
-			return;
-		}
-		Vector3 center;
-		if (player.AimingReticle != null && player.AimingReticle.HasAimWorldPosition)
-		{
-			center = player.AimingReticle.AimWorldPosition;
-		}
-		else
-		{
-			Vector3 forward = player.ActorForward;
-			forward.Y = 0f;
-			center = player.ActorWorldPosition + forward.Normalized() * ev.digReach;
-		}
-		EDigResult result = sim.TryDig(center, ev.digRadius, player);
-		PackedScene effect = result switch
-		{
-			EDigResult.Treasure => ev.digTreasureEffect,
-			EDigResult.Common => ev.digCommonEffect,
-			_ => ev.digNothingEffect,
-		};
-		if (effect != null)
-		{
-			Node parent = (Node)Sim.Current ?? player.AttackerNode?.GetParent();
-			if (parent != null)
-			{
-				Fx.Create(effect, parent, center);
-			}
-		}
-	}
-
 	public static void DoUseAmmo(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		// A launch spends its own ammo, one per projectile it fires.
@@ -1797,7 +1768,7 @@ public static class ItemEventHandlers
 		Node3D node = interactive as Node3D;
 		Node parent = node?.GetParent();
 		Vector3 pos = node?.Position ?? Vector3.Zero;
-		interactive.Complete(action.context.interactiveActionIndex);
+		interactive.Complete(action.interactiveAction);
 		if (ev.fx != null && parent != null)
 		{
 			Fx.Create(ev.fx, parent, pos);

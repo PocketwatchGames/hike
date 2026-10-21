@@ -2,7 +2,7 @@ using Godot;
 using Godot.Collections;
 
 // Authored list of things to place, used by the per-zone WorldGen scan passes
-// (ZoneGenData.surfaceEntities, caveEntities, shoreEntities, waterEntities),
+// (ZoneGenData.surfaceEntities, caveEntities),
 // by the world-map painter's ambient sets, and by the fixture / POI / subscene
 // placements.
 //
@@ -19,4 +19,29 @@ using Godot.Collections;
 public partial class SpawnListData : Resource
 {
     [Export] public Array<SpawnListRow> rows = new();
+
+    // Union of every row's bands, so a scan can skip a list with nothing for
+    // the band it is scanning without walking its rows. Cached without
+    // invalidation because *Data is immutable after load.
+    private ESpawnBand? _bands;
+
+    public bool HasRowsIn(ESpawnBand band)
+    {
+        if (_bands == null)
+        {
+            ESpawnBand union = ESpawnBand.None;
+            if (rows != null)
+            {
+                foreach (SpawnListRow row in rows)
+                {
+                    if (row?.entry != null)
+                    {
+                        union |= row.bands;
+                    }
+                }
+            }
+            _bands = union;
+        }
+        return (_bands.Value & band) != 0;
+    }
 }

@@ -3,8 +3,10 @@
 [ext_resource type="Script" uid="uid://t427ud03hw9j3" path="res://scripts/data/buried/BuriedSpotStyleData.cs" id="1_style"]
 [ext_resource type="PackedScene" uid="uid://b6yt4lawnx1pe" path="res://scenes/props/carrot_tops.tscn" id="2_tops"]
 [ext_resource type="PackedScene" uid="uid://cmd7r8wq3n2va" path="res://scenes/props/dirt_mound.tscn" id="3_mound"]
+[ext_resource type="PackedScene" uid="uid://dk3mwv9rq2n1x" path="res://scenes/fx/dig_common.tscn" id="4_fx"]
 
 [resource]
 script = ExtResource("1_style")
 surfaceHintScene = ExtResource("2_tops")
 dirtPileScene = ExtResource("3_mound")
+digEffect = ExtResource("4_fx")

@@ -175,7 +175,7 @@ public partial class Player : CharacterBody3D
 	[Export] private PackedScene _armorRechargeStartFx;
 	[Export] private PackedScene _armorRecoverStartFx;
 	// Gear durability one-shots: warning when a piece first drops into worn
-	// (PlayerData.durabilityWarningFraction), broken when it breaks. An ammo
+	// (SimData.durabilityWarningFraction), broken when it breaks. An ammo
 	// weapon plays ammoBroken instead, every time wear costs it a round.
 	[Export] private PackedScene _durabilityWarningFx;
 	[Export] private PackedScene _durabilityBrokenFx;
@@ -695,16 +695,16 @@ public partial class Player : CharacterBody3D
 	public float MaxBonusHealth => data?.maxBonusHealth ?? 0f;
 	// Base pool = PlayerData baseline scaled by the hosted member's health
 	// multiplier (1 when no member), then flat Max* stat modifiers add on top.
-	public float MaxHealth => (data?.maxHealth ?? 100f) * (Member?.health ?? 1f) + ComposeStat(EStat.MaxHealth);
+	public float MaxHealth => (data?.maxHealth ?? 100f) * (Member?.health ?? 1f) + ComposeStat(EStat.MaxHealth) - NeedsMaxHealthPenalty();
 	public float Armor => _armor;
 	public float MaxArmor => _maxArmor + ComposeStat(EStat.MaxArmor);
 	public float Stamina => _stamina;
 	// Stamina base is the member's flat unit count (PlayerState.stamina), not a
 	// multiplier — PlayerData.maxStamina only serves memberless spawns. Flat
 	// MaxStamina modifiers (status effects, traits) add whole units on top, and
-	// equipped weight over SimData.minWeightPenalty takes units away. The needs
-	// meters add up to PlayerData.maxStaminaPerNeed each while full.
-	public float MaxStamina => Mathf.Max(0f, (Member?.stamina ?? data?.maxStamina ?? 0f) + ComposeStat(EStat.MaxStamina) + NeedsStaminaBonus() - PenalizedWeight());
+	// equipped weight over SimData.minWeightPenalty takes units away. Hunger,
+	// thirst and fatigue past their first phase take units away (Player.Needs).
+	public float MaxStamina => Mathf.Max(0f, (Member?.stamina ?? data?.maxStamina ?? 0f) + ComposeStat(EStat.MaxStamina) - NeedsStaminaPenalty() - PenalizedWeight());
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
 	// Catch up status effects by `dt` seconds in one call. Used by the sleep
@@ -716,14 +716,12 @@ public partial class Player : CharacterBody3D
 	// What a save carries for this member's node, inside a shared EntitySerializer
 	// table (SaveGame). Only what a sunrise keeps: the inventory, effects acquired
 	// in play that outlast the dawn, non-transient buildups, health (the wake heals
-	// only the controlled member), lantern oil, the needs meters, and where a fallen
-	// member's body lies.
+	// only the controlled member), the needs meters, and where a fallen member's
+	// body lies. Oil and water ride on their lantern and flasks in the inventory.
 	public void WriteMemberSave(System.IO.BinaryWriter w)
 	{
 		w.Write(_health);
 		w.Write(_bonusHealth);
-		w.Write(_lanternOil);
-		w.Write(_bonusLanternOil);
 		WriteNeeds(w);
 		_inventory.Serialize(w);
 		EntitySerializer.WriteStatusEffects(w, EnumerateAcquiredEffects());
@@ -749,8 +747,6 @@ public partial class Player : CharacterBody3D
 	{
 		float health = r.ReadSingle();
 		_bonusHealth = Mathf.Clamp(r.ReadSingle(), 0f, MaxBonusHealth);
-		_lanternOil = Mathf.Clamp(r.ReadSingle(), 0f, MaxLanternOil);
-		_bonusLanternOil = Mathf.Clamp(r.ReadSingle(), 0f, MaxBonusLanternOil);
 		ReadNeeds(r);
 		_inventory.Restore(r);
 		List<EntitySerializer.StatusEffectRecord> effects = EntitySerializer.ReadStatusEffects(r);
@@ -1169,7 +1165,7 @@ public partial class Player : CharacterBody3D
 		}
 		if (stash != null)
 		{
-			foreach (ItemState s in stash.Slots)
+			foreach (ItemState s in stash.EnumerateAll())
 			{
 				if (IsSpendableMaterial(s))
 				{
@@ -1305,16 +1301,37 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Remaining lantern oil, 0 (empty) to MaxLanternOil (full). Whichever
-	// lantern is lit burns it at that lantern's rate (LanternData.secondsPerOil).
-	private float _lanternOil;
-	// Oil preserved above MaxLanternOil (a fountain's overflow); burned first.
-	private float _bonusLanternOil;
-	public float MaxLanternOil => data?.maxLanternOil ?? 0f;
-	public float LanternOil => _lanternOil;
-	public float BonusLanternOil => _bonusLanternOil;
-	public float MaxBonusLanternOil => data?.maxBonusLanternOil ?? 0f;
-	public bool HasLanternOil => _lanternOil + _bonusLanternOil > 0f;
+	// Oil is the equipped lantern's own (LanternState.oil) backed by every oil
+	// flask carried: the lantern burns first, then the flasks, and a refill tops
+	// up the lantern first, then the flasks. With no lantern equipped the flasks
+	// alone are the supply.
+	public float MaxLanternOil
+	{
+		get
+		{
+			float max = _inventory?.EquippedLantern?.data.oilCapacity ?? 0f;
+			foreach (FlaskState flask in CarriedFlasks(ELiquid.Oil))
+			{
+				max += flask.data.capacity;
+			}
+			return max;
+		}
+	}
+
+	public float LanternOil
+	{
+		get
+		{
+			float oil = _inventory?.EquippedLantern?.oil ?? 0f;
+			foreach (FlaskState flask in CarriedFlasks(ELiquid.Oil))
+			{
+				oil += flask.amount;
+			}
+			return oil;
+		}
+	}
+
+	public bool HasLanternOil => LanternOil > 0f;
 
 	// Sim-clock timestamp of the last oil drain, so TickLanternOil spends
 	// exactly the elapsed sim time each frame (frame-rate independent, slows
@@ -1352,45 +1369,97 @@ public partial class Player : CharacterBody3D
 
 	public bool CanAffordLanternOil(float amount)
 	{
-		return amount <= 0f || _lanternOil + _bonusLanternOil >= amount;
+		return amount <= 0f || LanternOil >= amount;
 	}
 
-	// Bonus oil first, then the capped pool; clamps at empty. Also the continuous
-	// while-lit burn.
+	// The lantern's oil first, then the flasks'; clamps at empty. Also the
+	// continuous while-lit burn.
 	public void SpendLanternOil(float amount)
 	{
 		if (amount <= 0f)
 		{
 			return;
 		}
-		float fromBonus = Mathf.Min(_bonusLanternOil, amount);
-		_bonusLanternOil -= fromBonus;
-		_lanternOil = Mathf.Max(0f, _lanternOil - (amount - fromBonus));
+		LanternState lantern = _inventory?.EquippedLantern;
+		if (lantern != null)
+		{
+			float taken = Mathf.Min(lantern.oil, amount);
+			lantern.oil -= taken;
+			amount -= taken;
+		}
+		foreach (FlaskState flask in CarriedFlasks(ELiquid.Oil))
+		{
+			if (amount <= 0f)
+			{
+				break;
+			}
+			amount = flask.Draw(amount);
+		}
 	}
 
-	// Capped at MaxLanternOil (a flask or droplet of oil), unless `overflow`, which
-	// keeps what doesn't fit as bonus oil, up to MaxBonusLanternOil (a fountain).
-	public void AddLanternOil(float amount, bool overflow = false)
+	// The lantern first, then the flasks; what fits nowhere is lost (a droplet,
+	// the Lantern Oil consumable).
+	public void AddLanternOil(float amount)
 	{
 		if (amount <= 0f)
 		{
 			return;
 		}
-		float filled = Mathf.Min(MaxLanternOil, _lanternOil + amount);
-		if (overflow)
+		LanternState lantern = _inventory?.EquippedLantern;
+		if (lantern != null)
 		{
-			float excess = amount - (filled - _lanternOil);
-			_bonusLanternOil = Mathf.Max(_bonusLanternOil, Mathf.Min(MaxBonusLanternOil, _bonusLanternOil + excess));
+			float taken = Mathf.Min(lantern.data.oilCapacity - lantern.oil, amount);
+			lantern.oil += taken;
+			amount -= taken;
 		}
-		_lanternOil = filled;
+		foreach (FlaskState flask in CarriedFlasks(ELiquid.Oil))
+		{
+			if (amount <= 0f)
+			{
+				break;
+			}
+			amount = flask.Fill(amount);
+		}
 	}
 
-	// Refill the oil to full, leaving any bonus. Called at a campfire
-	// (Sim.RefuelPartyLanterns: camping there, or arriving home at one) — never by
-	// a dawn or a sleep alone.
-	public void RefuelLantern()
+	// Fill the lantern and every oil flask (an oil fountain).
+	public void RefillAllOil()
 	{
-		_lanternOil = MaxLanternOil;
+		LanternState lantern = _inventory?.EquippedLantern;
+		if (lantern != null)
+		{
+			lantern.oil = lantern.data.oilCapacity;
+		}
+		foreach (FlaskState flask in CarriedFlasks(ELiquid.Oil))
+		{
+			flask.amount = flask.data.capacity;
+		}
+	}
+
+	// The flasks of `liquid` in the belt and backpack — what extends the thirst
+	// and oil pools. Rebuilt only when the inventory changes, since the oil burn
+	// and the HUD read it every frame.
+	private readonly System.Collections.Generic.List<FlaskState> _waterFlasks = new();
+	private readonly System.Collections.Generic.List<FlaskState> _oilFlasks = new();
+
+	private System.Collections.Generic.List<FlaskState> CarriedFlasks(ELiquid liquid) =>
+		liquid == ELiquid.Oil ? _oilFlasks : _waterFlasks;
+
+	private void RebuildCarriedFlasks()
+	{
+		_waterFlasks.Clear();
+		_oilFlasks.Clear();
+		if (_inventory == null)
+		{
+			return;
+		}
+		foreach (ItemState item in _inventory.EnumerateAll())
+		{
+			if (item is FlaskState flask)
+			{
+				CarriedFlasks(flask.data.liquid).Add(flask);
+			}
+		}
 	}
 
 	// Put out the lit lantern without the douse fx — the party lying down for the
@@ -1438,12 +1507,12 @@ public partial class Player : CharacterBody3D
 		_inventory = new Inventory(this, data);
 		_inventory.onSlotChanged += OnInventorySlotChanged;
 		_inventory.onChanged += RefreshCarriedLight;
+		_inventory.onChanged += RebuildCarriedFlasks;
 		_runner = new ActionRunner(this);
 		_statusEffects = new StatusEffectController(this, sim, ApplyStatusHealthDelta, ComposeBuildupResistance, conditionActive: EvaluateTraitCondition, maxHealth: () => MaxHealth);
 		_scent = new ScentEmitter(this, sim, data.scentStrength, data.scentDecayRate,
 			data.scentStampInterval, data.scentStampMoveDistance, data.scentMaxCrumbs);
 		_health = MaxHealth;
-		_lanternOil = MaxLanternOil;
 		_needsSettledClock = sim.WorldClockDays;
 
 		// Adopt the hosted member's name (blank keeps the default).
