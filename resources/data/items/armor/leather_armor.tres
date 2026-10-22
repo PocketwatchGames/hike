@@ -2,12 +2,13 @@
 
 [ext_resource type="Texture2D" uid="uid://cxfdn0d5db6mw" path="res://assets/textures/items/LeatherArmor.png" id="1_kkvw5"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_bvjtb"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="9_vsxjd"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/leather.tres" id="salvage_leather"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/sinew.tres" id="repair_sinew"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/leather.tres" id="salvage_leather"]
 
 [sub_resource type="Resource" id="m_cold"]
 script = ExtResource("m_script")
@@ -27,12 +28,6 @@ bodyMeshNamesFemale = PackedStringArray("F_Fighter_Top", "F_Fighter_Bottom")
 bodyMeshNamesMale = PackedStringArray("M_Fighter_Top", "M_Fighter_Bottom")
 metadata/_custom_type_script = "uid://6h7yge1txki2"
 
-[sub_resource type="Resource" id="salvage_yield_leather"]
-script = ExtResource("material_count")
-item = ExtResource("salvage_leather")
-count = 2
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
-
 [sub_resource type="Resource" id="repair_cost_leather"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_leather")
@@ -42,7 +37,12 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 [sub_resource type="Resource" id="repair_cost_sinew"]
 script = ExtResource("material_count")
 item = ExtResource("repair_sinew")
-count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_yield_leather"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_leather")
+count = 2
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
@@ -54,7 +54,7 @@ outfit = SubResource("outfit")
 weight = 0.5
 maxDurability = 6000
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_leather"), SubResource("repair_cost_sinew")])
-displayName = &"Leather Armor"
+displayName = &"Trapper\'s Jerkin"
 description = "Protects against nicks and scratches."
 value = 60
 inventorySprite = ExtResource("1_kkvw5")

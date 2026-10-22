@@ -2,12 +2,13 @@
 
 [ext_resource type="Texture2D" uid="uid://whcsmapxod45" path="res://assets/textures/items/Armor.png" id="1_sprite"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="9_p6b2x"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
-[ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/leather.tres" id="repair_leather"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
+[ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
 
 [sub_resource type="Resource" id="m_pen"]
 script = ExtResource("tagmod_1")
@@ -21,12 +22,6 @@ bodyMeshNamesFemale = PackedStringArray("F_Hunter_Top", "F_Hunter_Bottom")
 bodyMeshNamesMale = PackedStringArray("M_Hunter_Top", "M_Hunter_Bottom")
 metadata/_custom_type_script = "uid://6h7yge1txki2"
 
-[sub_resource type="Resource" id="salvage_yield_steel"]
-script = ExtResource("material_count")
-item = ExtResource("salvage_steel")
-count = 3
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
-
 [sub_resource type="Resource" id="repair_cost_steel"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_steel")
@@ -36,7 +31,12 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 [sub_resource type="Resource" id="repair_cost_leather"]
 script = ExtResource("material_count")
 item = ExtResource("repair_leather")
-count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_yield_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 3
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
@@ -47,7 +47,7 @@ outfit = SubResource("outfit")
 weight = 1.0
 maxDurability = 10500
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel"), SubResource("repair_cost_leather")])
-displayName = &"Scale Armor"
+displayName = &"Brigandine"
 description = "Overlapping metal scales spread the force of a blow — heavier than mail, and it shows in the stride."
 value = 60
 inventorySprite = ExtResource("1_sprite")

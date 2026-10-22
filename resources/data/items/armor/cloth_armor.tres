@@ -2,10 +2,11 @@
 
 [ext_resource type="Texture2D" uid="uid://xbn8ns80jnq6" path="res://assets/textures/items/BasicCloak.png" id="1_sprite"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="8_jgil1"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/cloth.tres" id="salvage_cloth"]
 
 [sub_resource type="Resource" id="m_noise"]
@@ -20,13 +21,13 @@ bodyMeshNamesFemale = PackedStringArray("F_Mage_Top", "F_Mage_Bottom", "F_Mage_C
 bodyMeshNamesMale = PackedStringArray("M_Warlock_Top", "M_Warlock_Bottom", "M_Warlock_Cape")
 metadata/_custom_type_script = "uid://6h7yge1txki2"
 
-[sub_resource type="Resource" id="salvage_yield_cloth"]
+[sub_resource type="Resource" id="repair_cost_cloth"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_cloth")
 count = 2
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
-[sub_resource type="Resource" id="repair_cost_cloth"]
+[sub_resource type="Resource" id="salvage_yield_cloth"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_cloth")
 count = 2
@@ -41,7 +42,7 @@ outfit = SubResource("outfit")
 weight = 0.25
 maxDurability = 60
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_cloth")])
-displayName = &"Cloth Armor"
+displayName = &"Alchemist\'s Cloak"
 description = "Little more than layered robes — light and quiet, but it stops nothing."
 value = 60
 inventorySprite = ExtResource("1_sprite")
