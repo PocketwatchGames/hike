@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="8_56gee"]
 [ext_resource type="Texture2D" uid="uid://xbn8ns80jnq6" path="res://assets/textures/items/BasicCloak.png" id="11_icon"]
 [ext_resource type="Resource" uid="uid://dxknbtj4qcfvy" path="res://resources/data/items/armor/cloth_armor.tres" id="armor_start"]
+[ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/ammo/arrow.tres" id="ammo_arrows"]
 
 [sub_resource type="Resource" id="Desc_club"]
 script = ExtResource("4_desc")
@@ -51,6 +52,17 @@ script = ExtResource("3_itemcount")
 descriptor = SubResource("Desc_armor")
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
+[sub_resource type="Resource" id="Desc_arrows"]
+script = ExtResource("4_desc")
+item = ExtResource("ammo_arrows")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Item_arrows"]
+script = ExtResource("3_itemcount")
+descriptor = SubResource("Desc_arrows")
+count = 20
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
 [resource]
 script = ExtResource("1_playerstate")
 characterName = "Rowan"
@@ -66,4 +78,5 @@ perception = 0.8
 stealth = 0.9
 modifiers = null
 equippedInventory = [SubResource("Resource_club"), SubResource("Resource_6hrq3"), SubResource("Resource_uohhm"), SubResource("Item_armor")]
+startingInventory = [SubResource("Item_arrows")]
 metadata/_custom_type_script = "uid://b1rjovy8825fh"

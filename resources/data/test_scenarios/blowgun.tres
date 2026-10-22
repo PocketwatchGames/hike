@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "blowgun"
+description = "A blowgun with twenty darts, a ring of goblins and an armored troll. A tapped dart barely scratches but fills the whole Poison meter when it draws blood; half the darts glance off armor. Hold a Deep Breath for up to double damage, a quarter more reach and a dart that always goes through."
+commands = "spawn_loot blowgun
+spawn_loot dart 20
+spawn_mob goblin_forest 3
+spawn_mob troll_forest 1"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

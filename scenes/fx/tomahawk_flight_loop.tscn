@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://doh3j3t8uuhuj" path="res://assets/audio/source/weapons/SIEGE_WEAPON_MEDIEVAL_Ballista_Bolt_Flying_01_loop_mono.wav" id="2_audio"]
+
+[node name="TomahawkFlightLoop" type="Node3D"]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("2_audio")
+unit_size = 5.0
+max_distance = 30.0
+volume_db = -3.0
+bus = &"World3D"

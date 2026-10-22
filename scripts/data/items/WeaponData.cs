@@ -7,20 +7,18 @@ using Godot.Collections;
 [GlobalClass]
 public partial class WeaponData : GearData
 {
-	// Non-zero = this is an ammo-bearing weapon. Drives the equip-slot pick
-	// (ammo weapons go to WeaponRight), the HUD ammo counter, and the
-	// press-time ammo gate. Per-tier `ItemAction.useAmmo` is the source of
-	// truth for whether a given firing tier consumes ammo / drops arrows;
-	// `maxAmmo > 0` is just the weapon-level rollup callers use without
-	// having to walk the profile.
-	[Export] public int maxAmmo = 0;
+	// The round this weapon fires, drawn from the wielder's carried ammo of that
+	// type (Inventory.LoadedAmmo). None = needs none (a sling, a summoner, every mob
+	// weapon). Only tiers flagged ItemAction.useAmmo spend it.
+	[Export] public EAmmoType ammoType = EAmmoType.None;
 
-	// Wear costs magazine instead of breaking the weapon: each time durability
-	// runs out it loses a round of capacity and refills to maxDurability × the
-	// fraction of capacity left, and the round that did it drops no arrow
-	// (WeaponState.Wear). Broken once the magazine is gone. Off = an ammo weapon
-	// breaks like any other (the bomb). Only meaningful with maxAmmo > 0.
-	[Export] public bool wearCostsAmmoCapacity = false;
+	// The weapon is its own round (a tomahawk, a bomb): each shot spends one unit
+	// of the equipped stack, so author maxStack > 1 and maxDurability 0. A unit that
+	// survives its landing (thrownBreakChance) lies where it fell as a pickup.
+	[Export] public bool thrown = false;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float thrownBreakChance = 0f;
+
+	public bool NeedsAmmo => ammoType != EAmmoType.None;
 
 	// Ability tell: the shared accent color this weapon stamps onto its wielder
 	// at spawn, so any mob carrying it reads as "does this" regardless of region
@@ -34,8 +32,8 @@ public partial class WeaponData : GearData
 	// so the rule lives in one place. Ranged weapons (bow, bomb) and positional
 	// casters (the summoner — the aiming reticle only resolves positional / arced
 	// aim for the right slot) set this true; melee weapons leave it false.
-	// Independent of whether the weapon bears ammo (maxAmmo) and of the visual
-	// wieldHand below.
+	// Independent of whether the weapon needs ammo and of the visual wieldHand
+	// below. A broken right-hand weapon can't fire at all (WeaponState.CanFire).
 	[Export] public bool rightHandSlot = false;
 	public EInventorySlot CanonicalSlot => rightHandSlot ? EInventorySlot.WeaponRight : EInventorySlot.WeaponLeft;
 
@@ -47,25 +45,16 @@ public partial class WeaponData : GearData
 	// None or share a bit with this. Leave None only for a weapon that should
 	// accept no delivery-restricted mods.
 	[Export] public EWeaponDelivery delivery = EWeaponDelivery.None;
-	// Optional drop spawned at every Hitscan impact point. When wired, each
-	// shot leaves a recoverable arrow in the world that returns 1 ammo when
-	// removed (player pickup, or auto-reclaimed oldest-first by the central
-	// ammoRechargeSeconds timer below). Null = no drop, ammo decrements
-	// permanently. Arrows themselves carry no self-expiry timer — set their
-	// ItemData.removeTimeMs to 0; the weapon's central timer owns recovery.
-	[Export] public ArrowLootData arrowLootData;
+	// Chance that an ammo shot fails to go off while the weapon is Wet (damp
+	// powder). The load is spent, misfireEffect plays in place of the shot, and
+	// the weapon is locked out for misfireCooldownSeconds. Non-zero also makes the
+	// weapon take wetness at all (TakesWetness). Player-owned weapons only — a
+	// mob's never gets wet.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float wetMisfireChance = 0f;
+	[Export] public float misfireCooldownSeconds = 3f;
+	[Export] public PackedScene misfireEffect;
 
-	// Seconds per unit of the weapon's single central ammo-recharge timer.
-	// While ammo < maxAmmo the deadline runs continuously and restarts after
-	// each refill, so a fully-spent weapon climbs back to full in
-	// `ammoRechargeSeconds * maxAmmo` seconds; firing never resets the
-	// in-progress charge, and topping back off by hand clears it. Each elapse
-	// recovers one unit: a weapon that drops arrows (arrowLootData set — the
-	// bow) auto-reclaims its oldest outstanding arrow; a self-recharging
-	// magazine (the bomb) regenerates ammo from nothing. 0 (default) disables
-	// the timer entirely — such an arrow weapon would then refill only via
-	// hand pickup. See Player.TickAmmoRecharge.
-	[Export] public float ammoRechargeSeconds = 0f;
+	public override bool TakesWetness => wetMisfireChance > 0f;
 
 	// Named damage profiles fired by this weapon's events. Convention: the
 	// "primary" key is the default fallback for any event that doesn't

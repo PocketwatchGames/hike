@@ -46,6 +46,8 @@ public enum EHitTag
 	// Harm from direct sunlight — for monsters that burn in the sun (slimes,
 	// vampires). Not Fire: a fire-resistant creature is not sun-proof.
 	Sunlight = 1 << 15,
+	// An open wound bleeding out (knife cuts).
+	Bleeding = 1 << 16,
 }
 
 public static class HitTags
@@ -79,5 +81,6 @@ public static class HitTags
 		| EHitTag.Burning
 		| EHitTag.Poisoned
 		| EHitTag.Shocked
-		| EHitTag.Sunlight;
+		| EHitTag.Sunlight
+		| EHitTag.Bleeding;
 }

@@ -9,6 +9,7 @@
 [ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/consumables/dog_treat.tres" id="7_treat"]
 [ext_resource type="Resource" uid="uid://cx0idasoppmlu" path="res://resources/data/items/consumables/smelling_salts.tres" id="8_salts"]
 [ext_resource type="Resource" uid="uid://4typxmliw5702" path="res://resources/data/worlds/default_world/default_world_script.tres" id="9_script"]
+[ext_resource type="Resource" uid="uid://l7uas6y5tl8nb" path="res://resources/data/worlds/shared/stories/intro_placeholder.tres" id="10_story"]
 
 [sub_resource type="Resource" id="Know_cure"]
 script = ExtResource("3_spellteach")
@@ -28,6 +29,7 @@ metadata/_custom_type_script = "uid://419ghc0cftgeg"
 [resource]
 script = ExtResource("1_script")
 displayName = "Default"
+introStory = ExtResource("10_story")
 scriptData = ExtResource("9_script")
 startingParty = [ExtResource("4_mischa"), ExtResource("5_rowan")]
 initialKnowledge = Array[ExtResource("2_teach")]([SubResource("Know_cure"), SubResource("Know_treat"), SubResource("Know_salts")])

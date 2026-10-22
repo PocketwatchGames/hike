@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://cwm1b8d0uv4e0"]
+[gd_resource type="Resource" script_class="WeaponData" format=3]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
@@ -6,135 +6,86 @@
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
-[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="5_ajm0v"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
-[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_m2l50"]
 [ext_resource type="PackedScene" uid="uid://dxxldcqs8hb6v" path="res://scenes/fx/bow_hit_creature.tscn" id="7_hitcreature"]
 [ext_resource type="PackedScene" uid="uid://dbkwlsxhbirtn" path="res://scenes/fx/bow_kill.tscn" id="7_hitkill"]
 [ext_resource type="PackedScene" uid="uid://dxx2ajycuaxpv" path="res://scenes/fx/bow_hit_solid.tscn" id="7_hitsolid"]
-[ext_resource type="PackedScene" uid="uid://c0vvhpnc8yctn" path="res://scenes/fx/bow_attack_heavy.tscn" id="8_atkheavy"]
-[ext_resource type="PackedScene" uid="uid://c2jrhpmsq2rtn" path="res://scenes/fx/bow_charge_head.tscn" id="8_chghead"]
-[ext_resource type="PackedScene" uid="uid://c2jrl015q2rtn" path="res://scenes/fx/bow_charge_loop.tscn" id="8_chgloop"]
-[ext_resource type="PackedScene" uid="uid://c2jrtlu1q2rtn" path="res://scenes/fx/bow_charge_tail.tscn" id="8_chgtail"]
-[ext_resource type="PackedScene" uid="uid://b3la8d0l81l6i" path="res://scenes/projectiles/lead_shot.tscn" id="10_ajm0v"]
-[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="12_ow6j3"]
+[ext_resource type="PackedScene" path="res://scenes/fx/musket_fire.tscn" id="8_fire"]
+[ext_resource type="PackedScene" path="res://scenes/fx/gun_misfire.tscn" id="8_misfire"]
+[ext_resource type="PackedScene" path="res://scenes/fx/musket_cock.tscn" id="8_cock"]
+[ext_resource type="PackedScene" uid="uid://b3la8d0l81l6i" path="res://scenes/projectiles/lead_shot.tscn" id="10_shot"]
 [ext_resource type="Texture2D" uid="uid://b2sf3vi1tiebh" path="res://assets/textures/items/Musket.png" id="15_sprite"]
-[ext_resource type="Resource" uid="uid://bukfpnhl656fs" path="res://resources/data/items/loot/lead_shot.tres" id="17_ajm0v"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="18_5rhbf"]
 [ext_resource type="PackedScene" path="res://scenes/items/musket_held.tscn" id="20_held"]
-[ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="21_5rhbf"]
+[ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="21_dizzy"]
+[ext_resource type="Resource" uid="uid://bv6a3ii0w5p06" path="res://resources/data/status_effects/status_bleeding.tres" id="21_bleeding"]
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
-[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="22_17x6i"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="22_buildup"]
 [ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/gunpowder.tres" id="repair_gunpowder"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/lead.tres" id="repair_lead"]
 
-[sub_resource type="Resource" id="Resource_event_scatter"]
+[sub_resource type="Resource" id="Resource_event_shot"]
 script = ExtResource("3_event")
-type = 8396868
-noiseDecibels = 0.2
+time = 500
+type = 41952324
+animName = 20
+motionForwardSpeed = -10.0
+fx = ExtResource("8_fire")
+noiseDecibels = 0.3
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 impactDecibels = 0.4
-durabilityCostOnHit = 1.0
-projectileScene = ExtResource("10_ajm0v")
-projectileSpeed = 24.0
+projectileScene = ExtResource("10_shot")
+projectileSpeed = 48.0
 projectileLifetimeSeconds = 0.25
-projectileCount = 3
 
 [sub_resource type="Resource" id="Resource_req_no_swim"]
 script = ExtResource("4_state")
 forbidSwimming = true
 
-[sub_resource type="Resource" id="Resource_tier_scatter"]
+[sub_resource type="Resource" id="Resource_tier_shot"]
 script = ExtResource("4_charged")
-displayName = &"Scattershot"
-chargeTime = 0.35
-activeDurationSeconds = 0.25
+displayName = &"Shoot"
+activeDurationSeconds = 0.6
 cooldownSeconds = 0.6
 useAmmo = true
-events = Array[ExtResource("3_event")]([SubResource("Resource_event_scatter")])
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_shot")])
 requirements = Array[ExtResource("4_req")]([SubResource("Resource_req_no_swim")])
-positionalRange = 6.0
-positionalAreaRadius = 3.0
-spreadDegrees = 35.0
-chargedAccuracyScale = 5.0
-speedMultiplierActive = 0.5
-chargeStartEffect = ExtResource("8_chghead")
-chargeLoopEffect = ExtResource("8_chgloop")
-releaseEffect = ExtResource("8_atkheavy")
-impactCritEffect = ExtResource("7_hitkill")
-impactBackstabEffect = ExtResource("7_hitcreature")
-
-[sub_resource type="Resource" id="Resource_event_heavy"]
-script = ExtResource("3_event")
-type = 8397892
-animName = 20
-damageProfileKey = &"charged"
-motionForwardSpeed = -10.0
-noiseDecibels = 0.2
-impactEnvironmentEffect = ExtResource("7_hitsolid")
-impactHealthEffect = ExtResource("7_hitcreature")
-impactArmorEffect = ExtResource("7_hitsolid")
-impactLethalEffect = ExtResource("7_hitkill")
-impactDecibels = 0.4
-durabilityCostOnHit = 1.0
-projectileScene = ExtResource("10_ajm0v")
-projectileSpeed = 48.0
-projectileLifetimeSeconds = 0.25
-
-[sub_resource type="Resource" id="Resource_tier_heavy"]
-script = ExtResource("4_charged")
-displayName = &"Aimed Shot"
-activeDurationSeconds = 0.25
-cooldownSeconds = 0.6
-useAmmo = true
-events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy")])
-requirements = Array[ExtResource("4_req")]([SubResource("Resource_req_no_swim")])
-maxSpeedCharging = 1
 speedMultiplierActive = 0.0
-chargeStartEffect = ExtResource("8_chgtail")
-chargeLoopEffect = ExtResource("8_chgloop")
-releaseEffect = ExtResource("8_atkheavy")
+releaseEffect = ExtResource("8_cock")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("5_profile")
-chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_tier_scatter"), SubResource("Resource_tier_heavy")])
+chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_tier_shot")])
 autoActivateAtMax = false
 queueWindowSeconds = 0.0
 
-[sub_resource type="Resource" id="Resource_el1ut"]
-script = ExtResource("22_17x6i")
-effect = ExtResource("21_5rhbf")
-amount = 2.0
+[sub_resource type="Resource" id="buildup_dizzy"]
+script = ExtResource("22_buildup")
+effect = ExtResource("21_dizzy")
+amount = 1.0
 metadata/_custom_type_script = "uid://b5h7q3xk1an2m"
 
-[sub_resource type="Resource" id="Resource_charged_damage"]
-script = ExtResource("1_damage")
-tags = 2113
-healthDamage = 40.0
-critChance = 0.1
-damageVariance = 0.25
-hitstun = 0.25
-knockbackDistance = 5.0
-knockbackTime = 0.3
-buildups = [SubResource("Resource_el1ut")]
+[sub_resource type="Resource" id="buildup_bleed"]
+script = ExtResource("22_buildup")
+effect = ExtResource("21_bleeding")
+amount = 1.0
+delivery = 1
+metadata/_custom_type_script = "uid://b5h7q3xk1an2m"
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
 tags = 2113
-healthDamage = 12.0
+healthDamage = 60.0
 critChance = 0.1
-damageVariance = 0.25
-hitstun = 0.2
-knockbackDistance = 0.5
-knockbackTime = 0.2
-buildups = []
+damageVariance = 0.15
+hitstun = 0.3
+knockbackDistance = 3.0
+knockbackTime = 0.3
+buildups = [SubResource("buildup_dizzy"), SubResource("buildup_bleed")]
 
 [sub_resource type="Resource" id="salvage_yield_steel"]
 script = ExtResource("material_count")
@@ -142,33 +93,13 @@ item = ExtResource("salvage_steel")
 count = 2
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
-[sub_resource type="Resource" id="repair_cost_gunpowder"]
-script = ExtResource("material_count")
-item = ExtResource("repair_gunpowder")
-count = 2
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
-
-[sub_resource type="Resource" id="repair_cost_lead"]
-script = ExtResource("material_count")
-item = ExtResource("repair_lead")
-count = 2
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
-
-[sub_resource type="Resource" id="repair_cost_steel"]
-script = ExtResource("material_count")
-item = ExtResource("salvage_steel")
-count = 1
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
-
 [resource]
 script = ExtResource("2_weapon")
-maxAmmo = 12
-wearCostsAmmoCapacity = true
+wetMisfireChance = 0.33
+misfireEffect = ExtResource("8_misfire")
 rightHandSlot = true
-arrowLootData = ExtResource("17_ajm0v")
-ammoRechargeSeconds = 6.0
+ammoType = 2
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
-&"charged": SubResource("Resource_charged_damage"),
 &"primary": SubResource("Resource_damage")
 })
 pitchRangeDegrees = 85.0
@@ -178,11 +109,10 @@ actionProfile = SubResource("Resource_profile")
 wieldHand = 1
 animSet = ExtResource("21_animset")
 weight = 0.6
-maxDurability = 60
-repair = Array[ExtResource("material_count")]([SubResource("repair_cost_gunpowder"), SubResource("repair_cost_lead"), SubResource("repair_cost_steel")])
+maxDurability = 80
 displayName = &"Musket"
-description = "A long smoothbore loaded with shot: it sprays a fan of three balls. Hold to tighten the spread, or keep holding for a single aimed ball."
-value = 50
+description = "A long rifled flintlock with a slow lock: half a second after the trigger, it sends one heavy lead ball that staggers and bleeds whatever it strikes."
+value = 60
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("20_held")
 salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])

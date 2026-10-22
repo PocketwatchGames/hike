@@ -113,6 +113,12 @@ public partial class ItemData : Resource
 
 	public virtual bool IsSalvageable => salvage != null && salvage.Count > 0;
 
+	// Whether an owned unit soaks and dries with its carrier (Player.TickWetEffect)
+	// and so can carry the item-side Wet status: clothes, and guns' powder.
+	public virtual bool TakesWetness => false;
+	// Scales how fast this item dries; 1 = the environment's own rate.
+	public virtual float WetnessDryMultiplier() => 1f;
+
 	// Whether `salvager` can break one unit of this down right now. Tool work is
 	// not done in combat (CombatTracker), the same rule as butchering and digging.
 	public bool CanSalvage(Player salvager)
@@ -181,14 +187,11 @@ public partial class ItemData : Resource
 
 	// Per-subclass default category. Base items (loot, meat, ingredients) are
 	// Material; WeaponData / ArmorData / LanternData / ConsumableData /
-	// ArrowLootData override.
+	// AmmoData override.
 	protected virtual EItemCategory ComputeCategory() => EItemCategory.Material;
 
 	// A cooking / spell reagent; picked up on contact, and placed past the hotbar.
 	public bool IsMaterial => Category == EItemCategory.Material;
-
-	// Ammo never enters the inventory — a pickup reclaims it into its weapon.
-	public bool IsCarriable => Category != EItemCategory.Ammo;
 
 	// True when this item fills one of the equip slots — weapon, armor, shield,
 	// lantern. Equipping moves it out of the backpack into the slot.

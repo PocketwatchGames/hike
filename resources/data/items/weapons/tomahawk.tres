@@ -1,0 +1,154 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_action"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
+[ext_resource type="PackedScene" path="res://scenes/fx/tomahawk_hit_creature.tscn" id="7_hitcreature"]
+[ext_resource type="PackedScene" path="res://scenes/fx/tomahawk_hit_armor.tscn" id="7_hitarmor"]
+[ext_resource type="PackedScene" path="res://scenes/fx/tomahawk_hit_solid.tscn" id="7_hitsolid"]
+[ext_resource type="PackedScene" path="res://scenes/fx/tomahawk_kill.tscn" id="7_hitkill"]
+[ext_resource type="PackedScene" path="res://scenes/fx/tomahawk_throw.tscn" id="8_throw"]
+[ext_resource type="PackedScene" uid="uid://dmlri0vh6oc8f" path="res://scenes/fx/sword_charge_head.tscn" id="8_chghead"]
+[ext_resource type="PackedScene" uid="uid://dmlrncbt6oc8f" path="res://scenes/fx/sword_charge_loop.tscn" id="8_chgloop"]
+[ext_resource type="PackedScene" uid="uid://dmlruv4p6oc8f" path="res://scenes/fx/sword_charge_tail.tscn" id="8_chgtail"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/tomahawk_projectile.tscn" id="10_proj"]
+[ext_resource type="Texture2D" uid="uid://chlcu5f08xm4a" path="res://assets/textures/items/Axe.png" id="15_sprite"]
+[ext_resource type="PackedScene" path="res://scenes/items/tomahawk_held.tscn" id="20_held"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="mat_steel"]
+
+[sub_resource type="Resource" id="Resource_event_throw"]
+script = ExtResource("3_event")
+type = 8396868
+animName = 37
+noiseDecibels = 0.15
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitarmor")
+impactLethalEffect = ExtResource("7_hitkill")
+impactDecibels = 0.45
+projectileScene = ExtResource("10_proj")
+projectileSpeed = 16.0
+projectileLifetimeSeconds = 0.4
+
+[sub_resource type="Resource" id="Resource_req_no_swim"]
+script = ExtResource("4_state")
+forbidSwimming = true
+
+[sub_resource type="Resource" id="Resource_tier_throw"]
+script = ExtResource("4_action")
+displayName = &"Throw"
+chargeTime = 0.35
+activeDurationSeconds = 0.4
+cooldownSeconds = 0.3
+staminaCost = 0.2
+useAmmo = true
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_throw")])
+requirements = Array[ExtResource("4_req")]([SubResource("Resource_req_no_swim")])
+chargedRangeScale = 2.0
+speedMultiplierActive = 0.5
+chargeStartEffect = ExtResource("8_chghead")
+releaseEffect = ExtResource("8_throw")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
+
+[sub_resource type="Resource" id="Resource_event_hurl"]
+script = ExtResource("3_event")
+type = 8396868
+animName = 37
+damageProfileKey = &"charged"
+noiseDecibels = 0.2
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitarmor")
+impactLethalEffect = ExtResource("7_hitkill")
+impactDecibels = 0.5
+projectileScene = ExtResource("10_proj")
+projectileSpeed = 26.0
+projectileLifetimeSeconds = 0.4
+
+[sub_resource type="Resource" id="Resource_tier_hurl"]
+script = ExtResource("4_action")
+displayName = &"Hurl"
+activeDurationSeconds = 0.4
+cooldownSeconds = 0.3
+staminaCost = 0.3
+useAmmo = true
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_hurl")])
+requirements = Array[ExtResource("4_req")]([SubResource("Resource_req_no_swim")])
+maxSpeedCharging = 1
+speedMultiplierActive = 0.3
+chargeStartEffect = ExtResource("8_chgtail")
+chargeLoopEffect = ExtResource("8_chgloop")
+releaseEffect = ExtResource("8_throw")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("5_profile")
+chargedActions = Array[ExtResource("4_action")]([SubResource("Resource_tier_throw"), SubResource("Resource_tier_hurl")])
+autoActivateAtMax = false
+queueWindowSeconds = 0.0
+
+[sub_resource type="Resource" id="Resource_damage"]
+script = ExtResource("1_damage")
+tags = 3141
+healthDamage = 40.0
+critChance = 0.1
+damageVariance = 0.2
+blunt = 0.5
+hitstun = 0.35
+knockbackDistance = 1.0
+knockbackTime = 0.25
+buildups = []
+
+[sub_resource type="Resource" id="Resource_charged_damage"]
+script = ExtResource("1_damage")
+tags = 3141
+healthDamage = 60.0
+critChance = 0.1
+damageVariance = 0.2
+blunt = 0.5
+hitstun = 0.45
+knockbackDistance = 1.5
+knockbackTime = 0.3
+buildups = []
+
+[sub_resource type="Resource" id="salvage_yield_steel"]
+script = ExtResource("material_count")
+item = ExtResource("mat_steel")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="repair_cost_steel"]
+script = ExtResource("material_count")
+item = ExtResource("mat_steel")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[resource]
+script = ExtResource("2_weapon")
+rightHandSlot = true
+thrown = true
+thrownBreakChance = 0.1
+delivery = 4
+damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
+&"charged": SubResource("Resource_charged_damage"),
+&"primary": SubResource("Resource_damage")
+})
+pitchRangeDegrees = 85.0
+yawAssistDegrees = 60.0
+aimAssistStrength = 0.75
+actionProfile = SubResource("Resource_profile")
+weight = 0.3
+maxStack = 5
+displayName = &"Tomahawk"
+description = "A throwing axe. Hits hard and batters through armor; go and pick it up where it lands. Hold to hurl it harder."
+value = 40
+inventorySprite = ExtResource("15_sprite")
+heldModel = ExtResource("20_held")
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])

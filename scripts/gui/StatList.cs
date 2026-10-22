@@ -22,7 +22,9 @@ public static class StatList
 	// `hits` is how many times one use of the attack lands this profile
 	// (CountHits, at least 1): damage and buildups read as the attack's total; chances and
 	// per-hit effects (crit, armor pen, knockback) stay per hit.
-	public static IEnumerable<(string name, string value)> BaseDamage(DamageData damage, int hits = 1)
+	// `action` is the tier that lands it: a charge ramp on damage or armor pen
+	// renders as a span ("3-6", "50-100%") the way Range does.
+	public static IEnumerable<(string name, string value)> BaseDamage(DamageData damage, int hits = 1, ItemAction action = null)
 	{
 		if (damage == null)
 		{
@@ -32,15 +34,22 @@ public static class StatList
 		Dictionary<EStatName, string> names = GameClient.Current.statNames;
 		if (damage.healthDamage > 0f)
 		{
-			yield return (names[EStatName.Damage], DamageValue(damage, hits));
+			string value = DamageValue(damage, hits);
+			float damageScale = ItemAction.SampleDamageScale(action, 1f);
+			if (damageScale > 1f)
+			{
+				value += "-" + Mathf.CeilToInt(damage.healthDamage * hits * damageScale);
+			}
+			yield return (names[EStatName.Damage], value);
 		}
 		if (damage.critChance > 0f)
 		{
 			yield return (names[EStatName.CritChance], StatFormat.Percent(damage.critChance));
 		}
-		if (damage.armorPenetration > 0f)
+		float maxArmorPenetration = damage.armorPenetration + ItemAction.SampleArmorPenetrationBonus(action, 1f);
+		if (maxArmorPenetration > 0f)
 		{
-			yield return (names[EStatName.ArmorPenetration], StatFormat.Percent(damage.armorPenetration));
+			yield return (names[EStatName.ArmorPenetration], StatFormat.PercentSpan(damage.armorPenetration, maxArmorPenetration));
 		}
 		if (damage.blunt > 0f)
 		{
@@ -425,6 +434,7 @@ public static class StatList
 			EHitTag.Poisoned => EStatName.Poisoned,
 			EHitTag.Shocked => EStatName.Shocked,
 			EHitTag.Sunlight => EStatName.Sunlight,
+			EHitTag.Bleeding => EStatName.Bleeding,
 			_ => EStatName.Damage,
 		};
 	}
@@ -470,7 +480,9 @@ public static class StatList
 	// confirm their character sheet at a glance. Sense stats render only
 	// when armor or an active status effect moves them off the PlayerData
 	// base. Resistances render only when their summed total is non-zero.
-	public static IEnumerable<(string name, string value)> PlayerStats(Player player)
+	// `includePools` false drops the Health / Stamina / Armor rows for a screen
+	// that already shows them as bars (PlayerVitalsHud).
+	public static IEnumerable<(string name, string value)> PlayerStats(Player player, bool includePools = true)
 	{
 		if (player == null)
 		{
@@ -478,9 +490,12 @@ public static class StatList
 		}
 		Dictionary<EStatName, string> names = GameClient.Current.statNames;
 
-		yield return (names[EStatName.Health], StatFormat.Number(player.MaxHealth));
-		yield return (names[EStatName.MaxStamina], StatFormat.Number(player.MaxStamina));
-		yield return (names[EStatName.Armor], StatFormat.Number(player.MaxArmor));
+		if (includePools)
+		{
+			yield return (names[EStatName.Health], StatFormat.Number(player.MaxHealth));
+			yield return (names[EStatName.MaxStamina], StatFormat.Number(player.MaxStamina));
+			yield return (names[EStatName.Armor], StatFormat.Number(player.MaxArmor));
+		}
 
 		// Per-character party sheet (PlayerState) — the authored attributes that
 		// distinguish one member from another on the camp Select-Character panel.
@@ -657,18 +672,34 @@ public static class StatList
 		}
 	}
 
-	// Item-level ammo readout. Labeled "Ammo" when shots are recoverable
-	// (arrowLootData wired, like the bow's arrows) and "Charges" when
-	// they're consumed permanently (wands, single-use throwables).
-	public static IEnumerable<(string name, string value)> Ammo(WeaponState weapon)
+	// The kind of round a ranged weapon fires, or a round's own type.
+	public static IEnumerable<(string name, string value)> Ammo(ItemData item)
 	{
-		WeaponData data = weapon?.data;
-		if (data == null || !weapon.UsesAmmo)
+		EAmmoType type = item switch
 		{
-			yield break;
+			WeaponData weapon => weapon.ammoType,
+			AmmoData ammo => ammo.ammoType,
+			_ => EAmmoType.None,
+		};
+		if (GameClient.Current.ammoTypeNames.TryGetValue(type, out string typeName))
+		{
+			yield return (GameClient.Current.statNames[EStatName.Ammo], typeName);
 		}
-		EStatName key = data.arrowLootData != null ? EStatName.Ammo : EStatName.Charges;
-		yield return (GameClient.Current.statNames[key], weapon.ammo + " / " + weapon.MaxAmmo);
+	}
+
+	// A round's odds of breaking where it lands. 0 = no row.
+	public static IEnumerable<(string name, string value)> BreakChance(ItemData item)
+	{
+		float chance = item switch
+		{
+			AmmoData ammo => ammo.breakChance,
+			WeaponData { thrown: true } thrown => thrown.thrownBreakChance,
+			_ => 0f,
+		};
+		if (chance > 0f)
+		{
+			yield return (GameClient.Current.statNames[EStatName.BreakChance], StatFormat.Percent(chance));
+		}
 	}
 
 	// Equipped gear's Weight row: the stamina units it takes off the wearer's
@@ -758,7 +789,7 @@ public static class StatList
 				continue;
 			}
 			DamageData damage = weapon.GetDamage(damageEvent.damageProfileKey ?? new StringName("primary"));
-			foreach (var entry in BaseDamage(damage, CountHits(action, damageEvent.damageProfileKey)))
+			foreach (var entry in BaseDamage(damage, CountHits(action, damageEvent.damageProfileKey), action))
 			{
 				yield return entry;
 			}

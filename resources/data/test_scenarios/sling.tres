@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "sling"
+description = "A sling and a ring of goblins. Each stone hits lightly with a short shove and builds Stun; a few hits daze a goblin, and a held Whirl gets there faster. Ammo never runs out and no stones are left on the ground."
+commands = "spawn_loot sling
+spawn_mob goblin_forest 3"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

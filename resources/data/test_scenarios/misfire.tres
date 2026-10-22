@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "misfire"
+description = "A musket, a blunderbuss and their lead balls and shot at your feet in a downpour. Stand in the open (or wade into water) until their slots show Wet, then fire: about one shot in three misfires."
+commands = "// Rain soaks every carried gun under open sky; water soaks it at once.
+weather_precip_force 1
+weather_snow_force 0
+spawn_loot musket 1
+spawn_loot blunderbuss 1
+spawn_loot lead_ball 10
+spawn_loot shot 10"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

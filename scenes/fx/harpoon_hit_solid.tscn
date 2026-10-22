@@ -1,0 +1,13 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://ckqhyg8tuvdls" path="res://assets/audio/source/weapons/SIEGE_WEAPON_MEDIEVAL_Ballista_Bolt_Impact_Wood_02_mono.wav" id="2_audio"]
+
+[node name="HarpoonHitSolid" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("2_audio")
+unit_size = 6.0
+max_distance = 40.0
+bus = &"World3D"

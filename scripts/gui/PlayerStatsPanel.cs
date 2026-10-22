@@ -11,6 +11,9 @@ public partial class PlayerStatsPanel : PanelContainer
 	[Export] private PackedScene _statusEffectInfoScene;
 	[Export] private Control _statusEffectContainer;
 	[Export] private TextureRect _playerClassIcon;
+	// Off where a PlayerVitalsHud beside the panel already shows health, stamina
+	// and armor.
+	[Export] private bool _showPools = true;
 
 	Player _player;
 
@@ -122,7 +125,7 @@ public partial class PlayerStatsPanel : PanelContainer
 			return;
 		}
 		_currentStats.Clear();
-		foreach (var entry in StatList.PlayerStats(_player))
+		foreach (var entry in StatList.PlayerStats(_player, _showPools))
 		{
 			_currentStats.Add(entry);
 		}

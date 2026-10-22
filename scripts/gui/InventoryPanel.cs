@@ -20,6 +20,10 @@ public partial class InventoryPanel : Control
 	[Export] private ItemSlotPanel _armorBodyPanel;
 	[Export] private ItemSlotPanel _weaponLeftPanel;
 	[Export] private ItemSlotPanel _weaponRightPanel;
+	// The ammo the equipped ranged weapon fires, badged with the carried total.
+	// Display only — ammo is loaded from its own stack (Inventory.Load), so the
+	// slot never takes focus.
+	[Export] private ItemSlotPanel _ammoPanel;
 	// The lantern slot — the HUD's first hotbar entry, so it is built in _Ready as
 	// the belt panel's leading slot.
 	private ItemSlotPanel _lanternPanel;
@@ -132,6 +136,7 @@ public partial class InventoryPanel : Control
 		WirePanel(_armorBodyPanel);
 		WirePanel(_weaponLeftPanel);
 		WirePanel(_weaponRightPanel);
+		_ammoPanel?.SetFocusable(false);
 		// Ahead of the screens' own _Ready (a child readies first), which wire
 		// EquipPanel(Lantern).
 		_lanternPanel = _belt?.AddLeadingSlot();
@@ -320,6 +325,18 @@ public partial class InventoryPanel : Control
 		_backpack?.Refresh(inventory?.Backpack.Slots);
 		_sacks?.Refresh(inventory);
 		_lanternPanel?.SetActive(inventory?.LitLantern != null);
+		PaintAmmo(inventory);
+	}
+
+	void PaintAmmo(Inventory inventory)
+	{
+		if (_ammoPanel == null)
+		{
+			return;
+		}
+		EAmmoType type = inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data?.ammoType ?? EAmmoType.None;
+		_ammoPanel.Visible = type != EAmmoType.None;
+		_ammoPanel.SetItem(inventory?.LoadedAmmoStack(type), inventory?.LoadedAmmoCount(type) ?? 0);
 	}
 
 	// Every carried grid's panel with the grid it shows — belt, backpack, then

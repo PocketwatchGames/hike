@@ -19,7 +19,6 @@
 [ext_resource type="PackedScene" uid="uid://b3la8d0l81l6i" path="res://scenes/projectiles/lead_shot.tscn" id="10_ajm0v"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="12_ow6j3"]
 [ext_resource type="Texture2D" uid="uid://35su23r5he88" path="res://assets/textures/items/AirRifle.png" id="15_sprite"]
-[ext_resource type="Resource" uid="uid://bukfpnhl656fs" path="res://resources/data/items/loot/lead_shot.tres" id="17_ajm0v"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="18_5rhbf"]
 [ext_resource type="PackedScene" path="res://scenes/items/air_rifle_held.tscn" id="20_held"]
 [ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="21_5rhbf"]
@@ -31,14 +30,13 @@
 
 [sub_resource type="Resource" id="Resource_event_scatter"]
 script = ExtResource("3_event")
-type = 8396868
+type = 41951300
 noiseDecibels = 0.05
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 impactDecibels = 0.2
-durabilityCostOnHit = 1.0
 projectileScene = ExtResource("10_ajm0v")
 projectileSpeed = 24.0
 projectileLifetimeSeconds = 0.25
@@ -69,7 +67,7 @@ impactBackstabEffect = ExtResource("7_hitcreature")
 
 [sub_resource type="Resource" id="Resource_event_heavy"]
 script = ExtResource("3_event")
-type = 8397892
+type = 41952324
 animName = 20
 damageProfileKey = &"charged"
 motionForwardSpeed = -10.0
@@ -79,7 +77,6 @@ impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 impactDecibels = 0.2
-durabilityCostOnHit = 1.0
 projectileScene = ExtResource("10_ajm0v")
 projectileSpeed = 56.0
 projectileLifetimeSeconds = 0.25
@@ -154,11 +151,8 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
 script = ExtResource("2_weapon")
-maxAmmo = 20
-wearCostsAmmoCapacity = true
 rightHandSlot = true
-arrowLootData = ExtResource("17_ajm0v")
-ammoRechargeSeconds = 4.0
+ammoType = 2
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"charged": SubResource("Resource_charged_damage"),
 &"primary": SubResource("Resource_damage")
@@ -170,10 +164,10 @@ actionProfile = SubResource("Resource_profile")
 wieldHand = 1
 animSet = ExtResource("21_animset")
 weight = 0.7
-maxDurability = 50
+maxDurability = 150
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel"), SubResource("repair_cost_lead")])
 displayName = &"Air Rifle"
-description = "A rifle powered by a reservoir of compressed air. Nearly silent and holds many charges, but hits lighter than powder. Hold for a pumped shot."
+description = "A rifle powered by a reservoir of compressed air. Fires lead balls nearly silently, but hits lighter than powder. Hold for a pumped shot."
 value = 70
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("20_held")

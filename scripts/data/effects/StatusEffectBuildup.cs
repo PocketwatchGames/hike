@@ -1,5 +1,17 @@
 using Godot;
 
+// How a contribution reaches the receiver's body, which decides whether a hit
+// that connected actually delivers it. Written into .tres as an int: APPEND-ONLY.
+//   Contact — lands whenever the hit connects (a blow's Dizzy, Shocked, Burning,
+//             a breathed poison cloud).
+//   Wound   — lands only if the hit took off health; one soaked entirely by
+//             armor or a shield delivers nothing (a blade's Bleeding, a bite's venom).
+public enum EBuildupDelivery
+{
+	Contact = 0,
+	Wound = 1,
+}
+
 // Per-hit (or per-tick) contribution that lands a status effect on the receiver,
 // in one of two modes (see applyImmediately). The single authored channel for
 // every on-hit effect — DamageData.buildups, DamageDataModifier.addBuildups,
@@ -30,4 +42,6 @@ public partial class StatusEffectBuildup : Resource
 	// for the next apply. Per-tick paths (continuous damage zones, dot intervals)
 	// scale by delta before adding.
 	[Export] public float amount = 0f;
+
+	[Export] public EBuildupDelivery delivery = EBuildupDelivery.Contact;
 }

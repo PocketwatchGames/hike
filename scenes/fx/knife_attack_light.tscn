@@ -1,17 +1,16 @@
 [gd_scene format=3 uid="uid://xl0hbo1n939d1"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" uid="uid://blpoapv86x531" path="res://assets/audio/source/weapons/sfx_weapon_sword_attack_light_01.wav" id="2_a01"]
-[ext_resource type="AudioStream" uid="uid://dbis5ibo2gvo8" path="res://assets/audio/source/weapons/sfx_weapon_sword_attack_light_02.wav" id="2_a02"]
-[ext_resource type="AudioStream" uid="uid://b5ccqx6t4mo4h" path="res://assets/audio/source/weapons/sfx_weapon_sword_attack_light_03.wav" id="2_a03"]
-[ext_resource type="AudioStream" uid="uid://bjd8fy1mqgqpa" path="res://assets/audio/source/weapons/sfx_weapon_sword_attack_light_04.wav" id="2_a04"]
-[ext_resource type="AudioStream" uid="uid://d2brogyxbw0ep" path="res://assets/audio/source/weapons/sfx_weapon_sword_attack_light_05.wav" id="2_a05"]
+[ext_resource type="AudioStream" uid="uid://c13645jho3qdm" path="res://assets/audio/source/weapons/sfx_weapon_knife_attack_light_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://bcfcgrw10bmic" path="res://assets/audio/source/weapons/sfx_weapon_knife_attack_light_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://ci4eiuwyhb01i" path="res://assets/audio/source/weapons/sfx_weapon_knife_attack_light_03.wav" id="2_a03"]
+[ext_resource type="AudioStream" uid="uid://bt5cpkrdcgb1t" path="res://assets/audio/source/weapons/sfx_weapon_knife_attack_light_04.wav" id="2_a04"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_knfatklight"]
 playback_mode = 1
 random_pitch = 1.1
 random_volume_offset_db = 2.0
-streams_count = 5
+streams_count = 4
 stream_0/stream = ExtResource("2_a01")
 stream_0/weight = 1.0
 stream_1/stream = ExtResource("2_a02")
@@ -20,8 +19,6 @@ stream_2/stream = ExtResource("2_a03")
 stream_2/weight = 1.0
 stream_3/stream = ExtResource("2_a04")
 stream_3/weight = 1.0
-stream_4/stream = ExtResource("2_a05")
-stream_4/weight = 1.0
 
 [node name="KnifeAttackLight" type="Node3D"]
 script = ExtResource("1_oneshot")
@@ -31,5 +28,5 @@ stream = SubResource("AudioStreamRandomizer_knfatklight")
 unit_size = 6.0
 max_distance = 35.0
 volume_db = 1.0
-pitch_scale = 1.35
+pitch_scale = 1.1
 bus = &"World3D"

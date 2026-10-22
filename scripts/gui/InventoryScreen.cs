@@ -18,6 +18,7 @@ using Godot;
 public partial class InventoryScreen : Control
 {
 	[Export] private PlayerStatsPanel _statsPanel;
+	[Export] private PlayerVitalsHud _vitals;
 	[Export] private InventoryPanel _inventoryPanel;
 	[Export] private ItemInfoPanel _highlightPanel;
 	// Asks how many when a hold-to-drop lands on a stack.
@@ -122,6 +123,7 @@ public partial class InventoryScreen : Control
 		{
 			_player = _gameClient?.Player;
 			_statsPanel?.SetPlayer(_player);
+			_vitals?.Bind(_player);
 			if (_player?.Inventory != null)
 			{
 				_player.Inventory.onChanged += Refresh;
@@ -139,6 +141,7 @@ public partial class InventoryScreen : Control
 			{
 				_player.Inventory.onChanged -= Refresh;
 			}
+			_vitals?.Bind(null);
 			_selected = Slot.None;
 			_focused = Slot.None;
 			ResetDropHold();
@@ -384,16 +387,20 @@ public partial class InventoryScreen : Control
 
 	// ---- Item verbs, shared with StashScreen and MerchantScreen -------------
 
-	// The Equip verb: equip / unequip gear (a spare lantern included); for an
-	// item that belongs on the belt (a potion, a meal — not a material), move it
-	// between the backpack and the belt.
+	// The Equip verb: equip / unequip gear (a spare lantern included); load ammo
+	// the ranged weapon fires; for an item that belongs on the belt (a potion, a
+	// meal — not a material), move it between the backpack and the belt.
 	public static void ToggleEquip(Player player, ItemState item)
 	{
 		if (EquipVerb(player, item) == null)
 		{
 			return;
 		}
-		if (item.data.IsEquippable)
+		if (item.data is AmmoData ammo)
+		{
+			player.Inventory.Load(ammo);
+		}
+		else if (item.data.IsEquippable)
 		{
 			player.Inventory.ToggleEquip(item);
 		}
@@ -404,13 +411,18 @@ public partial class InventoryScreen : Control
 	}
 
 	// The Equip hint's label for `item`, null when it has no verb — a material,
-	// or a belt item whose other grid has no room for it.
+	// ammo already loaded or that the ranged weapon doesn't fire, or a belt item
+	// whose other grid has no room for it.
 	public static string EquipVerb(Player player, ItemState item)
 	{
 		Inventory inv = player?.Inventory;
 		if (item?.data == null || inv == null)
 		{
 			return null;
+		}
+		if (item.data is AmmoData ammo)
+		{
+			return inv.CanLoad(ammo) && !inv.IsLoaded(item) ? "Equip" : null;
 		}
 		if (item.data.IsEquippable)
 		{

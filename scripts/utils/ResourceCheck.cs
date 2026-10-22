@@ -39,6 +39,11 @@ using System.Text;
 //
 //   Tool uses — every ItemData.toolUses row names a kind; a None row makes the
 //   item serve as nothing while reading as if it did.
+//
+//   Ammo — every AmmoData names a type, at most one per type is the standard
+//   round a weapon falls back to (two would make the fallback depend on grid
+//   order), and a thrown weapon stacks and never wears (each unit is spent
+//   outright, and stacked units can't carry durability of their own).
 public static class ResourceCheck
 {
     private const string ResourceRoot = "res://resources";
@@ -190,6 +195,7 @@ public static class ResourceCheck
         // finalized mid-sweep can trip the engine's `gchandle.is_released()`
         // FATAL, which kills the process depending only on GC timing.
         var keepAlive = new List<Resource>(paths.Count);
+        var standardAmmo = new Dictionary<EAmmoType, string>();
         int loaded = 0;
         foreach (string path in paths)
         {
@@ -213,6 +219,7 @@ public static class ResourceCheck
             WalkForDamageTags(res, path, problems);
             CheckTimeOfDayCurves(res, path, problems);
             CheckHarvestLoot(res, path, problems);
+            CheckAmmo(res, path, standardAmmo, problems);
 
             string declared = DeclaredScriptClass(path);
             if (string.IsNullOrEmpty(declared))
@@ -229,6 +236,36 @@ public static class ResourceCheck
 
         GC.KeepAlive(keepAlive);
         return loaded;
+    }
+
+    private static void CheckAmmo(Resource res, string path, Dictionary<EAmmoType, string> standardAmmo, List<string> problems)
+    {
+        if (res is AmmoData ammo)
+        {
+            if (ammo.ammoType == EAmmoType.None)
+            {
+                problems.Add($"{path}: an AmmoData names no ammoType — no weapon can fire it");
+            }
+            else if (ammo.isStandard && !standardAmmo.TryAdd(ammo.ammoType, path))
+            {
+                problems.Add($"{path}: a second standard {ammo.ammoType} round (also {standardAmmo[ammo.ammoType]})");
+            }
+        }
+        if (res is WeaponData { thrown: true } thrown)
+        {
+            if (!thrown.IsStackable)
+            {
+                problems.Add($"{path}: a thrown weapon is its own round and must stack (maxStack {thrown.maxStack})");
+            }
+            if (thrown.maxDurability > 0f)
+            {
+                problems.Add($"{path}: a thrown weapon must not wear (maxDurability {thrown.maxDurability}) — each unit is spent outright");
+            }
+            if (thrown.NeedsAmmo)
+            {
+                problems.Add($"{path}: a thrown weapon fires itself, not {thrown.ammoType}");
+            }
+        }
     }
 
     private static void CheckHarvestLoot(Resource res, string path, List<string> problems)

@@ -1,16 +1,13 @@
 using Godot;
 
-// Authored cues + arrow-binding payload the projectile carries from its
-// firing event. The fx fields (miss/environment/health/armor/lethal) come
-// straight from the event's impact fields — same hit-result mapping
-// DoHitscan uses. arrowLootData, when non-null, drives the StickArrow /
-// SpawnArrowLoot follow-up: a hurtbox hit on a still-living mob sticks the
-// arrow, anything else (env clip, lethal, miss-at-range) drops loose loot
-// at the impact point. The firing handler decides at fire time whether to
-// populate it (weapon authors arrowLootData AND the firing tier flags
-// useAmmo), so the projectile doesn't need to peek back at the action.
-// sourceWeapon is the ammo-bookkeeping target — arrows that resolve into
-// loot or stuck-on-mob register back to this WeaponState for recovery.
+// Authored cues + recoverable round the projectile carries from its firing
+// event. The fx fields (miss/environment/health/armor/lethal) come straight
+// from the event's impact fields — same hit-result mapping DoHitscan uses.
+// `round`, when non-null, is what lands where the shot resolves
+// (Sim.LandRecoverableRound): stuck in a still-living mob it struck, else a
+// loose pickup at the impact point. The firing handler decides it at fire time
+// (a round was spent and survived its break roll), so the projectile doesn't
+// need to peek back at the action.
 public struct ProjectileImpact
 {
 	public PackedScene miss;
@@ -25,9 +22,9 @@ public struct ProjectileImpact
 	public PackedScene crit;
 	public PackedScene backstab;
 	public WeaponState sourceWeapon;
-	public ArrowLootData arrowLootData;
+	public ItemData round;
 	// ItemEvent.durabilityCostOnHit: spent from sourceWeapon when the shot first
-	// strikes a target; a round that wear breaks drops no arrow.
+	// strikes a target.
 	public float durabilityCostOnHit;
 	// ItemEvent.impactDecibels, sounded where the shot lands.
 	public float impactDecibels;
@@ -78,7 +75,6 @@ public partial class Projectile : Node3D
 	// Set on the first mob this shot strikes (ProjectileImpact.durabilityCostOnHit);
 	// breakables don't wear the weapon.
 	private bool _struckTarget;
-	private bool _roundBroken;
 	// Protected so movement-override subclasses (HomingMissile) can steer it.
 	protected Vector3 _velocity;
 	// Protected so subclasses can ramp/arm behavior off the projectile's age
@@ -155,6 +151,10 @@ public partial class Projectile : Node3D
 	private float _knockbackTimeBonus;
 	// Blunt-mod armor chip added to each hit. 0 = none.
 	private float _bluntBonus;
+	// The firing tier's charge ramp, sampled at release (ItemAction
+	// .chargedDamageScale / chargedArmorPenetrationBonus).
+	private float _chargeDamageScale = 1f;
+	private float _chargeArmorPenetrationBonus;
 	// Firing weapon's composed level damage multiplier (2^level), folded with the
 	// attacker's per-level offense scale (Ranged forge upgrade / mob Level). 1 = no
 	// scaling. The shot rebuilds its HitInfo from raw DamageData, so ResolveHit's
@@ -174,6 +174,7 @@ public partial class Projectile : Node3D
 
 	public DamageData DamageData => _damageData;
 	public Node Source => _source;
+	protected WeaponState SourceWeapon => _impact.sourceWeapon;
 	// Current world velocity (m/s) and firing team, read by ProjectileRegistry
 	// so mobs can decide whether an in-flight shot is an incoming threat and
 	// which way it's travelling. Velocity changes each tick (gravity / homing);
@@ -227,7 +228,9 @@ public partial class Projectile : Node3D
 		float potency = 1f,
 		float staminaOnHit = 0f,
 		Godot.Collections.Array<ItemEvent> onKillEvents = null,
-		float bluntBonus = 0f)
+		float bluntBonus = 0f,
+		float chargeDamageScale = 1f,
+		float chargeArmorPenetrationBonus = 0f)
 	{
 		if (scene == null || parent == null)
 		{
@@ -243,6 +246,8 @@ public partial class Projectile : Node3D
 		inst._knockbackBonus = knockbackBonus;
 		inst._knockbackTimeBonus = knockbackTimeBonus;
 		inst._bluntBonus = bluntBonus;
+		inst._chargeDamageScale = chargeDamageScale;
+		inst._chargeArmorPenetrationBonus = chargeArmorPenetrationBonus;
 		inst._damageMultiplier = damageMultiplier;
 		inst._potency = potency;
 		inst._damageData = damageData;
@@ -340,6 +345,21 @@ public partial class Projectile : Node3D
 	// = only when gravity is bending the arc (flat shots keep their launch
 	// orientation). A homing missile returns true so it tracks its curve.
 	protected virtual bool ReorientToVelocity => _gravity != 0f;
+
+	// Last word on a creature hit before it is predicted and applied, after the
+	// base has folded in the weapon mods. Base = unchanged. HarpoonProjectile
+	// replaces the knockback with its pull.
+	protected virtual void ModifyHit(ref HitInfo hit, HurtBox target)
+	{
+	}
+
+	// What happens once the flight is over and its impact has resolved. Base =
+	// tear down and free. HarpoonProjectile reels back to the thrower instead.
+	protected virtual void EndFlight()
+	{
+		StopLoopFx();
+		QueueFree();
+	}
 
 	public override void _PhysicsProcess(double delta)
 	{
@@ -463,6 +483,7 @@ public partial class Projectile : Node3D
 						hit.knockbackDistance += _knockbackBonus;
 						hit.knockbackTime += _knockbackTimeBonus;
 						ItemEventHandlers.AddBluntBonus(ref hit, _bluntBonus);
+						ItemEventHandlers.ApplyChargeRamp(ref hit, _chargeDamageScale, _chargeArmorPenetrationBonus);
 						// Team skip via the receiver's filter: an allied hurtbox is
 						// added to the exclude list and the projectile keeps flying.
 						// Falls through to the env-clip / continue branches below.
@@ -492,6 +513,7 @@ public partial class Projectile : Node3D
 						}
 						Vector3 hitPos = (Vector3)hurtResult["position"];
 						hit.hitPoint = hitPos;
+						ModifyHit(ref hit, hurtBox);
 						HitPrediction prediction = hurtBox.QueryHit(hit);
 						EHitResult hitResult = prediction.Result;
 						EDamageTriggerFlags hitTriggers = prediction.Triggers;
@@ -500,7 +522,7 @@ public partial class Projectile : Node3D
 						if (!_struckTarget && ItemEventHandlers.FindOwningMob(hurtBox) != null)
 						{
 							_struckTarget = true;
-							_roundBroken = ItemEventHandlers.WearOnStrike(_source, _impact.sourceWeapon, _impact.durabilityCostOnHit);
+							ItemEventHandlers.WearOnStrike(_source, _impact.sourceWeapon, _impact.durabilityCostOnHit);
 						}
 						// Record this creature so the shot can't strike it again as
 						// it passes through.
@@ -614,9 +636,8 @@ public partial class Projectile : Node3D
 	}
 
 	// Shared end-of-life path: resolve impact fx + arrow recovery, fire the
-	// authored impactEvent at the landing position (if any), tear down the
-	// loop fx (reparented out so its tail fades naturally), then free the
-	// projectile node. `triggers` is non-zero only on the hurtbox-hit path —
+	// authored impactEvent at the landing position (if any), then EndFlight
+	// (base: tear down the loop fx and free). `triggers` is non-zero only on the hurtbox-hit path —
 	// env clips and lifetime expiry pass None since there's no receiver to
 	// query.
 	private void Despawn(EHitResult result, EDamageTriggerFlags triggers, HurtBox hurtBox, Vector3 position)
@@ -642,15 +663,14 @@ public partial class Projectile : Node3D
 		ItemEventHandlers.DispatchAtPosition(followUp, position, GetParent(),
 			GodotObject.IsInstanceValid(_source) ? _source : null, _impact.sourceWeapon?.data, _attackerTeam,
 			_damageMultiplier, _potency);
-		StopLoopFx();
-		QueueFree();
+		EndFlight();
 	}
 
 	// Hand the loop fx off to the projectile's parent so their trailing
 	// particles can fade after our QueueFree resolves. Stop() flips
 	// Emitting=false and halts audio; each Fx node frees itself once its
 	// longest particle Lifetime has elapsed.
-	private void StopLoopFx()
+	protected void StopLoopFx()
 	{
 		Node parent = GetParent();
 		for (int i = 0; i < _loopFx.Count; i++)
@@ -705,32 +725,21 @@ public partial class Projectile : Node3D
 		}
 	}
 
-	// Branch shared by every despawn path: pick the right impact fx for
-	// the hit type, then run the arrow-recovery logic. An arrow that
-	// landed on a living mob's health sticks; everything else (armor
-	// bounce, environment clip, end-of-range miss) drops loose loot at
-	// the projectile's last position so a shot into empty space — or one
-	// that glanced off armor — still returns recoverable ammo. Armor
-	// penetration is already folded in upstream: a penetrating hit skips armor and resolves
-	// to EHitResult.Health, so it sticks like any other health hit.
+	// Branch shared by every despawn path: pick the right impact fx for the hit
+	// type, then land the round. One that hit a living mob's health sticks (if it
+	// embeds at all — see Sim.LandRecoverableRound); everything else (armor
+	// bounce, environment clip, end-of-range miss) drops loose at the
+	// projectile's last position. Armor penetration is already folded in
+	// upstream: a penetrating hit resolves to EHitResult.Health and sticks.
 	private void ResolveImpact(EHitResult result, EDamageTriggerFlags triggers, HurtBox hurtBox, Vector3 position)
 	{
 		SpawnImpactVisuals(result, triggers, position);
 
-		WeaponState weapon = _impact.sourceWeapon;
-		ArrowLootData arrowLootData = _impact.arrowLootData;
-		if (weapon == null || arrowLootData == null || _roundBroken || Sim.Current == null)
+		if (_impact.round == null || Sim.Current == null)
 		{
 			return;
 		}
 		Mob targetMob = result == EHitResult.Health ? ItemEventHandlers.FindOwningMob(hurtBox) : null;
-		if (targetMob != null && targetMob.alive)
-		{
-			targetMob.StickArrow(weapon, arrowLootData, position, _velocity);
-		}
-		else
-		{
-			Sim.Current.EjectArrowLoot(position, arrowLootData, weapon);
-		}
+		Sim.Current.LandRecoverableRound(_impact.round, targetMob, position, _velocity);
 	}
 }

@@ -18,8 +18,8 @@ public enum EItemCategory
 	// Cooking ingredients, loot, meat — the reagent pool for cooking and spells,
 	// and the only category picked up on contact. Lands past the hotbar.
 	Material,
-	// Ammo (arrows): never enters the inventory — a pickup reclaims it straight
-	// into the firing weapon.
+	// Rounds for a ranged weapon (AmmoData): carried in the backpack, never
+	// equipped — loaded per type instead (Inventory.LoadedAmmo).
 	Ammo,
 	Lantern,
 	Shield,

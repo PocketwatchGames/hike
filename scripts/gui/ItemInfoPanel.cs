@@ -206,11 +206,10 @@ public partial class ItemInfoPanel : PanelContainer
 		AddStats(StatList.Weight(item.data));
 		AddStats(StatList.Food(item.data));
 		AddStats(StatList.Contents(item));
+		AddStats(StatList.Ammo(item.data));
+		AddStats(StatList.BreakChance(item.data));
 		switch (item)
 		{
-			case WeaponState weapon:
-				AddStats(StatList.Ammo(weapon));
-				break;
 			case ShieldState shield:
 				AddStats(StatList.ShieldStats(shield.data));
 				break;

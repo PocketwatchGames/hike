@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="AmmoData" format=3 uid="uid://bukfpnhl656fs"]
+
+[ext_resource type="Script" uid="uid://9wpqw34qznkli" path="res://scripts/data/items/AmmoData.cs" id="1_ammo"]
+[ext_resource type="Texture2D" uid="uid://bcxtkk1iadrdv" path="res://assets/textures/items/Lead.png" id="2_sprite"]
+[ext_resource type="PackedScene" uid="uid://b3la8d0l81l6i" path="res://scenes/projectiles/lead_shot.tscn" id="3_model"]
+
+[resource]
+script = ExtResource("1_ammo")
+ammoType = 2
+isStandard = true
+breakChance = 0.5
+stuckModel = ExtResource("3_model")
+displayName = &"Lead Ball"
+description = "A round lead ball for a musket, pistol or air rifle. Half of them flatten past use."
+maxStack = 40
+value = 1
+inventorySprite = ExtResource("2_sprite")

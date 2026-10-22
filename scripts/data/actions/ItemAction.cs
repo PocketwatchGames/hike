@@ -72,13 +72,10 @@ public partial class ItemAction : Resource
 	// 0 (default) = no oil cost.
 	[Export(PropertyHint.Range, "0,100,1,or_greater")] public float oilCost = 0f;
 
-	// True if this tier consumes ammo from the driving WeaponState — gates
-	// the press at zero ammo (PlayerWeapon / AimingReticle / WeaponHud read
-	// this through WeaponData.UsesAmmo) and gates arrow-loot generation in
-	// DoHitscan / DoProjectile (so a melee-bash tier on a bow doesn't drop
-	// arrows even though the weapon authors arrowLootData). The actual ammo
-	// decrement still rides on the per-event EItemEventType.UseAmmo flag so
-	// authors can pick which timeline moment burns the ammo.
+	// True if this tier fires the weapon's rounds (WeaponData.ammoType, or a
+	// thrown weapon's own stack): it can't be selected while the wielder has none
+	// (Inventory.RoundsFor). The spend itself rides on the per-event
+	// EItemEventType.UseAmmo flag, so authors pick which timeline moment fires.
 	[Export] public bool useAmmo = false;
 
 	// Events fired during Active, on a timeline measured from activateMs.
@@ -136,6 +133,52 @@ public partial class ItemAction : Resource
 	// explosive).
 	[Export] public EAimType aimType = EAimType.Directional;
 
+	// True when charging this tier is an AIMED hold: the reticle shows, the stick /
+	// mouse aim it, and auto-aim adds pitch. Derived, never authored — a tier aims
+	// exactly when it shoots (a hitscan or projectile event), picks a ground point,
+	// or lunges at the aim-assist pick (EMotionDirection.Target), whichever hand
+	// holds the weapon; a plain swing doesn't. Cached because the player reads it
+	// every tick; *Data is immutable after load.
+	public bool IsAimed
+	{
+		get
+		{
+			_isAimed ??= ComputeIsAimed();
+			return _isAimed.Value;
+		}
+	}
+	bool? _isAimed;
+
+	bool ComputeIsAimed()
+	{
+		if (aimType != EAimType.Directional)
+		{
+			return true;
+		}
+		if (events == null)
+		{
+			return false;
+		}
+		int eventCount = events.Count;
+		for (int i = 0; i < eventCount; i++)
+		{
+			ItemEvent ev = events[i];
+			if (ev == null)
+			{
+				continue;
+			}
+			if ((ev.type & (EItemEventType.Hitscan | EItemEventType.Projectile)) != 0)
+			{
+				return true;
+			}
+			if ((ev.type & EItemEventType.ApplyMotion) != 0 && ev.motionDirection == EMotionDirection.Target)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	// Positional aim only: maximum horizontal distance of the aim cursor
 	// from the player, in world meters. The cursor is clamped to a disk of
 	// this radius; its sweep speed is a constant world rate (the reticle's
@@ -184,6 +227,14 @@ public partial class ItemAction : Resource
 	// reach pinpoint while still allowing a non-zero press value.
 	[Export] public float chargedRangeScale = 1f;
 	[Export] public float chargedAccuracyScale = 1f;
+
+	// Within-tier charge response on the HIT, any delivery. `chargedDamageScale`
+	// multiplies health damage, lerping 1 → scale as chargeT runs 0 → 1 (2 = up to
+	// double). `chargedArmorPenetrationBonus` is ADDED to the hit's armor-penetration
+	// chance at chargeT=1 (clamped to 1) — a bonus, not a scale, because penetration
+	// is a chance and a weapon authored at 0 should still be able to ramp into it.
+	[Export] public float chargedDamageScale = 1f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float chargedArmorPenetrationBonus = 0f;
 
 	// Movement constraints the actor retains while this is the selected tier,
 	// split by phase and mutually exclusive (only one phase is live at a time).
@@ -305,6 +356,18 @@ public partial class ItemAction : Resource
 	{
 		if (tier == null) { return 1f; }
 		return Mathf.Lerp(1f, tier.chargedRangeScale, Mathf.Clamp(chargeT, 0f, 1f));
+	}
+
+	public static float SampleDamageScale(ItemAction tier, float chargeT)
+	{
+		if (tier == null) { return 1f; }
+		return Mathf.Lerp(1f, tier.chargedDamageScale, Mathf.Clamp(chargeT, 0f, 1f));
+	}
+
+	public static float SampleArmorPenetrationBonus(ItemAction tier, float chargeT)
+	{
+		if (tier == null) { return 0f; }
+		return tier.chargedArmorPenetrationBonus * Mathf.Clamp(chargeT, 0f, 1f);
 	}
 
 	// Resolved spread half-angle, in RADIANS, at the given chargeT. Press value

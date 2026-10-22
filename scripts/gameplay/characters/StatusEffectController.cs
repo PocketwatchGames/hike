@@ -163,6 +163,16 @@ public class StatusEffectController
 		_wielderUpgradeSlot = slot;
 	}
 
+	// The mods of the round this weapon is firing (AmmoData.ModSource), folded in
+	// beside its own. Set on every round spend (ItemEventHandlers.SpendShotRounds),
+	// so it always names the round of the shot being resolved; null = none.
+	private StatusEffectController _loadedRoundSource;
+
+	public void SetLoadedRoundSource(StatusEffectController round)
+	{
+		_loadedRoundSource = round;
+	}
+
 	// Invoke `fold` for each of the wielder's active upgrade weaponMods applied to
 	// this weapon's slot (appliedUpgradeSlot). No-op when no wielder source is set.
 	private void ForEachWielderUpgradeMod(WeaponModTier tier, System.Action<WeaponModData> fold, bool allCharges)
@@ -184,12 +194,20 @@ public class StatusEffectController
 	}
 
 	// Invoke `fold` for every weapon mod that applies at charge tier `tier`:
-	// this actor's own composed mods that reach the tier (ModReachesCharge), plus the
-	// wielder's slot-matching forge upgrade mods (not index-scoped). Either kind is
-	// skipped off a charged tier when it is chargedOnly. The single
-	// walk behind every WeaponMod* read below. Pass allCharges: true to skip the tier
-	// gate — the idle-fx visual rides the weapon at rest, independent of tier.
+	// this actor's own composed mods that reach the tier (ModReachesCharge), the
+	// loaded round's mods (same rule), plus the wielder's slot-matching forge
+	// upgrade mods (not index-scoped). Any kind is skipped off a charged tier when
+	// it is chargedOnly. The single walk behind every WeaponMod* read below. Pass
+	// allCharges: true to skip the tier gate — the idle-fx visual rides the weapon
+	// at rest, independent of tier.
 	private void ForEachWeaponMod(WeaponModTier tier, System.Action<WeaponModData> fold, bool allCharges = false)
+	{
+		ForEachOwnWeaponMod(tier, fold, allCharges);
+		_loadedRoundSource?.ForEachOwnWeaponMod(tier, fold, allCharges);
+		ForEachWielderUpgradeMod(tier, fold, allCharges);
+	}
+
+	private void ForEachOwnWeaponMod(WeaponModTier tier, System.Action<WeaponModData> fold, bool allCharges)
 	{
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
@@ -201,7 +219,6 @@ public class StatusEffectController
 			}
 			fold(mod);
 		}
-		ForEachWielderUpgradeMod(tier, fold, allCharges);
 	}
 
 	// A chargedOnly mod acts only on a tier the attacker had to hold to reach.
@@ -658,7 +675,9 @@ public class StatusEffectController
 	// landed, or a meter entry contributed a positive amount. Callers use this to
 	// tell an inert "MISS!" hit (zero damage AND no buildup) from one that chipped
 	// a status meter without visible damage.
-	public bool ApplyHitBuildups(ref HitInfo hit)
+	// `healthDamage` is what the hit took off health after armor and guard, which
+	// gates Wound-delivered entries.
+	public bool ApplyHitBuildups(ref HitInfo hit, float healthDamage)
 	{
 		if (hit.buildups == null)
 		{
@@ -674,6 +693,10 @@ public class StatusEffectController
 		{
 			StatusEffectBuildup entry = hit.buildups[i];
 			if (entry == null || entry.effect == null)
+			{
+				continue;
+			}
+			if (entry.delivery == EBuildupDelivery.Wound && healthDamage <= 0f)
 			{
 				continue;
 			}

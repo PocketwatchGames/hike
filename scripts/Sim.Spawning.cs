@@ -129,44 +129,9 @@ public partial class Sim
         }
     }
 
-    // Spawn an arrow drop at the impact point of a hitscan shot. The arrow
-    // binds back to the firing WeaponState — recovering it (player pickup, or
-    // the weapon's central ammoRechargeSeconds timer reclaiming it oldest-first)
-    // routes through ArrowLootSimState and returns 1 ammo to the source weapon.
-    // The weapon also tracks the arrow in its outstandingArrows list so the
-    // binding survives the player dropping the bow (the weapon instance lives
-    // in inventory and outlives the bow's equip state).
-    public Loot SpawnArrowLoot(Vector3 position, Vector3 impulse, ArrowLootData data, WeaponState sourceWeapon)
-    {
-        if (data == null || sourceWeapon == null)
-        {
-            return null;
-        }
-        GameClient gc = GameClient.Current;
-        PackedScene scene = gc?.lootScene;
-        if (scene == null)
-        {
-            return null;
-        }
-        var simState = new ArrowLootSimState(position, data, sourceWeapon);
-        _worldState.AddEntity(simState);
-        sourceWeapon.RegisterArrow(simState);
-        Loot loot = Loot.Create(this, simState, scene, impulse);
-
-        Vector3I coord = WorldToChunkCoord(position);
-        if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))
-        {
-            entities = new List<Node3D>();
-            _activeEntities[coord] = entities;
-        }
-        RegisterEntity(loot, entities, simState);
-
-        return loot;
-    }
-
     // --- Loot ejection ---------------------------------------------------------
     // Every "loot pops out of something" — a chest, a dug spot, a mob's death or
-    // handover, a smashed pot, a picked bush, a bare dig, a loose arrow — goes
+    // handover, a smashed pot, a picked bush, a bare dig, a landed round — goes
     // through here, so the arc and the stack splitting are tuned once on SimData.
 
     public void EjectLoot(IEnumerable<ItemCount> items, Vector3 origin)
@@ -254,9 +219,31 @@ public partial class Sim
         }
     }
 
-    public Loot EjectArrowLoot(Vector3 origin, ArrowLootData data, WeaponState sourceWeapon)
+    // Where a fired round ends up once its shot resolves: embedded in the living
+    // mob it struck (ammo that embeds), otherwise a loose pickup of it at the
+    // impact point. `struckMob` is null for an environment hit or a miss.
+    public void LandRecoverableRound(ItemData round, Mob struckMob, Vector3 position, Vector3 direction)
     {
-        return SpawnArrowLoot(origin, BuildEjectImpulse(), data, sourceWeapon);
+        if (round is AmmoData ammo && ammo.embedsInTargets && struckMob != null && struckMob.alive)
+        {
+            struckMob.StickArrow(ammo, position, direction);
+        }
+        else
+        {
+            EjectFiredRound(round, position);
+        }
+    }
+
+    // A fired round popping loose — where it landed, or out of a mob that died
+    // with it stuck in. Marked so the player collects it on contact.
+    public Loot EjectFiredRound(ItemData round, Vector3 origin)
+    {
+        if (round == null)
+        {
+            return null;
+        }
+        var simState = new LootSimState(origin, round) { FiredRound = true };
+        return FinishSpawnLoot(simState, origin, BuildEjectImpulse());
     }
 
     // 45° up on a random heading, at a speed rolled per piece so a pile scatters

@@ -62,6 +62,9 @@ public struct HitInfo
 	// swing crits even though crit is now probabilistic (driven by the
 	// receiver's `Vulnerable` score).
 	public float critRoll;
+	// Random sample in [0,1) for the knockback-resistance decision, drawn once so
+	// QueryHit and Hit agree. See KnockbackResisted.
+	public float knockbackRoll;
 	// Attack-side base crit chance carried from DamageData.critChance; the
 	// receiver composes it with its Vulnerable score before comparing critRoll
 	// (Mob.IsCritEligible). Continuous (per-frame DoT) hits leave it 0 — they
@@ -103,6 +106,12 @@ public struct HitInfo
 	// static damage zones leave it zero so no knockback applies. Receivers
 	// normalize and strip Y before scaling.
 	public Vector3 hitDirection;
+	// Which way the receiver is SHOVED, when that differs from the strike's own
+	// travel — a harpoon drags its catch back up the line. Null = along
+	// hitDirection. Kept apart because hitDirection also aims the blood spray and a
+	// stuck arrow, which must still follow the strike.
+	public Vector3? knockbackDirection;
+	public Vector3 KnockbackDirection => knockbackDirection ?? hitDirection;
 	// World point where the hit met the receiver's body. Set by senders that
 	// strike a place on the body (melee, hitscan, projectiles); null for hits
 	// that land on the whole body (zones, traps), which receivers answer from
@@ -146,6 +155,7 @@ public struct HitInfo
 	{
 		this.source = source;
 		this.hitDirection = hitDirection;
+		knockbackDirection = null;
 		this.attackerTeam = attackerTeam;
 		_buildupsOwned = false;
 		triggers = EDamageTriggerFlags.None;
@@ -209,11 +219,13 @@ public struct HitInfo
 	{
 		this.source = source;
 		this.hitDirection = hitDirection;
+		knockbackDirection = null;
 		this.attackerTeam = attackerTeam;
 		_buildupsOwned = false;
 		triggers = EDamageTriggerFlags.None;
 		armorPenetrationRoll = GD.Randf();
 		critRoll = GD.Randf();
+		knockbackRoll = GD.Randf();
 		continuousDeltaSeconds = delta;
 		if (template != null)
 		{
@@ -281,6 +293,21 @@ public struct HitInfo
 	// [0,1), so an armorPenetration of 0 never fires and an armorPenetration
 	// of 1 always fires.
 	public bool ArmorPenetrated => armorPenetrationRoll < armorPenetration;
+
+	// Knockback resistance is a CHANCE to shrug the knockback off, never a shorter
+	// one: the receiver's composed Knockback multiplier, clamped to 0..1, is the
+	// probability it lands at full authored distance. A multiplier above 1 (weak to
+	// knockback) always lands but never travels farther — a harpoon's pull must
+	// stop exactly at its standoff. Clears the knockback when resisted.
+	public void ApplyKnockbackResistance(float multiplier)
+	{
+		if (knockbackRoll < Mathf.Clamp(multiplier, 0f, 1f))
+		{
+			return;
+		}
+		knockbackDistance = 0f;
+		knockbackTime = 0f;
+	}
 
 	// A crit: the standard bonus (SimData.critMultiplier), then any OnCrit
 	// modifiers the weapon authors on top.

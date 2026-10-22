@@ -30,6 +30,9 @@ public partial class ArmorData : GearData
 	private ModifierSet _modifiersFlat;
 	public ModifierSet ModifiersFlat => _modifiersFlat ??= ModifierSet.From(modifiers);
 
+	public override bool TakesWetness => true;
+	public override float WetnessDryMultiplier() => modifiers != null ? StatModifierUtil.Fold(EStat.WetnessDryRate, ModifiersFlat, 1f) : 1f;
+
 	// The outfit shown on the player's 3D model while this piece is equipped. A
 	// body piece draws its body meshes, a head piece its head meshes; null = no
 	// visual change on equip (the slot falls back to the unarmored outfit /

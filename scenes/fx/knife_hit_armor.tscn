@@ -1,0 +1,38 @@
+[gd_scene format=3 uid="uid://cadmd8mrirh38"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://dtatk8lwk6nvo" path="res://assets/audio/source/weapons/sfx_weapon_knife_hit_armor_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://bkbkw0cs6tji4" path="res://assets/audio/source/weapons/sfx_weapon_knife_hit_armor_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://c3gxqurf3qpcy" path="res://assets/audio/source/weapons/sfx_weapon_knife_hit_armor_03.wav" id="2_a03"]
+[ext_resource type="AudioStream" uid="uid://fa7usmww8wa" path="res://assets/audio/source/weapons/sfx_weapon_knife_hit_armor_04.wav" id="2_a04"]
+[ext_resource type="AudioStream" uid="uid://bexmtud2np3w2" path="res://assets/audio/source/weapons/sfx_weapon_knife_hit_armor_05.wav" id="2_a05"]
+[ext_resource type="AudioStream" uid="uid://qhcmjhrmujcs" path="res://assets/audio/source/weapons/sfx_weapon_knife_hit_armor_06.wav" id="2_a06"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_knfhitarmor"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 2.0
+streams_count = 6
+stream_0/stream = ExtResource("2_a01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_a02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_a03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_a04")
+stream_3/weight = 1.0
+stream_4/stream = ExtResource("2_a05")
+stream_4/weight = 1.0
+stream_5/stream = ExtResource("2_a06")
+stream_5/weight = 1.0
+
+[node name="KnifeHitArmor" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_knfhitarmor")
+unit_size = 6.0
+max_distance = 40.0
+volume_db = 0.0
+pitch_scale = 1.25
+bus = &"World3D"

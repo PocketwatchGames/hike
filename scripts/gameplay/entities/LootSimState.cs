@@ -21,6 +21,10 @@ public class LootSimState : EntitySimState
     // the last life's spoils lying around, while authored loot (Dropped == false)
     // and a dropped sack stay put. In-memory only, like RequireInteract.
     public bool Dropped;
+    // A round the player fired that landed here (Sim.EjectFiredRound). Collected
+    // on contact whenever it fits, even with none of its kind left in the pack.
+    // In-memory only: the rest sweep clears it before any save could hold it.
+    public bool FiredRound;
     // Whether the next materialization should play the spawn puff + sound.
     // CreateEntity runs on every chunk stream-in, not just when loot first
     // appears, so without consuming this the whole ground inventory of an area
@@ -53,23 +57,6 @@ public class LootSimState : EntitySimState
         PlaySpawnEffects = false;
         return loot;
     }
-
-    // Overrides for the per-loot-kind pickup contract — base implementation
-    // is the default "any player can pick up and the item goes into the
-    // backpack" behavior. ArrowLootSimState overrides these to gate pickup
-    // on the source weapon being equipped and to route the picked-up arrow
-    // back to the weapon's ammo pool instead of the inventory.
-
-    // Player-side gate consulted alongside the inventory-fit checks in
-    // Loot.CanActorInteract / TryDepositItem. Return false to refuse
-    // pickup outright.
-    public virtual bool CanPickup(Player player) => true;
-
-    // When false, FinalizePickup skips the inventory-deposit step and just
-    // runs the despawn animation + OnRemovedFromWorld hook. Use for loot
-    // whose pickup semantics aren't "add to backpack" (e.g. arrows that
-    // return ammo to the source weapon).
-    public virtual bool ShouldDepositToInventory() => true;
 
     // Called from Loot after the world-removal commit (PickedUp set true)
     // for any removal cause — player pickup, ItemData.removeTimeMs timeout,

@@ -520,10 +520,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Drives the mesh pitch tilt — see UpdateGroundNormal / UpdateGroundPitch.
     Vector3 _groundNormal = Vector3.Up;
 
-    // Arrows currently stuck in this mob. Populated by StickArrow when the
-    // player hits with a bow; drained by Die (each becomes loose loot with
-    // an outward impulse, transferring the source-weapon binding) and by
-    // _ExitTree (any remaining → ammo returns to the weapon, no loot).
+    // Rounds stuck in this mob (StickArrow). Die drops each as loose loot; a mob
+    // that unloads alive frees them with itself.
     readonly List<ArrowStuck> _stuckArrows = new();
     readonly WaterRippleEmitter _rippleEmitter = new();
     // Active loop instances. See Player for the lifecycle pattern — null
@@ -1335,7 +1333,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Fold receiver resistances onto the live hit in place. Damage tags
     // (Damage / Fire / Magical / Poison / Electrical / Ranged / Melee) scale
     // healthDamage; ArmorPenetration scales bypass-chance; Blunt scales the armor-chip
-    // multiplier; Knockback scales knockback distance and time. Mirrors the
+    // multiplier; Knockback is a chance to resist the knockback outright. Mirrors the
     // Player-side ApplyResistance shape.
     private void ApplyResistance(ref HitInfo hit)
     {
@@ -1370,9 +1368,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         if ((hit.tags & EHitTag.Knockback) != 0)
         {
-            float scale = ComposeTagMul(EHitTag.Knockback);
-            hit.knockbackDistance *= scale;
-            hit.knockbackTime *= scale;
+            hit.ApplyKnockbackResistance(ComposeTagMul(EHitTag.Knockback));
         }
     }
     // Effective faction. A tamed companion overrides its authored wild team
@@ -4848,7 +4844,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         bool appliedBuildup = false;
         if (health - incoming > 0f)
         {
-            appliedBuildup = _statusEffects.ApplyHitBuildups(ref hit);
+            appliedBuildup = _statusEffects.ApplyHitBuildups(ref hit, incoming);
             // On-damaged reactions (thorns) — discrete hits only, as on the player.
             if (!hit.dot)
             {
@@ -4862,7 +4858,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
         // Hitstun + knockback: stack on top of any buildup handling above so a
         // sub-threshold buildup hit still flinches and shoves. Direction comes
-        // from the sender via HitInfo.hitDirection — a zero direction means
+        // from the sender via HitInfo.KnockbackDirection — a zero direction means
         // no knockback regardless of distance.
         if (hit.hitstun > 0f)
         {
@@ -4870,9 +4866,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             PlayOneShot(EAnimation.Hitstun);
         }
         float knockbackDistance = hit.knockbackDistance;
-        if (knockbackDistance > 0f && hit.knockbackTime > 0f && hit.hitDirection != Vector3.Zero)
+        if (knockbackDistance > 0f && hit.knockbackTime > 0f && hit.KnockbackDirection != Vector3.Zero)
         {
-            Vector3 dir = hit.hitDirection;
+            Vector3 dir = hit.KnockbackDirection;
             dir.Y = 0f;
             if (dir.LengthSquared() > 0.0001f)
             {
@@ -5523,79 +5519,31 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
 
     // Spawn an ArrowStuck child at the world-space hit point. Caller has
-    // already verified `alive` and that the firing weapon authors an
-    // arrowLootData. The stuck arrow registers with the source weapon's
-    // outstandingArrows list so it counts against the cap and recovers
-    // ammo via the standard OnArrowRemoved path when it leaves play.
-    public void StickArrow(WeaponState sourceWeapon, ArrowLootData data, Vector3 worldHitPos, Vector3 hitDirection)
+    // already verified `alive` and that the round embeds.
+    public void StickArrow(AmmoData data, Vector3 worldHitPos, Vector3 hitDirection)
     {
-        if (sourceWeapon == null || data == null)
+        ArrowStuck stuck = ArrowStuck.Create(this, data, worldHitPos, hitDirection);
+        if (stuck != null)
         {
-            return;
+            _stuckArrows.Add(stuck);
         }
-        ArrowStuck stuck = ArrowStuck.Create(this, data, sourceWeapon, worldHitPos, hitDirection);
-        if (stuck == null)
-        {
-            return;
-        }
-        _stuckArrows.Add(stuck);
-        sourceWeapon.RegisterArrow(stuck);
     }
 
-    // Called by ArrowStuck.Recover when the weapon's central ammo-recharge
-    // timer reclaims this arrow while it's still embedded in this (live) mob.
-    // Drops the arrow from _stuckArrows so the upcoming ReturnAmmoOnRemoval
-    // doesn't get re-fired by _ExitTree later. Mirrors the "lost with the mob"
-    // path: 1 ammo returns to the source weapon, no loose loot spawns.
-    public void OnStuckArrowExpired(ArrowStuck stuck)
-    {
-        if (stuck == null)
-        {
-            return;
-        }
-        _stuckArrows.Remove(stuck);
-        stuck.ReturnAmmoOnRemoval();
-    }
-
-    // Drop each stuck arrow as loose loot. Called from Die after EjectLoot so the
-    // arrows scatter alongside the mob's authored loot. The stuck instance
-    // hands its weapon binding off to the new ArrowLoot via DropAsLoot —
-    // no ammo is bumped on the transition.
+    // Drop each stuck round as loose loot. Called from Die after EjectLoot so the
+    // rounds scatter alongside the mob's authored loot.
     private void EjectStuckArrows()
     {
         if (_stuckArrows.Count == 0)
         {
             return;
         }
-        // Iterate a snapshot — DropAsLoot frees each ArrowStuck, which will
-        // null out _sourceWeapon and remove the node from the tree.
+        // Iterate a snapshot — DropAsLoot frees each ArrowStuck.
         ArrowStuck[] snapshot = _stuckArrows.ToArray();
         _stuckArrows.Clear();
         for (int i = 0; i < snapshot.Length; i++)
         {
             snapshot[i].DropAsLoot();
         }
-    }
-
-    // Mob is leaving the scene tree. Two cases:
-    //   - Mob died: Die already drained _stuckArrows via EjectStuckArrows,
-    //     so the list is empty and this loop is a no-op.
-    //   - Mob unloaded mid-stuck (chunk eviction, despawn): each remaining
-    //     stuck arrow returns 1 ammo to its source weapon. The visual is
-    //     about to be freed anyway as a child of this mob, so no loot
-    //     spawns — the arrow is treated as "lost with the mob."
-    public override void _ExitTree()
-    {
-        if (_stuckArrows.Count > 0)
-        {
-            ArrowStuck[] snapshot = _stuckArrows.ToArray();
-            _stuckArrows.Clear();
-            for (int i = 0; i < snapshot.Length; i++)
-            {
-                snapshot[i].ReturnAmmoOnRemoval();
-            }
-        }
-        base._ExitTree();
     }
 
     // Dug up — out of a buried spot (BuriedSpot.Dig), or out of its own burrow by

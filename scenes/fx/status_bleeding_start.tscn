@@ -1,0 +1,40 @@
+[gd_scene format=3 uid="uid://ctdg7popmlubr"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://bbahs72bckhrb" path="res://assets/audio/source/impact/sfx_bleed_start_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://dhmy2v3u4fjjh" path="res://assets/audio/source/impact/sfx_bleed_start_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://ce3e3ksc67h3i" path="res://assets/audio/source/impact/sfx_bleed_start_03.wav" id="2_a03"]
+[ext_resource type="AudioStream" uid="uid://dgh7iiby4f7ow" path="res://assets/audio/source/impact/sfx_bleed_start_04.wav" id="2_a04"]
+[ext_resource type="AudioStream" uid="uid://c143dch0as6ei" path="res://assets/audio/source/impact/sfx_bleed_start_05.wav" id="2_a05"]
+[ext_resource type="AudioStream" uid="uid://b6wh185fdbkjk" path="res://assets/audio/source/impact/sfx_bleed_start_06.wav" id="2_a06"]
+[ext_resource type="AudioStream" uid="uid://bap5aah7duouh" path="res://assets/audio/source/impact/sfx_bleed_start_07.wav" id="2_a07"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_bleedstart"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 2.0
+streams_count = 7
+stream_0/stream = ExtResource("2_a01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_a02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_a03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_a04")
+stream_3/weight = 1.0
+stream_4/stream = ExtResource("2_a05")
+stream_4/weight = 1.0
+stream_5/stream = ExtResource("2_a06")
+stream_5/weight = 1.0
+stream_6/stream = ExtResource("2_a07")
+stream_6/weight = 1.0
+
+[node name="StatusBleedingStart" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_bleedstart")
+unit_size = 6.0
+max_distance = 30.0
+volume_db = 0.0
+bus = &"World3D"

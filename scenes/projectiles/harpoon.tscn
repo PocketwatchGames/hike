@@ -1,0 +1,21 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://0q483ktqu2nml" path="res://scripts/gameplay/entities/HarpoonProjectile.cs" id="1_harpoon"]
+[ext_resource type="PackedScene" path="res://scenes/items/spear_held.tscn" id="2_spear"]
+[ext_resource type="PackedScene" uid="uid://b8wq3n7rvtak2" path="res://scenes/fx/arrow_trail.tscn" id="3_trail"]
+[ext_resource type="PackedScene" path="res://scenes/fx/harpoon_flight_loop.tscn" id="4_flight"]
+[ext_resource type="PackedScene" path="res://scenes/fx/harpoon_reel.tscn" id="5_reel"]
+[ext_resource type="PackedScene" path="res://scenes/fx/harpoon_catch.tscn" id="6_catch"]
+
+[node name="Harpoon" type="Node3D"]
+script = ExtResource("1_harpoon")
+flightLoop = NodePath("FlightLoop")
+reelStartEffect = ExtResource("5_reel")
+catchEffect = ExtResource("6_catch")
+
+[node name="Model" parent="." instance=ExtResource("2_spear")]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 1.8)
+
+[node name="Trail" parent="." instance=ExtResource("3_trail")]
+
+[node name="FlightLoop" parent="." instance=ExtResource("4_flight")]

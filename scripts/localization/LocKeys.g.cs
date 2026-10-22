@@ -3,6 +3,9 @@ public static partial class Loc
 {
 	public enum Keys
 	{
+		story_intro_placeholder_01,
+		story_intro_placeholder_02,
+		story_intro_placeholder_03,
 		weapon_name_prefix,
 		weapon_name_suffix,
 		status_duration_until_sunrise,
@@ -17,6 +20,7 @@ public static partial class Loc
 		combat_miss,
 		combat_blocked,
 		combat_parried,
+		combat_misfire,
 		quest_kunkun_hunt,
 		quest_return_to_camp,
 		quest_learn_vyeshal,
@@ -63,6 +67,7 @@ public static partial class Loc
 		panel_belt,
 		panel_merchant_stock,
 		panel_merchant_give,
-		panel_merchant_get
+		panel_merchant_get,
+		story_continue
 	}
 }

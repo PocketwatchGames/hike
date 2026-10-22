@@ -205,13 +205,19 @@ public partial class ItemEvent : Resource
 	[Export] public float impactDecibels = 0f;
 	// Durability the driving weapon spends when this attack first strikes a MOB —
 	// a melee swing's first creature, a hitscan hit, a projectile's first creature
-	// (pierce-throughs don't add more). Breakables and props never wear it. A round that this wear breaks
-	// (an ammo weapon trading a round of capacity, WeaponState.Wear) drops no
-	// recoverable arrow. Player only. 0 = striking costs nothing.
+	// (pierce-throughs don't add more). Breakables and props never wear it.
+	// Player only. 0 = striking costs nothing. A ranged weapon wears on firing
+	// instead (UseDurability).
 	[Export(PropertyHint.Range, "0,10,0.1,or_greater")] public float durabilityCostOnHit = 0f;
 
 	// UseDurability: spent from the driving weapon as the event fires, hit or not.
 	[Export(PropertyHint.Range, "0,10,0.1,or_greater")] public float durabilityCost = 1f;
+
+	// UseAmmo: rounds this event spends from the wielder's loaded ammo (or a thrown
+	// weapon's own stack), however many projectiles it fires — a blunderbuss's
+	// fan of pellets is one shell. The first `ammoCost` projectiles carry a round
+	// to land.
+	[Export(PropertyHint.Range, "1,10,1,or_greater")] public int ammoCost = 1;
 
 	// AreaBurst: the instant blast — damage, radius and fx in one. See
 	// EItemEventType.AreaBurst.
@@ -296,6 +302,21 @@ public partial class ItemEvent : Resource
 	// solved launch velocity). 1 (default) = a single shot. With UseAmmo, each
 	// projectile costs one ammo and a short magazine fires what it has left.
 	[Export] public int projectileCount = 1;
+	// Volley size at full charge: the count ramps from projectileCount at
+	// chargeT = 0 to this at chargeT = 1 (a blunderbuss loading more shells the
+	// longer it is held). 0 (default) = no ramp, always projectileCount.
+	[Export] public int chargedProjectileCount = 0;
+
+	public int ResolveProjectileCount(float chargeT)
+	{
+		int baseCount = Mathf.Max(1, projectileCount);
+		if (chargedProjectileCount <= 0)
+		{
+			return baseCount;
+		}
+		return Mathf.Max(1, Mathf.RoundToInt(Mathf.Lerp(baseCount, chargedProjectileCount, Mathf.Clamp(chargeT, 0f, 1f))));
+	}
+
 	// Arcing projectile: a fixed-shape, COLLISION-RESPECTING lob. The firing tier
 	// uses Arced (ground-cursor) aim; the hump rises projectileArcRise meters
 	// under projectileGravity (vertical) and lands on the aim point over the fuse
@@ -390,7 +411,7 @@ public partial class ItemEvent : Resource
 				|| name == nameof(projectileMaxRange) || name == nameof(projectileFragile)
 				|| name == nameof(projectileTargetPreview);
 			bool flatOnly = name == nameof(projectileSpeed) || name == nameof(pierceCount)
-				|| name == nameof(projectileCount);
+				|| name == nameof(projectileCount) || name == nameof(chargedProjectileCount);
 			if ((flatOnly && _projectileArcing)
 				|| (arcOnly && !_projectileArcing))
 			{
@@ -438,11 +459,13 @@ public partial class ItemEvent : Resource
 				or nameof(impactDecibels)
 				or nameof(durabilityCostOnHit) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile,
 			nameof(durabilityCost) => EItemEventType.UseDurability,
+			nameof(ammoCost) => EItemEventType.UseAmmo,
 			nameof(projectileScene)
 				or nameof(projectileSpeed)
 				or nameof(projectileLifetimeSeconds)
 				or nameof(pierceCount)
 				or nameof(projectileCount)
+				or nameof(chargedProjectileCount)
 				or nameof(projectileArcing)
 				or nameof(projectileArcRise)
 				or nameof(projectileGravity)

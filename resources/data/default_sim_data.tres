@@ -119,7 +119,13 @@
 [ext_resource type="Resource" path="res://resources/data/test_scenarios/needs.tres" id="ts_needs"]
 [ext_resource type="Resource" path="res://resources/data/test_scenarios/sack.tres" id="ts_sack"]
 [ext_resource type="Resource" path="res://resources/data/test_scenarios/salvage.tres" id="ts_salvage"]
+[ext_resource type="Resource" path="res://resources/data/test_scenarios/ammo.tres" id="ts_ammo"]
 [ext_resource type="Resource" path="res://resources/data/test_scenarios/butcher.tres" id="ts_butcher"]
+[ext_resource type="Resource" path="res://resources/data/test_scenarios/spear.tres" id="ts_spear"]
+[ext_resource type="Resource" path="res://resources/data/test_scenarios/sling.tres" id="ts_sling"]
+[ext_resource type="Resource" path="res://resources/data/test_scenarios/misfire.tres" id="ts_misfire"]
+[ext_resource type="Resource" path="res://resources/data/test_scenarios/tomahawk.tres" id="ts_tomahawk"]
+[ext_resource type="Resource" path="res://resources/data/test_scenarios/blowgun.tres" id="ts_blowgun"]
 [ext_resource type="Resource" uid="uid://btwn5x5u68gc0" path="res://resources/data/test_scenarios/shockwave.tres" id="ts_shockwave"]
 [ext_resource type="Resource" uid="uid://bp5jv2gwndnus" path="res://resources/data/test_scenarios/snow.tres" id="ts_snow"]
 [ext_resource type="Resource" uid="uid://cicb54ulbm8ov" path="res://resources/data/status_effects/upgrades/upgrade_armor_dash_range.tres" id="up_armor_dash_range"]
@@ -200,5 +206,5 @@ weatherLightning = ExtResource("12_lightning")
 rainVisionReduction = 0.35
 weightSpeedModifier = -0.07999999999999996
 weightDashDistanceModifier = -0.25
-testScenarios = [ExtResource("ts_snow"), ExtResource("ts_shockwave"), ExtResource("ts_invisibility"), ExtResource("ts_caltrops"), ExtResource("ts_dawn"), ExtResource("ts_oil_droplets"), ExtResource("ts_blood"), ExtResource("ts_needs"), ExtResource("ts_sack"), ExtResource("ts_salvage"), ExtResource("ts_butcher")]
+testScenarios = [ExtResource("ts_snow"), ExtResource("ts_shockwave"), ExtResource("ts_invisibility"), ExtResource("ts_caltrops"), ExtResource("ts_dawn"), ExtResource("ts_oil_droplets"), ExtResource("ts_blood"), ExtResource("ts_needs"), ExtResource("ts_sack"), ExtResource("ts_salvage"), ExtResource("ts_butcher"), ExtResource("ts_spear"), ExtResource("ts_sling"), ExtResource("ts_misfire"), ExtResource("ts_tomahawk"), ExtResource("ts_blowgun"), ExtResource("ts_ammo")]
 metadata/_custom_type_script = "uid://chvgahtb671mg"

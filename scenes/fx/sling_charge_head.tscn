@@ -1,0 +1,27 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://dqx1vqe7oc48n" path="res://assets/audio/source/weapons/sfx_weapon_sling_charge_head_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://c0s4ouxoa0glt" path="res://assets/audio/source/weapons/sfx_weapon_sling_charge_head_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://bkglo0o6jl3ey" path="res://assets/audio/source/weapons/sfx_weapon_sling_charge_head_03.wav" id="2_a03"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_sling_chargehead"]
+random_pitch = 1.05
+random_volume_offset_db = 1.5
+streams_count = 3
+stream_0/stream = ExtResource("2_a01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_a02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_a03")
+stream_2/weight = 1.0
+
+[node name="SlingChargeHead" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_sling_chargehead")
+unit_size = 6.0
+max_distance = 25.0
+volume_db = -4.0
+bus = &"World3D"

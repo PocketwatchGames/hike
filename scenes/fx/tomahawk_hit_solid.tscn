@@ -1,0 +1,103 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://cpgmxar77jlfk" path="res://assets/audio/source/weapons/sfx_weapon_tomahawk_hit_solid_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://c018ws5srtpq5" path="res://assets/audio/source/weapons/sfx_weapon_tomahawk_hit_solid_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://bql00osgl0mbn" path="res://assets/audio/source/weapons/sfx_weapon_tomahawk_hit_solid_03.wav" id="2_a03"]
+[ext_resource type="AudioStream" uid="uid://bydm4ibktxoxs" path="res://assets/audio/source/weapons/sfx_weapon_tomahawk_hit_solid_04.wav" id="2_a04"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="3_shader"]
+[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="3_fade"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_tomahawk"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 2.0
+streams_count = 4
+stream_0/stream = ExtResource("2_a01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_a02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_a03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_a04")
+stream_3/weight = 1.0
+
+[sub_resource type="ParticleProcessMaterial" id="Proc_chips"]
+emission_shape = 1
+emission_sphere_radius = 0.1
+direction = Vector3(0, 1, 0)
+spread = 55.0
+initial_velocity_min = 1.5
+initial_velocity_max = 3.5
+angular_velocity_min = -360.0
+angular_velocity_max = 360.0
+gravity = Vector3(0, -12, 0)
+damping_min = 0.5
+damping_max = 1.5
+scale_min = 0.5
+scale_max = 1.2
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="Shader_chips"]
+render_priority = 0
+shader = ExtResource("3_shader")
+shader_parameter/albedo = Color(0.42, 0.36, 0.28, 1)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="Quad_chips"]
+material = SubResource("Shader_chips")
+size = Vector2(0.06, 0.06)
+
+[sub_resource type="ParticleProcessMaterial" id="Proc_dust"]
+emission_shape = 1
+emission_sphere_radius = 0.15
+direction = Vector3(0, 1, 0)
+spread = 180.0
+initial_velocity_min = 0.3
+initial_velocity_max = 1.0
+gravity = Vector3(0, -1, 0)
+damping_min = 1.5
+damping_max = 3.0
+scale_min = 0.5
+scale_max = 1.0
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="Shader_dust"]
+render_priority = 0
+shader = ExtResource("3_shader")
+shader_parameter/albedo = Color(0.62, 0.58, 0.52, 0.6)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="Quad_dust"]
+material = SubResource("Shader_dust")
+size = Vector2(0.04, 0.04)
+
+[node name="TomahawkHitSolid" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_tomahawk")
+unit_size = 6.0
+max_distance = 40.0
+volume_db = 3.0
+bus = &"World3D"
+
+[node name="Chips" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 8
+lifetime = 0.7
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("Proc_chips")
+draw_pass_1 = SubResource("Quad_chips")
+
+[node name="Dust" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 10
+lifetime = 0.9
+one_shot = true
+explosiveness = 0.9
+randomness = 0.6
+process_material = SubResource("Proc_dust")
+draw_pass_1 = SubResource("Quad_dust")

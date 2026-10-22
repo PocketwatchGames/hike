@@ -6,15 +6,13 @@ public partial class WeaponHud : BoxContainer
 	[Export] ProgressBar _cooldownBar;
 	[Export] TextureRect _icon;
 	[Export] Control _ammoGroup;
-	[Export] ProgressBar _ammoProgress;
 	[Export] Label _ammoText;
 	// Optional hotbar overlays: shown on the hotbar cursor's slot, and on an
 	// item that is active — the lit lantern.
 	[Export] CanvasItem _selectedMarker;
 	[Export] CanvasItem _activeMarker;
 	// Gear condition overlays (GearState.Condition): warning while worn, broken
-	// once it is. A weapon trading ammo for durability reads broken only when its
-	// magazine is worn away.
+	// once it is.
 	[Export] CanvasItem _durabilityWarning;
 	[Export] CanvasItem _durabilityBroken;
 	// Drawn while the slot holds no item (the armor slot's dash icon). Null = blank.
@@ -26,12 +24,15 @@ public partial class WeaponHud : BoxContainer
 	const float BlockArmorIdleAlpha = 0.25f;
 
 	ItemState _item;
+	// Whose rounds a ranged weapon's counter reads (Inventory.RoundsFor).
+	Inventory _owner;
 	bool _active;
 	float _durabilityWarningFraction;
 
-	public void SetItem(ItemState item)
+	public void SetItem(ItemState item, Inventory owner = null)
 	{
 		_item = item;
+		_owner = owner;
 		Refresh(0, false);
 	}
 
@@ -59,7 +60,7 @@ public partial class WeaponHud : BoxContainer
 	void Refresh(ulong nowMs, bool charging)
 	{
 		UpdateIcon();
-		UpdateCounter(nowMs);
+		UpdateCounter();
 		UpdateCooldown(nowMs);
 		UpdateDurability();
 	}
@@ -85,41 +86,24 @@ public partial class WeaponHud : BoxContainer
 		_icon.Texture = _item?.data != null ? _item.data.SlotIcon(_active) : _emptyIcon;
 	}
 
-	void UpdateCounter(ulong nowMs)
+	// A weapon that fires rounds shows how many its owner carries — the loaded
+	// ammo of its type, or a thrown weapon's own stack — zero included; any other
+	// stack shows its count past one.
+	void UpdateCounter()
 	{
-		if (_item is WeaponState weapon && weapon.data is WeaponData weaponData && weapon.UsesAmmo)
+		if (_owner != null && _item is WeaponState { data: WeaponData weaponData } weapon && (weaponData.NeedsAmmo || weaponData.thrown))
 		{
 			_ammoGroup.Visible = true;
-			_ammoText.Text = weapon.ammo.ToString();
-			UpdateAmmoProgress(weapon, weaponData, nowMs);
+			_ammoText.Text = _owner.RoundsFor(weapon).ToString();
 			return;
 		}
 		if (_item != null && _item.data != null && _item.data.IsStackable && _item.stackCount > 1)
 		{
 			_ammoGroup.Visible = true;
 			_ammoText.Text = _item.stackCount.ToString();
-			_ammoProgress.Value = 0;
 			return;
 		}
 		_ammoGroup.Visible = false;
-	}
-
-	// Progress toward the next ammo unit, driven by the weapon's single central
-	// recharge timer (the same one whether the weapon self-recharges like the
-	// bomb or reclaims arrows like the bow). 0 when at full ammo or the timer
-	// isn't currently armed.
-	void UpdateAmmoProgress(WeaponState weapon, WeaponData weaponData, ulong nowMs)
-	{
-		_ammoProgress.MinValue = 0;
-		_ammoProgress.MaxValue = 1;
-		ulong durationMs = (ulong)(weaponData.ammoRechargeSeconds * 1000f);
-		if (weapon.ammo >= weapon.MaxAmmo || weapon.ammoRechargeReadyMs == 0 || durationMs == 0)
-		{
-			_ammoProgress.Value = 0;
-			return;
-		}
-		ulong remaining = weapon.ammoRechargeReadyMs > nowMs ? weapon.ammoRechargeReadyMs - nowMs : 0;
-		_ammoProgress.Value = Mathf.Clamp(1.0 - (double)remaining / durationMs, 0.0, 1.0);
 	}
 
 	void UpdateCooldown(ulong nowMs)

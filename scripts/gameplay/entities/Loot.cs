@@ -227,15 +227,6 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		}
 	}
 
-	// Force this pickup to despawn now and fire its OnRemovedFromWorld hook,
-	// identical to a natural removeTimeMs expiry (same shrink/lift outro).
-	// Used by ArrowLootSimState.Recover so the weapon's central ammo-recharge
-	// timer can auto-reclaim the oldest outstanding arrow.
-	public void RecoverArrow()
-	{
-		Expire();
-	}
-
 	private void Expire()
 	{
 		if (_removed || _pickedUp)
@@ -266,7 +257,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		}
 		_world?.RemoveEntity(this);
 		// Play the PickedUp shrink/lift animation as the despawn outro — same
-		// visual outro as a player pickup, so an arrow timing out reads as
+		// visual outro as a player pickup, so a pickup timing out reads as
 		// "vanished" rather than "popped out of existence." OnPickedUpFinished
 		// runs QueueFree once the animation ends. No animation player → free
 		// immediately.
@@ -549,17 +540,14 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			return false;
 		}
-		if (!_simState.CanPickup(player) || !_simState.ShouldDepositToInventory())
-		{
-			return false;
-		}
 		return CollectsWithoutInteract(player);
 	}
 
 	// The one rule for collecting a deposited item without pressing interact: a
 	// magnetized apply-on-pickup item (it takes no space), or a stackable item
 	// of any category the player ALREADY carries a stack of, whose whole stack
-	// fits. A kind the player doesn't hold yet is always a deliberate pickup.
+	// fits — or a round the player fired, whatever they carry. Any other kind the
+	// player doesn't hold yet is a deliberate pickup.
 	private bool CollectsWithoutInteract(Player player)
 	{
 		ItemData data = _simState.Item?.data ?? _simState.Data;
@@ -567,7 +555,8 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			return true;
 		}
-		if (data == null || !player.Inventory.HoldsStackOf(data))
+		// A round the player fired comes back on contact, carried kind or not.
+		if (data == null || (!_simState.FiredRound && !player.Inventory.HoldsStackOf(data)))
 		{
 			return false;
 		}
@@ -796,7 +785,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			return;
 		}
-		Vector3 dir = hit.hitDirection;
+		Vector3 dir = hit.KnockbackDirection;
 		if (dir.LengthSquared() < 0.0001f)
 		{
 			return;
@@ -863,23 +852,6 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 			return false;
 		}
 
-		// Per-loot-kind gate (e.g. arrow bound to a specific weapon) — must
-		// pass before any auto-pickup path. Without this, a loose arrow's
-		// pickup would trigger regardless of which player walks over it.
-		if (!_simState.CanPickup(player))
-		{
-			return false;
-		}
-
-		// Loot that doesn't deposit into the inventory (arrows return ammo
-		// to the source weapon) auto-picks up on collision unconditionally —
-		// no stack-space search needed since nothing is being added to a
-		// slot. CanPickup above already vetted the binding.
-		if (!_simState.ShouldDepositToInventory())
-		{
-			return true;
-		}
-
 		return CollectsWithoutInteract(player);
 	}
 
@@ -892,12 +864,6 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		}
 		// Timed-emergent loot is only grabbable once fully risen.
 		if (IsTimedEmergent && _emergeState != EmergeState.Visible)
-		{
-			return false;
-		}
-		// Per-loot-kind gate — arrow drops bound to a specific weapon refuse
-		// pickup unless that weapon is still equipped.
-		if (_simState != null && !_simState.CanPickup(player))
 		{
 			return false;
 		}
@@ -916,13 +882,6 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		if (player?.Inventory == null)
 		{
 			return false;
-		}
-		// Backpack-fit gate only applies to loot that actually deposits into
-		// the inventory. Arrows return to the source weapon's ammo pool and
-		// don't take a slot, so a full backpack must not block recovering them.
-		if (_simState != null && !_simState.ShouldDepositToInventory())
-		{
-			return true;
 		}
 		// A boon-offering pickup (fairy corpse) opens the upgrade screen and
 		// never deposits an item, so the backpack-fit gate below doesn't apply.
@@ -1065,20 +1024,6 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 	private bool TryDepositItem(Player player, bool announce)
 	{
 		if (_simState == null)
-		{
-			return true;
-		}
-		// Per-loot-kind gate — refuse the commit so the runner's
-		// completionEvents pass turns into a no-op (e.g. an arrow whose
-		// source weapon was dropped between highlight and action commit).
-		if (!_simState.CanPickup(player))
-		{
-			return false;
-		}
-		// Pickup with no inventory deposit — arrow ammo returns to the
-		// source weapon via OnRemovedFromWorld; the Loot still despawns
-		// normally.
-		if (!_simState.ShouldDepositToInventory())
 		{
 			return true;
 		}

@@ -43,7 +43,6 @@
 [ext_resource type="PackedScene" uid="uid://dja6erumnnuia" path="res://scenes/fx/skating_snow.tscn" id="98_skatesnow"]
 [ext_resource type="PackedScene" uid="uid://1joab52n2ubzv" path="res://scenes/fx/durability_warning.tscn" id="100_durwarn"]
 [ext_resource type="PackedScene" uid="uid://v2jlv0oj0pjk9" path="res://scenes/fx/durability_broken.tscn" id="101_durbroken"]
-[ext_resource type="PackedScene" uid="uid://tc9lh65wwwcix" path="res://scenes/fx/durability_ammo_broken.tscn" id="102_durammo"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25
@@ -114,7 +113,6 @@ _voices = Dictionary[int, ExtResource("22_s1x7u")]({
 _armorDepletedFx = ExtResource("16_vwwfy")
 _durabilityWarningFx = ExtResource("100_durwarn")
 _durabilityBrokenFx = ExtResource("101_durbroken")
-_durabilityAmmoBrokenFx = ExtResource("102_durammo")
 _blockStartFx = ExtResource("62_blockstart")
 _parryWindowEndFx = ExtResource("63_parrywinend")
 _swimIdleLoopFx = ExtResource("21_tread")

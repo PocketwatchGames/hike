@@ -13,6 +13,7 @@ picked_up_count	%0 x%1
 combat_miss	MISS!
 combat_blocked	BLOCKED!
 combat_parried	PARRIED!
+combat_misfire	Misfire
 quest_kunkun_hunt	Kunkun Hunt
 quest_return_to_camp	Return to Camp
 quest_learn_vyeshal	Learn Vyeshal
@@ -60,3 +61,4 @@ panel_belt	Belt
 panel_merchant_stock	Wares
 panel_merchant_give	Give
 panel_merchant_get	Get
+story_continue	Continue

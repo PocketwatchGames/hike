@@ -197,6 +197,10 @@ public partial class AimingReticle : Node3D
 	const int UndulationCellCount = UndulationPatchRes * UndulationPatchRes;
 
 	Player _player;
+	// The weapon slot being aimed: the player's live aim slot while aiming, held
+	// through the persistence / fade-out after so the lingering cursor still
+	// reads the weapon that placed it.
+	EInventorySlot _aimSlot = EInventorySlot.WeaponRight;
 	// Last forward-raycast clamp distance from an active update. Reused as
 	// the line length while the reticle is fading out, since the whole point
 	// of being unavailable is that we shouldn't be paying for a new raycast.
@@ -410,19 +414,24 @@ public partial class AimingReticle : Node3D
 		// active, persisting, or fading out.
 		AimInput aim = _player.ConsumeAimInput();
 
-		// Active = aiming with a ranged weapon equipped. Cooldown does NOT drop
+		if (_player.AimSlot != EInventorySlot.None)
+		{
+			_aimSlot = _player.AimSlot;
+		}
+
+		// Active = aiming with a usable weapon in the aimed slot. Cooldown does NOT drop
 		// us out of active — the cursor keeps tracking input so the player can
 		// pre-aim the next shot; it just dims to _cooldownAlphaScale (a shot can't
 		// start mid-cooldown anyway, so this is purely the visual "not ready"
 		// state, and stops the reticle from vanishing the instant a shot fires).
-		bool active = _player.IsAiming && IsRangedWeaponEquipped();
+		bool active = _player.IsAiming && IsAimedWeaponEquipped();
 
 		if (active)
 		{
 			// On cooldown OR out of ammo → "not ready": keep the cursor tracking
 			// (ammo recharges over time, so the player pre-aims the next shot) but
 			// dim the reticle so it reads as unavailable rather than vanishing.
-			bool notReady = IsRangedWeaponOnCooldown() || IsRangedWeaponOutOfAmmo();
+			bool notReady = IsAimedWeaponOnCooldown() || IsAimedWeaponOutOfAmmo();
 			float targetAlpha = notReady ? _cooldownAlphaScale : 1f;
 			_currentAlpha = Mathf.MoveToward(_currentAlpha, targetAlpha, step);
 			UpdateReticle(aim, dt);
@@ -541,38 +550,38 @@ public partial class AimingReticle : Node3D
 	// ammo: a weapon must be equipped with an action profile, and the action
 	// runner must not be running a DIFFERENT slot's action (charging the bow
 	// itself is fine — that's the reticle's whole point of existing during
-	// charge). Cooldown (IsRangedWeaponOnCooldown) and ammo (IsRangedWeaponOutOfAmmo)
+	// charge). Cooldown (IsAimedWeaponOnCooldown) and ammo (IsAimedWeaponOutOfAmmo)
 	// are checked separately so the reticle stays visible-but-dimmed through both
 	// — ammo recharges over time, so the player keeps pre-aiming the next shot.
-	bool IsRangedWeaponEquipped()
+	bool IsAimedWeaponEquipped()
 	{
 		if (_player?.Inventory == null) { return false; }
-		// A spent ammo weapon reads as no ranged weapon at all.
-		WeaponState weapon = _player.GetUsableWeapon(EInventorySlot.WeaponRight);
+		// A spent ammo weapon reads as nothing to aim at all.
+		WeaponState weapon = _player.GetUsableWeapon(_aimSlot);
 		if (weapon?.data?.actionProfile == null) { return false; }
 		ActionRunner runner = _player.Runner;
-		if (runner != null && runner.IsBusy && runner.Current.context.sourceSlot != EInventorySlot.WeaponRight)
+		if (runner != null && runner.IsBusy && runner.Current.context.sourceSlot != _aimSlot)
 		{
 			return false;
 		}
 		return true;
 	}
 
-	// True when the equipped ranged weapon is mid-cooldown (just fired). The
+	// True when the aimed weapon is mid-cooldown (just fired). The
 	// reticle dims rather than hiding during this window.
-	bool IsRangedWeaponOnCooldown()
+	bool IsAimedWeaponOnCooldown()
 	{
-		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
+		WeaponState weapon = _player?.Inventory?.GetWeapon(_aimSlot);
 		return weapon != null && weapon.cooldownExpireMs > _player.GameTimeMs;
 	}
 
-	// True when the equipped ammo-consuming weapon is empty. Like cooldown, the
-	// reticle dims rather than hiding so the player can pre-aim while ammo
-	// recharges.
-	bool IsRangedWeaponOutOfAmmo()
+	// True when the aimed weapon has no rounds left. Like cooldown, the
+	// reticle dims rather than hiding.
+	bool IsAimedWeaponOutOfAmmo()
 	{
-		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
-		return weapon != null && weapon.UsesAmmo && weapon.ammo <= 0;
+		Inventory inventory = _player?.Inventory;
+		WeaponState weapon = inventory?.GetWeapon(_aimSlot);
+		return weapon != null && inventory.RoundsFor(weapon) <= 0;
 	}
 
 	// Fresh active update: resolve aim type → update cursor + cached state → render.
@@ -616,7 +625,7 @@ public partial class AimingReticle : Node3D
 		Vector3 forward = _player.ActorForward.Normalized();
 		// Weapon drives the mob-lock filter via Mob.CanTarget so the visual
 		// telegraph matches whatever weapon-specific rules the assist uses.
-		WeaponData weaponData = _player.Inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data;
+		WeaponData weaponData = _player.Inventory?.GetWeapon(_aimSlot)?.data;
 
 		float lineLength = maxRange;
 		bool clippedAtSurface = false;
@@ -823,7 +832,7 @@ public partial class AimingReticle : Node3D
 		ringOuter = _groundRingOuterRadius;
 		_ringPinned = false;
 		bool gamepad = aim.Device == InputDevice.EDevice.Gamepad;
-		WeaponData weapon = _player.Inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data;
+		WeaponData weapon = _player.Inventory?.GetWeapon(_aimSlot)?.data;
 
 		// Drop a lock that died, left release range, or is no longer targetable.
 		if (_positionalLocked && !IsPositionalLockValid(_positionalTargetMob, weapon, playerPos, maxRange))
@@ -1131,7 +1140,7 @@ public partial class AimingReticle : Node3D
 		if (!_cursorValid)
 		{
 			Vector3 forward = _player.ActorForward.Normalized();
-			WeaponData weaponData = _player.Inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data;
+			WeaponData weaponData = _player.Inventory?.GetWeapon(_aimSlot)?.data;
 			if (TryRaycastForward(chestWorld, forward, maxRange, weaponData, out Vector3 forwardHit, out Mob _))
 			{
 				if (TryRaycastDown(forwardHit, _maxGroundDropDistance, out Vector3 dropHit))
@@ -1250,8 +1259,8 @@ public partial class AimingReticle : Node3D
 		// where the bomb will actually go off. Gated on an impactEvent (the payload
 		// on completion), matching DoProjectile's condition.
 		// Preview against the tier the throw would commit to right now.
-		WeaponState rightWeapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
-		bool detonateOnContact = ItemEventHandlers.ArcDetonatesOnContact(arc, rightWeapon, WeaponModTier.Of(rightWeapon, ResolveActiveTier(out _)));
+		WeaponState aimedWeapon = _player?.Inventory?.GetWeapon(_aimSlot);
+		bool detonateOnContact = ItemEventHandlers.ArcDetonatesOnContact(arc, aimedWeapon, WeaponModTier.Of(aimedWeapon, ResolveActiveTier(out _)));
 
 		Vector3 launchVel = bearing * (horizDist / fuse) + Vector3.Up * launchVy;
 
@@ -1873,7 +1882,7 @@ public partial class AimingReticle : Node3D
 		return true;
 	}
 
-	// Resolve the right-hand weapon's currently-relevant tier — the in-flight
+	// Resolve the aimed weapon's currently-relevant tier — the in-flight
 	// selected tier during a Charging phase, otherwise tier 0 (what an
 	// immediate fire would produce). Returns null when no profile is
 	// equipped. Shared by ComputeSpreadHalfAngle and ResolveActiveAimType so spread
@@ -1881,7 +1890,7 @@ public partial class AimingReticle : Node3D
 	ItemAction ResolveActiveTier(out float chargeT)
 	{
 		chargeT = 0f;
-		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
+		WeaponState weapon = _player?.Inventory?.GetWeapon(_aimSlot);
 		ItemActionProfile profile = weapon?.data?.actionProfile;
 		if (profile?.chargedActions == null || profile.chargedActions.Count == 0)
 		{
@@ -1890,7 +1899,7 @@ public partial class AimingReticle : Node3D
 		ActionRunner runner = _player.Runner;
 		if (runner != null
 			&& runner.Phase == EActionPhase.Charging
-			&& runner.Current.context.sourceSlot == EInventorySlot.WeaponRight)
+			&& runner.Current.context.sourceSlot == _aimSlot)
 		{
 			chargeT = runner.CurrentChargeT;
 			return runner.Current.selectedTier ?? profile.chargedActions[0];
@@ -1898,7 +1907,7 @@ public partial class AimingReticle : Node3D
 		return profile.chargedActions[0];
 	}
 
-	// Spread half-angle (radians) for the right-hand ranged weapon. While
+	// Spread half-angle (radians) for the aimed weapon. While
 	// charging that slot, samples the live charge fraction; otherwise samples
 	// the snap tier at chargeT=0 — what would happen on an immediate fire.
 	float ComputeSpreadHalfAngle()
@@ -1908,7 +1917,7 @@ public partial class AimingReticle : Node3D
 		return ItemAction.SampleAccuracySpread(tier, chargeT);
 	}
 
-	// Per-tier aim mode for the right-hand weapon. Mirrors the tier
+	// Per-tier aim mode for the aimed weapon. Mirrors the tier
 	// selection in ResolveActiveTier so the reticle picks Directional /
 	// Positional from the same authority that drives spread / range.
 	// Falls back to Directional when no weapon / profile is equipped so
@@ -1936,13 +1945,13 @@ public partial class AimingReticle : Node3D
 			// the tier's charge ramp — the throw distance (and with it the lob's
 			// horizontal launch speed, reach / fuse) grows as the hold charges.
 			ItemEvent arc = FindArcEvent();
-			WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
+			WeaponState weapon = _player?.Inventory?.GetWeapon(_aimSlot);
 			return arc != null ? arc.projectileMaxRange * ItemEventHandlers.ResolveRangeScale(weapon, tier, chargeT) : tier.positionalRange;
 		}
 		if (tier.aimType == EAimType.Positional)
 		{
 			return tier.positionalRange;
 		}
-		return _player.GetWeaponRange(EInventorySlot.WeaponRight);
+		return _player.GetWeaponRange(_aimSlot);
 	}
 }

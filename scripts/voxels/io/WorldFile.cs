@@ -295,7 +295,9 @@ public static class WorldFile
     //      a weapon's adds the magazine capacity wear has cost it after its ammo.
     // v79: a hotbar tool (ToolData — the shovel) is gear, so its item state
     //      writes durability.
-    public const uint VERSION = 79;
+    // v80: a weapon's item state is gear durability alone — ammo is carried as
+    //      AmmoData items now, not a magazine on the weapon.
+    public const uint VERSION = 80;
 
     public struct IndexEntry
     {

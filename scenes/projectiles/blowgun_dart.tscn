@@ -1,0 +1,32 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://rmy8owd5hawv" path="res://scripts/gameplay/entities/Projectile.cs" id="1_proj"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="2_lit"]
+
+[sub_resource type="ShaderMaterial" id="Mat_shaft"]
+render_priority = 0
+shader = ExtResource("2_lit")
+shader_parameter/color_tint = Color(0.62, 0.55, 0.38, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_tuft"]
+render_priority = 0
+shader = ExtResource("2_lit")
+shader_parameter/color_tint = Color(0.86, 0.82, 0.72, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_shaft"]
+material = SubResource("Mat_shaft")
+size = Vector3(0.015, 0.015, 0.22)
+
+[sub_resource type="BoxMesh" id="BoxMesh_tuft"]
+material = SubResource("Mat_tuft")
+size = Vector3(0.04, 0.04, 0.05)
+
+[node name="BlowgunDart" type="Node3D"]
+script = ExtResource("1_proj")
+
+[node name="Shaft" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_shaft")
+
+[node name="Tuft" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.1)
+mesh = SubResource("BoxMesh_tuft")

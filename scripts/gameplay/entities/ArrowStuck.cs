@@ -1,57 +1,21 @@
 using Godot;
 
-// Visual + ammo-binding for an arrow currently stuck in a mob. Parented to
-// the Mob so it follows the mob's motion. No collision, no interact area —
-// the arrow only becomes pickable after the mob dies (Mob.Die drops each
-// stuck arrow as a loose ArrowLoot with an outward impulse) or returns
-// ammo if the mob is removed without dying.
-//
-// Lifetime contract:
-//   - Create() while the mob is alive — caller stashes it on the mob and
-//     registers it with the source weapon.
-//   - DropAsLoot(impulse) is called by Mob.Die for each stuck arrow. The
-//     arrow detaches from the weapon's tracking list (no ammo bump), a
-//     fresh ArrowLootSimState is spawned at the stuck world position to
-//     take over the binding, and this node frees itself.
-//   - ReturnAmmoOnRemoval() is called by Mob._ExitTree if the mob is
-//     unloaded with the arrow still stuck (no death). Fires the standard
-//     OnArrowRemoved so the weapon recovers 1 ammo.
-//   - Recover() is called by the weapon's central ammo-recharge timer when
-//     this is the oldest outstanding arrow — routes through the mob and
-//     returns 1 ammo, the same as a loose arrow being auto-reclaimed.
+// A round stuck in a living mob: visual only, parented to the mob so it follows
+// it, with no collision. When the mob dies it drops as a loose pickup of the
+// round (DropAsLoot); a mob that unloads alive takes it with it.
 [GlobalClass]
-public partial class ArrowStuck : Node3D, IWeaponArrow
+public partial class ArrowStuck : Node3D
 {
-    private WeaponState _sourceWeapon;
-    private ArrowLootData _data;
+    private AmmoData _data;
 
-    public WeaponState SourceWeapon => _sourceWeapon;
-
-    // Auto-recovery by the weapon's central ammo-recharge timer. Routes
-    // through the mob (so it drops us from _stuckArrows before we free) which
-    // forwards to ReturnAmmoOnRemoval; if somehow unparented, return ammo
-    // directly. Returns 1 ammo to the source weapon and frees this node.
-    public void Recover()
+    public static ArrowStuck Create(Mob mob, AmmoData data, Vector3 worldHitPos, Vector3 hitDirection)
     {
-        if (GetParent() is Mob mob)
-        {
-            mob.OnStuckArrowExpired(this);
-        }
-        else
-        {
-            ReturnAmmoOnRemoval();
-        }
-    }
-
-    public static ArrowStuck Create(Mob mob, ArrowLootData data, WeaponState sourceWeapon, Vector3 worldHitPos, Vector3 hitDirection)
-    {
-        if (mob == null || data == null || sourceWeapon == null)
+        if (mob == null || data == null)
         {
             return null;
         }
         var stuck = new ArrowStuck();
         stuck._data = data;
-        stuck._sourceWeapon = sourceWeapon;
         mob.AddChild(stuck);
         stuck.GlobalPosition = worldHitPos;
 
@@ -92,32 +56,14 @@ public partial class ArrowStuck : Node3D, IWeaponArrow
         return stuck;
     }
 
-    // Transition stuck → loose loot. Removes the stuck instance from the
-    // weapon's tracking without bumping ammo (the new ArrowLootSimState
-    // re-registers, so the net count is unchanged), then frees self.
+    // The mob died: the round drops loose where it was stuck.
     public void DropAsLoot()
     {
-        WeaponState weapon = _sourceWeapon;
-        ArrowLootData data = _data;
-        Vector3 worldPos = GlobalPosition;
-        _sourceWeapon = null;
-        _data = null;
-        weapon?.DetachArrow(this);
-        if (weapon != null && data != null && Sim.Current != null)
+        if (_data != null && Sim.Current != null)
         {
-            Sim.Current.EjectArrowLoot(worldPos, data, weapon);
+            Sim.Current.EjectFiredRound(_data, GlobalPosition);
         }
-        QueueFree();
-    }
-
-    // Mob removed without dying — fire the standard removal hook so the
-    // weapon recovers 1 ammo, then free self.
-    public void ReturnAmmoOnRemoval()
-    {
-        WeaponState weapon = _sourceWeapon;
-        _sourceWeapon = null;
         _data = null;
-        weapon?.OnArrowRemoved(this);
         QueueFree();
     }
 }

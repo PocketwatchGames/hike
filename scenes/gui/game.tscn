@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" uid="uid://bkaby86guis4d" path="res://scenes/interactives/loot.tscn" id="20_loot"]
 [ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
+[ext_resource type="PackedScene" uid="uid://4b89jlof6zjef" path="res://scenes/gui/story_screen.tscn" id="23_story"]
 [ext_resource type="PackedScene" uid="uid://bkn63m6xyu5a2" path="res://scenes/gui/upgrade_screen.tscn" id="27_upgrade"]
 [ext_resource type="PackedScene" uid="uid://carxk5v82cy87" path="res://scenes/gui/sleep_overlay.tscn" id="28_sleep"]
 [ext_resource type="PackedScene" uid="uid://blq0cn2x7hpke" path="res://scenes/gui/camp_screen.tscn" id="40_30f04"]
@@ -93,7 +94,7 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "sleepOverlay", "campFade", "upgradeScreen", "forgeScreen", "sleepScreen", "cookingScreen", "stashScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "storyScreen", "sleepOverlay", "campFade", "upgradeScreen", "forgeScreen", "sleepScreen", "cookingScreen", "stashScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
 script = ExtResource("1_mu8e5")
 mobLevelColors = PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0.48000002, 1, 0.48, 0, 0, 1, 0.49866652, 0, 0.68, 1)
 camera = NodePath("SceneViewport/MainCamera")
@@ -103,6 +104,7 @@ almanacScreen = NodePath("GUICanvas/AlmanacScreen")
 merchantScreen = NodePath("GUICanvas/MerchantScreen")
 campScreen = NodePath("GUICanvas/CampScreen")
 deathScreen = NodePath("DeathCanvas/DeathScreen")
+storyScreen = NodePath("StoryCanvas/StoryScreen")
 sleepOverlay = NodePath("SleepCanvas/SleepOverlay")
 campFade = NodePath("FadeCanvas/ScreenFade")
 upgradeScreen = NodePath("GUICanvas/UpgradeScreen")
@@ -554,3 +556,8 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(0, 0, 0, 0)
+
+[node name="StoryCanvas" type="CanvasLayer" parent="."]
+layer = 18
+
+[node name="StoryScreen" parent="StoryCanvas" instance=ExtResource("23_story")]

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AmmoData" format=3]
+
+[ext_resource type="Script" uid="uid://9wpqw34qznkli" path="res://scripts/data/items/AmmoData.cs" id="1_ammo"]
+[ext_resource type="Texture2D" uid="uid://veyif8qgv1c6" path="res://assets/textures/items/CrossbowBolt.png" id="2_sprite"]
+
+[resource]
+script = ExtResource("1_ammo")
+ammoType = 4
+isStandard = true
+breakChance = 0.25
+displayName = &"Dart"
+description = "A thorn-tipped dart for a blowgun."
+maxStack = 50
+value = 1
+inventorySprite = ExtResource("2_sprite")

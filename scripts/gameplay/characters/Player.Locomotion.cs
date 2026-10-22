@@ -6,7 +6,7 @@ public partial class Player : CharacterBody3D
 {
 	// Gates aiming and look-driven rotation. Returns false during a dash or sprint so
 	// the player commits to facing movement direction for the burst — both
-	// _aiming (which drives the aim reticle, ranged routing, gamepad stick
+	// the aim slot (which drives the aim reticle, ranged routing, gamepad stick
 	// fallback) and the rotation block in _PhysicsProcess consult this single
 	// function so they can't drift out of sync.
 	private bool CanLook()

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="AmmoData" format=3 uid="uid://cuxcddhgxlojw"]
+
+[ext_resource type="Script" uid="uid://9wpqw34qznkli" path="res://scripts/data/items/AmmoData.cs" id="1_ammo"]
+[ext_resource type="Texture2D" uid="uid://sdpdfdbbomg6" path="res://assets/textures/items/Arrow.png" id="2_sprite"]
+[ext_resource type="PackedScene" uid="uid://dxr11valq1m5s" path="res://scenes/projectiles/arrow_model.tscn" id="3_model"]
+
+[resource]
+script = ExtResource("1_ammo")
+ammoType = 1
+isStandard = true
+breakChance = 0.15
+stuckModel = ExtResource("3_model")
+displayName = &"Arrow"
+description = "A plain shaft for a bow. Most can be pulled from wherever they land."
+maxStack = 50
+value = 1
+inventorySprite = ExtResource("2_sprite")

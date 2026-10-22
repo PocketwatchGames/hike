@@ -1,0 +1,44 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://b7hwld3k9mxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_hw"]
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="model_lit_shader"]
+
+[sub_resource type="ShaderMaterial" id="Mat_reed"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.66, 0.58, 0.36, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_binding"]
+render_priority = 0
+shader = ExtResource("model_lit_shader")
+shader_parameter/color_tint = Color(0.36, 0.22, 0.12, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_reed"]
+material = SubResource("Mat_reed")
+top_radius = 0.018
+bottom_radius = 0.022
+height = 0.9
+radial_segments = 6
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_binding"]
+material = SubResource("Mat_binding")
+top_radius = 0.026
+bottom_radius = 0.026
+height = 0.04
+radial_segments = 6
+rings = 1
+
+[node name="BlowgunHeld" type="Node3D"]
+script = ExtResource("1_hw")
+
+[node name="Reed" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+mesh = SubResource("CylinderMesh_reed")
+
+[node name="BindingLow" type="MeshInstance3D" parent="."]
+mesh = SubResource("CylinderMesh_binding")
+
+[node name="BindingHigh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+mesh = SubResource("CylinderMesh_binding")

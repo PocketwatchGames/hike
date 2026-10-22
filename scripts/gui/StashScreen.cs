@@ -22,6 +22,7 @@ using Godot;
 [GlobalClass]
 public partial class StashScreen : Control
 {
+	[Export] private PlayerVitalsHud _vitals;
 	[Export] private BackpackPanel _stashPanel;
 	[Export] private InventoryPanel _inventoryPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
@@ -136,6 +137,7 @@ public partial class StashScreen : Control
 		_player = player;
 		_stash = stash;
 		_onClose = onClose;
+		_vitals?.Bind(player);
 		if (_player?.Inventory != null)
 		{
 			_player.Inventory.onChanged += Refresh;
@@ -173,6 +175,7 @@ public partial class StashScreen : Control
 		Visible = false;
 		_stash = null;
 		_player = null;
+		_vitals?.Bind(null);
 		_focused = Slot.None;
 		ClearPick();
 		System.Action cb = _onClose;

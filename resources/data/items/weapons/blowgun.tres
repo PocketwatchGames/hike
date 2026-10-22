@@ -1,0 +1,152 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
+[ext_resource type="PackedScene" uid="uid://dxxldcqs8hb6v" path="res://scenes/fx/bow_hit_creature.tscn" id="7_hitcreature"]
+[ext_resource type="PackedScene" uid="uid://dbkwlsxhbirtn" path="res://scenes/fx/bow_kill.tscn" id="7_hitkill"]
+[ext_resource type="PackedScene" uid="uid://dxx2ajycuaxpv" path="res://scenes/fx/bow_hit_solid.tscn" id="7_hitsolid"]
+[ext_resource type="PackedScene" path="res://scenes/fx/blowgun_puff.tscn" id="8_puff"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/blowgun_dart.tscn" id="10_dart"]
+[ext_resource type="Texture2D" uid="uid://c2afhh1ad6150" path="res://assets/textures/items/Blowgun.png" id="15_sprite"]
+[ext_resource type="PackedScene" path="res://scenes/items/blowgun_held.tscn" id="20_held"]
+[ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
+[ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="21_poison"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="22_buildup"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/fiber.tres" id="mat_fiber"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/feather.tres" id="mat_feather"]
+
+[sub_resource type="Resource" id="Resource_event_dart"]
+script = ExtResource("3_event")
+type = 41951300
+noiseDecibels = 0.02
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitsolid")
+impactLethalEffect = ExtResource("7_hitkill")
+impactDecibels = 0.1
+projectileScene = ExtResource("10_dart")
+projectileSpeed = 22.0
+projectileLifetimeSeconds = 0.25
+
+[sub_resource type="Resource" id="Resource_req_no_swim"]
+script = ExtResource("4_state")
+forbidSwimming = true
+
+[sub_resource type="Resource" id="Resource_tier_dart"]
+script = ExtResource("4_charged")
+displayName = &"Dart"
+useAmmo = true
+chargeTime = 0.3
+activeDurationSeconds = 0.2
+cooldownSeconds = 0.5
+staminaCost = 0.1
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_dart")])
+requirements = Array[ExtResource("4_req")]([SubResource("Resource_req_no_swim")])
+speedMultiplierActive = 0.6
+releaseEffect = ExtResource("8_puff")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
+
+[sub_resource type="Resource" id="Resource_event_breath"]
+script = ExtResource("3_event")
+type = 41951300
+animName = 20
+noiseDecibels = 0.02
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitsolid")
+impactLethalEffect = ExtResource("7_hitkill")
+impactDecibels = 0.1
+projectileScene = ExtResource("10_dart")
+projectileSpeed = 22.0
+projectileLifetimeSeconds = 0.25
+
+[sub_resource type="Resource" id="Resource_tier_breath"]
+script = ExtResource("4_charged")
+displayName = &"Deep Breath"
+useAmmo = true
+chargeTime = 0.8
+activeDurationSeconds = 0.2
+cooldownSeconds = 0.5
+staminaCost = 0.2
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_breath")])
+requirements = Array[ExtResource("4_req")]([SubResource("Resource_req_no_swim")])
+chargedRangeScale = 1.25
+chargedDamageScale = 2.0
+chargedArmorPenetrationBonus = 0.5
+maxSpeedCharging = 1
+speedMultiplierActive = 0.3
+releaseEffect = ExtResource("8_puff")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("5_profile")
+chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_tier_dart"), SubResource("Resource_tier_breath")])
+autoActivateAtMax = false
+queueWindowSeconds = 0.0
+
+[sub_resource type="Resource" id="Resource_buildup_poison"]
+script = ExtResource("22_buildup")
+effect = ExtResource("21_poison")
+amount = 1.0
+delivery = 1
+metadata/_custom_type_script = "uid://b5h7q3xk1an2m"
+
+[sub_resource type="Resource" id="Resource_damage"]
+script = ExtResource("1_damage")
+tags = 2113
+healthDamage = 3.0
+armorPenetration = 0.5
+critChance = 0.1
+damageVariance = 0.25
+hitstun = 0.1
+buildups = Array[ExtResource("22_buildup")]([SubResource("Resource_buildup_poison")])
+
+[sub_resource type="Resource" id="salvage_yield_fiber"]
+script = ExtResource("material_count")
+item = ExtResource("mat_fiber")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_yield_feather"]
+script = ExtResource("material_count")
+item = ExtResource("mat_feather")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="repair_cost_fiber"]
+script = ExtResource("material_count")
+item = ExtResource("mat_fiber")
+count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[resource]
+script = ExtResource("2_weapon")
+rightHandSlot = true
+ammoType = 4
+delivery = 2
+damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
+&"primary": SubResource("Resource_damage")
+})
+pitchRangeDegrees = 85.0
+yawAssistDegrees = 60.0
+aimAssistStrength = 0.75
+actionProfile = SubResource("Resource_profile")
+wieldHand = 1
+animSet = ExtResource("21_animset")
+weight = 0.15
+maxDurability = 150
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_fiber")])
+displayName = &"Blowgun"
+description = "A hollow reed that spits poisoned darts. Barely a whisper, barely a scratch, but every dart that draws blood poisons. Hold a deep breath to send it farther, harder and through armor."
+value = 40
+inventorySprite = ExtResource("15_sprite")
+heldModel = ExtResource("20_held")
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_fiber"), SubResource("salvage_yield_feather")])

@@ -62,7 +62,7 @@ public partial class ItemActionPanel : PanelContainer
 		{
 			ItemEvent damageEvent = StatList.FindDamageEvent(action);
 			damage = weapon?.GetDamage(damageEvent?.damageProfileKey ?? new StringName("primary"));
-			AddStats(StatList.BaseDamage(damage, StatList.CountHits(action, damageEvent?.damageProfileKey)));
+			AddStats(StatList.BaseDamage(damage, StatList.CountHits(action, damageEvent?.damageProfileKey), action));
 			AddStats(StatList.Range(action, damageEvent));
 			AddStats(StatList.Lunge(action));
 		}

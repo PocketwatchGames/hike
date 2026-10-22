@@ -4,9 +4,11 @@
 [ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="2_teach"]
 [ext_resource type="Resource" uid="uid://pojtffxggqnp" path="res://resources/data/worlds/shared/party/mischa.tres" id="4_mischa"]
 [ext_resource type="Resource" path="res://resources/data/worlds/test_world/test_world_script.tres" id="9_script"]
+[ext_resource type="Resource" uid="uid://l7uas6y5tl8nb" path="res://resources/data/worlds/shared/stories/intro_placeholder.tres" id="10_story"]
 
 [resource]
 script = ExtResource("1_script")
 displayName = "Test World"
+introStory = ExtResource("10_story")
 scriptData = ExtResource("9_script")
 startingParty = [ExtResource("4_mischa")]

@@ -68,8 +68,8 @@ public partial class Player : CharacterBody3D
 	// Fold receiver resistances onto the live hit in place. Damage tags
 	// (Damage / Fire / Magical / Poison / Electrical / Ranged / Melee) scale
 	// healthDamage; ArmorPenetration scales the bypass-chance roll; Blunt scales the
-	// (1 + blunt) armor-chip multiplier; Knockback scales knockbackDistance
-	// and knockbackTime. Each site only applies if the hit carries the
+	// (1 + blunt) armor-chip multiplier; Knockback is a chance to resist the
+	// knockback outright. Each site only applies if the hit carries the
 	// corresponding tag — a non-ArmorPenetration hit is unaffected by
 	// ArmorPenetration-resist, etc. Modulating in place means hit.ArmorPenetrated and the downstream armor /
 	// knockback formulas automatically pick up the receiver's resistances
@@ -107,9 +107,7 @@ public partial class Player : CharacterBody3D
 		}
 		if ((hit.tags & EHitTag.Knockback) != 0)
 		{
-			float scale = ComposeTagMul(EHitTag.Knockback);
-			hit.knockbackDistance *= scale;
-			hit.knockbackTime *= scale;
+			hit.ApplyKnockbackResistance(ComposeTagMul(EHitTag.Knockback));
 		}
 	}
 
@@ -319,7 +317,7 @@ public partial class Player : CharacterBody3D
 		bool appliedBuildup = false;
 		if (_health > 0f && !parried)
 		{
-			appliedBuildup = _statusEffects?.ApplyHitBuildups(ref hit) ?? false;
+			appliedBuildup = _statusEffects?.ApplyHitBuildups(ref hit, incomingDamage) ?? false;
 			// On-damaged reactions (Thin Skinned → its "+5% damage taken"
 			// debuff; Poison Thorns → poison the attacker). Discrete hits only — a continuous DoT tick shouldn't re-arm
 			// the debuff every physics frame; the tag filter on each effect further
@@ -383,7 +381,7 @@ public partial class Player : CharacterBody3D
 
 		// Hitstun + knockback: latch the flinch + knockback windows so
 		// per-frame ticks can count them down. Direction comes from the
-		// sender via HitInfo.hitDirection; a zero direction drops knockback
+		// sender via HitInfo.KnockbackDirection; a zero direction drops knockback
 		// entirely regardless of distance. Death overrides the hitstun anim
 		// because the Die one-shot above latches first.
 		if (hit.hitstun > 0f && _health > 0f && !parried)
@@ -391,9 +389,9 @@ public partial class Player : CharacterBody3D
 			_hitstunTime = Mathf.Max(_hitstunTime, hit.hitstun);
 			PlayOneShot(EAnimation.Hitstun);
 		}
-		if (hit.knockbackDistance > 0f && hit.knockbackTime > 0f && hit.hitDirection != Vector3.Zero && _health > 0f && !parried)
+		if (hit.knockbackDistance > 0f && hit.knockbackTime > 0f && hit.KnockbackDirection != Vector3.Zero && _health > 0f && !parried)
 		{
-			Vector3 dir = hit.hitDirection;
+			Vector3 dir = hit.KnockbackDirection;
 			dir.Y = 0f;
 			if (dir.LengthSquared() > 0.0001f)
 			{
@@ -565,7 +563,7 @@ public partial class Player : CharacterBody3D
 		ClearQueuedInput();
 		CancelDash();
 		_sneaking = false;
-		_aiming = false;
+		_aimSlot = EInventorySlot.None;
 		_hitstunTime = 0f;
 		_knockbackTime = 0f;
 		_knockbackVelocity = Vector3.Zero;
@@ -646,7 +644,7 @@ public partial class Player : CharacterBody3D
 		_knockbackTime = 0f;
 		_knockbackVelocity = Vector3.Zero;
 		_sneaking = false;
-		_aiming = false;
+		_aimSlot = EInventorySlot.None;
 		_oneShotClip = default;
 		_oneShotIsHitstun = false;
 		_oneShotOverridesCharge = false;

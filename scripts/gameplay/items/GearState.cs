@@ -4,14 +4,13 @@ using Godot;
 // the player only, at the moment of use:
 //   weapon       — authored on its events: ItemEvent.durabilityCostOnHit when
 //                  the attack first strikes a target, the UseDurability flag
-//                  (ItemEvent.durabilityCost) as the event fires. An ammo round
-//                  whose strike breaks it drops no recoverable arrow
-//                  (WeaponState.Wear)
+//                  (ItemEvent.durabilityCost) as the event fires — a ranged
+//                  weapon's every shot
 //   shield       — the damage a block absorbs from the guard, or a parry negates
 //   armor        — the damage the armor pool soaks, split across worn pieces
 // A broken piece keeps working at a reduced level: armor stops recharging, a
 // shield can neither block nor parry, a melee weapon only fires its uncharged
-// tiers. An ammo weapon never stays broken — it trades capacity instead.
+// tiers. A broken ranged weapon is the exception: it can't fire at all.
 public class GearState : ItemState
 {
 	public enum ECondition
@@ -34,7 +33,7 @@ public class GearState : ItemState
 
 	public bool Wears => _data != null && _data.maxDurability > 0;
 
-	public virtual bool IsBroken => Wears && durability <= 0f;
+	public bool IsBroken => Wears && durability <= 0f;
 
 	// Worn = under `warningFraction` of max durability (SimData
 	// .durabilityWarningFraction), the HUD warning and its one-shot cue.
@@ -60,7 +59,7 @@ public class GearState : ItemState
 
 	// Spend `amount` of durability (uses, or damage for armor and shields),
 	// scaled by this piece's wear mods.
-	public virtual void Wear(float amount = 1f)
+	public void Wear(float amount = 1f)
 	{
 		if (!Wears || amount <= 0f)
 		{

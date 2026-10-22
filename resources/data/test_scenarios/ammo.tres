@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "ammo"
+description = "A bow with plain and fire arrows, a pistol with lead balls, and goblins. Equip the bow, then Equip the fire arrows in the inventory to load them: the HUD counts the loaded kind, and when the fire arrows run out the bow falls back to plain ones. Rounds land as pickups; some break."
+commands = "spawn_loot bow 1
+spawn_loot arrow 10
+spawn_loot fire_arrow 5
+spawn_loot pistol 1
+spawn_loot lead_ball 10
+spawn_mob goblin_forest 3"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

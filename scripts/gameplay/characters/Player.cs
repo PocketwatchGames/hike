@@ -102,6 +102,14 @@ public partial class Player : CharacterBody3D
 	// null in the .tscn so the system still works without authoring.
 	[Export] private StatusEffectData _wetClothesEffectData;
 
+	// Whether an owned item's own Wet status is currently armed (what its slot's
+	// Wet icon shows).
+	public bool IsItemWet(ItemState item)
+	{
+		StatusEffectData wet = _wetClothesEffectData ?? _wetEffectData;
+		return item != null && wet != null && item.statusEffects.HasActive(wet);
+	}
+
 	// Status effect armed while the player wears a fully-grimy piece of armor.
 	// Carries the Scent modifier (and the HUD icon) — TickDirtyEffect drives
 	// its ContinuousArm meter to track the dirtiest worn piece, so the smell
@@ -175,11 +183,9 @@ public partial class Player : CharacterBody3D
 	[Export] private PackedScene _armorRechargeStartFx;
 	[Export] private PackedScene _armorRecoverStartFx;
 	// Gear durability one-shots: warning when a piece first drops into worn
-	// (SimData.durabilityWarningFraction), broken when it breaks. An ammo
-	// weapon plays ammoBroken instead, every time wear costs it a round.
+	// (SimData.durabilityWarningFraction), broken when it breaks.
 	[Export] private PackedScene _durabilityWarningFx;
 	[Export] private PackedScene _durabilityBrokenFx;
-	[Export] private PackedScene _durabilityAmmoBrokenFx;
 	// Sneak-block guard cues. blockStart plays on the crouch that actually
 	// raises a live guard (skipped while the re-engage cooldown holds it down);
 	// parryWindowEnd plays when the parry window elapses with the guard still
@@ -355,7 +361,9 @@ public partial class Player : CharacterBody3D
 	readonly List<Foliage> _foliageCollisions = new();
 	float _terrainSpeed = 1f;
 	bool _grounded;
-	bool _aiming;
+	// The weapon slot the player is aiming — whose reach, auto-aim and reticle
+	// apply this tick. None = not aiming. See the resolve in _PhysicsProcess.
+	EInventorySlot _aimSlot = EInventorySlot.None;
 	bool _sneaking;
 	// Rising-edge tracker for _sneaking, read once per ProcessInput to detect
 	// the frame a sneak-block begins (opens the parry window).
@@ -624,7 +632,8 @@ public partial class Player : CharacterBody3D
 	// Mapped from Velocity in UpdateVisibility once per frame to keep the
 	// per-mob perception tick a plain field read.
 	public float CurrentDecibels { get; private set; }
-	public bool IsAiming => _aiming;
+	public bool IsAiming => _aimSlot != EInventorySlot.None;
+	public EInventorySlot AimSlot => _aimSlot;
 	public bool IsSneaking => _sneaking;
 	public bool IsDashing => _dashTimeRemaining > 0f;
 	public bool IsSprinting => _sprinting;
@@ -1872,7 +1881,6 @@ public partial class Player : CharacterBody3D
 		TickArmor(dt);
 		TickShieldGuard(dt);
 		TickParryWindow();
-		TickAmmoRecharge(_world?.GameTimeMs ?? 0);
 		TickStamina(dt);
 		TickSwimStamina(dt);
 		TickSprint(dt);
@@ -1945,24 +1953,39 @@ public partial class Player : CharacterBody3D
 
 		// Dash and sprint suppress aim — the player commits to the movement
 		// burst, so look-rotation and the gamepad-stick aim fallback both
-		// yield to movement direction. Single gate for both _aiming below and
-		// the rotation block further down.
+		// yield to movement direction. Single gate for both the aim slot below
+		// and the rotation block further down.
 		//
-		// Charging a right-hand weapon also forces aim on: the cursor needs
-		// to keep updating (Positional aim wants the player to rest the stick
-		// without dropping out of aim), and the reticle should stay visible
-		// for the full hold. The gate still requires `canLook`, so a dash
-		// out of a charge still suppresses aim (charging cancels via the
-		// existing path).
+		// Charging an aimed tier (ItemAction.IsAimed — a shot, a throw, a ground
+		// target) aims THAT weapon, in either hand, for the whole hold: the
+		// cursor keeps updating (Positional aim wants the player to rest the
+		// stick without dropping out of aim) and the reticle stays up. Otherwise
+		// the Aim button / right stick aims the ranged hand. The gate still
+		// requires `canLook`, so a dash out of a charge still suppresses aim.
 		bool canLook = CanLook();
-		bool chargingRightWeapon = _runner != null
-			&& _runner.IsBusy
-			&& _runner.Phase == EActionPhase.Charging
-			&& _runner.Current.context.sourceSlot == EInventorySlot.WeaponRight;
-		_aiming = canLook
-			&& (Input.IsActionPressed("Aim")
-				|| (_inputLook != Vector3.Zero && InputDevice.Current == InputDevice.EDevice.Gamepad)
-				|| chargingRightWeapon);
+		ItemAction chargingTier = _runner != null && _runner.IsBusy && _runner.Phase == EActionPhase.Charging
+			? _runner.Current.selectedTier ?? _runner.Current.profile?.chargedActions[0]
+			: null;
+		EInventorySlot chargingAimSlot = chargingTier != null && chargingTier.IsAimed
+			? _runner.Current.context.sourceSlot ?? EInventorySlot.None
+			: EInventorySlot.None;
+		if (!canLook)
+		{
+			_aimSlot = EInventorySlot.None;
+		}
+		else if (chargingAimSlot != EInventorySlot.None)
+		{
+			_aimSlot = chargingAimSlot;
+		}
+		else if (Input.IsActionPressed("Aim")
+			|| (_inputLook != Vector3.Zero && InputDevice.Current == InputDevice.EDevice.Gamepad))
+		{
+			_aimSlot = EInventorySlot.WeaponRight;
+		}
+		else
+		{
+			_aimSlot = EInventorySlot.None;
+		}
 
 		// Stamina-gated speed table:
 		//   sneaking      → sneakSpeed
@@ -2217,7 +2240,7 @@ public partial class Player : CharacterBody3D
 			Velocity = new Vector3(Velocity.X, -1f, Velocity.Z); // Small downward force to keep grounded
 		}
 
-		// Same CanLook gate as the _aiming suppression above — during dash or
+		// Same CanLook gate as the aim-slot suppression above — during dash or
 		// sprint, rotation falls through to move direction. While skating
 		// or skidding, yaw locks to the velocity heading rather than the
 		// input direction so the model reads as committed to its existing

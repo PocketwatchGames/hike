@@ -27,7 +27,8 @@
 [ext_resource type="PackedScene" uid="uid://bs6g5vb3w6472" path="res://scenes/items/mace_held.tscn" id="17_held"]
 [ext_resource type="Resource" uid="uid://bswd4n1msetq7" path="res://resources/data/characters/human/anim_sets/sword.tres" id="20_animset"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="30_oee8w"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
 
 [sub_resource type="Resource" id="Resource_event_light"]
@@ -53,7 +54,6 @@ time = 50
 type = 1
 range = 3.0
 nearWidth = 0.8
-farWidth = 4.0
 smearEffect = ExtResource("9_smearlight")
 smearClockwise = false
 impactEnvironmentEffect = ExtResource("7_hitsolid")
@@ -202,13 +202,13 @@ knockbackTime = 0.25
 buildups = Array[ExtResource("1_buildup")]([SubResource("Resource_buildup_dizzy")])
 modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_backstab")])
 
-[sub_resource type="Resource" id="salvage_yield_steel"]
+[sub_resource type="Resource" id="repair_cost_steel"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_steel")
 count = 2
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
-[sub_resource type="Resource" id="repair_cost_steel"]
+[sub_resource type="Resource" id="salvage_yield_steel"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_steel")
 count = 2

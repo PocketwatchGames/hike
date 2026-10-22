@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AmmoData" format=3]
+
+[ext_resource type="Script" uid="uid://9wpqw34qznkli" path="res://scripts/data/items/AmmoData.cs" id="1_ammo"]
+[ext_resource type="Texture2D" uid="uid://bx2qt0dcvetil" path="res://assets/textures/items/Gunpowder.png" id="2_sprite"]
+
+[resource]
+script = ExtResource("1_ammo")
+ammoType = 3
+isStandard = true
+breakChance = 1.0
+displayName = &"Shot"
+description = "A paper shell of powder and lead pellets for a blunderbuss. One shell is one pull of the trigger; the pellets are lost."
+maxStack = 30
+value = 2
+inventorySprite = ExtResource("2_sprite")

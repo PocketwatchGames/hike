@@ -46,8 +46,9 @@ gear**, at the event's own site — weapons by uses, armor and shields by damage
 
 | Gear | Wears on | Broken |
 |---|---|---|
-| melee weapon (no magazine) | its events' authored costs (below) | only tiers with charge start time 0 fire (`ActionRunner.IsBrokenGear`) |
-| ammo weapon with `wearCostsAmmoCapacity` (bow, crossbow) | its events' authored costs (below) | never stays broken: the round that takes it to 0 breaks — it drops/sticks no arrow — the magazine loses that round of capacity and durability refills to `maxDurability` × the fraction of capacity left (`WeaponState.Wear`); broken once the magazine is gone |
+| melee weapon | its events' authored costs (below) | only tiers with charge start time 0 fire (`ActionRunner.IsBrokenGear`) |
+| ranged weapon (`rightHandSlot`: bow, guns, blowgun, sling) | every shot — its shot events carry `UseDurability` | cannot fire at all (`WeaponState.CanFire`) |
+| thrown weapon (`WeaponData.thrown`: tomahawk, bomb) | never — each shot spends a unit of the stack outright | — |
 | shield | damage absorbed: the guard a block consumes, the whole blow a parry negates | no guard, no parry, no bare-hands fallback |
 | armor | damage the pool soaks (DoT chips included), split across worn pieces by their share of the pool | the pool stops recharging |
 
@@ -56,27 +57,54 @@ gear**, at the event's own site — weapons by uses, armor and shields by damage
   a MOB — breakables and props never wear a weapon — a swing's first creature, a
   hitscan hit, a projectile's first creature
   (`ItemEventHandlers.WearOnStrike`); the `UseDurability` flag spends
-  `durabilityCost` as the event fires, hit or not (`DoUseDurability`), the twin of
-  `UseAmmo`. A round whose strike breaks it (the wear cost the magazine a round)
-  drops and sticks no arrow. A weapon-mod missile carries no cost.
+  `durabilityCost` as the event fires, hit or not (`DoUseDurability`). A ranged
+  weapon wears this way, per shot, never on the strike. A weapon-mod missile
+  carries no cost.
 - **All wear goes through `Player.WearGear`**, which plays the cues: warning once
-  on crossing `SimData.durabilityWarningFraction`, broken once at zero, and for
-  an ammo weapon its own snap every time wear costs a round (never the warning
-  again per shot). The HUD overlays read the same `GearState.Condition`.
-- **A spent ammo weapon (`WeaponState.IsSpent`: magazine worn to 0) is an empty
-  slot to gameplay** — no reticle, no draw, no fire, no aim assist — through
-  `Player.GetUsableWeapon`. The HUD still reads the equipped item, so it shows broken.
-- **Trading capacity is opt-in, not implied by a magazine.** Without
-  `WeaponData.wearCostsAmmoCapacity` an ammo weapon (the bomb) wears and breaks like
-  any other.
-- **Read magazine size through `WeaponState.MaxAmmo`, never `data.maxAmmo`** —
-  the authored value minus `ammoCapacityLost`. `UsesAmmo` asks whether it was
-  authored with a magazine at all.
+  on crossing `SimData.durabilityWarningFraction`, broken once at zero. The HUD
+  overlays read the same `GearState.Condition`.
+- **A broken ranged weapon is an empty slot to gameplay** — no reticle, no draw,
+  no fire, no aim assist — through `Player.GetUsableWeapon`. The HUD still reads
+  the equipped item, so it shows broken.
 - **Wear rate is a per-ITEM mod**: an `EStat.DurabilityWear` `StatModifier` on a
   `StatusEffectData` composed through `ItemDescriptor.statusEffects`
   (`status_gear_sturdy` 0.5, `status_gear_brittle` 2.0). It is folded off the
   item's own controller (`GearState.ComposeWearMultiplier`), never the wearer's.
   Those mods carry an empty `weaponMod` only so the name affix applies.
+
+## Ammo (`AmmoData`, `WeaponData.ammoType`)
+
+**A ranged weapon has no magazine. Its rounds are items** — an `AmmoData` of the
+weapon's `EAmmoType` (Arrow, Ball, Shot, Dart), carried in the grids like any
+stackable. `ammoType = None` needs no rounds (the sling, wands, every mob weapon).
+
+- **What a weapon fires is the member's LOADED kind of its type**
+  (`Inventory.LoadedAmmo`), a selection per type, not an equip slot: "Equip" on an
+  ammo stack loads it, and only while the right-hand weapon fires that type. Shots
+  draw from every carried stack of the loaded kind, and the HUD counter is that
+  total (`Inventory.RoundsFor`). The selection is per type, so swapping bow →
+  musket → bow keeps the arrow choice.
+- **Running out falls back on its own** (`Inventory.ReconcileLoadedAmmo`, run on
+  every change): the type's `isStandard` round, else the first carried kind of the
+  type. At most one standard per type (`resource_check`).
+- **A shot spends `ItemEvent.ammoCost` rounds on its `UseAmmo` event** (default 1),
+  however many projectiles it fires — the blunderbuss's fan is one shell. Spending
+  happens at the top of `DoProjectile` / `DoHitscan` (`SpendShotRounds`), so the
+  round's `AmmoData.mods` reach the shot: they are folded into the weapon's mod
+  reads through `StatusEffectController.SetLoadedRoundSource`, like a forge
+  upgrade. A fire arrow is a new `AmmoData` with the flaming mod, not a new bow.
+- **A landed round is an ordinary pickup of its own item**, rolled against
+  `AmmoData.breakChance` per round. It embeds in a living mob it struck
+  (`embedsInTargets`, `ArrowStuck`) and drops loose when that mob dies; a mob that
+  unloads alive takes it along. Nothing binds a round to the weapon that fired it,
+  nothing times it out, and like all dropped loot the next rest sweeps it. It
+  is collected on contact even when none of its kind is left in the pack
+  (`LootSimState.FiredRound`, set by `Sim.EjectFiredRound`).
+- **A thrown weapon is its own round** (`WeaponData.thrown`): a stackable weapon
+  whose shots spend units of the equipped stack, landing as a unit of itself
+  (`thrownBreakChance`). The last unit leaves the slot and the next carried stack
+  of the same weapon is equipped; picking one up tops up the equipped stack
+  (`Inventory.Acquire`). It never wears (`resource_check`).
 
 ## Sacks (`SackData` / `SackState`)
 

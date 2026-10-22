@@ -517,6 +517,14 @@ public class ActionRunner
 		ulong now = _actor.GameTimeMs;
 		int targetComboIndex = ResolveTargetComboIndex(profile, context, now);
 
+		// A weapon out of the hand (a harpoon still on its line) has nothing to
+		// strike with — every tier is refused, not just the thrown one.
+		if (context.primaryItem is WeaponState { IsOutOfHand: true })
+		{
+			ItemEventHandlers.SpawnOnActor(_actor, profile.rejectEffect);
+			return false;
+		}
+
 		// Refuse the press outright when no tier in the chosen combo step
 		// could ever fire under current actor / context state. Without this,
 		// a fully-gated profile (e.g. club while swimming) would silently
@@ -957,6 +965,10 @@ public class ActionRunner
 	// stack hits zero.
 	private void DispatchEvent(ItemEvent ev)
 	{
+		if (ItemEventHandlers.TryMisfire(_actor, ev, ref _action))
+		{
+			return;
+		}
 		EItemEventType t = ev.type;
 		if ((t & ATTACK_EVENT_TYPES) != 0)
 		{
@@ -1116,17 +1128,22 @@ public class ActionRunner
 			if (!RequirementsMet(action, context)) { continue; }
 			if (!_actor.HasStamina(action.staminaCost)) { continue; }
 			if (!_actor.HasBlood(action.bloodCost)) { continue; }
-			if (action.useAmmo)
-			{
-				if (context.primaryItem is not WeaponState weapon || weapon.ammo <= 0)
-				{
-					continue;
-				}
-			}
+			if (action.useAmmo && !HasRounds(context)) { continue; }
 			if (!CanAffordOil(action)) { continue; }
 			return i;
 		}
 		return -1;
+	}
+
+	// A useAmmo tier needs a round to fire. A mob's weapon has no inventory
+	// behind it and never runs out.
+	private static bool HasRounds(in ActionContext context)
+	{
+		if (context.primaryItem is not WeaponState weapon)
+		{
+			return false;
+		}
+		return context.source is not Inventory inventory || inventory.RoundsFor(weapon) > 0;
 	}
 
 	// A broken weapon fires only the tiers that need no hold — its charged
@@ -1159,13 +1176,7 @@ public class ActionRunner
 			if (!RequirementsMet(action, context)) { continue; }
 			if (!_actor.HasStamina(action.staminaCost)) { continue; }
 			if (!_actor.HasBlood(action.bloodCost)) { continue; }
-			if (action.useAmmo)
-			{
-				if (context.primaryItem is not WeaponState weapon || weapon.ammo <= 0)
-				{
-					continue;
-				}
-			}
+			if (action.useAmmo && !HasRounds(context)) { continue; }
 			if (!CanAffordOil(action)) { continue; }
 			return true;
 		}

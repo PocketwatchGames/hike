@@ -337,6 +337,11 @@ public static class ItemEventHandlers
 
 	public static void DoHitscan(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
+		// Spent before ResolveHit so the round's mods reach the hit.
+		if (!SpendShotRounds(ev, ref action, out ItemData round, out int rounds))
+		{
+			return;
+		}
 		HitInfo hit = ResolveHit(ev, action, actor);
 		if (hit.healthDamage <= 0f && hit.buildups == null)
 		{
@@ -401,7 +406,6 @@ public static class ItemEventHandlers
 		EHitResult hitResult = EHitResult.None;
 		EDamageTriggerFlags hitTriggers = EDamageTriggerFlags.None;
 		HurtBox hitHurtBox = null;
-		bool roundBroken = false;
 		if (hurtResult.Count > 0)
 		{
 			var collider = hurtResult["collider"].Obj;
@@ -420,7 +424,7 @@ public static class ItemEventHandlers
 					hitHurtBox = hurtBox;
 					if (FindOwningMob(hurtBox) != null)
 					{
-						roundBroken = WearOnStrike(actor.AttackerNode, action.context.primaryItem as WeaponState, ev.durabilityCostOnHit);
+						WearOnStrike(actor.AttackerNode, action.context.primaryItem as WeaponState, ev.durabilityCostOnHit);
 					}
 					if (hitResult == EHitResult.Health || hitResult == EHitResult.Lethal)
 					{
@@ -449,35 +453,11 @@ public static class ItemEventHandlers
 			SpawnImpact(actor, ev.impactMissEffect, hitPos);
 		}
 
-		// Recoverable arrow. Triggers only for weapons that author an
-		// arrowLootData reference (currently the bow) AND on tiers that flag
-		// useAmmo — a non-ammo tier on the same weapon (e.g. a melee-bash
-		// with a bow) skips the drop. Other hitscan sources (mob attacks,
-		// traps) leave arrowLootData null and fire-and-forget. Sim.Current
-		// is the active game world — used here rather than threading a Sim
-		// through IActionActor since the hitscan handler already targets the
-		// player's running game.
-		//
-		// Branch: a hit that landed on a still-living mob's hurtbox sticks the
-		// arrow on that mob (Mob.Die later drops it as loose loot with an
-		// outward impulse). Everything else — environment clip, miss, or a
-		// lethal hit that just killed the mob — drops the arrow at the impact
-		// point.
-		if (action.context.primaryItem is WeaponState shootingWeapon
-			&& shootingWeapon.data?.arrowLootData != null
-			&& action.selectedTier?.useAmmo == true
-			&& !roundBroken
-			&& Sim.Current != null)
+		// The round lands where the ray ended: in the struck mob, or loose.
+		if (rounds > 0 && SurvivesLanding(round) && Sim.Current != null)
 		{
 			Mob targetMob = hitResult != EHitResult.None ? FindOwningMob(hitHurtBox) : null;
-			if (targetMob != null && targetMob.alive)
-			{
-				targetMob.StickArrow(shootingWeapon, shootingWeapon.data.arrowLootData, hitPos, direction);
-			}
-			else
-			{
-				Sim.Current.EjectArrowLoot(hitPos, shootingWeapon.data.arrowLootData, shootingWeapon);
-			}
+			Sim.Current.LandRecoverableRound(round, targetMob, hitPos, direction);
 		}
 
 		if (hitResult != EHitResult.None || envResult.Count > 0)
@@ -747,6 +727,14 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
+		// Spent before ResolveHit so the round's mods reach the shot. Only the
+		// weapon's own timeline shot spends; a mod-spawned missile is free.
+		ItemData round = null;
+		int rounds = 0;
+		if (weaponShot && !SpendShotRounds(ev, ref action, out round, out rounds))
+		{
+			return;
+		}
 		HitInfo hit = ResolveHit(ev, action, actor, damageOverride);
 		if (hit.healthDamage <= 0f && hit.buildups == null)
 		{
@@ -768,12 +756,6 @@ public static class ItemEventHandlers
 		WeaponState firingWeapon = action.context.primaryItem as WeaponState;
 		DamageData damageData = damageOverride ?? firingWeapon?.data?.GetDamage(ev.damageProfileKey);
 		Rid? excludeBody = (attacker is CollisionObject3D body) ? body.GetRid() : null;
-		// Arrow-recovery binding is decided here at fire time: only the weapon's
-		// own shot on a tier that flags useAmmo is an arrow. A non-ammo tier on
-		// the same weapon (a melee-bash with a bow) and a weapon-mod missile
-		// fired off an ammo tier (a boon's homing missiles) both leave it null,
-		// though they share the action and so the tier and weapon.
-		ArrowLootData arrowLootData = (weaponShot && tier?.useAmmo == true) ? firingWeapon?.data?.arrowLootData : null;
 		ProjectileImpact impact = new ProjectileImpact
 		{
 			miss = ev.impactMissEffect,
@@ -784,7 +766,6 @@ public static class ItemEventHandlers
 			crit = tier?.impactCritEffect,
 			backstab = tier?.impactBackstabEffect,
 			sourceWeapon = firingWeapon,
-			arrowLootData = arrowLootData,
 			durabilityCostOnHit = weaponShot ? ev.durabilityCostOnHit : 0f,
 			impactDecibels = ev.impactDecibels,
 		};
@@ -883,6 +864,8 @@ public static class ItemEventHandlers
 		float levelScale = actor.OutgoingLevelScale(action.context.sourceSlot ?? EInventorySlot.None);
 		float damageMultiplier = (firingWeapon?.DamageMultiplier ?? 1f) * levelScale;
 		float potency = levelScale;
+		float chargeDamageScale = ItemAction.SampleDamageScale(tier, action.chargeT);
+		float chargeArmorPenetrationBonus = ItemAction.SampleArmorPenetrationBonus(tier, action.chargeT);
 		if (firingWeapon != null)
 		{
 			pierceCount = System.Math.Max(pierceCount, firingWeapon.statusEffects.ProjectilePierceCount(firingTier));
@@ -920,16 +903,12 @@ public static class ItemEventHandlers
 		// Fire one shot, or a fanned volley when projectileCount > 1. A flat volley
 		// re-samples the accuracy spread per shot so the shots spread out; an arced
 		// lob reuses the single solved launch velocity.
-		int projectileCount = Mathf.Max(1, ev.projectileCount);
-		// An ammo-spending launch fires what the magazine can pay for, one ammo
-		// per projectile. A weapon with no magazine (maxAmmo 0) fires the full count.
-		if ((ev.type & EItemEventType.UseAmmo) != 0 && firingWeapon != null && firingWeapon.UsesAmmo)
-		{
-			projectileCount = Mathf.Min(projectileCount, firingWeapon.ammo);
-			firingWeapon.ammo -= projectileCount;
-		}
+		int projectileCount = ev.ResolveProjectileCount(action.chargeT);
 		for (int shot = 0; shot < projectileCount; shot++)
 		{
+			// One projectile per round spent carries it; the rest of a volley (a
+			// blunderbuss's pellets) leave nothing.
+			impact.round = shot < rounds && SurvivesLanding(round) ? round : null;
 			Vector3 shotVelocity = velocity;
 			if (!ev.projectileArcing)
 			{
@@ -969,7 +948,9 @@ public static class ItemEventHandlers
 				potency,
 				staminaOnHit,
 				onKillEvents,
-				bluntBonus);
+				bluntBonus,
+				chargeDamageScale,
+				chargeArmorPenetrationBonus);
 		}
 
 		// On-attack mods for a ranged-slot Fairy boon: a bow shot is a Projectile
@@ -1533,17 +1514,87 @@ public static class ItemEventHandlers
 		client.Rumble.AddImpulse(ev.controllerRumbleWeak, ev.controllerRumbleStrong, ev.controllerRumbleDuration, actor.ActorWorldPosition, ev.controllerRumbleRange, playerPos);
 	}
 
+	// A wet gun's shot failing to go off (WeaponData.wetMisfireChance). Rolled
+	// when the shot event fires, so a delayed shot (the musket) misfires after
+	// its windup. The load is still spent. True = the caller must skip the whole
+	// event, recoil and shot anim included.
+	public static bool TryMisfire(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		if ((ev.type & EItemEventType.Projectile) == 0 || (ev.type & EItemEventType.UseAmmo) == 0)
+		{
+			return false;
+		}
+		if (action.context.primaryItem is not WeaponState weapon || weapon.data == null || weapon.data.wetMisfireChance <= 0f)
+		{
+			return false;
+		}
+		if (actor is not Player player || !player.IsItemWet(weapon) || GD.Randf() >= weapon.data.wetMisfireChance)
+		{
+			return false;
+		}
+
+		SpendShotRounds(ev, ref action, out _, out _);
+		ulong lockoutMs = (ulong)(weapon.data.misfireCooldownSeconds * 1000f);
+		ulong readyMs = actor.GameTimeMs + lockoutMs;
+		if (readyMs > weapon.cooldownExpireMs)
+		{
+			weapon.cooldownExpireMs = readyMs;
+			weapon.cooldownDurationMs = lockoutMs;
+		}
+
+		Vector3 origin = actor.ActorWorldPosition + Vector3.Up * ArcLaunchHeight;
+		Node parent = actor.AttackerNode?.GetParent();
+		if (weapon.data.misfireEffect != null && parent != null)
+		{
+			Fx.Create(weapon.data.misfireEffect, parent, origin);
+		}
+		GameClient.Current?.onHudText?.Invoke(origin, Loc.Get(Loc.Keys.combat_misfire), EHudTextType.Info);
+		return true;
+	}
+
 	public static void DoUseAmmo(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
-		// A launch spends its own ammo, one per projectile it fires.
-		if ((ev.type & EItemEventType.Projectile) != 0)
+		// A shot spends its own rounds, so they can land.
+		if ((ev.type & (EItemEventType.Projectile | EItemEventType.Hitscan)) != 0)
 		{
 			return;
 		}
-		if (action.context.primaryItem is WeaponState weapon && weapon.ammo > 0)
+		SpendShotRounds(ev, ref action, out _, out _);
+	}
+
+	// Spend the rounds an ammo event fires (ItemEvent.ammoCost): units of the
+	// wielder's loaded ammo, or of a thrown weapon's own stack, and point the
+	// weapon's mod reads at that round. False when the weapon needs rounds and has
+	// none. `round` is the item a landed shot leaves; null for an event that spends
+	// nothing (no UseAmmo flag, a weapon that needs no ammo, a mob's shot — a mob
+	// carries no inventory).
+	static bool SpendShotRounds(ItemEvent ev, ref PlayerAction action, out ItemData round, out int rounds)
+	{
+		round = null;
+		rounds = 0;
+		if ((ev.type & EItemEventType.UseAmmo) == 0
+			|| action.context.primaryItem is not WeaponState weapon
+			|| action.context.source is not Inventory inventory
+			|| !(weapon.data.NeedsAmmo || weapon.data.thrown))
 		{
-			weapon.ammo--;
+			return true;
 		}
+		rounds = inventory.SpendRounds(weapon, Mathf.Max(1, ev.ammoCost), out round);
+		weapon.statusEffects.SetLoadedRoundSource((round as AmmoData)?.ModSource());
+		return rounds > 0;
+	}
+
+	// Whether one fired `round` lands intact rather than breaking
+	// (AmmoData.breakChance, WeaponData.thrownBreakChance).
+	static bool SurvivesLanding(ItemData round)
+	{
+		float breakChance = round switch
+		{
+			AmmoData ammo => ammo.breakChance,
+			WeaponData thrown => thrown.thrownBreakChance,
+			_ => 1f,
+		};
+		return GD.Randf() >= breakChance;
 	}
 
 	public static void DoUseDurability(IActionActor actor, ItemEvent ev, ref PlayerAction action)
@@ -1555,15 +1606,14 @@ public static class ItemEventHandlers
 	}
 
 	// ItemEvent.durabilityCostOnHit, spent when an attack first strikes a target.
-	// True when that wear broke something — for an ammo weapon, the round that
-	// struck, which then drops no recoverable arrow. Only the player wears gear.
-	public static bool WearOnStrike(Node source, WeaponState weapon, float cost)
+	// Only the player wears gear.
+	public static void WearOnStrike(Node source, WeaponState weapon, float cost)
 	{
 		if (cost <= 0f || weapon == null || !GodotObject.IsInstanceValid(source) || source is not Player player)
 		{
-			return false;
+			return;
 		}
-		return player.WearGear(weapon, cost);
+		player.WearGear(weapon, cost);
 	}
 
 
@@ -1918,6 +1968,7 @@ public static class ItemEventHandlers
 		{
 			hit.healthDamage *= levelScale;
 		}
+		ApplyChargeRamp(ref hit, action.selectedTier, action.chargeT);
 		// Weapon-mod payloads scope-filtered to the firing tier: on-hit enchants
 		// (a Flaming weapon's Burning) ride on top of the template's statusEffects,
 		// and the Knockback mod adds shove + stagger to the hit.
@@ -1942,9 +1993,27 @@ public static class ItemEventHandlers
 		return hit;
 	}
 
+	// The firing tier's charge ramp on the hit (ItemAction.chargedDamageScale /
+	// chargedArmorPenetrationBonus). Shared with Projectile, which rebuilds its
+	// HitInfo at impact and so gets the sampled values threaded through Launch.
+	public static void ApplyChargeRamp(ref HitInfo hit, float damageScale, float armorPenetrationBonus)
+	{
+		hit.healthDamage *= damageScale;
+		if (armorPenetrationBonus > 0f)
+		{
+			hit.armorPenetration = Mathf.Min(1f, hit.armorPenetration + armorPenetrationBonus);
+		}
+	}
+
+	private static void ApplyChargeRamp(ref HitInfo hit, ItemAction tier, float chargeT)
+	{
+		ApplyChargeRamp(ref hit, ItemAction.SampleDamageScale(tier, chargeT), ItemAction.SampleArmorPenetrationBonus(tier, chargeT));
+	}
+
 	// Height above the actor's feet that projectiles launch from (the chest). For
-	// arced lobs it's also the drop used so the hump bottoms out at foot level.
-	private const float ArcLaunchHeight = 1f;
+	// arced lobs it's also the drop used so the hump bottoms out at foot level,
+	// and a returning projectile is caught back at it.
+	public const float ArcLaunchHeight = 1f;
 
 	// Best-of priority for melee swings that overlap multiple hurtboxes:
 	// a real damageable hit beats an absorbed hit beats a prop ping.

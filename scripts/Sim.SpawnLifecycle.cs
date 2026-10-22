@@ -261,15 +261,12 @@ public partial class Sim
 
         // 3. Reset EVERY persisted mob (loaded and unloaded) to its spawn state, and
         //    collect the loot to purge (loaded nodes were freed in step 2; dropping
-        //    the state stops them re-streaming). Two purge kinds: runtime-dropped
-        //    loot (mob kills, dig yields, player drops), and outstanding arrows —
-        //    those also refund their ammo to the source weapon so the reset area's
-        //    spent shafts vanish and quivers refill. Authored ground loot (Dropped ==
-        //    false) and forage pickups (transient, spawner-owned, not in WorldState)
-        //    re-stream normally. Collect-then-remove because RemoveEntity mutates the
-        //    buckets AllChunkEntities walks.
+        //    the state stops them re-streaming): runtime-dropped loot (mob kills,
+        //    dig yields, player drops, landed rounds). Authored ground loot (Dropped
+        //    == false) and forage pickups (transient, spawner-owned, not in
+        //    WorldState) re-stream normally. Collect-then-remove because
+        //    RemoveEntity mutates the buckets AllChunkEntities walks.
         List<EntitySimState> lootToPurge = new();
-        List<ArrowLootSimState> arrowsToRecover = new();
         foreach (EntitySimState state in _worldState.AllChunkEntities())
         {
             if (state is MobSimState mobState && !mobState.Tamed)
@@ -280,10 +277,6 @@ public partial class Sim
                     mobState.ResetToSpawn();
                 }
             }
-            else if (state is ArrowLootSimState arrow)
-            {
-                arrowsToRecover.Add(arrow);
-            }
             // A sack set down is kept with what's in it, like a death sack.
             else if (state is LootSimState loot && loot.Dropped && loot.Item is not SackState)
             {
@@ -293,16 +286,6 @@ public partial class Sim
             {
                 breakable.Break.OnRest();
             }
-        }
-        foreach (ArrowLootSimState arrow in arrowsToRecover)
-        {
-            // Silent bookkeeping recovery — a loaded arrow's node is already being
-            // freed by step 2's despawn, so skip the pickup outro: bump ammo +
-            // untrack from the source weapon, then drop the state so it doesn't
-            // re-stream. Unloaded arrows have no node and are handled identically.
-            arrow.PickedUp = true;
-            arrow.OnRemovedFromWorld();
-            _worldState.RemoveEntity(arrow);
         }
         foreach (EntitySimState loot in lootToPurge)
         {

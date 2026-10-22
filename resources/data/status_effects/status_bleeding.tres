@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://bv6a3ii0w5p06"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://dcqlxlx05yp80" path="res://assets/textures/status_effects/Icon18.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://bdot7k5n1xqa" path="res://scripts/data/effects/payloads/DamageOverTimeData.cs" id="3_dot"]
+[ext_resource type="PackedScene" uid="uid://ctdg7popmlubr" path="res://scenes/fx/status_bleeding_start.tscn" id="4_startfx"]
+
+[sub_resource type="Resource" id="dot"]
+script = ExtResource("3_dot")
+damagePerSecond = 4.0
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("2_icon")
+displayName = &"Bleeding"
+description = "An open wound. Loses health over time."
+tags = 65536
+duration = 8.0
+maxStack = 3
+buildupRemovalDelay = 3.0
+buildupRemovalSpeed = 0.3
+startFx = ExtResource("4_startfx")
+removesOnApply = []
+modifiers = []
+conditionalModifiers = []
+dot = SubResource("dot")

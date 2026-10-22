@@ -84,6 +84,14 @@ public static class StatFormat
 		return pct + "%";
 	}
 
+	// A chance that a charge ramps from `from` to `to` ("50-100%").
+	public static string PercentSpan(float from, float to)
+	{
+		string low = Percent(from);
+		string high = Percent(to);
+		return low == high ? low : low.TrimEnd('%') + "-" + high;
+	}
+
 	// A quantity of a 0..1 scale that can run past full (a buildup meter's fill).
 	public static string UncappedPercent(float fraction)
 	{

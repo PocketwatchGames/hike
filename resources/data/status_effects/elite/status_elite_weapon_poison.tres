@@ -10,6 +10,7 @@
 script = ExtResource("4_buildup")
 effect = ExtResource("5_poison")
 amount = 0.5
+delivery = 1
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("3_7k3ti")

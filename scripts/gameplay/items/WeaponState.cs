@@ -2,33 +2,16 @@ using Godot;
 
 public class WeaponState : GearState
 {
-	public int ammo;
+	// A broken right-hand weapon can't fire at all; a broken melee weapon still
+	// swings its uncharged tiers (ActionRunner.IsBrokenGear).
+	public bool CanFire => !(IsBroken && _data != null && _data.rightHandSlot);
 
-	// Magazine capacity worn away — see Wear. MaxAmmo is the live capacity.
-	public int ammoCapacityLost;
-
-	// An ammo weapon's authored magazine, minus what wear has cost it.
-	public int MaxAmmo => _data == null ? 0 : System.Math.Max(0, _data.maxAmmo - ammoCapacityLost);
-
-	// True for a weapon authored with a magazine, even one worn down to none.
-	public bool UsesAmmo => _data != null && _data.maxAmmo > 0;
-
-	// An ammo weapon whose whole magazine wear has taken. It can never fire again
-	// until repaired, so aiming and firing treat the slot as empty.
-	public bool IsSpent => UsesAmmo && MaxAmmo == 0;
-
-	// WeaponData.wearCostsAmmoCapacity: wear trades magazine for durability.
-	public bool TradesAmmoForDurability => UsesAmmo && _data.wearCostsAmmoCapacity;
-
-	// A weapon trading capacity for durability is broken only once the magazine
-	// is gone.
-	public override bool IsBroken => TradesAmmoForDurability ? Wears && MaxAmmo == 0 : base.IsBroken;
-
-	// Game-time (ms) at which the next passive ammo charge completes, for
-	// weapons with WeaponData.ammoRechargeSeconds > 0. 0 = no recharge in
-	// flight (either at max ammo, or auto-recharge disabled). Player.TickAmmoRecharge
-	// arms it the frame ammo drops below max and re-arms after each refill.
-	public ulong ammoRechargeReadyMs;
+	// The world object standing in for this weapon while it is out of the
+	// wielder's hand (a harpoon on its line). While set, the held model hides and
+	// no action of this weapon starts. A node rather than a flag so that every way
+	// the object leaves play hands the weapon back. Runtime-only.
+	public Node3D outOfHandObject;
+	public bool IsOutOfHand => outOfHandObject != null && GodotObject.IsInstanceValid(outOfHandObject);
 
 	// Combo runtime. Two independent chains, each with its own position + window
 	// (when the next press lands before the window, the chain continues; after
@@ -62,18 +45,6 @@ public class WeaponState : GearState
 	// projectiles threaded through Projectile.Launch.
 	public float DamageMultiplier => 1 << level;
 
-	// Arrows this bow has fired that are still recoverable, oldest first.
-	// Spans both forms an arrow can take: loose loot on the ground
-	// (ArrowLootSimState) and stuck on a mob (ArrowStuck). Each entry returns
-	// 1 ammo via OnArrowRemoved when it leaves play (player pickup, central
-	// recharge-timer auto-recovery via RecoverOldestArrow, mob removed without
-	// dying). The weapon — not the arrow —
-	// is the source of truth for ammo bookkeeping, so the binding survives
-	// the player dropping the weapon: arrows still return ammo to this
-	// WeaponState instance regardless of who's holding it. Runtime-only;
-	// not persisted (the weapon itself lives on Inventory, which isn't
-	// world-serialized).
-	public readonly System.Collections.Generic.List<IWeaponArrow> outstandingArrows = new();
 	// Live summoned minions owned by this weapon, oldest first. Runtime-only
 	// (not persisted — the weapon lives on Inventory, which isn't world-
 	// serialized). Capacity is WeaponData.maxMinions: summoning past it recycles
@@ -85,151 +56,9 @@ public class WeaponState : GearState
 	public override WeaponData data => _data;
 	private readonly WeaponData _data;
 
-	// Combo cursors are live-combat state that restarts on its own; ammo and
-	// what wear has taken from the magazine are what a quiver carries.
-	public override void WriteSubclassState(System.IO.BinaryWriter w)
-	{
-		base.WriteSubclassState(w);
-		w.Write(ammo);
-		w.Write(ammoCapacityLost);
-	}
-
-	public override void ReadSubclassState(System.IO.BinaryReader r)
-	{
-		base.ReadSubclassState(r);
-		ammo = r.ReadInt32();
-		ammoCapacityLost = r.ReadInt32();
-	}
-
-	// A weapon trading capacity for durability never stays broken: every time
-	// its durability runs out it loses one round of capacity and durability
-	// refills to maxDurability scaled by the capacity left (4 of 5 rounds → 80%),
-	// so each lost round comes sooner than the last. The loop settles an
-	// overdraft that spans more than one refill.
-	public override void Wear(float amount = 1f)
-	{
-		if (!TradesAmmoForDurability)
-		{
-			base.Wear(amount);
-			return;
-		}
-		if (!Wears || amount <= 0f)
-		{
-			return;
-		}
-		durability -= amount * ComposeWearMultiplier();
-		while (durability <= 0f && MaxAmmo > 0)
-		{
-			ammoCapacityLost++;
-			durability += _data.maxDurability * (float)MaxAmmo / _data.maxAmmo;
-		}
-		// A magazine worn down to nothing has nothing left to trade.
-		durability = Mathf.Max(0f, durability);
-		if (ammo > MaxAmmo)
-		{
-			ammo = MaxAmmo;
-		}
-	}
-
 	public WeaponState(WeaponData d) : base(d)
 	{
 		_data = d;
-		if (_data != null)
-		{
-			ammo = _data.maxAmmo;
-		}
-	}
-
-	// Registers a freshly-spawned arrow with this weapon. The caller is
-	// responsible for invoking OnArrowRemoved (typically when its own
-	// "leaving play" event fires) so the ammo bump is uniform across
-	// removal causes.
-	public void RegisterArrow(IWeaponArrow arrow)
-	{
-		if (arrow == null)
-		{
-			return;
-		}
-		outstandingArrows.Add(arrow);
-	}
-
-	// Called by IWeaponArrow implementations when the arrow leaves play for
-	// any reason (player pickup, central recharge-timer auto-recovery, mob
-	// despawn). One arrow → one ammo bump, capped at the authored maxAmmo so
-	// a stale reference can't overshoot. The refund is gated on the arrow
-	// still being tracked here — DestroyOutstandingArrows relies on that to
-	// forfeit ammo (it untracks first, so this no-ops on the refund).
-	public void OnArrowRemoved(IWeaponArrow arrow)
-	{
-		if (!outstandingArrows.Remove(arrow))
-		{
-			return;
-		}
-		if (ammo < MaxAmmo)
-		{
-			ammo++;
-		}
-		// Topped back off — stop the recharge timer; a full magazine has
-		// nothing left to recharge. This is the "player hand-recovered the
-		// last arrow while the timer was running" case; the timer re-arms on
-		// the next shot. (The auto-recovery path in Player.TickAmmoRecharge
-		// re-evaluates the deadline itself, so this clear is harmless there.)
-		if (ammo >= MaxAmmo)
-		{
-			ammoRechargeReadyMs = 0;
-		}
-	}
-
-	// Auto-recover the oldest outstanding arrow, returning its 1 ammo to this
-	// weapon (the arrow's own removal path calls back into OnArrowRemoved).
-	// Driven by the central ammo-recharge timer when it elapses, so a bow
-	// refills by reclaiming the arrows it left in the world — oldest first —
-	// rather than each arrow self-expiring on its own timer. No-op when no
-	// arrows are outstanding (the caller falls back to a direct ammo bump for
-	// self-recharging weapons like the bomb).
-	public void RecoverOldestArrow()
-	{
-		if (outstandingArrows.Count == 0)
-		{
-			return;
-		}
-		outstandingArrows[0].Recover();
-	}
-
-	// Forfeit every arrow this weapon has out in the world — destroy them from
-	// the world WITHOUT refunding ammo. Called from Inventory.Remove when the
-	// weapon leaves the inventory entirely (dropped, sold, stashed): the in-world
-	// ammo is lost on purpose, and the central recharge timer (whose absolute
-	// deadline survives the exit) is what climbs the magazine back to full once
-	// the weapon is re-acquired. We untrack the
-	// arrows FIRST so each one's normal removal path (OnArrowRemoved) sees an
-	// already-removed entry and grants nothing — we only want the world-side
-	// teardown, not the ammo bump.
-	public void DestroyOutstandingArrows()
-	{
-		if (outstandingArrows.Count == 0)
-		{
-			return;
-		}
-		IWeaponArrow[] forfeit = outstandingArrows.ToArray();
-		outstandingArrows.Clear();
-		foreach (IWeaponArrow arrow in forfeit)
-		{
-			arrow.Recover();
-		}
-	}
-
-	// Removes the arrow from the outstanding list WITHOUT bumping ammo.
-	// Used when an arrow transitions between forms (stuck on a mob
-	// becoming loose loot when the mob dies) — the new form re-registers
-	// separately, so the net ammo accounting stays balanced.
-	public void DetachArrow(IWeaponArrow arrow)
-	{
-		if (arrow == null)
-		{
-			return;
-		}
-		outstandingArrows.Remove(arrow);
 	}
 
 	// Register a freshly-summoned minion, recycling the oldest live minion(s)

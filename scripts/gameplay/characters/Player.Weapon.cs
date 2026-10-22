@@ -197,13 +197,13 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		return null;
 	}
 
-	// The weapon in `slot` that can actually be used: a spent ammo weapon
-	// (WeaponState.IsSpent) reads as an empty slot. The HUD keeps reading the
-	// equipped item so the spent weapon still shows, broken.
+	// The weapon in `slot` that can actually be used: a broken ranged weapon
+	// (WeaponState.CanFire) reads as an empty slot. The HUD keeps reading the
+	// equipped item so it still shows, broken.
 	public WeaponState GetUsableWeapon(EInventorySlot slot)
 	{
 		WeaponState weapon = _inventory?.GetWeapon(slot);
-		return weapon != null && weapon.IsSpent ? null : weapon;
+		return weapon != null && !weapon.CanFire ? null : weapon;
 	}
 
 	public WeaponState GetMeleeWeaponOrUnarmed(EInventorySlot slot)
@@ -270,15 +270,14 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			return;
 		}
 		WeaponState weapon = GetMeleeWeaponOrUnarmed(slot);
-		if (weapon?.data?.actionProfile == null || weapon.IsSpent)
+		if (weapon?.data?.actionProfile == null || !weapon.CanFire)
 		{
 			return;
 		}
-		// Per-weapon ammo gate. maxAmmo > 0 marks an ammo-bearing weapon; an
-		// empty one (ammo <= 0) blocks the press even if individual tiers on
-		// the profile don't all flag useAmmo — the bow shouldn't dry-fire
-		// just because you walked over to its melee-bash tier.
-		if (weapon.UsesAmmo && weapon.ammo <= 0)
+		// A weapon out of rounds blocks the press even if some tier on its
+		// profile doesn't flag useAmmo — the bow shouldn't dry-fire just because
+		// you walked over to its melee-bash tier.
+		if (_inventory != null && _inventory.RoundsFor(weapon) <= 0)
 		{
 			return;
 		}
@@ -604,7 +603,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// Reused across ticks to avoid allocating the candidate list every frame.
 	List<Mob> _aimAssistScratch;
 
-	// Per-physics-tick aim assist: the ranged weapon while aiming, the melee
+	// Per-physics-tick aim assist: the aimed weapon while aiming, the melee
 	// weapon while one of its actions charges or swings. Stateless: every tick
 	// reads the stick-driven yaw, picks the best mob inside the weapon's
 	// yaw + pitch cones (LOS-checked), and applies a static bias to yaw +
@@ -628,15 +627,18 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	void UpdateAimAssist()
 	{
 		EInventorySlot slot;
-		if (_aiming)
+		bool aimed = _aimSlot != EInventorySlot.None;
+		if (aimed)
 		{
-			slot = EInventorySlot.WeaponRight;
+			slot = _aimSlot;
 		}
 		else if (_runner != null && _runner.IsBusy
 			&& _runner.Current.context.sourceSlot == EInventorySlot.WeaponLeft
 			&& (_runner.Phase == EActionPhase.Charging || _runner.Phase == EActionPhase.Active))
 		{
 			slot = EInventorySlot.WeaponLeft;
+			// A released throw is still an aimed shot while it flies out.
+			aimed = _runner.Current.selectedTier?.IsAimed ?? false;
 		}
 		else
 		{
@@ -654,7 +656,9 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			ClearAimAssist();
 			return;
 		}
-		float pitchRangeRad = Mathf.DegToRad(weaponData.pitchRangeDegrees);
+		// Pitch assist is for aimed shots only: a melee swing reads the pitched
+		// ActorForward too, and must stay level even on a weapon that also throws.
+		float pitchRangeRad = aimed ? Mathf.DegToRad(weaponData.pitchRangeDegrees) : 0f;
 		float yawAssistRad = Mathf.DegToRad(weaponData.yawAssistDegrees);
 		float strength = Mathf.Clamp(weaponData.aimAssistStrength, 0f, 1f);
 		if (yawAssistRad <= 0f || strength <= 0f)
@@ -815,7 +819,14 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		if (InputDevice.Current == InputDevice.EDevice.Gamepad)
 		{
 			// Stick deflection (rate basis); re-sampled each frame, nothing to clear.
-			return new AimInput(InputDevice.EDevice.Gamepad, new Vector2(_inputLook.X, _inputLook.Z));
+			// While an aimed charge roots the player the left stick has nothing else
+			// to do, so it aims too; the right stick wins when both are deflected.
+			Vector3 stick = _inputLook;
+			if (stick == Vector3.Zero && _aimSlot != EInventorySlot.None && _runner != null && _runner.LocksMovement)
+			{
+				stick = _inputMove;
+			}
+			return new AimInput(InputDevice.EDevice.Gamepad, new Vector2(stick.X, stick.Z));
 		}
 		// Mouse: hand off the accumulated motion delta and reset, so the next frame
 		// starts fresh (a frame with no motion contributes zero, not a stale repeat).

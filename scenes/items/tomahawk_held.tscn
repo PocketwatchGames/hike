@@ -1,0 +1,9 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://b7hwld3k9mxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_hw"]
+[ext_resource type="PackedScene" path="res://scenes/projectiles/tomahawk_model.tscn" id="2_model"]
+
+[node name="TomahawkHeld" type="Node3D"]
+script = ExtResource("1_hw")
+
+[node name="Model" parent="." instance=ExtResource("2_model")]

@@ -153,35 +153,25 @@ public partial class Player : CharacterBody3D
 	}
 
 	// The one way the player wears gear (see GearState), so every piece plays
-	// its cue on the use that tips it into worn or broken. True when this wear
-	// broke something: the piece, or for an ammo weapon the round that struck.
-	public bool WearGear(GearState gear, float amount = 1f)
+	// its cue on the use that tips it into worn or broken.
+	public void WearGear(GearState gear, float amount = 1f)
 	{
 		if (gear == null || !gear.Wears)
 		{
-			return false;
+			return;
 		}
 		float warningFraction = Sim.SimData.durabilityWarningFraction;
 		GearState.ECondition before = gear.Condition(warningFraction);
-		WeaponState ammoWeapon = gear is WeaponState weapon && weapon.TradesAmmoForDurability ? weapon : null;
-		int capacityLostBefore = ammoWeapon?.ammoCapacityLost ?? 0;
 		gear.Wear(amount);
 		GearState.ECondition after = gear.Condition(warningFraction);
-		if (ammoWeapon != null && ammoWeapon.ammoCapacityLost > capacityLostBefore)
-		{
-			SpawnWorldEffect(_durabilityAmmoBrokenFx);
-			return true;
-		}
 		if (after == GearState.ECondition.Broken && before != after)
 		{
 			SpawnWorldEffect(_durabilityBrokenFx);
-			return true;
 		}
-		if (after == GearState.ECondition.Worn && before == GearState.ECondition.Sound)
+		else if (after == GearState.ECondition.Worn && before == GearState.ECondition.Sound)
 		{
 			SpawnWorldEffect(_durabilityWarningFx);
 		}
-		return false;
 	}
 
 	// Armor wears by the damage its pool soaks, shared between the worn pieces
@@ -682,106 +672,6 @@ public partial class Player : CharacterBody3D
 		foreach (ItemState item in expired)
 		{
 			_inventory.Remove(item);
-		}
-	}
-
-	// Per-tick ammo recharge for every weapon the player owns that opts in
-	// (WeaponData.ammoRechargeSeconds > 0) — the single, unified ammo timer.
-	// Driven for both equip slots AND the backpack so an unequipped weapon
-	// keeps reclaiming arrows / refilling while stashed. A weapon dropped on
-	// the ground isn't ticked at all, but ammoRechargeReadyMs is an absolute
-	// game-time deadline, so the first tick after it re-enters the inventory
-	// catches up every interval that elapsed while it was gone (see the
-	// catch-up loop in TickWeaponAmmoRecharge). The timer is a single deadline
-	// (ammoRechargeReadyMs): armed the frame ammo drops below max, advanced
-	// after each unit refills, and cleared at full — so it runs continuously
-	// while below max and firing never resets an in-flight charge.
-	// On each elapse it recovers one unit of ammo: a weapon that left arrows in
-	// the world (the bow) auto-reclaims its oldest outstanding arrow (which
-	// bumps ammo as it leaves play); a self-recharging weapon with no arrows
-	// (the bomb) just regenerates ammo from nothing.
-	private void TickAmmoRecharge(ulong now)
-	{
-		if (_inventory == null)
-		{
-			return;
-		}
-		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState, now);
-		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponRight) as WeaponState, now);
-		// Unequipped weapons keep their recharge timers running so a holstered
-		// bow still reclaims its outstanding arrows (and a stashed bomb still
-		// refills). Equipped weapons live in the slot pointers only — they're
-		// not duplicated in the grids — so these loops can't double-tick them.
-		// Indexed access over the grids avoids per-frame enumerator allocation.
-		TickWeaponAmmoRecharge(_inventory.Belt.Slots, now);
-		TickWeaponAmmoRecharge(_inventory.Backpack.Slots, now);
-	}
-
-	private static void TickWeaponAmmoRecharge(System.Collections.Generic.IReadOnlyList<ItemState> slots, ulong now)
-	{
-		for (int i = 0; i < slots.Count; i++)
-		{
-			TickWeaponAmmoRecharge(slots[i] as WeaponState, now);
-		}
-	}
-
-	private static void TickWeaponAmmoRecharge(WeaponState weapon, ulong now)
-	{
-		if (weapon?.data == null)
-		{
-			return;
-		}
-		float per = weapon.data.ammoRechargeSeconds;
-		int max = weapon.MaxAmmo;
-		if (per <= 0f || max <= 0)
-		{
-			return;
-		}
-		if (weapon.ammo >= max)
-		{
-			// At capacity — clear the deadline so the next depletion arms a
-			// fresh full interval rather than refilling instantly.
-			weapon.ammoRechargeReadyMs = 0;
-			return;
-		}
-		ulong interval = (ulong)(per * 1000f);
-		if (interval == 0)
-		{
-			interval = 1;
-		}
-		if (weapon.ammoRechargeReadyMs == 0)
-		{
-			weapon.ammoRechargeReadyMs = now + interval;
-			return;
-		}
-		// Catch up one unit per elapsed interval. Normally the deadline is at
-		// most one interval in the past (per-frame ticking), so this loops once.
-		// But a weapon that went unticked — dropped on the ground, where it
-		// neither ticks nor holds any outstanding arrows — credits the whole
-		// elapsed time the instant it re-enters the inventory, advancing the
-		// deadline by a fixed interval each step so no time is dropped. Bounded
-		// by maxAmmo iterations (ammo strictly climbs to the cap).
-		while (now >= weapon.ammoRechargeReadyMs && weapon.ammo < max)
-		{
-			// Recover one unit. Prefer reclaiming the oldest arrow still in the
-			// world (an equipped/holstered bow) — its removal routes back through
-			// OnArrowRemoved and bumps ammo; otherwise regenerate directly (the
-			// bomb, or a dropped bow whose arrows were forfeit). Net +1 either way.
-			if (weapon.outstandingArrows.Count > 0)
-			{
-				weapon.RecoverOldestArrow();
-			}
-			else
-			{
-				weapon.ammo++;
-			}
-			weapon.ammoRechargeReadyMs += interval;
-		}
-		// Clear the deadline at full so the next depletion arms a fresh interval
-		// and the HUD / press-gate see a stable count.
-		if (weapon.ammo >= max)
-		{
-			weapon.ammoRechargeReadyMs = 0;
 		}
 	}
 

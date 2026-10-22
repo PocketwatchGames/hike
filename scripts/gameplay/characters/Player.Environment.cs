@@ -143,32 +143,28 @@ public partial class Player : CharacterBody3D
 		// clothes-side resource is wired.
 		StatusEffectData armorEffect = _wetClothesEffectData ?? _wetEffectData;
 
-		// Tick every owned armor's own buildup first — equipped pieces AND
-		// anything in the backpack — so wet wool stuffed in the pack still
-		// dries on the same clock as worn wool. Done before the player
-		// delta so the cascade contribution below reads the freshest
+		// Tick every owned wettable item's own buildup first — worn armor, a
+		// gun in the belt, AND anything in the backpack — so wet wool stuffed in
+		// the pack still dries on the same clock as worn wool. Done before the
+		// player delta so the cascade contribution below reads the freshest
 		// post-rain / post-dry armor wetness.
 		if (_inventory != null)
 		{
-			foreach (ArmorState armor in _inventory.EnumerateAllArmor())
+			foreach (ItemState item in _inventory.EnumerateWettable())
 			{
-				if (armor?.data == null) { continue; }
-				float armorDelta;
+				float itemDelta;
 				if (inWater)
 				{
-					armorDelta = 1f - armor.statusEffects.GetBuildup(armorEffect);
+					itemDelta = 1f - item.statusEffects.GetBuildup(armorEffect);
 				}
 				else
 				{
-					float armorDryMul = armor.data.modifiers != null
-						? StatModifierUtil.Fold(EStat.WetnessDryRate, armor.data.ModifiersFlat, 1f)
-						: 1f;
-					float armorDryRate = Mathf.Max(baseDryRate * armorDryMul, warmthRate);
-					armorDelta = rainAccum - armorDryRate * dt;
+					float itemDryRate = Mathf.Max(baseDryRate * item.data.WetnessDryMultiplier(), warmthRate);
+					itemDelta = rainAccum - itemDryRate * dt;
 				}
-				if (armorDelta != 0f)
+				if (itemDelta != 0f)
 				{
-					armor.statusEffects.AddBuildup(armorEffect, armorDelta);
+					item.statusEffects.AddBuildup(armorEffect, itemDelta);
 				}
 			}
 		}

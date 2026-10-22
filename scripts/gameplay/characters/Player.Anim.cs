@@ -448,16 +448,16 @@ public partial class Player : CharacterBody3D
 		_heldVisual.SetActiveItem(itemModel);
 
 		// The weapon in hand is persistent and changes only by drawing another:
-		// aiming draws the ranged weapon for the whole aim (not just once a shot
+		// aiming draws the aimed weapon for the whole aim (not just once a shot
 		// fires), and raising the guard without aiming draws the melee weapon, which
-		// comes out as a set with the shield. Aiming with no ranged weapon equipped
+		// comes out as a set with the shield. Aiming with nothing in that slot
 		// leaves the held model untouched.
-		if (_aiming)
+		if (_aimSlot != EInventorySlot.None)
 		{
-			WeaponState ranged = GetUsableWeapon(EInventorySlot.WeaponRight);
-			if (ranged?.data?.heldModel != null && ranged != _wieldedWeapon)
+			WeaponState aimed = GetUsableWeapon(_aimSlot);
+			if (aimed?.data?.heldModel != null && aimed != _wieldedWeapon)
 			{
-				WieldWeapon(ranged);
+				WieldWeapon(aimed);
 			}
 		}
 		else if (_sneaking)
@@ -471,7 +471,8 @@ public partial class Player : CharacterBody3D
 
 		bool animHides = data != null && _animator != null
 			&& data.AnimationHidesHeldItem(_animator.CurrentAnimation);
-		_heldVisual.SetWeaponConcealed(itemModel != null || animHides);
+		bool weaponOutOfHand = _wieldedWeapon != null && _wieldedWeapon.IsOutOfHand;
+		_heldVisual.SetWeaponConcealed(itemModel != null || animHides || weaponOutOfHand);
 		// The shield comes out with the guard stance, and stays away while a
 		// ranged weapon is the one in hand (which, with the guard drawing the
 		// melee weapon, is only while aiming).

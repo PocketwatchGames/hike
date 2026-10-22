@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "spear"
+description = "A spear and a ring of goblins plus a troll. Tap to thrust (a third in a row hits harder); hold to charge the lunge, which drives you into the target."
+commands = "spawn_loot spear
+spawn_mob goblin_forest 3
+spawn_mob troll_forest 1"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

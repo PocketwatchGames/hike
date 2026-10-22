@@ -4,9 +4,9 @@ using System.IO;
 using Godot;
 
 // Everything one party member carries: two sparse grids — the belt and the
-// backpack — plus the equip slots. An equipped item lives IN its slot and is in
-// neither grid — equipping moves it out, swapping whatever held the slot back
-// into the grid slot it left. The hotbar is the lantern slot followed by the
+// backpack — plus the equip slots, and which ammo is loaded per type. An
+// equipped item lives IN its slot and is in neither grid — equipping moves it
+// out, swapping whatever held the slot back into the grid slot it left. The hotbar is the lantern slot followed by the
 // belt; a lantern is lit only in the lantern slot (LitLantern). Both grids' sizes are the
 // PlayerData base plus whatever the worn armor adds (ArmorData.beltSlots /
 // backpackSlots), re-applied on every change.
@@ -72,6 +72,15 @@ public class Inventory : IItemSource
 	// the selected stack is used up; Changed() snaps it to the next filled slot.
 	private int _hotbarSelected = -1;
 
+	// The loaded kind per EAmmoType: what weapons of that type fire, drawn from
+	// every carried stack of it. ReconcileLoadedAmmo keeps it on a kind the member
+	// carries: when it runs out the type's standard round takes over, else the
+	// first carried kind of the type.
+	private readonly AmmoData[] _loadedAmmo = new AmmoData[(int)EAmmoType.Count];
+	// Carried units of each loaded kind, refreshed on every change so the HUD and
+	// the fire gates read it without walking the grids.
+	private readonly int[] _loadedAmmoCount = new int[(int)EAmmoType.Count];
+
 	// An equip slot changed occupant (always followed by onChanged).
 	public Action<EInventorySlot> onSlotChanged;
 	// Generic "something in the inventory changed" pulse, including a hotbar
@@ -116,6 +125,7 @@ public class Inventory : IItemSource
 		ApplyCapacity();
 		SyncSacks();
 		ReconcileHotbarSelection();
+		ReconcileLoadedAmmo();
 		onChanged?.Invoke();
 	}
 
@@ -220,12 +230,17 @@ public class Inventory : IItemSource
 		return item.data.FindToolUse(kind);
 	}
 
-	// True if any grid already holds a stack of exactly `data`. Non-allocating.
+	// True if any grid or equip slot already holds a stack of exactly `data` (an
+	// equipped thrown weapon's stack counts). Non-allocating.
 	public bool HoldsStackOf(ItemData data)
 	{
 		if (data == null || !data.IsStackable)
 		{
 			return false;
+		}
+		if (GetEquipped(data.EquipSlotKind)?.data == data)
+		{
+			return true;
 		}
 		for (int g = 0; g < _carried.Count; g++)
 		{
@@ -390,18 +405,13 @@ public class Inventory : IItemSource
 	private ItemGrid PartyStash => _owner?.Sim?.WorldState?.SimState?.PartyStash;
 
 	// Hand an item the player owns but can't carry (a starting loadout that
-	// overflows the grids) to the party stash. A weapon forfeits its
-	// outstanding arrows on the way out, mirroring Remove(). Returns what the
-	// stash had no room for.
+	// overflows the grids) to the party stash. Returns what the stash had no room
+	// for.
 	public ItemState PushToStash(ItemState item)
 	{
 		if (item == null)
 		{
 			return null;
-		}
-		if (item is WeaponState ws)
-		{
-			ws.DestroyOutstandingArrows();
 		}
 		return PartyStash != null ? PartyStash.Add(item) : item;
 	}
@@ -414,7 +424,7 @@ public class Inventory : IItemSource
 	// Never equips — see Acquire for that.
 	public int TryAdd(ItemState item)
 	{
-		if (item == null || item.data == null || item.stackCount <= 0 || !item.data.IsCarriable)
+		if (item == null || item.data == null || item.stackCount <= 0)
 		{
 			return 0;
 		}
@@ -427,7 +437,7 @@ public class Inventory : IItemSource
 	// PlacementOrder). Returns the leftover, null when everything went in.
 	private ItemState Add(CarriedGrid first, ItemState incoming)
 	{
-		if (incoming?.data == null || incoming.stackCount <= 0 || !incoming.data.IsCarriable || first.detached)
+		if (incoming?.data == null || incoming.stackCount <= 0 || first.detached)
 		{
 			return incoming;
 		}
@@ -448,7 +458,7 @@ public class Inventory : IItemSource
 	// other grid. Returns the leftover, null when everything went in.
 	public ItemState AddOnly(CarriedGrid grid, ItemState incoming)
 	{
-		if (grid?.owner != this || incoming?.data == null || incoming.stackCount <= 0 || !incoming.data.IsCarriable || !grid.Accepts(incoming.data))
+		if (grid?.owner != this || incoming?.data == null || incoming.stackCount <= 0 || !grid.Accepts(incoming.data))
 		{
 			return incoming;
 		}
@@ -468,24 +478,58 @@ public class Inventory : IItemSource
 		return data != null && data.IsEquippable && GetEquipped(data.EquipSlotKind) == null;
 	}
 
-	// True if Acquire would take all `count` units — straight into an empty equip
-	// slot, or into the grids. Mirrors Acquire without mutating anything.
+	// True if Acquire would take all `count` units — into the equipped stack of
+	// the same kind, straight into an empty equip slot, or into the grids. Mirrors
+	// Acquire without mutating anything.
 	public bool CanAcquire(ItemData data, int count)
 	{
-		return WouldAutoEquip(data) || CanFullyAdd(data, count);
+		int topUp = EquippedRoomFor(data);
+		return topUp >= count || WouldAutoEquip(data) || CanFullyAdd(data, count - topUp);
 	}
 
 	// Take ownership of an item from the world (a pickup, the starting loadout):
-	// gear whose equip slot is empty is equipped on the spot, anything else goes
-	// into the grids as TryAdd. Returns the number of units taken.
+	// units of a kind already equipped top up that stack (a thrown weapon picked
+	// back up), gear whose equip slot is empty is equipped on the spot, anything
+	// else goes into the grids as TryAdd. Returns the number of units taken.
 	public int Acquire(ItemState item)
 	{
-		if (item?.data == null || item.stackCount <= 0 || !WouldAutoEquip(item.data))
+		if (item?.data == null || item.stackCount <= 0)
 		{
-			return TryAdd(item);
+			return 0;
+		}
+		int taken = TopUpEquipped(item);
+		if (item.stackCount <= 0)
+		{
+			return taken;
+		}
+		if (!WouldAutoEquip(item.data))
+		{
+			return taken + TryAdd(item);
 		}
 		EquipIncoming(item);
-		return item.stackCount;
+		return taken + item.stackCount;
+	}
+
+	// Units of `data` the equipped stack of the same kind has room for.
+	private int EquippedRoomFor(ItemData data)
+	{
+		ItemState equipped = data != null && data.IsStackable ? GetEquipped(data.EquipSlotKind) : null;
+		return equipped?.data == data ? equipped.RemainingStackSpace() : 0;
+	}
+
+	// Merge what fits of `item` into the equipped stack of its kind. Returns the
+	// units moved.
+	private int TopUpEquipped(ItemState item)
+	{
+		int room = EquippedRoomFor(item.data);
+		if (room <= 0)
+		{
+			return 0;
+		}
+		MarkAcquired(item);
+		int moved = item.TransferTo(GetEquipped(item.data.EquipSlotKind), room);
+		Changed();
+		return moved;
 	}
 
 	// Equip a detached item from outside the inventory (the stash). Returns what
@@ -534,7 +578,7 @@ public class Inventory : IItemSource
 	// lands, never leaving a partial pile bonking the player.
 	public bool CanFullyAdd(ItemData data, int count)
 	{
-		if (data == null || count <= 0 || !data.IsCarriable)
+		if (data == null || count <= 0)
 		{
 			return false;
 		}
@@ -582,18 +626,10 @@ public class Inventory : IItemSource
 		Changed();
 	}
 
-	// The single chokepoint for an item leaving the inventory, by any path. A
-	// weapon destroys the arrows it left lying around, no refund (the recharge
-	// timer keeps its deadline and refills the magazine if it is re-acquired);
-	// equip / unequip / slot moves don't come through here, so an unequipped bow
-	// keeps its arrows. An equipped item's slot is emptied. A sack's contents
-	// leave with it.
+	// The single chokepoint for an item leaving the inventory, by any path. An
+	// equipped item's slot is emptied. A sack's contents leave with it.
 	private void OnLeaving(ItemState item)
 	{
-		if (item is WeaponState ws)
-		{
-			ws.DestroyOutstandingArrows();
-		}
 		if (item is SackState sack)
 		{
 			foreach (ItemState inner in sack.contents.EnumerateAll())
@@ -968,6 +1004,210 @@ public class Inventory : IItemSource
 		}
 	}
 
+	// ---- Ammo ------------------------------------------------------------------
+
+	public AmmoData LoadedAmmo(EAmmoType type) => IsAmmoType(type) ? _loadedAmmo[(int)type] : null;
+
+	public int LoadedAmmoCount(EAmmoType type) => IsAmmoType(type) ? _loadedAmmoCount[(int)type] : 0;
+
+	private static bool IsAmmoType(EAmmoType type) => type > EAmmoType.None && type < EAmmoType.Count;
+
+	// Rounds `weapon` has left to fire: the loaded ammo of its type, or a thrown
+	// weapon's own stack. MaxValue for a weapon that needs none.
+	public int RoundsFor(WeaponState weapon)
+	{
+		WeaponData data = weapon?.data;
+		if (data == null)
+		{
+			return 0;
+		}
+		if (data.thrown)
+		{
+			return weapon.stackCount;
+		}
+		return data.NeedsAmmo ? LoadedAmmoCount(data.ammoType) : int.MaxValue;
+	}
+
+	// Whether `ammo` can be loaded now: the equipped ranged weapon fires its type,
+	// and some is carried.
+	public bool CanLoad(AmmoData ammo)
+	{
+		WeaponData ranged = GetWeapon(EInventorySlot.WeaponRight)?.data;
+		return ammo != null && IsAmmoType(ammo.ammoType) && ranged != null && ranged.ammoType == ammo.ammoType
+			&& CountCarried(ammo) > 0;
+	}
+
+	// A carried stack of the loaded kind of `type`, to show it by; null when none.
+	public ItemState LoadedAmmoStack(EAmmoType type)
+	{
+		AmmoData ammo = LoadedAmmo(type);
+		for (int g = 0; ammo != null && g < _carried.Count; g++)
+		{
+			ItemGrid grid = _carried[g].grid;
+			for (int i = 0; i < grid.Capacity; i++)
+			{
+				if (grid[i]?.data == ammo)
+				{
+					return grid[i];
+				}
+			}
+		}
+		return null;
+	}
+
+	public bool IsLoaded(ItemState item) => item?.data is AmmoData ammo && LoadedAmmo(ammo.ammoType) == ammo;
+
+	// Make `ammo` what weapons of its type fire. False when it can't be (CanLoad).
+	public bool Load(AmmoData ammo)
+	{
+		if (!CanLoad(ammo))
+		{
+			return false;
+		}
+		_loadedAmmo[(int)ammo.ammoType] = ammo;
+		Changed();
+		return true;
+	}
+
+	// Spend up to `count` rounds for a shot of `weapon`: units of its loaded ammo
+	// from any carried stack, or of a thrown weapon's own equipped stack. `round`
+	// is the kind spent (the weapon itself when thrown, null when it needs none).
+	// Returns the rounds spent — `count` for a weapon that needs none.
+	public int SpendRounds(WeaponState weapon, int count, out ItemData round)
+	{
+		round = null;
+		WeaponData data = weapon?.data;
+		if (data == null || count <= 0)
+		{
+			return 0;
+		}
+		if (data.thrown)
+		{
+			round = data;
+			return SpendThrown(weapon, count);
+		}
+		if (!data.NeedsAmmo)
+		{
+			return count;
+		}
+		AmmoData ammo = LoadedAmmo(data.ammoType);
+		round = ammo;
+		int spent = 0;
+		for (int g = 0; g < _carried.Count && spent < count; g++)
+		{
+			ItemGrid grid = _carried[g].grid;
+			for (int i = 0; i < grid.Capacity && spent < count; i++)
+			{
+				ItemState stack = grid[i];
+				if (stack == null || stack.data != ammo)
+				{
+					continue;
+				}
+				spent += stack.Consume(count - spent);
+				if (stack.stackCount <= 0)
+				{
+					grid[i] = null;
+				}
+			}
+		}
+		if (spent > 0)
+		{
+			Changed();
+		}
+		return spent;
+	}
+
+	// A thrown weapon spends its own stack. The last unit leaves the slot, and
+	// another carried stack of the same weapon is equipped in its place.
+	private int SpendThrown(WeaponState weapon, int count)
+	{
+		if (!IsEquipped(weapon))
+		{
+			return 0;
+		}
+		int spent = weapon.Consume(count);
+		if (weapon.stackCount > 0)
+		{
+			Changed();
+			return spent;
+		}
+		Remove(weapon);
+		for (int g = 0; g < _carried.Count; g++)
+		{
+			ItemGrid grid = _carried[g].grid;
+			for (int i = 0; i < grid.Capacity; i++)
+			{
+				if (grid[i]?.data == weapon.data)
+				{
+					Equip(grid[i]);
+					return spent;
+				}
+			}
+		}
+		return spent;
+	}
+
+	// Units of `ammo` across every carried grid.
+	private int CountCarried(AmmoData ammo)
+	{
+		if (ammo == null)
+		{
+			return 0;
+		}
+		int count = 0;
+		for (int g = 0; g < _carried.Count; g++)
+		{
+			ItemGrid grid = _carried[g].grid;
+			for (int i = 0; i < grid.Capacity; i++)
+			{
+				if (grid[i]?.data == ammo)
+				{
+					count += grid[i].stackCount;
+				}
+			}
+		}
+		return count;
+	}
+
+	// Keep each type's loaded kind on one the member carries: a kind that ran out
+	// (or none yet) falls back to the type's standard round, else the first
+	// carried kind of the type, else nothing.
+	private void ReconcileLoadedAmmo()
+	{
+		for (int t = (int)EAmmoType.None + 1; t < (int)EAmmoType.Count; t++)
+		{
+			int count = CountCarried(_loadedAmmo[t]);
+			if (count <= 0)
+			{
+				_loadedAmmo[t] = FallbackAmmo((EAmmoType)t);
+				count = CountCarried(_loadedAmmo[t]);
+			}
+			_loadedAmmoCount[t] = count;
+		}
+	}
+
+	private AmmoData FallbackAmmo(EAmmoType type)
+	{
+		AmmoData first = null;
+		for (int g = 0; g < _carried.Count; g++)
+		{
+			ItemGrid grid = _carried[g].grid;
+			for (int i = 0; i < grid.Capacity; i++)
+			{
+				if (grid[i]?.data is not AmmoData ammo || ammo.ammoType != type)
+				{
+					continue;
+				}
+				if (ammo.isStandard)
+				{
+					return ammo;
+				}
+				first ??= ammo;
+			}
+		}
+		return first;
+	}
+
 	// ---- Grid moves (CarriedGrid)----------------------------------------------
 
 	// Every move between grids (the stash screen, later chests and merchants) and
@@ -993,7 +1233,7 @@ public class Inventory : IItemSource
 	private ItemState PlaceAt(CarriedGrid grid, int index, ItemState incoming, bool allowSwap, out ItemState displaced)
 	{
 		displaced = null;
-		if (incoming?.data == null || !incoming.data.IsCarriable || !grid.Accepts(incoming.data))
+		if (incoming?.data == null || !grid.Accepts(incoming.data))
 		{
 			return incoming;
 		}
@@ -1112,7 +1352,16 @@ public class Inventory : IItemSource
 		if (_equipped[(int)EInventorySlot.Armor] is ArmorState body) { yield return body; }
 	}
 
-	// Every owned armor piece, worn or not, for wetness ticking.
+	// Every owned item that soaks and dries (ItemData.TakesWetness), carried or worn.
+	public IEnumerable<ItemState> EnumerateWettable()
+	{
+		foreach (ItemState item in EnumerateAll())
+		{
+			if (item?.data != null && item.data.TakesWetness) { yield return item; }
+		}
+	}
+
+	// Every owned armor piece, worn or not, for grime and washing.
 	public IEnumerable<ArmorState> EnumerateAllArmor()
 	{
 		foreach (ItemState item in EnumerateAll())
@@ -1125,8 +1374,7 @@ public class Inventory : IItemSource
 
 	// Remove every unequipped item and return them, for the death sack
 	// (Sim.DropDeathSack). Worn gear — the lantern slot included, so the wake at
-	// the campfire isn't blind — stays on the body. Goes through Remove, so a
-	// weapon forfeits its loose arrows as on any other exit.
+	// the campfire isn't blind — stays on the body.
 	public List<ItemState> TakeDeathDrop()
 	{
 		var taken = new List<ItemState>();
@@ -1155,7 +1403,7 @@ public class Inventory : IItemSource
 	// Inside a shared EntitySerializer table (SaveGame). The equip slots first —
 	// they decide the grids' sizes — then the belt and the backpack slot by slot,
 	// gaps included, so the player's layout survives; then whether the lantern
-	// slot is lit, and the hotbar selection.
+	// slot is lit, the hotbar selection, and the loaded ammo per type.
 	public void Serialize(BinaryWriter w)
 	{
 		for (int i = (int)EInventorySlot.None + 1; i < (int)EInventorySlot.Count; i++)
@@ -1166,6 +1414,10 @@ public class Inventory : IItemSource
 		_backpackGrid.Serialize(w);
 		w.Write(_lanternLit);
 		w.Write(_hotbarSelected);
+		for (int t = (int)EAmmoType.None + 1; t < (int)EAmmoType.Count; t++)
+		{
+			EntitySerializer.WriteRef(w, _loadedAmmo[t]);
+		}
 	}
 
 	// Replaces everything carried with what the save holds. An item that no
@@ -1198,6 +1450,10 @@ public class Inventory : IItemSource
 		overflow.AddRange(_backpackGrid.Restore(r));
 		_lanternLit = r.ReadBoolean() && EquippedLantern != null;
 		_hotbarSelected = r.ReadInt32();
+		for (int t = (int)EAmmoType.None + 1; t < (int)EAmmoType.Count; t++)
+		{
+			_loadedAmmo[t] = EntitySerializer.ReadRef<AmmoData>(r);
+		}
 		SyncSacks();
 		foreach (ItemState item in overflow)
 		{

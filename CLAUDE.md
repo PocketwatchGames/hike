@@ -874,6 +874,13 @@ Shocked, Sunlight). A source's `modifiers` is an `Array<Modifier>` of
   resists catching fire. Gear that should do both lists both — say it, don't
   infer it. `resource_check` refuses a `StatusEffectData` whose `tags` holds
   anything but a family.
+- **Knockback resistance is a CHANCE, never a shorter shove**
+  (`HitInfo.ApplyKnockbackResistance`): the composed Knockback multiplier,
+  clamped to 0..1, is the odds the knockback lands at its full authored
+  distance. Weak-to-knockback never shoves farther — a harpoon's pull must stop
+  exactly at its standoff. The SHOVE direction is `HitInfo.KnockbackDirection`
+  (`knockbackDirection`, else `hitDirection`); `hitDirection` stays the strike's
+  travel because blood and stuck arrows follow it.
 - **Both enums are written into `.tres` as ints and are APPEND-ONLY.**
 
 ### Rideable Vehicles (`scripts/gameplay/vehicles/`, `scripts/data/vehicles/`)

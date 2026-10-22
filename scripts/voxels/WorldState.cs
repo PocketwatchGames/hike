@@ -31,8 +31,9 @@ public class WorldState
     public WorldScriptData ScriptData;
     public PlayerState[] StartingParty = System.Array.Empty<PlayerState>();
     public TeachableConcept[] InitialKnowledge = System.Array.Empty<TeachableConcept>();
+    public StoryData IntroStory;
 
-    // Resource path of the authored asset the three above came from, recorded so
+    // Resource path of the authored asset the fields above came from, recorded so
     // a .hike can resolve them again. A PATH rather than three serialized
     // tables because initialKnowledge is authored as embedded sub-resources,
     // which have no path of their own — the owner does.
@@ -75,6 +76,7 @@ public class WorldState
         InitialKnowledge = start.initialKnowledge != null
             ? System.Linq.Enumerable.ToArray(start.initialKnowledge)
             : System.Array.Empty<TeachableConcept>();
+        IntroStory = start.introStory;
         StartContentPath = start.ResourcePath ?? "";
         WorldName = start.displayName ?? "";
     }

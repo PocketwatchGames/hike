@@ -54,6 +54,7 @@
 [ext_resource type="PackedScene" path="res://scenes/interactives/door_double.tscn" id="68_5we37"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/door_double.tres" id="68_jwncb"]
 [ext_resource type="Script" path="res://scripts/data/spawn/DoorSpawnEntry.cs" id="69_xefb8"]
+[ext_resource type="Resource" path="res://resources/data/items/ammo/arrow.tres" id="71_axgr2"]
 [ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_invisibility.tres" id="73_tdxo6"]
 [ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_spider_stealth.tres" id="74_l6wjl"]
 [ext_resource type="Script" path="res://scripts/data/items/ItemDescriptor.cs" id="77_5av3f"]
@@ -77,9 +78,9 @@
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/table_6.tres" id="102_iwjer"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/stump_1.tres" id="102_ubhg3"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_plain_3.tres" id="103_3yats"]
-[ext_resource type="Resource" path="res://resources/data/items/loot/gold.tres" id="103_5nqub"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/stump_2.tres" id="103_y5gjg"]
 [ext_resource type="PackedScene" path="res://scenes/interactives/chest_ornate.tscn" id="104_iwjer"]
+[ext_resource type="Resource" path="res://resources/data/items/ammo/lead_ball.tres" id="105_c8824"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/chest_ornate.tres" id="105_hk5o1"]
 [ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_shockwave.tres" id="106_hk5o1"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_swamp.tres" id="107_n0le8"]
@@ -199,18 +200,10 @@ script = ExtResource("6_eflh0")
 item = SubResource("Resource_rhsyl_desc")
 count = 3
 
-[sub_resource type="Resource" id="Resource_bpjxx"]
-script = ExtResource("77_5av3f")
-item = ExtResource("12_axgr2")
-
-[sub_resource type="Resource" id="Resource_goi58"]
-script = ExtResource("6_eflh0")
-item = SubResource("Resource_bpjxx")
-
 [sub_resource type="Resource" id="Resource_xpmpx"]
 script = ExtResource("8_f8a1f")
 scene = ExtResource("7_5uafj")
-contents = [SubResource("Resource_rhsyl"), SubResource("Resource_goi58")]
+contents = [SubResource("Resource_rhsyl")]
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_ne3xj"]
@@ -1060,15 +1053,6 @@ anchorXZ = Vector2i(-37, 102)
 facing = 6
 floorY = 0
 
-[sub_resource type="Resource" id="Resource_oaout_desc"]
-script = ExtResource("77_5av3f")
-item = ExtResource("67_cr071")
-
-[sub_resource type="Resource" id="Resource_oaout"]
-script = ExtResource("6_eflh0")
-item = SubResource("Resource_oaout_desc")
-count = 3
-
 [sub_resource type="Resource" id="Resource_rtnbt"]
 script = ExtResource("77_5av3f")
 item = ExtResource("80_bx82r")
@@ -1080,7 +1064,7 @@ item = SubResource("Resource_rtnbt")
 [sub_resource type="Resource" id="Resource_63fgg"]
 script = ExtResource("8_f8a1f")
 scene = ExtResource("7_5uafj")
-contents = [SubResource("Resource_oaout"), SubResource("Resource_d3d5q")]
+contents = [SubResource("Resource_d3d5q")]
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_fehiu"]
@@ -1223,14 +1207,6 @@ facing = 6
 floorY = 4
 name = "town_gate"
 
-[sub_resource type="Resource" id="Resource_61e6v_desc"]
-script = ExtResource("77_5av3f")
-item = ExtResource("11_0m4wo")
-
-[sub_resource type="Resource" id="Resource_61e6v"]
-script = ExtResource("6_eflh0")
-item = SubResource("Resource_61e6v_desc")
-
 [sub_resource type="Resource" id="Resource_mgvr4"]
 script = ExtResource("77_5av3f")
 item = ExtResource("82_30ytk")
@@ -1239,10 +1215,19 @@ item = ExtResource("82_30ytk")
 script = ExtResource("6_eflh0")
 item = SubResource("Resource_mgvr4")
 
+[sub_resource type="Resource" id="Resource_61e6v"]
+script = ExtResource("77_5av3f")
+item = ExtResource("71_axgr2")
+
+[sub_resource type="Resource" id="Resource_mse8r"]
+script = ExtResource("6_eflh0")
+item = SubResource("Resource_61e6v")
+count = 5
+
 [sub_resource type="Resource" id="Resource_wjs4y"]
 script = ExtResource("8_f8a1f")
 scene = ExtResource("7_5uafj")
-contents = [SubResource("Resource_61e6v"), SubResource("Resource_4c7rx")]
+contents = [SubResource("Resource_4c7rx"), SubResource("Resource_mse8r")]
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_714vb"]
@@ -2074,18 +2059,19 @@ item = ExtResource("12_axgr2")
 script = ExtResource("6_eflh0")
 item = SubResource("Resource_1cxn5")
 
-[sub_resource type="Resource" id="Resource_mse8r"]
-script = ExtResource("77_5av3f")
-item = ExtResource("103_5nqub")
-
 [sub_resource type="Resource" id="Resource_m8pth"]
+script = ExtResource("77_5av3f")
+item = ExtResource("105_c8824")
+
+[sub_resource type="Resource" id="Resource_lk4jv"]
 script = ExtResource("6_eflh0")
-item = SubResource("Resource_mse8r")
+item = SubResource("Resource_m8pth")
+count = 12
 
 [sub_resource type="Resource" id="Resource_sp4dd"]
 script = ExtResource("8_f8a1f")
 scene = ExtResource("104_iwjer")
-contents = [SubResource("Resource_qaghn"), SubResource("Resource_m8pth")]
+contents = [SubResource("Resource_qaghn"), SubResource("Resource_lk4jv")]
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_jfsu4"]

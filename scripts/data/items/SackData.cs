@@ -25,7 +25,7 @@ public partial class SackData : ItemData
 
 	public bool Accepts(ItemData data)
 	{
-		if (data == null || data is SackData || !data.IsCarriable)
+		if (data == null || data is SackData)
 		{
 			return false;
 		}

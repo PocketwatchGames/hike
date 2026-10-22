@@ -10,6 +10,15 @@ public partial class GameClient : Node3D
 	// UI display strings for the inventory's per-action / per-context stat
 	// readouts. Centralized here so a future localization pass swaps them
 	// in one place instead of chasing string literals through every panel.
+	// What each kind of round reads as on an item's Ammo row.
+	public readonly Dictionary<EAmmoType, string> ammoTypeNames = new Dictionary<EAmmoType, string>
+	{
+		{ EAmmoType.Arrow, "Arrows" },
+		{ EAmmoType.Ball, "Balls" },
+		{ EAmmoType.Shot, "Shot" },
+		{ EAmmoType.Dart, "Darts" },
+	};
+
 	public readonly Dictionary<EStatName, string> statNames = new Dictionary<EStatName, string>
 	{
 		{ EStatName.Damage, "Damage" },
@@ -29,7 +38,7 @@ public partial class GameClient : Node3D
 		{ EStatName.Radius, "Radius" },
 		{ EStatName.Duration, "Duration" },
 		{ EStatName.Ammo, "Ammo" },
-		{ EStatName.Charges, "Charges" },
+		{ EStatName.BreakChance, "Break Chance" },
 		{ EStatName.Heal, "Healing" },
 		{ EStatName.MoveSpeed, "Move Speed" },
 		{ EStatName.MaxStamina, "Stamina" },
@@ -54,6 +63,7 @@ public partial class GameClient : Node3D
 		{ EStatName.Poisoned, "Poisoned" },
 		{ EStatName.Shocked, "Shocked" },
 		{ EStatName.Sunlight, "Sunlight" },
+		{ EStatName.Bleeding, "Bleeding" },
 		{ EStatName.OutgoingDamage, "Outgoing Damage" },
 		{ EStatName.DamageScale, "Damage & Buildup" },
 		{ EStatName.DamageReduction, "Damage Reduction" },
@@ -141,6 +151,8 @@ public partial class GameClient : Node3D
 	[Export] public MerchantScreen merchantScreen;
 	[Export] public CampScreen campScreen;
 	[Export] public DeathScreen deathScreen;
+	// The world's intro story card, shown once a New Game finishes loading.
+	[Export] public StoryScreen storyScreen;
 	[Export] public SleepOverlay sleepOverlay;
 	// Full-screen black fade for the cinematic camp entry (lighting a campfire).
 	[Export] public ScreenFade campFade;
@@ -898,6 +910,18 @@ public partial class GameClient : Node3D
 		{
 			GD.Print($"[Load] Total (to fade start): {loadingScreen.LoadStopwatch.ElapsedMilliseconds}ms");
 		}
+		// autostart is the unattended / dev-iteration path; a card waiting for a
+		// click would hold every headless run paused forever.
+		StoryData introStory = save == null && !CVars.autostart.Value ? worldState?.IntroStory : null;
+		if (introStory != null && storyScreen != null)
+		{
+			// The card is opaque from its first frame, so the loading screen goes
+			// at once instead of fading out underneath it.
+			loadingScreen?.QueueFree();
+			ShowIntroStory(introStory);
+			return;
+		}
+
 		loadingScreen?.HideWithFade();
 		InputSuppressed = false;
 
@@ -905,6 +929,18 @@ public partial class GameClient : Node3D
 		{
 			WakeAtHome();
 		}
+	}
+
+	// A real tree pause, but not the pause MENU (`paused` stays false); the input
+	// gate set at the top of Init stays up until the player clicks through.
+	void ShowIntroStory(StoryData story)
+	{
+		GetTree().Paused = true;
+		storyScreen.Show(story, () =>
+		{
+			GetTree().Paused = false;
+			InputSuppressed = false;
+		});
 	}
 
 	// A New Game's scenario knowledge (WorldState.InitialKnowledge — start content
@@ -2239,7 +2275,7 @@ public partial class GameClient : Node3D
 			// Gated on _player.IsAiming rather than the raw Aim button so
 			// mid-charge mouse motion still reaches the Positional cursor:
 			// the player is holding the attack button during charge, not Aim,
-			// but IsAiming is forced true through charging (see Player._aiming).
+			// but IsAiming is forced true through an aimed charge (see Player._aimSlot).
 			// Recentering on aim-off (see _Process) makes each aim session
 			// start centered, matching gamepad right-stick recentering.
 			if (!_player.IsAiming)

@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="WorldMapData" format=3]
+[gd_resource type="Resource" script_class="WorldMapData" format=3 uid="uid://e8dg4qt8u74x"]
 
 [ext_resource type="Script" path="res://scripts/data/worldmap/WorldMapData.cs" id="1_wmd"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/terrain_kits/mountain.tres" id="dg"]

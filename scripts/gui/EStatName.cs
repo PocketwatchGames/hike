@@ -19,7 +19,7 @@ public enum EStatName
 	Radius,
 	Duration,
 	Ammo,
-	Charges,
+	BreakChance,
 	Heal,
 	MoveSpeed,
 	MaxStamina,
@@ -45,6 +45,7 @@ public enum EStatName
 	Poisoned,
 	Shocked,
 	Sunlight,
+	Bleeding,
 	OutgoingDamage,
 	// Level-derived forge-upgrade scaling: outgoing damage+buildup multiplier
 	// (offense slots) and incoming damage reduction (Armor slot).

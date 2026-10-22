@@ -1,0 +1,59 @@
+[gd_scene format=3]
+
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="1_shader"]
+
+[sub_resource type="ShaderMaterial" id="Mat_haft"]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/form_strength = 0.55
+shader_parameter/color_tint = Color(0.36, 0.25, 0.15, 1)
+
+[sub_resource type="ShaderMaterial" id="Mat_head"]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/color_tint = Color(0.5, 0.52, 0.55, 1)
+shader_parameter/specular_shininess = 40.0
+shader_parameter/specular_strength = 0.8
+
+[sub_resource type="ShaderMaterial" id="Mat_wrap"]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/color_tint = Color(0.55, 0.42, 0.28, 1)
+
+[sub_resource type="CylinderMesh" id="Mesh_haft"]
+material = SubResource("Mat_haft")
+top_radius = 0.03
+bottom_radius = 0.028
+height = 0.55
+
+[sub_resource type="BoxMesh" id="Mesh_blade"]
+material = SubResource("Mat_head")
+size = Vector3(0.16, 0.13, 0.02)
+
+[sub_resource type="BoxMesh" id="Mesh_poll"]
+material = SubResource("Mat_head")
+size = Vector3(0.05, 0.05, 0.05)
+
+[sub_resource type="CylinderMesh" id="Mesh_wrap"]
+material = SubResource("Mat_wrap")
+top_radius = 0.036
+bottom_radius = 0.036
+height = 0.12
+
+[node name="TomahawkModel" type="Node3D"]
+
+[node name="Haft" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.275, 0)
+mesh = SubResource("Mesh_haft")
+
+[node name="Blade" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.1, 0.5, 0)
+mesh = SubResource("Mesh_blade")
+
+[node name="Poll" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.045, 0.5, 0)
+mesh = SubResource("Mesh_poll")
+
+[node name="Grip" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07, 0)
+mesh = SubResource("Mesh_wrap")
