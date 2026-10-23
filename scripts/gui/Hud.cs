@@ -598,10 +598,11 @@ public partial class Hud : Control
 	}
 
 	// A slot with nothing to swing — the right hand empty — hides with its hint.
-	// The hotbar's selected / active overlays never apply to a weapon slot.
+	// The hotbar's selected / active overlays never apply to a weapon slot. A
+	// broken weapon still shows, broken, though bare hands swing in its place.
 	void RefreshWeaponSlot(WeaponHud widget, ButtonHint hint, EInventorySlot slot)
 	{
-		WeaponState weapon = _player?.GetMeleeWeaponOrUnarmed(slot);
+		WeaponState weapon = _inventory?.GetWeapon(slot) ?? _player?.GetMeleeWeaponOrUnarmed(slot);
 		SetVisible(widget, weapon != null);
 		SetVisible(hint, weapon != null);
 		widget?.SetItem(weapon, _inventory);

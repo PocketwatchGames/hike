@@ -24,9 +24,9 @@
 [ext_resource type="PackedScene" path="res://scenes/items/saber_held.tscn" id="17_held"]
 [ext_resource type="Resource" uid="uid://bswd4n1msetq7" path="res://resources/data/characters/human/anim_sets/sword.tres" id="20_animset"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
-[ext_resource type="Script" uid="uid://65nod8j9othuq" path="res://scripts/data/items/ToolUse.cs" id="tool_use"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="tool_use"]
 
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
@@ -158,6 +158,7 @@ hitstun = 0.5
 knockbackDistance = 1.0
 knockbackTime = 0.5
 buildups = []
+modifiers = null
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
@@ -170,6 +171,13 @@ hitstun = 0.25
 knockbackDistance = 1.0
 knockbackTime = 0.25
 buildups = []
+modifiers = null
+
+[sub_resource type="Resource" id="repair_cost_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 2
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [sub_resource type="Resource" id="salvage_yield_steel"]
 script = ExtResource("material_count")
@@ -182,12 +190,6 @@ script = ExtResource("tool_use")
 kind = 1
 wear = 5.0
 metadata/_custom_type_script = "uid://65nod8j9othuq"
-
-[sub_resource type="Resource" id="repair_cost_steel"]
-script = ExtResource("material_count")
-item = ExtResource("salvage_steel")
-count = 2
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
 script = ExtResource("2_weapon")

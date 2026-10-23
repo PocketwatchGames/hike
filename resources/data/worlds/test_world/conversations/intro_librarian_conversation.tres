@@ -12,7 +12,7 @@
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="Script_ItemCount"]
 [ext_resource type="Script" uid="uid://bruxndva544k7" path="res://scripts/data/conversation/actions/DropLootAction.cs" id="Script_DropLootAction"]
 [ext_resource type="Script" uid="uid://cs8svar0acta4" path="res://scripts/data/scripting/actions/SetScriptVarAction.cs" id="Script_SetScriptVarAction"]
-[ext_resource type="Resource" path="res://resources/data/worlds/test_world/items/map_city_center.tres" id="Item_map_city_center"]
+[ext_resource type="Resource" uid="uid://cmoq2v2n5epos" path="res://resources/data/worlds/test_world/items/map_city_center.tres" id="Item_map_city_center"]
 [ext_resource type="Script" uid="uid://bt3svar0cond7" path="res://scripts/data/scripting/conditions/ScriptVarCondition.cs" id="Script_ScriptVarCondition"]
 
 [sub_resource type="Resource" id="Inline_1"]

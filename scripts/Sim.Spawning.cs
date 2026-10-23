@@ -219,11 +219,24 @@ public partial class Sim
         }
     }
 
-    // Where a fired round ends up once its shot resolves: embedded in the living
+    // Where a fired round ends up once its shot resolves: broken (its break
+    // chance, rolled here so the cue shows where it lands), embedded in the living
     // mob it struck (ammo that embeds), otherwise a loose pickup of it at the
     // impact point. `struckMob` is null for an environment hit or a miss.
     public void LandRecoverableRound(ItemData round, Mob struckMob, Vector3 position, Vector3 direction)
     {
+        float breakChance = round switch
+        {
+            AmmoData breakable => breakable.breakChance,
+            WeaponData thrown => thrown.thrownBreakChance,
+            _ => 1f,
+        };
+        if (GD.Randf() < breakChance)
+        {
+            string name = WorldState?.SimState?.GetItemDisplayName(round) ?? round.displayName.ToString();
+            GameClient.Current?.onHudText?.Invoke(position, Loc.Format(Loc.Keys.item_broken, name), EHudTextType.Info);
+            return;
+        }
         if (round is AmmoData ammo && ammo.embedsInTargets && struckMob != null && struckMob.alive)
         {
             struckMob.StickArrow(ammo, position, direction);

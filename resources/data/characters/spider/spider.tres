@@ -8,11 +8,12 @@
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="5_recolor"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="6_palette"]
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="7_an81i"]
 [ext_resource type="Resource" uid="uid://cymywsyafsroy" path="res://resources/data/blood/spider_ichor.tres" id="blood_1"]
-[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="harvest_row"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="harvest_desc"]
-[ext_resource type="Resource" uid="uid://d0y12rtrmtgie" path="res://resources/data/items/loot/spider_legs.tres" id="harvest_spider_legs"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="harvest_row"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/silk.tres" id="harvest_silk"]
+[ext_resource type="Resource" uid="uid://d0y12rtrmtgie" path="res://resources/data/items/loot/spider_legs.tres" id="harvest_spider_legs"]
 
 [sub_resource type="Resource" id="anim_attack"]
 script = ExtResource("4_animdata")
@@ -60,18 +61,6 @@ script = ExtResource("4_animdata")
 name = &"cast"
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
-[sub_resource type="Resource" id="Resource_base_entry"]
-script = ExtResource("5_recolor")
-meshNames = PackedStringArray("Body_LP", "Abdomen_LP", "Chelicera_LP", "Pedipalp_LP")
-color = Color(0.24, 0.2, 0.17, 1)
-amount = 0.7
-metadata/_custom_type_script = "uid://c4f283lqo67wq"
-
-[sub_resource type="Resource" id="Resource_base_palette"]
-script = ExtResource("6_palette")
-recolors = [SubResource("Resource_base_entry")]
-metadata/_custom_type_script = "uid://cicvni6fvcssx"
-
 [sub_resource type="Resource" id="HarvestDesc_spider_legs"]
 script = ExtResource("harvest_desc")
 item = ExtResource("harvest_spider_legs")
@@ -93,6 +82,18 @@ script = ExtResource("harvest_row")
 item = SubResource("HarvestDesc_silk")
 countRange = 1
 metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
+[sub_resource type="Resource" id="Resource_base_entry"]
+script = ExtResource("5_recolor")
+meshNames = PackedStringArray("Body_LP", "Abdomen_LP", "Chelicera_LP", "Pedipalp_LP")
+color = Color(0.24, 0.2, 0.17, 1)
+amount = 0.7
+metadata/_custom_type_script = "uid://c4f283lqo67wq"
+
+[sub_resource type="Resource" id="Resource_base_palette"]
+script = ExtResource("6_palette")
+recolors = [SubResource("Resource_base_entry")]
+metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [resource]
 script = ExtResource("1_mobdata")
@@ -124,6 +125,7 @@ palette = SubResource("Resource_base_palette")
 levelColorMeshNames = PackedStringArray("Eyes_LP", "Legs_LP", "Spikes_LP")
 alignPitchToGroundNormal = 1.0
 blood = ExtResource("blood_1")
+harvestLoot = [SubResource("Harvest_spider_legs"), SubResource("Harvest_silk")]
 carriesZoneLoot = true
 movement = 26
 maxStepHeight = 2
@@ -132,5 +134,4 @@ verticalClearance = 1
 maxSpeed = 10.0
 foliageSpeedModifier = 0.3
 turnSpeed = 9.0
-harvestLoot = [SubResource("Harvest_spider_legs"), SubResource("Harvest_silk")]
 metadata/_custom_type_script = "uid://b1016kfgr80a5"

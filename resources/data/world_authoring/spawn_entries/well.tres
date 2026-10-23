@@ -15,4 +15,5 @@ script = ExtResource("1_entry")
 scene = ExtResource("2_scene")
 effects = [SubResource("quench_thirst")]
 detailSuppressionRadius = 0.0
+disabledVariable = null
 metadata/_custom_type_script = "uid://cuyu2uykmhfid"

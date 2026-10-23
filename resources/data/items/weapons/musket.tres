@@ -1,8 +1,10 @@
-[gd_resource type="Resource" script_class="WeaponData" format=3]
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://cwm1b8d0uv4e0"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_xu4uk"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_0fiy0"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
@@ -10,17 +12,20 @@
 [ext_resource type="PackedScene" uid="uid://dxxldcqs8hb6v" path="res://scenes/fx/bow_hit_creature.tscn" id="7_hitcreature"]
 [ext_resource type="PackedScene" uid="uid://dbkwlsxhbirtn" path="res://scenes/fx/bow_kill.tscn" id="7_hitkill"]
 [ext_resource type="PackedScene" uid="uid://dxx2ajycuaxpv" path="res://scenes/fx/bow_hit_solid.tscn" id="7_hitsolid"]
+[ext_resource type="PackedScene" path="res://scenes/fx/musket_cock.tscn" id="8_cock"]
 [ext_resource type="PackedScene" path="res://scenes/fx/musket_fire.tscn" id="8_fire"]
 [ext_resource type="PackedScene" path="res://scenes/fx/gun_misfire.tscn" id="8_misfire"]
-[ext_resource type="PackedScene" path="res://scenes/fx/musket_cock.tscn" id="8_cock"]
 [ext_resource type="PackedScene" uid="uid://b3la8d0l81l6i" path="res://scenes/projectiles/lead_shot.tscn" id="10_shot"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="11_aqabn"]
 [ext_resource type="Texture2D" uid="uid://b2sf3vi1tiebh" path="res://assets/textures/items/Musket.png" id="15_sprite"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="16_xu5o2"]
 [ext_resource type="PackedScene" path="res://scenes/items/musket_held.tscn" id="20_held"]
-[ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="21_dizzy"]
-[ext_resource type="Resource" uid="uid://bv6a3ii0w5p06" path="res://resources/data/status_effects/status_bleeding.tres" id="21_bleeding"]
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
+[ext_resource type="Resource" uid="uid://bv6a3ii0w5p06" path="res://resources/data/status_effects/status_bleeding.tres" id="21_bleeding"]
+[ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="21_dizzy"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="22_buildup"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="27_048yb"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
 
 [sub_resource type="Resource" id="Resource_event_shot"]
@@ -28,8 +33,8 @@ script = ExtResource("3_event")
 time = 500
 type = 41952324
 animName = 20
-motionForwardSpeed = -10.0
 fx = ExtResource("8_fire")
+motionForwardSpeed = -10.0
 noiseDecibels = 0.3
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
@@ -86,6 +91,7 @@ hitstun = 0.3
 knockbackDistance = 3.0
 knockbackTime = 0.3
 buildups = [SubResource("buildup_dizzy"), SubResource("buildup_bleed")]
+modifiers = null
 
 [sub_resource type="Resource" id="salvage_yield_steel"]
 script = ExtResource("material_count")
@@ -95,10 +101,10 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
 script = ExtResource("2_weapon")
+ammoType = 2
+rightHandSlot = true
 wetMisfireChance = 0.33
 misfireEffect = ExtResource("8_misfire")
-rightHandSlot = true
-ammoType = 2
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"primary": SubResource("Resource_damage")
 })

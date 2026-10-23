@@ -5,9 +5,10 @@
 [ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="3_parryfx"]
 [ext_resource type="PackedScene" path="res://scenes/items/shield_buckler_held.tscn" id="4_held"]
 [ext_resource type="Texture2D" uid="uid://b7ui4uaaddgs" path="res://assets/textures/items/ShieldSmall.png" id="5_icon"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="9_tjrpg"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/leather.tres" id="repair_leather"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
 
 [sub_resource type="Resource" id="Resource_counter"]
 script = ExtResource("2_damage")
@@ -21,22 +22,19 @@ knockbackTime = 0.2
 buildups = []
 modifiers = []
 
-[sub_resource type="Resource" id="salvage_yield_steel"]
-script = ExtResource("material_count")
-item = ExtResource("salvage_steel")
-count = 1
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
-
 [sub_resource type="Resource" id="repair_cost_steel"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_steel")
-count = 1
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [sub_resource type="Resource" id="repair_cost_leather"]
 script = ExtResource("material_count")
 item = ExtResource("repair_leather")
-count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_yield_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]

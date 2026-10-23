@@ -33,7 +33,7 @@ public partial class WeaponData : GearData
 	// casters (the summoner — the aiming reticle only resolves positional / arced
 	// aim for the right slot) set this true; melee weapons leave it false.
 	// Independent of whether the weapon needs ammo and of the visual wieldHand
-	// below. A broken right-hand weapon can't fire at all (WeaponState.CanFire).
+	// below.
 	[Export] public bool rightHandSlot = false;
 	public EInventorySlot CanonicalSlot => rightHandSlot ? EInventorySlot.WeaponRight : EInventorySlot.WeaponLeft;
 

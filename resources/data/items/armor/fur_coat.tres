@@ -2,12 +2,13 @@
 
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="1_armor"]
 [ext_resource type="Texture2D" uid="uid://mfqa2y8v66b7" path="res://assets/textures/items/WolfCloak.png" id="2_sprite"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="9_h7tg2"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/fur.tres" id="salvage_fur"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/sinew.tres" id="repair_sinew"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/fur.tres" id="salvage_fur"]
 
 [sub_resource type="Resource" id="m_cold"]
 script = ExtResource("m_script")
@@ -21,17 +22,17 @@ stat = 14
 value = 0.2
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
+[sub_resource type="Resource" id="Resource_h7tg2"]
+script = ExtResource("m_script")
+stat = 10
+value = 0.25
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
 [sub_resource type="Resource" id="outfit"]
 script = ExtResource("outfit_script")
 bodyMeshNamesFemale = PackedStringArray("F_Archer_Top", "F_Archer_Bottom", "F_Archer_Cape")
 bodyMeshNamesMale = PackedStringArray("M_Archer_Top", "M_Archer_Bottom", "M_Archer_Cape")
 metadata/_custom_type_script = "uid://6h7yge1txki2"
-
-[sub_resource type="Resource" id="salvage_yield_fur"]
-script = ExtResource("material_count")
-item = ExtResource("salvage_fur")
-count = 2
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [sub_resource type="Resource" id="repair_cost_fur"]
 script = ExtResource("material_count")
@@ -42,20 +43,25 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 [sub_resource type="Resource" id="repair_cost_sinew"]
 script = ExtResource("material_count")
 item = ExtResource("repair_sinew")
-count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_yield_fur"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_fur")
+count = 2
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
 script = ExtResource("1_armor")
 maxArmor = 600.0
 beltSlots = 1
-modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource("Resource_25iwx")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource("Resource_25iwx"), SubResource("Resource_h7tg2")])
 outfit = SubResource("outfit")
 weight = 0.5
 maxDurability = 6000
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_fur"), SubResource("repair_cost_sinew")])
-displayName = &"Buffalo Hide Robe"
-description = "Polar bears stay warm in the winter!"
+displayName = &"Hide Robe"
+description = "A whole hide worn hair-side in, its outer face painted with the tally of winters past. Heavy as a sleeping child, and warm enough to sleep through a blizzard."
 value = 60
 inventorySprite = ExtResource("2_sprite")
 salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_fur")])

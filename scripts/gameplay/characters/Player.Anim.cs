@@ -447,6 +447,23 @@ public partial class Player : CharacterBody3D
 		}
 		_heldVisual.SetActiveItem(itemModel);
 
+		// A weapon that breaks leaves the hand at once, even mid-swing, for what
+		// the melee slot now swings (bare hands, for a broken melee weapon).
+		if (_wieldedWeapon != null && _wieldedWeapon.IsBroken)
+		{
+			WeaponState replacement = GetMeleeWeaponOrUnarmed(EInventorySlot.WeaponLeft);
+			if (replacement?.data != null)
+			{
+				WieldWeapon(replacement);
+			}
+			else
+			{
+				_heldVisual.SetWeapon(null);
+				_heldVisual.SetWeaponIdleFx(null);
+				_wieldedWeapon = null;
+			}
+		}
+
 		// The weapon in hand is persistent and changes only by drawing another:
 		// aiming draws the aimed weapon for the whole aim (not just once a shot
 		// fires), and raising the guard without aiming draws the melee weapon, which

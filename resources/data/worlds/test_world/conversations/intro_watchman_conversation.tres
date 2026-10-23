@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ConversationData" format=3]
+[gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://0bhjvvqlfw85"]
 
 [ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="Script_ConversationData"]
 [ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]

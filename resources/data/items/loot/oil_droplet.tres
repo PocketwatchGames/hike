@@ -3,7 +3,9 @@
 [ext_resource type="Script" uid="uid://c558nly57hnmr" path="res://scripts/data/items/PickupEffectData.cs" id="1_pickup"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
 [ext_resource type="Script" uid="uid://do0gxlqe4tomu" path="res://scripts/data/effects/RefillLanternOilEffect.cs" id="3_oil"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="4_37ugj"]
 [ext_resource type="Texture2D" uid="uid://de1n705v4a1s" path="res://assets/textures/items/OilDroplet.png" id="4_icon"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="6_qcwmd"]
 
 [sub_resource type="Resource" id="Effect_refill_oil"]
 script = ExtResource("3_oil")

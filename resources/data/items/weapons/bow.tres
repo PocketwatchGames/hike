@@ -23,9 +23,10 @@
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
 [ext_resource type="PackedScene" uid="uid://b6xvvkhj2thr" path="res://scenes/items/bow_held.tscn" id="20_kwtcm"]
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/sinew.tres" id="salvage_sinew"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="27_1sa4s"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/fiber.tres" id="salvage_fiber"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/sinew.tres" id="salvage_sinew"]
 
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")
@@ -112,6 +113,7 @@ hitstun = 0.25
 knockbackDistance = 0.5
 knockbackTime = 0.25
 buildups = []
+modifiers = null
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
@@ -124,35 +126,32 @@ hitstun = 0.25
 knockbackDistance = 0.5
 knockbackTime = 0.25
 buildups = []
-
-[sub_resource type="Resource" id="salvage_yield_sinew"]
-script = ExtResource("material_count")
-item = ExtResource("salvage_sinew")
-count = 1
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
-
-[sub_resource type="Resource" id="salvage_yield_fiber"]
-script = ExtResource("material_count")
-item = ExtResource("salvage_fiber")
-count = 1
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+modifiers = null
 
 [sub_resource type="Resource" id="repair_cost_sinew"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_sinew")
-count = 1
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [sub_resource type="Resource" id="repair_cost_fiber"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_fiber")
-count = 1
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_yield_sinew"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_sinew")
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_yield_fiber"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_fiber")
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
 script = ExtResource("2_weapon")
-rightHandSlot = true
 ammoType = 1
+rightHandSlot = true
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"charged": SubResource("Resource_charged_damage"),
 &"primary": SubResource("Resource_damage")

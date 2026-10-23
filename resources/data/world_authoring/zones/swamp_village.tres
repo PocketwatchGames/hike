@@ -3,72 +3,12 @@
 [ext_resource type="Resource" uid="uid://erij2kg7sead" path="res://resources/audio/swamp_ambience.tres" id="1_6gauu"]
 [ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/world/ZoneData.cs" id="2_w6w3s"]
 [ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="3_dc76l"]
-[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="bl_range"]
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="6_pvbkn"]
+[ext_resource type="Resource" uid="uid://wwgu6p2rj14i" path="res://resources/data/items/loot/shell.tres" id="9_ulfg6"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="bl_desc"]
 [ext_resource type="Resource" uid="uid://dgldn4p2qx8wt" path="res://resources/data/items/loot/gold.tres" id="bl_gold"]
-[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="bl_mushroom_gold"]
-[ext_resource type="Resource" uid="uid://uyofr5iy0be2j" path="res://resources/data/items/loot/mushroom_green.tres" id="bl_mushroom_green"]
-[ext_resource type="Resource" uid="uid://s8l1m34eoh8ca" path="res://resources/data/items/loot/mushroom_red.tres" id="bl_mushroom_red"]
-[ext_resource type="Resource" path="res://resources/data/items/loot/ancient_bone.tres" id="bl_ancient_bone"]
 [ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="bl_oil_droplet"]
-
-[sub_resource type="Resource" id="BlDesc_oil_droplet"]
-script = ExtResource("bl_desc")
-item = ExtResource("bl_oil_droplet")
-
-[sub_resource type="Resource" id="BlLoot_oil_droplet"]
-script = ExtResource("bl_range")
-item = SubResource("BlDesc_oil_droplet")
-chance = 0.1
-
-[sub_resource type="Resource" id="BlDesc_ancient_bone"]
-script = ExtResource("bl_desc")
-item = ExtResource("bl_ancient_bone")
-
-[sub_resource type="Resource" id="BlLoot_ancient_bone"]
-script = ExtResource("bl_range")
-item = SubResource("BlDesc_ancient_bone")
-chance = 0.1
-
-[sub_resource type="Resource" id="BlDesc_gold"]
-script = ExtResource("bl_desc")
-item = ExtResource("bl_gold")
-
-[sub_resource type="Resource" id="BlLoot_gold"]
-script = ExtResource("bl_range")
-item = SubResource("BlDesc_gold")
-countRange = 2
-chance = 0.35
-
-[sub_resource type="Resource" id="BlDesc_mushroom_gold"]
-script = ExtResource("bl_desc")
-item = ExtResource("bl_mushroom_gold")
-
-[sub_resource type="Resource" id="BlLoot_mushroom_gold"]
-script = ExtResource("bl_range")
-item = SubResource("BlDesc_mushroom_gold")
-countRange = 1
-chance = 0.08
-
-[sub_resource type="Resource" id="BlDesc_mushroom_green"]
-script = ExtResource("bl_desc")
-item = ExtResource("bl_mushroom_green")
-
-[sub_resource type="Resource" id="BlLoot_mushroom_green"]
-script = ExtResource("bl_range")
-item = SubResource("BlDesc_mushroom_green")
-countRange = 1
-chance = 0.08
-
-[sub_resource type="Resource" id="BlDesc_mushroom_red"]
-script = ExtResource("bl_desc")
-item = ExtResource("bl_mushroom_red")
-
-[sub_resource type="Resource" id="BlLoot_mushroom_red"]
-script = ExtResource("bl_range")
-item = SubResource("BlDesc_mushroom_red")
-countRange = 1
-chance = 0.08
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="bl_range"]
 
 [sub_resource type="Resource" id="Resource_weather"]
 script = ExtResource("3_dc76l")
@@ -80,9 +20,39 @@ humidity = 0.65
 lightningAmount = 0.0
 metadata/_custom_type_script = "uid://d25sc6n2mi728"
 
+[sub_resource type="Resource" id="BlDesc_oil_droplet"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_oil_droplet")
+
+[sub_resource type="Resource" id="BlLoot_oil_droplet"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_oil_droplet")
+countRange = 1
+chance = 0.1
+
+[sub_resource type="Resource" id="BlDesc_gold"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_gold")
+
+[sub_resource type="Resource" id="BlLoot_gold"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_gold")
+countRange = 5
+chance = 0.35
+
+[sub_resource type="Resource" id="Resource_mgy6f"]
+script = ExtResource("bl_desc")
+item = ExtResource("9_ulfg6")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_wsg2i"]
+script = ExtResource("bl_range")
+item = SubResource("Resource_mgy6f")
+countRange = 3
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
 [resource]
 script = ExtResource("2_w6w3s")
-zoneLoot = [SubResource("BlLoot_ancient_bone"), SubResource("BlLoot_oil_droplet"), SubResource("BlLoot_gold"), SubResource("BlLoot_mushroom_gold"), SubResource("BlLoot_mushroom_green"), SubResource("BlLoot_mushroom_red")]
 sunColor = Color(0.8423333, 0.95, 0.627, 1)
 moonColor = Color(0.51, 0.68, 0.6346667, 1)
 skyColor = Color(0.4235, 0.54156667, 0.55, 1)
@@ -92,3 +62,4 @@ waterOpacity = 0.75
 dustAmount = 0.15
 weather = SubResource("Resource_weather")
 ambience = ExtResource("1_6gauu")
+zoneLoot = [SubResource("BlLoot_oil_droplet"), SubResource("BlLoot_gold"), SubResource("Resource_wsg2i")]

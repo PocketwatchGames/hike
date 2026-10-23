@@ -1,29 +1,31 @@
 [gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://chpmfha5lvycx"]
 
 [ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="2_ythwi"]
-[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="item_effect"]
-[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="apply_status"]
-[ext_resource type="Resource" uid="uid://cfgrdp0ehape4" path="res://resources/data/status_effects/status_food_poisoning.tres" id="food_poisoning"]
 [ext_resource type="Texture2D" uid="uid://bnhpbdnlt5ur0" path="res://assets/textures/items/MushroomPurple.png" id="3_ythwi"]
 [ext_resource type="Resource" uid="uid://c3ytrvm8kkbkt" path="res://resources/data/items/loot/mushroom.tres" id="4_parent"]
 [ext_resource type="Script" uid="uid://d1q7i43a6fajs" path="res://scripts/data/items/TimedEmergenceData.cs" id="5_emerge"]
-
-[sub_resource type="Resource" id="Resource_emerge"]
-script = ExtResource("5_emerge")
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="6_leqwg"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="9_kadf2"]
+[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="apply_status"]
+[ext_resource type="Resource" uid="uid://cfgrdp0ehape4" path="res://resources/data/status_effects/status_food_poisoning.tres" id="food_poisoning"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="item_effect"]
 
 [sub_resource type="Resource" id="eat_poison"]
 script = ExtResource("apply_status")
 statusEffect = ExtResource("food_poisoning")
 
+[sub_resource type="Resource" id="Resource_emerge"]
+script = ExtResource("5_emerge")
+
 [resource]
 script = ExtResource("2_ythwi")
-categoryOverride = 6
-satiation = 0.05
 effects = Array[ExtResource("item_effect")]([SubResource("eat_poison")])
-timedEmergence = SubResource("Resource_emerge")
+satiation = 0.05
 displayName = &"Purple Mushroom"
 maxStack = 99
 spoilDays = 3
 value = 1
 inventorySprite = ExtResource("3_ythwi")
+categoryOverride = 6
 parent = ExtResource("4_parent")
+timedEmergence = SubResource("Resource_emerge")

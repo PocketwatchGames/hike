@@ -176,8 +176,9 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	}
 
 	// Resolve the weapon a press on `slot` should drive. Normally the equipped
-	// weapon, but an empty melee slot (WeaponLeft) falls back to the player's
-	// unarmed weapon so a bare-handed player still punches. The unarmed
+	// weapon, but an empty or broken melee slot (WeaponLeft) falls back to the
+	// player's unarmed weapon so a bare-handed player still punches; the broken
+	// weapon stays equipped. The unarmed
 	// WeaponState is built once and cached — it carries its own combo / level
 	// state like any inventory weapon. Returns null only when the slot is empty
 	// and there's no unarmed fallback (or it's the ranged slot).
@@ -197,7 +198,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		return null;
 	}
 
-	// The weapon in `slot` that can actually be used: a broken ranged weapon
+	// The weapon in `slot` that can actually be used: a broken weapon
 	// (WeaponState.CanFire) reads as an empty slot. The HUD keeps reading the
 	// equipped item so it still shows, broken.
 	public WeaponState GetUsableWeapon(EInventorySlot slot)
@@ -208,7 +209,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 
 	public WeaponState GetMeleeWeaponOrUnarmed(EInventorySlot slot)
 	{
-		WeaponState weapon = _inventory?.GetWeapon(slot);
+		WeaponState weapon = GetUsableWeapon(slot);
 		if (weapon != null)
 		{
 			return weapon;
@@ -270,7 +271,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			return;
 		}
 		WeaponState weapon = GetMeleeWeaponOrUnarmed(slot);
-		if (weapon?.data?.actionProfile == null || !weapon.CanFire)
+		if (weapon?.data?.actionProfile == null)
 		{
 			return;
 		}

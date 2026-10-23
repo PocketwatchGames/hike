@@ -2,9 +2,9 @@ using Godot;
 
 public class WeaponState : GearState
 {
-	// A broken right-hand weapon can't fire at all; a broken melee weapon still
-	// swings its uncharged tiers (ActionRunner.IsBrokenGear).
-	public bool CanFire => !(IsBroken && _data != null && _data.rightHandSlot);
+	// A broken weapon can't fire at all; the melee slot falls back to bare hands
+	// (Player.GetMeleeWeaponOrUnarmed).
+	public bool CanFire => !IsBroken;
 
 	// The world object standing in for this weapon while it is out of the
 	// wielder's hand (a harpoon on its line). While set, the held model hides and

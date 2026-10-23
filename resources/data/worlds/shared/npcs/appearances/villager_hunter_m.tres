@@ -11,7 +11,6 @@ bodyMeshNamesMale = PackedStringArray("M_Hunter_Top", "M_Hunter_Bottom")
 headMeshNamesMale = PackedStringArray("M_Hunter_FeltedHat")
 primaryColor = Color(0.28, 0.4, 0.22, 1)
 secondaryColor = Color(0.62, 0.45, 0.28, 1)
-tertiaryColor = Color(0.796, 0.796, 0.678, 1)
 metadata/_custom_type_script = "uid://6h7yge1txki2"
 
 [resource]

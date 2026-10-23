@@ -22,6 +22,12 @@ stat = 14
 value = 0.5
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
+[sub_resource type="Resource" id="Resource_vsxjd"]
+script = ExtResource("m_script")
+stat = 10
+value = 0.15
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
 [sub_resource type="Resource" id="outfit"]
 script = ExtResource("outfit_script")
 bodyMeshNamesFemale = PackedStringArray("F_Fighter_Top", "F_Fighter_Bottom")
@@ -49,13 +55,13 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 script = ExtResource("2_bvjtb")
 maxArmor = 600.0
 beltSlots = 1
-modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource("Resource_bvjtb")])
+modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource("Resource_bvjtb"), SubResource("Resource_vsxjd")])
 outfit = SubResource("outfit")
 weight = 0.5
 maxDurability = 6000
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_leather"), SubResource("repair_cost_sinew")])
 displayName = &"Trapper\'s Jerkin"
-description = "Protects against nicks and scratches."
+description = "Smoke-tanned buckskin, stiff with old grease and patched at the elbows — it turns a thorn or a glancing knife, and smells of every campfire it has known."
 value = 60
 inventorySprite = ExtResource("1_kkvw5")
 salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_leather")])

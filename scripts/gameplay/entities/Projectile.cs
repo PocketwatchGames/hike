@@ -4,10 +4,10 @@ using Godot;
 // event. The fx fields (miss/environment/health/armor/lethal) come straight
 // from the event's impact fields — same hit-result mapping DoHitscan uses.
 // `round`, when non-null, is what lands where the shot resolves
-// (Sim.LandRecoverableRound): stuck in a still-living mob it struck, else a
-// loose pickup at the impact point. The firing handler decides it at fire time
-// (a round was spent and survived its break roll), so the projectile doesn't
-// need to peek back at the action.
+// (Sim.LandRecoverableRound): broken, stuck in a still-living mob it struck,
+// else a loose pickup at the impact point. The firing handler decides it at
+// fire time (a round was spent), so the projectile doesn't need to peek back
+// at the action.
 public struct ProjectileImpact
 {
 	public PackedScene miss;

@@ -1124,7 +1124,6 @@ public class ActionRunner
 			if (action.comboIndex != comboIndex) { continue; }
 			float tierStart = ItemActionProfile.GetTierStartTime(profile, i, comboIndex);
 			if (chargeElapsedSeconds + 1e-6f < tierStart) { continue; }
-			if (tierStart > 0f && IsBrokenGear(context)) { continue; }
 			if (!RequirementsMet(action, context)) { continue; }
 			if (!_actor.HasStamina(action.staminaCost)) { continue; }
 			if (!_actor.HasBlood(action.bloodCost)) { continue; }
@@ -1146,13 +1145,6 @@ public class ActionRunner
 		return context.source is not Inventory inventory || inventory.RoundsFor(weapon) > 0;
 	}
 
-	// A broken weapon fires only the tiers that need no hold — its charged
-	// attacks (start time past 0 on the charge timeline) are gone until repaired.
-	private static bool IsBrokenGear(in ActionContext context)
-	{
-		return context.primaryItem is GearState gear && gear.IsBroken;
-	}
-
 	// Oil gate for ItemAction.oilCost: the tier is selectable only while the
 	// actor holds the whole cost. Tiers with no oil cost always pass.
 	private bool CanAffordOil(ItemAction action)
@@ -1172,7 +1164,6 @@ public class ActionRunner
 			ItemAction action = profile.chargedActions[i];
 			if (action == null) { continue; }
 			if (action.comboIndex != comboIndex) { continue; }
-			if (IsBrokenGear(context) && ItemActionProfile.GetTierStartTime(profile, i, comboIndex) > 0f) { continue; }
 			if (!RequirementsMet(action, context)) { continue; }
 			if (!_actor.HasStamina(action.staminaCost)) { continue; }
 			if (!_actor.HasBlood(action.bloodCost)) { continue; }

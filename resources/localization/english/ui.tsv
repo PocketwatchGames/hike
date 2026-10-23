@@ -14,6 +14,7 @@ combat_miss	MISS!
 combat_blocked	BLOCKED!
 combat_parried	PARRIED!
 combat_misfire	Misfire
+item_broken	%0 broken!
 quest_kunkun_hunt	Kunkun Hunt
 quest_return_to_camp	Return to Camp
 quest_learn_vyeshal	Learn Vyeshal

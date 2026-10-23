@@ -1,8 +1,9 @@
-[gd_resource type="Resource" script_class="ItemData" format=3]
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://wwgu6p2rj14i"]
 
 [ext_resource type="Script" uid="uid://ct3276hu7bc1v" path="res://scripts/data/items/ItemData.cs" id="1_item_data"]
 [ext_resource type="Texture2D" uid="uid://cukfvve7rchmv" path="res://assets/textures/items/Shell.png" id="2_icon"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="5_ktw0r"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/beads.tres" id="salvage_beads"]
 
 [sub_resource type="Resource" id="salvage_yield_beads"]

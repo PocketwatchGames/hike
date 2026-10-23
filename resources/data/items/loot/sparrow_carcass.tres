@@ -1,11 +1,14 @@
-[gd_resource type="Resource" script_class="CarcassData" format=3]
+[gd_resource type="Resource" script_class="CarcassData" format=3 uid="uid://ceuabyca7xt8o"]
 
-[ext_resource type="Script" uid="uid://tuewz3bb09f48" path="res://scripts/data/items/CarcassData.cs" id="1_carcass"]
-[ext_resource type="Texture2D" path="res://assets/textures/items/SparrowCarcass.png" id="2_icon"]
-[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="harvest_row"]
+[ext_resource type="Script" uid="uid://jdk2so1682df" path="res://scripts/data/items/CarcassData.cs" id="1_carcass"]
+[ext_resource type="Texture2D" uid="uid://cw8ahllsievaj" path="res://assets/textures/items/SparrowCarcass.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="3_jrhgv"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="7_uu8cx"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="9_qnpgo"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="harvest_desc"]
-[ext_resource type="Resource" uid="uid://uq5vwg0wvv0" path="res://resources/data/items/loot/sparrow_meat.tres" id="harvest_sparrow_meat"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/feather.tres" id="harvest_feather"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="harvest_row"]
+[ext_resource type="Resource" uid="uid://uq5vwg0wvv0" path="res://resources/data/items/loot/sparrow_meat.tres" id="harvest_sparrow_meat"]
 
 [sub_resource type="Resource" id="HarvestDesc_sparrow_meat"]
 script = ExtResource("harvest_desc")

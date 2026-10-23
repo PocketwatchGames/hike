@@ -4,6 +4,8 @@
 [ext_resource type="Script" uid="uid://ca8oyj6ah0hdq" path="res://scripts/data/teaching/RecipeTeachable.cs" id="2_teach"]
 [ext_resource type="Resource" uid="uid://b44abhhllyl02" path="res://resources/data/items/consumables/dog_treat.tres" id="3_spell"]
 [ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="4_icon"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="4_idqlt"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="6_w3l3g"]
 
 [sub_resource type="Resource" id="Concept"]
 script = ExtResource("2_teach")

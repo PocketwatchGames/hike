@@ -46,7 +46,7 @@ gear**, at the event's own site — weapons by uses, armor and shields by damage
 
 | Gear | Wears on | Broken |
 |---|---|---|
-| melee weapon | its events' authored costs (below) | only tiers with charge start time 0 fire (`ActionRunner.IsBrokenGear`) |
+| melee weapon | its events' authored costs (below) | stays equipped, but the attack swings bare hands (`PlayerData.unarmedWeapon`, via `Player.GetMeleeWeaponOrUnarmed`) |
 | ranged weapon (`rightHandSlot`: bow, guns, blowgun, sling) | every shot — its shot events carry `UseDurability` | cannot fire at all (`WeaponState.CanFire`) |
 | thrown weapon (`WeaponData.thrown`: tomahawk, bomb) | never — each shot spends a unit of the stack outright | — |
 | shield | damage absorbed: the guard a block consumes, the whole blow a parry negates | no guard, no parry, no bare-hands fallback |
@@ -63,9 +63,10 @@ gear**, at the event's own site — weapons by uses, armor and shields by damage
 - **All wear goes through `Player.WearGear`**, which plays the cues: warning once
   on crossing `SimData.durabilityWarningFraction`, broken once at zero. The HUD
   overlays read the same `GearState.Condition`.
-- **A broken ranged weapon is an empty slot to gameplay** — no reticle, no draw,
-  no fire, no aim assist — through `Player.GetUsableWeapon`. The HUD still reads
-  the equipped item, so it shows broken.
+- **A broken weapon is an empty slot to gameplay** — no reticle, no draw,
+  no fire, no aim assist, and the melee slot falls back to bare hands exactly as
+  if it were empty — through `Player.GetUsableWeapon`. The HUD still reads the
+  equipped item, so it shows broken.
 - **Wear rate is a per-ITEM mod**: an `EStat.DurabilityWear` `StatModifier` on a
   `StatusEffectData` composed through `ItemDescriptor.statusEffects`
   (`status_gear_sturdy` 0.5, `status_gear_brittle` 2.0). It is folded off the
@@ -94,7 +95,8 @@ stackable. `ammoType = None` needs no rounds (the sling, wands, every mob weapon
   reads through `StatusEffectController.SetLoadedRoundSource`, like a forge
   upgrade. A fire arrow is a new `AmmoData` with the flaming mod, not a new bow.
 - **A landed round is an ordinary pickup of its own item**, rolled against
-  `AmmoData.breakChance` per round. It embeds in a living mob it struck
+  `AmmoData.breakChance` per round where it lands (`Sim.LandRecoverableRound`,
+  which floats "<name> broken!" on a break). It embeds in a living mob it struck
   (`embedsInTargets`, `ArrowStuck`) and drops loose when that mob dies; a mob that
   unloads alive takes it along. Nothing binds a round to the weapon that fired it,
   nothing times it out, and like all dropped loot the next rest sweeps it. It

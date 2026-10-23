@@ -1,12 +1,24 @@
-[gd_resource type="Resource" script_class="InteractiveAction" format=3]
+[gd_resource type="Resource" script_class="InteractiveAction" format=3 uid="uid://h088yml6nsmb"]
 
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="1_action"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_aqmos"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_h5an5"]
 [ext_resource type="Texture2D" uid="uid://djbrh2y7f5jpj" path="res://assets/textures/items/Shovel.png" id="3_icon"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_requirement"]
-[ext_resource type="Script" uid="uid://nnkq7fgijvtok" path="res://scripts/data/actions/requirements/CarriesToolRequirement.cs" id="5_tool"]
-[ext_resource type="Script" uid="uid://2d1zehwh09amb" path="res://scripts/data/actions/requirements/NotInCombatRequirement.cs" id="7_combat"]
+[ext_resource type="Script" path="res://scripts/data/actions/requirements/CarriesToolRequirement.cs" id="5_tool"]
 [ext_resource type="PackedScene" uid="uid://b2dgl8kq5wrxa" path="res://scenes/fx/dig_loop.tscn" id="6_loop"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="6_qmffj"]
+[ext_resource type="Script" uid="uid://b6v83hp2t5bx" path="res://scripts/data/actions/requirements/NotInCombatRequirement.cs" id="7_combat"]
+
+[sub_resource type="Resource" id="Event_complete"]
+script = ExtResource("2_event")
+type = 256
+
+[sub_resource type="Resource" id="Event_dig_pose"]
+script = ExtResource("2_event")
+type = 64
+animName = 36
 
 [sub_resource type="Resource" id="Requirement_tool"]
 script = ExtResource("5_tool")
@@ -14,19 +26,10 @@ kind = 2
 hidesActionWhenUnmet = true
 metadata/_custom_type_script = "uid://nnkq7fgijvtok"
 
-[sub_resource type="Resource" id="Event_dig_pose"]
-script = ExtResource("2_event")
-type = 64
-animName = 36
-
 [sub_resource type="Resource" id="Requirement_combat"]
 script = ExtResource("7_combat")
 hidesActionWhenUnmet = true
 metadata/_custom_type_script = "uid://2d1zehwh09amb"
-
-[sub_resource type="Resource" id="Event_complete"]
-script = ExtResource("2_event")
-type = 256
 
 [resource]
 script = ExtResource("1_action")

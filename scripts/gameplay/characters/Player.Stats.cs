@@ -167,6 +167,8 @@ public partial class Player : CharacterBody3D
 		if (after == GearState.ECondition.Broken && before != after)
 		{
 			SpawnWorldEffect(_durabilityBrokenFx);
+			string name = Sim?.WorldState?.SimState?.GetItemDisplayName(gear) ?? gear.data.displayName.ToString();
+			GameClient.Current?.onHudText?.Invoke(GlobalPosition, Loc.Format(Loc.Keys.item_broken, name), EHudTextType.Info);
 		}
 		else if (after == GearState.ECondition.Worn && before == GearState.ECondition.Sound)
 		{

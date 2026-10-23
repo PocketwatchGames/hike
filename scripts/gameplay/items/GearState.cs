@@ -8,9 +8,9 @@ using Godot;
 //                  weapon's every shot
 //   shield       — the damage a block absorbs from the guard, or a parry negates
 //   armor        — the damage the armor pool soaks, split across worn pieces
-// A broken piece keeps working at a reduced level: armor stops recharging, a
-// shield can neither block nor parry, a melee weapon only fires its uncharged
-// tiers. A broken ranged weapon is the exception: it can't fire at all.
+// A broken piece stays equipped: armor stops recharging, a shield can neither
+// block nor parry, and a weapon can't fire at all — the melee slot swings bare
+// hands instead.
 public class GearState : ItemState
 {
 	public enum ECondition

@@ -67,6 +67,7 @@
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_wood_1.tres" id="96_axgr2"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_wood_2.tres" id="97_c8824"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_wood_3.tres" id="98_bx82r"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/gold.tres" id="98_c8824"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/bed_1.tres" id="98_swuxn"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_wood_4.tres" id="99_7lrfi"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/bed_3.tres" id="99_ubhg3"]
@@ -1998,18 +1999,18 @@ item = ExtResource("115_wjs4y")
 script = ExtResource("6_eflh0")
 item = SubResource("Resource_r6qn0")
 
-[sub_resource type="Resource" id="Resource_8sdt2"]
+[sub_resource type="Resource" id="Resource_bpjxx"]
 script = ExtResource("77_5av3f")
-item = ExtResource("85_cr071")
+item = ExtResource("98_c8824")
 
-[sub_resource type="Resource" id="Resource_vrd0m"]
+[sub_resource type="Resource" id="Resource_8sdt2"]
 script = ExtResource("6_eflh0")
-item = SubResource("Resource_8sdt2")
+item = SubResource("Resource_bpjxx")
 
 [sub_resource type="Resource" id="Resource_okpqt"]
 script = ExtResource("8_f8a1f")
 scene = ExtResource("7_5uafj")
-contents = [SubResource("Resource_mkmis"), SubResource("Resource_vrd0m")]
+contents = [SubResource("Resource_mkmis"), SubResource("Resource_8sdt2")]
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_5xuvj"]

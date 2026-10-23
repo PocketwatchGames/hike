@@ -1,31 +1,29 @@
-[gd_resource type="Resource" script_class="ToolData" format=3 uid="uid://iopyy6zv9rktg"]
+[gd_resource type="Resource" script_class="ToolData" format=3 uid="uid://xv8s26e5dtbw"]
 
-[ext_resource type="Script" uid="uid://sqxlmfazfuncq" path="res://scripts/data/items/ToolData.cs" id="1_tool"]
+[ext_resource type="Script" uid="uid://dbb386ly515bo" path="res://scripts/data/items/ToolData.cs" id="1_tool"]
 [ext_resource type="Texture2D" uid="uid://djbrh2y7f5jpj" path="res://assets/textures/items/Shovel.png" id="7_icon"]
 [ext_resource type="PackedScene" uid="uid://cwk3rn8qv2tba" path="res://scenes/items/shovel_held.tscn" id="8_held"]
-[ext_resource type="Script" uid="uid://65nod8j9othuq" path="res://scripts/data/items/ToolUse.cs" id="tool_use"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/iron.tres" id="repair_iron"]
-
-[sub_resource type="Resource" id="ToolUse_main"]
-script = ExtResource("tool_use")
-kind = 2
-wear = 1.0
-metadata/_custom_type_script = "uid://65nod8j9othuq"
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="tool_use"]
 
 [sub_resource type="Resource" id="repair_cost_iron"]
 script = ExtResource("material_count")
 item = ExtResource("repair_iron")
-count = 1
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="ToolUse_main"]
+script = ExtResource("tool_use")
+kind = 2
+metadata/_custom_type_script = "uid://65nod8j9othuq"
 
 [resource]
 script = ExtResource("1_tool")
+maxDurability = 40
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_iron")])
 displayName = &"Shovel"
 description = "Carry it to dig up buried things: stand over a spot and dig."
 value = 15
 inventorySprite = ExtResource("7_icon")
 heldModel = ExtResource("8_held")
 toolUses = Array[ExtResource("tool_use")]([SubResource("ToolUse_main")])
-maxDurability = 40
-repair = Array[ExtResource("material_count")]([SubResource("repair_cost_iron")])

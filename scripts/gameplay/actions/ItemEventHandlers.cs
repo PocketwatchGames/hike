@@ -454,7 +454,7 @@ public static class ItemEventHandlers
 		}
 
 		// The round lands where the ray ended: in the struck mob, or loose.
-		if (rounds > 0 && SurvivesLanding(round) && Sim.Current != null)
+		if (rounds > 0 && Sim.Current != null)
 		{
 			Mob targetMob = hitResult != EHitResult.None ? FindOwningMob(hitHurtBox) : null;
 			Sim.Current.LandRecoverableRound(round, targetMob, hitPos, direction);
@@ -908,7 +908,7 @@ public static class ItemEventHandlers
 		{
 			// One projectile per round spent carries it; the rest of a volley (a
 			// blunderbuss's pellets) leave nothing.
-			impact.round = shot < rounds && SurvivesLanding(round) ? round : null;
+			impact.round = shot < rounds ? round : null;
 			Vector3 shotVelocity = velocity;
 			if (!ev.projectileArcing)
 			{
@@ -1582,19 +1582,6 @@ public static class ItemEventHandlers
 		rounds = inventory.SpendRounds(weapon, Mathf.Max(1, ev.ammoCost), out round);
 		weapon.statusEffects.SetLoadedRoundSource((round as AmmoData)?.ModSource());
 		return rounds > 0;
-	}
-
-	// Whether one fired `round` lands intact rather than breaking
-	// (AmmoData.breakChance, WeaponData.thrownBreakChance).
-	static bool SurvivesLanding(ItemData round)
-	{
-		float breakChance = round switch
-		{
-			AmmoData ammo => ammo.breakChance,
-			WeaponData thrown => thrown.thrownBreakChance,
-			_ => 1f,
-		};
-		return GD.Randf() >= breakChance;
 	}
 
 	public static void DoUseDurability(IActionActor actor, ItemEvent ev, ref PlayerAction action)

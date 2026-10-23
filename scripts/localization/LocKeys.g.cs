@@ -21,6 +21,7 @@ public static partial class Loc
 		combat_blocked,
 		combat_parried,
 		combat_misfire,
+		item_broken,
 		quest_kunkun_hunt,
 		quest_return_to_camp,
 		quest_learn_vyeshal,
