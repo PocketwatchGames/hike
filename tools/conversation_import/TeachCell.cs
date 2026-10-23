@@ -6,7 +6,8 @@ using System.Collections.Generic;
 //
 //   teach:language vyeshal                     the whole tongue
 //   teach:language vyeshal grammar,vocabulary1  just those pieces
-//   teach:recipe meal_stew_goblin_health
+//   teach:recipe health_potion                 how to craft an item
+//   teach:meal stew_goblin_health              how to cook a cookpot meal
 //   teach:region swamp
 //   teach:item health_potion                   reveals its real name
 //   teach:bestiary drake_mountain
@@ -97,8 +98,15 @@ static class TeachCell
 				reference.Teachable = "RecipeTeachable";
 				reference.Property = "recipe";
 				reference.Prefix = "Recipe";
-				reference.Target = index.Recipe(world, name);
-				where = "no ConsumableData .tres has that basename";
+				reference.Target = index.Item(world, name);
+				where = $"no item .tres by that basename under resources/data/items/ or worlds/{world}/items/";
+				break;
+			case "meal":
+				reference.Teachable = "MealTeachable";
+				reference.Property = "meal";
+				reference.Prefix = "Meal";
+				reference.Target = index.Meal(world, name);
+				where = "no MealData .tres has that basename";
 				break;
 			case "region":
 				reference.Teachable = "RegionTeachable";
@@ -183,7 +191,7 @@ static class TeachCell
 
 	static string KindList()
 	{
-		return "language, recipe, region, item, bestiary";
+		return "language, recipe, meal, region, item, bestiary";
 	}
 
 	static string ComponentList()

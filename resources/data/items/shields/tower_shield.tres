@@ -25,12 +25,6 @@ knockbackTime = 0.4
 buildups = Array[ExtResource("3_buildup")]([SubResource("Resource_counter_dizzy")])
 modifiers = []
 
-[sub_resource type="Resource" id="salvage_yield_steel"]
-script = ExtResource("material_count")
-item = ExtResource("salvage_steel")
-count = 2
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
-
 [sub_resource type="Resource" id="repair_cost_steel"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_steel")
@@ -42,6 +36,15 @@ script = ExtResource("material_count")
 item = ExtResource("repair_leather")
 count = 1
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 2
+
+[sub_resource type="Resource" id="salvage_leather"]
+script = ExtResource("material_count")
+item = ExtResource("repair_leather")
 
 [resource]
 script = ExtResource("1_shield")
@@ -55,10 +58,10 @@ parryEffect = ExtResource("5_parryfx")
 parryDecibels = 1.2
 weight = 1.0
 maxDurability = 960
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_steel"), SubResource("salvage_leather")])
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel"), SubResource("repair_cost_leather")])
 displayName = &"Tower Shield"
 description = "A wall of planks and iron. Crouch behind it to soak the heaviest blows, or time the crouch to shove the attacker back reeling."
 value = 70
 inventorySprite = ExtResource("7_icon")
 heldModel = ExtResource("6_held")
-salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])

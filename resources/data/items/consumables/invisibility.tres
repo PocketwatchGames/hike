@@ -11,12 +11,12 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="7_effect"]
 [ext_resource type="Texture2D" uid="uid://bwxddckhthk61" path="res://assets/textures/items/GemWhite.png" id="8_inv"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_x517u"]
-[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="9_input"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="9_input"]
 [ext_resource type="Resource" uid="uid://chpmfha5lvycx" path="res://resources/data/items/loot/mushroom_purple.tres" id="10_purple"]
 [ext_resource type="Resource" uid="uid://d0y12rtrmtgie" path="res://resources/data/items/loot/spider_legs.tres" id="11_legs"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="15_bwxhw"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="17_5osoi"]
-[ext_resource type="Script" uid="uid://cy238vqb2k86o" path="res://scripts/data/items/RecipeData.cs" id="recipe_data"]
+[ext_resource type="Script" uid="uid://j82ckihv22tvk" path="res://scripts/data/items/CraftRecipeData.cs" id="recipe_data"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("4_event")

@@ -8,17 +8,30 @@
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="apply_status"]
 [ext_resource type="Resource" uid="uid://cfgrdp0ehape4" path="res://resources/data/status_effects/status_food_poisoning.tres" id="food_poisoning"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="item_effect"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/bone.tres" id="salvage_bone"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/sinew.tres" id="salvage_sinew"]
 
 [sub_resource type="Resource" id="eat_poison"]
 script = ExtResource("apply_status")
 statusEffect = ExtResource("food_poisoning")
+
+[sub_resource type="Resource" id="salvage_yield_bone"]
+script = ExtResource("6_7o1p7")
+item = ExtResource("salvage_bone")
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_yield_sinew"]
+script = ExtResource("6_7o1p7")
+item = ExtResource("salvage_sinew")
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
 script = ExtResource("1_loot_data")
 effects = Array[ExtResource("item_effect")]([SubResource("eat_poison")])
 satiation = 0.15
 displayName = &"Goblin Meat"
-maxStack = 99
+maxStack = 1
+salvage = Array[ExtResource("6_7o1p7")]([SubResource("salvage_yield_bone"), SubResource("salvage_yield_sinew")])
 spoilDays = 3
 inventorySprite = ExtResource("2_inv")
 typeTags = 129

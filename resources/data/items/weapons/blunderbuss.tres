@@ -84,6 +84,11 @@ item = ExtResource("salvage_steel")
 count = 2
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
+[sub_resource type="Resource" id="repair_cost_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 2
+
 [resource]
 script = ExtResource("2_weapon")
 ammoType = 3
@@ -101,6 +106,7 @@ wieldHand = 1
 animSet = ExtResource("21_animset")
 weight = 0.6
 maxDurability = 60
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")])
 displayName = &"Blunderbuss"
 description = "A flared smoothbore that sprays a fan of shot: three pellets on a quick pull, up to nine if you hold to load more. Each pull spends one shell of shot."
 value = 50

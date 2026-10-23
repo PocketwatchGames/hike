@@ -18,12 +18,21 @@ item = ExtResource("repair_fiber")
 count = 1
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
+[sub_resource type="Resource" id="salvage_leather"]
+script = ExtResource("material_count")
+item = ExtResource("repair_leather")
+
+[sub_resource type="Resource" id="salvage_fiber"]
+script = ExtResource("material_count")
+item = ExtResource("repair_fiber")
+
 [resource]
 script = ExtResource("1_armor")
 maxArmor = 720.0
 armorSlot = 1
 modifiers = Array[Object]([])
 maxDurability = 7200
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_leather"), SubResource("salvage_fiber")])
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_leather"), SubResource("repair_cost_fiber")])
 displayName = &"Gosbark Helm"
 description = "Thick bark-plated headgear that turns aside heavy blows."

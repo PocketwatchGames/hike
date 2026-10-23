@@ -38,11 +38,14 @@ public partial class SimData : Resource
     // own OnBackstab modifiers fold on top (the knife's bonus).
     [Export(PropertyHint.Range, "1,10,0.05")] public float backstabMultiplier = 2f;
 
-    // Master recipe library: every cookable ConsumableData (one with a
-    // recipe). CookingScreen matches the cooking inputs against this list,
-    // and discovery is recorded in SimState.DiscoveredRecipes keyed by the same
-    // consumable. Adding a recipe = adding it here.
-    [Export] public Array<ConsumableData> recipes = new();
+    // Every item crafted at a crafting bench (ItemData.recipe) — the bench's
+    // whole recipe list. Discovery is recorded in SimState.DiscoveredRecipes
+    // keyed by the item. Adding a craftable = adding it here.
+    [Export] public Array<ItemData> recipes = new();
+
+    // Every meal cooked in a cookpot — the cookpot's whole recipe list, keyed in
+    // discovery by the MealData. Adding a meal = adding it here.
+    [Export] public Array<MealData> meals = new();
 
 
     // Master mob-type library — one entry per bestiary PAGE. BestiaryScreen
@@ -257,11 +260,6 @@ public partial class SimData : Resource
     [Export] public InteractiveAction talkAction;
     [Export] public InteractiveAction giveItemAction;
     [Export] public InteractiveAction tradeAction;
-    // What a dead mob offers, shared by every species like talkAction: Pick Up
-    // its carcass (MobData.carcass), and Butcher it with a carried Blade
-    // for its MobData.HarvestRows.
-    [Export] public InteractiveAction carryCarcassAction;
-    [Export] public InteractiveAction butcherAction;
     // Dig a burrowed mob out of the ground with a carried Digging tool — the same
     // Dig a buried spot offers, shared by every species.
     [Export] public InteractiveAction digUpAction;

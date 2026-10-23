@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_s")
 scenarioName = "salvage"
-description = "Salvageable gear at your feet: a saber and plate armor (Steel), a blunderbuss, a musket, a pistol and an air rifle (Steel), a bow (Sinew + Fiber), leather and fur armor, and shells (Beads). Hold Salvage (F / RS) on one in the inventory."
+description = "Salvageable gear at your feet: a saber, plate armor, a blunderbuss, a musket, a pistol, an air rifle, a bow, and leather and fur armor. Salvage them at a crafting bench; each yields the materials it is repaired with, into the stash."
 commands = "spawn_loot saber 1
 spawn_loot plate_armor 1
 spawn_loot blunderbuss 1
@@ -14,6 +14,5 @@ spawn_loot pistol 1
 spawn_loot air_rifle 1
 spawn_loot bow 1
 spawn_loot leather_armor 1
-spawn_loot fur_coat 1
-spawn_loot shell 3"
+spawn_loot fur_coat 1"
 metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

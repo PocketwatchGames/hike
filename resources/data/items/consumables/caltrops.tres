@@ -10,10 +10,10 @@
 [ext_resource type="Texture2D" uid="uid://dc1jfyggey0dd" path="res://assets/textures/items/ThrowingStars.png" id="6_inv"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="6_yfuu2"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_ab3qo"]
-[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="7_input"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="7_input"]
 [ext_resource type="Resource" uid="uid://d0y12rtrmtgie" path="res://resources/data/items/loot/spider_legs.tres" id="8_legs"]
 [ext_resource type="Resource" uid="uid://d0ghc0filpfpn" path="res://resources/data/items/loot/mushroom_black.tres" id="9_black"]
-[ext_resource type="Script" uid="uid://cy238vqb2k86o" path="res://scripts/data/items/RecipeData.cs" id="recipe_data"]
+[ext_resource type="Script" uid="uid://j82ckihv22tvk" path="res://scripts/data/items/CraftRecipeData.cs" id="recipe_data"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("4_event")

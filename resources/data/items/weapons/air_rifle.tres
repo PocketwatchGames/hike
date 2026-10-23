@@ -6,9 +6,7 @@
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
-[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="5_ajm0v"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
-[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_m2l50"]
 [ext_resource type="PackedScene" uid="uid://dxxldcqs8hb6v" path="res://scenes/fx/bow_hit_creature.tscn" id="7_hitcreature"]
 [ext_resource type="PackedScene" uid="uid://dbkwlsxhbirtn" path="res://scenes/fx/bow_kill.tscn" id="7_hitkill"]
 [ext_resource type="PackedScene" uid="uid://dxx2ajycuaxpv" path="res://scenes/fx/bow_hit_solid.tscn" id="7_hitsolid"]
@@ -17,9 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://c2jrl015q2rtn" path="res://scenes/fx/bow_charge_loop.tscn" id="8_chgloop"]
 [ext_resource type="PackedScene" uid="uid://c2jrtlu1q2rtn" path="res://scenes/fx/bow_charge_tail.tscn" id="8_chgtail"]
 [ext_resource type="PackedScene" uid="uid://b3la8d0l81l6i" path="res://scenes/projectiles/lead_shot.tscn" id="10_ajm0v"]
-[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="12_ow6j3"]
 [ext_resource type="Texture2D" uid="uid://35su23r5he88" path="res://assets/textures/items/AirRifle.png" id="15_sprite"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="18_5rhbf"]
 [ext_resource type="PackedScene" path="res://scenes/items/air_rifle_held.tscn" id="20_held"]
 [ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="21_5rhbf"]
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
@@ -131,12 +127,6 @@ knockbackDistance = 0.5
 knockbackTime = 0.2
 buildups = []
 
-[sub_resource type="Resource" id="salvage_yield_steel"]
-script = ExtResource("material_count")
-item = ExtResource("salvage_steel")
-count = 2
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
-
 [sub_resource type="Resource" id="repair_cost_steel"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_steel")
@@ -148,6 +138,15 @@ script = ExtResource("material_count")
 item = ExtResource("repair_lead")
 count = 1
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 2
+
+[sub_resource type="Resource" id="salvage_lead"]
+script = ExtResource("material_count")
+item = ExtResource("repair_lead")
 
 [resource]
 script = ExtResource("2_weapon")
@@ -165,10 +164,10 @@ wieldHand = 1
 animSet = ExtResource("21_animset")
 weight = 0.7
 maxDurability = 150
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_steel"), SubResource("salvage_lead")])
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel"), SubResource("repair_cost_lead")])
 displayName = &"Air Rifle"
 description = "A rifle powered by a reservoir of compressed air. Fires lead balls nearly silently, but hits lighter than powder. Hold for a pumped shot."
 value = 70
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("20_held")
-salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])

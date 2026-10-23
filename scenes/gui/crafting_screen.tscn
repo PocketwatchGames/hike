@@ -1,0 +1,270 @@
+[gd_scene format=3 uid="uid://di1md42tlbc3r"]
+
+[ext_resource type="Script" uid="uid://dcld2rguboia7" path="res://scripts/gui/CraftingScreen.cs" id="1_craft"]
+[ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_hint"]
+[ext_resource type="Script" uid="uid://ubhgeo31sve1" path="res://scripts/gui/CraftingPanel.cs" id="3_panel"]
+[ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="4_backpack"]
+[ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="5_info"]
+[ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="6_count"]
+[ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="7_inventory"]
+[ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="8_slot"]
+[ext_resource type="PackedScene" uid="uid://dn1uamwxkqjal" path="res://scenes/gui/recipe_button.tscn" id="9_recipe"]
+
+[node name="CraftingScreen" type="Control" unique_id=1475522049 node_paths=PackedStringArray("_inventoryPanel", "_stashPanel", "_craftingPanel", "_itemInfoPanel", "_buttonHintPrimary", "_hintUse", "_hintDrop", "_hintRepair", "_countPanel")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_craft")
+_inventoryPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/Inventory")
+_stashPanel = NodePath("MarginContainer/HBoxContainer/VBoxContainer/StashPanel")
+_craftingPanel = NodePath("MarginContainer/HBoxContainer/StationContainer/CraftingPanel")
+_itemInfoPanel = NodePath("MarginContainer/HBoxContainer/VBoxContainer/MarginContainer2/ItemInfoPanel")
+_buttonHintPrimary = NodePath("MarginContainer/ButtonHints/ButtonHintA")
+_hintUse = NodePath("MarginContainer/ButtonHints/ButtonHintUse")
+_hintDrop = NodePath("MarginContainer/ButtonHints/ButtonHintDrop")
+_hintRepair = NodePath("MarginContainer/ButtonHints/ButtonHintRepair")
+_countPanel = NodePath("MarginContainer/MarginContainer2/ItemCountPanel")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=887691657]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ButtonHints" type="HBoxContainer" parent="MarginContainer" unique_id=613307229]
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_constants/separation = 30
+alignment = 1
+
+[node name="ButtonHintA" parent="MarginContainer/ButtonHints" unique_id=73790359 instance=ExtResource("2_hint")]
+visible = false
+layout_mode = 2
+ActionName = "Craft"
+InputAction = "ui_select"
+
+[node name="ButtonHintRepair" parent="MarginContainer/ButtonHints" unique_id=508830633 instance=ExtResource("2_hint")]
+visible = false
+layout_mode = 2
+ActionName = "Repair"
+InputAction = "MenuSecondary"
+
+[node name="ButtonHintUse" parent="MarginContainer/ButtonHints" unique_id=722406783 instance=ExtResource("2_hint")]
+visible = false
+layout_mode = 2
+ActionName = "Use"
+InputAction = "MenuTertiary"
+
+[node name="ButtonHintDrop" parent="MarginContainer/ButtonHints" unique_id=875088648 instance=ExtResource("2_hint")]
+visible = false
+layout_mode = 2
+ActionName = "Drop"
+InputAction = "MenuQuinary"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=1676043226]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 100
+alignment = 1
+
+[node name="StationContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1917293291]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="CraftingPanel" type="MarginContainer" parent="MarginContainer/HBoxContainer/StationContainer" unique_id=1244894710 node_paths=PackedStringArray("_queueSlots", "_headProgress", "_blockedLabel", "_announcementContainer", "_announcementLabel", "_announcementIcon", "_recipeButtonContainer", "_noRecipesLabel")]
+layout_mode = 2
+script = ExtResource("3_panel")
+_queueSlots = [NodePath("VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot1"), NodePath("VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot2"), NodePath("VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot3"), NodePath("VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot4"), NodePath("VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot5"), NodePath("VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot6"), NodePath("VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot7"), NodePath("VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot8")]
+_headProgress = NodePath("VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot1/HeadProgress")
+_blockedLabel = NodePath("VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/BlockedLabel")
+_announcementContainer = NodePath("VBoxContainer/Announcement/PanelContainer")
+_announcementLabel = NodePath("VBoxContainer/Announcement/PanelContainer/MarginContainer/HBoxContainer/Label")
+_announcementIcon = NodePath("VBoxContainer/Announcement/PanelContainer/MarginContainer/HBoxContainer/TextureRect")
+_recipeButtonContainer = NodePath("VBoxContainer/RecipePanel/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer")
+_noRecipesLabel = NodePath("VBoxContainer/RecipePanel/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/Label")
+_recipeButtonScene = ExtResource("9_recipe")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel" unique_id=948922566]
+layout_mode = 2
+theme_override_constants/separation = 30
+
+[node name="Announcement" type="MarginContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer" unique_id=893112693]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/Announcement" unique_id=1384171108]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/Announcement/PanelContainer" unique_id=2084545104]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 5
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/Announcement/PanelContainer/MarginContainer" unique_id=1835727116]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="TextureRect" type="TextureRect" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/Announcement/PanelContainer/MarginContainer/HBoxContainer" unique_id=357736497]
+layout_mode = 2
+expand_mode = 3
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/Announcement/PanelContainer/MarginContainer/HBoxContainer" unique_id=2135186702]
+layout_mode = 2
+text = "Crafted Health Potion"
+
+[node name="QueuePanel" type="PanelContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer" unique_id=908092718]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel" unique_id=801504852]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel/MarginContainer" unique_id=2699308]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer" unique_id=590633640]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Queue"
+horizontal_alignment = 1
+
+[node name="GridContainer" type="GridContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer" unique_id=921981595]
+layout_mode = 2
+size_flags_horizontal = 4
+columns = 4
+
+[node name="QueueSlot1" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer" unique_id=599140270 instance=ExtResource("8_slot")]
+custom_minimum_size = Vector2(70, 70)
+layout_mode = 2
+
+[node name="HeadProgress" type="ProgressBar" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot1" unique_id=1970726647]
+visible = false
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+size_flags_vertical = 8
+mouse_filter = 2
+max_value = 1.0
+step = 0.001
+show_percentage = false
+
+[node name="QueueSlot2" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer" unique_id=1238771396 instance=ExtResource("8_slot")]
+custom_minimum_size = Vector2(70, 70)
+layout_mode = 2
+
+[node name="QueueSlot3" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer" unique_id=1216197805 instance=ExtResource("8_slot")]
+custom_minimum_size = Vector2(70, 70)
+layout_mode = 2
+
+[node name="QueueSlot4" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer" unique_id=2075458243 instance=ExtResource("8_slot")]
+custom_minimum_size = Vector2(70, 70)
+layout_mode = 2
+
+[node name="QueueSlot5" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer" unique_id=1711456794 instance=ExtResource("8_slot")]
+custom_minimum_size = Vector2(70, 70)
+layout_mode = 2
+
+[node name="QueueSlot6" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer" unique_id=603417304 instance=ExtResource("8_slot")]
+custom_minimum_size = Vector2(70, 70)
+layout_mode = 2
+
+[node name="QueueSlot7" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer" unique_id=1127064220 instance=ExtResource("8_slot")]
+custom_minimum_size = Vector2(70, 70)
+layout_mode = 2
+
+[node name="QueueSlot8" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer" unique_id=1282617600 instance=ExtResource("8_slot")]
+custom_minimum_size = Vector2(70, 70)
+layout_mode = 2
+
+[node name="BlockedLabel" type="Label" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer" unique_id=1387841198]
+visible = false
+layout_mode = 2
+text = "Stash full"
+horizontal_alignment = 1
+
+[node name="RecipePanel" type="PanelContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer" unique_id=323899001]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/RecipePanel" unique_id=694595168]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/RecipePanel/MarginContainer" unique_id=2004339843]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/RecipePanel/MarginContainer/VBoxContainer" unique_id=108017551]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Recipes"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/RecipePanel/MarginContainer/VBoxContainer" unique_id=1915007367]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/RecipePanel/MarginContainer/VBoxContainer/PanelContainer" unique_id=2057779685]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/RecipePanel/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer" unique_id=1236339304]
+layout_mode = 2
+text = "No Recipes Learned!"
+horizontal_alignment = 1
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer" unique_id=1327032339]
+layout_mode = 2
+alignment = 1
+
+[node name="StashPanel" parent="MarginContainer/HBoxContainer/VBoxContainer" unique_id=370404262 instance=ExtResource("4_backpack")]
+layout_mode = 2
+size_flags_horizontal = 6
+_titleLocKey = &"panel_stash"
+
+[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/HBoxContainer/VBoxContainer" unique_id=1533916864]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+
+[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/VBoxContainer/MarginContainer2" unique_id=185573348 instance=ExtResource("5_info")]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=752427407]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 4
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=725153650]
+layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="Inventory" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=687219058 instance=ExtResource("7_inventory")]
+layout_mode = 2
+
+[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer" unique_id=751900444]
+layout_mode = 2
+theme_override_constants/margin_bottom = 100
+
+[node name="ItemCountPanel" parent="MarginContainer/MarginContainer2" unique_id=765881278 instance=ExtResource("6_count")]
+layout_mode = 2
+size_flags_vertical = 8

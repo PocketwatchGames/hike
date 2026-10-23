@@ -40,6 +40,14 @@ item = ExtResource("repair_leather")
 count = 1
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
+[sub_resource type="Resource" id="salvage_iron"]
+script = ExtResource("material_count")
+item = ExtResource("repair_iron")
+
+[sub_resource type="Resource" id="salvage_leather"]
+script = ExtResource("material_count")
+item = ExtResource("repair_leather")
+
 [resource]
 script = ExtResource("1_shield")
 guardArmor = 250.0
@@ -53,6 +61,7 @@ parryEffect = ExtResource("5_parryfx")
 parryDecibels = 1.0
 weight = 0.75
 maxDurability = 720
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_iron"), SubResource("salvage_leather")])
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_iron"), SubResource("repair_cost_leather")])
 displayName = &"Kite Shield"
 description = "A tapered wooden shield — lighter than a tower, sturdier than a buckler. Soak a blow or time the crouch to bash the attacker back."

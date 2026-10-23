@@ -99,6 +99,11 @@ item = ExtResource("salvage_steel")
 count = 2
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
+[sub_resource type="Resource" id="repair_cost_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 2
+
 [resource]
 script = ExtResource("2_weapon")
 ammoType = 2
@@ -116,6 +121,7 @@ wieldHand = 1
 animSet = ExtResource("21_animset")
 weight = 0.6
 maxDurability = 80
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")])
 displayName = &"Musket"
 description = "A long rifled flintlock with a slow lock: half a second after the trigger, it sends one heavy lead ball that staggers and bleeds whatever it strikes."
 value = 60

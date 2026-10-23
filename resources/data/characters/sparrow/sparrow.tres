@@ -7,9 +7,9 @@
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="4_lbyg3"]
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="9_bcxhy"]
 [ext_resource type="Resource" uid="uid://b714nsn8vs3x7" path="res://resources/data/blood/red_blood_small.tres" id="blood_1"]
-[ext_resource type="Resource" uid="uid://ceuabyca7xt8o" path="res://resources/data/items/loot/sparrow_carcass.tres" id="carcass"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="tagmod_1"]
+[ext_resource type="Resource" uid="uid://uq5vwg0wvv0" path="res://resources/data/items/loot/sparrow_meat.tres" id="meat"]
 
 [sub_resource type="Resource" id="Resource_anim_dead"]
 script = ExtResource("2_mky6i")
@@ -118,7 +118,7 @@ animations = Dictionary[int, ExtResource("2_mky6i")]({
 hudScale = 0.5
 mobScene = ExtResource("1_2er1a")
 blood = ExtResource("blood_1")
-carcass = ExtResource("carcass")
+meat = ExtResource("meat")
 movement = 23
 triggersTraps = false
 maxSpeed = 12.0

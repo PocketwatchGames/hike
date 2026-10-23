@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-// Campfire / cooking station. Standalone from Torch — they share a similar
-// lit/doused shape in the editor (animator, light, warmth/damage zones, on/off
-// fx) but the cooking workflow is forge-specific.
+// Campfire — the camp: rest, party and stash. Standalone from Torch — they
+// share a similar lit/doused shape in the editor (animator, light, warmth/damage
+// zones, on/off fx). It does not cook; meals are cooked in a Cookpot.
 //
 // Only one campfire in the world is lit at a time: lighting one douses every
 // other (DouseOtherCampfires). Campfires spawn unlit except the party's spawn
@@ -12,13 +12,10 @@ using Godot;
 // goes out only when another is lit.
 //
 // Interact verb dispatch:
-//   * EActionVerb.Camp on a lit forge → opens the CampScreen, whose Cook tab
-//     binds to this forge and reads/writes CookingSlots (experimentation
-//     inputs). Cooking is instant — no job timer; eating a recipe applies its
-//     status effect to the chosen character immediately (see CookingScreen).
+//   * EActionVerb.Camp on a lit forge → opens the CampScreen.
 //   * Light → lights the flame (and douses all others).
 [GlobalClass]
-public partial class Campfire : Node3D, IInteractive, IWorldEntity, IMobWard, ICookingStation
+public partial class Campfire : Node3D, IInteractive, IWorldEntity, IMobWard
 {
     [Export] private LitSpriteAnimator _animator;
     // Model-based forges (the 3D campfire) swap the mesh material between a
@@ -45,9 +42,6 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity, IMobWard, IC
     [Export] private PackedScene _lightOnEffectScene;
     [Export] private PackedScene _lightOffEffectScene;
     [Export] private PackedScene _lightLoopEffectScene;
-    // Recipe scope for this station — Cooking.TryMatch only considers
-    // recipes whose campfireType matches.
-    [Export] private ECampfireType _campfireType;
     // Health restored per in-world hour slept while resting at this fire
     // (fraction of max). The camp screen's Sleep tab reads it for every rest
     // duration — a future bed could set a higher rate than a plain campfire.
@@ -60,10 +54,7 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity, IMobWard, IC
     private Fx _loopEffect;
 
     public CampfireSimState SimState => _simState;
-    public ItemState[] CookingSlots => _simState?.CampfireSlots;
     public bool IsLit => _active;
-    public ECampfireType CampfireType => _campfireType;
-    public bool IsCamp => true;
 
     // IMobWard: a campfire wards off mobs that fear it (slimes) so they never
     // block interacting here. Independent of lit state on purpose — the ward
@@ -126,9 +117,8 @@ public partial class Campfire : Node3D, IInteractive, IWorldEntity, IMobWard, IC
         SetLit(true);
     }
 
-    // Toggle helper. Updates visuals, zones, and fx — items stay in
-    // CampfireSlots for the player to reclaim on relight. Lighting this fire
-    // douses every other campfire so only one is ever lit at a time.
+    // Toggle helper. Updates visuals, zones, and fx. Lighting this fire douses
+    // every other campfire so only one is ever lit at a time.
     private void SetLit(bool lit)
     {
         if (_active == lit)

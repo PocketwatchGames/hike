@@ -1,0 +1,72 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://pk64uv9youhc8" path="res://scripts/gameplay/entities/CraftingBench.cs" id="1_bench"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="6_ibox"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="7_meshhl"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="8_porous"]
+[ext_resource type="PackedScene" uid="uid://ggmlljpw3p5e" path="res://assets/models/furniture/SM_Prop_Table_01.fbx" id="9_model"]
+[ext_resource type="Texture2D" uid="uid://4qy44obr1h8l" path="res://assets/textures/interactions/giveitem.png" id="10_icon"]
+
+[sub_resource type="Resource" id="Resource_bench_event"]
+script = ExtResource("2_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_bench_action_craft"]
+script = ExtResource("3_action")
+displayName = &"Craft"
+icon = ExtResource("10_icon")
+completionEvents = Array[ExtResource("2_event")]([SubResource("Resource_bench_event")])
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_body"]
+size = Vector3(2.9499, 0.9623, 1.4009)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(3.6, 1.5, 2.2)
+
+[node name="CraftingBench" type="Node3D" node_paths=PackedStringArray("_hudNode", "_statusLabel")]
+script = ExtResource("1_bench")
+_actions = Array[ExtResource("3_action")]([SubResource("Resource_bench_action_craft")])
+_hudNode = NodePath("HUDNode")
+_statusLabel = NodePath("HUDNode/StatusLabel")
+
+[node name="Body" type="StaticBody3D" parent="."]
+script = ExtResource("8_porous")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4812, 0)
+shape = SubResource("BoxShape3D_body")
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("6_ibox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="Model" type="Node3D" parent="."]
+
+[node name="SM_Prop_Table_01" parent="Model" instance=ExtResource("9_model")]
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 0)
+
+[node name="StatusLabel" type="Label3D" parent="HUDNode"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+visible = false
+billboard = 1
+no_depth_test = true
+fixed_size = true
+pixel_size = 0.0005
+text = "Caltrops 45%"
+font_size = 24
+outline_size = 8
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("7_meshhl")
+_collectFrom = NodePath("../Model")

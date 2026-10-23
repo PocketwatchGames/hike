@@ -132,22 +132,21 @@ from the rest sweep (`ResetSpawns`).
   empty, refuses everything), so a held reference can't reach a sack no longer
   carried.
 
-## Salvage (`ItemData.salvage` / `ItemTransfer.Salvage`)
+## Salvage (`ItemData.salvage` / `ItemTransfer.SalvageInto`)
 
-**An item breaks into what its `salvage` list names** — `SalvageYield` rows of a
-plain `ItemData` and a count, certain rather than rolled, and no `ItemDescriptor`
-because a material carries no mods. Empty = not salvageable, and the hint hides.
-The materials live in `resources/data/items/materials/`.
+**An item breaks into what its `salvage` list names** — `MaterialCount` rows of a
+plain `ItemData` and a count, certain rather than rolled (the bench previews the
+yields to check they fit), and no `ItemDescriptor` because a material carries no
+mods. Empty = not salvageable. The materials live in `resources/data/items/materials/`.
 
-- **One unit per Salvage, hold-only** (the `Salvage` action, F / RS — bound in
-  `InputBindings`): it destroys the item, so a tap does nothing. Inventory and
-  Stash screens only.
-- **Yields land where the item was** (the stash, when salvaged there), then in the
-  member's grids, then at their feet — a full bag never loses one.
+- **Salvage is a crafting-bench action only** (`CraftingScreen`). The inventory
+  and stash screens don't offer it. Butchering a meat IS salvaging it — there is
+  no separate action.
+- **Yields go into the stash, all or nothing**: `SalvageInto` refuses, changing
+  nothing, when the stash hasn't room for every yield.
 - A filled sack is refused (`CanSalvage`): its contents would leave with it.
-- **A salvage can need a tool** (`ItemData.salvageTool`, an `EToolKind`): the
-  hint hides until one is carried, and each unit wears it. A subclass may yield
-  from elsewhere by overriding `RollSalvageYields` (`CarcassData` rolls its harvest).
+- **A salvage can need a tool** (`ItemData.salvageTool`, an `EToolKind`): it is
+  offered only while one is carried, and each unit wears it.
 
 ## Tools (`EToolKind`, `ItemData.toolUses`)
 
@@ -166,13 +165,12 @@ or a sack.
   with its message instead. An interactive whose offered set can change filters
   its `GetActions` by it — safe because `IInteractive.Complete` receives the
   action that ran, never an index into a list that may since have changed.
-- **Tool work is not done in combat** — butchering, digging, and a salvage that
+- **Tool work is not done in combat** — digging, and a salvage that
   needs a tool. Combat is `CombatTracker` (a perceived dangerous enemy attacking,
   what the combat music follows), NOT `NoDangerRequirement`'s merely-nearby
   hostile: `NotInCombatRequirement` (hiding) on the actions, `ItemData.CanSalvage`
-  for salvage. In combat the prompts simply aren't there — picking up a
-  carcass included.
-- **A kind has code behind it** (the butcher and dig paths), which is why it is
+  for salvage. In combat the prompts simply aren't there.
+- **A kind has code behind it** (the dig path), which is why it is
   an enum and not a resource — APPEND-ONLY, stored as an int.
 - **A tool has no use of its own.** `ToolData` (the shovel) is `GearData` in the
   `Tool` category: it rides in the backpack, never the hotbar, and wears only
@@ -184,23 +182,16 @@ or a sack.
   prompt never reveals a mob that left no trace. Like a corpse it is targeted by
   its hurtbox (`ECollisionLayer.BurrowedHurtBox`, in the player's interact mask).
 
-## Carcasses and butchering (`CarcassData`, `MobData.harvestLoot` / `.carcass`)
+## Meat (`MobData.meat`)
 
-**Meat never comes from a death drop — a body is cut up.** What a body yields is
-a trait of the body (`MobData`), not the variant, and it is taken one of two ways:
+**Every death drops exactly one piece of its body's meat** (`MobData.meat`), on
+top of the variant's `SpeciesData.loot` and any zone loot. It is a trait of the
+body, shared by every variant; null for a body with none (slimes, fairies, the
+dog, villagers). A corpse itself offers nothing.
 
-| Body | Without a blade | With a blade |
-|---|---|---|
-| carryable (`MobData.carcass` set — kun-kun, sparrow) | Pick Up: the whole corpse becomes its carcass item | also Butcher where it lies; Salvage the carried carcass |
-| not carryable (`MobData.harvestLoot`) | nothing — no prompt | Butcher where it lies |
-
-- **One harvest per body, in one place.** A carryable body's rows live on its
-  `CarcassData.harvest` and `MobData.harvestLoot` stays empty (`MobData.HarvestRows`
-  picks); butchering in place and salvaging the carcass roll the same rows.
-  `resource_check` refuses both set, an empty row, and a carcass that stacks.
-- **Butchering wears the blade once** (`Player.UseTool(Blade)`), in place or as a
-  carcass salvage (`salvageTool = Blade`).
-- **A corpse is targeted by its hurtbox** (`ECollisionLayer.DeadHurtBox`, in the
-  player's interact mask), so no mob scene authors an `InteractiveBox` for it.
-  Taking the body frees the node and keeps the dead sim state: a rest revives a
-  population mob as usual.
+- **Meat never stacks** (maxStack 1) — each piece is one animal's worth, and
+  `resource_check` refuses a `MobData.meat` that stacks. It still spoils like
+  any perishable (one cohort per piece).
+- **Butchering is the meat's salvage** — its `salvage` list is the hide, bone,
+  sinew, feather or silk the body yields. The meat is used up, so the player
+  chooses between cooking a piece and cutting it up.

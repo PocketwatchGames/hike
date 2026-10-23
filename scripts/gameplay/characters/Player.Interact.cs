@@ -237,8 +237,8 @@ public partial class Player : CharacterBody3D
 
 		IInteractive prevHighlight = _highlightInteractive;
 
-		// A corpse targeted by its hurtbox can free with it (butchered) before the
-		// exit signal can map the hurtbox back to the mob, so drop the dead entry.
+		// A mob targeted by its hurtbox can free with it before the exit signal can
+		// map the hurtbox back to the mob, so drop the dead entry.
 		_interactiveCollisions.RemoveAll(i => i is GodotObject o && !GodotObject.IsInstanceValid(o));
 
 		if (_interactiveCollisions.Count == 0)
@@ -310,10 +310,9 @@ public partial class Player : CharacterBody3D
 		return _interactiveCollisions.Contains(interactive);
 	}
 
-	// The interact area masks Interactive, DeadHurtBox and BurrowedHurtBox: a
-	// corpse or a burrowed mob is targeted by its hurtbox, so no mob scene has to
-	// author an InteractiveBox to be butchered or dug up. A mob that has both (a
-	// villager) is listed once.
+	// The interact area masks Interactive and BurrowedHurtBox: a burrowed mob is
+	// targeted by its hurtbox, so no mob scene has to author an InteractiveBox to
+	// be dug up. A mob that has both is listed once.
 	private void OnInteractAreaEntered(Area3D area)
 	{
 		IInteractive interactive = InteractiveOf(area);

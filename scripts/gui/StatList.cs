@@ -672,6 +672,26 @@ public static class StatList
 		}
 	}
 
+	// In-world time until the oldest units spoil, as "2d 5h". A perishable whose
+	// clock hasn't started (loot not yet picked up) shows its full spoilDays.
+	public static IEnumerable<(string name, string value)> Spoilage(ItemState item)
+	{
+		if (item?.data == null || item.data.spoilDays <= 0)
+		{
+			yield break;
+		}
+		double spoilAt = item.SoonestSpoilClock;
+		double daysLeft = spoilAt > 0.0
+			? spoilAt - (GameClient.Current.Sim?.WorldClockDays ?? 0.0)
+			: item.data.spoilDays;
+		int hoursLeft = Mathf.Max(0, Mathf.CeilToInt((float)(daysLeft * HoursPerDay)));
+		int days = hoursLeft / HoursPerDay;
+		int hours = hoursLeft % HoursPerDay;
+		string value = days > 0 ? $"{days}d {hours}h" : $"{hours}h";
+		yield return (GameClient.Current.statNames[EStatName.SpoilsIn], value);
+	}
+	private const int HoursPerDay = 24;
+
 	// The kind of round a ranged weapon fires, or a round's own type.
 	public static IEnumerable<(string name, string value)> Ammo(ItemData item)
 	{

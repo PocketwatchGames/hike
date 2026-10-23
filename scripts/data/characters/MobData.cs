@@ -475,20 +475,12 @@ public partial class MobData : Resource
     [Export] public BloodData blood;
 
     [ExportGroup("Loot & Death")]
-    // What the death drop holds is per-variant (SpeciesData.loot). What is cut
-    // from the body is not: it is a trait of the body, shared by every variant,
-    // rolled when a member carrying a Blade butchers the corpse
-    // (SimData.butcherAction), which then removes the body. Meat comes from here,
-    // never from the death drop.
-    //
-    // A small animal is carried off whole instead: set `carcass` and its corpse
-    // offers Pick Up (no blade needed). Its harvest is the carcass item's, so
-    // butchering it where it lies and salvaging the carried carcass roll the same
-    // rows — leave `harvestLoot` empty then. Neither set = nothing to take.
-    [Export] public ItemCountRange[] harvestLoot = System.Array.Empty<ItemCountRange>();
-    [Export] public CarcassData carcass;
-    public ItemCountRange[] HarvestRows => carcass != null ? carcass.harvest : harvestLoot;
-    public bool CanBeButchered => HarvestRows != null && HarvestRows.Length > 0;
+    // The one piece of meat every death drops on top of the variant's loot
+    // (SpeciesData.loot) — a trait of the body, shared by every variant. Author
+    // it with maxStack 1: each is one animal's worth, and what it is cut into
+    // is the meat's salvage. Null = no meat (a slime, a fairy, a
+    // pet, a person).
+    [Export] public ItemData meat;
     //
     // Whether this creature goes about carrying things, and so also drops the
     // loot of the zone it dies in (ZoneData.zoneLoot). A trait of the creature

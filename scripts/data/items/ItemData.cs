@@ -55,7 +55,7 @@ public partial class ItemData : Resource
 	[Export] public EItemCategory categoryOverride = EItemCategory.None;
 
 	// Optional "is-a" link to a more general item, walked by the recipe matcher
-	// (Cooking.TryMatch): a recipe input naming a parent is satisfied by any
+	// (Recipes.TryMatch): a recipe input naming a parent is satisfied by any
 	// descendant, while one naming the descendant stays specific. e.g.
 	// forest_goblin_meat.parent = goblin_meat lets a "needs goblin meat" recipe
 	// accept any goblin subspecies meat. The parent is itself a real item (a
@@ -98,11 +98,16 @@ public partial class ItemData : Resource
 	// from the ground during it (night-only forage). Null = always present.
 	[Export] public TimedEmergenceData timedEmergence;
 
-	// What one unit breaks down into on Salvage (ItemTransfer.Salvage). Empty =
-	// the item can't be salvaged.
+	// What crafting this item at a bench costs and takes, once its recipe is
+	// learned. Crafted items are listed in SimData.recipes. Null = not made, only
+	// found.
+	[Export] public CraftRecipeData recipe;
+
+	// What one unit breaks down into on Salvage at a crafting bench
+	// (ItemTransfer.SalvageInto) — gear into its materials, a creature's meat
+	// (MobData.meat) into its hide, bone and the like. Empty = can't be salvaged.
 	[Export] public Godot.Collections.Array<MaterialCount> salvage = new();
-	// The tool a salvage needs carried, worn once per unit (a carcass needs a
-	// Blade). None = bare hands.
+	// The tool a salvage needs carried, worn once per unit. None = bare hands.
 	[Export] public EToolKind salvageTool = EToolKind.None;
 
 	// What else this item serves as while carried (a knife is a Blade, a shovel a
@@ -111,7 +116,9 @@ public partial class ItemData : Resource
 
 	public bool IsStackable => maxStack > 1;
 
-	public virtual bool IsSalvageable => salvage != null && salvage.Count > 0;
+	public bool HasRecipe => recipe != null && recipe.HasInputs;
+
+	public bool IsSalvageable => salvage != null && salvage.Count > 0;
 
 	// Whether an owned unit soaks and dries with its carrier (Player.TickWetEffect)
 	// and so can carry the item-side Wet status: clothes, and guns' powder.
@@ -120,7 +127,7 @@ public partial class ItemData : Resource
 	public virtual float WetnessDryMultiplier() => 1f;
 
 	// Whether `salvager` can break one unit of this down right now. Tool work is
-	// not done in combat (CombatTracker), the same rule as butchering and digging.
+	// not done in combat (CombatTracker), the same rule as digging.
 	public bool CanSalvage(Player salvager)
 	{
 		if (!IsSalvageable)
@@ -139,12 +146,12 @@ public partial class ItemData : Resource
 		{
 			return;
 		}
-		RollSalvageYields(into);
+		SalvageYields(into);
 	}
 
-	// The `salvage` rows: one stack per stackable yield, one state per unit
-	// otherwise. A subclass may yield from elsewhere (CarcassData rolls its harvest).
-	protected virtual void RollSalvageYields(System.Collections.Generic.List<ItemState> into)
+	// What salvaging one unit gives, without doing it: one stack per stackable
+	// `salvage` row, one state per unit otherwise.
+	public void SalvageYields(System.Collections.Generic.List<ItemState> into)
 	{
 		foreach (MaterialCount yield in salvage)
 		{

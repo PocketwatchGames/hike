@@ -19,6 +19,7 @@
 [ext_resource type="Material" uid="uid://bq7n0wkx2mhd5" path="res://assets/models/campfire/campfire_doused.tres" id="16_doused"]
 [ext_resource type="PackedScene" uid="uid://dfs3p6y8yc688" path="res://scenes/fx/campfire_light.tscn" id="17_lighton"]
 [ext_resource type="PackedScene" uid="uid://cetqhlokr0mrc" path="res://scenes/fx/campfire_loop.tscn" id="18_loop"]
+[ext_resource type="Material" path="res://resources/materials/cookpot_contents.tres" id="19_contents"]
 
 [sub_resource type="Resource" id="Resource_cookpot_event"]
 script = ExtResource("4_event")
@@ -41,10 +42,17 @@ completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_cookpot_
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
 size = Vector3(2.5, 2.5, 2.5)
 
+[sub_resource type="CylinderMesh" id="CylinderMesh_contents"]
+top_radius = 0.6
+bottom_radius = 0.6
+height = 0.04
+radial_segments = 24
+rings = 1
+
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
 size = Vector3(1.1, 1.25, 1.3)
 
-[node name="Cookpot" type="Node3D" unique_id=569663279 node_paths=PackedStringArray("_hudNode", "_light", "_glowModel")]
+[node name="Cookpot" type="Node3D" unique_id=569663279 node_paths=PackedStringArray("_hudNode", "_light", "_glowModel", "_contents")]
 script = ExtResource("1_cookpot")
 _litActions = Array[ExtResource("3_action")]([SubResource("Resource_cookpot_action_cook")])
 _unlitActions = Array[ExtResource("3_action")]([SubResource("Resource_cookpot_action_light")])
@@ -55,6 +63,7 @@ _litMaterial = ExtResource("15_lit")
 _dousedMaterial = ExtResource("16_doused")
 _lightOnEffectScene = ExtResource("17_lighton")
 _lightLoopEffectScene = ExtResource("18_loop")
+_contents = NodePath("Model/Contents")
 
 [node name="Model" type="Node3D" parent="." unique_id=1473368233]
 
@@ -66,6 +75,13 @@ transform = Transform3D(200, 0, 0, 0, 150, 0, 0, 0, 200, 0, 0.3, 0)
 
 [node name="SM_Prop_Cauldron_01" parent="Model/Pot" unique_id=1084616944 instance=ExtResource("13_cauldronfbx")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.0018201021, 0)
+
+[node name="Contents" type="MeshInstance3D" parent="Model"]
+visible = false
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.39, 0)
+cast_shadow = 0
+mesh = SubResource("CylinderMesh_contents")
+surface_material_override/0 = ExtResource("19_contents")
 
 [node name="StationaryLight" type="Node3D" parent="." unique_id=1555365032]
 script = ExtResource("12_light")

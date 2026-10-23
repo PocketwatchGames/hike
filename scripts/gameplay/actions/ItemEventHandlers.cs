@@ -338,7 +338,7 @@ public static class ItemEventHandlers
 	public static void DoHitscan(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		// Spent before ResolveHit so the round's mods reach the hit.
-		if (!SpendShotRounds(ev, ref action, out ItemData round, out int rounds))
+		if (!SpendShotRounds(ev, ref action, out ItemData round, out ItemState piece, out int rounds))
 		{
 			return;
 		}
@@ -457,7 +457,7 @@ public static class ItemEventHandlers
 		if (rounds > 0 && Sim.Current != null)
 		{
 			Mob targetMob = hitResult != EHitResult.None ? FindOwningMob(hitHurtBox) : null;
-			Sim.Current.LandRecoverableRound(round, targetMob, hitPos, direction);
+			Sim.Current.LandRecoverableRound(round, piece, targetMob, hitPos, direction);
 		}
 
 		if (hitResult != EHitResult.None || envResult.Count > 0)
@@ -730,8 +730,9 @@ public static class ItemEventHandlers
 		// Spent before ResolveHit so the round's mods reach the shot. Only the
 		// weapon's own timeline shot spends; a mod-spawned missile is free.
 		ItemData round = null;
+		ItemState piece = null;
 		int rounds = 0;
-		if (weaponShot && !SpendShotRounds(ev, ref action, out round, out rounds))
+		if (weaponShot && !SpendShotRounds(ev, ref action, out round, out piece, out rounds))
 		{
 			return;
 		}
@@ -909,6 +910,7 @@ public static class ItemEventHandlers
 			// One projectile per round spent carries it; the rest of a volley (a
 			// blunderbuss's pellets) leave nothing.
 			impact.round = shot < rounds ? round : null;
+			impact.roundPiece = shot == 0 ? piece : null;
 			Vector3 shotVelocity = velocity;
 			if (!ev.projectileArcing)
 			{
@@ -1533,7 +1535,7 @@ public static class ItemEventHandlers
 			return false;
 		}
 
-		SpendShotRounds(ev, ref action, out _, out _);
+		SpendShotRounds(ev, ref action, out _, out _, out _);
 		ulong lockoutMs = (ulong)(weapon.data.misfireCooldownSeconds * 1000f);
 		ulong readyMs = actor.GameTimeMs + lockoutMs;
 		if (readyMs > weapon.cooldownExpireMs)
@@ -1559,7 +1561,7 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		SpendShotRounds(ev, ref action, out _, out _);
+		SpendShotRounds(ev, ref action, out _, out _, out _);
 	}
 
 	// Spend the rounds an ammo event fires (ItemEvent.ammoCost): units of the
@@ -1567,10 +1569,12 @@ public static class ItemEventHandlers
 	// weapon's mod reads at that round. False when the weapon needs rounds and has
 	// none. `round` is the item a landed shot leaves; null for an event that spends
 	// nothing (no UseAmmo flag, a weapon that needs no ammo, a mob's shot — a mob
-	// carries no inventory).
-	static bool SpendShotRounds(ItemEvent ev, ref PlayerAction action, out ItemData round, out int rounds)
+	// carries no inventory). `piece` is that very item when it is one of a kind
+	// (Inventory.SpendRounds).
+	static bool SpendShotRounds(ItemEvent ev, ref PlayerAction action, out ItemData round, out ItemState piece, out int rounds)
 	{
 		round = null;
+		piece = null;
 		rounds = 0;
 		if ((ev.type & EItemEventType.UseAmmo) == 0
 			|| action.context.primaryItem is not WeaponState weapon
@@ -1579,7 +1583,7 @@ public static class ItemEventHandlers
 		{
 			return true;
 		}
-		rounds = inventory.SpendRounds(weapon, Mathf.Max(1, ev.ammoCost), out round);
+		rounds = inventory.SpendRounds(weapon, Mathf.Max(1, ev.ammoCost), out round, out piece);
 		weapon.statusEffects.SetLoadedRoundSource((round as AmmoData)?.ModSource());
 		return rounds > 0;
 	}

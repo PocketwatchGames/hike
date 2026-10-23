@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_s")
 scenarioName = "tomahawk"
-description = "Three tomahawks at your feet and three goblins to throw them at. Equip the stack, throw, then walk to where each landed to pick it back up into the equipped stack."
+description = "Three tomahawks at your feet and three goblins to throw them at. Each tomahawk is its own item: throw the one in hand and the next carried one is equipped; walk to where each landed to pick it back up, its wear intact. Each strike on a creature wears it by 1."
 commands = "spawn_loot tomahawk 3
 spawn_mob goblin_forest 3"
 metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

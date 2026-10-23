@@ -13,4 +13,20 @@ public partial class ItemEffect : Resource
 	{
 		GD.PushError($"ItemEffect subclass {GetType().Name} must override Apply.");
 	}
+
+	// Apply `effects` in order to `player` as their own use — something eaten or
+	// drunk, with no weapon swing or interactive behind it.
+	public static void ApplyToSelf(Player player, Godot.Collections.Array<ItemEffect> effects)
+	{
+		if (player == null || effects == null)
+		{
+			return;
+		}
+		var context = new ActionContext { verb = EActionVerb.Use, target = player, worldPosition = player.GlobalPosition };
+		int count = effects.Count;
+		for (int i = 0; i < count; i++)
+		{
+			effects[i]?.Apply(player, context);
+		}
+	}
 }

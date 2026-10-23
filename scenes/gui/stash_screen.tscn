@@ -9,7 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="6_11unt"]
 [ext_resource type="PackedScene" uid="uid://obntj5em5frg" path="res://scenes/gui/player_vitals.tscn" id="vitals_scene"]
 
-[node name="StashScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_vitals", "_stashPanel", "_inventoryPanel", "_itemInfoPanel", "_countPanel", "_hintSelect", "_hintEquip", "_hintUse", "_hintSend", "_hintDrop", "_hintSalvage")]
+[node name="StashScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_vitals", "_stashPanel", "_inventoryPanel", "_itemInfoPanel", "_countPanel", "_hintSelect", "_hintEquip", "_hintUse", "_hintSend", "_hintDrop")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -26,7 +26,6 @@ _hintSelect = NodePath("MarginContainer/ButtonHints/ButtonHintA")
 _hintEquip = NodePath("MarginContainer/ButtonHints/ButtonHintEquip")
 _hintSend = NodePath("MarginContainer/ButtonHints/ButtonHintSend")
 _hintDrop = NodePath("MarginContainer/ButtonHints/ButtonHintDrop")
-_hintSalvage = NodePath("MarginContainer/ButtonHints/ButtonHintSalvage")
 _hintUse = NodePath("MarginContainer/ButtonHints/ButtonHintUse")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1234338051]
@@ -201,11 +200,6 @@ InputAction = "MenuQuaternary"
 layout_mode = 2
 ActionName = "Drop"
 InputAction = "MenuQuinary"
-
-[node name="ButtonHintSalvage" parent="MarginContainer/ButtonHints" instance=ExtResource("6_11unt")]
-layout_mode = 2
-ActionName = "Salvage"
-InputAction = "Salvage"
 
 [node name="MarginContainer2" type="MarginContainer" parent="MarginContainer" unique_id=112741701]
 layout_mode = 2

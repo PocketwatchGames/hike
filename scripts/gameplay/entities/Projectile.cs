@@ -23,6 +23,9 @@ public struct ProjectileImpact
 	public PackedScene backstab;
 	public WeaponState sourceWeapon;
 	public ItemData round;
+	// The very item `round` is, when it is one of a kind (a non-stacking thrown
+	// weapon) — it lands as itself rather than as a fresh unit.
+	public ItemState roundPiece;
 	// ItemEvent.durabilityCostOnHit: spent from sourceWeapon when the shot first
 	// strikes a target.
 	public float durabilityCostOnHit;
@@ -740,6 +743,6 @@ public partial class Projectile : Node3D
 			return;
 		}
 		Mob targetMob = result == EHitResult.Health ? ItemEventHandlers.FindOwningMob(hurtBox) : null;
-		Sim.Current.LandRecoverableRound(_impact.round, targetMob, position, _velocity);
+		Sim.Current.LandRecoverableRound(_impact.round, _impact.roundPiece, targetMob, position, _velocity);
 	}
 }

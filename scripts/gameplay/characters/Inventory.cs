@@ -1072,10 +1072,14 @@ public class Inventory : IItemSource
 	// Spend up to `count` rounds for a shot of `weapon`: units of its loaded ammo
 	// from any carried stack, or of a thrown weapon's own equipped stack. `round`
 	// is the kind spent (the weapon itself when thrown, null when it needs none).
-	// Returns the rounds spent — `count` for a weapon that needs none.
-	public int SpendRounds(WeaponState weapon, int count, out ItemData round)
+	// `piece` is the very item spent when it is one of a kind — a non-stacking
+	// thrown weapon, which flies and lands as itself so its wear comes back with
+	// it; null for units of a stack. Returns the rounds spent — `count` for a
+	// weapon that needs none.
+	public int SpendRounds(WeaponState weapon, int count, out ItemData round, out ItemState piece)
 	{
 		round = null;
+		piece = null;
 		WeaponData data = weapon?.data;
 		if (data == null || count <= 0)
 		{
@@ -1084,7 +1088,7 @@ public class Inventory : IItemSource
 		if (data.thrown)
 		{
 			round = data;
-			return SpendThrown(weapon, count);
+			return SpendThrown(weapon, count, out piece);
 		}
 		if (!data.NeedsAmmo)
 		{
@@ -1117,19 +1121,30 @@ public class Inventory : IItemSource
 		return spent;
 	}
 
-	// A thrown weapon spends its own stack. The last unit leaves the slot, and
-	// another carried stack of the same weapon is equipped in its place.
-	private int SpendThrown(WeaponState weapon, int count)
+	// A thrown weapon spends its own stack — or, when it doesn't stack, leaves
+	// the slot whole as `piece`. The last unit leaves the slot, and another
+	// carried one of the same weapon is equipped in its place.
+	private int SpendThrown(WeaponState weapon, int count, out ItemState piece)
 	{
+		piece = null;
 		if (!IsEquipped(weapon))
 		{
 			return 0;
 		}
-		int spent = weapon.Consume(count);
-		if (weapon.stackCount > 0)
+		int spent;
+		if (weapon.data.IsStackable)
 		{
-			Changed();
-			return spent;
+			spent = weapon.Consume(count);
+			if (weapon.stackCount > 0)
+			{
+				Changed();
+				return spent;
+			}
+		}
+		else
+		{
+			spent = 1;
+			piece = weapon;
 		}
 		Remove(weapon);
 		for (int g = 0; g < _carried.Count; g++)

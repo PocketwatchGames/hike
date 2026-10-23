@@ -26,12 +26,21 @@ item = ExtResource("repair_beads")
 count = 1
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
+[sub_resource type="Resource" id="salvage_steel"]
+script = ExtResource("material_count")
+item = ExtResource("repair_steel")
+
+[sub_resource type="Resource" id="salvage_beads"]
+script = ExtResource("material_count")
+item = ExtResource("repair_beads")
+
 [resource]
 script = ExtResource("1_armor")
 maxArmor = 360.0
 armorSlot = 1
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_nightvision")])
 maxDurability = 3600
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_steel"), SubResource("salvage_beads")])
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel"), SubResource("repair_cost_beads")])
 displayName = &"Glimp Visor"
 description = "Luminous lenses pierce the gloom, granting sight in near-total darkness."

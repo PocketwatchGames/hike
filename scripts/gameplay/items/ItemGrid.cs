@@ -12,10 +12,13 @@ public class ItemGrid : IItemGrid, IItemSource
 	private ItemState[] _slots;
 
 	// Raised by the changes that land in place, out from under whatever is showing
-	// the grid: a spend (which can arrive mid-timeline) and the spoil prune. The
-	// placement methods don't raise it — their caller is the one moving items and
-	// repaints itself.
+	// the grid: a spend (which can arrive mid-timeline), the spoil prune, and a
+	// crafting bench's deliveries (NotifyChanged). The placement methods don't
+	// raise it — their caller is the one moving items and repaints itself.
 	public event Action onChanged;
+
+	// For a caller placing items out from under whatever shows the grid.
+	public void NotifyChanged() => onChanged?.Invoke();
 
 	public ItemGrid(int capacity)
 	{
@@ -178,6 +181,60 @@ public class ItemGrid : IItemGrid, IItemSource
 		return data != null && count > 0 && RoomFor(data) >= count;
 	}
 
+	// Whether Add would take every one of `items` whole. They compete for the same
+	// empty slots, so this is not the AND of CanFullyAdd per item.
+	public bool CanFullyAddAll(IReadOnlyList<ItemState> items)
+	{
+		if (items == null || items.Count == 0)
+		{
+			return true;
+		}
+		var units = new Dictionary<ItemData, int>();
+		int slotsNeeded = 0;
+		for (int i = 0; i < items.Count; i++)
+		{
+			ItemState item = items[i];
+			if (item?.data == null || item.stackCount <= 0)
+			{
+				continue;
+			}
+			if (item.data.IsStackable)
+			{
+				units.TryGetValue(item.data, out int existing);
+				units[item.data] = existing + item.stackCount;
+			}
+			else
+			{
+				slotsNeeded++;
+			}
+		}
+		foreach ((ItemData data, int count) in units)
+		{
+			int remaining = count;
+			for (int i = 0; i < _slots.Length && remaining > 0; i++)
+			{
+				if (_slots[i] != null && _slots[i].data == data)
+				{
+					remaining -= _slots[i].RemainingStackSpace();
+				}
+			}
+			if (remaining > 0)
+			{
+				int perSlot = Math.Max(1, data.maxStack);
+				slotsNeeded += (remaining + perSlot - 1) / perSlot;
+			}
+		}
+		int empty = 0;
+		for (int i = 0; i < _slots.Length; i++)
+		{
+			if (_slots[i] == null)
+			{
+				empty++;
+			}
+		}
+		return slotsNeeded <= empty;
+	}
+
 	// How many units of `data` Add could take: the space left in matching stacks
 	// plus a full stack per empty slot.
 	public int RoomFor(ItemData data)
@@ -292,7 +349,7 @@ public class ItemGrid : IItemGrid, IItemSource
 	}
 
 	// Spend up to `count` units of a reagent from the materials here and in any
-	// sack here, matching by the item's parent chain (Cooking.Satisfies). Emptied
+	// sack here, matching by the item's parent chain (Recipes.Satisfies). Emptied
 	// stacks free their slot. Returns how many units were spent; `spentItems`,
 	// when given, collects them.
 	public int SpendMaterial(ItemData reagentItem, int count, List<SpentItem> spentItems = null)
@@ -306,7 +363,7 @@ public class ItemGrid : IItemGrid, IItemSource
 				spent += sack.contents.SpendMaterial(reagentItem, count - spent, spentItems);
 				continue;
 			}
-			if (s?.data == null || !s.data.IsMaterial || s.stackCount <= 0 || !Cooking.Satisfies(s.data, reagentItem))
+			if (s?.data == null || !s.data.IsMaterial || s.stackCount <= 0 || !Recipes.Satisfies(s.data, reagentItem))
 			{
 				continue;
 			}

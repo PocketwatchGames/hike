@@ -3,9 +3,7 @@
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
-[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_l34x3"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
-[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_kxvtc"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
@@ -20,10 +18,8 @@
 [ext_resource type="PackedScene" path="res://scenes/fx/thrust_smear.tscn" id="9_smear"]
 [ext_resource type="Texture2D" uid="uid://i4dm87uorjoi" path="res://assets/textures/items/Spear.png" id="15_sprite"]
 [ext_resource type="PackedScene" path="res://scenes/items/spear_held.tscn" id="17_held"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="19_60qp3"]
 [ext_resource type="Resource" uid="uid://ctqy5r6q3jmsx" path="res://resources/data/characters/human/anim_sets/knife.tres" id="20_animset"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
-[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="27_60qp3"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/cordage.tres" id="repair_cordage"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
@@ -171,10 +167,13 @@ script = ExtResource("material_count")
 item = ExtResource("repair_cordage")
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
-[sub_resource type="Resource" id="salvage_yield_steel"]
+[sub_resource type="Resource" id="salvage_steel"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_steel")
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_cordage"]
+script = ExtResource("material_count")
+item = ExtResource("repair_cordage")
 
 [resource]
 script = ExtResource("2_weapon")
@@ -188,10 +187,10 @@ actionProfile = SubResource("Resource_profile")
 animSet = ExtResource("20_animset")
 weight = 0.3
 maxDurability = 80
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_steel"), SubResource("salvage_cordage")])
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel"), SubResource("repair_cost_cordage")])
 displayName = &"Spear"
 description = "A long thrusting spear. Reaches far and punches through armor; the charged lunge drives you into your foe."
 value = 50
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("17_held")
-salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])

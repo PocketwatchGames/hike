@@ -2,7 +2,6 @@
 
 [ext_resource type="Texture2D" uid="uid://cxfdn0d5db6mw" path="res://assets/textures/items/LeatherArmor.png" id="1_kkvw5"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_bvjtb"]
-[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="9_vsxjd"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
@@ -45,11 +44,14 @@ script = ExtResource("material_count")
 item = ExtResource("repair_sinew")
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
-[sub_resource type="Resource" id="salvage_yield_leather"]
+[sub_resource type="Resource" id="salvage_leather"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_leather")
 count = 2
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_sinew"]
+script = ExtResource("material_count")
+item = ExtResource("repair_sinew")
 
 [resource]
 script = ExtResource("2_bvjtb")
@@ -59,9 +61,9 @@ modifiers = Array[ExtResource("modifier_1")]([SubResource("m_cold"), SubResource
 outfit = SubResource("outfit")
 weight = 0.5
 maxDurability = 6000
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_leather"), SubResource("salvage_sinew")])
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_leather"), SubResource("repair_cost_sinew")])
 displayName = &"Trapper\'s Jerkin"
 description = "Smoke-tanned buckskin, stiff with old grease and patched at the elbows — it turns a thorn or a glancing knife, and smells of every campfire it has known."
 value = 60
 inventorySprite = ExtResource("1_kkvw5")
-salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_leather")])

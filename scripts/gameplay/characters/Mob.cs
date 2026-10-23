@@ -1228,8 +1228,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     // Mobs never run reagent-costed interactives (those are player-only), so the
     // ingredient gate always passes and the spend has nothing to deduct from.
-    public bool HasReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents) => true;
-    public bool SpendReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents, System.Collections.Generic.List<SpentItem> spent = null) => false;
+    public bool HasReagents(System.Collections.Generic.IReadOnlyList<MaterialCount> reagents) => true;
+    public bool SpendReagents(System.Collections.Generic.IReadOnlyList<MaterialCount> reagents, System.Collections.Generic.List<SpentItem> spent = null) => false;
     public bool HasKeyFor(LockData lockData) => false;
     public KeyData SpendKeyFor(LockData lockData) => null;
 
@@ -1435,7 +1435,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     {
         if (!alive)
         {
-            return CorpseActions().Count > 0;
+            return false;
         }
         if (burrowed || burrowing)
         {
@@ -1447,18 +1447,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
 
     // A mob the player hasn't perceived offers nothing, or the interact prompt
-    // would give away a creature the perception model is still hiding. A corpse
-    // or a burrowed mob offers only the actions offered to this member (a Blade
-    // carried to Butcher, a shovel to Dig, and neither in combat).
+    // would give away a creature the perception model is still hiding. A burrowed
+    // mob offers Dig only to a member it is offered to (a shovel carried, not in
+    // combat).
     public bool CanActorInteract(Player player)
     {
         if (!CanInteract())
         {
             return false;
-        }
-        if (!alive)
-        {
-            return OfferedCorpseActions(player).Count > 0;
         }
         if (burrowed)
         {
@@ -1475,85 +1471,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         return burrowed && _burrowMound != null && _world?.SimData?.digUpAction != null;
     }
 
-    // What this corpse can offer: Pick Up for a carryable body, Butcher for one
-    // with a harvest. Empty once the body is taken.
-    private Godot.Collections.Array<InteractiveAction> CorpseActions()
-    {
-        if (_corpseTaken || IsVanishing)
-        {
-            return EmptyActions;
-        }
-        if (_corpseActions == null)
-        {
-            _corpseActions = new Godot.Collections.Array<InteractiveAction>();
-            SimData simData = _world?.SimData;
-            if (mobData?.carcass != null && simData?.carryCarcassAction != null)
-            {
-                _corpseActions.Add(simData.carryCarcassAction);
-            }
-            if (mobData?.CanBeButchered == true && simData?.butcherAction != null)
-            {
-                _corpseActions.Add(simData.butcherAction);
-            }
-        }
-        return _corpseActions;
-    }
-    private static readonly Godot.Collections.Array<InteractiveAction> EmptyActions = new();
-
-    // The CorpseActions this member is offered right now (InteractiveAction
-    // .IsOfferedTo). One cached list per offered subset, so the HUD — which reads
-    // GetActions every frame and refreshes when the reference changes — sees a
-    // stable list until the subset actually changes.
-    private Godot.Collections.Array<InteractiveAction> OfferedCorpseActions(Player player)
-    {
-        Godot.Collections.Array<InteractiveAction> all = CorpseActions();
-        int count = all.Count;
-        int mask = 0;
-        for (int i = 0; i < count; i++)
-        {
-            if (all[i].IsOfferedTo(player))
-            {
-                mask |= 1 << i;
-            }
-        }
-        _offeredCorpseActions ??= new Godot.Collections.Array<InteractiveAction>[1 << MaxCorpseActions];
-        if (_offeredCorpseActions[mask] == null)
-        {
-            var offered = new Godot.Collections.Array<InteractiveAction>();
-            for (int i = 0; i < count; i++)
-            {
-                if ((mask & (1 << i)) != 0)
-                {
-                    offered.Add(all[i]);
-                }
-            }
-            _offeredCorpseActions[mask] = offered;
-        }
-        return _offeredCorpseActions[mask];
-    }
-    // Pick Up and Butcher.
-    private const int MaxCorpseActions = 2;
-    private Godot.Collections.Array<InteractiveAction>[] _offeredCorpseActions;
-
     // Authored actions prepended with SimData.TalkAction + GiveItemAction
     // for any mob carrying a Conversation. Cached so we don't allocate the
     // merged array per HUD refresh — neither input mutates at runtime.
     private Godot.Collections.Array<InteractiveAction> _resolvedActions;
     private bool _resolvedActionsBuilt;
-    private Godot.Collections.Array<InteractiveAction> _corpseActions;
     private Godot.Collections.Array<InteractiveAction> _burrowedActions;
-    // Set the moment the body is carried off or butchered, so it offers nothing
-    // while it frees.
-    private bool _corpseTaken;
 
-    // The action list for the mob's current state: a corpse's offered actions, a
-    // burrowed mob's Dig, or its authored actions merged with any conversation verbs.
-    private Godot.Collections.Array<InteractiveAction> ResolveActions(Player player)
+    // The action list for the mob's current state: a burrowed mob's Dig, or its
+    // authored actions merged with any conversation verbs.
+    private Godot.Collections.Array<InteractiveAction> ResolveActions()
     {
-        if (!alive)
-        {
-            return OfferedCorpseActions(player);
-        }
         if (burrowed || burrowing)
         {
             _burrowedActions ??= new Godot.Collections.Array<InteractiveAction> { _world?.SimData?.digUpAction };
@@ -1598,7 +1526,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return null;
         }
-        Godot.Collections.Array<InteractiveAction> result = ResolveActions(player);
+        Godot.Collections.Array<InteractiveAction> result = ResolveActions();
         if (result == null || result.Count == 0)
         {
             return null;
@@ -1623,36 +1551,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             case EActionVerb.Trade:
                 OpenMerchantScreen(trade: true, onClose: null);
                 break;
-            case EActionVerb.Butcher:
-                Butcher(GameClient.Current?.Player);
-                break;
-            case EActionVerb.Carry:
-                CarryOff(GameClient.Current?.Player);
-                break;
             case EActionVerb.Dig:
                 DigOut(GameClient.Current?.Player);
                 break;
         }
-    }
-
-    // Cut the body's harvest out with the member's blade (worn once), eject it,
-    // and remove the corpse.
-    private void Butcher(Player player)
-    {
-        if (_corpseTaken || alive || _world == null)
-        {
-            return;
-        }
-        Vector3 center = _hurtBox?.Center ?? GlobalPosition;
-        if (player == null || !player.UseTool(EToolKind.Blade))
-        {
-            return;
-        }
-        var harvest = new List<ItemState>();
-        ItemCountRange.ResolveAll(mobData.HarvestRows, System.Random.Shared, harvest);
-        _world.EjectLoot(harvest, center);
-        BloodSpill.Spill(mobData.blood, _world, new HitInfo(), center, lethal: true);
-        RemoveCorpse();
     }
 
     // Dig a burrowed mob out with the member's digging tool (worn once). Nothing
@@ -1664,36 +1566,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         DigUp(player);
-    }
-
-    // Take the whole body into the member's inventory as its carcass item. A full
-    // inventory leaves the corpse where it lies.
-    private void CarryOff(Player player)
-    {
-        if (_corpseTaken || alive || mobData.carcass == null || player == null)
-        {
-            return;
-        }
-        if (!player.TakeItem(mobData.carcass.CreateState()))
-        {
-            GameClient.Current?.Announce(new Announcement
-            {
-                type = EAnnouncementType.Notice,
-                title = Loc.Get(Loc.Keys.inventory_full),
-            });
-            return;
-        }
-        RemoveCorpse();
-    }
-
-    // The node goes; the sim state stays the dead mob it already was, so a rest
-    // revives a population mob exactly as it would an untouched corpse, and an
-    // individual stays gone.
-    private void RemoveCorpse()
-    {
-        _corpseTaken = true;
-        _world.RemoveEntity(this);
-        QueueFree();
     }
 
     public void OpenMerchantScreen(bool trade, Action onClose)
@@ -5482,8 +5354,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _world?.EjectLoot(items, GlobalPosition + Vector3.Up);
     }
 
-    // The species loot, rolled now, plus what this individual carried and the
-    // elite trophy.
+    // The body's meat, the species loot rolled now, plus what this individual
+    // carried and the elite trophy.
     private void EjectLoot()
     {
         if (_world == null)
@@ -5491,6 +5363,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         Vector3 origin = GlobalPosition + Vector3.Up;
+        if (mobData?.meat != null)
+        {
+            _world.EjectLoot(new List<ItemState> { mobData.meat.CreateState() }, origin);
+        }
         if (_simState?.Species != null)
         {
             var rolled = new List<ItemState>();

@@ -43,13 +43,6 @@ public enum EActionVerb
 	// Interact with a camp — opens the camp screen. Authored on campfire
 	// interactives.
 	Camp,
-	// Butcher a corpse with a carried Blade (EToolKind) — SimData.butcherAction,
-	// offered by every dead mob with a harvest (MobData.HarvestRows). The
-	// mob's Complete ejects the harvest and removes the body.
-	Butcher,
-	// Pick a small animal's corpse up whole, as its MobData.carcass item —
-	// SimData.carryCarcassAction. Needs no blade.
-	Carry,
 	// Dig up a buried spot a held treasure map points at, with a carried Digging
 	// tool (BuriedSpot).
 	Dig,

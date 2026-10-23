@@ -5,13 +5,13 @@
 [resource]
 script = ExtResource("1_s")
 scenarioName = "sack"
-description = "An ingredient sack, then things it takes (mushrooms, meat, gold, a crown) and things it refuses (a potion, a meal, a scroll). Pick up the sack first: the materials should land in it, the rest in the backpack or belt."
+description = "An ingredient sack, then things it takes (mushrooms, meat, gold, a crown) and things it refuses (a potion, jerky, a scroll). Pick up the sack first: the materials should land in it, the rest in the backpack or belt."
 commands = "spawn_loot ingredient_sack 1
 spawn_loot mushroom_red 3
 spawn_loot troll_meat 2
 spawn_loot gold 5
 spawn_loot crown 1
 spawn_loot health_potion 1
-spawn_loot meal_grilled_troll 1
+spawn_loot meal_smoked_sparrow 1
 spawn_loot scroll_caltrops 1"
 metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

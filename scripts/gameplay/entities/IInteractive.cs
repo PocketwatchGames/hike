@@ -25,7 +25,7 @@ public interface IInteractive
     // Branch on `action.verb` when behavior differs by verb (Open swings a door
     // open while Lockpick reveals the lock state, Break smashes the chest, etc.).
     // Given the action itself, not an index: GetActions may answer differently
-    // by the time the action completes (a corpse's Butcher hides in combat).
+    // by the time the action completes (a burrowed mob's Dig hides in combat).
     void Complete(InteractiveAction action);
 
     // Action-runner-driven interactivity. The Player's interact press starts

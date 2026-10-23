@@ -1,0 +1,236 @@
+using System.Collections.Generic;
+using Godot.Collections;
+
+// Pure recipe matcher. Given a cookpot's experimentation inputs (any number of
+// slots, each holding an ItemState or null) and its recipe list (SimData.meals),
+// returns the meal those ingredients make. The rules read only the RecipeData,
+// so they hold for anything that carries one. (A crafting bench matches
+// nothing — it makes only learned recipes, CraftRecipeData.)
+// Match rules:
+//   * Every authored ingredient must satisfy the provided count being inside
+//     [count - range, count + range] (low bound clamped at 0). An ingredient
+//     is OPTIONAL when its low bound is <= 0 — absence then counts as a
+//     provided amount of 0 and the recipe still matches. Required
+//     ingredients (low > 0) must appear in the inputs.
+//   * The inputs must contain NO ingredient kinds outside the recipe.
+//
+// Ingredient identity is matched up the ItemData.parent chain: a supplied
+// stack is credited to its item AND every ancestor, so a recipe input naming
+// a parent (e.g. goblin_meat) is satisfied by any descendant (forest /
+// desert goblin meat), while a recipe naming the descendant stays specific.
+// An item counts as "outside the recipe" only when neither it nor any of its
+// ancestors is named — so a subspecies meat the recipe never mentions is
+// still allowed when its parent species meat is an authored ingredient.
+//
+// Tier variation (standard vs high-quality output) is expressed by separate
+// items, not by a per-match quality flag. When multiple recipes
+// match the same inputs, the recipe with the highest authored `priority`
+// wins; ties broken by smallest total range (more specific). Final tie
+// resolves to whichever appears first.
+public static class Recipes
+{
+	public static MealData TryMatch(IReadOnlyList<ItemState> inputs, Array<MealData> meals)
+	{
+		return TryMatch(inputs, meals, meal => meal?.recipe);
+	}
+
+	// What `inputs` make among `candidates`, or null when nothing matches.
+	static T TryMatch<[Godot.MustBeVariant] T>(IReadOnlyList<ItemState> inputs, Array<T> candidates, System.Func<T, RecipeData> recipeOf) where T : Godot.GodotObject
+	{
+		if (inputs == null || candidates == null || candidates.Count == 0)
+		{
+			return null;
+		}
+		// Credit each supplied stack to its item and every ancestor so an input
+		// naming any level of the chain sees the aggregated count. suppliedKinds
+		// tracks only the physically-supplied items, for the extra-ingredient
+		// rejection below (which must not trip on credited ancestors).
+		var totals = new System.Collections.Generic.Dictionary<ItemData, int>();
+		var suppliedKinds = new System.Collections.Generic.HashSet<ItemData>();
+		for (int i = 0; i < inputs.Count; i++)
+		{
+			ItemState s = inputs[i];
+			if (s?.data == null || s.stackCount <= 0)
+			{
+				continue;
+			}
+			suppliedKinds.Add(s.data);
+			foreach (ItemData kind in Chain(s.data))
+			{
+				totals.TryGetValue(kind, out int existing);
+				totals[kind] = existing + s.stackCount;
+			}
+		}
+		if (suppliedKinds.Count == 0)
+		{
+			return null;
+		}
+		T bestRecipe = null;
+		int bestPriority = int.MinValue;
+		int bestSpecificity = int.MaxValue;
+		int candidateCount = candidates.Count;
+		for (int r = 0; r < candidateCount; r++)
+		{
+			T made = candidates[r];
+			RecipeData recipe = recipeOf(made);
+			if (!Matches(recipe, totals, suppliedKinds))
+			{
+				continue;
+			}
+			int spec = TotalRange(recipe);
+			if (recipe.priority > bestPriority || (recipe.priority == bestPriority && spec < bestSpecificity))
+			{
+				bestPriority = recipe.priority;
+				bestSpecificity = spec;
+				bestRecipe = made;
+			}
+		}
+		return bestRecipe;
+	}
+
+	static bool Matches(RecipeData recipe, System.Collections.Generic.Dictionary<ItemData, int> totals, System.Collections.Generic.HashSet<ItemData> suppliedKinds)
+	{
+		if (recipe == null || !recipe.HasInputs)
+		{
+			return false;
+		}
+		int inputCount = recipe.inputs.Count;
+		for (int i = 0; i < inputCount; i++)
+		{
+			RecipeInput ri = recipe.inputs[i];
+			if (ri?.item == null)
+			{
+				return false;
+			}
+			int low = ri.count;
+			int high = ri.count + ri.range;
+			if (!totals.TryGetValue(ri.item, out int provided))
+			{
+				// Absent ingredient. Treat as provided=0 — in range iff
+				// low <= 0, which is the signal that the ingredient is
+				// optional.
+				provided = 0;
+			}
+			if (provided < low || provided > high)
+			{
+				return false;
+			}
+		}
+		// Reject if the player has piled in a supplied item this recipe doesn't
+		// author — at any level of its parent chain (a subspecies meat is fine
+		// when the recipe names its species meat).
+		foreach (ItemData kind in suppliedKinds)
+		{
+			if (!CoveredBy(recipe, kind))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	// True if the supplied item or any of its ancestors is an authored
+	// ingredient of the recipe.
+	static bool CoveredBy(RecipeData recipe, ItemData kind)
+	{
+		int inputCount = recipe.inputs.Count;
+		foreach (ItemData d in Chain(kind))
+		{
+			for (int i = 0; i < inputCount; i++)
+			{
+				if (recipe.inputs[i]?.item == d)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	// True when a supplied stack's item satisfies a reagent/ingredient item —
+	// i.e. the reagent is the stack's item or any of its ancestors. Same identity
+	// rule the matcher uses; exposed so reagent spending (Player.SpendReagents)
+	// deducts from the right stacks.
+	public static bool Satisfies(ItemData stackItem, ItemData reagentItem)
+	{
+		if (stackItem == null || reagentItem == null)
+		{
+			return false;
+		}
+		foreach (ItemData d in Chain(stackItem))
+		{
+			if (d == reagentItem)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// Walks an item's parent chain, the item itself first, guarding against
+	// authoring cycles.
+	static System.Collections.Generic.IEnumerable<ItemData> Chain(ItemData item)
+	{
+		var seen = new System.Collections.Generic.HashSet<ItemData>();
+		for (ItemData d = item; d != null && seen.Add(d); d = d.parent)
+		{
+			yield return d;
+		}
+	}
+
+	// Sum of per-ingredient range. Lower = more specific. A recipe with
+	// every input pinned to range=0 has specificity 0, so it always wins
+	// over a looser recipe sharing the same ingredients.
+	static int TotalRange(RecipeData recipe)
+	{
+		int total = 0;
+		int inputCount = recipe.inputs.Count;
+		for (int i = 0; i < inputCount; i++)
+		{
+			RecipeInput ri = recipe.inputs[i];
+			if (ri != null) { total += ri.range; }
+		}
+		return total;
+	}
+
+	// How many times a flat cost (a recipe's inputs, a repair) can be paid from
+	// `pool`. For each row, the affordable count is floor(available / count); the
+	// cost can be paid the minimum of those across all rows.
+	// Availability sums the stackCount of every pool stack whose item (up its
+	// parent chain) matches the reagent, so a reagent naming a parent species
+	// meat is paid by any descendant — the same identity rule TryMatch uses.
+	// Empty / null reagents (or a null pool) yields 0.
+	public static int CountAffordable(IReadOnlyList<MaterialCount> reagents, System.Collections.Generic.IEnumerable<ItemState> pool)
+	{
+		if (reagents == null || reagents.Count == 0 || pool == null)
+		{
+			return 0;
+		}
+		// Sum available amounts, credited up the parent chain like TryMatch.
+		var totals = new System.Collections.Generic.Dictionary<ItemData, int>();
+		foreach (ItemState s in pool)
+		{
+			if (s?.data == null || s.stackCount <= 0)
+			{
+				continue;
+			}
+			foreach (ItemData kind in Chain(s.data))
+			{
+				totals.TryGetValue(kind, out int existing);
+				totals[kind] = existing + s.stackCount;
+			}
+		}
+		int affordable = int.MaxValue;
+		for (int i = 0; i < reagents.Count; i++)
+		{
+			MaterialCount r = reagents[i];
+			if (r?.item == null || r.count <= 0)
+			{
+				continue;
+			}
+			totals.TryGetValue(r.item, out int have);
+			affordable = System.Math.Min(affordable, have / r.count);
+		}
+		return affordable == int.MaxValue ? 0 : affordable;
+	}
+}

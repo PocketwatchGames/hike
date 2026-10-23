@@ -1,7 +1,20 @@
-[gd_resource type="Resource" script_class="ItemData" format=3]
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://vcyxumjsqyfg"]
 
 [ext_resource type="Script" uid="uid://ct3276hu7bc1v" path="res://scripts/data/items/ItemData.cs" id="1_item_data"]
 [ext_resource type="Texture2D" uid="uid://c1m1qbnoj7lob" path="res://assets/textures/items/Beads.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="6_ebl31"]
+[ext_resource type="Resource" uid="uid://wwgu6p2rj14i" path="res://resources/data/items/loot/shell.tres" id="input_shell"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Script" uid="uid://ci8leenexn3d1" path="res://scripts/data/items/CraftRecipeData.cs" id="recipe_data"]
+
+[sub_resource type="Resource" id="input_shell_count"]
+script = ExtResource("material_count")
+item = ExtResource("input_shell")
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("recipe_data")
+inputs = Array[ExtResource("material_count")]([SubResource("input_shell_count")])
+count = 3
 
 [resource]
 script = ExtResource("1_item_data")
@@ -11,3 +24,4 @@ maxStack = 99
 value = 1
 inventorySprite = ExtResource("2_icon")
 typeTags = 256
+recipe = SubResource("Recipe")

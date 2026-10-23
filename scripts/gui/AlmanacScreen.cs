@@ -29,7 +29,6 @@ public partial class AlmanacScreen : Control
 	[Export] ButtonHint _buttonHintEquip;
 	[Export] ButtonHint _buttonHintUse;
 	[Export] ButtonHint _buttonHintDrop;
-	[Export] ButtonHint _buttonHintSalvage;
 	[Export] Control _inventoryTab;
 	[Export] Control _worldMapTab;
 	[Export] Control _bestiaryTab;
@@ -46,7 +45,7 @@ public partial class AlmanacScreen : Control
 		UpdateTab(_bestiaryScreen, _bestiaryTab, false);
 		UpdateTab(_spellScreen, _spellTab, false);
 
-		_inventoryScreen?.BindActionHints(_buttonHintA, _buttonHintEquip, _buttonHintUse, _buttonHintDrop, _buttonHintSalvage);
+		_inventoryScreen?.BindActionHints(_buttonHintA, _buttonHintEquip, _buttonHintUse, _buttonHintDrop);
 		_tabLeftButtonHint?.SetHint("TabLeft", string.Empty);
 		_tabRightButtonHint?.SetHint("TabRight", string.Empty);
 
@@ -128,7 +127,6 @@ public partial class AlmanacScreen : Control
 		if (_buttonHintEquip != null) { _buttonHintEquip.Visible = false; }
 		if (_buttonHintUse != null) { _buttonHintUse.Visible = false; }
 		if (_buttonHintDrop != null) { _buttonHintDrop.Visible = false; }
-		if (_buttonHintSalvage != null) { _buttonHintSalvage.Visible = false; }
 	}
 
 	static void UpdateTab(Control screen, Control tab, bool active)

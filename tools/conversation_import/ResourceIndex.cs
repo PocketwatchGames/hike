@@ -101,9 +101,9 @@ class ResourceIndex
 		return Pick(_languages, world, name);
 	}
 
-	public ResRef Recipe(string world, string basename)
+	public ResRef Meal(string world, string basename)
 	{
-		return ByScriptClass("ConsumableData", world, basename);
+		return ByScriptClass("MealData", world, basename);
 	}
 
 	public ResRef Region(string world, string basename)

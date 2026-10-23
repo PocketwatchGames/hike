@@ -223,7 +223,9 @@ public partial class Sim
     // chance, rolled here so the cue shows where it lands), embedded in the living
     // mob it struck (ammo that embeds), otherwise a loose pickup of it at the
     // impact point. `struckMob` is null for an environment hit or a miss.
-    public void LandRecoverableRound(ItemData round, Mob struckMob, Vector3 position, Vector3 direction)
+    // `piece` is the very item when the round is one of a kind, so the pickup is
+    // that item, wear and all; null lands a fresh unit of `round`.
+    public void LandRecoverableRound(ItemData round, ItemState piece, Mob struckMob, Vector3 position, Vector3 direction)
     {
         float breakChance = round switch
         {
@@ -243,19 +245,19 @@ public partial class Sim
         }
         else
         {
-            EjectFiredRound(round, position);
+            EjectFiredRound(round, position, piece);
         }
     }
 
     // A fired round popping loose — where it landed, or out of a mob that died
     // with it stuck in. Marked so the player collects it on contact.
-    public Loot EjectFiredRound(ItemData round, Vector3 origin)
+    public Loot EjectFiredRound(ItemData round, Vector3 origin, ItemState piece = null)
     {
         if (round == null)
         {
             return null;
         }
-        var simState = new LootSimState(origin, round) { FiredRound = true };
+        var simState = new LootSimState(origin, round) { FiredRound = true, Item = piece };
         return FinishSpawnLoot(simState, origin, BuildEjectImpulse());
     }
 

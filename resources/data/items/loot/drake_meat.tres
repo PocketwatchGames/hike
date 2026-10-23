@@ -6,17 +6,31 @@
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="apply_status"]
 [ext_resource type="Resource" uid="uid://cfgrdp0ehape4" path="res://resources/data/status_effects/status_food_poisoning.tres" id="food_poisoning"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="item_effect"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/feather.tres" id="salvage_feather"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/hide.tres" id="salvage_hide"]
 
 [sub_resource type="Resource" id="eat_poison"]
 script = ExtResource("apply_status")
 statusEffect = ExtResource("food_poisoning")
+
+[sub_resource type="Resource" id="salvage_yield_feather"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_feather")
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_yield_hide"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_hide")
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
 script = ExtResource("1_loot_data")
 effects = Array[ExtResource("item_effect")]([SubResource("eat_poison")])
 satiation = 0.15
 displayName = &"Drake Meat"
-maxStack = 99
+maxStack = 1
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_feather"), SubResource("salvage_yield_hide")])
 spoilDays = 3
 inventorySprite = ExtResource("2_inv")
 typeTags = 129

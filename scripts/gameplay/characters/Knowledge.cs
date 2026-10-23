@@ -30,7 +30,9 @@ public enum EKnowledgeCategory
 public class Knowledge
 {
     public readonly HashSet<ItemData> IdentifiedItems = new();
-    public readonly HashSet<ConsumableData> DiscoveredRecipes = new();
+    // Keyed by what the recipe makes: an ItemData crafted at a bench, or a
+    // MealData cooked in a pot.
+    public readonly HashSet<Resource> DiscoveredRecipes = new();
     // Per-species bestiary discovery — the set of species this store has charted.
     // Unioned across party+individual on read and on merge.
     public readonly HashSet<SpeciesData> DiscoveredSpecies = new();

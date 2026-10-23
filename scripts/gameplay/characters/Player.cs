@@ -1189,19 +1189,19 @@ public partial class Player : CharacterBody3D
 	// IActionActor — non-mutating peek used to gate a reagent-costed interactive
 	// (InteractiveAction.reagents) at press. An empty cost is trivially affordable;
 	// otherwise the carried materials must cover one full cost.
-	public bool HasReagents(IReadOnlyList<RecipeInput> reagents)
+	public bool HasReagents(IReadOnlyList<MaterialCount> reagents)
 	{
 		if (reagents == null || reagents.Count == 0)
 		{
 			return true;
 		}
-		return Cooking.CountAffordable(reagents, CarriedMaterials()) > 0;
+		return Recipes.CountAffordable(reagents, CarriedMaterials()) > 0;
 	}
 
 	// Spend one full cost from the carried materials — a spell cast, a
 	// reagent-costed interactive. Returns false (spending nothing) if they can't
 	// cover it.
-	public bool SpendReagents(IReadOnlyList<RecipeInput> reagents, System.Collections.Generic.List<SpentItem> spent = null)
+	public bool SpendReagents(IReadOnlyList<MaterialCount> reagents, System.Collections.Generic.List<SpentItem> spent = null)
 	{
 		return SpendReagents(reagents, null, spent);
 	}
@@ -1209,19 +1209,19 @@ public partial class Player : CharacterBody3D
 	// Spend one full cost from the carried materials, then `stash` for what they
 	// can't cover (a recipe cooked at camp). Returns false (spending nothing) if
 	// the two together can't cover it.
-	public bool SpendReagents(IReadOnlyList<RecipeInput> reagents, ItemGrid stash, System.Collections.Generic.List<SpentItem> spent = null)
+	public bool SpendReagents(IReadOnlyList<MaterialCount> reagents, ItemGrid stash, System.Collections.Generic.List<SpentItem> spent = null)
 	{
 		if (reagents == null || reagents.Count == 0 || _inventory == null)
 		{
 			return false;
 		}
-		if (Cooking.CountAffordable(reagents, Materials(stash)) <= 0)
+		if (Recipes.CountAffordable(reagents, Materials(stash)) <= 0)
 		{
 			return false;
 		}
 		for (int i = 0; i < reagents.Count; i++)
 		{
-			RecipeInput r = reagents[i];
+			MaterialCount r = reagents[i];
 			if (r?.item == null || r.count <= 0)
 			{
 				continue;

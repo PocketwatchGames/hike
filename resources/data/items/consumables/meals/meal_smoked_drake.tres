@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_consumable"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="4_input"]
+[ext_resource type="Texture2D" path="res://assets/textures/items/GrilledMeal.png" id="6_icon"]
+[ext_resource type="Resource" uid="uid://khjswp5qnpnm" path="res://resources/data/items/loot/drake_meat.tres" id="7_meat"]
+[ext_resource type="Script" uid="uid://j82ckihv22tvk" path="res://scripts/data/items/CraftRecipeData.cs" id="recipe_data"]
+
+[sub_resource type="Resource" id="Resource_input_meat"]
+script = ExtResource("4_input")
+item = ExtResource("7_meat")
+count = 2
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("recipe_data")
+inputs = Array[ExtResource("4_input")]([SubResource("Resource_input_meat")])
+
+[resource]
+script = ExtResource("1_consumable")
+satiation = 0.2
+recipe = SubResource("Recipe")
+displayName = &"Smoked Drake"
+description = "Dark, leathery drake meat, smoked until it will never spoil."
+maxStack = 5
+value = 5
+inventorySprite = ExtResource("6_icon")
+typeTags = 5

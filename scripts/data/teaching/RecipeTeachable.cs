@@ -1,16 +1,16 @@
 using Godot;
 
-// Teaches a recipe — adds the cookable consumable to SimState.DiscoveredRecipes
-// so it shows up in the cookbook before the player has ever cooked it. Each
-// scroll points at exactly one consumable; standard and high-quality variants
-// of a dish are separate consumables, so each is taught on its own.
+// Teaches a recipe — adds the item it makes to SimState.DiscoveredRecipes so it
+// shows up in its station's recipe list before the player has ever made it. Each
+// scroll points at exactly one item; standard and high-quality variants of a
+// dish are separate items, so each is taught on its own.
 // [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]
 public partial class RecipeTeachable : TeachableConcept
 {
-    [Export] public ConsumableData recipe;
+    [Export] public ItemData recipe;
 
     public override string GetDisplayName()
     {

@@ -11,7 +11,6 @@ using Godot;
 //   Y  — use / light / put out the highlighted item, per its kind and state.
 //   RT — drop the highlighted item at the member's feet: a tap drops the whole
 //        stack, a hold asks how many.
-//   RS — hold to salvage one unit of the highlighted item into its materials.
 // The button hints belong to AlmanacScreen, which hands them over
 // (BindActionHints) and hides them on every other tab.
 [GlobalClass]
@@ -25,8 +24,6 @@ public partial class InventoryScreen : Control
 	[Export] private ItemCountPanel _countPanel;
 	// How long Drop must be held to ask how many instead of dropping the stack.
 	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _dropHoldSeconds = 0.6f;
-	// Salvage destroys the item, so it is hold-only — a tap does nothing.
-	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _salvageHoldSeconds = 0.6f;
 
 	// A's glyph follows the primary-verb convention of the other inventory-style
 	// screens; the press itself arrives as the slot button's own activation.
@@ -34,7 +31,6 @@ public partial class InventoryScreen : Control
 	const string EquipAction = "MenuSecondary";
 	const string UseAction = "MenuTertiary";
 	const string DropAction = "MenuQuinary";
-	const string SalvageAction = "Salvage";
 
 	enum ESide
 	{
@@ -72,26 +68,23 @@ public partial class InventoryScreen : Control
 	ButtonHint _hintEquip;
 	ButtonHint _hintUse;
 	ButtonHint _hintDrop;
-	ButtonHint _hintSalvage;
 
 	// The slot under the cursor, and the slot picked up for a move.
 	Slot _focused = Slot.None;
 	Slot _selected = Slot.None;
 	readonly PolledHold _drop = new(DropAction);
-	readonly PolledHold _salvage = new(SalvageAction);
 
 	public void Initialize(GameClient gameClient)
 	{
 		_gameClient = gameClient;
 	}
 
-	public void BindActionHints(ButtonHint select, ButtonHint equip, ButtonHint use, ButtonHint drop, ButtonHint salvage)
+	public void BindActionHints(ButtonHint select, ButtonHint equip, ButtonHint use, ButtonHint drop)
 	{
 		_hintSelect = select;
 		_hintEquip = equip;
 		_hintUse = use;
 		_hintDrop = drop;
-		_hintSalvage = salvage;
 		UpdateHints();
 	}
 
@@ -130,7 +123,6 @@ public partial class InventoryScreen : Control
 			}
 			Refresh();
 			_drop.Arm(_hintDrop);
-			_salvage.Arm(_hintSalvage);
 			// Deferred: GrabFocus needs the slot visible-in-tree, and the focus it
 			// takes is what fills the highlight panel.
 			Callable.From(ApplyInitialFocus).CallDeferred();
@@ -265,7 +257,6 @@ public partial class InventoryScreen : Control
 			return;
 		}
 		TickDropHold((float)delta);
-		TickSalvageHold((float)delta);
 	}
 
 	void TickDropHold(float dt)
@@ -283,27 +274,9 @@ public partial class InventoryScreen : Control
 		}
 	}
 
-	void TickSalvageHold(float dt)
-	{
-		ItemState item = _selected.IsNone ? ItemAt(_focused) : null;
-		if (_salvage.Tick(ItemTransfer.CanSalvage(item, _player), dt, _salvageHoldSeconds, _hintSalvage) != PolledHold.EResult.Hold)
-		{
-			return;
-		}
-		if (_focused.equip)
-		{
-			ItemTransfer.SalvageEquipped(_player, _focused.EquipSlot);
-		}
-		else
-		{
-			ItemTransfer.Salvage(_focused.grid, _focused.index, _player);
-		}
-	}
-
 	void ResetDropHold()
 	{
 		_drop.Reset(_hintDrop);
-		_salvage.Reset(_hintSalvage);
 	}
 
 	void SetSelection(Slot slot)
@@ -345,14 +318,12 @@ public partial class InventoryScreen : Control
 			ShowHint(_hintEquip, EquipAction, null);
 			ShowHint(_hintUse, UseAction, null);
 			ShowHint(_hintDrop, DropAction, null);
-			ShowHint(_hintSalvage, SalvageAction, null);
 			return;
 		}
 		ShowHint(_hintSelect, SelectAction, focused != null ? "Select" : null);
 		ShowHint(_hintEquip, EquipAction, EquipVerb(_player, focused));
 		ShowHint(_hintUse, UseAction, UseVerb(_player, focused));
 		ShowHint(_hintDrop, DropAction, focused != null ? "Drop" : null);
-		ShowHint(_hintSalvage, SalvageAction, ItemTransfer.CanSalvage(focused, _player) ? Loc.Get(Loc.Keys.item_salvage) : null);
 	}
 
 	// A null label hides the hint.

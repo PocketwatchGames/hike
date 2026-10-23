@@ -10,6 +10,7 @@
 [ext_resource type="Resource" uid="uid://cx0idasoppmlu" path="res://resources/data/items/consumables/smelling_salts.tres" id="8_salts"]
 [ext_resource type="Resource" uid="uid://ts86duefnittd" path="res://resources/data/worlds/swamp_world/swamp_world_script.tres" id="9_script"]
 [ext_resource type="Resource" uid="uid://l7uas6y5tl8nb" path="res://resources/data/worlds/shared/stories/intro_placeholder.tres" id="10_story"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/beads.tres" id="11_beads"]
 
 [sub_resource type="Resource" id="Know_cure"]
 script = ExtResource("3_spellteach")
@@ -26,11 +27,16 @@ script = ExtResource("3_spellteach")
 recipe = ExtResource("8_salts")
 metadata/_custom_type_script = "uid://419ghc0cftgeg"
 
+[sub_resource type="Resource" id="Know_beads"]
+script = ExtResource("3_spellteach")
+recipe = ExtResource("11_beads")
+metadata/_custom_type_script = "uid://419ghc0cftgeg"
+
 [resource]
 script = ExtResource("1_script")
 displayName = "Swamp"
 introStory = ExtResource("10_story")
 scriptData = ExtResource("9_script")
 startingParty = [ExtResource("4_mischa"), ExtResource("5_rowan")]
-initialKnowledge = Array[ExtResource("2_teach")]([SubResource("Know_cure"), SubResource("Know_treat"), SubResource("Know_salts")])
+initialKnowledge = Array[ExtResource("2_teach")]([SubResource("Know_cure"), SubResource("Know_treat"), SubResource("Know_salts"), SubResource("Know_beads")])
 metadata/_custom_type_script = "uid://pd51crv4psgyd"

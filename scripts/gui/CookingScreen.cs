@@ -2,24 +2,23 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-// Cooking at an ICookingStation: the camp screen's Cook tab (the lit campfire),
-// or standalone from the HUD at a cookpot. Left = the station's experimentation
-// slots + commit button (CookingPanel); center = the cook's belt and backpack and,
-// at camp only, the party stash (BackpackPanels over Inventory.Belt / Backpack and
-// SimState.PartyStash), whose materials are the ingredient source.
+// Cooking a meal into a Cookpot, opened from the CookpotScreen's Cook button.
+// Left = the pot's experimentation slots, Cook button and meal list
+// (StationPanel); center = the cook's belt and backpack and the party stash
+// (BackpackPanels over Inventory.Belt / Backpack and SimState.PartyStash), whose
+// materials are the ingredient source.
 //
-// Opened with an onClose callback (standalone) it dismisses itself on ui_cancel;
-// opened without one (the camp tab) its host owns ui_cancel.
+// Opened with an onClose callback it dismisses itself on ui_cancel (back to the
+// CookpotScreen); without one its host owns ui_cancel.
 //
-// Cooking is INSTANT — there is no cook job or timer. A recipe is a cookable
-// ConsumableData, and cooking it grants one into the cook's backpack (then the
-// stash, then dropped at their feet if neither has room); eating it is an
-// ordinary item use. Two paths cook:
-//   * Recipe list: tapping a discovered, affordable recipe spends its reagents
-//     from the cook's carried materials, then the stash, and grants the item.
+// Cooking is INSTANT and makes no item: it fills the pot with the meal
+// (Cookpot.Fill), replacing whatever was in it, and closes the screen. The recipes are SimData.meals.
+// Two paths cook:
+//   * Meal list: tapping a discovered, affordable meal spends its reagents from
+//     the cook's carried materials, then the stash, and fills the pot.
 //   * Experimentation: tap materials into the slots and press Cook — the slot
-//     contents are consumed instantly. A valid match discovers the recipe and
-//     grants the item; a failed mix is just wasted ("Yuck").
+//     contents are consumed instantly. A valid match discovers the meal and
+//     fills the pot; a failed mix is just wasted ("Yuck").
 //
 // On a belt / backpack / stash slot, as on the stash screen:
 //   Y  — use the item (eat a meal, drink a potion).
@@ -35,8 +34,10 @@ public partial class CookingScreen : Control
 	// One grid per sack the cook carries, under the backpack.
 	[Export] private SackPanels _sackPanels;
 	[Export] private BackpackPanel _stashPanel;
-	[Export] private CookingPanel _cookingPanel;
+	[Export] private StationPanel _cookingPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
+	// Shown in the info panel's place while a meal recipe is focused.
+	[Export] private MealInfoPanel _mealInfoPanel;
 	// The A / primary button hint. Its label tracks the commit button: "Cook"
 	// while ingredients are loaded, "Continue" (leave camp) when the slots are
 	// empty.
@@ -55,7 +56,7 @@ public partial class CookingScreen : Control
 
 	Action _onClose;
 	Player _player;
-	ICookingStation _station;
+	Cookpot _station;
 
 	// The item slot under the cursor: its grid and panel. The panel is checked for
 	// focus at each press, so a cursor moved onto the cooking panel acts on nothing.
@@ -98,11 +99,11 @@ public partial class CookingScreen : Control
 		{
 			_cookingPanel.onPrimaryTap += OnCookingRemoveTap;
 			_cookingPanel.onFocusedItemChanged += OnCookingFocusChanged;
-			_cookingPanel.onCookPressed += OnCookCommit;
+			_cookingPanel.onCommitPressed += OnCookCommit;
 			_cookingPanel.onRecipeSelected += OnRecipeSelected;
 			_cookingPanel.onRecipeFocused += OnRecipeFocused;
 		}
-		_itemInfoPanel?.SetItem(null);
+		ShowItemInfo(null);
 	}
 
 	public override void _ExitTree()
@@ -135,7 +136,7 @@ public partial class CookingScreen : Control
 		{
 			_cookingPanel.onPrimaryTap -= OnCookingRemoveTap;
 			_cookingPanel.onFocusedItemChanged -= OnCookingFocusChanged;
-			_cookingPanel.onCookPressed -= OnCookCommit;
+			_cookingPanel.onCommitPressed -= OnCookCommit;
 			_cookingPanel.onRecipeSelected -= OnRecipeSelected;
 			_cookingPanel.onRecipeFocused -= OnRecipeFocused;
 		}
@@ -146,7 +147,7 @@ public partial class CookingScreen : Control
 		_player = player;
 	}
 
-	public void Open(Player player, ICookingStation station, Action onClose = null)
+	public void Open(Player player, Cookpot station, Action onClose = null)
 	{
 		if (player != null)
 		{
@@ -173,6 +174,7 @@ public partial class CookingScreen : Control
 		ClearFocusedSlot();
 		_drop.Arm(_hintDrop);
 		_cookingPanel?.HideAnnouncement();
+		_cookingPanel?.SetCommitText(Loc.Get(Loc.Keys.station_cook));
 		Visible = true;
 		// Auto-highlight: see ApplyInitialFocus. Deferred so the just-
 		// shown nodes are visible-in-tree (GrabFocus needs that) and so it runs after
@@ -201,7 +203,7 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		_cookingPanel?.GrabCookButtonFocus();
+		_cookingPanel?.GrabCommitButtonFocus();
 	}
 
 	public void Close()
@@ -236,7 +238,7 @@ public partial class CookingScreen : Control
 		{
 			if (_station != null)
 			{
-				_cookingPanel?.Bind(_station.CookingSlots);
+				_cookingPanel?.Bind(_station.InputSlots);
 			}
 			RefreshMaterials();
 			RefreshRecipeList();
@@ -302,14 +304,39 @@ public partial class CookingScreen : Control
 			return;
 		}
 		var materials = new List<ItemState>(_player.Materials(Stash));
-		_cookingPanel.RefreshRecipes(simData.recipes, worldSim, materials, _station.CampfireType);
+		var rows = new List<StationPanel.RecipeRow>();
+		int mealCount = simData.meals.Count;
+		for (int i = 0; i < mealCount; i++)
+		{
+			MealData meal = simData.meals[i];
+			if (meal == null || !meal.HasRecipe || worldSim == null || !worldSim.IsRecipeDiscovered(meal))
+			{
+				continue;
+			}
+			bool affordable = Recipes.CountAffordable(meal.recipe.inputs, materials) > 0;
+			rows.Add(new StationPanel.RecipeRow(meal, meal.displayName.ToString(), meal.icon, affordable));
+		}
+		_cookingPanel.RefreshRecipes(rows);
+	}
+
+	// The info panel shows an item; the meal panel, in its place, a meal.
+	void ShowItemInfo(ItemState item)
+	{
+		_mealInfoPanel?.SetMeal(null);
+		_itemInfoPanel?.SetItem(item);
+	}
+
+	void ShowMealInfo(MealData meal)
+	{
+		_itemInfoPanel?.SetItem(null);
+		_mealInfoPanel?.SetMeal(meal, meal?.recipe?.inputs);
 	}
 
 	void OnItemsChanged()
 	{
 		RefreshMaterials();
 		RefreshRecipeList();
-		_itemInfoPanel?.SetItem(FocusedItem());
+		ShowItemInfo(FocusedItem());
 		UpdateItemHints();
 	}
 
@@ -337,7 +364,7 @@ public partial class CookingScreen : Control
 		_focusedIndex = index;
 		_focusedPanel = panel;
 		_drop.Reset(_hintDrop);
-		_itemInfoPanel?.SetItem(FocusedItem());
+		ShowItemInfo(FocusedItem());
 		UpdateItemHints();
 	}
 
@@ -411,7 +438,7 @@ public partial class CookingScreen : Control
 	void OnCookingFocusChanged(ItemSlotPanel panel, ItemState item)
 	{
 		ClearFocusedSlot();
-		_itemInfoPanel?.SetItem(item);
+		ShowItemInfo(item);
 	}
 
 	void OnCookingRemoveTap(int index, ItemSlotPanel panel, ItemState item)
@@ -431,40 +458,39 @@ public partial class CookingScreen : Control
 		UpdatePrimaryHint();
 	}
 
-	// Recipe list tap: cook this discovered recipe now — pay its reagents from the
-	// cook's carried materials, then the stash, and grant the item. An unaffordable recipe's button is disabled
-	// upstream, so a spend that still fails here just declines silently.
-	void OnRecipeSelected(ConsumableData recipe)
+	// Meal list tap: cook this discovered meal now — pay its reagents from the
+	// cook's carried materials, then the stash, and fill the pot. An unaffordable
+	// meal's button is disabled upstream, so a spend that still fails here just
+	// declines silently.
+	void OnRecipeSelected(Resource key)
 	{
 		SimState worldSim = WorldSim;
-		if (recipe == null || worldSim == null || !worldSim.IsRecipeDiscovered(recipe))
+		if (key is not MealData meal || worldSim == null || !worldSim.IsRecipeDiscovered(meal))
 		{
 			return;
 		}
-		if (_player == null || !_player.SpendReagents(recipe.recipe?.inputs, Stash))
+		if (_player == null || !_player.SpendReagents(meal.recipe?.inputs, Stash))
 		{
 			return;
 		}
-		GrantCooked(recipe);
+		FillPot(meal);
 	}
 
-	// Preview the item a recipe cooks into, with its ingredients as the reagent
-	// row. The recipe is discovered, so its output reads identified.
-	void OnRecipeFocused(ConsumableData recipe)
+	// Preview the meal, with its ingredients as the reagent row.
+	void OnRecipeFocused(Resource key)
 	{
 		ClearFocusedSlot();
-		if (recipe == null)
+		if (key is MealData meal)
 		{
-			return;
+			ShowMealInfo(meal);
 		}
-		_itemInfoPanel?.SetItem(recipe.CreateState(), forceIdentified: true, reagents: recipe.recipe?.inputs);
 	}
 
 	// ---- Cook button -------------------------------------------------------
 
 	// Instant experimentation cook: the loaded slot contents are consumed either
-	// way. A valid match discovers the recipe (no separate "unidentified" phase)
-	// AND grants the item; a failed mix is wasted ("Yuck").
+	// way. A valid match discovers the meal AND fills the pot; a failed mix is
+	// wasted ("Yuck").
 	void OnCookCommit()
 	{
 		if (_cookingPanel == null || _player == null || _station == null)
@@ -481,16 +507,16 @@ public partial class CookingScreen : Control
 			// Nothing loaded — the button does nothing (leaving camp is ui_cancel).
 			return;
 		}
-		Cooking.MatchResult match = Cooking.TryMatch(_cookingPanel.Inputs, simData.recipes, _station.CampfireType);
+		MealData meal = Recipes.TryMatch(_cookingPanel.Inputs, simData.meals);
 		SimState worldSim = WorldSim;
 		_cookingPanel.DrainInputs();
-		if (!match.IsValid || worldSim == null)
+		if (meal == null || worldSim == null)
 		{
-			_cookingPanel.ShowAnnouncement("Cooking failed: Yuck!", null);
+			_cookingPanel.ShowAnnouncement(Loc.Get(Loc.Keys.station_cook_failed), null);
 			UpdatePrimaryHint();
 			return;
 		}
-		if (worldSim.DiscoverRecipe(match.output) && _station.IsCamp)
+		if (worldSim.DiscoverRecipe(meal) && _station.IsCamp)
 		{
 			// Learned AT camp, so commit it to the shared party pool right away
 			// (the same bank a camp visit does) — camp knowledge is party knowledge,
@@ -498,24 +524,20 @@ public partial class CookingScreen : Control
 			// member's provisional store.
 			worldSim.BankActiveKnowledge();
 		}
-		GrantCooked(match.output);
+		FillPot(meal);
 	}
 
-	// Hand one of the cooked item to the cook. Reagents are already spent by the
-	// caller. The cook knows what they made, so an unidentified kind (a potion)
-	// is identified.
-	void GrantCooked(ConsumableData output)
+	// Cook `meal` into the pot, replacing what was there, and return to the
+	// opener (the CookpotScreen) — the pot now holds something to eat. Reagents
+	// are already spent by the caller.
+	void FillPot(MealData meal)
 	{
-		if (output == null || _player == null)
+		if (meal == null || _station == null)
 		{
 			return;
 		}
-		WorldSim?.IdentifyItem(output);
-		ReturnToBackpack(output.CreateState());
-		_cookingPanel?.ShowAnnouncement($"Cooked {output.displayName}", output.inventorySprite);
-		RefreshMaterials();
-		RefreshRecipeList();
-		UpdatePrimaryHint();
+		_station.Fill(meal);
+		Close();
 	}
 
 	// The primary (A) action only ever cooks the loaded ingredients; it's
@@ -523,8 +545,8 @@ public partial class CookingScreen : Control
 	void UpdatePrimaryHint()
 	{
 		bool canCook = HasAnyInput();
-		_buttonHintPrimary?.SetHint(PrimaryHintAction, "Cook");
-		_cookingPanel?.SetCookEnabled(canCook);
+		_buttonHintPrimary?.SetHint(PrimaryHintAction, Loc.Get(Loc.Keys.station_cook));
+		_cookingPanel?.SetCommitEnabled(canCook);
 	}
 
 	bool HasAnyInput()
@@ -643,7 +665,7 @@ public partial class CookingScreen : Control
 
 	public override void _UnhandledInput(InputEvent e)
 	{
-		// Children (CookingPanel) see ui_cancel first and consume it while they
+		// Children (StationPanel) see ui_cancel first and consume it while they
 		// have an in-flight selection.
 		if (!Visible || PickerOpen)
 		{

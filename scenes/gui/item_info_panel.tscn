@@ -8,7 +8,7 @@
 [ext_resource type="PackedScene" uid="uid://cbnyp5wql6yh5" path="res://scenes/gui/status_effect_info_panel.tscn" id="4_t78nj"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="6_t8nb6"]
 
-[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_durabilityBar", "_durabilityLabel", "_actionPanelContainer", "_statContainer", "_statusContainer", "_reagentsRoot", "_reagentSlots")]
+[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_durabilityBar", "_durabilityLabel", "_actionPanelContainer", "_statContainer", "_statusContainer", "_reagentsRoot", "_reagentSlots", "_timeLabel")]
 custom_minimum_size = Vector2(500, 0)
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -27,6 +27,7 @@ _statusContainer = NodePath("MarginContainer/VBoxContainer/StatusEffectContainer
 _statusScene = ExtResource("4_t78nj")
 _reagentsRoot = NodePath("MarginContainer/VBoxContainer/MarginContainer")
 _reagentSlots = [NodePath("MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel"), NodePath("MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel2"), NodePath("MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel3")]
+_timeLabel = NodePath("MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/TimeLabel")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=281920321]
 layout_mode = 2
@@ -120,6 +121,13 @@ size_flags_vertical = 8
 custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 size_flags_vertical = 8
+
+[node name="TimeLabel" type="Label" parent="MarginContainer/VBoxContainer/MarginContainer/VBoxContainer"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 8
+text = "Time: 1h"
+vertical_alignment = 1
 
 [node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer/VBoxContainer" unique_id=405509744]
 layout_mode = 2

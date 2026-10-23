@@ -28,15 +28,18 @@ public partial class ItemInfoPanel : PanelContainer
 	[Export] private bool _showDetails = true;
 	[Export] Control _reagentsRoot;
 	[Export] Godot.Collections.Array<ItemSlotPanel> _reagentSlots;
+	// How long the requirement takes at the bench, beside the reagents.
+	[Export] Label _timeLabel;
 
 	// forceIdentified overrides the world's identification gate so the item's
 	// stats/description always show — the forge picker uses it so a freshly
 	// minted piece reads in full before the player commits to it.
 	//
-	// reagents, when supplied, are the required ingredients shown in the "Required
-	// Reagents" row — a recipe's `inputs` for a crafting preview. Left null, the row
-	// hides.
-	public void SetItem(ItemState item, bool forceIdentified = false, IReadOnlyList<RecipeInput> reagents = null)
+	// reagents, when supplied, are the materials shown in the "Required Reagents"
+	// row — a recipe's `inputs` for a preview, or what a repair costs. Left null,
+	// the row hides. hours, when not negative, is the in-world time the bench
+	// takes, shown with them.
+	public void SetItem(ItemState item, bool forceIdentified = false, IReadOnlyList<MaterialCount> reagents = null, double hours = -1.0)
 	{
 		ItemData data = item?.data;
 		if (data == null)
@@ -68,18 +71,36 @@ public partial class ItemInfoPanel : PanelContainer
 		RebuildItemStats(item, identified);
 		RebuildStatusEffects(item);
 		RebuildActionPanels(item, identified);
-		RebuildReagents(reagents);
+		RebuildReagents(reagents, hours);
+		if (_timeLabel != null)
+		{
+			_timeLabel.Visible = hours >= 0.0;
+			_timeLabel.Text = hours >= 0.0 ? Loc.Format(Loc.Keys.craft_time, FormatHours(hours)) : string.Empty;
+		}
 		Visible = true;
+	}
+
+	// In-world hours as "2h 30m", "45m" or "3h", rounded to the minute.
+	public static string FormatHours(double hours)
+	{
+		int minutes = (int)System.Math.Round(hours * 60.0);
+		int h = minutes / 60;
+		int m = minutes % 60;
+		if (h == 0)
+		{
+			return Loc.Format(Loc.Keys.time_minutes, m);
+		}
+		return m == 0 ? Loc.Format(Loc.Keys.time_hours, h) : Loc.Format(Loc.Keys.time_hours_minutes, h, m);
 	}
 
 	// Fill the "Required Reagents" slots — one authored ItemSlotPanel per entry at its
 	// required count; extra slots are cleared. The whole row (_reagentsRoot) hides
 	// when there are no reagents to show.
-	private void RebuildReagents(IReadOnlyList<RecipeInput> reagents)
+	private void RebuildReagents(IReadOnlyList<MaterialCount> reagents, double hours)
 	{
 		if (_reagentsRoot != null)
 		{
-			_reagentsRoot.Visible = reagents != null && reagents.Count > 0;
+			_reagentsRoot.Visible = (reagents != null && reagents.Count > 0) || hours >= 0.0;
 		}
 		if (_reagentSlots == null)
 		{
@@ -95,7 +116,7 @@ public partial class ItemInfoPanel : PanelContainer
 			ItemState reagent = null;
 			if (reagents != null && i < reagents.Count)
 			{
-				RecipeInput ri = reagents[i];
+				MaterialCount ri = reagents[i];
 				if (ri?.item != null && ri.count > 0)
 				{
 					reagent = ri.item.CreateState();
@@ -205,6 +226,7 @@ public partial class ItemInfoPanel : PanelContainer
 		}
 		AddStats(StatList.Weight(item.data));
 		AddStats(StatList.Food(item.data));
+		AddStats(StatList.Spoilage(item));
 		AddStats(StatList.Contents(item));
 		AddStats(StatList.Ammo(item.data));
 		AddStats(StatList.BreakChance(item.data));

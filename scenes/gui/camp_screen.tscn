@@ -4,10 +4,9 @@
 [ext_resource type="PackedScene" uid="uid://bfjaekwc2fo4t" path="res://scenes/gui/sleep_screen.tscn" id="2_sleep"]
 [ext_resource type="PackedScene" uid="uid://8pc5dagm262w" path="res://scenes/gui/party_screen.tscn" id="3_wnj6t"]
 [ext_resource type="PackedScene" uid="uid://cx320q2n7tosj" path="res://scenes/gui/stash_screen.tscn" id="4_stash"]
-[ext_resource type="PackedScene" uid="uid://bvjwfiiuje7ra" path="res://scenes/gui/cooking_screen.tscn" id="5_wnj6t"]
 [ext_resource type="PackedScene" uid="uid://cbnyp5wql6yh5" path="res://scenes/gui/status_effect_info_panel.tscn" id="6_meal"]
 
-[node name="CampScreen" type="Control" unique_id=924238542 node_paths=PackedStringArray("_sleepScreen", "_partyScreen", "_campRoot", "_stashScreen", "_cookingScreen", "_sleepButton", "_characterButton", "_stashButton", "_cookButton", "_leaveButton", "_cookpotChosenPanel", "_cookpotInfoPanel")]
+[node name="CampScreen" type="Control" unique_id=924238542 node_paths=PackedStringArray("_sleepScreen", "_partyScreen", "_campRoot", "_stashScreen", "_sleepButton", "_characterButton", "_stashButton", "_leaveButton", "_cookpotChosenPanel", "_cookpotInfoPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,11 +18,9 @@ _sleepScreen = NodePath("MarginContainer2/SleepScreen")
 _partyScreen = NodePath("MarginContainer2/PartyScreen")
 _campRoot = NodePath("MarginContainer2/CampRoot")
 _stashScreen = NodePath("MarginContainer2/StashScreen")
-_cookingScreen = NodePath("MarginContainer2/CookingScreen")
 _sleepButton = NodePath("MarginContainer2/CampRoot/HBoxContainer/MarginContainer/VBoxContainer/Button")
 _characterButton = NodePath("MarginContainer2/CampRoot/HBoxContainer/MarginContainer/VBoxContainer/Button2")
 _stashButton = NodePath("MarginContainer2/CampRoot/HBoxContainer/MarginContainer/VBoxContainer/Button3")
-_cookButton = NodePath("MarginContainer2/CampRoot/HBoxContainer/MarginContainer/VBoxContainer/Button5")
 _leaveButton = NodePath("MarginContainer2/CampRoot/HBoxContainer/MarginContainer/VBoxContainer/Button4")
 _cookpotChosenPanel = NodePath("MarginContainer2/LowerRight")
 _cookpotInfoPanel = NodePath("MarginContainer2/LowerRight/VBoxContainer/MealInfoPanel")
@@ -75,10 +72,6 @@ text = "Choose Character
 layout_mode = 2
 text = "Stash"
 
-[node name="Button5" type="Button" parent="MarginContainer2/CampRoot/HBoxContainer/MarginContainer/VBoxContainer" unique_id=2102646542]
-layout_mode = 2
-text = "Cookpot"
-
 [node name="Button4" type="Button" parent="MarginContainer2/CampRoot/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1620394453]
 layout_mode = 2
 text = "Leave Camp
@@ -101,10 +94,6 @@ visible = false
 layout_mode = 2
 
 [node name="StashScreen" parent="MarginContainer2" unique_id=1337731578 instance=ExtResource("4_stash")]
-visible = false
-layout_mode = 2
-
-[node name="CookingScreen" parent="MarginContainer2" unique_id=552971978 instance=ExtResource("5_wnj6t")]
 visible = false
 layout_mode = 2
 

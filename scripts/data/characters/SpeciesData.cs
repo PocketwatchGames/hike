@@ -73,8 +73,7 @@ public partial class SpeciesData : Resource
     [Export] public Godot.Collections.Array<WeaponData> weapons = new();
 
     // Loot ejected from the mob's body when it dies, per zone variant. Never the
-    // body itself: meat and materials are cut from the corpse with a blade
-    // (MobData.harvestLoot / MobData.carcass).
+    // body's meat, which every variant drops alike (MobData.meat).
     // Each row is rolled when the mob dies (Mob.EjectLoot) and fired outward on
     // the same upward arc chests use. Empty = no drops.
     [Export] public Godot.Collections.Array<ItemCountRange> loot = new();

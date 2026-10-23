@@ -20,7 +20,11 @@ public partial class GearData : ItemData
 	// 0 = never wears out (mob weapons, the bare-hands fallbacks).
 	[Export(PropertyHint.Range, "0,1000,1,or_greater")] public int maxDurability = 0;
 
-	// What restoring this piece to full durability costs. Not yet consumed by any
-	// repair mechanic.
+	// What restoring this piece from broken to full durability costs at a crafting
+	// bench. A partly worn piece pays a share (GearState.ComposeRepairCost). Empty =
+	// can't be repaired.
 	[Export] public Godot.Collections.Array<MaterialCount> repair = new();
+	// In-world hours a bench spends restoring this piece from broken to full; a
+	// partly worn piece takes a share (GearState.ComposeRepairHours).
+	[Export(PropertyHint.Range, "0,48,0.25,or_greater")] public float repairHours = 1f;
 }

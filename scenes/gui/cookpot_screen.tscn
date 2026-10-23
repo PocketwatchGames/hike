@@ -1,0 +1,77 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://oh945j576mb30" path="res://scripts/gui/CookpotScreen.cs" id="1_cookpot"]
+[ext_resource type="PackedScene" path="res://scenes/gui/meal_info_panel.tscn" id="2_meal"]
+
+[node name="CookpotScreen" type="Control" node_paths=PackedStringArray("_contentsLabel", "_eatButton", "_cookButton", "_mealInfoPanel")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_cookpot")
+_contentsLabel = NodePath("CenterContainer/HBoxContainer/PanelContainer/MarginContainer/VBoxContainer/Contents")
+_eatButton = NodePath("CenterContainer/HBoxContainer/PanelContainer/MarginContainer/VBoxContainer/Eat")
+_cookButton = NodePath("CenterContainer/HBoxContainer/PanelContainer/MarginContainer/VBoxContainer/Cook")
+_mealInfoPanel = NodePath("CenterContainer/HBoxContainer/MealSlot/MealInfoPanel")
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="CenterContainer"]
+layout_mode = 2
+theme_override_constants/separation = 40
+
+[node name="PanelContainer" type="PanelContainer" parent="CenterContainer/HBoxContainer"]
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/HBoxContainer/PanelContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/HBoxContainer/PanelContainer/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Title" type="Label" parent="CenterContainer/HBoxContainer/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Cookpot"
+horizontal_alignment = 1
+
+[node name="Contents" type="Label" parent="CenterContainer/HBoxContainer/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Eat" type="Button" parent="CenterContainer/HBoxContainer/PanelContainer/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Eat"
+
+[node name="Cook" type="Button" parent="CenterContainer/HBoxContainer/PanelContainer/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Cook"
+
+[node name="MealSlot" type="Control" parent="CenterContainer/HBoxContainer"]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+
+[node name="MealInfoPanel" parent="CenterContainer/HBoxContainer/MealSlot" instance=ExtResource("2_meal")]
+visible = false
+layout_mode = 0
+offset_right = 500.0

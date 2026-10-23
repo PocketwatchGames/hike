@@ -12,8 +12,10 @@ public partial class WeaponData : GearData
 	// weapon). Only tiers flagged ItemAction.useAmmo spend it.
 	[Export] public EAmmoType ammoType = EAmmoType.None;
 
-	// The weapon is its own round (a tomahawk, a bomb): each shot spends one unit
-	// of the equipped stack, so author maxStack > 1 and maxDurability 0. A unit that
+	// The weapon is its own round (a tomahawk, a bomb). Either it stacks and each
+	// shot spends one unit outright (maxDurability 0 — a bomb), or it is one of a
+	// kind that wears (maxStack 1, maxDurability > 0 — a tomahawk): the shot
+	// throws the item itself, and it lands as itself, wear and all. A round that
 	// survives its landing (thrownBreakChance) lies where it fell as a pickup.
 	[Export] public bool thrown = false;
 	[Export(PropertyHint.Range, "0,1,0.01")] public float thrownBreakChance = 0f;

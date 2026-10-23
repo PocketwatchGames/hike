@@ -59,9 +59,9 @@ public interface IActionActor
 	// one cost's worth at natural completion and returns whether it spent. The player
 	// draws from its backpack + the party stash — the same pool alchemy spells cast
 	// from; mobs no-op (they never run reagent-costed interactives).
-	bool HasReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents);
+	bool HasReagents(System.Collections.Generic.IReadOnlyList<MaterialCount> reagents);
 	// `spent`, when given, collects the items actually drawn.
-	bool SpendReagents(System.Collections.Generic.IReadOnlyList<RecipeInput> reagents, System.Collections.Generic.List<SpentItem> spent = null);
+	bool SpendReagents(System.Collections.Generic.IReadOnlyList<MaterialCount> reagents, System.Collections.Generic.List<SpentItem> spent = null);
 
 	// Key gate for a locked interactive (IInteractive.Lock): HasKeyFor peeks at
 	// press, SpendKeyFor spends one key at natural completion and returns which

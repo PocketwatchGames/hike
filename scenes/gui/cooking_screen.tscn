@@ -2,13 +2,14 @@
 
 [ext_resource type="Script" uid="uid://cntd0vmcmhkly" path="res://scripts/gui/CookingScreen.cs" id="1_f2qv6"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_f2qv6"]
-[ext_resource type="PackedScene" uid="uid://dpdp3rplt633u" path="res://scenes/gui/cooking_panel.tscn" id="3_2sopy"]
+[ext_resource type="PackedScene" uid="uid://dpdp3rplt633u" path="res://scenes/gui/station_panel.tscn" id="3_2sopy"]
 [ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="4_vv7vb"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="5_m6qmy"]
 [ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="6_count"]
 [ext_resource type="Script" uid="uid://kiv07fhhmhay5" path="res://scripts/gui/SackPanels.cs" id="7_sacks"]
+[ext_resource type="PackedScene" path="res://scenes/gui/meal_info_panel.tscn" id="8_meal"]
 
-[node name="CookingScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_beltPanel", "_backpackPanel", "_sackPanels", "_stashPanel", "_cookingPanel", "_itemInfoPanel", "_buttonHintPrimary", "_hintUse", "_hintDrop", "_countPanel")]
+[node name="CookingScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_beltPanel", "_backpackPanel", "_sackPanels", "_stashPanel", "_cookingPanel", "_itemInfoPanel", "_mealInfoPanel", "_buttonHintPrimary", "_hintUse", "_hintDrop", "_countPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -22,6 +23,7 @@ _sackPanels = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContai
 _stashPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/StashPanel")
 _cookingPanel = NodePath("MarginContainer/HBoxContainer/CookingContainer/CookingPanel")
 _itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/ItemInfoPanel")
+_mealInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/MealInfoPanel")
 _buttonHintPrimary = NodePath("MarginContainer/ButtonHints/ButtonHintA")
 _hintUse = NodePath("MarginContainer/ButtonHints/ButtonHintUse")
 _hintDrop = NodePath("MarginContainer/ButtonHints/ButtonHintDrop")
@@ -115,6 +117,10 @@ custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 
 [node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer2" unique_id=638608018 instance=ExtResource("5_m6qmy")]
+layout_mode = 2
+
+[node name="MealInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer2" instance=ExtResource("8_meal")]
+visible = false
 layout_mode = 2
 
 [node name="MarginContainer2" type="MarginContainer" parent="MarginContainer"]

@@ -3,11 +3,9 @@
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
-[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_anhyh"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
-[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_joles"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
 [ext_resource type="PackedScene" path="res://scenes/fx/sling_hit_creature.tscn" id="7_hitcreature"]
 [ext_resource type="PackedScene" path="res://scenes/fx/sling_kill.tscn" id="7_hitkill"]
@@ -18,17 +16,13 @@
 [ext_resource type="PackedScene" path="res://scenes/fx/sling_charge_loop.tscn" id="8_chgloop"]
 [ext_resource type="PackedScene" path="res://scenes/fx/sling_charge_tail.tscn" id="8_chgtail"]
 [ext_resource type="PackedScene" path="res://scenes/projectiles/sling_stone.tscn" id="10_stone"]
-[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="11_dggq2"]
 [ext_resource type="Texture2D" uid="uid://bxgnby1jejh10" path="res://assets/textures/items/Sling.png" id="15_sprite"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="19_uqy8r"]
 [ext_resource type="PackedScene" path="res://scenes/items/sling_held.tscn" id="20_held"]
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
 [ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="21_dizzy"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="22_buildup"]
-[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="29_n78ou"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/cordage.tres" id="mat_cordage"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/leather.tres" id="mat_leather"]
 
 [sub_resource type="Resource" id="Resource_event_shot"]
 script = ExtResource("3_event")
@@ -139,10 +133,9 @@ script = ExtResource("material_count")
 item = ExtResource("mat_cordage")
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
-[sub_resource type="Resource" id="salvage_yield_leather"]
+[sub_resource type="Resource" id="salvage_cordage"]
 script = ExtResource("material_count")
-item = ExtResource("mat_leather")
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+item = ExtResource("mat_cordage")
 
 [resource]
 script = ExtResource("2_weapon")
@@ -160,10 +153,10 @@ wieldHand = 1
 animSet = ExtResource("21_animset")
 weight = 0.1
 maxDurability = 200
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_cordage")])
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_cordage")])
 displayName = &"Sling"
 description = "A leather pouch on two cords. Hurls stones that hit lightly but daze and stagger. Never runs out of stones. Hold to whirl for a harder throw."
 value = 15
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("20_held")
-salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_leather")])

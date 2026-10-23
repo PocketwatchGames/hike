@@ -205,9 +205,6 @@ dotnet_diagnostic.HK004.severity = warning
 [scripts/gameplay/AimingReticle.cs]
 dotnet_diagnostic.HK008.severity = warning
 
-[scripts/gameplay/Cooking.cs]
-dotnet_diagnostic.HK008.severity = warning
-
 [scripts/gameplay/HitInfo.cs]
 dotnet_diagnostic.HK008.severity = warning
 
@@ -299,9 +296,6 @@ dotnet_diagnostic.HK002.severity = warning
 dotnet_diagnostic.HK002.severity = warning
 
 [scripts/gui/ConversationController.cs]
-dotnet_diagnostic.HK008.severity = warning
-
-[scripts/gui/CookingPanel.cs]
 dotnet_diagnostic.HK008.severity = warning
 
 [scripts/gui/DiagnosticsOverlay.cs]

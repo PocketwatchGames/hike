@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="MealData" format=3 uid="uid://eow7shyryu3x"]
+
+[ext_resource type="Script" uid="uid://oi1hh5ophkvz0" path="res://scripts/data/meals/MealData.cs" id="1_meal"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
+[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="3_apply"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="4_input"]
+[ext_resource type="Resource" uid="uid://ng4lkqngf3wf" path="res://resources/data/status_effects/well_fed_perception.tres" id="5_status"]
+[ext_resource type="Texture2D" path="res://assets/textures/items/StewMeal.png" id="6_icon"]
+[ext_resource type="Resource" uid="uid://ckmt8n5p3q07w" path="res://resources/data/items/loot/kun_kun_meat.tres" id="7_kun_kun_meat"]
+[ext_resource type="Resource" uid="uid://dyllvcbtkfxjf" path="res://resources/data/items/loot/mushroom_white.tres" id="8_mushroom_white"]
+[ext_resource type="Script" uid="uid://cy238vqb2k86o" path="res://scripts/data/items/RecipeData.cs" id="recipe_data"]
+
+[sub_resource type="Resource" id="Effect_meal"]
+script = ExtResource("3_apply")
+statusEffect = ExtResource("5_status")
+
+[sub_resource type="Resource" id="Resource_input_meat"]
+script = ExtResource("4_input")
+item = ExtResource("7_kun_kun_meat")
+
+[sub_resource type="Resource" id="Resource_input_mushroom"]
+script = ExtResource("4_input")
+item = ExtResource("8_mushroom_white")
+count = 3
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("recipe_data")
+inputs = Array[ExtResource("4_input")]([SubResource("Resource_input_meat"), SubResource("Resource_input_mushroom")])
+
+[resource]
+script = ExtResource("1_meal")
+displayName = &"Keen Kun Kun Stew"
+description = "Kun-kun meat and white mushrooms. Sharpens the senses."
+icon = ExtResource("6_icon")
+recipe = SubResource("Recipe")
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_meal")])
+potColor = Color(0.7, 0.6, 0.2, 1)

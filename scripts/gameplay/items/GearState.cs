@@ -10,7 +10,8 @@ using Godot;
 //   armor        — the damage the armor pool soaks, split across worn pieces
 // A broken piece stays equipped: armor stops recharging, a shield can neither
 // block nor parry, and a weapon can't fire at all — the melee slot swings bare
-// hands instead.
+// hands instead. Durability comes back only by repair at a crafting bench
+// (CraftQueue).
 public class GearState : ItemState
 {
 	public enum ECondition
@@ -66,6 +67,53 @@ public class GearState : ItemState
 			return;
 		}
 		durability = Mathf.Max(0f, durability - amount * ComposeWearMultiplier());
+	}
+
+	// Below full durability, with an authored GearData.repair cost to restore it.
+	public bool IsRepairable => Wears && durability < _data.maxDurability
+		&& _data.repair != null && _data.repair.Count > 0;
+
+	// What restoring this piece to full costs right now: each GearData.repair row
+	// scaled by the fraction of durability missing, rounded up — a scratched piece
+	// costs one of each, a broken one the full list. Empty when not repairable.
+	public System.Collections.Generic.List<MaterialCount> ComposeRepairCost()
+	{
+		var cost = new System.Collections.Generic.List<MaterialCount>();
+		if (!IsRepairable)
+		{
+			return cost;
+		}
+		float missing = MissingFraction();
+		foreach (MaterialCount row in _data.repair)
+		{
+			if (row?.item == null || row.count <= 0)
+			{
+				continue;
+			}
+			cost.Add(new MaterialCount
+			{
+				item = row.item,
+				count = Mathf.CeilToInt(row.count * missing),
+			});
+		}
+		return cost;
+	}
+
+	// In-world hours restoring this piece to full takes: GearData.repairHours
+	// scaled by the fraction of durability missing.
+	public double ComposeRepairHours()
+	{
+		return IsRepairable ? _data.repairHours * MissingFraction() : 0.0;
+	}
+
+	private float MissingFraction() => 1f - durability / _data.maxDurability;
+
+	public void Repair()
+	{
+		if (Wears)
+		{
+			durability = _data.maxDurability;
+		}
 	}
 
 	public override void WriteSubclassState(System.IO.BinaryWriter w)

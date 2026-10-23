@@ -219,6 +219,7 @@ public partial class Sim : Node3D
         _wasNight = WorldState.IsNight(worldState.TimeOfDay01);
         _fadeProbe = new FoliageCutawayProbe(worldState);
         IndexDeathSacks();
+        IndexCraftingBenches();
 
         // "Return to Camp" is added on the dusk edge; sleeping to sunrise clears it.
         OnNightfall += AddReturnToCampQuest;

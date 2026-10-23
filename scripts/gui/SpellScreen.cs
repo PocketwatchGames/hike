@@ -57,12 +57,12 @@ public partial class SpellScreen : Control
 		SimData simData = _gameClient?.Sim?.SimData;
 		SimState worldSim = _gameClient?.Sim?.WorldState?.SimState;
 		Button firstButton = null;
-		ConsumableData firstSpell = null;
+		ItemData firstSpell = null;
 		if (simData != null && worldSim != null && simData.recipes != null)
 		{
 			for (int i = 0; i < simData.recipes.Count; i++)
 			{
-				ConsumableData spell = simData.recipes[i];
+				ItemData spell = simData.recipes[i];
 				if (spell == null || !worldSim.IsRecipeDiscovered(spell))
 				{
 					continue;
@@ -94,7 +94,7 @@ public partial class SpellScreen : Control
 		}
 	}
 
-	Button CreateSpellButton(ConsumableData spell)
+	Button CreateSpellButton(ItemData spell)
 	{
 		if (_spellButtonScene == null || _spellListContainer == null)
 		{
@@ -110,7 +110,7 @@ public partial class SpellScreen : Control
 			? worldSim.GetItemDisplayName(spell)
 			: spell.displayName.ToString();
 		button.Icon = spell.inventorySprite;
-		ConsumableData captured = spell;
+		ItemData captured = spell;
 		button.FocusEntered += () => ShowSpellDetail(captured);
 		// Mouse hover grabs focus so the right-hand info / reagent view tracks
 		// the cursor the same way D-pad navigation does.
@@ -122,7 +122,7 @@ public partial class SpellScreen : Control
 	// Bind the right-hand info panel and reagent slots to a single recipe row.
 	// spell = null clears everything (used at construction and when no recipes
 	// are known). A known recipe's output reads identified.
-	void ShowSpellDetail(ConsumableData spell)
+	void ShowSpellDetail(ItemData spell)
 	{
 		if (spell != null)
 		{

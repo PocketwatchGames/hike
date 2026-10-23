@@ -218,11 +218,10 @@ public class SimState
     // through their existing onChanged paths and don't need this event.
     public event Action<ItemData> onItemIdentified;
 
-    // Fired the first time a recipe is discovered. With each tier authored as
-    // its own consumable, this fires once per consumable the player newly
-    // earns — including the high-quality tier of a dish whose standard variant
-    // they already had.
-    public event Action<ConsumableData> onRecipeDiscovered;
+    // Fired the first time a recipe is discovered, with what it makes (an
+    // ItemData or a MealData). Each tier is authored as its own output, so this
+    // fires once per output the player newly earns.
+    public event Action<Resource> onRecipeDiscovered;
 
     // Fired the first time a species is discovered. GameClient subscribes to
     // forward an announcement; the bestiary refreshes through its own
@@ -294,7 +293,8 @@ public class SimState
 
     // ---- Recipes -----------------------------------------------------------
 
-    public bool IsRecipeDiscovered(ConsumableData recipe)
+    // `recipe` is what it makes: an ItemData or a MealData.
+    public bool IsRecipeDiscovered(Resource recipe)
     {
         if (recipe == null)
         {
@@ -306,9 +306,9 @@ public class SimState
 
     // Records a discovery and fires onRecipeDiscovered. Returns true on first
     // discovery; subsequent calls for the same recipe are silent. Knowing how to
-    // make an item is knowing what it is, so this also silently identifies the
+    // make an item is knowing what it is, so this also silently identifies an
     // item — no separate "Item Identified" banner.
-    public bool DiscoverRecipe(ConsumableData recipe)
+    public bool DiscoverRecipe(Resource recipe)
     {
         if (recipe == null)
         {
@@ -319,9 +319,9 @@ public class SimState
         {
             return false;
         }
-        if (!string.IsNullOrEmpty(recipe.unidentifiedDisplayName.ToString()) && !IdentifiedInStores(recipe))
+        if (recipe is ItemData item && !string.IsNullOrEmpty(item.unidentifiedDisplayName.ToString()) && !IdentifiedInStores(item))
         {
-            store.IdentifiedItems.Add(recipe);
+            store.IdentifiedItems.Add(item);
         }
         store.DiscoveredRecipes.Add(recipe);
         onRecipeDiscovered?.Invoke(recipe);

@@ -32,10 +32,7 @@ using System.Text;
 //   the same at 0 and 1. The clock wraps from 1 straight to 0 at sunrise in
 //   plain sight, so a mismatch is an audible / visible jump every dawn.
 //
-//   Harvest — every MobData.harvestLoot / CarcassData.harvest row names an item
-//   (an empty row rolls nothing, so a butchered corpse vanishes short of its
-//   yield); a carryable body's harvest lives only on its carcass; and a carcass
-//   never stacks, being one whole animal.
+//   Meat — a MobData.meat never stacks, being one animal's worth.
 //
 //   Tool uses — every ItemData.toolUses row names a kind; a None row makes the
 //   item serve as nothing while reading as if it did.
@@ -218,7 +215,7 @@ public static class ResourceCheck
             loaded++;
             WalkForDamageTags(res, path, problems);
             CheckTimeOfDayCurves(res, path, problems);
-            CheckHarvestLoot(res, path, problems);
+            CheckMeatAndTools(res, path, problems);
             CheckAmmo(res, path, standardAmmo, problems);
 
             string declared = DeclaredScriptClass(path);
@@ -253,13 +250,13 @@ public static class ResourceCheck
         }
         if (res is WeaponData { thrown: true } thrown)
         {
-            if (!thrown.IsStackable)
+            if (thrown.IsStackable && thrown.maxDurability > 0f)
             {
-                problems.Add($"{path}: a thrown weapon is its own round and must stack (maxStack {thrown.maxStack})");
+                problems.Add($"{path}: a stacking thrown weapon must not wear (maxDurability {thrown.maxDurability}) — each unit is spent outright, so its wear would be shared by the stack and lost on landing");
             }
-            if (thrown.maxDurability > 0f)
+            if (!thrown.IsStackable && thrown.maxDurability <= 0f)
             {
-                problems.Add($"{path}: a thrown weapon must not wear (maxDurability {thrown.maxDurability}) — each unit is spent outright");
+                problems.Add($"{path}: a non-stacking thrown weapon must wear (maxDurability {thrown.maxDurability}) — it comes back as itself, so nothing else ever uses it up");
             }
             if (thrown.NeedsAmmo)
             {
@@ -268,17 +265,17 @@ public static class ResourceCheck
         }
     }
 
-    private static void CheckHarvestLoot(Resource res, string path, List<string> problems)
+    private static void CheckMeatAndTools(Resource res, string path, List<string> problems)
     {
-        if (res is MobData mob)
+        if (res is MobData mob && mob.meat != null && mob.meat.IsStackable)
         {
-            CheckHarvestRows(mob.harvestLoot, nameof(MobData.harvestLoot), path, problems);
-            if (mob.carcass != null && mob.harvestLoot != null && mob.harvestLoot.Length > 0)
-            {
-                problems.Add($"{path}: has a carcass AND harvestLoot — a carryable body's harvest lives on its carcass only");
-            }
+            problems.Add($"{path}: meat {mob.meat.ResourcePath} must not stack (maxStack {mob.meat.maxStack})");
         }
-        if (res is ItemData item && item.toolUses != null)
+        if (res is not ItemData item)
+        {
+            return;
+        }
+        if (item.toolUses != null)
         {
             int count = item.toolUses.Count;
             for (int i = 0; i < count; i++)
@@ -287,29 +284,6 @@ public static class ResourceCheck
                 {
                     problems.Add($"{path}: toolUses[{i}] names no tool kind");
                 }
-            }
-        }
-        if (res is CarcassData carcass)
-        {
-            CheckHarvestRows(carcass.harvest, nameof(CarcassData.harvest), path, problems);
-            if (carcass.IsStackable)
-            {
-                problems.Add($"{path}: a carcass must not stack (maxStack {carcass.maxStack})");
-            }
-        }
-    }
-
-    private static void CheckHarvestRows(ItemCountRange[] rows, string field, string path, List<string> problems)
-    {
-        if (rows == null)
-        {
-            return;
-        }
-        for (int i = 0; i < rows.Length; i++)
-        {
-            if (rows[i]?.item?.item == null)
-            {
-                problems.Add($"{path}: {field}[{i}] names no item");
             }
         }
     }

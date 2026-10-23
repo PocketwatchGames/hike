@@ -148,19 +148,9 @@ public class CampfireSimState : EntitySimState
     // deserialization fallback so the two never diverge.
     public const float DefaultHazardRadius = 1.25f;
 
-    // Number of cooking slots a forge exposes. Mirrored by the
-    // CookingPanel.tscn layout — adding a slot here requires adding a
-    // matching ItemSlotPanel reference there.
-    public const int CampfireSlotCount = 3;
-
     // A campfire spawns unlit unless authored otherwise (the party's spawn
     // campfire). Lighting one douses all others so only one is ever Active.
     public bool Active = false;
-
-    // Persistent experimentation inputs. Campfire reads/writes through this
-    // array so contents survive CookingScreen open/close; closing the screen
-    // returns them to the cook's backpack.
-    public ItemState[] CampfireSlots = new ItemState[CampfireSlotCount];
 
     public CampfireSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
@@ -369,12 +359,41 @@ public class StashSimState : EntitySimState
     }
 }
 
+// A crafting bench. No persistent per-instance state — its experimentation
+// slots are runtime-only on the node, like a cookpot's.
+// A crafting bench and its queue of jobs, which keep running on the in-world
+// clock while the bench is out of reach (Sim.SettleCraftQueues).
+public class CraftingBenchSimState : EntitySimState
+{
+    public readonly CraftQueue Queue = new();
+
+    public CraftingBenchSimState(Vector3 worldPosition, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+    }
+
+    public override Node3D CreateEntity(Sim sim)
+    {
+        return CraftingBench.Create(sim, this);
+    }
+}
+
 // A cookpot over its own fire. Lit is one-way: the first use lights it and it
 // stays lit. Its experimentation slots are runtime-only on the node, since the
 // cooking screen drains them back to the cook on every close.
 public class CookpotSimState : EntitySimState
 {
     public bool Lit;
+    // The meal in the pot, until the clock reaches MealGoneAtClock (a
+    // WorldClockDays value). Eating never empties it; only time does.
+    public MealData Meal;
+    public double MealGoneAtClock;
+
+    // The meal still in the pot at `clockDays`, or null.
+    public MealData MealAt(double clockDays)
+    {
+        return Meal != null && clockDays < MealGoneAtClock ? Meal : null;
+    }
 
     public CookpotSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)

@@ -1,0 +1,68 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://hpuwlcaemy499" path="res://scripts/gui/MealInfoPanel.cs" id="1_meal"]
+[ext_resource type="PackedScene" uid="uid://cbnyp5wql6yh5" path="res://scenes/gui/status_effect_info_panel.tscn" id="2_status"]
+[ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="3_slot"]
+
+[node name="MealInfoPanel" type="PanelContainer" node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_satiationLabel", "_statusContainer", "_reagentsRoot", "_reagentSlotContainer")]
+custom_minimum_size = Vector2(500, 0)
+size_flags_horizontal = 4
+size_flags_vertical = 4
+script = ExtResource("1_meal")
+_nameLabel = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Name")
+_descriptionLabel = NodePath("MarginContainer/VBoxContainer/Description")
+_icon = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Icon")
+_satiationLabel = NodePath("MarginContainer/VBoxContainer/Satiation")
+_statusContainer = NodePath("MarginContainer/VBoxContainer/StatusEffectContainer")
+_statusScene = ExtResource("2_status")
+_reagentsRoot = NodePath("MarginContainer/VBoxContainer/Reagents")
+_reagentSlotContainer = NodePath("MarginContainer/VBoxContainer/Reagents/Slots")
+_reagentSlotScene = ExtResource("3_slot")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/HBoxContainer"]
+texture_filter = 1
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Name" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+autowrap_mode = 3
+
+[node name="Description" type="Label" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Satiation" type="Label" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="StatusEffectContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Reagents" type="VBoxContainer" parent="MarginContainer/VBoxContainer"]
+visible = false
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/Reagents"]
+layout_mode = 2
+text = "Ingredients"
+
+[node name="Slots" type="HBoxContainer" parent="MarginContainer/VBoxContainer/Reagents"]
+layout_mode = 2

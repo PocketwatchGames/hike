@@ -33,7 +33,7 @@ metadata/_custom_type_script = "uid://2d1zehwh09amb"
 
 [resource]
 script = ExtResource("1_action")
-verb = 12
+verb = 10
 displayName = &"Dig"
 icon = ExtResource("3_icon")
 interactEvents = Array[ExtResource("2_event")]([SubResource("Event_dig_pose")])

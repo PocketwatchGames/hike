@@ -7,7 +7,8 @@ using System.Collections.Generic;
 // SitIdle pose (Player.EnterCamp / ExitCamp).
 //
 // Layout: a swappable body that is the CampRoot button hub or one of the Sleep /
-// Select-Character / Stash / Cook sub-screens. The hub buttons switch the body;
+// Select-Character / Stash sub-screens. Cooking is not part of camp: meals are
+// cooked in a Cookpot (CookpotScreen). The hub buttons switch the body;
 // ui_cancel backs a sub-screen out to the hub, or (from the hub) leaves camp.
 //
 // The controlled character carries over between camps and rests — it changes only
@@ -21,19 +22,16 @@ public partial class CampScreen : Control
 		Sleep,
 		Party,
 		Stash,
-		Cook,
 	}
 
 	[Export] SleepScreen _sleepScreen;
 	[Export] PartyScreen _partyScreen;
 	[Export] Control _campRoot;
 	[Export] StashScreen _stashScreen;
-	[Export] CookingScreen _cookingScreen;
 	// CampRoot hub buttons.
 	[Export] Button _sleepButton;
 	[Export] Button _characterButton;
 	[Export] Button _stashButton;
-	[Export] Button _cookButton;
 	[Export] Button _leaveButton;
 	// Persistent per-character meal readout (lower right): the active food status
 	// effect the chosen character ate today. The whole block hides when they have
@@ -45,15 +43,11 @@ public partial class CampScreen : Control
 	Player _player;
 	// The camp is always at the world's single lit fire, so resolve it LIVE from the sim
 	// rather than caching a node: a death/return-home respawn opens before the fire's chunk has
-	// streamed its entities back in, and this lets cooking enable itself the moment it does
-	// (a cached snapshot would be null forever). Null when no fire is lit / not yet resident.
+	// streamed its entities back in (a cached snapshot would be null forever). Null when no
+	// fire is lit / not yet resident.
 	Campfire Forge => _gameClient?.LitCampfireNode;
 	ECampView _view;
 	bool _open;
-
-	// Cooking needs a lit fire resident. Resolved live, so it flips true on its own once a
-	// respawn/return-home fire streams in (UpdateHubButtons re-runs from _Process while on the hub).
-	bool CanCook => Forge != null;
 
 	public override void _Ready()
 	{
@@ -61,7 +55,6 @@ public partial class CampScreen : Control
 		if (_sleepButton != null) { _sleepButton.Pressed += OnSleepButton; }
 		if (_characterButton != null) { _characterButton.Pressed += OnCharacterButton; }
 		if (_stashButton != null) { _stashButton.Pressed += OnStashButton; }
-		if (_cookButton != null) { _cookButton.Pressed += OnCookButton; }
 		if (_leaveButton != null) { _leaveButton.Pressed += OnLeaveButton; }
 	}
 
@@ -70,13 +63,11 @@ public partial class CampScreen : Control
 		if (_sleepButton != null) { _sleepButton.Pressed -= OnSleepButton; }
 		if (_characterButton != null) { _characterButton.Pressed -= OnCharacterButton; }
 		if (_stashButton != null) { _stashButton.Pressed -= OnStashButton; }
-		if (_cookButton != null) { _cookButton.Pressed -= OnCookButton; }
 		if (_leaveButton != null) { _leaveButton.Pressed -= OnLeaveButton; }
 	}
 
 	// The arrival bank / material transfer is done up front by
-	// GameClient.EnterCampWithFade before this screen opens. The lit fire (if any)
-	// is read live, so cooking enables itself once a wake's fire streams back in.
+	// GameClient.EnterCampWithFade before this screen opens.
 	public void Open(Player player, Vector3 campfirePosition)
 	{
 		if (_open)
@@ -169,9 +160,6 @@ public partial class CampScreen : Control
 			case ECampView.Stash:
 				_stashScreen?.Close();
 				break;
-			case ECampView.Cook:
-				_cookingScreen?.Close();
-				break;
 		}
 	}
 
@@ -182,7 +170,6 @@ public partial class CampScreen : Control
 		{
 			case ECampView.Root:
 				if (_campRoot != null) { _campRoot.Visible = true; }
-				UpdateHubButtons();
 				_sleepButton?.CallDeferred(Control.MethodName.GrabFocus);
 				break;
 			case ECampView.Sleep:
@@ -196,34 +183,14 @@ public partial class CampScreen : Control
 			case ECampView.Stash:
 				_stashScreen?.Open(ChosenPlayer(), _player?.Sim?.WorldState?.SimState?.PartyStash);
 				break;
-			case ECampView.Cook:
-				// Cooking grants the meal into the chosen character's backpack and stays
-				// on this tab; ui_cancel backs out to the hub.
-				_cookingScreen?.Open(ChosenPlayer(), Forge);
-				break;
 		}
 	}
 
 	void OnSleepButton() { ShowView(ECampView.Sleep); }
 	void OnCharacterButton() { ShowView(ECampView.Party); }
 	void OnStashButton() { ShowView(ECampView.Stash); }
-	void OnCookButton() { if (CanCook) { ShowView(ECampView.Cook); } }
 	void OnLeaveButton() { Close(); }
 
-	public override void _Process(double delta)
-	{
-		// A respawn/return-home fire can stream in a few frames after the hub opens; re-sync the
-		// hub buttons so the cook button enables itself the moment its fire becomes resident.
-		if (_open && _view == ECampView.Root)
-		{
-			UpdateHubButtons();
-		}
-	}
-
-	void UpdateHubButtons()
-	{
-		if (_cookButton != null) { _cookButton.Disabled = !CanCook; }
-	}
 
 	// PartyScreen pick callback: the roster's active member is set (control transfers
 	// on camp close). Selecting a member AT the campfire commits their provisional field

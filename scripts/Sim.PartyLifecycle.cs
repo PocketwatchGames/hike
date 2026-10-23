@@ -176,7 +176,8 @@ public partial class Sim
 
     // Expire what the in-world clock has reached on the party: effects with a
     // time-of-day deadline and spoiled food, on every member (idle members don't
-    // tick their own effects) and in the shared stashes. Runs on the housekeeping
+    // tick their own effects) and in the shared stashes, and hand finished
+    // crafting jobs to the stash. Runs on the housekeeping
     // interval and after every clock jump, so a wake's autosave never records
     // something already over. Mobs expire their own effects in Tick.
     private void SweepDeadlines()
@@ -199,6 +200,7 @@ public partial class Sim
             }
         }
         _worldState.SimState?.PruneExpiredPerishables(nowClock);
+        SettleCraftQueues();
         OnDeadlinesSwept?.Invoke();
     }
 

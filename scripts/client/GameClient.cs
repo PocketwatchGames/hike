@@ -85,6 +85,7 @@ public partial class GameClient : Node3D
 		{ EStatName.FatigueDrain, "Fatigue Rate" },
 		{ EStatName.Satiation, "Satiation" },
 		{ EStatName.Contents, "Contents" },
+		{ EStatName.SpoilsIn, "Spoils In" },
 	};
 
 	// Damage modifier trigger labels. Used as the header of the conditional
@@ -158,9 +159,13 @@ public partial class GameClient : Node3D
 	[Export] public ScreenFade campFade;
 	[Export] public UpgradeScreen upgradeScreen;
 	[Export] public ForgeScreen forgeScreen;
-	// Standalone station screens (Bed, Cookpot). The camp screen has its own copies.
+	// Standalone station screens (Bed, Cookpot, CraftingBench). The camp screen
+	// has its own copies.
 	[Export] public SleepScreen sleepScreen;
+	// Opened from the cookpot screen's Cook button, never directly.
 	[Export] public CookingScreen cookingScreen;
+	[Export] public CookpotScreen cookpotScreen;
+	[Export] public CraftingScreen craftingScreen;
 	[Export] public StashScreen stashScreen;
 	[Export] public Node worldHUD;
 	// Pool that leases MobHUDs to the mobs currently showing one, instead of
@@ -731,6 +736,14 @@ public partial class GameClient : Node3D
 		if (cookingScreen != null)
 		{
 			cookingScreen.Visible = false;
+		}
+		if (craftingScreen != null)
+		{
+			craftingScreen.Visible = false;
+		}
+		if (cookpotScreen != null)
+		{
+			cookpotScreen.Visible = false;
 		}
 		if (stashScreen != null)
 		{
@@ -1344,15 +1357,22 @@ public partial class GameClient : Node3D
 		CelebrateDiscovery();
 	}
 
-	void OnSimRecipeDiscovered(ConsumableData recipe)
+	// `recipe` is what it makes: a craftable item or a cookpot meal.
+	void OnSimRecipeDiscovered(Resource recipe)
 	{
-		if (recipe == null) { return; }
+		(string name, Texture2D icon) = recipe switch
+		{
+			ItemData item => (item.displayName.ToString(), item.inventorySprite),
+			MealData meal => (meal.displayName.ToString(), meal.icon),
+			_ => (null, null),
+		};
+		if (name == null) { return; }
 		Announce(new Announcement
 		{
 			type = EAnnouncementType.Recipe,
 			title = "Recipe Discovered",
-			subtitle = recipe.displayName.ToString(),
-			icon = recipe.inventorySprite,
+			subtitle = name,
+			icon = icon,
 		});
 		CelebrateDiscovery();
 	}
@@ -2977,20 +2997,41 @@ public partial class GameClient : Node3D
 		StartSleep(hours, healFractionPerHour, onWake: null);
 	}
 
-	// Cookpot interact: the cooking screen, with the HUD hidden. Closing it
-	// (ui_cancel) returns the slot contents to the cook and releases the gate.
-	public void OpenCookingScreen(ICookingStation station)
+	// Cookpot interact: the cookpot screen, with the HUD hidden. Its Cook button
+	// opens the cooking screen; closing the cookpot screen releases the gate.
+	public void OpenCookpotScreen(Cookpot pot)
 	{
-		CookingScreen screen = cookingScreen;
-		if (screen == null || station == null || _player == null || InputSuppressed)
+		if (cookpotScreen == null || !EnterStationScreen(pot))
 		{
 			return;
+		}
+		cookpotScreen.Open(_player, pot, onClose: ReleaseStationScreen);
+	}
+
+	// Crafting bench interact: the crafting screen, with the HUD hidden. Closing
+	// it (ui_cancel) releases the gate; the bench's queue keeps running.
+	public void OpenCraftingScreen(CraftingBench station)
+	{
+		if (craftingScreen == null || !EnterStationScreen(station))
+		{
+			return;
+		}
+		craftingScreen.Open(_player, station, onClose: ReleaseStationScreen);
+	}
+
+	// Takes the input gate and hides the HUD for a station screen. False when one
+	// can't open now.
+	bool EnterStationScreen(Node3D station)
+	{
+		if (station == null || _player == null || InputSuppressed)
+		{
+			return false;
 		}
 		InputSuppressed = true;
 		if (hud != null) { hud.Visible = false; }
 		Input.MouseMode = Input.MouseModeEnum.Visible;
 		_player.ClearInteractive();
-		screen.Open(_player, station, onClose: ReleaseStationScreen);
+		return true;
 	}
 
 	// Stash interact: the party stash beside the controlled member's inventory,

@@ -33,6 +33,7 @@ impactLethalEffect = ExtResource("7_hitkill")
 impactDecibels = 0.45
 projectileScene = ExtResource("10_proj")
 projectileSpeed = 16.0
+durabilityCostOnHit = 1.0
 projectileLifetimeSeconds = 0.4
 
 [sub_resource type="Resource" id="Resource_req_no_swim"]
@@ -69,6 +70,7 @@ impactLethalEffect = ExtResource("7_hitkill")
 impactDecibels = 0.5
 projectileScene = ExtResource("10_proj")
 projectileSpeed = 26.0
+durabilityCostOnHit = 1.0
 projectileLifetimeSeconds = 0.4
 
 [sub_resource type="Resource" id="Resource_tier_hurl"]
@@ -134,7 +136,6 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 script = ExtResource("2_weapon")
 rightHandSlot = true
 thrown = true
-thrownBreakChance = 0.1
 delivery = 4
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"charged": SubResource("Resource_charged_damage"),
@@ -145,7 +146,8 @@ yawAssistDegrees = 60.0
 aimAssistStrength = 0.75
 actionProfile = SubResource("Resource_profile")
 weight = 0.3
-maxStack = 5
+maxDurability = 60
+repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")])
 displayName = &"Tomahawk"
 description = "A throwing axe. Hits hard and batters through armor; go and pick it up where it lands. Hold to hurl it harder."
 value = 40

@@ -81,4 +81,6 @@ public enum EStatName
 	// Extra armor chip a hit deals (DamageData.blunt) — distinct from Blunt, the
 	// hit tag a resistance row names.
 	ArmorChip,
+	// In-world time until a perishable's oldest units spoil.
+	SpoilsIn,
 }

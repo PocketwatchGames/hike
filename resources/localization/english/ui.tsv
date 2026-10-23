@@ -48,7 +48,10 @@ stash_pick_how_many	Pick up how many?
 stash_send_how_many	Move how many?
 stash_drop	Drop
 item_drop_how_many	Drop how many?
+item_salvage_how_many	Salvage how many?
 item_salvage	Salvage
+item_repair	Repair
+item_repaired	Repaired %0
 merchant_offer	Offer
 merchant_take_back	Take back
 merchant_request	Request
@@ -63,3 +66,22 @@ panel_merchant_stock	Wares
 panel_merchant_give	Give
 panel_merchant_get	Get
 story_continue	Continue
+station_cook	Cook
+station_cook_failed	Cooking failed: Yuck!
+station_craft	Craft
+station_crafted	Crafted %0
+station_crafted_count	Crafted %0 (%1)
+stash_no_space	No space in stash
+craft_time	Time: %0
+time_hours_minutes	%0h %1m
+time_hours	%0h
+time_minutes	%0m
+craft_queue_remove	Remove
+craft_queue_blocked	Stash full
+craft_queue_progress	%0 %1%
+cookpot_contents	In the pot: %0
+cookpot_empty	The pot is empty
+cookpot_eat	Eat %0
+cookpot_eat_nothing	Nothing to eat
+cookpot_ate	Ate %0
+meal_fills	Fills you up

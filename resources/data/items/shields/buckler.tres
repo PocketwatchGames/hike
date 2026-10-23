@@ -5,7 +5,6 @@
 [ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="3_parryfx"]
 [ext_resource type="PackedScene" path="res://scenes/items/shield_buckler_held.tscn" id="4_held"]
 [ext_resource type="Texture2D" uid="uid://b7ui4uaaddgs" path="res://assets/textures/items/ShieldSmall.png" id="5_icon"]
-[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="9_tjrpg"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/leather.tres" id="repair_leather"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
@@ -32,10 +31,13 @@ script = ExtResource("material_count")
 item = ExtResource("repair_leather")
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
-[sub_resource type="Resource" id="salvage_yield_steel"]
+[sub_resource type="Resource" id="salvage_steel"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_steel")
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_leather"]
+script = ExtResource("material_count")
+item = ExtResource("repair_leather")
 
 [resource]
 script = ExtResource("1_shield")
@@ -50,10 +52,10 @@ parryEffect = ExtResource("3_parryfx")
 parryDecibels = 0.8
 weight = 0.5
 maxDurability = 480
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_steel"), SubResource("salvage_leather")])
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel"), SubResource("repair_cost_leather")])
 displayName = &"Buckler"
 description = "A small fist shield. It turns aside little, but a quick crouch opens a wide window to deflect and riposte."
 value = 40
 inventorySprite = ExtResource("5_icon")
 heldModel = ExtResource("4_held")
-salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])

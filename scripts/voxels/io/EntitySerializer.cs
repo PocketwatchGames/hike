@@ -42,6 +42,7 @@ public static class EntitySerializer
         Bed = 31,
         Cookpot = 32,
         Stash = 33,
+        CraftingBench = 34,
     }
 
     // How much of the Roof payload a stream carries. Containers map their own
@@ -663,9 +664,6 @@ public static class EntitySerializer
                 WriteVec3(w, campfire.WorldPosition);
                 WriteScene(w, campfire.Scene);
                 w.Write(campfire.Active);
-                // Transient cooking state (CampfireSlots) is not serialized —
-                // experimentation slot contents reset on world reload.
-                // Persisting them would need stable ItemData refs first.
                 break;
 
             case TorchSimState torch:
@@ -790,11 +788,20 @@ public static class EntitySerializer
                 WriteScene(w, stash.Scene);
                 break;
 
+            case CraftingBenchSimState bench:
+                w.Write((byte)Tag.CraftingBench);
+                WriteVec3(w, bench.WorldPosition);
+                WriteScene(w, bench.Scene);
+                WriteCraftQueue(w, bench.Queue);
+                break;
+
             case CookpotSimState cookpot:
                 w.Write((byte)Tag.Cookpot);
                 WriteVec3(w, cookpot.WorldPosition);
                 WriteScene(w, cookpot.Scene);
                 w.Write(cookpot.Lit);
+                WriteResource(w, cookpot.Meal);
+                w.Write(cookpot.MealGoneAtClock);
                 break;
 
             case ForgeSimState forge:
@@ -1310,6 +1317,14 @@ public static class EntitySerializer
                 PackedScene scene = ReadScene(r);
                 return new StashSimState(pos, scene);
             }
+            case Tag.CraftingBench:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                var bench = new CraftingBenchSimState(pos, scene);
+                ReadCraftQueue(r, bench.Queue);
+                return bench;
+            }
             case Tag.Cookpot:
             {
                 Vector3 pos = ReadVec3(r);
@@ -1317,6 +1332,8 @@ public static class EntitySerializer
                 return new CookpotSimState(pos, scene)
                 {
                     Lit = r.ReadBoolean(),
+                    Meal = ReadResource<MealData>(r),
+                    MealGoneAtClock = r.ReadDouble(),
                 };
             }
             case Tag.Forge:
@@ -1889,6 +1906,71 @@ public static class EntitySerializer
             }
         }
         return records;
+    }
+
+    // The head's timing, then each job: a repair's gear or a craft's item and
+    // count, its hours, and what it was paid with.
+    private static void WriteCraftQueue(BinaryWriter w, CraftQueue queue)
+    {
+        w.Write(queue.HeadStartedAtClock);
+        w.Write(queue.HeadBlocked);
+        w.Write(queue.Count);
+        for (int i = 0; i < queue.Count; i++)
+        {
+            CraftJob job = queue.Jobs[i];
+            w.Write(job.IsRepair);
+            if (job.IsRepair)
+            {
+                WriteItemState(w, job.gear);
+            }
+            else
+            {
+                WriteResource(w, job.made);
+                w.Write(job.count);
+            }
+            w.Write(job.hours);
+            w.Write(job.paid.Count);
+            for (int p = 0; p < job.paid.Count; p++)
+            {
+                WriteResource(w, job.paid[p].item);
+                w.Write(job.paid[p].count);
+            }
+        }
+    }
+
+    private static void ReadCraftQueue(BinaryReader r, CraftQueue queue)
+    {
+        queue.HeadStartedAtClock = r.ReadDouble();
+        queue.HeadBlocked = r.ReadBoolean();
+        int count = r.ReadInt32();
+        for (int i = 0; i < count; i++)
+        {
+            var job = new CraftJob();
+            if (r.ReadBoolean())
+            {
+                job.gear = ReadItemState(r) as GearState;
+            }
+            else
+            {
+                job.made = ReadResource<ItemData>(r);
+                job.count = r.ReadInt32();
+            }
+            job.hours = r.ReadDouble();
+            int paidCount = r.ReadInt32();
+            for (int p = 0; p < paidCount; p++)
+            {
+                ItemData item = ReadResource<ItemData>(r);
+                int units = r.ReadInt32();
+                if (item != null)
+                {
+                    job.paid.Add(new SpentItem(item, units));
+                }
+            }
+            if (job.gear != null || job.made != null)
+            {
+                queue.Restore(job);
+            }
+        }
     }
 
     private static void WriteItemList(BinaryWriter w, IReadOnlyList<ItemState> items)

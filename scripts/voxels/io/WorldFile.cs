@@ -297,7 +297,11 @@ public static class WorldFile
     //      writes durability.
     // v80: a weapon's item state is gear durability alone — ammo is carried as
     //      AmmoData items now, not a magazine on the weapon.
-    public const uint VERSION = 80;
+    // v81: CraftingBench tag added.
+    // v82: a cookpot's payload carries its meal (a MealData ref, empty when
+    //      none) and the WorldClockDays it goes off at, after Lit.
+    // v83: a crafting bench's payload carries its craft queue (CraftQueue).
+    public const uint VERSION = 83;
 
     public struct IndexEntry
     {

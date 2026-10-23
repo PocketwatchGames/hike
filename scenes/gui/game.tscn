@@ -18,6 +18,8 @@
 [ext_resource type="PackedScene" uid="uid://lr56aq1t1e5y" path="res://scenes/gui/forge_screen.tscn" id="41_forge"]
 [ext_resource type="Script" uid="uid://bt6ru7ovpj28n" path="res://scripts/gui/ScreenFade.cs" id="42_screenfade"]
 [ext_resource type="PackedScene" uid="uid://bvjwfiiuje7ra" path="res://scenes/gui/cooking_screen.tscn" id="43_cooking"]
+[ext_resource type="PackedScene" path="res://scenes/gui/crafting_screen.tscn" id="43_crafting"]
+[ext_resource type="PackedScene" path="res://scenes/gui/cookpot_screen.tscn" id="43_cookpot"]
 [ext_resource type="PackedScene" uid="uid://bfjaekwc2fo4t" path="res://scenes/gui/sleep_screen.tscn" id="44_sleepscreen"]
 [ext_resource type="PackedScene" uid="uid://cx320q2n7tosj" path="res://scenes/gui/stash_screen.tscn" id="50_2mmpf"]
 [ext_resource type="AudioStream" uid="uid://csnkhro8jjgy1" path="res://assets/audio/source/player/sfx_birdseye_swoosh.wav" id="birdseye_swoosh_sfx"]
@@ -94,7 +96,7 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "storyScreen", "sleepOverlay", "campFade", "upgradeScreen", "forgeScreen", "sleepScreen", "cookingScreen", "stashScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "storyScreen", "sleepOverlay", "campFade", "upgradeScreen", "forgeScreen", "sleepScreen", "cookingScreen", "cookpotScreen", "craftingScreen", "stashScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
 script = ExtResource("1_mu8e5")
 mobLevelColors = PackedColorArray(0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0.48000002, 1, 0.48, 0, 0, 1, 0.49866652, 0, 0.68, 1)
 camera = NodePath("SceneViewport/MainCamera")
@@ -111,6 +113,8 @@ upgradeScreen = NodePath("GUICanvas/UpgradeScreen")
 forgeScreen = NodePath("GUICanvas/ForgeScreen")
 sleepScreen = NodePath("GUICanvas/SleepScreen")
 cookingScreen = NodePath("GUICanvas/CookingScreen")
+cookpotScreen = NodePath("GUICanvas/CookpotScreen")
+craftingScreen = NodePath("GUICanvas/CraftingScreen")
 stashScreen = NodePath("GUICanvas/StashScreen")
 worldHUD = NodePath("GUICanvas/WorldHUD")
 sceneViewport = NodePath("SceneViewport")
@@ -445,6 +449,14 @@ visible = false
 visible = false
 
 [node name="CookingScreen" parent="GUICanvas" unique_id=1391817300 node_paths=PackedStringArray("gameClient") instance=ExtResource("43_cooking")]
+visible = false
+gameClient = NodePath("../..")
+
+[node name="CookpotScreen" parent="GUICanvas" node_paths=PackedStringArray("_cookingScreen") instance=ExtResource("43_cookpot")]
+visible = false
+_cookingScreen = NodePath("../CookingScreen")
+
+[node name="CraftingScreen" parent="GUICanvas" node_paths=PackedStringArray("gameClient") instance=ExtResource("43_crafting")]
 visible = false
 gameClient = NodePath("../..")
 

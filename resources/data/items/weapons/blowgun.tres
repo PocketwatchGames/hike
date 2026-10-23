@@ -19,7 +19,6 @@
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="22_buildup"]
 [ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/fiber.tres" id="mat_fiber"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/feather.tres" id="mat_feather"]
 
 [sub_resource type="Resource" id="Resource_event_dart"]
 script = ExtResource("3_event")
@@ -109,23 +108,15 @@ damageVariance = 0.25
 hitstun = 0.1
 buildups = Array[ExtResource("22_buildup")]([SubResource("Resource_buildup_poison")])
 
-[sub_resource type="Resource" id="salvage_yield_fiber"]
-script = ExtResource("material_count")
-item = ExtResource("mat_fiber")
-count = 1
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
-
-[sub_resource type="Resource" id="salvage_yield_feather"]
-script = ExtResource("material_count")
-item = ExtResource("mat_feather")
-count = 1
-metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
-
 [sub_resource type="Resource" id="repair_cost_fiber"]
 script = ExtResource("material_count")
 item = ExtResource("mat_fiber")
 count = 1
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_fiber"]
+script = ExtResource("material_count")
+item = ExtResource("mat_fiber")
 
 [resource]
 script = ExtResource("2_weapon")
@@ -143,10 +134,10 @@ wieldHand = 1
 animSet = ExtResource("21_animset")
 weight = 0.15
 maxDurability = 150
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_fiber")])
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_fiber")])
 displayName = &"Blowgun"
 description = "A hollow reed that spits poisoned darts. Barely a whisper, barely a scratch, but every dart that draws blood poisons. Hold a deep breath to send it farther, harder and through armor."
 value = 40
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("20_held")
-salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_fiber"), SubResource("salvage_yield_feather")])

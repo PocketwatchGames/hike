@@ -7,9 +7,8 @@ using Godot;
 // RefillLanternOilEffect); effects that read runtime item state off the action
 // context (SummonPetEffect) run from the actionProfile timeline instead.
 //
-// A consumable with a recipe is also cookable: cooking those ingredients at the
-// recipe's station grants one of it (Cooking.TryMatch). A meal (meal_*) is
-// such a consumable whose effect is an EEffectCategory.Meal status, so eating it
+// A meal (meal_*) is a consumable with a cooking recipe (ItemData.recipe) whose
+// effect is an EEffectCategory.Meal status, so eating it
 // replaces whatever meal the character last ate.
 //
 // With an actionProfile the consumable takes time: the hotbar runs that timeline
@@ -40,11 +39,6 @@ public partial class ConsumableData : ItemData, IInstantUseItem, IUsableItem
 	// they stay backpack ingredients that can also be eaten.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float satiation;
 
-	// What cooks into this item. Null = not cookable.
-	[Export] public RecipeData recipe;
-
-	public bool IsCookable => recipe != null && recipe.HasInputs;
-
 	protected override EItemCategory ComputeCategory() => EItemCategory.Usable;
 
 	public bool UseOn(Player player)
@@ -65,17 +59,8 @@ public partial class ConsumableData : ItemData, IInstantUseItem, IUsableItem
 		{
 			return;
 		}
-		// Self-targeted context — a consumable buffs/heals the user; there's no
-		// weapon swing or interactive behind it.
-		var context = new ActionContext { verb = EActionVerb.Use, target = player, worldPosition = player.GlobalPosition };
 		player.RestoreNeed(ENeed.Hunger, satiation);
-		if (effects != null)
-		{
-			for (int i = 0; i < effects.Count; i++)
-			{
-				effects[i]?.Apply(player, context);
-			}
-		}
+		ItemEffect.ApplyToSelf(player, effects);
 		if (useEffect != null)
 		{
 			Fx.Create(useEffect, player, Vector3.Zero);

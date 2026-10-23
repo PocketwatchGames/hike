@@ -11,10 +11,10 @@
 [ext_resource type="Texture2D" uid="uid://cg3gcmvmdke8e" path="res://assets/textures/items/Potion_green.png" id="7_inv"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="7_vtyfs"]
 [ext_resource type="PackedScene" uid="uid://dr1nk2lk5q8wn" path="res://scenes/fx/drink_loop.tscn" id="9_drinkfx"]
-[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="10_input"]
+[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="10_input"]
 [ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="11_blue"]
 [ext_resource type="Resource" uid="uid://chpmfha5lvycx" path="res://resources/data/items/loot/mushroom_purple.tres" id="12_purple"]
-[ext_resource type="Script" uid="uid://cy238vqb2k86o" path="res://scripts/data/items/RecipeData.cs" id="recipe_data"]
+[ext_resource type="Script" uid="uid://j82ckihv22tvk" path="res://scripts/data/items/CraftRecipeData.cs" id="recipe_data"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("4_event")

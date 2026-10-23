@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="MealData" format=3 uid="uid://lyjscq176hl1"]
+
+[ext_resource type="Script" uid="uid://oi1hh5ophkvz0" path="res://scripts/data/meals/MealData.cs" id="1_meal"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_effect"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="4_input"]
+[ext_resource type="Texture2D" path="res://assets/textures/items/GrilledMeal.png" id="6_icon"]
+[ext_resource type="Resource" uid="uid://khjswp5qnpnm" path="res://resources/data/items/loot/drake_meat.tres" id="7_drake_meat"]
+[ext_resource type="Script" uid="uid://cy238vqb2k86o" path="res://scripts/data/items/RecipeData.cs" id="recipe_data"]
+
+[sub_resource type="Resource" id="Resource_input_meat"]
+script = ExtResource("4_input")
+item = ExtResource("7_drake_meat")
+count = 2
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("recipe_data")
+inputs = Array[ExtResource("4_input")]([SubResource("Resource_input_meat")])
+
+[resource]
+script = ExtResource("1_meal")
+displayName = &"Grilled Drake"
+description = "Rich, smoky meat with a fiery aftertaste."
+icon = ExtResource("6_icon")
+recipe = SubResource("Recipe")
+potColor = Color(0.42, 0.26, 0.14, 1)

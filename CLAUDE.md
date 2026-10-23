@@ -808,8 +808,9 @@ wants falls straight out of it:
   across NPCs. A plain one-item handover is not that, and should not cost three
   nested resources to say.
 - **A lesson is written inline too**: `teach:<kind> <name> [components]` in an
-  action cell, where `<kind>` is one of `language`, `recipe`, `region`,
-  `item` (reveals its real name) or `bestiary`. The kind picks the namespace, so
+  action cell, where `<kind>` is one of `language`, `recipe` (an item crafted
+  at a bench), `meal` (a cookpot meal), `region`, `item` (reveals its real name)
+  or `bestiary`. The kind picks the namespace, so
   a name can never be ambiguous and the cell says what it means; the name is the
   `.tres` basename, except a language, which is its `LanguageData.id` — the same
   spelling the `language` column and `[lang:]` markup use. Only a language takes

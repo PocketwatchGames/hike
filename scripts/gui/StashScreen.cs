@@ -14,8 +14,6 @@ using Godot;
 //        Hold on a stack to send only some of it.
 //   RT — drop the stack under the cursor at the member's feet.
 //        Hold on a stack to drop only some of it.
-//   RS — hold to salvage one unit of the stack under the cursor; its materials
-//        land on the same side.
 //   B  — put the pick-up back; with nothing picked up, the screen closes
 //        (standalone) or CampScreen backs out (camp tab).
 // Every move goes through ItemTransfer, so the stash screen holds no move rules.
@@ -32,18 +30,14 @@ public partial class StashScreen : Control
 	[Export] private ButtonHint _hintUse;
 	[Export] private ButtonHint _hintSend;
 	[Export] private ButtonHint _hintDrop;
-	[Export] private ButtonHint _hintSalvage;
 	// How long Select, Send or Drop must be held on a stack to choose how many.
 	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _holdSeconds = 0.5f;
-	// Salvage destroys the item, so it is hold-only — a tap does nothing.
-	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _salvageHoldSeconds = 0.6f;
 
 	const string SelectAction = "ui_select";
 	const string EquipAction = "MenuSecondary";
 	const string UseAction = "MenuTertiary";
 	const string SendAction = "MenuQuaternary";
 	const string DropAction = "MenuQuinary";
-	const string SalvageAction = "Salvage";
 
 	enum ESide
 	{
@@ -92,7 +86,6 @@ public partial class StashScreen : Control
 	bool _selectHoldFired;
 	readonly PolledHold _send = new(SendAction);
 	readonly PolledHold _drop = new(DropAction);
-	readonly PolledHold _salvage = new(SalvageAction);
 
 	public override void _Ready()
 	{
@@ -231,7 +224,6 @@ public partial class StashScreen : Control
 		_focused = slot;
 		_send.Reset(_hintSend);
 		_drop.Reset(_hintDrop);
-		_salvage.Reset(_hintSalvage);
 		_itemInfoPanel?.SetItem(ItemAt(slot));
 		UpdateHints();
 	}
@@ -380,11 +372,6 @@ public partial class StashScreen : Control
 			_countPanel?.Open(item.stackCount, count => Drop(slot, count), prompt: Loc.Get(Loc.Keys.item_drop_how_many));
 			return;
 		}
-
-		if (_salvage.Tick(ItemTransfer.CanSalvage(item, _player), dt, _salvageHoldSeconds, _hintSalvage) == PolledHold.EResult.Hold)
-		{
-			Salvage(slot);
-		}
 	}
 
 	void Send(Slot slot, int count)
@@ -409,19 +396,6 @@ public partial class StashScreen : Control
 		else if (count > 0)
 		{
 			_player?.DropAtFeet(Grid(slot)?.Take(slot.index, count));
-		}
-		Refresh();
-	}
-
-	void Salvage(Slot slot)
-	{
-		if (slot.side == ESide.Equip)
-		{
-			ItemTransfer.SalvageEquipped(_player, (EInventorySlot)slot.index);
-		}
-		else
-		{
-			ItemTransfer.Salvage(Grid(slot), slot.index, _player);
 		}
 		Refresh();
 	}
@@ -482,7 +456,6 @@ public partial class StashScreen : Control
 		_hintSelect?.SetProgress(0f);
 		_send.Arm(_hintSend);
 		_drop.Arm(_hintDrop);
-		_salvage.Arm(_hintSalvage);
 	}
 
 	// ---- Repaint -----------------------------------------------------------------
@@ -544,7 +517,6 @@ public partial class StashScreen : Control
 			ShowHint(_hintUse, UseAction, null);
 			ShowHint(_hintSend, SendAction, null);
 			ShowHint(_hintDrop, DropAction, null);
-			ShowHint(_hintSalvage, SalvageAction, null);
 			return;
 		}
 		ShowHint(_hintSelect, SelectAction, focused != null ? Loc.Get(Loc.Keys.stash_select) : null);
@@ -553,7 +525,6 @@ public partial class StashScreen : Control
 		string send = _focused.side == ESide.Stash ? Loc.Get(Loc.Keys.stash_take) : Loc.Get(Loc.Keys.stash_store);
 		ShowHint(_hintSend, SendAction, focused != null ? send : null);
 		ShowHint(_hintDrop, DropAction, focused != null ? Loc.Get(Loc.Keys.stash_drop) : null);
-		ShowHint(_hintSalvage, SalvageAction, ItemTransfer.CanSalvage(focused, _player) ? Loc.Get(Loc.Keys.item_salvage) : null);
 	}
 
 

@@ -168,34 +168,45 @@ public static class ItemTransfer
 		return true;
 	}
 
-	// Break one unit of the stack at `from[fromIndex]` into its salvage yields.
-	// They go back into `from` first — salvaging in the stash fills the stash —
-	// then the member's grids, and whatever still doesn't fit lands at the
-	// member's feet, so a full bag never loses a yield. False when nothing happened.
-	public static bool Salvage(IItemGrid from, int fromIndex, Player player)
+	// Salvage up to `count` units of the stack at `from[fromIndex]` — or, with a
+	// null `from`, the member's gear equipped in slot `fromIndex` — with every
+	// yield going into `into` (a crafting bench fills the stash). All or nothing:
+	// false, changing nothing, when `into` hasn't room for every yield.
+	public static bool SalvageInto(IItemGrid from, int fromIndex, int count, Player player, ItemGrid into)
 	{
-		ItemState source = from?.At(fromIndex);
-		if (!CanSalvage(source, player))
+		ItemState source = from != null ? from.At(fromIndex) : player?.Inventory?.GetEquipped((EInventorySlot)fromIndex);
+		if (into == null || count <= 0 || !CanSalvage(source, player))
 		{
 			return false;
 		}
 		ItemData data = source.data;
-		from.Take(fromIndex, 1);
-		GiveSalvageYields(data, from, player);
-		return true;
-	}
-
-	// Salvage the member's equipped gear in `slot`.
-	public static bool SalvageEquipped(Player player, EInventorySlot slot)
-	{
-		Inventory inventory = player?.Inventory;
-		ItemState item = inventory?.GetEquipped(slot);
-		if (!CanSalvage(item, player))
+		count = Math.Min(count, source.stackCount);
+		var yields = new System.Collections.Generic.List<ItemState>();
+		for (int i = 0; i < count; i++)
+		{
+			data.SalvageYields(yields);
+		}
+		if (!into.CanFullyAddAll(yields))
 		{
 			return false;
 		}
-		inventory.Remove(item);
-		GiveSalvageYields(item.data, null, player);
+		yields.Clear();
+		for (int i = 0; i < count && CanSalvage(source, player); i++)
+		{
+			if (from != null)
+			{
+				from.Take(fromIndex, 1);
+			}
+			else
+			{
+				player.Inventory.Remove(source);
+			}
+			data.Salvage(player, yields);
+		}
+		foreach (ItemState state in yields)
+		{
+			into.Add(state);
+		}
 		return true;
 	}
 
@@ -204,21 +215,6 @@ public static class ItemTransfer
 	public static bool CanSalvage(ItemState item, Player player)
 	{
 		return player != null && item?.data != null && item.data.CanSalvage(player) && !SackState.IsFilled(item);
-	}
-
-	static void GiveSalvageYields(ItemData data, IItemGrid first, Player player)
-	{
-		var yields = new System.Collections.Generic.List<ItemState>();
-		data.Salvage(player, yields);
-		foreach (ItemState state in yields)
-		{
-			ItemState leftover = first != null ? first.Add(state) : state;
-			if (leftover != null && player.Inventory != null)
-			{
-				leftover = player.Inventory.PreferredGrid(state.data).Add(leftover);
-			}
-			player.DropAtFeet(leftover);
-		}
 	}
 
 	static bool OwnedBy(IItemGrid grid, Inventory inventory)
