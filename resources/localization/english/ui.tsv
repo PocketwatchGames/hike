@@ -50,6 +50,10 @@ stash_drop	Drop
 item_drop_how_many	Drop how many?
 item_salvage_how_many	Salvage how many?
 item_salvage	Salvage
+item_makes_count	%0 x%1
+item_required	Required:
+item_repair_cost	Repair cost:
+item_salvages_into	Salvages into:
 item_repair	Repair
 item_repaired	Repaired %0
 merchant_offer	Offer

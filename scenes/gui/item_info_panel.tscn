@@ -8,7 +8,7 @@
 [ext_resource type="PackedScene" uid="uid://cbnyp5wql6yh5" path="res://scenes/gui/status_effect_info_panel.tscn" id="4_t78nj"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="6_t8nb6"]
 
-[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_durabilityBar", "_durabilityLabel", "_actionPanelContainer", "_statContainer", "_statusContainer", "_reagentsRoot", "_reagentSlots", "_timeLabel")]
+[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_durabilityBar", "_durabilityLabel", "_actionPanelContainer", "_statContainer", "_statusContainer", "_reagentsRoot", "_reagentSlots", "_timeLabel", "_salvageRoot", "_salvageSlots", "_reagentsLabel", "_salvageLabel")]
 custom_minimum_size = Vector2(500, 0)
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -19,7 +19,7 @@ _icon = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Icon")
 _durabilityBar = NodePath("MarginContainer/VBoxContainer/DurabilityBar")
 _durabilityLabel = NodePath("MarginContainer/VBoxContainer/DurabilityBar/Label")
 _actionPanel = ExtResource("2_p0emx")
-_actionPanelContainer = NodePath("MarginContainer/VBoxContainer")
+_actionPanelContainer = NodePath("MarginContainer/VBoxContainer/Actions")
 _contextPanelScene = ExtResource("7_prycx")
 _statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
 _statScene = ExtResource("3_iaocb")
@@ -28,6 +28,10 @@ _statusScene = ExtResource("4_t78nj")
 _reagentsRoot = NodePath("MarginContainer/VBoxContainer/MarginContainer")
 _reagentSlots = [NodePath("MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel"), NodePath("MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel2"), NodePath("MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer2/ItemSlotPanel3")]
 _timeLabel = NodePath("MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/TimeLabel")
+_salvageRoot = NodePath("MarginContainer/VBoxContainer/Salvage")
+_reagentsLabel = NodePath("MarginContainer/VBoxContainer/MarginContainer/VBoxContainer/Label")
+_salvageLabel = NodePath("MarginContainer/VBoxContainer/Salvage/HBoxContainer/Label")
+_salvageSlots = [NodePath("MarginContainer/VBoxContainer/Salvage/HBoxContainer/Slots/ItemSlotPanel"), NodePath("MarginContainer/VBoxContainer/Salvage/HBoxContainer/Slots/ItemSlotPanel2"), NodePath("MarginContainer/VBoxContainer/Salvage/HBoxContainer/Slots/ItemSlotPanel3"), NodePath("MarginContainer/VBoxContainer/Salvage/HBoxContainer/Slots/ItemSlotPanel4")]
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=281920321]
 layout_mode = 2
@@ -88,6 +92,12 @@ text = "Durability"
 [node name="StatusEffectContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=237535431]
 layout_mode = 2
 
+[node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer/VBoxContainer" unique_id=405509744]
+layout_mode = 2
+
+[node name="Actions" type="VBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer" unique_id=1120290116]
 layout_mode = 2
 
@@ -129,5 +139,42 @@ size_flags_vertical = 8
 text = "Time: 1h"
 vertical_alignment = 1
 
-[node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer/VBoxContainer" unique_id=405509744]
+[node name="Salvage" type="MarginContainer" parent="MarginContainer/VBoxContainer"]
+visible = false
 layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/Salvage"]
+layout_mode = 2
+size_flags_vertical = 8
+alignment = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/Salvage/HBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 8
+text = "Salvages into:"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Slots" type="HBoxContainer" parent="MarginContainer/VBoxContainer/Salvage/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="ItemSlotPanel" parent="MarginContainer/VBoxContainer/Salvage/HBoxContainer/Slots" instance=ExtResource("6_t8nb6")]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+size_flags_vertical = 8
+
+[node name="ItemSlotPanel2" parent="MarginContainer/VBoxContainer/Salvage/HBoxContainer/Slots" instance=ExtResource("6_t8nb6")]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+size_flags_vertical = 8
+
+[node name="ItemSlotPanel3" parent="MarginContainer/VBoxContainer/Salvage/HBoxContainer/Slots" instance=ExtResource("6_t8nb6")]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+size_flags_vertical = 8
+
+[node name="ItemSlotPanel4" parent="MarginContainer/VBoxContainer/Salvage/HBoxContainer/Slots" instance=ExtResource("6_t8nb6")]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+size_flags_vertical = 8

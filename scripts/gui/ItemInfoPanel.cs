@@ -28,8 +28,14 @@ public partial class ItemInfoPanel : PanelContainer
 	[Export] private bool _showDetails = true;
 	[Export] Control _reagentsRoot;
 	[Export] Godot.Collections.Array<ItemSlotPanel> _reagentSlots;
+	// The reagents row's title: "Required:", or "Repair cost:" for a repair.
+	[Export] Label _reagentsLabel;
 	// How long the requirement takes at the bench, beside the reagents.
 	[Export] Label _timeLabel;
+	// What one unit breaks down into on Salvage; hidden when not supplied.
+	[Export] Control _salvageRoot;
+	[Export] Godot.Collections.Array<ItemSlotPanel> _salvageSlots;
+	[Export] Label _salvageLabel;
 
 	// forceIdentified overrides the world's identification gate so the item's
 	// stats/description always show — the forge picker uses it so a freshly
@@ -39,7 +45,12 @@ public partial class ItemInfoPanel : PanelContainer
 	// row — a recipe's `inputs` for a preview, or what a repair costs. Left null,
 	// the row hides. hours, when not negative, is the in-world time the bench
 	// takes, shown with them.
-	public void SetItem(ItemState item, bool forceIdentified = false, IReadOnlyList<MaterialCount> reagents = null, double hours = -1.0)
+	//
+	// repair titles the reagents row as a repair's cost rather than a requirement.
+	// salvage, when supplied, is what one unit breaks down into. makes, when
+	// above 1, is how many one craft yields, appended to the name ("Beads x3").
+	public void SetItem(ItemState item, bool forceIdentified = false, IReadOnlyList<MaterialCount> reagents = null, double hours = -1.0,
+		IReadOnlyList<MaterialCount> salvage = null, int makes = 0, bool repair = false)
 	{
 		ItemData data = item?.data;
 		if (data == null)
@@ -51,9 +62,10 @@ public partial class ItemInfoPanel : PanelContainer
 		bool identified = forceIdentified || worldSim == null || worldSim.IsItemIdentified(data);
 		if (_nameLabel != null)
 		{
-			_nameLabel.Text = worldSim != null
+			string name = worldSim != null
 				? worldSim.GetItemDisplayName(item)
 				: WeaponNameGenerator.Compose(data.displayName.ToString(), item);
+			_nameLabel.Text = makes > 1 ? Loc.Format(Loc.Keys.item_makes_count, name, makes) : name;
 		}
 		if (_descriptionLabel != null)
 		{
@@ -72,6 +84,19 @@ public partial class ItemInfoPanel : PanelContainer
 		RebuildStatusEffects(item);
 		RebuildActionPanels(item, identified);
 		RebuildReagents(reagents, hours);
+		if (_reagentsLabel != null)
+		{
+			_reagentsLabel.Text = Loc.Get(repair ? Loc.Keys.item_repair_cost : Loc.Keys.item_required);
+		}
+		if (_salvageLabel != null)
+		{
+			_salvageLabel.Text = Loc.Get(Loc.Keys.item_salvages_into);
+		}
+		if (_salvageRoot != null)
+		{
+			_salvageRoot.Visible = salvage != null && salvage.Count > 0;
+		}
+		FillSlots(_salvageSlots, salvage);
 		if (_timeLabel != null)
 		{
 			_timeLabel.Visible = hours >= 0.0;
@@ -93,37 +118,47 @@ public partial class ItemInfoPanel : PanelContainer
 		return m == 0 ? Loc.Format(Loc.Keys.time_hours, h) : Loc.Format(Loc.Keys.time_hours_minutes, h, m);
 	}
 
-	// Fill the "Required Reagents" slots — one authored ItemSlotPanel per entry at its
-	// required count; extra slots are cleared. The whole row (_reagentsRoot) hides
-	// when there are no reagents to show.
+	// Fill the "Required Reagents" slots. The whole row (_reagentsRoot) hides
+	// when there are no reagents or hours to show.
 	private void RebuildReagents(IReadOnlyList<MaterialCount> reagents, double hours)
 	{
 		if (_reagentsRoot != null)
 		{
 			_reagentsRoot.Visible = (reagents != null && reagents.Count > 0) || hours >= 0.0;
 		}
-		if (_reagentSlots == null)
+		FillSlots(_reagentSlots, reagents);
+	}
+
+	// One authored ItemSlotPanel per entry at its count; extra slots are cleared.
+	private static void FillSlots(Godot.Collections.Array<ItemSlotPanel> slots, IReadOnlyList<MaterialCount> rows)
+	{
+		if (slots == null)
 		{
 			return;
 		}
-		for (int i = 0; i < _reagentSlots.Count; i++)
+		int slotCount = slots.Count;
+		if (rows != null && rows.Count > slotCount)
 		{
-			ItemSlotPanel slot = _reagentSlots[i];
+			GD.PushWarning($"ItemInfoPanel: {rows.Count} materials but only {slotCount} slots; the rest are not shown.");
+		}
+		for (int i = 0; i < slotCount; i++)
+		{
+			ItemSlotPanel slot = slots[i];
 			if (slot == null)
 			{
 				continue;
 			}
-			ItemState reagent = null;
-			if (reagents != null && i < reagents.Count)
+			ItemState state = null;
+			if (rows != null && i < rows.Count)
 			{
-				MaterialCount ri = reagents[i];
-				if (ri?.item != null && ri.count > 0)
+				MaterialCount row = rows[i];
+				if (row?.item != null && row.count > 0)
 				{
-					reagent = ri.item.CreateState();
-					reagent.SetCount(ri.count);
+					state = row.item.CreateState();
+					state.SetCount(row.count);
 				}
 			}
-			slot.SetItem(reagent);
+			slot.SetItem(state);
 		}
 	}
 

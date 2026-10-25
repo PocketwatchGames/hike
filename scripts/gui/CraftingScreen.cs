@@ -400,8 +400,8 @@ public partial class CraftingScreen : Control
 	}
 
 	// The info panel for whatever is focused, with what it requires and takes:
-	// a recipe's inputs and hours, a repair's share of both, a queued job's paid
-	// cost and hours.
+	// a recipe's inputs, hours and yield, a repair's share of both, a queued job's
+	// paid cost and hours, and what a held item salvages into.
 	void ShowFocused()
 	{
 		if (_itemInfoPanel == null)
@@ -414,22 +414,25 @@ public partial class CraftingScreen : Control
 			ItemState made = _focusedRecipe.CreateState();
 			made.SetCount(_focusedRecipe.IsStackable ? recipe?.count ?? 1 : 1);
 			// The recipe is learned, so its output reads identified.
-			_itemInfoPanel.SetItem(made, forceIdentified: true, reagents: recipe?.inputs, hours: recipe?.hours ?? -1.0);
+			_itemInfoPanel.SetItem(made, forceIdentified: true, reagents: recipe?.inputs, hours: recipe?.hours ?? -1.0, makes: recipe?.count ?? 1);
 			return;
 		}
 		if (_focusedJob >= 0)
 		{
 			CraftJob job = FocusedJob();
-			_itemInfoPanel.SetItem(job?.Preview(), forceIdentified: job != null && !job.IsRepair, reagents: job != null ? PaidRows(job) : null, hours: job?.hours ?? -1.0);
+			_itemInfoPanel.SetItem(job?.Preview(), forceIdentified: job != null && !job.IsRepair, reagents: job != null ? PaidRows(job) : null, hours: job?.hours ?? -1.0,
+				makes: job != null && !job.IsRepair ? job.count : 0, repair: job != null && job.IsRepair);
 			return;
 		}
 		ItemState item = FocusedItem();
+		// Shown whenever the item has yields, even while a missing tool blocks the salvage.
+		var salvage = item?.data is { IsSalvageable: true } data ? data.salvage : null;
 		if (item is GearState { IsRepairable: true } gear)
 		{
-			_itemInfoPanel.SetItem(item, reagents: gear.ComposeRepairCost(), hours: gear.ComposeRepairHours());
+			_itemInfoPanel.SetItem(item, reagents: gear.ComposeRepairCost(), hours: gear.ComposeRepairHours(), salvage: salvage, repair: true);
 			return;
 		}
-		_itemInfoPanel.SetItem(item);
+		_itemInfoPanel.SetItem(item, salvage: salvage);
 	}
 
 	static List<MaterialCount> PaidRows(CraftJob job)
