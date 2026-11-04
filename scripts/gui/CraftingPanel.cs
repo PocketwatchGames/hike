@@ -2,12 +2,17 @@ using System.Collections.Generic;
 using Godot;
 using Godot.Collections;
 
-// Left column of the CraftingScreen: the bench's job queue over the list of
-// learned recipes, with a result banner. Owns only the widgets and their focus
-// signals — the screen decides what a press does and feeds the rows in.
+// Left column of the CraftingScreen: the experiment slots and their Craft
+// button, the list of learned recipes, the bench's job queue and a result
+// banner. Owns only the widgets and their focus signals — the screen decides
+// what a press does and feeds the contents in.
 [GlobalClass]
 public partial class CraftingPanel : MarginContainer
 {
+	// The staged materials of an experiment, one panel per staging slot.
+	[Export] private Array<ItemSlotPanel> _experimentSlots;
+	// Tries the staged materials against every crafting recipe.
+	[Export] private Button _experimentButton;
 	// One per CraftQueue.Capacity, in queue order; the first is the job in progress.
 	[Export] private Array<ItemSlotPanel> _queueSlots;
 	// The head job's progress, drawn over the first queue slot.
@@ -28,6 +33,12 @@ public partial class CraftingPanel : MarginContainer
 	// A queue slot gained focus, or was clicked; the index is the job's.
 	public System.Action<int, ItemSlotPanel> onQueueFocused;
 	public System.Action<int> onQueuePressed;
+	// An experiment slot gained focus / was pressed; the index is the slot's.
+	public System.Action<int, ItemSlotPanel> onExperimentFocused;
+	public System.Action<int> onExperimentPressed;
+	public System.Action onExperimentCommit;
+	// The Craft button gained focus.
+	public System.Action onExperimentButtonFocused;
 
 	// Diff-rebuilt so the focused recipe button survives a refresh.
 	readonly System.Collections.Generic.Dictionary<ItemData, Button> _recipeButtons = new();
@@ -51,6 +62,28 @@ public partial class CraftingPanel : MarginContainer
 				panel.SetItem(null);
 			}
 		}
+		if (_experimentSlots != null)
+		{
+			int count = _experimentSlots.Count;
+			for (int i = 0; i < count; i++)
+			{
+				ItemSlotPanel panel = _experimentSlots[i];
+				if (panel == null)
+				{
+					continue;
+				}
+				int index = i;
+				panel.onFocusEntered += p => onExperimentFocused?.Invoke(index, p);
+				panel.onButtonUp += _ => onExperimentPressed?.Invoke(index);
+				panel.SetItem(null);
+			}
+		}
+		if (_experimentButton != null)
+		{
+			_experimentButton.Pressed += () => onExperimentCommit?.Invoke();
+			_experimentButton.FocusEntered += () => onExperimentButtonFocused?.Invoke();
+			_experimentButton.MouseEntered += _experimentButton.GrabFocus;
+		}
 		if (_blockedLabel != null)
 		{
 			_blockedLabel.Text = Loc.Get(Loc.Keys.craft_queue_blocked);
@@ -61,6 +94,29 @@ public partial class CraftingPanel : MarginContainer
 	public ItemSlotPanel QueueSlot(int index)
 	{
 		return _queueSlots != null && index >= 0 && index < _queueSlots.Count ? _queueSlots[index] : null;
+	}
+
+	public int ExperimentSlotCount => _experimentSlots?.Count ?? 0;
+
+	// Paint the experiment slots from `staged` (one entry per slot), and enable
+	// Craft only while something is staged.
+	public void RefreshExperiment(IReadOnlyList<ItemState> staged)
+	{
+		bool any = false;
+		if (_experimentSlots != null)
+		{
+			int count = _experimentSlots.Count;
+			for (int i = 0; i < count; i++)
+			{
+				ItemState item = staged != null && i < staged.Count ? staged[i] : null;
+				_experimentSlots[i]?.SetItem(item);
+				any |= item != null;
+			}
+		}
+		if (_experimentButton != null)
+		{
+			_experimentButton.Disabled = !any;
+		}
 	}
 
 	// Paint the queue: each job's output in its slot, the head's progress at

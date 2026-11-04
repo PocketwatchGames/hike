@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using Godot.Collections;
 
-// Pure recipe matcher. Given a cookpot's experimentation inputs (any number of
-// slots, each holding an ItemState or null) and its recipe list (SimData.meals),
-// returns the meal those ingredients make. The rules read only the RecipeData,
-// so they hold for anything that carries one. (A crafting bench matches
-// nothing — it makes only learned recipes, CraftRecipeData.)
+// Pure recipe matcher. Given a station's experimentation inputs (any number of
+// slots, each holding an ItemState or null) and its recipe list, returns what
+// those ingredients make: a meal at a cookpot (SimData.meals, RecipeData), a
+// crafted item at a bench (SimData.recipes, CraftRecipeData). Both reduce to
+// the same rows — an item and the [low, high] amount it accepts — so one set of
+// rules serves both; a crafting row is an exact amount (low == high).
 // Match rules:
 //   * Every authored ingredient must satisfy the provided count being inside
 //     [count - range, count + range] (low bound clamped at 0). An ingredient
@@ -31,11 +32,63 @@ public static class Recipes
 {
 	public static MealData TryMatch(IReadOnlyList<ItemState> inputs, Array<MealData> meals)
 	{
-		return TryMatch(inputs, meals, meal => meal?.recipe);
+		return TryMatch(inputs, meals, (meal, rows) => MealRows(meal?.recipe, rows));
+	}
+
+	// The item a crafting bench makes from `inputs` among `recipes` (each an
+	// ItemData carrying a CraftRecipeData), or null. Amounts are exact.
+	public static ItemData TryMatchCraft(IReadOnlyList<ItemState> inputs, Array<ItemData> recipes)
+	{
+		return TryMatch(inputs, recipes, (item, rows) => CraftRows(item?.recipe, rows));
+	}
+
+	// One ingredient as the matcher reads it: `item` (matched up its parent
+	// chain) supplied in an amount within [low, high].
+	readonly struct Row
+	{
+		public readonly ItemData item;
+		public readonly int low;
+		public readonly int high;
+
+		public Row(ItemData item, int low, int high)
+		{
+			this.item = item;
+			this.low = low;
+			this.high = high;
+		}
+	}
+
+	// Fill `rows` from a meal recipe; returns its priority. False-y (no rows)
+	// when it has no inputs.
+	static int MealRows(RecipeData recipe, List<Row> rows)
+	{
+		if (recipe?.inputs == null)
+		{
+			return 0;
+		}
+		foreach (RecipeInput ri in recipe.inputs)
+		{
+			rows.Add(new Row(ri?.item, ri?.count ?? 0, (ri?.count ?? 0) + (ri?.range ?? 0)));
+		}
+		return recipe.priority;
+	}
+
+	static int CraftRows(CraftRecipeData recipe, List<Row> rows)
+	{
+		if (recipe?.inputs == null)
+		{
+			return 0;
+		}
+		foreach (MaterialCount mc in recipe.inputs)
+		{
+			rows.Add(new Row(mc?.item, mc?.count ?? 0, mc?.count ?? 0));
+		}
+		return 0;
 	}
 
 	// What `inputs` make among `candidates`, or null when nothing matches.
-	static T TryMatch<[Godot.MustBeVariant] T>(IReadOnlyList<ItemState> inputs, Array<T> candidates, System.Func<T, RecipeData> recipeOf) where T : Godot.GodotObject
+	// `rowsOf` fills a candidate's rows and returns its priority.
+	static T TryMatch<[Godot.MustBeVariant] T>(IReadOnlyList<ItemState> inputs, Array<T> candidates, System.Func<T, List<Row>, int> rowsOf) where T : Godot.GodotObject
 	{
 		if (inputs == null || candidates == null || candidates.Count == 0)
 		{
@@ -46,7 +99,7 @@ public static class Recipes
 		// tracks only the physically-supplied items, for the extra-ingredient
 		// rejection below (which must not trip on credited ancestors).
 		var totals = new System.Collections.Generic.Dictionary<ItemData, int>();
-		var suppliedKinds = new System.Collections.Generic.HashSet<ItemData>();
+		var suppliedKinds = new HashSet<ItemData>();
 		for (int i = 0; i < inputs.Count; i++)
 		{
 			ItemState s = inputs[i];
@@ -68,19 +121,21 @@ public static class Recipes
 		T bestRecipe = null;
 		int bestPriority = int.MinValue;
 		int bestSpecificity = int.MaxValue;
+		var rows = new List<Row>();
 		int candidateCount = candidates.Count;
 		for (int r = 0; r < candidateCount; r++)
 		{
 			T made = candidates[r];
-			RecipeData recipe = recipeOf(made);
-			if (!Matches(recipe, totals, suppliedKinds))
+			rows.Clear();
+			int priority = rowsOf(made, rows);
+			if (!Matches(rows, totals, suppliedKinds))
 			{
 				continue;
 			}
-			int spec = TotalRange(recipe);
-			if (recipe.priority > bestPriority || (recipe.priority == bestPriority && spec < bestSpecificity))
+			int spec = TotalRange(rows);
+			if (priority > bestPriority || (priority == bestPriority && spec < bestSpecificity))
 			{
-				bestPriority = recipe.priority;
+				bestPriority = priority;
 				bestSpecificity = spec;
 				bestRecipe = made;
 			}
@@ -88,30 +143,22 @@ public static class Recipes
 		return bestRecipe;
 	}
 
-	static bool Matches(RecipeData recipe, System.Collections.Generic.Dictionary<ItemData, int> totals, System.Collections.Generic.HashSet<ItemData> suppliedKinds)
+	static bool Matches(List<Row> rows, System.Collections.Generic.Dictionary<ItemData, int> totals, HashSet<ItemData> suppliedKinds)
 	{
-		if (recipe == null || !recipe.HasInputs)
+		if (rows.Count == 0)
 		{
 			return false;
 		}
-		int inputCount = recipe.inputs.Count;
-		for (int i = 0; i < inputCount; i++)
+		foreach (Row row in rows)
 		{
-			RecipeInput ri = recipe.inputs[i];
-			if (ri?.item == null)
+			if (row.item == null)
 			{
 				return false;
 			}
-			int low = ri.count;
-			int high = ri.count + ri.range;
-			if (!totals.TryGetValue(ri.item, out int provided))
-			{
-				// Absent ingredient. Treat as provided=0 — in range iff
-				// low <= 0, which is the signal that the ingredient is
-				// optional.
-				provided = 0;
-			}
-			if (provided < low || provided > high)
+			// An absent ingredient counts as provided 0 — in range iff low <= 0,
+			// which is the signal that the ingredient is optional.
+			totals.TryGetValue(row.item, out int provided);
+			if (provided < row.low || provided > row.high)
 			{
 				return false;
 			}
@@ -121,7 +168,7 @@ public static class Recipes
 		// when the recipe names its species meat).
 		foreach (ItemData kind in suppliedKinds)
 		{
-			if (!CoveredBy(recipe, kind))
+			if (!CoveredBy(rows, kind))
 			{
 				return false;
 			}
@@ -131,14 +178,13 @@ public static class Recipes
 
 	// True if the supplied item or any of its ancestors is an authored
 	// ingredient of the recipe.
-	static bool CoveredBy(RecipeData recipe, ItemData kind)
+	static bool CoveredBy(List<Row> rows, ItemData kind)
 	{
-		int inputCount = recipe.inputs.Count;
 		foreach (ItemData d in Chain(kind))
 		{
-			for (int i = 0; i < inputCount; i++)
+			foreach (Row row in rows)
 			{
-				if (recipe.inputs[i]?.item == d)
+				if (row.item == d)
 				{
 					return true;
 				}
@@ -179,16 +225,14 @@ public static class Recipes
 	}
 
 	// Sum of per-ingredient range. Lower = more specific. A recipe with
-	// every input pinned to range=0 has specificity 0, so it always wins
+	// every input pinned to range 0 has specificity 0, so it always wins
 	// over a looser recipe sharing the same ingredients.
-	static int TotalRange(RecipeData recipe)
+	static int TotalRange(List<Row> rows)
 	{
 		int total = 0;
-		int inputCount = recipe.inputs.Count;
-		for (int i = 0; i < inputCount; i++)
+		foreach (Row row in rows)
 		{
-			RecipeInput ri = recipe.inputs[i];
-			if (ri != null) { total += ri.range; }
+			total += row.high - row.low;
 		}
 		return total;
 	}

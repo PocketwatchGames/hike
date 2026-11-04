@@ -74,6 +74,8 @@ story_continue	Continue
 station_cook	Cook
 station_cook_failed	Cooking failed: Yuck!
 station_craft	Craft
+station_add	Add
+station_remove	Remove
 station_crafted	Crafted %0
 station_crafted_count	Crafted %0 (%1)
 stash_no_space	No space in stash
@@ -84,6 +86,7 @@ time_minutes	%0m
 craft_queue_remove	Remove
 craft_queue_blocked	Stash full
 craft_queue_full	Queue full
+craft_experiment_failed	Nothing came of it
 craft_queue_progress	%0 %1%
 cookpot_contents	In the pot: %0
 cookpot_empty	The pot is empty

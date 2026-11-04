@@ -92,8 +92,10 @@ framed (`ItemSlotPanel.SetEquipped`) or wearing its hotbar number
   of the same stackable kind, else empties. A new removal path needs nothing.
 - **Never inside a sack.** `Equip` / `SetBelt` refuse a sack's contents, so
   dropping or trading a sack can never carry worn gear away.
-- **The belt takes only `Usable` items** (`Inventory.Beltable`), at most once each.
-  `TryAdd` / `Acquire` put a usable kind not on the belt yet on a free belt slot;
+- **The belt takes `Usable` items and equippable gear** (`Inventory.Beltable`), at
+  most once each. Use on belted gear that isn't equipped equips it — the
+  quick-swap. Only usables are belted automatically: `TryAdd` / `Acquire` put a
+  usable kind not on the belt yet on a free belt slot;
   `Acquire` equips gear whose slot is empty. Both need backpack room — there is no
   slot that holds an item outside the backpack.
 - **The hotbar is the Lantern slot then the belt** (`HotbarItemAt`). A torch burns

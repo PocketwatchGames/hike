@@ -3,8 +3,9 @@ using System;
 using System.Collections.Generic;
 
 // Crafting at a crafting bench, on two tabs (TabLeft / TabRight) over one shared
-// job queue. Crafting: the learned recipes (CraftingPanel), the maker's items
-// (InventoryPanel — backpack, sacks and the stash) and the focused thing's info.
+// job queue. Crafting: the experiment slots and the learned recipes
+// (CraftingPanel), the maker's items (InventoryPanel — backpack, sacks and the
+// stash) and the focused thing's info.
 // Repair: the maker's items again, with everything that can't be repaired
 // dimmed, and the focused piece's repair cost and hours.
 //
@@ -18,10 +19,18 @@ using System.Collections.Generic;
 // Whatever comes off the bench goes to the stash: finished jobs (the queue waits
 // at a finished job the stash has no room for), refunds, and salvage.
 //
+// A recipe is learned by experimenting: stage materials in the experiment slots
+// and press Craft. Exact amounts of a crafting recipe's inputs (Recipes
+// .TryMatchCraft — never a cookpot meal) teach the recipe and queue a craft of
+// it paid with them. Anything else is wasted, as at a cookpot.
+// Whatever is still staged goes back when the screen closes.
+//
 // On a recipe:      A  — queue a craft of it. Only learned recipes are listed.
 // On a queued job:  A  — remove it, refunding its cost (and a repair's gear).
+// On an experiment slot: A — take one unit back.
 // On an item slot:
-//   A  — on the Repair tab, queue a repair of the focused gear to full
+//   A  — on the Crafting tab, stage one unit of a material for an experiment;
+//        on the Repair tab, queue a repair of the focused gear to full
 //        (GearState.ComposeRepairCost and ComposeRepairHours, shown in the info
 //        panel). Always known; the Crafting tab never repairs.
 //   Y  — use the item.
@@ -47,8 +56,9 @@ public partial class CraftingScreen : Control
 	[Export] private CraftingPanel _craftingPanel;
 	// Floats beside whatever is focused, on either tab (FloatBesideFocus).
 	[Export] private ItemInfoPanel _itemInfoPanel;
-	// The A / primary button hint: Craft on a recipe, Remove on a queued job,
-	// Repair on repairable gear (Repair tab).
+	// The A / primary button hint: Craft on a recipe or the experiment button,
+	// Remove on a queued job or a staged material, Add on a material (Crafting
+	// tab), Repair on repairable gear (Repair tab).
 	[Export] private ButtonHint _buttonHintPrimary;
 	[Export] private ButtonHint _hintUse;
 	[Export] private ButtonHint _hintSalvage;
@@ -101,6 +111,10 @@ public partial class CraftingScreen : Control
 	// The recipe or queued job under the cursor, when it isn't an item slot.
 	ItemData _focusedRecipe;
 	int _focusedJob = -1;
+	bool _experimentButtonFocused;
+	// The materials staged for an experiment, detached from the maker's items
+	// until Craft spends them or they go back. One slot per experiment panel.
+	ItemGrid _experiment;
 	readonly PolledHold _salvage = new(SalvageAction);
 	readonly PolledHold _drop = new(DropAction);
 	// What Open subscribed to, so Close detaches the same objects.
@@ -120,6 +134,7 @@ public partial class CraftingScreen : Control
 		if (_inventoryPanel != null)
 		{
 			_inventoryPanel.onGridSlotFocused += OnGridFocused;
+			_inventoryPanel.onGridSlotButtonUp += OnStageSlotPressed;
 			_inventoryPanel.onTabsFocused += OnTabsFocused;
 		}
 		if (_repairInventoryPanel != null)
@@ -137,7 +152,12 @@ public partial class CraftingScreen : Control
 			_craftingPanel.onRecipeFocused += OnRecipeFocused;
 			_craftingPanel.onQueueFocused += OnQueueFocused;
 			_craftingPanel.onQueuePressed += OnQueuePressed;
+			_craftingPanel.onExperimentFocused += OnExperimentFocused;
+			_craftingPanel.onExperimentPressed += OnExperimentPressed;
+			_craftingPanel.onExperimentCommit += OnExperimentCommit;
+			_craftingPanel.onExperimentButtonFocused += OnExperimentButtonFocused;
 		}
+		_experiment = new ItemGrid(_craftingPanel?.ExperimentSlotCount ?? 0);
 		_itemInfoPanel?.SetItem(null);
 		ApplyTab();
 	}
@@ -151,6 +171,7 @@ public partial class CraftingScreen : Control
 		if (_inventoryPanel != null)
 		{
 			_inventoryPanel.onGridSlotFocused -= OnGridFocused;
+			_inventoryPanel.onGridSlotButtonUp -= OnStageSlotPressed;
 			_inventoryPanel.onTabsFocused -= OnTabsFocused;
 		}
 		if (_repairInventoryPanel != null)
@@ -166,6 +187,10 @@ public partial class CraftingScreen : Control
 			_craftingPanel.onRecipeFocused -= OnRecipeFocused;
 			_craftingPanel.onQueueFocused -= OnQueueFocused;
 			_craftingPanel.onQueuePressed -= OnQueuePressed;
+			_craftingPanel.onExperimentFocused -= OnExperimentFocused;
+			_craftingPanel.onExperimentPressed -= OnExperimentPressed;
+			_craftingPanel.onExperimentCommit -= OnExperimentCommit;
+			_craftingPanel.onExperimentButtonFocused -= OnExperimentButtonFocused;
 		}
 	}
 
@@ -306,6 +331,7 @@ public partial class CraftingScreen : Control
 		_watchedStash = null;
 		_watchedSim = null;
 		_countPanel?.Dismiss();
+		ReturnStaged();
 		ClearFocus();
 		_bench = null;
 		Visible = false;
@@ -332,6 +358,7 @@ public partial class CraftingScreen : Control
 
 	void RefreshItems()
 	{
+		_craftingPanel?.RefreshExperiment(_experiment?.Slots);
 		_inventoryPanel?.Paint(_maker?.Inventory, Stash);
 		_repairInventoryPanel?.Paint(_maker?.Inventory, Stash);
 		DimUnrepairable();
@@ -431,6 +458,19 @@ public partial class CraftingScreen : Control
 		UpdateHints();
 	}
 
+	void OnExperimentFocused(int index, ItemSlotPanel panel)
+	{
+		OnGridFocused(_experiment, index, panel);
+	}
+
+	void OnExperimentButtonFocused()
+	{
+		ClearFocus();
+		_experimentButtonFocused = true;
+		ShowFocused();
+		UpdateHints();
+	}
+
 	void OnRecipeFocused(ItemData recipe)
 	{
 		ClearFocus();
@@ -452,6 +492,7 @@ public partial class CraftingScreen : Control
 		_focused = Slot.None;
 		_focusedRecipe = null;
 		_focusedJob = -1;
+		_experimentButtonFocused = false;
 		_salvage.Reset(_hintSalvage);
 		_drop.Reset(_hintDrop);
 	}
@@ -518,6 +559,110 @@ public partial class CraftingScreen : Control
 			rows.Add(new MaterialCount { item = job.paid[i].item, count = job.paid[i].count });
 		}
 		return rows;
+	}
+
+	// ---- Experimenting ------------------------------------------------------------
+
+	static bool Stageable(ItemState item) => item?.data != null && item.data.IsMaterial;
+
+	// A on a material on the Crafting tab stages one unit of it.
+	void OnStageSlotPressed(IItemGrid grid, int index, ItemSlotPanel panel)
+	{
+		if (PickerOpen || _experiment == null || !Stageable(grid?.At(index)))
+		{
+			return;
+		}
+		if (ItemTransfer.Send(grid, index, 1, _experiment) > 0)
+		{
+			OnItemsChanged();
+		}
+	}
+
+	// A on a staged material takes one unit back.
+	void OnExperimentPressed(int index)
+	{
+		if (PickerOpen || _experiment?.At(index) == null)
+		{
+			return;
+		}
+		ReturnToMaker(_experiment.Take(index, 1));
+		OnItemsChanged();
+	}
+
+	// Try the staged materials. Exact amounts of a crafting recipe's inputs teach
+	// it and queue a craft of it, paid with them; anything else is wasted. Refused
+	// outright, spending nothing, while the queue is full.
+	void OnExperimentCommit()
+	{
+		SimData simData = _maker?.Sim?.SimData;
+		CraftQueue queue = Queue;
+		if (_experiment == null || _experiment.OccupiedCount() == 0 || simData == null || queue == null)
+		{
+			return;
+		}
+		if (queue.IsFull)
+		{
+			_craftingPanel?.ShowAnnouncement(Loc.Get(Loc.Keys.craft_queue_full), null);
+			return;
+		}
+		ItemData made = Recipes.TryMatchCraft(_experiment.Slots, simData.recipes);
+		var spent = new List<SpentItem>();
+		for (int i = 0; i < _experiment.Capacity; i++)
+		{
+			ItemState staged = _experiment.At(i);
+			if (staged != null)
+			{
+				spent.Add(new SpentItem(staged.data, staged.stackCount));
+			}
+		}
+		_experiment.Clear();
+		if (made == null)
+		{
+			_craftingPanel?.ShowAnnouncement(Loc.Get(Loc.Keys.craft_experiment_failed), null);
+			OnItemsChanged();
+			return;
+		}
+		var job = new CraftJob
+		{
+			made = made,
+			count = Mathf.Max(1, made.recipe.count),
+			hours = made.recipe.hours,
+		};
+		job.paid.AddRange(spent);
+		// Learned the moment it is attempted; the discovery banner announces it.
+		WorldSim?.DiscoverRecipe(made);
+		queue.Enqueue(job, Clock);
+		OnQueueChanged();
+	}
+
+	// Everything still staged goes back.
+	void ReturnStaged()
+	{
+		if (_experiment == null)
+		{
+			return;
+		}
+		for (int i = 0; i < _experiment.Capacity; i++)
+		{
+			ReturnToMaker(_experiment.Take(i, int.MaxValue));
+		}
+	}
+
+	// Into the maker's grids, then the stash; whatever neither has room for is
+	// dropped at the maker's feet.
+	void ReturnToMaker(ItemState item)
+	{
+		if (item == null || _maker?.Inventory == null)
+		{
+			return;
+		}
+		int wanted = item.stackCount;
+		if (_maker.Inventory.TryAdd(item) >= wanted)
+		{
+			return;
+		}
+		ItemState leftover = Stash != null ? Stash.Add(item) : item;
+		_maker.DropAtFeet(leftover);
 	}
 
 	// ---- Crafting ---------------------------------------------------------------
@@ -640,6 +785,18 @@ public partial class CraftingScreen : Control
 		else if (FocusedJob() != null)
 		{
 			primary = Loc.Get(Loc.Keys.craft_queue_remove);
+		}
+		else if (_experimentButtonFocused)
+		{
+			primary = _experiment?.OccupiedCount() > 0 ? Loc.Get(Loc.Keys.station_craft) : null;
+		}
+		else if (item != null && _focused.grid == _experiment)
+		{
+			primary = Loc.Get(Loc.Keys.station_remove);
+		}
+		else if (_tab == ETab.Crafting && Stageable(item))
+		{
+			primary = Loc.Get(Loc.Keys.station_add);
 		}
 		else if (FocusedRepairable() != null)
 		{

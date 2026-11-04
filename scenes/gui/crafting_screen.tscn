@@ -10,7 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://dn1uamwxkqjal" path="res://scenes/gui/recipe_button.tscn" id="9_recipe"]
 [ext_resource type="Script" uid="uid://dxbje8s6mp5rh" path="res://scripts/gui/FloatBesideFocus.cs" id="float_beside_focus"]
 
-[node name="CraftingScreen" type="Control" unique_id=1475522049 node_paths=PackedStringArray("_craftingPage", "_craftingTab", "_inventoryPanel", "_itemInfoPanel", "_repairPage", "_repairTab", "_repairInventoryPanel", "_tabLeftHint", "_tabRightHint", "_craftingPanel", "_buttonHintPrimary", "_hintUse", "_hintSalvage", "_hintDrop", "_countPanel")]
+[node name="CraftingScreen" type="Control" unique_id=1475522049 node_paths=PackedStringArray("_craftingPage", "_craftingTab", "_inventoryPanel", "_repairPage", "_repairTab", "_repairInventoryPanel", "_tabLeftHint", "_tabRightHint", "_craftingPanel", "_itemInfoPanel", "_buttonHintPrimary", "_hintUse", "_hintSalvage", "_hintDrop", "_countPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -21,13 +21,13 @@ script = ExtResource("1_craft")
 _craftingPage = NodePath("MarginContainer/CraftingPanel")
 _craftingTab = NodePath("MarginContainer2/HBoxContainer/CraftingTab")
 _inventoryPanel = NodePath("MarginContainer/CraftingPanel/HBoxContainer/MarginContainer/VBoxContainer/Inventory")
-_itemInfoPanel = NodePath("ItemInfoPanel")
 _repairPage = NodePath("MarginContainer/RepairPanel")
 _repairTab = NodePath("MarginContainer2/HBoxContainer/RepairTab")
 _repairInventoryPanel = NodePath("MarginContainer/RepairPanel/HBoxContainer/MarginContainer/VBoxContainer/Inventory")
 _tabLeftHint = NodePath("MarginContainer2/HBoxContainer/TabLeft")
 _tabRightHint = NodePath("MarginContainer2/HBoxContainer/TabRight")
 _craftingPanel = NodePath("MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel")
+_itemInfoPanel = NodePath("ItemInfoPanel")
 _buttonHintPrimary = NodePath("MarginContainer/ButtonHints/ButtonHintA")
 _hintUse = NodePath("MarginContainer/ButtonHints/ButtonHintUse")
 _hintSalvage = NodePath("MarginContainer/ButtonHints/ButtonHintSalvage")
@@ -94,9 +94,11 @@ layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 0
 
-[node name="CraftingPanel" type="MarginContainer" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer" unique_id=1244894710 node_paths=PackedStringArray("_queueSlots", "_headProgress", "_blockedLabel", "_announcementContainer", "_announcementLabel", "_announcementIcon", "_recipeButtonContainer", "_noRecipesLabel")]
+[node name="CraftingPanel" type="MarginContainer" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer" unique_id=1244894710 node_paths=PackedStringArray("_experimentSlots", "_experimentButton", "_queueSlots", "_headProgress", "_blockedLabel", "_announcementContainer", "_announcementLabel", "_announcementIcon", "_recipeButtonContainer", "_noRecipesLabel")]
 layout_mode = 2
 script = ExtResource("3_panel")
+_experimentSlots = [NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/ItemSlotPanel"), NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/ItemSlotPanel2"), NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/ItemSlotPanel3")]
+_experimentButton = NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/MarginContainer/MarginContainer/Button")
 _queueSlots = [NodePath("../../../../../MarginContainer3/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot1"), NodePath("../../../../../MarginContainer3/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot2"), NodePath("../../../../../MarginContainer3/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot3"), NodePath("../../../../../MarginContainer3/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot4"), NodePath("../../../../../MarginContainer3/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot5"), NodePath("../../../../../MarginContainer3/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot6"), NodePath("../../../../../MarginContainer3/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot7"), NodePath("../../../../../MarginContainer3/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot8")]
 _headProgress = NodePath("../../../../../MarginContainer3/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/GridContainer/QueueSlot1/HeadProgress")
 _blockedLabel = NodePath("../../../../../MarginContainer3/VBoxContainer/QueuePanel/MarginContainer/VBoxContainer/BlockedLabel")
@@ -110,6 +112,48 @@ _recipeButtonScene = ExtResource("9_recipe")
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel" unique_id=948922566]
 layout_mode = 2
 theme_override_constants/separation = 30
+
+[node name="PanelContainer2" type="PanelContainer" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer" unique_id=1266334812]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/PanelContainer2" unique_id=1416770796]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 30
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/PanelContainer2/MarginContainer" unique_id=2058617417]
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer" unique_id=342848528]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="ItemSlotPanel" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer" unique_id=982744505 instance=ExtResource("8_slot")]
+layout_mode = 2
+
+[node name="ItemSlotPanel2" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer" unique_id=649282190 instance=ExtResource("8_slot")]
+layout_mode = 2
+
+[node name="ItemSlotPanel3" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer" unique_id=331947186 instance=ExtResource("8_slot")]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer" unique_id=807711627]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 40
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/MarginContainer" unique_id=1038784962]
+layout_mode = 2
+
+[node name="Button" type="Button" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/MarginContainer/MarginContainer" unique_id=1264359417]
+custom_minimum_size = Vector2(200, 60)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Craft!"
 
 [node name="RecipePanel" type="PanelContainer" parent="MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel/VBoxContainer" unique_id=323899001]
 layout_mode = 2
@@ -361,6 +405,6 @@ InputAction = "TabRight"
 [node name="ItemInfoPanel" parent="." unique_id=185573348 instance=ExtResource("5_info")]
 layout_mode = 0
 
-[node name="FloatBesideFocus" type="Node" parent="ItemInfoPanel" node_paths=PackedStringArray("_target")]
+[node name="FloatBesideFocus" type="Node" parent="ItemInfoPanel" unique_id=1839356690 node_paths=PackedStringArray("_target")]
 script = ExtResource("float_beside_focus")
 _target = NodePath("..")

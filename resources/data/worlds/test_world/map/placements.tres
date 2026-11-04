@@ -54,6 +54,7 @@
 [ext_resource type="PackedScene" path="res://scenes/interactives/door_double.tscn" id="68_5we37"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/door_double.tres" id="68_jwncb"]
 [ext_resource type="Script" path="res://scripts/data/spawn/DoorSpawnEntry.cs" id="69_xefb8"]
+[ext_resource type="Resource" path="res://resources/data/items/lights/torch.tres" id="71_7lrfi"]
 [ext_resource type="Resource" path="res://resources/data/items/ammo/arrow.tres" id="71_axgr2"]
 [ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_invisibility.tres" id="73_tdxo6"]
 [ext_resource type="Resource" path="res://resources/data/items/scrolls/scroll_stew_spider_stealth.tres" id="74_l6wjl"]
@@ -1247,10 +1248,18 @@ item = ExtResource("81_c27bh")
 script = ExtResource("6_eflh0")
 item = SubResource("Resource_galmf_desc")
 
+[sub_resource type="Resource" id="Resource_2w72q"]
+script = ExtResource("77_5av3f")
+item = ExtResource("71_7lrfi")
+
+[sub_resource type="Resource" id="Resource_47mun"]
+script = ExtResource("6_eflh0")
+item = SubResource("Resource_2w72q")
+
 [sub_resource type="Resource" id="Resource_l74os"]
 script = ExtResource("8_f8a1f")
 scene = ExtResource("7_5uafj")
-contents = [SubResource("Resource_galmf")]
+contents = [SubResource("Resource_galmf"), SubResource("Resource_47mun")]
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_3cgaj"]

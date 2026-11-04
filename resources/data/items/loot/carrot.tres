@@ -9,5 +9,6 @@ categoryOverride = 6
 satiation = 0.05
 displayName = &"Carrot"
 maxStack = 99
+spoilDays = 3
 value = 2
 inventorySprite = ExtResource("2_icon")

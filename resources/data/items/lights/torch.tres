@@ -5,6 +5,8 @@
 [ext_resource type="PackedScene" uid="uid://cgua4oedfo8vp" path="res://scenes/fx/lantern_light.tscn" id="3_light"]
 [ext_resource type="PackedScene" uid="uid://dd1xgnms16bg6" path="res://scenes/fx/lantern_extinguish.tscn" id="4_snuff"]
 [ext_resource type="PackedScene" uid="uid://wnfsb2rd2l6t" path="res://scenes/fx/torch_douse.tscn" id="5_douse"]
+[ext_resource type="Texture2D" uid="uid://cd6kn6cvywsg1" path="res://assets/textures/items/Torch.png" id="6_sprite"]
+[ext_resource type="Texture2D" uid="uid://bp3fq3lqqc12d" path="res://assets/textures/items/TorchActive.png" id="7_sprite_lit"]
 
 [resource]
 script = ExtResource("1_torch")
@@ -13,7 +15,9 @@ lightEffect = ExtResource("3_light")
 extinguishEffect = ExtResource("4_snuff")
 douseEffectScene = ExtResource("5_douse")
 heldScene = ExtResource("2_held")
+activeSprite = ExtResource("7_sprite_lit")
 displayName = &"Torch"
 description = "Burns for a while, then it is spent. Clips to your belt when lit."
 value = 2
+inventorySprite = ExtResource("6_sprite")
 metadata/_custom_type_script = "uid://o34gd58la42i"
