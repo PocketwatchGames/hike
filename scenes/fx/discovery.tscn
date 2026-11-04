@@ -5,7 +5,6 @@
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_puff"]
 [ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
 [ext_resource type="AudioStream" uid="uid://bbn72ox775x6a" path="res://assets/audio/source/rewards/sfx_knowledge_gained.wav" id="5_gained"]
-[ext_resource type="AudioStream" uid="uid://bgb6qxf4ygvip" path="res://assets/audio/source/rewards/MUSIC_EFFECT_Bell_Voice_Positive_15_stereo.wav" id="6_choir"]
 [ext_resource type="Script" uid="uid://de7or1xx11ad5" path="res://scripts/gameplay/MovingLight.cs" id="7_light"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_beam"]
@@ -212,13 +211,6 @@ lightColor = Color(1, 0.86, 0.55, 1)
 fadeInDuration = 0.25
 fadeOutDuration = 1.0
 autoDeactivateSeconds = 1.4
-
-[node name="Choir" type="AudioStreamPlayer3D" parent="."]
-stream = ExtResource("6_choir")
-volume_db = -4.0
-unit_size = 6.0
-max_distance = 30.0
-bus = &"World3D"
 
 [node name="Gained" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource("5_gained")
