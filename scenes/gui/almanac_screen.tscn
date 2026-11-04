@@ -23,12 +23,12 @@ _tabLeftButtonHint = NodePath("MarginContainer/HBoxContainer/TabLeft")
 _tabRightButtonHint = NodePath("MarginContainer/HBoxContainer/TabRight")
 _buttonHintA = NodePath("MarginContainer3/HBoxContainer2/ButtonHintA")
 _buttonHintEquip = NodePath("MarginContainer3/HBoxContainer2/ButtonHintEquip")
-_buttonHintDrop = NodePath("MarginContainer3/HBoxContainer2/ButtonHintDrop")
 _buttonHintUse = NodePath("MarginContainer3/HBoxContainer2/ButtonHintUse")
+_buttonHintDrop = NodePath("MarginContainer3/HBoxContainer2/ButtonHintDrop")
 _inventoryTab = NodePath("MarginContainer/HBoxContainer/InventoryTab")
 _worldMapTab = NodePath("MarginContainer/HBoxContainer/WorldMapTab")
 _bestiaryTab = NodePath("MarginContainer/HBoxContainer/BestiaryTab")
-_spellTab = NodePath("MarginContainer/HBoxContainer/SpellTab")
+_spellTab = NodePath("MarginContainer/HBoxContainer/CraftingTab")
 
 [node name="MarginContainer2" type="MarginContainer" parent="." unique_id=1471085455]
 layout_mode = 1
@@ -110,17 +110,17 @@ theme_override_constants/margin_right = 10
 layout_mode = 2
 text = "Bestiary"
 
-[node name="SpellTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=711631382]
+[node name="CraftingTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=711631382]
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/SpellTab" unique_id=267697363]
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/CraftingTab" unique_id=267697363]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_right = 10
 
-[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/SpellTab/MarginContainer" unique_id=1759403611]
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/CraftingTab/MarginContainer" unique_id=1759403611]
 layout_mode = 2
-text = "Spells"
+text = "Recipes"
 
 [node name="TabRight" parent="MarginContainer/HBoxContainer" unique_id=143488523 instance=ExtResource("4_idb3r")]
 layout_mode = 2
@@ -144,7 +144,7 @@ alignment = 1
 [node name="ButtonHintA" parent="MarginContainer3/HBoxContainer2" unique_id=509441122 instance=ExtResource("4_idb3r")]
 layout_mode = 2
 
-[node name="ButtonHintEquip" parent="MarginContainer3/HBoxContainer2" instance=ExtResource("4_idb3r")]
+[node name="ButtonHintEquip" parent="MarginContainer3/HBoxContainer2" unique_id=1688664498 instance=ExtResource("4_idb3r")]
 layout_mode = 2
 
 [node name="ButtonHintUse" parent="MarginContainer3/HBoxContainer2" unique_id=557692158 instance=ExtResource("4_idb3r")]
