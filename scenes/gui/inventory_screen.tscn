@@ -14,6 +14,7 @@
 [ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="7_count"]
 [ext_resource type="Texture2D" uid="uid://dxns5uacjkly1" path="res://assets/textures/gui/inventory_bg_ammo.png" id="7_pgky2"]
 [ext_resource type="PackedScene" uid="uid://obntj5em5frg" path="res://scenes/gui/player_vitals.tscn" id="vitals_scene"]
+[ext_resource type="Script" uid="uid://dxbje8s6mp5rh" path="res://scripts/gui/FloatBesideFocus.cs" id="float_beside_focus"]
 
 [node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_vitals", "_inventoryPanel", "_shieldPanel", "_armorBodyPanel", "_weaponLeftPanel", "_weaponRightPanel", "_ammoPanel", "_lanternPanel", "_beltPanel", "_highlightPanel", "_countPanel")]
 layout_mode = 3
@@ -33,7 +34,7 @@ _weaponRightPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/VBo
 _ammoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/VBoxContainer/Equipped/Ammo")
 _lanternPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/VBoxContainer/BeltPanel/VBoxContainer/GridContainer/Lantern")
 _beltPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/VBoxContainer/BeltPanel")
-_highlightPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/ItemInfoPanel")
+_highlightPanel = NodePath("ItemInfoPanel")
 _countPanel = NodePath("MarginContainer/ItemCountPanel")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=2000139086]
@@ -149,21 +150,16 @@ layout_mode = 2
 [node name="Inventory" parent="MarginContainer/HBoxContainer/MarginContainer3/VBoxContainer" unique_id=518559378 instance=ExtResource("4_vc0ui")]
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1484389953]
-custom_minimum_size = Vector2(500, 0)
-layout_mode = 2
-size_flags_horizontal = 4
-size_flags_vertical = 0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=508680546]
-layout_mode = 2
-
-[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=638608018 node_paths=PackedStringArray("_reagentSlots", "_salvageSlots") instance=ExtResource("6_jm11f")]
-layout_mode = 2
-_reagentSlots = []
-_salvageSlots = []
-
 [node name="ItemCountPanel" parent="MarginContainer" unique_id=256445145 instance=ExtResource("7_count")]
 layout_mode = 2
 
 [editable path="MarginContainer/HBoxContainer/MarginContainer2/VBoxContainer/BeltPanel"]
+
+[node name="ItemInfoPanel" parent="." unique_id=638608018 node_paths=PackedStringArray("_reagentSlots", "_salvageSlots") instance=ExtResource("6_jm11f")]
+layout_mode = 0
+_reagentSlots = []
+_salvageSlots = []
+
+[node name="FloatBesideFocus" type="Node" parent="ItemInfoPanel" node_paths=PackedStringArray("_target")]
+script = ExtResource("float_beside_focus")
+_target = NodePath("..")

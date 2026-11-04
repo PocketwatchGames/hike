@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="5_count"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="6_11unt"]
 [ext_resource type="PackedScene" uid="uid://obntj5em5frg" path="res://scenes/gui/player_vitals.tscn" id="vitals_scene"]
+[ext_resource type="Script" uid="uid://dxbje8s6mp5rh" path="res://scripts/gui/FloatBesideFocus.cs" id="float_beside_focus"]
 
 [node name="StashScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_vitals", "_stashPanel", "_inventoryPanel", "_itemInfoPanel", "_countPanel", "_hintSelect", "_hintEquip", "_hintUse", "_hintSend", "_hintDrop")]
 layout_mode = 3
@@ -19,7 +20,7 @@ script = ExtResource("1_8n8os")
 _vitals = NodePath("MarginContainer/UpperLeft/PlayerVitals")
 _stashPanel = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/BackpackPanel")
 _inventoryPanel = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Inventory")
-_itemInfoPanel = NodePath("MarginContainer/VBoxContainer/HBoxContainer/MarginContainer/ItemInfoPanel")
+_itemInfoPanel = NodePath("ItemInfoPanel")
 _countPanel = NodePath("MarginContainer/MarginContainer2/ItemCountPanel")
 _hintSelect = NodePath("MarginContainer/ButtonHints/ButtonHintA")
 _hintEquip = NodePath("MarginContainer/ButtonHints/ButtonHintEquip")
@@ -79,15 +80,6 @@ _titleLocKey = &"panel_stash"
 [node name="Inventory" parent="MarginContainer/VBoxContainer/HBoxContainer" unique_id=518559378 instance=ExtResource("3_8n8os")]
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer/HBoxContainer" unique_id=809053745]
-custom_minimum_size = Vector2(500, 200)
-layout_mode = 2
-size_flags_vertical = 0
-
-[node name="ItemInfoPanel" parent="MarginContainer/VBoxContainer/HBoxContainer/MarginContainer" unique_id=638608018 instance=ExtResource("2_w6lr8")]
-layout_mode = 2
-size_flags_vertical = 0
-
 [node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/VBoxContainer" unique_id=2055428021]
 layout_mode = 2
 
@@ -132,3 +124,10 @@ theme_override_constants/margin_bottom = 100
 [node name="ItemCountPanel" parent="MarginContainer/MarginContainer2" unique_id=256445145 instance=ExtResource("5_count")]
 layout_mode = 2
 size_flags_vertical = 8
+
+[node name="ItemInfoPanel" parent="." unique_id=638608018 instance=ExtResource("2_w6lr8")]
+layout_mode = 0
+
+[node name="FloatBesideFocus" type="Node" parent="ItemInfoPanel" node_paths=PackedStringArray("_target")]
+script = ExtResource("float_beside_focus")
+_target = NodePath("..")

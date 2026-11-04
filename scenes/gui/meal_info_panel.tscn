@@ -8,6 +8,8 @@
 custom_minimum_size = Vector2(500, 0)
 size_flags_horizontal = 4
 size_flags_vertical = 4
+mouse_behavior_recursive = 1
+focus_behavior_recursive = 1
 script = ExtResource("1_meal")
 _nameLabel = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Name")
 _descriptionLabel = NodePath("MarginContainer/VBoxContainer/Description")

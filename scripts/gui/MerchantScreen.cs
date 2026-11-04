@@ -124,6 +124,7 @@ public partial class MerchantScreen : Control
 			_inventoryPanel.onGridSlotButtonDown += (grid, index, _) => OnSelectDown(new Slot(ESide.Carried, index, grid));
 			_inventoryPanel.onGridSlotButtonUp += (grid, index, _) => OnSelectUp(new Slot(ESide.Carried, index, grid));
 			_inventoryPanel.onTabChanged += ApplySlotStates;
+			_inventoryPanel.onTabsFocused += () => OnSlotFocused(Slot.None);
 		}
 		if (_tradeButton != null)
 		{

@@ -75,6 +75,7 @@ public partial class CookingScreen : Control
 			_inventoryPanel.onGridSlotFocused += OnItemSlotFocused;
 			_inventoryPanel.onGridSlotButtonUp += OnMaterialTap;
 			_inventoryPanel.onTabChanged += MarkUncookable;
+			_inventoryPanel.onTabsFocused += OnTabsFocused;
 		}
 		if (_cookingPanel != null)
 		{
@@ -98,6 +99,7 @@ public partial class CookingScreen : Control
 			_inventoryPanel.onGridSlotFocused -= OnItemSlotFocused;
 			_inventoryPanel.onGridSlotButtonUp -= OnMaterialTap;
 			_inventoryPanel.onTabChanged -= MarkUncookable;
+			_inventoryPanel.onTabsFocused -= OnTabsFocused;
 		}
 		if (_cookingPanel != null)
 		{
@@ -299,6 +301,13 @@ public partial class CookingScreen : Control
 		_drop.Reset(_hintDrop);
 		ShowItemInfo(FocusedItem());
 		UpdateItemHints();
+	}
+
+	// On the inventory's tab bar nothing is highlighted.
+	void OnTabsFocused()
+	{
+		ClearFocusedSlot();
+		ShowItemInfo(null);
 	}
 
 	void ClearFocusedSlot()

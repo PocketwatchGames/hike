@@ -8,8 +8,9 @@
 [ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="7_inventory"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="8_slot"]
 [ext_resource type="PackedScene" uid="uid://dn1uamwxkqjal" path="res://scenes/gui/recipe_button.tscn" id="9_recipe"]
+[ext_resource type="Script" uid="uid://dxbje8s6mp5rh" path="res://scripts/gui/FloatBesideFocus.cs" id="float_beside_focus"]
 
-[node name="CraftingScreen" type="Control" unique_id=1475522049 node_paths=PackedStringArray("_craftingPage", "_craftingTab", "_inventoryPanel", "_itemInfoPanel", "_repairPage", "_repairTab", "_repairInventoryPanel", "_repairInfoPanel", "_tabLeftHint", "_tabRightHint", "_craftingPanel", "_buttonHintPrimary", "_hintUse", "_hintSalvage", "_hintDrop", "_countPanel")]
+[node name="CraftingScreen" type="Control" unique_id=1475522049 node_paths=PackedStringArray("_craftingPage", "_craftingTab", "_inventoryPanel", "_itemInfoPanel", "_repairPage", "_repairTab", "_repairInventoryPanel", "_tabLeftHint", "_tabRightHint", "_craftingPanel", "_buttonHintPrimary", "_hintUse", "_hintSalvage", "_hintDrop", "_countPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,11 +21,10 @@ script = ExtResource("1_craft")
 _craftingPage = NodePath("MarginContainer/CraftingPanel")
 _craftingTab = NodePath("MarginContainer2/HBoxContainer/CraftingTab")
 _inventoryPanel = NodePath("MarginContainer/CraftingPanel/HBoxContainer/MarginContainer/VBoxContainer/Inventory")
-_itemInfoPanel = NodePath("MarginContainer/CraftingPanel/HBoxContainer/VBoxContainer/MarginContainer2/ItemInfoPanel")
+_itemInfoPanel = NodePath("ItemInfoPanel")
 _repairPage = NodePath("MarginContainer/RepairPanel")
 _repairTab = NodePath("MarginContainer2/HBoxContainer/RepairTab")
 _repairInventoryPanel = NodePath("MarginContainer/RepairPanel/HBoxContainer/MarginContainer/VBoxContainer/Inventory")
-_repairInfoPanel = NodePath("MarginContainer/RepairPanel/HBoxContainer/VBoxContainer/MarginContainer2/ItemInfoPanel")
 _tabLeftHint = NodePath("MarginContainer2/HBoxContainer/TabLeft")
 _tabRightHint = NodePath("MarginContainer2/HBoxContainer/TabRight")
 _craftingPanel = NodePath("MarginContainer/CraftingPanel/HBoxContainer/StationContainer/CraftingPanel")
@@ -143,18 +143,6 @@ layout_mode = 2
 text = "No Recipes Learned!"
 horizontal_alignment = 1
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/CraftingPanel/HBoxContainer" unique_id=1327032339]
-layout_mode = 2
-size_flags_vertical = 0
-alignment = 1
-
-[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/CraftingPanel/HBoxContainer/VBoxContainer" unique_id=1533916864]
-custom_minimum_size = Vector2(500, 0)
-layout_mode = 2
-
-[node name="ItemInfoPanel" parent="MarginContainer/CraftingPanel/HBoxContainer/VBoxContainer/MarginContainer2" unique_id=185573348 instance=ExtResource("5_info")]
-layout_mode = 2
-
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/CraftingPanel/HBoxContainer" unique_id=752427407]
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
@@ -181,18 +169,6 @@ size_flags_horizontal = 4
 size_flags_vertical = 4
 theme_override_constants/separation = 100
 alignment = 1
-
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/RepairPanel/HBoxContainer" unique_id=1073694697]
-layout_mode = 2
-size_flags_vertical = 0
-alignment = 1
-
-[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/RepairPanel/HBoxContainer/VBoxContainer" unique_id=1025642536]
-custom_minimum_size = Vector2(500, 0)
-layout_mode = 2
-
-[node name="ItemInfoPanel" parent="MarginContainer/RepairPanel/HBoxContainer/VBoxContainer/MarginContainer2" unique_id=638608018 instance=ExtResource("5_info")]
-layout_mode = 2
 
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/RepairPanel/HBoxContainer" unique_id=210426758]
 custom_minimum_size = Vector2(500, 0)
@@ -381,3 +357,10 @@ text = "Repair"
 [node name="TabRight" parent="MarginContainer2/HBoxContainer" unique_id=1712372403 instance=ExtResource("2_hint")]
 layout_mode = 2
 InputAction = "TabRight"
+
+[node name="ItemInfoPanel" parent="." unique_id=185573348 instance=ExtResource("5_info")]
+layout_mode = 0
+
+[node name="FloatBesideFocus" type="Node" parent="ItemInfoPanel" node_paths=PackedStringArray("_target")]
+script = ExtResource("float_beside_focus")
+_target = NodePath("..")

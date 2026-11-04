@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="4_pl1cs"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="5_fvgyx"]
 [ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="6_32vq5"]
+[ext_resource type="Script" uid="uid://dxbje8s6mp5rh" path="res://scripts/gui/FloatBesideFocus.cs" id="float_beside_focus"]
 
 [node name="MerchantScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_merchantPortrait", "_merchantNameLabel", "_merchantConversationLabel", "_merchantInventoryPanel", "_getPanel", "_tradeButton", "_inventoryPanel", "_stockGrid", "_giveGrid", "_getGrid", "_countPanel", "_itemInfoPanel", "_hintSelect", "_hintEquip", "_hintUse", "_hintSend", "_hintDrop")]
 layout_mode = 3
@@ -27,7 +28,7 @@ _stockGrid = NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelCon
 _giveGrid = NodePath("MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer/BackpackPanel")
 _getGrid = NodePath("MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer/BackpackPanel")
 _countPanel = NodePath("MarginContainer/MarginContainer2/ItemCountPanel")
-_itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/ItemInfoPanel")
+_itemInfoPanel = NodePath("ItemInfoPanel")
 _hintSelect = NodePath("MarginContainer/ButtonHints/ButtonHintA")
 _hintEquip = NodePath("MarginContainer/ButtonHints/ButtonHintEquip")
 _hintUse = NodePath("MarginContainer/ButtonHints/ButtonHintUse")
@@ -159,13 +160,6 @@ layout_mode = 2
 size_flags_vertical = 4
 alignment = 1
 
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1591214073]
-custom_minimum_size = Vector2(500, 0)
-layout_mode = 2
-
-[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=859788769 instance=ExtResource("2_pl1cs")]
-layout_mode = 2
-
 [node name="ButtonHints" type="HBoxContainer" parent="MarginContainer" unique_id=2079712473]
 layout_mode = 2
 size_flags_vertical = 8
@@ -203,3 +197,10 @@ theme_override_constants/margin_bottom = 100
 [node name="ItemCountPanel" parent="MarginContainer/MarginContainer2" unique_id=256445145 instance=ExtResource("6_32vq5")]
 layout_mode = 2
 size_flags_vertical = 8
+
+[node name="ItemInfoPanel" parent="." unique_id=859788769 instance=ExtResource("2_pl1cs")]
+layout_mode = 0
+
+[node name="FloatBesideFocus" type="Node" parent="ItemInfoPanel" node_paths=PackedStringArray("_target")]
+script = ExtResource("float_beside_focus")
+_target = NodePath("..")

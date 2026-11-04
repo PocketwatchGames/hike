@@ -114,6 +114,7 @@ public partial class InventoryScreen : Control
 			_inventoryPanel.onGridSlotFocused += (grid, index, _) => OnSlotFocused(new Slot(ESide.Carried, index, grid));
 			_inventoryPanel.onGridSlotButtonUp += (grid, index, _) => OnSlotActivated(new Slot(ESide.Carried, index, grid));
 			_inventoryPanel.onTabChanged += ApplySlotStates;
+			_inventoryPanel.onTabsFocused += () => OnSlotFocused(Slot.None);
 		}
 		foreach (EInventorySlot equip in EquipSlots)
 		{

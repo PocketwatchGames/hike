@@ -32,6 +32,9 @@ public partial class InventoryPanel : VBoxContainer
 	// screen re-applies whatever it overlays on them. A focused slot re-raises
 	// onGridSlotFocused with its new grid first.
 	public System.Action onTabChanged;
+	// Focus moved onto the tab bar: no slot is highlighted any more, so a screen
+	// clears whatever it shows for one (the item info panel).
+	public System.Action onTabsFocused;
 
 	// The tabs, in order: the backpack, each sack, then the stash.
 	readonly List<IItemGrid> _grids = new();
@@ -53,6 +56,7 @@ public partial class InventoryPanel : VBoxContainer
 		if (_tabs != null)
 		{
 			_tabs.TabChanged += OnTabChanged;
+			_tabs.FocusEntered += () => onTabsFocused?.Invoke();
 		}
 	}
 

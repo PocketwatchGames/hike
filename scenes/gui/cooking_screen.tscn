@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="5_m6qmy"]
 [ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="6_count"]
 [ext_resource type="PackedScene" path="res://scenes/gui/meal_info_panel.tscn" id="8_meal"]
+[ext_resource type="Script" uid="uid://dxbje8s6mp5rh" path="res://scripts/gui/FloatBesideFocus.cs" id="float_beside_focus"]
 
 [node name="CookingScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_inventoryPanel", "_cookingPanel", "_itemInfoPanel", "_mealInfoPanel", "_buttonHintPrimary", "_hintUse", "_hintDrop", "_countPanel")]
 layout_mode = 3
@@ -18,8 +19,8 @@ grow_vertical = 2
 script = ExtResource("1_f2qv6")
 _inventoryPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/Inventory")
 _cookingPanel = NodePath("MarginContainer/HBoxContainer/CookingContainer/CookingPanel")
-_itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/ItemInfoPanel")
-_mealInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/MealInfoPanel")
+_itemInfoPanel = NodePath("ItemInfoPanel")
+_mealInfoPanel = NodePath("MealInfoPanel")
 _buttonHintPrimary = NodePath("MarginContainer/ButtonHints/ButtonHintA")
 _hintUse = NodePath("MarginContainer/ButtonHints/ButtonHintUse")
 _hintDrop = NodePath("MarginContainer/ButtonHints/ButtonHintDrop")
@@ -92,18 +93,6 @@ alignment = 1
 layout_mode = 2
 size_flags_horizontal = 6
 
-[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=443121301]
-custom_minimum_size = Vector2(500, 0)
-layout_mode = 2
-size_flags_vertical = 0
-
-[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer2" unique_id=638608018 instance=ExtResource("5_m6qmy")]
-layout_mode = 2
-
-[node name="MealInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer2" unique_id=781707881 instance=ExtResource("8_meal")]
-visible = false
-layout_mode = 2
-
 [node name="MarginContainer2" type="MarginContainer" parent="MarginContainer" unique_id=541663869]
 layout_mode = 2
 theme_override_constants/margin_bottom = 100
@@ -111,3 +100,18 @@ theme_override_constants/margin_bottom = 100
 [node name="ItemCountPanel" parent="MarginContainer/MarginContainer2" unique_id=1826891464 instance=ExtResource("6_count")]
 layout_mode = 2
 size_flags_vertical = 8
+
+[node name="ItemInfoPanel" parent="." unique_id=638608018 instance=ExtResource("5_m6qmy")]
+layout_mode = 0
+
+[node name="FloatBesideFocus" type="Node" parent="ItemInfoPanel" node_paths=PackedStringArray("_target")]
+script = ExtResource("float_beside_focus")
+_target = NodePath("..")
+
+[node name="MealInfoPanel" parent="." unique_id=781707881 instance=ExtResource("8_meal")]
+visible = false
+layout_mode = 0
+
+[node name="FloatBesideFocus" type="Node" parent="MealInfoPanel" node_paths=PackedStringArray("_target")]
+script = ExtResource("float_beside_focus")
+_target = NodePath("..")

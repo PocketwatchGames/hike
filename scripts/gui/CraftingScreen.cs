@@ -34,19 +34,19 @@ public partial class CraftingScreen : Control
 {
 	[Export] public GameClient gameClient;
 	// The Crafting tab: its page, its label in the tab row, and on the page the
-	// maker's backpack and sacks, then the party stash, and the info panel.
+	// maker's backpack and sacks, then the party stash.
 	[Export] private Control _craftingPage;
 	[Export] private Control _craftingTab;
 	[Export] private InventoryPanel _inventoryPanel;
-	[Export] private ItemInfoPanel _itemInfoPanel;
 	// The Repair tab, laid out the same way.
 	[Export] private Control _repairPage;
 	[Export] private Control _repairTab;
 	[Export] private InventoryPanel _repairInventoryPanel;
-	[Export] private ItemInfoPanel _repairInfoPanel;
 	[Export] private ButtonHint _tabLeftHint;
 	[Export] private ButtonHint _tabRightHint;
 	[Export] private CraftingPanel _craftingPanel;
+	// Floats beside whatever is focused, on either tab (FloatBesideFocus).
+	[Export] private ItemInfoPanel _itemInfoPanel;
 	// The A / primary button hint: Craft on a recipe, Remove on a queued job,
 	// Repair on repairable gear (Repair tab).
 	[Export] private ButtonHint _buttonHintPrimary;
@@ -120,12 +120,14 @@ public partial class CraftingScreen : Control
 		if (_inventoryPanel != null)
 		{
 			_inventoryPanel.onGridSlotFocused += OnGridFocused;
+			_inventoryPanel.onTabsFocused += OnTabsFocused;
 		}
 		if (_repairInventoryPanel != null)
 		{
 			_repairInventoryPanel.onGridSlotFocused += OnGridFocused;
 			_repairInventoryPanel.onGridSlotButtonUp += OnRepairSlotPressed;
 			_repairInventoryPanel.onTabChanged += DimUnrepairable;
+			_repairInventoryPanel.onTabsFocused += OnTabsFocused;
 		}
 		_tabLeftHint?.SetHint(TabLeftAction, string.Empty);
 		_tabRightHint?.SetHint(TabRightAction, string.Empty);
@@ -137,7 +139,6 @@ public partial class CraftingScreen : Control
 			_craftingPanel.onQueuePressed += OnQueuePressed;
 		}
 		_itemInfoPanel?.SetItem(null);
-		_repairInfoPanel?.SetItem(null);
 		ApplyTab();
 	}
 
@@ -150,12 +151,14 @@ public partial class CraftingScreen : Control
 		if (_inventoryPanel != null)
 		{
 			_inventoryPanel.onGridSlotFocused -= OnGridFocused;
+			_inventoryPanel.onTabsFocused -= OnTabsFocused;
 		}
 		if (_repairInventoryPanel != null)
 		{
 			_repairInventoryPanel.onGridSlotFocused -= OnGridFocused;
 			_repairInventoryPanel.onGridSlotButtonUp -= OnRepairSlotPressed;
 			_repairInventoryPanel.onTabChanged -= DimUnrepairable;
+			_repairInventoryPanel.onTabsFocused -= OnTabsFocused;
 		}
 		if (_craftingPanel != null)
 		{
@@ -280,7 +283,6 @@ public partial class CraftingScreen : Control
 		}
 	}
 
-	ItemInfoPanel InfoPanel => _tab == ETab.Repair ? _repairInfoPanel : _itemInfoPanel;
 
 	public void Close()
 	{
@@ -421,6 +423,14 @@ public partial class CraftingScreen : Control
 		UpdateHints();
 	}
 
+	// On an inventory's tab bar nothing is highlighted.
+	void OnTabsFocused()
+	{
+		ClearFocus();
+		ShowFocused();
+		UpdateHints();
+	}
+
 	void OnRecipeFocused(ItemData recipe)
 	{
 		ClearFocus();
@@ -462,13 +472,13 @@ public partial class CraftingScreen : Control
 		return queue != null && _focusedJob >= 0 && _focusedJob < queue.Count ? queue.Jobs[_focusedJob] : null;
 	}
 
-	// The shown tab's info panel for whatever is focused, with what it requires
+	// The info panel for whatever is focused, with what it requires
 	// and takes: a recipe's inputs, hours and yield, a queued job's paid cost and
 	// hours, what a held item salvages into, and on the Repair tab a repair's share
 	// of cost and hours.
 	void ShowFocused()
 	{
-		ItemInfoPanel info = InfoPanel;
+		ItemInfoPanel info = _itemInfoPanel;
 		if (info == null)
 		{
 			return;

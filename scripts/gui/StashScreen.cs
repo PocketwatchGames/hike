@@ -97,6 +97,7 @@ public partial class StashScreen : Control
 			_inventoryPanel.onGridSlotButtonDown += (grid, index, _) => OnSelectDown(new Slot(ESide.Carried, index, grid));
 			_inventoryPanel.onGridSlotButtonUp += (grid, index, _) => OnSelectUp(new Slot(ESide.Carried, index, grid));
 			_inventoryPanel.onTabChanged += ApplySlotStates;
+			_inventoryPanel.onTabsFocused += () => OnSlotFocused(Slot.None);
 		}
 		_itemInfoPanel?.SetItem(null);
 	}
