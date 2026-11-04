@@ -55,6 +55,7 @@ item_required	Required:
 item_repair_cost	Repair cost:
 item_salvages_into	Salvages into:
 item_repair	Repair
+item_repair_missing	Need ingredients
 item_repaired	Repaired %0
 merchant_offer	Offer
 merchant_take_back	Take back
@@ -82,6 +83,7 @@ time_hours	%0h
 time_minutes	%0m
 craft_queue_remove	Remove
 craft_queue_blocked	Stash full
+craft_queue_full	Queue full
 craft_queue_progress	%0 %1%
 cookpot_contents	In the pot: %0
 cookpot_empty	The pot is empty

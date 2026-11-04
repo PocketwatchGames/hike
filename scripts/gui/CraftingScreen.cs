@@ -2,11 +2,11 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-// Crafting at a crafting bench. Left = the bench's job queue and the learned
-// recipes (CraftingPanel); center = the maker's backpack and sacks with the
-// party stash below them (InventoryPanel) — worn gear, which most needs repair,
-// framed among them; right = the focused thing's info, with what it requires and
-// how long it takes.
+// Crafting at a crafting bench, on two tabs (TabLeft / TabRight) over one shared
+// job queue. Crafting: the learned recipes (CraftingPanel), the maker's items
+// (InventoryPanel — backpack, sacks and the stash) and the focused thing's info.
+// Repair: the maker's items again, with everything that can't be repaired
+// dimmed, and the focused piece's repair cost and hours.
 //
 // Opened with an onClose callback it dismisses itself on ui_cancel; without one
 // its host owns ui_cancel.
@@ -21,35 +21,56 @@ using System.Collections.Generic;
 // On a recipe:      A  — queue a craft of it. Only learned recipes are listed.
 // On a queued job:  A  — remove it, refunding its cost (and a repair's gear).
 // On an item slot:
-//   X  — queue a repair of the focused gear to full (GearState.ComposeRepairCost
-//        and ComposeRepairHours, shown in the info panel). Always known.
+//   A  — on the Repair tab, queue a repair of the focused gear to full
+//        (GearState.ComposeRepairCost and ComposeRepairHours, shown in the info
+//        panel). Always known; the Crafting tab never repairs.
 //   Y  — use the item.
-//   RT — salvage it into the stash when it can be salvaged, otherwise drop it at
-//        the maker's feet. A tap salvages one unit / drops the stack; hold to
-//        choose how many.
+//   LT — salvage it into the stash, when it can be salvaged. A tap salvages one
+//        unit; hold to choose how many.
+//   RT — drop it at the maker's feet. A tap drops the stack; hold to choose how
+//        many.
 [GlobalClass]
 public partial class CraftingScreen : Control
 {
 	[Export] public GameClient gameClient;
-	// The maker's backpack and sacks, then the party stash.
+	// The Crafting tab: its page, its label in the tab row, and on the page the
+	// maker's backpack and sacks, then the party stash, and the info panel.
+	[Export] private Control _craftingPage;
+	[Export] private Control _craftingTab;
 	[Export] private InventoryPanel _inventoryPanel;
-	[Export] private CraftingPanel _craftingPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
-	// The A / primary button hint: Craft on a recipe, Remove on a queued job.
+	// The Repair tab, laid out the same way.
+	[Export] private Control _repairPage;
+	[Export] private Control _repairTab;
+	[Export] private InventoryPanel _repairInventoryPanel;
+	[Export] private ItemInfoPanel _repairInfoPanel;
+	[Export] private ButtonHint _tabLeftHint;
+	[Export] private ButtonHint _tabRightHint;
+	[Export] private CraftingPanel _craftingPanel;
+	// The A / primary button hint: Craft on a recipe, Remove on a queued job,
+	// Repair on repairable gear (Repair tab).
 	[Export] private ButtonHint _buttonHintPrimary;
 	[Export] private ButtonHint _hintUse;
-	// Salvage or Drop — one button, labelled by what the focused item allows.
+	[Export] private ButtonHint _hintSalvage;
 	[Export] private ButtonHint _hintDrop;
-	[Export] private ButtonHint _hintRepair;
 	[Export] private ItemCountPanel _countPanel;
+	// The tab label tint while its tab is not shown.
+	[Export] private Color _inactiveTabTint = new Color(0.5f, 0.5f, 0.5f);
 	// How long Salvage / Drop must be held on a stack to choose how many.
 	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _holdSeconds = 0.5f;
 
 	const string PrimaryHintAction = "ui_select";
 	const string UseAction = "MenuTertiary";
+	const string SalvageAction = "MenuQuaternary";
 	const string DropAction = "MenuQuinary";
-	// The equip verb's button on the inventory screens.
-	const string RepairAction = "MenuSecondary";
+	const string TabLeftAction = "TabLeft";
+	const string TabRightAction = "TabRight";
+
+	enum ETab
+	{
+		Crafting,
+		Repair,
+	}
 
 	// An item slot: one of the maker's grids or the stash, and the slot in it.
 	readonly struct Slot
@@ -72,6 +93,7 @@ public partial class CraftingScreen : Control
 	Action _onClose;
 	Player _maker;
 	CraftingBench _bench;
+	ETab _tab;
 
 	// The item slot under the cursor. Its panel is checked for focus at each
 	// press, so a cursor moved elsewhere acts on nothing.
@@ -79,6 +101,7 @@ public partial class CraftingScreen : Control
 	// The recipe or queued job under the cursor, when it isn't an item slot.
 	ItemData _focusedRecipe;
 	int _focusedJob = -1;
+	readonly PolledHold _salvage = new(SalvageAction);
 	readonly PolledHold _drop = new(DropAction);
 	// What Open subscribed to, so Close detaches the same objects.
 	Inventory _watchedInventory;
@@ -98,6 +121,14 @@ public partial class CraftingScreen : Control
 		{
 			_inventoryPanel.onGridSlotFocused += OnGridFocused;
 		}
+		if (_repairInventoryPanel != null)
+		{
+			_repairInventoryPanel.onGridSlotFocused += OnGridFocused;
+			_repairInventoryPanel.onGridSlotButtonUp += OnRepairSlotPressed;
+			_repairInventoryPanel.onTabChanged += DimUnrepairable;
+		}
+		_tabLeftHint?.SetHint(TabLeftAction, string.Empty);
+		_tabRightHint?.SetHint(TabRightAction, string.Empty);
 		if (_craftingPanel != null)
 		{
 			_craftingPanel.onRecipeSelected += OnRecipeSelected;
@@ -106,6 +137,8 @@ public partial class CraftingScreen : Control
 			_craftingPanel.onQueuePressed += OnQueuePressed;
 		}
 		_itemInfoPanel?.SetItem(null);
+		_repairInfoPanel?.SetItem(null);
+		ApplyTab();
 	}
 
 	public override void _ExitTree()
@@ -117,6 +150,12 @@ public partial class CraftingScreen : Control
 		if (_inventoryPanel != null)
 		{
 			_inventoryPanel.onGridSlotFocused -= OnGridFocused;
+		}
+		if (_repairInventoryPanel != null)
+		{
+			_repairInventoryPanel.onGridSlotFocused -= OnGridFocused;
+			_repairInventoryPanel.onGridSlotButtonUp -= OnRepairSlotPressed;
+			_repairInventoryPanel.onTabChanged -= DimUnrepairable;
 		}
 		if (_craftingPanel != null)
 		{
@@ -158,9 +197,12 @@ public partial class CraftingScreen : Control
 			_watchedSim.onCraftJobDelivered += OnJobDelivered;
 		}
 		ClearFocus();
+		_salvage.Arm(_hintSalvage);
 		_drop.Arm(_hintDrop);
 		_craftingPanel?.HideAnnouncement();
 		_paintedJobCount = -1;
+		_tab = ETab.Crafting;
+		ApplyTab();
 		Visible = true;
 		// Deferred so the just-shown nodes are visible-in-tree (GrabFocus needs
 		// that) and so it runs after the visibility-change refresh has rebuilt the
@@ -168,13 +210,18 @@ public partial class CraftingScreen : Control
 		Callable.From(ApplyInitialFocus).CallDeferred();
 	}
 
-	// The initial keyboard/gamepad focus, in priority order: a recipe that can be
-	// queued now, otherwise the first item in the backpack, otherwise the first
-	// item anywhere else carried or stashed.
+	// The initial keyboard/gamepad focus for the tab shown: on Crafting a recipe
+	// that can be queued now, else the first item; on Repair the first repairable
+	// piece, else the first item.
 	void ApplyInitialFocus()
 	{
 		if (!Visible)
 		{
+			return;
+		}
+		if (_tab == ETab.Repair)
+		{
+			(FirstRepairable() ?? _repairInventoryPanel?.FirstOccupied())?.GrabFocus();
 			return;
 		}
 		if (_craftingPanel != null && _craftingPanel.GrabFirstAvailableRecipeFocus())
@@ -183,6 +230,57 @@ public partial class CraftingScreen : Control
 		}
 		_inventoryPanel?.FirstOccupied()?.GrabFocus();
 	}
+
+	ItemSlotPanel FirstRepairable()
+	{
+		if (_repairInventoryPanel == null)
+		{
+			return null;
+		}
+		foreach (ItemSlotPanel slot in _repairInventoryPanel.GridPanel.EnumerateSlots())
+		{
+			if (IsRepairable(slot.Item))
+			{
+				return slot;
+			}
+		}
+		return null;
+	}
+
+	// ---- Tabs -------------------------------------------------------------------
+
+	void CycleTab(int direction)
+	{
+		int count = Enum.GetValues<ETab>().Length;
+		_tab = (ETab)(((int)_tab + direction + count) % count);
+		ApplyTab();
+		Callable.From(ApplyInitialFocus).CallDeferred();
+	}
+
+	// Show the current tab's page and light its label; focus starts over, so
+	// nothing on the page left behind stays acted on.
+	void ApplyTab()
+	{
+		SetTab(_craftingPage, _craftingTab, _tab == ETab.Crafting);
+		SetTab(_repairPage, _repairTab, _tab == ETab.Repair);
+		ClearFocus();
+		ShowFocused();
+		UpdateHints();
+	}
+
+	void SetTab(Control page, Control tab, bool active)
+	{
+		if (page != null)
+		{
+			page.Visible = active;
+		}
+		if (tab != null)
+		{
+			tab.Modulate = active ? Colors.White : _inactiveTabTint;
+		}
+	}
+
+	ItemInfoPanel InfoPanel => _tab == ETab.Repair ? _repairInfoPanel : _itemInfoPanel;
 
 	public void Close()
 	{
@@ -233,7 +331,24 @@ public partial class CraftingScreen : Control
 	void RefreshItems()
 	{
 		_inventoryPanel?.Paint(_maker?.Inventory, Stash);
+		_repairInventoryPanel?.Paint(_maker?.Inventory, Stash);
+		DimUnrepairable();
 	}
+
+	// On the Repair tab everything that can't be repaired is greyed.
+	void DimUnrepairable()
+	{
+		if (_repairInventoryPanel == null)
+		{
+			return;
+		}
+		foreach (ItemSlotPanel slot in _repairInventoryPanel.GridPanel.EnumerateSlots())
+		{
+			slot.SetUnavailable(slot.Item != null && !IsRepairable(slot.Item));
+		}
+	}
+
+	static bool IsRepairable(ItemState item) => item is GearState { IsRepairable: true };
 
 	// A recipe is available when it can be paid now and the queue has room.
 	void RefreshRecipeList()
@@ -327,6 +442,7 @@ public partial class CraftingScreen : Control
 		_focused = Slot.None;
 		_focusedRecipe = null;
 		_focusedJob = -1;
+		_salvage.Reset(_hintSalvage);
 		_drop.Reset(_hintDrop);
 	}
 
@@ -346,12 +462,14 @@ public partial class CraftingScreen : Control
 		return queue != null && _focusedJob >= 0 && _focusedJob < queue.Count ? queue.Jobs[_focusedJob] : null;
 	}
 
-	// The info panel for whatever is focused, with what it requires and takes:
-	// a recipe's inputs, hours and yield, a repair's share of both, a queued job's
-	// paid cost and hours, and what a held item salvages into.
+	// The shown tab's info panel for whatever is focused, with what it requires
+	// and takes: a recipe's inputs, hours and yield, a queued job's paid cost and
+	// hours, what a held item salvages into, and on the Repair tab a repair's share
+	// of cost and hours.
 	void ShowFocused()
 	{
-		if (_itemInfoPanel == null)
+		ItemInfoPanel info = InfoPanel;
+		if (info == null)
 		{
 			return;
 		}
@@ -361,25 +479,25 @@ public partial class CraftingScreen : Control
 			ItemState made = _focusedRecipe.CreateState();
 			made.SetCount(_focusedRecipe.IsStackable ? recipe?.count ?? 1 : 1);
 			// The recipe is learned, so its output reads identified.
-			_itemInfoPanel.SetItem(made, forceIdentified: true, reagents: recipe?.inputs, hours: recipe?.hours ?? -1.0, makes: recipe?.count ?? 1);
+			info.SetItem(made, forceIdentified: true, reagents: recipe?.inputs, hours: recipe?.hours ?? -1.0, makes: recipe?.count ?? 1);
 			return;
 		}
 		if (_focusedJob >= 0)
 		{
 			CraftJob job = FocusedJob();
-			_itemInfoPanel.SetItem(job?.Preview(), forceIdentified: job != null && !job.IsRepair, reagents: job != null ? PaidRows(job) : null, hours: job?.hours ?? -1.0,
+			info.SetItem(job?.Preview(), forceIdentified: job != null && !job.IsRepair, reagents: job != null ? PaidRows(job) : null, hours: job?.hours ?? -1.0,
 				makes: job != null && !job.IsRepair ? job.count : 0, repair: job != null && job.IsRepair);
 			return;
 		}
 		ItemState item = FocusedItem();
 		// Shown whenever the item has yields, even while a missing tool blocks the salvage.
 		var salvage = item?.data is { IsSalvageable: true } data ? data.salvage : null;
-		if (item is GearState { IsRepairable: true } gear)
+		if (_tab == ETab.Repair && item is GearState { IsRepairable: true } gear)
 		{
-			_itemInfoPanel.SetItem(item, reagents: gear.ComposeRepairCost(), hours: gear.ComposeRepairHours(), salvage: salvage, repair: true);
+			info.SetItem(item, reagents: gear.ComposeRepairCost(), hours: gear.ComposeRepairHours(), salvage: salvage, repair: true);
 			return;
 		}
-		_itemInfoPanel.SetItem(item, salvage: salvage);
+		info.SetItem(item, salvage: salvage);
 	}
 
 	static List<MaterialCount> PaidRows(CraftJob job)
@@ -443,9 +561,19 @@ public partial class CraftingScreen : Control
 
 	// ---- Repair ----------------------------------------------------------------
 
+	// The focused piece when it can be repaired — only ever on the Repair tab.
 	GearState FocusedRepairable()
 	{
-		return FocusedItem() is GearState { IsRepairable: true } gear ? gear : null;
+		return _tab == ETab.Repair && FocusedItem() is GearState { IsRepairable: true } gear ? gear : null;
+	}
+
+	// A on a Repair-tab slot (the slot is the focused one).
+	void OnRepairSlotPressed(IItemGrid grid, int index, ItemSlotPanel panel)
+	{
+		if (!PickerOpen)
+		{
+			Repair();
+		}
 	}
 
 	bool CanQueueRepair(GearState gear)
@@ -459,8 +587,14 @@ public partial class CraftingScreen : Control
 	{
 		GearState gear = FocusedRepairable();
 		Slot slot = _focused;
+		if (gear == null)
+		{
+			return;
+		}
 		if (!CanQueueRepair(gear))
 		{
+			bool queueFull = Queue == null || Queue.IsFull;
+			_craftingPanel?.ShowAnnouncement(Loc.Get(queueFull ? Loc.Keys.craft_queue_full : Loc.Keys.item_repair_missing), gear.data?.inventorySprite);
 			return;
 		}
 		var job = new CraftJob
@@ -497,11 +631,15 @@ public partial class CraftingScreen : Control
 		{
 			primary = Loc.Get(Loc.Keys.craft_queue_remove);
 		}
+		else if (FocusedRepairable() != null)
+		{
+			// Shown even when it can't be queued; a press then announces why.
+			primary = Loc.Get(Loc.Keys.item_repair);
+		}
 		ShowHint(_buttonHintPrimary, PrimaryHintAction, primary);
 		ShowHint(_hintUse, UseAction, InventoryScreen.UseVerb(_maker, item));
-		string dropVerb = item == null ? null : CanSalvage(item) ? Loc.Get(Loc.Keys.item_salvage) : Loc.Get(Loc.Keys.stash_drop);
-		ShowHint(_hintDrop, DropAction, dropVerb);
-		ShowHint(_hintRepair, RepairAction, CanQueueRepair(FocusedRepairable()) ? Loc.Get(Loc.Keys.item_repair) : null);
+		ShowHint(_hintSalvage, SalvageAction, CanSalvage(item) ? Loc.Get(Loc.Keys.item_salvage) : null);
+		ShowHint(_hintDrop, DropAction, item != null ? Loc.Get(Loc.Keys.stash_drop) : null);
 	}
 
 	// A null label hides the hint.
@@ -546,39 +684,30 @@ public partial class CraftingScreen : Control
 		OnItemsChanged();
 	}
 
-	// A tap salvages one unit, or drops the whole stack; a hold on a stack asks
-	// how many.
-	void TickDropHold(float delta)
+	// LT salvages, RT drops. A salvage tap takes one unit and a drop tap the whole
+	// stack; a hold on a stack asks how many.
+	void TickHolds(float delta)
 	{
 		ItemState item = FocusedItem();
 		Slot slot = _focused;
-		PolledHold.EResult press = _drop.Tick(item != null, delta, _holdSeconds, _hintDrop);
-		if (press == PolledHold.EResult.None)
+		PolledHold.EResult salvage = _salvage.Tick(CanSalvage(item), delta, _holdSeconds, _hintSalvage);
+		if (salvage == PolledHold.EResult.Hold && item.stackCount > 1)
 		{
+			_countPanel?.Open(item.stackCount, count => Salvage(slot, count), prompt: Loc.Get(Loc.Keys.item_salvage_how_many));
 			return;
 		}
-		bool salvage = CanSalvage(item);
-		if (press == PolledHold.EResult.Hold && item.stackCount > 1)
-		{
-			string prompt = salvage ? Loc.Get(Loc.Keys.item_salvage_how_many) : Loc.Get(Loc.Keys.item_drop_how_many);
-			_countPanel?.Open(item.stackCount, count =>
-			{
-				if (salvage)
-				{
-					Salvage(slot, count);
-				}
-				else
-				{
-					Drop(slot, count);
-				}
-			}, prompt: prompt);
-			return;
-		}
-		if (salvage)
+		if (salvage != PolledHold.EResult.None)
 		{
 			Salvage(slot, 1);
+			return;
 		}
-		else
+		PolledHold.EResult drop = _drop.Tick(item != null, delta, _holdSeconds, _hintDrop);
+		if (drop == PolledHold.EResult.Hold && item.stackCount > 1)
+		{
+			_countPanel?.Open(item.stackCount, count => Drop(slot, count), prompt: Loc.Get(Loc.Keys.item_drop_how_many));
+			return;
+		}
+		if (drop != PolledHold.EResult.None)
 		{
 			Drop(slot, item.stackCount);
 		}
@@ -601,7 +730,7 @@ public partial class CraftingScreen : Control
 		_craftingPanel?.RefreshProgress(Queue, Clock);
 		if (!PickerOpen)
 		{
-			TickDropHold((float)delta);
+			TickHolds((float)delta);
 		}
 	}
 
@@ -619,9 +748,9 @@ public partial class CraftingScreen : Control
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (e.IsActionPressed(RepairAction) && FocusedRepairable() != null)
+		if (e.IsActionPressed(TabLeftAction) || e.IsActionPressed(TabRightAction))
 		{
-			Repair();
+			CycleTab(e.IsActionPressed(TabLeftAction) ? -1 : 1);
 			GetViewport().SetInputAsHandled();
 			return;
 		}
