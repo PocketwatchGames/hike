@@ -11,12 +11,11 @@
 [ext_resource type="Resource" uid="uid://cssdog0000001" path="res://resources/data/characters/dog/dog_subspecies.tres" id="7_dog"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_kkkob"]
 [ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="8_inv"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="9_input"]
 [ext_resource type="Resource" uid="uid://bgbn5p2k4q7wt" path="res://resources/data/items/loot/goblin_meat.tres" id="10_meat"]
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="11_gold"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="15_opdly"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="17_71edb"]
-[ext_resource type="Script" uid="uid://j82ckihv22tvk" path="res://scripts/data/items/CraftRecipeData.cs" id="recipe_data"]
+[ext_resource type="Script" uid="uid://ci8leenexn3d1" path="res://scripts/data/items/CraftRecipeData.cs" id="recipe_data"]
 
 [sub_resource type="Resource" id="Resource_summon_effect"]
 script = ExtResource("6_summon")
@@ -40,25 +39,25 @@ chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action")]
 requireFullCharge = true
 
 [sub_resource type="Resource" id="Resource_reagent_meat"]
-script = ExtResource("9_input")
+script = ExtResource("15_opdly")
 item = ExtResource("10_meat")
 count = 3
 
 [sub_resource type="Resource" id="Resource_reagent_gold"]
-script = ExtResource("9_input")
+script = ExtResource("15_opdly")
 item = ExtResource("11_gold")
 count = 2
 
 [sub_resource type="Resource" id="Recipe"]
 script = ExtResource("recipe_data")
-inputs = Array[ExtResource("9_input")]([SubResource("Resource_reagent_meat"), SubResource("Resource_reagent_gold")])
+inputs = Array[ExtResource("15_opdly")]([SubResource("Resource_reagent_meat"), SubResource("Resource_reagent_gold")])
 
 [resource]
 script = ExtResource("1_consumable")
 actionProfile = SubResource("Resource_profile")
-recipe = SubResource("Recipe")
 displayName = &"Dog Treat"
 description = "A savory treat that calls your loyal dog to your side. Hold to summon it — or, while it's near, to send it away."
 maxStack = 5
 value = 15
 inventorySprite = ExtResource("8_inv")
+recipe = SubResource("Recipe")

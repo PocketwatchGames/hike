@@ -1,17 +1,21 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://jcf5m3i0bsw5"]
 
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="2_8jpds"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="2_list"]
 [ext_resource type="Script" uid="uid://hp1b1xye8rsv" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="3_npc"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="4_4j5gg"]
+[ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="6_85kin"]
+[ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/characters/LoyaltyGift.cs" id="7_imnqc"]
 [ext_resource type="Resource" uid="uid://df3tkp1uue567" path="res://resources/data/worlds/shared/party/talia.tres" id="19_talia"]
 [ext_resource type="Resource" uid="uid://b2q10suq78qsl" path="res://resources/data/worlds/default_world/conversations/wanderer_conversation.tres" id="20_wanderconv"]
+[ext_resource type="Resource" uid="uid://d4lwac8hs5jo" path="res://resources/data/worlds/shared/npcs/appearances/wanderer_talia.tres" id="A_wanderer_talia"]
 [ext_resource type="Resource" uid="uid://cssvillager01" path="res://resources/data/characters/human/standard_npc.tres" id="D_standard_npc"]
 [ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
-[ext_resource type="Resource" uid="uid://d4lwac8hs5jo" path="res://resources/data/worlds/shared/npcs/appearances/wanderer_talia.tres" id="A_wanderer_talia"]
 
 [sub_resource type="Resource" id="Npc_recruit"]
 script = ExtResource("3_npc")
-appearance = ExtResource("A_wanderer_talia")
 conversation = ExtResource("20_wanderconv")
+appearance = ExtResource("A_wanderer_talia")
 idleAnimation = &"idle_neutral"
 recruitTemplate = ExtResource("19_talia")
 species = ExtResource("D_standard_npc")

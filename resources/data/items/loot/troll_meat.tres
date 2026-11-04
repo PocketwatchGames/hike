@@ -3,12 +3,13 @@
 [ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_loot_data"]
 [ext_resource type="Texture2D" uid="uid://mvhg0aoobuv6" path="res://assets/textures/items/BadMeat.png" id="2_inv"]
 [ext_resource type="Resource" uid="uid://cfntew4gqccww" path="res://resources/data/items/loot/meat.tres" id="3_parent"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="10_x5ak0"]
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="apply_status"]
 [ext_resource type="Resource" uid="uid://cfgrdp0ehape4" path="res://resources/data/status_effects/status_food_poisoning.tres" id="food_poisoning"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="item_effect"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/hide.tres" id="salvage_hide"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/bone.tres" id="salvage_bone"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/hide.tres" id="salvage_hide"]
 
 [sub_resource type="Resource" id="eat_poison"]
 script = ExtResource("apply_status")
@@ -29,11 +30,10 @@ script = ExtResource("1_loot_data")
 effects = Array[ExtResource("item_effect")]([SubResource("eat_poison")])
 satiation = 0.15
 displayName = &"Troll Meat"
-maxStack = 1
-salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_hide"), SubResource("salvage_yield_bone")])
 spoilDays = 3
 inventorySprite = ExtResource("2_inv")
 typeTags = 129
 categoryOverride = 6
 parent = ExtResource("3_parent")
 removeTimeMs = 60000
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_hide"), SubResource("salvage_yield_bone")])

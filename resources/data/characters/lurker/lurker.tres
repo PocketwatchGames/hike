@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="5_wafoc"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="6_recolor"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="7_palette"]
-[ext_resource type="Resource" uid="uid://f3gy8ulig0ypy" path="res://resources/data/blood/red_blood_small.tres" id="blood_1"]
+[ext_resource type="Resource" uid="uid://b714nsn8vs3x7" path="res://resources/data/blood/red_blood_small.tres" id="blood_1"]
 [ext_resource type="Resource" uid="uid://cdl46y53kpu67" path="res://resources/data/items/loot/lurker_meat.tres" id="meat"]
 
 [sub_resource type="Resource" id="Resource_anim_dead"]
@@ -62,7 +62,6 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 
 [resource]
 script = ExtResource("5_mobdata")
-blood = ExtResource("blood_1")
 displayName = &"Lurker"
 visionRange = 8.0
 visionFovDegrees = 200.0
@@ -73,7 +72,7 @@ visibilityMovementPower = 1.0
 prominence = 0.8
 waterClarityCamouflage = 0.85
 maxHealth = 120.0
-modifiers = null
+modifiers = []
 defaultBehavior = &"Wander"
 brain = ExtResource("3_brain")
 bestiaryPortrait = ExtResource("4_portrait")
@@ -89,6 +88,8 @@ animations = Dictionary[int, ExtResource("2_anim")]({
 hudScale = 0.6
 mobScene = ExtResource("1_scene")
 palette = SubResource("palette_lurker")
+blood = ExtResource("blood_1")
+meat = ExtResource("meat")
 movement = 35
 triggersTraps = false
 verticalClearance = 1
@@ -96,5 +97,4 @@ maxSpeed = 6.0
 foliageSpeedModifier = 0.0
 swimDepthThreshold = 1.0
 swimSpeed = 6.0
-meat = ExtResource("meat")
 metadata/_custom_type_script = "uid://b1016kfgr80a5"

@@ -6,7 +6,7 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_h5an5"]
 [ext_resource type="Texture2D" uid="uid://djbrh2y7f5jpj" path="res://assets/textures/items/Shovel.png" id="3_icon"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_requirement"]
-[ext_resource type="Script" path="res://scripts/data/actions/requirements/CarriesToolRequirement.cs" id="5_tool"]
+[ext_resource type="Script" uid="uid://b2c5f8oqua7fa" path="res://scripts/data/actions/requirements/CarriesToolRequirement.cs" id="5_tool"]
 [ext_resource type="PackedScene" uid="uid://b2dgl8kq5wrxa" path="res://scenes/fx/dig_loop.tscn" id="6_loop"]
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="6_qmffj"]
 [ext_resource type="Script" uid="uid://b6v83hp2t5bx" path="res://scripts/data/actions/requirements/NotInCombatRequirement.cs" id="7_combat"]

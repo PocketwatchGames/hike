@@ -13,6 +13,8 @@
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_m3w5h"]
 [ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/fx/sword_hit_solid.tscn" id="8_solidfx"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="10_ftnlk"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="14_l812d"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="16_n8gpf"]
 [ext_resource type="PackedScene" path="res://scenes/fx/mob_smear_thrust.tscn" id="20_smear"]
 
 [sub_resource type="Resource" id="Resource_event_windup_anim"]

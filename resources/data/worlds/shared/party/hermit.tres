@@ -8,8 +8,8 @@
 [ext_resource type="Resource" uid="uid://b6n2vvhvirjdk" path="res://resources/data/items/weapons/bow.tres" id="5_77kmh"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="9_g0m43"]
 [ext_resource type="Texture2D" uid="uid://cxfdn0d5db6mw" path="res://assets/textures/items/LeatherArmor.png" id="11_icon"]
-[ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="armor_start"]
 [ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/ammo/arrow.tres" id="ammo_arrows"]
+[ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="armor_start"]
 
 [sub_resource type="Resource" id="Desc_club"]
 script = ExtResource("3_desc")

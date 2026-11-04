@@ -14,6 +14,8 @@
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="9_vmvbc"]
 [ext_resource type="PackedScene" uid="uid://oygoy20q68dr" path="res://scenes/fx/slime_target_preview.tscn" id="10_preview"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_vmvbc"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="15_e35dt"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="17_drvih"]
 [ext_resource type="Script" uid="uid://cbrtam2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="20_burst"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]

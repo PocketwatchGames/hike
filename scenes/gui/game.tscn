@@ -11,15 +11,15 @@
 [ext_resource type="PackedScene" uid="uid://bkaby86guis4d" path="res://scenes/interactives/loot.tscn" id="20_loot"]
 [ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
-[ext_resource type="PackedScene" uid="uid://4b89jlof6zjef" path="res://scenes/gui/story_screen.tscn" id="23_story"]
+[ext_resource type="PackedScene" uid="uid://cae6e68n8le22" path="res://scenes/gui/story_screen.tscn" id="23_story"]
 [ext_resource type="PackedScene" uid="uid://bkn63m6xyu5a2" path="res://scenes/gui/upgrade_screen.tscn" id="27_upgrade"]
 [ext_resource type="PackedScene" uid="uid://carxk5v82cy87" path="res://scenes/gui/sleep_overlay.tscn" id="28_sleep"]
 [ext_resource type="PackedScene" uid="uid://blq0cn2x7hpke" path="res://scenes/gui/camp_screen.tscn" id="40_30f04"]
 [ext_resource type="PackedScene" uid="uid://lr56aq1t1e5y" path="res://scenes/gui/forge_screen.tscn" id="41_forge"]
 [ext_resource type="Script" uid="uid://bt6ru7ovpj28n" path="res://scripts/gui/ScreenFade.cs" id="42_screenfade"]
 [ext_resource type="PackedScene" uid="uid://bvjwfiiuje7ra" path="res://scenes/gui/cooking_screen.tscn" id="43_cooking"]
-[ext_resource type="PackedScene" path="res://scenes/gui/crafting_screen.tscn" id="43_crafting"]
 [ext_resource type="PackedScene" path="res://scenes/gui/cookpot_screen.tscn" id="43_cookpot"]
+[ext_resource type="PackedScene" uid="uid://di1md42tlbc3r" path="res://scenes/gui/crafting_screen.tscn" id="43_crafting"]
 [ext_resource type="PackedScene" uid="uid://bfjaekwc2fo4t" path="res://scenes/gui/sleep_screen.tscn" id="44_sleepscreen"]
 [ext_resource type="PackedScene" uid="uid://cx320q2n7tosj" path="res://scenes/gui/stash_screen.tscn" id="50_2mmpf"]
 [ext_resource type="AudioStream" uid="uid://csnkhro8jjgy1" path="res://assets/audio/source/player/sfx_birdseye_swoosh.wav" id="birdseye_swoosh_sfx"]
@@ -28,6 +28,7 @@
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" uid="uid://bl84gy5kiqaeh" path="res://resources/materials/depth_outline.tres" id="depth_outline_mat"]
+[ext_resource type="PackedScene" uid="uid://bltjwssh6fblq" path="res://scenes/fx/discovery.tscn" id="discovery_fx"]
 [ext_resource type="Script" uid="uid://d1b41gdyhk5hu" path="res://scripts/client/FlyCamera.cs" id="fly_camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
 [ext_resource type="Script" uid="uid://bd2qbk8yxpmjj" path="res://scripts/client/GroundStainProjector.cs" id="ground_stain_projector_script"]
@@ -60,7 +61,6 @@
 [ext_resource type="PackedScene" uid="uid://bwfoam4m5n6o7" path="res://scenes/fx/wind_foam.tscn" id="wind_foam_scene"]
 [ext_resource type="Script" uid="uid://cd6m5lgxxf0tx" path="res://scripts/gameplay/WindParticleManager.cs" id="wind_particle_manager_script"]
 [ext_resource type="PackedScene" uid="uid://bwsand0j1k2l3" path="res://scenes/fx/wind_sand.tscn" id="wind_sand_scene"]
-[ext_resource type="PackedScene" uid="uid://bltjwssh6fblq" path="res://scenes/fx/discovery.tscn" id="discovery_fx"]
 
 [sub_resource type="Environment" id="Environment_bloom"]
 background_mode = 3
@@ -452,11 +452,11 @@ visible = false
 visible = false
 gameClient = NodePath("../..")
 
-[node name="CookpotScreen" parent="GUICanvas" node_paths=PackedStringArray("_cookingScreen") instance=ExtResource("43_cookpot")]
+[node name="CookpotScreen" parent="GUICanvas" unique_id=200530569 node_paths=PackedStringArray("_cookingScreen") instance=ExtResource("43_cookpot")]
 visible = false
 _cookingScreen = NodePath("../CookingScreen")
 
-[node name="CraftingScreen" parent="GUICanvas" node_paths=PackedStringArray("gameClient") instance=ExtResource("43_crafting")]
+[node name="CraftingScreen" parent="GUICanvas" unique_id=1016941458 node_paths=PackedStringArray("gameClient") instance=ExtResource("43_crafting")]
 visible = false
 gameClient = NodePath("../..")
 
@@ -569,7 +569,7 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0, 0, 0, 0)
 
-[node name="StoryCanvas" type="CanvasLayer" parent="."]
+[node name="StoryCanvas" type="CanvasLayer" parent="." unique_id=1435896629]
 layer = 18
 
-[node name="StoryScreen" parent="StoryCanvas" instance=ExtResource("23_story")]
+[node name="StoryScreen" parent="StoryCanvas" unique_id=509651820 instance=ExtResource("23_story")]

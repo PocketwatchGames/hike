@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://3lnulrnyn5ro"]
 
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="2_elc6n"]
 [ext_resource type="Resource" uid="uid://cyrniev8emry" path="res://resources/data/world_gen/spawn_groups/goblin_group_swamp.tres" id="9_lbolm"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="13_s5msw"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/drake/drake_swamp.tres" id="e_drake_swamp"]

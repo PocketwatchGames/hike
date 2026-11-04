@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://ge7gvocm4hnn"]
 
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="2_d1hry"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="13_ep0wb"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/drake/drake_swamp.tres" id="e_drake_swamp"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/fire_trap.tres" id="e_fire_trap"]

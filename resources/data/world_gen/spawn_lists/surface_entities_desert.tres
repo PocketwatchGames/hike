@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://dc3pchs6rhlok"]
 
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="2_88i6m"]
 [ext_resource type="Resource" uid="uid://ndilv758jxnj" path="res://resources/data/world_gen/spawn_groups/goblin_group_desert.tres" id="5_lnvkt"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="8_88i6m"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/cactus.tres" id="e_cactus"]

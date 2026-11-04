@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="SpawnGroupData" format=3 uid="uid://c4lym14iaoht2"]
 
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="2_du4m7"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="2_group"]
 [ext_resource type="Script" uid="uid://kfffp8mrtgin" path="res://scripts/data/spawn/BoatSpawnEntry.cs" id="5_boat"]
 [ext_resource type="PackedScene" uid="uid://b8npx1masl5o6" path="res://scenes/vehicles/boat.tscn" id="15_boatscene"]

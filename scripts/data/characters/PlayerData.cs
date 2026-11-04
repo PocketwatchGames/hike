@@ -367,6 +367,7 @@ public partial class PlayerData : Resource
 	[Export] public float prominence = 1f;
 	// How much of the model still draws (the dither the mob pop-in uses) at full
 	// camouflage — an invisible player. Partial camouflage dithers proportionally.
+	// Only foliage cover and status effects drive it; gear camouflage never draws.
 	[Export(PropertyHint.Range, "0,1,0.05")] public float fullCamouflageVisibility = 0.3f;
 	// Continuous movement noise the player emits. Mapped piecewise: 0 at
 	// rest, sneakDecibels at sneakSpeed, runDecibels at moveSpeed. Mobs

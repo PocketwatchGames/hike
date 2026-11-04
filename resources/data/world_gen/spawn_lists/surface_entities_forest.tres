@@ -1,10 +1,11 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://crwit7upct6if"]
 
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="2_gfe53"]
 [ext_resource type="Resource" uid="uid://bptefqcxldi3l" path="res://resources/data/world_gen/spawn_groups/goblin_group_forest.tres" id="10_av785"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/berry_tree.tres" id="e_berry_tree"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/berry_bush_blue.tres" id="e_berry_bush_blue"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/berry_bush_yellow.tres" id="e_berry_bush_yellow"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/berry_tree.tres" id="e_berry_tree"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/climbable_tree.tres" id="e_climbable_tree"]
 [ext_resource type="Resource" uid="uid://es8noshldion" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_forest.tres" id="e_goblin_forest"]
 [ext_resource type="Resource" uid="uid://buxj3mnoph6fj" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_forest_elite.tres" id="e_goblin_forest_elite"]
@@ -62,6 +63,12 @@ squareMetersPerSpawn = 1000.0
 entry = ExtResource("10_av785")
 initialBehavior = null
 
+[sub_resource type="Resource" id="Row_berry_tree"]
+script = ExtResource("listrow")
+squareMetersPerSpawn = 300.0
+entry = ExtResource("e_berry_tree")
+initialBehavior = null
+
 [sub_resource type="Resource" id="Row_berry_bush_blue"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 600.0
@@ -72,12 +79,6 @@ initialBehavior = null
 script = ExtResource("listrow")
 squareMetersPerSpawn = 600.0
 entry = ExtResource("e_berry_bush_yellow")
-initialBehavior = null
-
-[sub_resource type="Resource" id="Row_berry_tree"]
-script = ExtResource("listrow")
-squareMetersPerSpawn = 300.0
-entry = ExtResource("e_berry_tree")
 initialBehavior = null
 
 [sub_resource type="Resource" id="Row_well"]

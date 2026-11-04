@@ -280,18 +280,25 @@ public partial class Projectile : Node3D
 		{
 			inst._bodyExclude = new Godot.Collections.Array<Rid> { excludeBody.Value };
 		}
-		parent.AddChild(inst);
-		inst.GlobalPosition = origin;
-		// Orient the visual along the flight direction. LookAt requires a
-		// non-zero direction and a non-parallel up vector; guard for both.
-		// Re-orientation as gravity pitches the arc down happens each tick
-		// in _PhysicsProcess when gravity > 0.
+		// Place and orient BEFORE entering the tree. A world-space trail child
+		// (arrow_trail) starts emitting in its _Ready, so if the projectile is
+		// moved after AddChild, the first frame interpolates emission from the
+		// parent's origin to the muzzle — a one-frame streak across the screen.
+		// LookingAt requires a non-zero direction and a non-parallel up vector;
+		// guard for both. Re-orientation as gravity pitches the arc down happens
+		// each tick in _PhysicsProcess when gravity > 0.
+		Basis basis = Basis.Identity;
 		if (velocity.LengthSquared() > 1e-6f)
 		{
 			Vector3 fwd = velocity.Normalized();
 			Vector3 up = Mathf.Abs(fwd.Dot(Vector3.Up)) > 0.99f ? Vector3.Right : Vector3.Up;
-			inst.LookAt(origin + fwd, up);
+			basis = Basis.LookingAt(fwd, up);
 		}
+		Transform3D globalTransform = new Transform3D(basis, origin);
+		inst.Transform = parent is Node3D parent3D
+			? parent3D.GlobalTransform.AffineInverse() * globalTransform
+			: globalTransform;
+		parent.AddChild(inst);
 		// Loop fx riding the projectile come from two sources, both joining the
 		// same _loopFx teardown: intrinsic trails authored as child Fx of the
 		// projectile scene (adopted here), and compositional weapon-mod fx (a

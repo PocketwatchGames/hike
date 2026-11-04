@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="SpawnGroupData" format=3 uid="uid://bptefqcxldi3l"]
 
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="2_dwf3v"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="8_htxfx"]
 [ext_resource type="Resource" uid="uid://d0mvjjk1xtiyd" path="res://resources/data/world_gen/spawn_entries/chest_camp_mushrooms_gold.tres" id="e_chest_camp_mushrooms_gold"]
 [ext_resource type="Resource" uid="uid://h4pknswsri5a" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_forest_torchbearer.tres" id="e_goblin_forest_torchbearer"]

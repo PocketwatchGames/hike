@@ -1,11 +1,12 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://crwit5kc7vxce"]
 
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="2_onmhw"]
 [ext_resource type="Resource" uid="uid://dwp88tyqewry" path="res://resources/data/world_gen/spawn_groups/goblin_group_mountain.tres" id="8_campfire_group"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/buried_carrot.tres" id="e_buried_carrot"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/climbable_tree.tres" id="e_climbable_tree"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/drake/drake_mountain.tres" id="e_drake_mountain"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/drake/drake_mountain_elite.tres" id="e_drake_mountain_elite"]
+[ext_resource type="Resource" uid="uid://qjmy2l7iypqy" path="res://resources/data/world_authoring/spawn_entries/mobs/drake/drake_mountain_elite.tres" id="e_drake_mountain_elite"]
 [ext_resource type="Resource" uid="uid://dmtd4q8381jcf" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_mountain.tres" id="e_goblin_mountain"]
 [ext_resource type="Resource" uid="uid://cbd2h85j0khnw" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_mountain_elite.tres" id="e_goblin_mountain_elite"]
 [ext_resource type="Resource" uid="uid://p57k5ipwikfm" path="res://resources/data/world_authoring/spawn_entries/mobs/kun_kun/kun_kun_mountain.tres" id="e_kun_kun_mountain"]

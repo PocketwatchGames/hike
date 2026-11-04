@@ -174,7 +174,11 @@ public partial class Player : CharacterBody3D
 		visibilityLight = lightFactor;
 		visibilitySpeed = speedFactor;
 		visibilityCamouflage = 1f - camouflage;
-		_animator?.SetCamouflageDither(Mathf.Lerp(1f, data.fullCamouflageVisibility, camouflage));
+		// The dither shows being hidden right NOW — cover and status effects. Worn
+		// gear and inherent camouflage still count toward detection above, but drawn
+		// they are a permanent stipple that reads as a rendering bug.
+		float situationalCamouflage = Mathf.Clamp(foliageCamouflage + (_statusEffects?.FoldStat(EStat.Camouflage, 0f) ?? 0f), 0f, 1f);
+		_animator?.SetCamouflageDither(Mathf.Lerp(1f, data.fullCamouflageVisibility, situationalCamouflage));
 
 		Vector3 horizVel = Velocity;
 		horizVel.Y = 0f;
