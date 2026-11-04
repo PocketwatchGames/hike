@@ -55,10 +55,8 @@ public partial class MerchantScreen : Control
 	enum ESide
 	{
 		None,
-		// A slot of one of the member's grids — belt, backpack or a sack.
+		// A slot of one of the member's grids — the backpack or a sack.
 		Carried,
-		// The member's equip slots; the index is the EInventorySlot.
-		Equip,
 		Give,
 		Stock,
 		Get,
@@ -68,10 +66,10 @@ public partial class MerchantScreen : Control
 	{
 		public readonly ESide side;
 		// The member's grid, for a Carried slot.
-		public readonly Inventory.CarriedGrid grid;
+		public readonly IItemGrid grid;
 		public readonly int index;
 
-		public Slot(ESide side, int index, Inventory.CarriedGrid grid = null)
+		public Slot(ESide side, int index, IItemGrid grid = null)
 		{
 			this.side = side;
 			this.grid = grid;
@@ -125,18 +123,7 @@ public partial class MerchantScreen : Control
 			_inventoryPanel.onGridSlotFocused += (grid, index, _) => OnSlotFocused(new Slot(ESide.Carried, index, grid));
 			_inventoryPanel.onGridSlotButtonDown += (grid, index, _) => OnSelectDown(new Slot(ESide.Carried, index, grid));
 			_inventoryPanel.onGridSlotButtonUp += (grid, index, _) => OnSelectUp(new Slot(ESide.Carried, index, grid));
-			foreach (EInventorySlot equip in InventoryPanel.EquipSlots)
-			{
-				ItemSlotPanel panel = _inventoryPanel.EquipPanel(equip);
-				if (panel == null)
-				{
-					continue;
-				}
-				var slot = new Slot(ESide.Equip, (int)equip);
-				panel.onFocusEntered += _ => OnSlotFocused(slot);
-				panel.onButtonDown += _ => OnSelectDown(slot);
-				panel.onButtonUp += _ => OnSelectUp(slot);
-			}
+			_inventoryPanel.onTabChanged += ApplySlotStates;
 		}
 		if (_tradeButton != null)
 		{
@@ -259,10 +246,7 @@ public partial class MerchantScreen : Control
 		{
 			return;
 		}
-		BackpackPanel belt = _inventoryPanel?.BeltGrid;
-		BackpackPanel backpack = _inventoryPanel?.BackpackGrid;
-		ItemSlotPanel start = belt?.FirstOccupied() ?? backpack?.FirstOccupied()
-			?? belt?.GetSlot(0) ?? backpack?.GetSlot(0);
+		ItemSlotPanel start = _inventoryPanel?.FirstOccupied() ?? _inventoryPanel?.FirstSlot();
 		start?.GrabFocus();
 	}
 
@@ -282,12 +266,10 @@ public partial class MerchantScreen : Control
 
 	ItemState ItemAt(Slot slot)
 	{
-		return slot.side == ESide.Equip
-			? _player?.Inventory?.GetEquipped((EInventorySlot)slot.index)
-			: Grid(slot)?.At(slot.index);
+		return Grid(slot)?.At(slot.index);
 	}
 
-	static bool IsMemberSide(ESide side) => side is ESide.Carried or ESide.Equip;
+	static bool IsMemberSide(ESide side) => side == ESide.Carried;
 	static bool IsPlayerSide(ESide side) => IsMemberSide(side) || side == ESide.Give;
 	static bool IsMerchantSide(ESide side) => side is ESide.Stock or ESide.Get;
 
@@ -301,8 +283,8 @@ public partial class MerchantScreen : Control
 	{
 		return side switch
 		{
-			ESide.Carried or ESide.Equip => _give,
-			ESide.Give => _player?.Inventory?.PreferredGrid(item?.data),
+			ESide.Carried => _give,
+			ESide.Give => _player?.Inventory?.Backpack,
 			ESide.Stock => _get,
 			ESide.Get => _stock,
 			_ => null,
@@ -409,20 +391,6 @@ public partial class MerchantScreen : Control
 
 	bool MoveTo(Slot from, int count, Slot to)
 	{
-		Inventory inv = _player?.Inventory;
-		if (from.side == ESide.Equip && to.side == ESide.Equip)
-		{
-			return false;
-		}
-		if (to.side == ESide.Equip)
-		{
-			return InventoryScreen.EquipCompatible((EInventorySlot)to.index, ItemAt(from))
-				&& ItemTransfer.Equip(Grid(from), from.index, inv);
-		}
-		if (from.side == ESide.Equip)
-		{
-			return ItemTransfer.Unequip(inv, (EInventorySlot)from.index, Grid(to), to.index);
-		}
 		// Into the give pile, or swapped out into it from the slot it lands on.
 		ItemState intoGive = to.side == ESide.Give ? ItemAt(from) : from.side == ESide.Give ? ItemAt(to) : null;
 		if (RefuseFilledSack(intoGive))
@@ -499,11 +467,7 @@ public partial class MerchantScreen : Control
 	void Send(Slot slot, int count)
 	{
 		bool sent;
-		if (slot.side == ESide.Equip)
-		{
-			sent = ItemTransfer.SendEquipped(_player?.Inventory, (EInventorySlot)slot.index, _give);
-		}
-		else if (SendTarget(slot.side, ItemAt(slot)) == _give && RefuseFilledSack(ItemAt(slot)))
+		if (SendTarget(slot.side, ItemAt(slot)) == _give && RefuseFilledSack(ItemAt(slot)))
 		{
 			sent = false;
 		}
@@ -526,11 +490,7 @@ public partial class MerchantScreen : Control
 
 	void Drop(Slot slot, int count)
 	{
-		if (slot.side == ESide.Equip)
-		{
-			_player?.Inventory?.Drop(ItemAt(slot));
-		}
-		else if (count > 0)
+		if (count > 0)
 		{
 			_player?.DropAtFeet(Grid(slot)?.Take(slot.index, count));
 		}
@@ -1024,18 +984,11 @@ public partial class MerchantScreen : Control
 		ApplySlotStates(_getGrid, ESide.Get, null);
 		if (_inventoryPanel != null)
 		{
-			foreach ((Inventory.CarriedGrid grid, BackpackPanel panel) in _inventoryPanel.EnumerateCarriedPanels())
-			{
-				ApplySlotStates(panel, ESide.Carried, grid);
-			}
-			foreach (EInventorySlot equip in InventoryPanel.EquipSlots)
-			{
-				_inventoryPanel.EquipPanel(equip)?.SetDimmed(_picked.side == ESide.Equip && _picked.index == (int)equip);
-			}
+			ApplySlotStates(_inventoryPanel.GridPanel, ESide.Carried, _inventoryPanel.ShownGrid);
 		}
 	}
 
-	void ApplySlotStates(BackpackPanel panel, ESide side, Inventory.CarriedGrid grid)
+	void ApplySlotStates(BackpackPanel panel, ESide side, IItemGrid grid)
 	{
 		if (panel == null)
 		{

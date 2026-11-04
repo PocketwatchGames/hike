@@ -1,13 +1,15 @@
 using Godot;
 
-// The party stash (SimState.PartyStash) beside a member's inventory — belt,
-// backpack and equip slots — items moved to and fro between them. The camp
+// The party stash (SimState.PartyStash) beside a member's backpack and sacks —
+// items moved to and fro between them. Equipped and belted items show framed /
+// numbered in the backpack; moving one out lets go of its slot. The camp
 // screen's Stash tab, or standalone from a Stash interactive.
 //   A  — pick up the stack under the cursor; with one picked up, put it down
 //        here (any grid): an empty slot takes it, a matching stack merges,
-//        anything else swaps. An equip slot takes only its own kind of gear.
+//        anything else swaps.
 //        Hold on a stack to pick up only some of it.
-//   X  — equip / unequip; from the stash, equip gear or put a belt item on the belt.
+//   X  — equip / unequip, or on / off the belt; from the stash, equip gear or
+//        put a usable item on the belt.
 //   Y  — use, from the stash or the member's own items alike.
 //   LT — send the stack under the cursor to the other side, where it fits —
 //        from the stash, the backpack first.
@@ -43,20 +45,18 @@ public partial class StashScreen : Control
 	{
 		None,
 		Stash,
-		// A slot of one of the member's grids — belt, backpack or a sack.
+		// A slot of one of the member's grids — the backpack or a sack.
 		Carried,
-		// The member's equip slots; the index is the EInventorySlot.
-		Equip,
 	}
 
 	readonly struct Slot
 	{
 		public readonly ESide side;
 		// The member's grid, for a Carried slot.
-		public readonly Inventory.CarriedGrid grid;
+		public readonly IItemGrid grid;
 		public readonly int index;
 
-		public Slot(ESide side, int index, Inventory.CarriedGrid grid = null)
+		public Slot(ESide side, int index, IItemGrid grid = null)
 		{
 			this.side = side;
 			this.grid = grid;
@@ -96,18 +96,7 @@ public partial class StashScreen : Control
 			_inventoryPanel.onGridSlotFocused += (grid, index, _) => OnSlotFocused(new Slot(ESide.Carried, index, grid));
 			_inventoryPanel.onGridSlotButtonDown += (grid, index, _) => OnSelectDown(new Slot(ESide.Carried, index, grid));
 			_inventoryPanel.onGridSlotButtonUp += (grid, index, _) => OnSelectUp(new Slot(ESide.Carried, index, grid));
-			foreach (EInventorySlot equip in InventoryPanel.EquipSlots)
-			{
-				ItemSlotPanel panel = _inventoryPanel.EquipPanel(equip);
-				if (panel == null)
-				{
-					continue;
-				}
-				var slot = new Slot(ESide.Equip, (int)equip);
-				panel.onFocusEntered += _ => OnSlotFocused(slot);
-				panel.onButtonDown += _ => OnSelectDown(slot);
-				panel.onButtonUp += _ => OnSelectUp(slot);
-			}
+			_inventoryPanel.onTabChanged += ApplySlotStates;
 		}
 		_itemInfoPanel?.SetItem(null);
 	}
@@ -183,10 +172,7 @@ public partial class StashScreen : Control
 		{
 			return;
 		}
-		BackpackPanel belt = _inventoryPanel?.BeltGrid;
-		BackpackPanel backpack = _inventoryPanel?.BackpackGrid;
-		ItemSlotPanel start = belt?.FirstOccupied() ?? backpack?.FirstOccupied() ?? _stashPanel?.FirstOccupied()
-			?? belt?.GetSlot(0) ?? backpack?.GetSlot(0);
+		ItemSlotPanel start = _inventoryPanel?.FirstOccupied() ?? _stashPanel?.FirstOccupied() ?? _inventoryPanel?.FirstSlot();
 		start?.GrabFocus();
 	}
 
@@ -202,14 +188,12 @@ public partial class StashScreen : Control
 
 	ItemState ItemAt(Slot slot)
 	{
-		return slot.side == ESide.Equip
-			? _player?.Inventory?.GetEquipped((EInventorySlot)slot.index)
-			: Grid(slot)?.At(slot.index);
+		return Grid(slot)?.At(slot.index);
 	}
 
-	// Where Send moves a stack: the member's side takes it into the backpack
-	// (spilling onto the belt) — the belt is filled deliberately, by Equip — and
-	// every member grid sends to the stash.
+	// Where Send moves a stack: the member's side takes it into the backpack — the
+	// belt is filled deliberately, by Equip — and every member grid sends to the
+	// stash.
 	IItemGrid SendTarget(ESide side)
 	{
 		return side == ESide.Stash ? _player?.Inventory?.Backpack : _stash;
@@ -301,24 +285,6 @@ public partial class StashScreen : Control
 
 	void MoveTo(Slot from, int count, Slot to)
 	{
-		Inventory inv = _player?.Inventory;
-		if (from.side == ESide.Equip && to.side == ESide.Equip)
-		{
-			return;
-		}
-		if (to.side == ESide.Equip)
-		{
-			if (InventoryScreen.EquipCompatible((EInventorySlot)to.index, ItemAt(from)))
-			{
-				ItemTransfer.Equip(Grid(from), from.index, inv);
-			}
-			return;
-		}
-		if (from.side == ESide.Equip)
-		{
-			ItemTransfer.Unequip(inv, (EInventorySlot)from.index, Grid(to), to.index);
-			return;
-		}
 		ItemTransfer.MoveTo(Grid(from), from.index, count, Grid(to), to.index);
 	}
 
@@ -376,11 +342,7 @@ public partial class StashScreen : Control
 
 	void Send(Slot slot, int count)
 	{
-		if (slot.side == ESide.Equip)
-		{
-			ItemTransfer.SendEquipped(_player?.Inventory, (EInventorySlot)slot.index, _stash);
-		}
-		else if (count > 0)
+		if (count > 0)
 		{
 			ItemTransfer.Send(Grid(slot), slot.index, count, SendTarget(slot.side));
 		}
@@ -389,11 +351,7 @@ public partial class StashScreen : Control
 
 	void Drop(Slot slot, int count)
 	{
-		if (slot.side == ESide.Equip)
-		{
-			_player?.Inventory?.Drop(ItemAt(slot));
-		}
-		else if (count > 0)
+		if (count > 0)
 		{
 			_player?.DropAtFeet(Grid(slot)?.Take(slot.index, count));
 		}
@@ -482,18 +440,11 @@ public partial class StashScreen : Control
 		ApplySlotStates(_stashPanel, ESide.Stash, null);
 		if (_inventoryPanel != null)
 		{
-			foreach ((Inventory.CarriedGrid grid, BackpackPanel panel) in _inventoryPanel.EnumerateCarriedPanels())
-			{
-				ApplySlotStates(panel, ESide.Carried, grid);
-			}
-			foreach (EInventorySlot equip in InventoryPanel.EquipSlots)
-			{
-				_inventoryPanel.EquipPanel(equip)?.SetDimmed(_picked.side == ESide.Equip && _picked.index == (int)equip);
-			}
+			ApplySlotStates(_inventoryPanel.GridPanel, ESide.Carried, _inventoryPanel.ShownGrid);
 		}
 	}
 
-	void ApplySlotStates(BackpackPanel panel, ESide side, Inventory.CarriedGrid grid)
+	void ApplySlotStates(BackpackPanel panel, ESide side, IItemGrid grid)
 	{
 		if (panel == null)
 		{
@@ -529,7 +480,7 @@ public partial class StashScreen : Control
 
 
 	// From the stash, Equip brings the item straight to where it is used: gear
-	// into its equip slot, a belt item onto the belt.
+	// onto the backpack and equipped, a usable item onto the backpack and belted.
 	string EquipVerb()
 	{
 		if (!_picked.IsNone || _focused.IsNone)
@@ -547,7 +498,7 @@ public partial class StashScreen : Control
 			return null;
 		}
 		bool fits = item.data.IsEquippable
-			|| (inv.PreferredGrid(item.data) == inv.Belt && inv.Belt.RoomFor(item.data) > 0);
+			|| (Inventory.Beltable(item.data) && inv.FirstFreeBeltSlot() >= 0 && inv.Backpack.RoomFor(item.data) > 0);
 		return fits ? "Equip" : null;
 	}
 
@@ -564,7 +515,7 @@ public partial class StashScreen : Control
 		}
 		else
 		{
-			ItemTransfer.SendToBelt(_stash, slot.index, _player.Inventory);
+			ItemTransfer.TakeToBelt(_stash, slot.index, _player.Inventory);
 		}
 		Refresh();
 	}

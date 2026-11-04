@@ -5,11 +5,23 @@
 [ext_resource type="PackedScene" uid="uid://c2k7s5njp8wfh" path="res://scenes/gui/status_effect_icon.tscn" id="2_fb484"]
 [ext_resource type="Texture2D" uid="uid://ci5kswtk3206n" path="res://assets/textures/gui/item_button_pressed.png" id="3_wxcd7"]
 [ext_resource type="Texture2D" uid="uid://clv3byf0k0up5" path="res://assets/textures/gui/item_button_hover.png" id="4_fb484"]
+[ext_resource type="Texture2D" uid="uid://c6brfyavs14am" path="res://assets/textures/gui/item_button_focused.png" id="5_w7sa8"]
 [ext_resource type="Texture2D" uid="uid://bslte0xntnyh7" path="res://assets/textures/gui/item_durability_warning.png" id="6_durwarn"]
 [ext_resource type="Texture2D" uid="uid://l7q8l1ny2r7s" path="res://assets/textures/gui/item_durability_broken.png" id="7_durbroken"]
-[ext_resource type="Texture2D" uid="uid://c6brfyavs14am" path="res://assets/textures/gui/item_button_focused.png" id="5_w7sa8"]
 
-[node name="ItemSlotPanel" type="PanelContainer" unique_id=982744505 node_paths=PackedStringArray("_button", "_itemTexture", "_slotBackground", "_stackLabel", "_stackContainer", "_ghostOverlay", "_statusContainer", "_durabilityWarning", "_durabilityBroken")]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_equipped"]
+draw_center = false
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.95, 0.78, 0.3, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="ItemSlotPanel" type="PanelContainer" unique_id=982744505 node_paths=PackedStringArray("_button", "_itemTexture", "_slotBackground", "_stackLabel", "_stackContainer", "_ghostOverlay", "_statusContainer", "_durabilityWarning", "_durabilityBroken", "_equippedHighlight", "_beltBadge", "_beltBadgeLabel")]
 custom_minimum_size = Vector2(80, 80)
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -23,6 +35,9 @@ _ghostOverlay = NodePath("GhostOverlay")
 _statusContainer = NodePath("MarginContainer/StatusContainer")
 _durabilityWarning = NodePath("DurabilityWarning")
 _durabilityBroken = NodePath("DurabilityBroken")
+_equippedHighlight = NodePath("EquippedHighlight")
+_beltBadge = NodePath("BeltSlot")
+_beltBadgeLabel = NodePath("BeltSlot/BeltSlotPanel/BeltSlotLabel")
 _statusIconScene = ExtResource("2_fb484")
 
 [node name="EmptyTexture" type="TextureRect" parent="." unique_id=1680811436]
@@ -53,6 +68,12 @@ mouse_filter = 2
 texture = ExtResource("7_durbroken")
 expand_mode = 1
 stretch_mode = 5
+
+[node name="EquippedHighlight" type="Panel" parent="." unique_id=1847302956]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_equipped")
 
 [node name="TextureButton" type="TextureButton" parent="." unique_id=1069392873]
 layout_mode = 2
@@ -97,3 +118,20 @@ theme_override_constants/margin_right = 3
 layout_mode = 2
 text = "99"
 horizontal_alignment = 1
+
+[node name="BeltSlot" type="MarginContainer" parent="." unique_id=1076707434]
+visible = false
+layout_mode = 2
+theme_override_constants/margin_top = -10
+
+[node name="BeltSlotPanel" type="PanelContainer" parent="BeltSlot" unique_id=174885855]
+custom_minimum_size = Vector2(20, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+
+[node name="BeltSlotLabel" type="Label" parent="BeltSlot/BeltSlotPanel" unique_id=1753361710]
+layout_mode = 2
+text = "1"
+horizontal_alignment = 1
+vertical_alignment = 1

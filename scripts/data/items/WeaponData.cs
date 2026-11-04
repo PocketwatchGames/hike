@@ -7,8 +7,8 @@ using Godot.Collections;
 [GlobalClass]
 public partial class WeaponData : GearData
 {
-	// The round this weapon fires, drawn from the wielder's carried ammo of that
-	// type (Inventory.LoadedAmmo). None = needs none (a sling, a summoner, every mob
+	// The round this weapon fires, from the wielder's Ammo slot when it holds that
+	// type (Inventory.RoundsFor). None = needs none (a sling, a summoner, every mob
 	// weapon). Only tiers flagged ItemAction.useAmmo spend it.
 	[Export] public EAmmoType ammoType = EAmmoType.None;
 

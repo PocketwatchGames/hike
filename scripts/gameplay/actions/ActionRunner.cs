@@ -681,7 +681,7 @@ public class ActionRunner
 			_actor.DrainBlood(tier.bloodCost);
 			// SelectTierIndex has already gated on the actor holding the whole
 			// cost. A lit lantern this drains to empty is extinguished by
-			// Player.TickLanternOil next tick.
+			// Player.TickCarriedLight next tick.
 			_actor.SpendLanternOil(_actor.ActionOilCost(tier.oilCost));
 		}
 		FireChargeEndEvents();

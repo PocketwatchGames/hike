@@ -3,10 +3,10 @@ using System;
 using System.Collections.Generic;
 
 // Crafting at a crafting bench. Left = the bench's job queue and the learned
-// recipes (CraftingPanel); center = the maker's equipment, belt, backpack and
-// sacks (InventoryPanel) and the party stash; right = the focused thing's info,
-// with what it requires and how long it takes. Equipment is shown because worn
-// gear is what most needs repair.
+// recipes (CraftingPanel); center = the maker's backpack and sacks with the
+// party stash below them (InventoryPanel) — worn gear, which most needs repair,
+// framed among them; right = the focused thing's info, with what it requires and
+// how long it takes.
 //
 // Opened with an onClose callback it dismisses itself on ui_cancel; without one
 // its host owns ui_cancel.
@@ -31,8 +31,8 @@ using System.Collections.Generic;
 public partial class CraftingScreen : Control
 {
 	[Export] public GameClient gameClient;
+	// The maker's backpack and sacks, then the party stash.
 	[Export] private InventoryPanel _inventoryPanel;
-	[Export] private BackpackPanel _stashPanel;
 	[Export] private CraftingPanel _craftingPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
 	// The A / primary button hint: Craft on a recipe, Remove on a queued job.
@@ -51,34 +51,22 @@ public partial class CraftingScreen : Control
 	// The equip verb's button on the inventory screens.
 	const string RepairAction = "MenuSecondary";
 
-	enum ESide
-	{
-		None,
-		Stash,
-		// A slot of one of the maker's grids — belt, backpack or a sack.
-		Carried,
-		// The maker's equip slots; the index is the EInventorySlot.
-		Equip,
-	}
-
+	// An item slot: one of the maker's grids or the stash, and the slot in it.
 	readonly struct Slot
 	{
-		public readonly ESide side;
-		// The maker's grid, for a Carried slot.
-		public readonly Inventory.CarriedGrid grid;
+		public readonly IItemGrid grid;
 		public readonly int index;
 		public readonly ItemSlotPanel panel;
 
-		public Slot(ESide side, int index, ItemSlotPanel panel, Inventory.CarriedGrid grid = null)
+		public Slot(IItemGrid grid, int index, ItemSlotPanel panel)
 		{
-			this.side = side;
 			this.grid = grid;
 			this.index = index;
 			this.panel = panel;
 		}
 
-		public static readonly Slot None = new(ESide.None, -1, null);
-		public bool IsNone => side == ESide.None;
+		public static readonly Slot None = new(null, -1, null);
+		public bool IsNone => grid == null;
 	}
 
 	Action _onClose;
@@ -108,20 +96,7 @@ public partial class CraftingScreen : Control
 		}
 		if (_inventoryPanel != null)
 		{
-			_inventoryPanel.onGridSlotFocused += OnCarriedFocused;
-			foreach (EInventorySlot equip in InventoryPanel.EquipSlots)
-			{
-				ItemSlotPanel panel = _inventoryPanel.EquipPanel(equip);
-				if (panel != null)
-				{
-					var slot = new Slot(ESide.Equip, (int)equip, panel);
-					panel.onFocusEntered += _ => OnSlotFocused(slot);
-				}
-			}
-		}
-		if (_stashPanel != null)
-		{
-			_stashPanel.onSlotFocused += OnStashFocused;
+			_inventoryPanel.onGridSlotFocused += OnGridFocused;
 		}
 		if (_craftingPanel != null)
 		{
@@ -141,11 +116,7 @@ public partial class CraftingScreen : Control
 		}
 		if (_inventoryPanel != null)
 		{
-			_inventoryPanel.onGridSlotFocused -= OnCarriedFocused;
-		}
-		if (_stashPanel != null)
-		{
-			_stashPanel.onSlotFocused -= OnStashFocused;
+			_inventoryPanel.onGridSlotFocused -= OnGridFocused;
 		}
 		if (_craftingPanel != null)
 		{
@@ -210,8 +181,7 @@ public partial class CraftingScreen : Control
 		{
 			return;
 		}
-		ItemSlotPanel firstItem = _inventoryPanel?.BackpackGrid?.FirstOccupied() ?? _inventoryPanel?.BeltGrid?.FirstOccupied() ?? _stashPanel?.FirstOccupied();
-		firstItem?.GrabFocus();
+		_inventoryPanel?.FirstOccupied()?.GrabFocus();
 	}
 
 	public void Close()
@@ -262,8 +232,7 @@ public partial class CraftingScreen : Control
 
 	void RefreshItems()
 	{
-		_inventoryPanel?.Paint(_maker?.Inventory);
-		_stashPanel?.Refresh(Stash?.Slots);
+		_inventoryPanel?.Paint(_maker?.Inventory, Stash);
 	}
 
 	// A recipe is available when it can be paid now and the queue has room.
@@ -329,20 +298,10 @@ public partial class CraftingScreen : Control
 
 	// ---- Focus ----------------------------------------------------------------
 
-	void OnCarriedFocused(Inventory.CarriedGrid grid, int index, ItemSlotPanel panel)
-	{
-		OnSlotFocused(new Slot(ESide.Carried, index, panel, grid));
-	}
-
-	void OnStashFocused(int index, ItemSlotPanel panel)
-	{
-		OnSlotFocused(new Slot(ESide.Stash, index, panel));
-	}
-
-	void OnSlotFocused(Slot slot)
+	void OnGridFocused(IItemGrid grid, int index, ItemSlotPanel panel)
 	{
 		ClearFocus();
-		_focused = slot;
+		_focused = new Slot(grid, index, panel);
 		ShowFocused();
 		UpdateHints();
 	}
@@ -371,16 +330,6 @@ public partial class CraftingScreen : Control
 		_drop.Reset(_hintDrop);
 	}
 
-	IItemGrid Grid(Slot slot)
-	{
-		return slot.side switch
-		{
-			ESide.Stash => Stash,
-			ESide.Carried => slot.grid,
-			_ => null,
-		};
-	}
-
 	// Null while the cursor is anywhere but an item slot.
 	ItemState FocusedItem()
 	{
@@ -388,9 +337,7 @@ public partial class CraftingScreen : Control
 		{
 			return null;
 		}
-		return _focused.side == ESide.Equip
-			? _maker?.Inventory?.GetEquipped((EInventorySlot)_focused.index)
-			: Grid(_focused)?.At(_focused.index);
+		return _focused.grid?.At(_focused.index);
 	}
 
 	CraftJob FocusedJob()
@@ -527,14 +474,7 @@ public partial class CraftingScreen : Control
 			return;
 		}
 		job.paid.AddRange(spent);
-		if (slot.side == ESide.Equip)
-		{
-			_maker.Inventory.Remove(gear);
-		}
-		else
-		{
-			Grid(slot)?.Take(slot.index, 1);
-		}
+		slot.grid?.Take(slot.index, 1);
 		Queue.Enqueue(job, Clock);
 		_maker.Inventory.NotifyChanged();
 		OnQueueChanged();
@@ -581,15 +521,14 @@ public partial class CraftingScreen : Control
 	// The maker's own items are the inventory's; only the stash is a foreign source.
 	void Use()
 	{
-		InventoryScreen.Use(_maker, FocusedItem(), _focused.side == ESide.Stash ? Stash : null);
+		InventoryScreen.Use(_maker, FocusedItem(), _focused.grid == Stash ? Stash : null);
 		OnItemsChanged();
 	}
 
 	// Salvage `count` units into the stash — all their yields or nothing.
 	void Salvage(Slot slot, int count)
 	{
-		IItemGrid from = slot.side == ESide.Equip ? null : Grid(slot);
-		if (!ItemTransfer.SalvageInto(from, slot.index, count, _maker, Stash))
+		if (!ItemTransfer.SalvageInto(slot.grid, slot.index, count, _maker, Stash))
 		{
 			_craftingPanel?.ShowAnnouncement(Loc.Get(Loc.Keys.stash_no_space), null);
 			return;
@@ -600,13 +539,9 @@ public partial class CraftingScreen : Control
 
 	void Drop(Slot slot, int count)
 	{
-		if (slot.side == ESide.Equip)
+		if (count > 0)
 		{
-			_maker?.Inventory?.Drop(_maker.Inventory.GetEquipped((EInventorySlot)slot.index));
-		}
-		else if (count > 0)
-		{
-			_maker?.DropAtFeet(Grid(slot)?.Take(slot.index, count));
+			_maker?.DropAtFeet(slot.grid?.Take(slot.index, count));
 		}
 		OnItemsChanged();
 	}

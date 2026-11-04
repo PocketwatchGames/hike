@@ -1,9 +1,9 @@
 using Godot;
 
-// One kind of round for the weapons of its ammoType. Carried in the grids like
-// any stackable; the member's loaded kind per type (Inventory.LoadedAmmo) is what
-// those weapons fire, drawn from every carried stack. A fired round lands as an
-// ordinary pickup of this same item, unless it breaks.
+// One kind of round for the weapons of its ammoType. Equipped into the Ammo slot,
+// which is what the right-hand weapon fires when it is of that type; carried
+// stacks of the same kind refill the slot as it empties. A fired round lands as
+// an ordinary pickup of this same item, unless it breaks.
 // [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
@@ -12,8 +12,9 @@ public partial class AmmoData : ItemData
 {
 	[Export] public EAmmoType ammoType = EAmmoType.None;
 
-	// What a weapon falls back to when the loaded kind runs out. At most one per
-	// ammoType (resource_check).
+	// Preferred when the Ammo slot is refilled with another kind of the type — the
+	// equipped kind ran out, or a new ranged weapon can't fire the equipped one.
+	// At most one per ammoType (resource_check).
 	[Export] public bool isStandard = false;
 
 	// Chance a fired round is destroyed where it lands instead of leaving a pickup.

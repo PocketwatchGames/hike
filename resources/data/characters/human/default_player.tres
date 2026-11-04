@@ -43,6 +43,7 @@ minPerceptionFillSeconds = 0.1
 hearingRange = 15.0
 eyeDilationDilateSeconds = 10.0
 eyeDilationConstrictSeconds = 3.0
+backpackCapacity = 20
 unarmedWeapon = ExtResource("8_fists")
 unarmedShield = ExtResource("8_fists_shield")
 modifiers = Array[Object]([])

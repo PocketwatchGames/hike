@@ -3,7 +3,7 @@ using Godot;
 
 // Side-panel on the inventory screen that displays the highlighted item's
 // name, icon, and description. Hidden outright when nothing is highlighted —
-// InventoryScreen routes focus changes here via InventoryPanel.onFocusedItemChanged.
+// the screen showing it (InventoryScreen, StashScreen, ...) sets it on each focus change.
 [GlobalClass]
 public partial class ItemInfoPanel : PanelContainer
 {

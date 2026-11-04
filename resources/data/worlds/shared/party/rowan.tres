@@ -77,6 +77,5 @@ fortitude = 1.1
 perception = 0.8
 stealth = 0.9
 modifiers = null
-equippedInventory = [SubResource("Resource_club"), SubResource("Resource_6hrq3"), SubResource("Resource_uohhm"), SubResource("Item_armor")]
-startingInventory = [SubResource("Item_arrows")]
+equippedInventory = [SubResource("Resource_club"), SubResource("Resource_6hrq3"), SubResource("Resource_uohhm"), SubResource("Item_armor"), SubResource("Item_arrows")]
 metadata/_custom_type_script = "uid://b1rjovy8825fh"

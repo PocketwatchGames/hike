@@ -1789,7 +1789,7 @@ public static class ItemEventHandlers
 		Inventory inventory = player.Inventory;
 		if (inventory != null && inventory.IsLit(action.context.primaryItem))
 		{
-			player.SnuffLantern();
+			player.SnuffLight();
 		}
 	}
 

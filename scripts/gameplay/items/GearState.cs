@@ -8,6 +8,8 @@ using Godot;
 //                  weapon's every shot
 //   shield       — the damage a block absorbs from the guard, or a parry negates
 //   armor        — the damage the armor pool soaks, split across worn pieces
+//   torch        — lit seconds while it burns, and it is destroyed at zero
+//                  rather than kept broken (Player.TickCarriedLight)
 // A broken piece stays equipped: armor stops recharging, a shield can neither
 // block nor parry, and a weapon can't fire at all — the melee slot swings bare
 // hands instead. Durability comes back only by repair at a crafting bench

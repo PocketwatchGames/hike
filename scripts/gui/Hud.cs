@@ -29,11 +29,10 @@ public partial class Hud : Control
 	// The armor slot, also show button hint for dashing
 	[Export] WeaponHud _armorSlot;
 	[Export] ButtonHint _dashHint;
-	// The hotbar strip, in display order. The hotbar entries
-	// (Inventory.GetHotbarEntries — the lantern slot, empty or not, then the
-	// filled belt slots) are packed into the leading widgets and the rest
-	// hidden, so wire one more than the largest belt armor can give
-	// (1 + PlayerData.beltCapacity + ArmorData.beltSlots).
+	// The hotbar strip, in display order: widget i shows hotbar index i (the
+	// lantern slot, then every belt slot, empty or not) and widgets past the
+	// hotbar's size are hidden, so wire one more than the largest belt armor can
+	// give (1 + PlayerData.beltCapacity + ArmorData.beltSlots).
 	[Export] Godot.Collections.Array<WeaponHud> _hotbarSlots = new();
 	// Optional cycle hints beside the strip, shown on the pad only.
 	[Export] ButtonHint _hotbarCycleLeftHint;
@@ -101,7 +100,6 @@ public partial class Hud : Control
 	ButtonHint[] _hotbarUseHintsFlat = System.Array.Empty<ButtonHint>();
 	// Widget position of the selected entry, -1 when none is shown.
 	int _hotbarSelectedWidget = -1;
-	readonly List<int> _hotbarEntries = new();
 	// Quest surfacing (view only — the quest lifecycle is sim-driven in World).
 	// Bound to SimState.QuestLog on player spawn; one QuestItem widget per
 	// active quest, refreshed each frame so counters / countdowns stay live.
@@ -533,8 +531,7 @@ public partial class Hud : Control
 		}
 	}
 
-	// Repack the hotbar entries into the leading widgets, and repaint the
-	// weapon slots. Runs on every inventory change (which includes a selection
+	// Repaint the hotbar widgets and the weapon slots. Runs on every inventory change (which includes a selection
 	// move), not per frame.
 	void RefreshHotbar()
 	{
@@ -542,18 +539,17 @@ public partial class Hud : Control
 		RefreshWeaponSlot(_weaponRightSlot, _weaponRightHint, EInventorySlot.WeaponRight);
 		RefreshShieldSlot();
 		RefreshArmorSlot();
-		_hotbarEntries.Clear();
-		_inventory?.GetHotbarEntries(_hotbarEntries);
+		int hotbarSize = _inventory?.HotbarSize ?? 0;
 		int selected = _inventory?.SelectedHotbarIndex ?? -1;
 		bool keyboard = InputDevice.Current == InputDevice.EDevice.KeyboardMouse;
 		_hotbarSelectedWidget = -1;
 		int filledCount = 0;
 		for (int i = 0; i < _hotbarSlotsFlat.Length; i++)
 		{
-			bool shown = i < _hotbarEntries.Count;
-			ItemState item = shown ? _inventory.HotbarItemAt(_hotbarEntries[i]) : null;
+			bool shown = i < hotbarSize;
+			ItemState item = shown ? _inventory.HotbarItemAt(i) : null;
 			bool filled = item != null;
-			bool isSelected = filled && _hotbarEntries[i] == selected;
+			bool isSelected = filled && i == selected;
 			if (filled)
 			{
 				filledCount++;
@@ -575,9 +571,9 @@ public partial class Hud : Control
 			widget.SetItem(item);
 			widget.SetHotbarState(isSelected, _inventory.IsLit(item));
 		}
-		if (_hotbarEntries.Count > _hotbarSlotsFlat.Length)
+		if (hotbarSize > _hotbarSlotsFlat.Length)
 		{
-			GD.PushError($"Hud: {_hotbarEntries.Count} hotbar entries but only {_hotbarSlotsFlat.Length} hotbar widgets wired — the rest are not shown.");
+			GD.PushError($"Hud: {hotbarSize} hotbar slots but only {_hotbarSlotsFlat.Length} hotbar widgets wired — the rest are not shown.");
 		}
 		SetVisible(_hotbarCycleLeftHint, filledCount > 1 && !keyboard);
 		SetVisible(_hotbarCycleRightHint, filledCount > 1 && !keyboard);
@@ -597,13 +593,13 @@ public partial class Hud : Control
 		}
 	}
 
-	// A slot with nothing to swing — the right hand empty — hides with its hint.
-	// The hotbar's selected / active overlays never apply to a weapon slot. A
-	// broken weapon still shows, broken, though bare hands swing in its place.
+	// A slot with nothing to swing — the right hand empty — shows empty, and only
+	// its hint hides. The hotbar's selected / active overlays never apply to a
+	// weapon slot. A broken weapon still shows, broken, though bare hands swing in
+	// its place.
 	void RefreshWeaponSlot(WeaponHud widget, ButtonHint hint, EInventorySlot slot)
 	{
 		WeaponState weapon = _inventory?.GetWeapon(slot) ?? _player?.GetMeleeWeaponOrUnarmed(slot);
-		SetVisible(widget, weapon != null);
 		SetVisible(hint, weapon != null);
 		widget?.SetItem(weapon, _inventory);
 		widget?.SetHotbarState(selected: false, active: false);
@@ -612,7 +608,6 @@ public partial class Hud : Control
 	void RefreshShieldSlot()
 	{
 		ShieldState shield = _player?.GetShieldOrUnarmed();
-		SetVisible(_shieldSlot, shield != null);
 		SetVisible(_shieldHint, shield != null);
 		_shieldSlot?.SetItem(shield);
 		_shieldSlot?.SetHotbarState(selected: false, active: false);
@@ -650,9 +645,10 @@ public partial class Hud : Control
 		// Ticked for their durability overlays; shields and armor have no cooldown or charge.
 		_shieldSlot?.Tick(now, false, durabilityWarning);
 		_armorSlot?.Tick(now, false, durabilityWarning);
-		for (int i = 0; i < _hotbarSlotsFlat.Length && i < _hotbarEntries.Count; i++)
+		int hotbarSize = _inventory?.HotbarSize ?? 0;
+		for (int i = 0; i < _hotbarSlotsFlat.Length && i < hotbarSize; i++)
 		{
-			_hotbarSlotsFlat[i]?.Tick(now, IsCharging(_inventory.Belt.At(_hotbarEntries[i])), durabilityWarning);
+			_hotbarSlotsFlat[i]?.Tick(now, IsCharging(_inventory.HotbarItemAt(i)), durabilityWarning);
 		}
 
 		UpdateStatusEffects(now);

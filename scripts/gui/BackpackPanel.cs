@@ -31,11 +31,11 @@ public partial class BackpackPanel : Control
 	public System.Action<int, ItemSlotPanel> onSlotButtonDown;
 	public System.Action<int, ItemSlotPanel> onSlotButtonUp;
 
-	// Every slot ever instanced; the first `_shown` are the live grid.
+	// Every slot ever instanced; the first `_shown` are the live grid. Only these
+	// are shown, hidden or indexed, so a node authored into `_slotContainer` (the
+	// inventory screen's Lantern slot, leading the belt) stays put at any size.
 	readonly List<ItemSlotPanel> _slots = new();
 	int _shown;
-	// Slots ahead of the grid's at the front of _slotContainer (AddLeadingSlot).
-	int _leadingSlots;
 
 	// A title set at runtime; wins over _titleLocKey while non-null.
 	string _title;
@@ -87,22 +87,6 @@ public partial class BackpackPanel : Control
 		panel.onFocusEntered += p => onSlotFocused?.Invoke(index, p);
 		panel.onButtonDown += p => onSlotButtonDown?.Invoke(index, p);
 		panel.onButtonUp += p => onSlotButtonUp?.Invoke(index, p);
-	}
-
-	// A slot laid out ahead of the grid's, in the same row, but NOT one of its
-	// indexed slots: no slot events, absent from IndexOf / GetSlot /
-	// EnumerateSlots. The caller wires and fills it (the belt's lantern slot).
-	public ItemSlotPanel AddLeadingSlot()
-	{
-		if (_slotScene == null || _slotContainer == null)
-		{
-			GD.PushError($"BackpackPanel '{Name}': no slot scene / container to build a leading slot in.");
-			return null;
-		}
-		ItemSlotPanel panel = _slotScene.Instantiate<ItemSlotPanel>();
-		_slotContainer.AddChild(panel);
-		_slotContainer.MoveChild(panel, _leadingSlots++);
-		return panel;
 	}
 
 	// Show exactly `count` slots, instancing any the grid hasn't had yet.

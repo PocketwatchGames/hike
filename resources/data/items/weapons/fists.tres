@@ -84,7 +84,7 @@ hitstun = 0.2
 knockbackDistance = 0.3
 knockbackTime = 0.2
 buildups = []
-modifiers = null
+modifiers = []
 
 [resource]
 script = ExtResource("2_weapon")

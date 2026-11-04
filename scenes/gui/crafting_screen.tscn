@@ -3,14 +3,13 @@
 [ext_resource type="Script" uid="uid://dcld2rguboia7" path="res://scripts/gui/CraftingScreen.cs" id="1_craft"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_hint"]
 [ext_resource type="Script" uid="uid://ubhgeo31sve1" path="res://scripts/gui/CraftingPanel.cs" id="3_panel"]
-[ext_resource type="PackedScene" uid="uid://bi0li20a44lg5" path="res://scenes/gui/backpack_panel.tscn" id="4_backpack"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="5_info"]
 [ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="6_count"]
 [ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="7_inventory"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="8_slot"]
 [ext_resource type="PackedScene" uid="uid://dn1uamwxkqjal" path="res://scenes/gui/recipe_button.tscn" id="9_recipe"]
 
-[node name="CraftingScreen" type="Control" unique_id=1475522049 node_paths=PackedStringArray("_inventoryPanel", "_stashPanel", "_craftingPanel", "_itemInfoPanel", "_buttonHintPrimary", "_hintUse", "_hintDrop", "_hintRepair", "_countPanel")]
+[node name="CraftingScreen" type="Control" unique_id=1475522049 node_paths=PackedStringArray("_inventoryPanel", "_craftingPanel", "_itemInfoPanel", "_buttonHintPrimary", "_hintUse", "_hintDrop", "_hintRepair", "_countPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,7 +18,6 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_craft")
 _inventoryPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/Inventory")
-_stashPanel = NodePath("MarginContainer/HBoxContainer/VBoxContainer/StashPanel")
 _craftingPanel = NodePath("MarginContainer/HBoxContainer/StationContainer/CraftingPanel")
 _itemInfoPanel = NodePath("MarginContainer/HBoxContainer/VBoxContainer/MarginContainer2/ItemInfoPanel")
 _buttonHintPrimary = NodePath("MarginContainer/ButtonHints/ButtonHintA")
@@ -71,8 +69,10 @@ ActionName = "Drop"
 InputAction = "MenuQuinary"
 
 [node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=1676043226]
+custom_minimum_size = Vector2(0, 600)
 layout_mode = 2
 size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_constants/separation = 100
 alignment = 1
 
@@ -80,7 +80,7 @@ alignment = 1
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 4
+size_flags_vertical = 0
 
 [node name="CraftingPanel" type="MarginContainer" parent="MarginContainer/HBoxContainer/StationContainer" unique_id=1244894710 node_paths=PackedStringArray("_queueSlots", "_headProgress", "_blockedLabel", "_announcementContainer", "_announcementLabel", "_announcementIcon", "_recipeButtonContainer", "_noRecipesLabel")]
 layout_mode = 2
@@ -233,12 +233,8 @@ horizontal_alignment = 1
 
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer" unique_id=1327032339]
 layout_mode = 2
+size_flags_vertical = 0
 alignment = 1
-
-[node name="StashPanel" parent="MarginContainer/HBoxContainer/VBoxContainer" unique_id=370404262 instance=ExtResource("4_backpack")]
-layout_mode = 2
-size_flags_horizontal = 6
-_titleLocKey = &"panel_stash"
 
 [node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/HBoxContainer/VBoxContainer" unique_id=1533916864]
 custom_minimum_size = Vector2(500, 0)
@@ -251,7 +247,7 @@ layout_mode = 2
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 size_flags_horizontal = 0
-size_flags_vertical = 4
+size_flags_vertical = 0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=725153650]
 layout_mode = 2

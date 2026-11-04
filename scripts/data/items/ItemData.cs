@@ -201,7 +201,7 @@ public partial class ItemData : Resource
 	public bool IsMaterial => Category == EItemCategory.Material;
 
 	// True when this item fills one of the equip slots — weapon, armor, shield,
-	// lantern. Equipping moves it out of the backpack into the slot.
+	// lantern, ammo. Equipping moves it out of the backpack into the slot.
 	public bool IsEquippable => EquipSlotKind != EInventorySlot.None;
 
 	// The equip slot this item's category maps to, or None.
@@ -212,6 +212,7 @@ public partial class ItemData : Resource
 		EItemCategory.Armor => EInventorySlot.Armor,
 		EItemCategory.Shield => EInventorySlot.Shield,
 		EItemCategory.Lantern => EInventorySlot.Lantern,
+		EItemCategory.Ammo => EInventorySlot.Ammo,
 		// The helmet slot is withdrawn from the inventory for now: helmets are
 		// inert backpack items until it returns (map back to EInventorySlot.Helmet).
 		EItemCategory.Helmet => EInventorySlot.None,

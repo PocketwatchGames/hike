@@ -4,9 +4,8 @@ using System.Collections.Generic;
 
 // Cooking a meal into a Cookpot, opened from the CookpotScreen's Cook button.
 // Left = the pot's experimentation slots, Cook button and meal list
-// (StationPanel); center = the cook's belt and backpack and the party stash
-// (BackpackPanels over Inventory.Belt / Backpack and SimState.PartyStash), whose
-// materials are the ingredient source.
+// (StationPanel); center = the cook's backpack and sacks and, at camp, the party
+// stash below them (InventoryPanel), whose materials are the ingredient source.
 //
 // Opened with an onClose callback it dismisses itself on ui_cancel (back to the
 // CookpotScreen); without one its host owns ui_cancel.
@@ -20,20 +19,16 @@ using System.Collections.Generic;
 //     contents are consumed instantly. A valid match discovers the meal and
 //     fills the pot; a failed mix is just wasted ("Yuck").
 //
-// On a belt / backpack / stash slot, as on the stash screen:
+// On a backpack / sack / stash slot, as on the stash screen:
 //   Y  — use the item (eat a meal, drink a potion).
 //   RT — drop the stack at the cook's feet. Hold to drop only some of it.
 [GlobalClass]
 public partial class CookingScreen : Control
 {
 	[Export] public GameClient gameClient;
-	// The cook's belt and backpack and the party stash, slot for slot; only their
-	// materials can be cooked.
-	[Export] private BackpackPanel _beltPanel;
-	[Export] private BackpackPanel _backpackPanel;
-	// One grid per sack the cook carries, under the backpack.
-	[Export] private SackPanels _sackPanels;
-	[Export] private BackpackPanel _stashPanel;
+	// The cook's backpack and sacks, then the stash at camp, slot for slot; only
+	// their materials can be cooked.
+	[Export] private InventoryPanel _inventoryPanel;
 	[Export] private StationPanel _cookingPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
 	// Shown in the info panel's place while a meal recipe is focused.
@@ -75,25 +70,11 @@ public partial class CookingScreen : Control
 		{
 			gameClient.onPlayerSpawned += OnPlayerSpawned;
 		}
-		if (_beltPanel != null)
+		if (_inventoryPanel != null)
 		{
-			_beltPanel.onSlotFocused += OnBeltFocused;
-			_beltPanel.onSlotButtonUp += OnBeltMaterialTap;
-		}
-		if (_backpackPanel != null)
-		{
-			_backpackPanel.onSlotFocused += OnBackpackFocused;
-			_backpackPanel.onSlotButtonUp += OnBackpackMaterialTap;
-		}
-		if (_sackPanels != null)
-		{
-			_sackPanels.onSlotFocused += OnItemSlotFocused;
-			_sackPanels.onSlotButtonUp += OnSackMaterialTap;
-		}
-		if (_stashPanel != null)
-		{
-			_stashPanel.onSlotFocused += OnStashFocused;
-			_stashPanel.onSlotButtonUp += OnStashMaterialTap;
+			_inventoryPanel.onGridSlotFocused += OnItemSlotFocused;
+			_inventoryPanel.onGridSlotButtonUp += OnMaterialTap;
+			_inventoryPanel.onTabChanged += MarkUncookable;
 		}
 		if (_cookingPanel != null)
 		{
@@ -112,25 +93,11 @@ public partial class CookingScreen : Control
 		{
 			gameClient.onPlayerSpawned -= OnPlayerSpawned;
 		}
-		if (_beltPanel != null)
+		if (_inventoryPanel != null)
 		{
-			_beltPanel.onSlotFocused -= OnBeltFocused;
-			_beltPanel.onSlotButtonUp -= OnBeltMaterialTap;
-		}
-		if (_backpackPanel != null)
-		{
-			_backpackPanel.onSlotFocused -= OnBackpackFocused;
-			_backpackPanel.onSlotButtonUp -= OnBackpackMaterialTap;
-		}
-		if (_sackPanels != null)
-		{
-			_sackPanels.onSlotFocused -= OnItemSlotFocused;
-			_sackPanels.onSlotButtonUp -= OnSackMaterialTap;
-		}
-		if (_stashPanel != null)
-		{
-			_stashPanel.onSlotFocused -= OnStashFocused;
-			_stashPanel.onSlotButtonUp -= OnStashMaterialTap;
+			_inventoryPanel.onGridSlotFocused -= OnItemSlotFocused;
+			_inventoryPanel.onGridSlotButtonUp -= OnMaterialTap;
+			_inventoryPanel.onTabChanged -= MarkUncookable;
 		}
 		if (_cookingPanel != null)
 		{
@@ -154,10 +121,6 @@ public partial class CookingScreen : Control
 			_player = player;
 		}
 		_station = station;
-		if (_stashPanel != null)
-		{
-			_stashPanel.Visible = station?.IsCamp == true;
-		}
 		_onClose = onClose;
 		// A potion drunk from here spends partway through its timeline, after the
 		// press that started it.
@@ -193,7 +156,7 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		ItemSlotPanel firstItem = _backpackPanel?.FirstOccupied() ?? _sackPanels?.FirstOccupied() ?? _beltPanel?.FirstOccupied() ?? _stashPanel?.FirstOccupied();
+		ItemSlotPanel firstItem = _inventoryPanel?.FirstOccupied();
 		if (firstItem != null)
 		{
 			firstItem.GrabFocus();
@@ -258,32 +221,17 @@ public partial class CookingScreen : Control
 	// Only materials can be cooked, so everything else is greyed.
 	void RefreshMaterials()
 	{
-		RefreshMaterials(_beltPanel, CookInventory?.Belt?.Slots);
-		RefreshMaterials(_backpackPanel, CookInventory?.Backpack?.Slots);
-		RefreshMaterials(_stashPanel, Stash?.Slots);
-		if (_sackPanels != null)
-		{
-			_sackPanels.Refresh(CookInventory);
-			foreach ((Inventory.CarriedGrid _, BackpackPanel panel) in _sackPanels.EnumeratePanels())
-			{
-				MarkUncookable(panel);
-			}
-		}
-	}
-
-	static void RefreshMaterials(BackpackPanel panel, IReadOnlyList<ItemState> slots)
-	{
-		if (panel == null)
+		if (_inventoryPanel == null)
 		{
 			return;
 		}
-		panel.Refresh(slots);
-		MarkUncookable(panel);
+		_inventoryPanel.Paint(CookInventory, Stash);
+		MarkUncookable();
 	}
 
-	static void MarkUncookable(BackpackPanel panel)
+	void MarkUncookable()
 	{
-		foreach (ItemSlotPanel slot in panel.EnumerateSlots())
+		foreach (ItemSlotPanel slot in _inventoryPanel.GridPanel.EnumerateSlots())
 		{
 			slot.SetUnavailable(slot.Item != null && !IsCookable(slot.Item));
 		}
@@ -342,21 +290,6 @@ public partial class CookingScreen : Control
 
 	// ---- Material side (add to cooking slots) ------------------------------
 
-	void OnBeltFocused(int index, ItemSlotPanel panel)
-	{
-		OnItemSlotFocused(CookInventory?.Belt, index, panel);
-	}
-
-	void OnBackpackFocused(int index, ItemSlotPanel panel)
-	{
-		OnItemSlotFocused(CookInventory?.Backpack, index, panel);
-	}
-
-	void OnStashFocused(int index, ItemSlotPanel panel)
-	{
-		OnItemSlotFocused(Stash, index, panel);
-	}
-
 	// Every item shows its info, not only materials: any of them can be used or dropped.
 	void OnItemSlotFocused(IItemGrid grid, int index, ItemSlotPanel panel)
 	{
@@ -388,22 +321,7 @@ public partial class CookingScreen : Control
 
 	bool PickerOpen => _countPanel != null && _countPanel.IsOpen;
 
-	void OnBeltMaterialTap(int index, ItemSlotPanel panel)
-	{
-		CookMaterial(CookInventory?.Belt, index, 1);
-	}
-
-	void OnBackpackMaterialTap(int index, ItemSlotPanel panel)
-	{
-		CookMaterial(CookInventory?.Backpack, index, 1);
-	}
-
-	void OnStashMaterialTap(int index, ItemSlotPanel panel)
-	{
-		CookMaterial(Stash, index, 1);
-	}
-
-	void OnSackMaterialTap(Inventory.CarriedGrid grid, int index, ItemSlotPanel panel)
+	void OnMaterialTap(IItemGrid grid, int index, ItemSlotPanel panel)
 	{
 		CookMaterial(grid, index, 1);
 	}

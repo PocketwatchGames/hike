@@ -19,6 +19,12 @@ public partial class ItemSlotPanel : PanelContainer
 	// WeaponHud draws: warning while worn, broken once it is.
 	[Export] private CanvasItem _durabilityWarning;
 	[Export] private CanvasItem _durabilityBroken;
+	// Shown on a backpack slot whose item an equip slot points at (SetEquipped).
+	[Export] private CanvasItem _equippedHighlight;
+	// The hotbar-number badge on a backpack slot whose item is on the belt
+	// (SetBeltNumber).
+	[Export] private Control _beltBadge;
+	[Export] private Label _beltBadgeLabel;
 	// Icon tint for an item the current screen can't act on (a non-material on
 	// the cooking screen).
 	[Export] private Color _unavailableTint = new Color(0.35f, 0.35f, 0.35f, 0.6f);
@@ -221,6 +227,27 @@ public partial class ItemSlotPanel : PanelContainer
 		if (_itemTexture != null)
 		{
 			_itemTexture.Texture = Item?.data?.SlotIcon(_active);
+		}
+	}
+
+	public void SetEquipped(bool equipped)
+	{
+		if (_equippedHighlight != null)
+		{
+			_equippedHighlight.Visible = equipped;
+		}
+	}
+
+	// Show the hotbar number the belt gives this slot's item; 0 hides the badge.
+	public void SetBeltNumber(int number)
+	{
+		if (_beltBadge != null)
+		{
+			_beltBadge.Visible = number > 0;
+		}
+		if (_beltBadgeLabel != null && number > 0)
+		{
+			_beltBadgeLabel.Text = number.ToString();
 		}
 	}
 

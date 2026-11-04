@@ -6,7 +6,7 @@ using Godot;
 public static class ItemTransfer
 {
 	// Move `count` units onto a chosen slot. Within one member's grids (one grid,
-	// or belt <-> backpack) this is Inventory.Move — nothing leaves the inventory.
+	// or backpack <-> sack) this is Inventory.Move — nothing leaves the inventory.
 	// Across owners a whole stack may swap with what is there (the displaced item
 	// takes the emptied source slot); a partial one only merges or fills an empty
 	// slot. Checked before anything is detached, so a refused move changes nothing.
@@ -72,9 +72,10 @@ public static class ItemTransfer
 		return taken - (leftover?.stackCount ?? 0);
 	}
 
-	// Equip the stack at `from[fromIndex]` — the whole of it, gear never stacks.
-	// From one of the member's own grids this is Inventory.Equip; from another grid
-	// the gear it displaces takes the emptied slot.
+	// Equip the stack at `from[fromIndex]`. From one of the member's own grids
+	// this is Inventory.Equip (the backpack's top level only); from another grid
+	// the stack moves onto the backpack and is equipped there, and what doesn't fit
+	// stays where it was.
 	public static bool Equip(IItemGrid from, int fromIndex, Inventory inventory)
 	{
 		if (from == null || inventory == null)
@@ -91,90 +92,40 @@ public static class ItemTransfer
 			return false;
 		}
 		ItemState moving = from.Take(fromIndex, source.stackCount);
-		Return(from, fromIndex, inventory.EquipIncoming(moving));
-		return true;
+		int taken = moving.stackCount;
+		ItemState leftover = inventory.EquipIncoming(moving);
+		Return(from, fromIndex, leftover);
+		return (leftover?.stackCount ?? 0) < taken;
 	}
 
-	// Move the stack at `from[fromIndex]` onto the member's belt — as much as the
-	// belt alone has room for; the rest stays where it was. Returns the units moved.
-	public static int SendToBelt(IItemGrid from, int fromIndex, Inventory inventory)
+	// Bring the stack at `from[fromIndex]` into the member's backpack and put it on
+	// the belt. False, moving nothing, when it doesn't belong on the belt, the belt
+	// is full, or the backpack has no slot of its own for it.
+	public static bool TakeToBelt(IItemGrid from, int fromIndex, Inventory inventory)
 	{
 		ItemState source = from?.At(fromIndex);
-		if (source?.data == null || inventory == null)
+		if (source?.data == null || inventory == null || !Inventory.Beltable(source.data))
 		{
-			return 0;
+			return false;
 		}
-		int units = Math.Min(source.stackCount, inventory.Belt.RoomFor(source.data));
-		if (units <= 0)
+		int free = inventory.FirstFreeBeltSlot();
+		if (free < 0 || inventory.Backpack.grid.FirstEmpty() < 0)
 		{
-			return 0;
+			return false;
 		}
-		ItemState moving = from.Take(fromIndex, units);
-		int taken = moving.stackCount;
-		ItemState leftover = inventory.AddOnly(inventory.Belt, moving);
+		ItemState moving = from.Take(fromIndex, source.stackCount);
+		int index = inventory.Backpack.grid.FirstEmpty();
+		ItemState leftover = inventory.Backpack.PlaceAt(index, moving, allowSwap: false, out _);
 		Return(from, fromIndex, leftover);
-		return taken - (leftover?.stackCount ?? 0);
+		return inventory.SetBelt(free, inventory.Backpack.At(index));
 	}
 
-	// Unequip onto a chosen slot of `to`: an empty slot takes it, and gear for
-	// the same equip slot swaps in. False for anything else.
-	public static bool Unequip(Inventory inventory, EInventorySlot slot, IItemGrid to, int toIndex)
-	{
-		if (inventory == null || to == null)
-		{
-			return false;
-		}
-		if (OwnedBy(to, inventory))
-		{
-			return inventory.UnequipTo(slot, (Inventory.CarriedGrid)to, toIndex);
-		}
-		ItemState item = inventory.GetEquipped(slot);
-		if (item == null || toIndex < 0 || toIndex >= to.Capacity)
-		{
-			return false;
-		}
-		if (!to.Accepts(item.data))
-		{
-			return false;
-		}
-		ItemState target = to.At(toIndex);
-		if (target != null)
-		{
-			return target.data?.EquipSlotKind == slot && Equip(to, toIndex, inventory);
-		}
-		inventory.Remove(item);
-		Return(to, toIndex, item);
-		return true;
-	}
-
-	// Send equipped gear to wherever it fits in `to`. False when it doesn't.
-	public static bool SendEquipped(Inventory inventory, EInventorySlot slot, IItemGrid to)
-	{
-		if (inventory == null || to == null)
-		{
-			return false;
-		}
-		if (OwnedBy(to, inventory))
-		{
-			return inventory.Unequip(slot);
-		}
-		ItemState item = inventory.GetEquipped(slot);
-		if (item?.data == null || !to.CanFullyAdd(item.data, item.stackCount))
-		{
-			return false;
-		}
-		inventory.Remove(item);
-		Return(to, -1, to.Add(item));
-		return true;
-	}
-
-	// Salvage up to `count` units of the stack at `from[fromIndex]` — or, with a
-	// null `from`, the member's gear equipped in slot `fromIndex` — with every
+	// Salvage up to `count` units of the stack at `from[fromIndex]`, with every
 	// yield going into `into` (a crafting bench fills the stash). All or nothing:
 	// false, changing nothing, when `into` hasn't room for every yield.
 	public static bool SalvageInto(IItemGrid from, int fromIndex, int count, Player player, ItemGrid into)
 	{
-		ItemState source = from != null ? from.At(fromIndex) : player?.Inventory?.GetEquipped((EInventorySlot)fromIndex);
+		ItemState source = from?.At(fromIndex);
 		if (into == null || count <= 0 || !CanSalvage(source, player))
 		{
 			return false;
@@ -193,14 +144,7 @@ public static class ItemTransfer
 		yields.Clear();
 		for (int i = 0; i < count && CanSalvage(source, player); i++)
 		{
-			if (from != null)
-			{
-				from.Take(fromIndex, 1);
-			}
-			else
-			{
-				player.Inventory.Remove(source);
-			}
+			from.Take(fromIndex, 1);
 			data.Salvage(player, yields);
 		}
 		foreach (ItemState state in yields)

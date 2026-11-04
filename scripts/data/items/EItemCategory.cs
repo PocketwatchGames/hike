@@ -18,15 +18,14 @@ public enum EItemCategory
 	// Cooking ingredients, loot, meat — the reagent pool for cooking and spells,
 	// and the only category picked up on contact. Lands past the hotbar.
 	Material,
-	// Rounds for a ranged weapon (AmmoData): carried in the backpack, never
-	// equipped — loaded per type instead (Inventory.LoadedAmmo).
+	// Rounds for a ranged weapon (AmmoData), fired from the Ammo equip slot.
 	Ammo,
 	Lantern,
 	Shield,
 	// Carried vessels (flasks): kept in the backpack, never a cooking reagent and
 	// never picked up on contact.
 	Container,
-	// A sack (SackData): carried in the belt or backpack, holding the categories it
+	// A sack (SackData): carried in the backpack, holding the categories it
 	// lists. Never a reagent, and never inside another sack.
 	Sack,
 	// A carried tool (ToolData — the shovel): kept in the backpack and never used

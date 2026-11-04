@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TorchData" format=3 uid="uid://ckc6x7qdiy03e"]
+
+[ext_resource type="Script" uid="uid://o34gd58la42i" path="res://scripts/data/items/TorchData.cs" id="1_torch"]
+[ext_resource type="PackedScene" uid="uid://cytlqy3efeo7k" path="res://scenes/items/torch_carried.tscn" id="2_held"]
+[ext_resource type="PackedScene" uid="uid://cgua4oedfo8vp" path="res://scenes/fx/lantern_light.tscn" id="3_light"]
+[ext_resource type="PackedScene" uid="uid://dd1xgnms16bg6" path="res://scenes/fx/lantern_extinguish.tscn" id="4_snuff"]
+[ext_resource type="PackedScene" uid="uid://wnfsb2rd2l6t" path="res://scenes/fx/torch_douse.tscn" id="5_douse"]
+
+[resource]
+script = ExtResource("1_torch")
+maxDurability = 300
+lightEffect = ExtResource("3_light")
+extinguishEffect = ExtResource("4_snuff")
+douseEffectScene = ExtResource("5_douse")
+heldScene = ExtResource("2_held")
+displayName = &"Torch"
+description = "Burns for a while, then it is spent. Clips to your belt when lit."
+value = 2
+metadata/_custom_type_script = "uid://o34gd58la42i"

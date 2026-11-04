@@ -383,7 +383,7 @@ public partial class Player : CharacterBody3D
 		{
 			if (Input.IsActionJustPressed(HotbarSelectActions[i]))
 			{
-				_inventory?.SelectHotbarEntry(i);
+				_inventory?.SelectHotbarIndex(i);
 			}
 		}
 		if (Input.IsActionJustPressed("UseItem"))

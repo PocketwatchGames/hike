@@ -3,26 +3,30 @@ using System.Collections.Generic;
 using System.IO;
 using Godot;
 
-// Everything one party member carries: two sparse grids — the belt and the
-// backpack — plus the equip slots, and which ammo is loaded per type. An
-// equipped item lives IN its slot and is in neither grid — equipping moves it
-// out, swapping whatever held the slot back into the grid slot it left. The hotbar is the lantern slot followed by the
-// belt; a lantern is lit only in the lantern slot (LitLantern). Both grids' sizes are the
-// PlayerData base plus whatever the worn armor adds (ArmorData.beltSlots /
-// backpackSlots), re-applied on every change.
+// Everything one party member carries. The backpack — with the sacks in it — is
+// the only storage: every owned item sits in a slot there. The equip slots and
+// the belt hold nothing of their own; each POINTS at a stack on the backpack's
+// top level, so an equipped or belted item shows in both places and keeps its
+// pointer wherever it is moved within the backpack. Changed() re-checks every
+// pointer (ReconcilePointers), so no path that takes an item out of the
+// backpack has to remember to unequip it. The hotbar is the lantern slot
+// followed by the belt; at most one carried light burns (LitLight): the
+// equipped lantern or a belted torch. The backpack's and the belt's sizes are
+// the PlayerData base plus whatever the worn armor adds, re-applied on every
+// change.
 public class Inventory : IItemSource
 {
-	// One of the member's grids — the belt, the backpack, or a carried sack — as an
+	// One of the member's grids — the backpack or a carried sack — as an
 	// IItemGrid so ItemTransfer and the two-sided screens can move items in and out
 	// of it. Every call routes back through the Inventory, so the touched / spoil
-	// stamp on the way in and OnLeaving on the way out can't be skipped. Add and
-	// CanFullyAdd speak for the whole member — this grid first, then the rest — so
-	// a stash send fills the belt once the backpack is full.
+	// stamp on the way in and the pointer check on the way out can't be skipped.
+	// Add and CanFullyAdd speak for the whole member — this grid first, then the
+	// rest.
 	public sealed class CarriedGrid : IItemGrid
 	{
 		public readonly Inventory owner;
 		internal readonly ItemGrid grid;
-		// The sack whose contents this is; null for the belt and the backpack.
+		// The sack whose contents this is; null for the backpack.
 		public readonly SackState sack;
 		// Set once the sack has left the member. A screen may still hold this
 		// grid; detached, it reads empty and refuses everything.
@@ -56,36 +60,37 @@ public class Inventory : IItemSource
 
 	// `grid[i]` is the item at slot i, or null — the player can leave gaps when
 	// reorganizing.
-	private readonly ItemGrid _beltGrid;
 	private readonly ItemGrid _backpackGrid;
 
-	// Indexed by EInventorySlot; null = empty. INVARIANT: an item is in exactly
-	// one place — a grid slot or an equip slot, never both.
+	// Indexed by EInventorySlot; null = empty. Each points at a stack on the
+	// backpack's top level (never inside a sack).
 	private readonly ItemState[] _equipped = new ItemState[(int)EInventorySlot.Count];
+	// The belt: `_belt[i]` points at a top-level backpack stack, or null. An item
+	// is on the belt at most once.
+	private ItemState[] _belt;
 
-	// Whether the lantern in the Lantern slot is lit. SetSlot clears it whenever
-	// that slot changes occupant, so a lantern is never lit anywhere else.
-	private bool _lanternLit;
+	// The one carried light burning, or null: the equipped lantern or a belted
+	// torch. ReconcileLit puts it out whenever it stops being either.
+	private ItemState _lit;
 
 	// Hotbar index of the selection (see HotbarItemAt), or -1 when the hotbar is
 	// empty. Stored as an index (not an item) so the cursor holds its place when
 	// the selected stack is used up; Changed() snaps it to the next filled slot.
 	private int _hotbarSelected = -1;
 
-	// The loaded kind per EAmmoType: what weapons of that type fire, drawn from
-	// every carried stack of it. ReconcileLoadedAmmo keeps it on a kind the member
-	// carries: when it runs out the type's standard round takes over, else the
-	// first carried kind of the type.
-	private readonly AmmoData[] _loadedAmmo = new AmmoData[(int)EAmmoType.Count];
-	// Carried units of each loaded kind, refreshed on every change so the HUD and
-	// the fire gates read it without walking the grids.
-	private readonly int[] _loadedAmmoCount = new int[(int)EAmmoType.Count];
+	// The ammo type the ranged weapon fired as of the last Changed, so a change of
+	// weapon is noticed whichever path made it (ReconcileAmmo).
+	private EAmmoType _rangedAmmoType;
+	// Rounds the equipped ammo has left: every top-level stack of its kind, which
+	// refill the slot as it empties. Refreshed on every change so the HUD and the
+	// fire gates read it without walking the backpack.
+	private int _ammoRounds;
 
 	// An equip slot changed occupant (always followed by onChanged).
 	public Action<EInventorySlot> onSlotChanged;
 	// Generic "something in the inventory changed" pulse, including a hotbar
-	// selection move, the lantern being lit or put out, and a grid resizing. UI
-	// panels that re-derive everything listen to this.
+	// selection move, the belt being rearranged, the lantern being lit or put out,
+	// and a grid resizing. UI panels that re-derive everything listen to this.
 	public Action onChanged;
 
 	// Fire onChanged from outside the Inventory class, for a change made to an
@@ -95,15 +100,15 @@ public class Inventory : IItemSource
 		Changed();
 	}
 
-	public CarriedGrid Belt { get; }
 	public CarriedGrid Backpack { get; }
 
-	// One grid per sack in the belt or backpack, in slot order (belt first).
-	// Rebuilt by SyncSacks; a sack keeps its CarriedGrid while it stays carried,
-	// so a screen's reference to it stays valid across moves.
+	// One grid per sack in the backpack, in slot order. Rebuilt by SyncSacks; a
+	// sack keeps its CarriedGrid while it stays carried, so a screen's reference
+	// to it stays valid across moves.
 	public IReadOnlyList<CarriedGrid> Sacks => _sacks;
 	private readonly List<CarriedGrid> _sacks = new();
-	// Belt, backpack, then the sacks — every grid an owned item can sit in.
+	// The backpack, then the sacks — every grid an owned item can sit in.
+	public IReadOnlyList<CarriedGrid> Carried => _carried;
 	private readonly List<CarriedGrid> _carried = new();
 	// Scratch for AddPreferring's placement order.
 	private readonly List<CarriedGrid> _placement = new();
@@ -112,48 +117,40 @@ public class Inventory : IItemSource
 	{
 		_owner = owner;
 		_data = data;
-		_beltGrid = new ItemGrid(data.beltCapacity);
 		_backpackGrid = new ItemGrid(data.backpackCapacity);
-		Belt = new CarriedGrid(this, _beltGrid);
+		_belt = new ItemState[Math.Max(0, data.beltCapacity)];
 		Backpack = new CarriedGrid(this, _backpackGrid);
-		_carried.Add(Belt);
 		_carried.Add(Backpack);
 	}
 
 	private void Changed()
 	{
-		ApplyCapacity();
-		SyncSacks();
+		// Taking off armor shrinks the backpack, and what a shrink evicts can be
+		// the worn armor itself, so settle the two together.
+		do
+		{
+			SyncSacks();
+			ReconcilePointers();
+		}
+		while (ApplyCapacity());
+		ReconcileLit();
+		if (ReconcileAmmo())
+		{
+			onSlotChanged?.Invoke(EInventorySlot.Ammo);
+		}
 		ReconcileHotbarSelection();
-		ReconcileLoadedAmmo();
+		CountAmmoRounds();
 		onChanged?.Invoke();
 	}
 
-	// Re-derive the sack grids from what the belt and backpack hold. A sack that
-	// left detaches its grid; one that stayed keeps it.
+	// Re-derive the sack grids from what the backpack holds. A sack that left
+	// detaches its grid; one that stayed keeps it.
 	private void SyncSacks()
 	{
 		var kept = new List<CarriedGrid>(_sacks.Count);
-		CollectSacks(_beltGrid, kept);
-		CollectSacks(_backpackGrid, kept);
-		foreach (CarriedGrid old in _sacks)
+		for (int i = 0; i < _backpackGrid.Capacity; i++)
 		{
-			if (!kept.Contains(old))
-			{
-				old.detached = true;
-			}
-		}
-		_sacks.Clear();
-		_sacks.AddRange(kept);
-		_carried.RemoveRange(2, _carried.Count - 2);
-		_carried.AddRange(_sacks);
-	}
-
-	private void CollectSacks(ItemGrid grid, List<CarriedGrid> into)
-	{
-		for (int i = 0; i < grid.Capacity; i++)
-		{
-			if (grid[i] is not SackState sack)
+			if (_backpackGrid[i] is not SackState sack)
 			{
 				continue;
 			}
@@ -166,12 +163,72 @@ public class Inventory : IItemSource
 					break;
 				}
 			}
-			into.Add(existing ?? new CarriedGrid(this, sack.contents, sack));
+			kept.Add(existing ?? new CarriedGrid(this, sack.contents, sack));
+		}
+		foreach (CarriedGrid old in _sacks)
+		{
+			if (!kept.Contains(old))
+			{
+				old.detached = true;
+			}
+		}
+		_sacks.Clear();
+		_sacks.AddRange(kept);
+		_carried.RemoveRange(1, _carried.Count - 1);
+		_carried.AddRange(_sacks);
+	}
+
+	// An equip or belt slot points only at a stack on the backpack's top level.
+	// One whose stack left it (spent, dropped, stashed, merged away, moved into a
+	// sack) moves to another top-level stack of the same stackable kind — the
+	// next potion stack, the thrown weapon picked back up — or empties.
+	private void ReconcilePointers()
+	{
+		for (int i = (int)EInventorySlot.None + 1; i < _equipped.Length; i++)
+		{
+			ItemState item = _equipped[i];
+			if (item == null || IsOnTop(item))
+			{
+				continue;
+			}
+			SetSlot((EInventorySlot)i, item.data != null && item.data.IsStackable ? TopStackOf(item.data) : null);
+			onSlotChanged?.Invoke((EInventorySlot)i);
+		}
+		for (int i = 0; i < _belt.Length; i++)
+		{
+			ItemState item = _belt[i];
+			if (item == null || IsOnTop(item))
+			{
+				continue;
+			}
+			ItemState next = item.data != null && item.data.IsStackable ? TopStackOf(item.data) : null;
+			_belt[i] = next != null && BeltIndexOf(next) < 0 ? next : null;
 		}
 	}
 
-	// The grid holding `item` and its slot there; false when it's in none
-	// (equipped, or not owned). Non-allocating.
+	// True when `item` sits on the backpack's top level — where an equip or belt
+	// slot may point.
+	private bool IsOnTop(ItemState item) => item != null && _backpackGrid.IndexOf(item) >= 0;
+
+	// The first top-level backpack stack of `data`, or null.
+	private ItemState TopStackOf(ItemData data)
+	{
+		if (data == null)
+		{
+			return null;
+		}
+		for (int i = 0; i < _backpackGrid.Capacity; i++)
+		{
+			if (_backpackGrid[i]?.data == data)
+			{
+				return _backpackGrid[i];
+			}
+		}
+		return null;
+	}
+
+	// The grid holding `item` and its slot there; false when it's in none (not
+	// owned). Non-allocating.
 	private bool Locate(ItemState item, out CarriedGrid grid, out int index)
 	{
 		for (int g = 0; g < _carried.Count; g++)
@@ -188,23 +245,15 @@ public class Inventory : IItemSource
 		return false;
 	}
 
-	// True if `item` is owned — in a grid (a sack's included) or equipped.
-	// Non-allocating (safe to call from per-frame paths).
-	public bool Contains(ItemState item) => Locate(item, out _, out _) || IsEquipped(item);
+	// True if `item` is owned — in the backpack or a sack in it. Non-allocating
+	// (safe to call from per-frame paths).
+	public bool Contains(ItemState item) => Locate(item, out _, out _);
 
-	// An owned item serving as a `kind` tool — equipped, or in any carried grid, a
-	// sack's included — skipping broken gear. `use` is its row for that kind.
+	// An owned item serving as a `kind` tool, anywhere in the backpack — a sack's
+	// included — skipping broken gear. `use` is its row for that kind.
 	// Non-allocating: a corpse or dig spot in reach asks every frame.
 	public ItemState FindTool(EToolKind kind, out ToolUse use)
 	{
-		for (int i = 0; i < _equipped.Length; i++)
-		{
-			use = SoundToolUse(_equipped[i], kind);
-			if (use != null)
-			{
-				return _equipped[i];
-			}
-		}
 		for (int g = 0; g < _carried.Count; g++)
 		{
 			ItemGrid grid = _carried[g].grid;
@@ -230,17 +279,12 @@ public class Inventory : IItemSource
 		return item.data.FindToolUse(kind);
 	}
 
-	// True if any grid or equip slot already holds a stack of exactly `data` (an
-	// equipped thrown weapon's stack counts). Non-allocating.
+	// True if any grid already holds a stack of exactly `data`. Non-allocating.
 	public bool HoldsStackOf(ItemData data)
 	{
 		if (data == null || !data.IsStackable)
 		{
 			return false;
-		}
-		if (GetEquipped(data.EquipSlotKind)?.data == data)
-		{
-			return true;
 		}
 		for (int g = 0; g < _carried.Count; g++)
 		{
@@ -254,14 +298,6 @@ public class Inventory : IItemSource
 			}
 		}
 		return false;
-	}
-
-	// Where `data` lands first: only what the player uses from the hotbar takes
-	// the belt; materials, flasks and equippable gear go in the backpack so they
-	// don't crowd it out — only a full pack spills them onto the belt.
-	public CarriedGrid PreferredGrid(ItemData data)
-	{
-		return data != null && data.Category != EItemCategory.Usable ? Backpack : Belt;
 	}
 
 	// Merge into matching stacks across every grid that accepts it, then take the
@@ -296,8 +332,7 @@ public class Inventory : IItemSource
 	}
 
 	// The grids `data` may land in, best first: `first` when it is a sack, every
-	// other sack that accepts it, then the belt and backpack — `first` leading
-	// when it is one of them, else the item's PreferredGrid.
+	// other sack that accepts it, then the backpack.
 	private void PlacementOrder(CarriedGrid first, ItemData data, List<CarriedGrid> into)
 	{
 		into.Clear();
@@ -312,15 +347,12 @@ public class Inventory : IItemSource
 				into.Add(sack);
 			}
 		}
-		CarriedGrid main = first.sack == null ? first : PreferredGrid(data);
-		into.Add(main);
-		into.Add(OtherGrid(main));
+		into.Add(Backpack);
 	}
 
 	// Spend up to `count` units of a reagent, matching by the item's parent chain
-	// (a reagent naming goblin_meat draws from any goblin subspecies meat) —
-	// the backpack first, then the belt, each with the sacks it holds. Emptied
-	// stacks free their slot. Returns
+	// (a reagent naming goblin_meat draws from any goblin subspecies meat) — the
+	// backpack with the sacks it holds. Emptied stacks free their slot. Returns
 	// how many units were actually spent (may be < count if the member ran short
 	// — the caller covers the remainder from the party stash). Used by the
 	// alchemy cast path. `spentItems`, when given, collects the items drawn.
@@ -331,7 +363,6 @@ public class Inventory : IItemSource
 			return 0;
 		}
 		int spent = _backpackGrid.SpendMaterial(reagentItem, count, spentItems);
-		spent += _beltGrid.SpendMaterial(reagentItem, count - spent, spentItems);
 		if (spent > 0)
 		{
 			Changed();
@@ -405,8 +436,8 @@ public class Inventory : IItemSource
 	private ItemGrid PartyStash => _owner?.Sim?.WorldState?.SimState?.PartyStash;
 
 	// Hand an item the player owns but can't carry (a starting loadout that
-	// overflows the grids) to the party stash. Returns what the stash had no room
-	// for.
+	// overflows the backpack) to the party stash. Returns what the stash had no
+	// room for.
 	public ItemState PushToStash(ItemState item)
 	{
 		if (item == null)
@@ -416,12 +447,13 @@ public class Inventory : IItemSource
 		return PartyStash != null ? PartyStash.Add(item) : item;
 	}
 
-	// Add an item to the member's grids: a sack that accepts it before its
-	// PreferredGrid (see AddPreferring). Stackables fill existing same-kind stacks
-	// first, then take the first empty slot. Returns the number of units actually added (0 = nothing fit, less
-	// than stackCount = partial). The caller's ItemState is consumed: if it was
-	// stored it is the grid's reference now; if it fully merged it is spent.
-	// Never equips — see Acquire for that.
+	// Add an item to the member's grids: a sack that accepts it before the
+	// backpack (see AddPreferring). Stackables fill existing same-kind stacks
+	// first, then take the first empty slot. A usable kind not on the belt yet
+	// takes a free belt slot. Returns the number of units actually added (0 =
+	// nothing fit, less than stackCount = partial). The caller's ItemState is
+	// consumed: if it was stored it is the grid's reference now; if it fully
+	// merged it is spent. Never equips — see Acquire for that.
 	public int TryAdd(ItemState item)
 	{
 		if (item == null || item.data == null || item.stackCount <= 0)
@@ -429,8 +461,29 @@ public class Inventory : IItemSource
 			return 0;
 		}
 		int initialStack = item.stackCount;
-		ItemState leftover = Add(PreferredGrid(item.data), item);
-		return initialStack - (leftover?.stackCount ?? 0);
+		ItemState leftover = Add(Backpack, item);
+		int added = initialStack - (leftover?.stackCount ?? 0);
+		if (added > 0)
+		{
+			AutoBelt(item.data);
+		}
+		return added;
+	}
+
+	// Put the top-level stack of `data` on the first free belt slot, unless the
+	// belt already carries that kind or `data` doesn't belong on it.
+	private void AutoBelt(ItemData data)
+	{
+		if (!Beltable(data) || BeltHolds(data))
+		{
+			return;
+		}
+		int free = FirstFreeBeltSlot();
+		ItemState stack = TopStackOf(data);
+		if (free >= 0 && stack != null)
+		{
+			SetBelt(free, stack);
+		}
 	}
 
 	// IItemGrid.Add for any carried grid: `first` leads the placement order (see
@@ -454,103 +507,63 @@ public class Inventory : IItemSource
 		return leftover;
 	}
 
-	// Like Add, but into `grid` alone — nothing merges into or spills over to the
-	// other grid. Returns the leftover, null when everything went in.
-	public ItemState AddOnly(CarriedGrid grid, ItemState incoming)
-	{
-		if (grid?.owner != this || incoming?.data == null || incoming.stackCount <= 0 || !grid.Accepts(incoming.data))
-		{
-			return incoming;
-		}
-		MarkAcquired(incoming);
-		int before = incoming.stackCount;
-		ItemState leftover = grid.grid.Add(incoming);
-		if ((leftover?.stackCount ?? 0) != before)
-		{
-			Changed();
-		}
-		return leftover;
-	}
-
-	// True when taking `data` would put it straight into an empty equip slot.
+	// True when taking `data` would equip it on the spot: equippable, its slot
+	// empty.
 	public bool WouldAutoEquip(ItemData data)
 	{
 		return data != null && data.IsEquippable && GetEquipped(data.EquipSlotKind) == null;
 	}
 
-	// True if Acquire would take all `count` units — into the equipped stack of
-	// the same kind, straight into an empty equip slot, or into the grids. Mirrors
-	// Acquire without mutating anything.
+	// True if Acquire would take all `count` units. Mirrors Acquire without
+	// mutating anything.
 	public bool CanAcquire(ItemData data, int count)
 	{
-		int topUp = EquippedRoomFor(data);
-		return topUp >= count || WouldAutoEquip(data) || CanFullyAdd(data, count - topUp);
+		return WouldAutoEquip(data) ? _backpackGrid.RoomFor(data) >= count : CanFullyAdd(data, count);
 	}
 
 	// Take ownership of an item from the world (a pickup, the starting loadout):
-	// units of a kind already equipped top up that stack (a thrown weapon picked
-	// back up), gear whose equip slot is empty is equipped on the spot, anything
-	// else goes into the grids as TryAdd. Returns the number of units taken.
+	// gear whose equip slot is empty lands on the backpack's top level and is
+	// equipped there; anything else goes in as TryAdd. Returns the number of units
+	// taken.
 	public int Acquire(ItemState item)
 	{
 		if (item?.data == null || item.stackCount <= 0)
 		{
 			return 0;
 		}
-		int taken = TopUpEquipped(item);
-		if (item.stackCount <= 0)
-		{
-			return taken;
-		}
 		if (!WouldAutoEquip(item.data))
 		{
-			return taken + TryAdd(item);
+			return TryAdd(item);
 		}
-		EquipIncoming(item);
-		return taken + item.stackCount;
+		int before = item.stackCount;
+		ItemState leftover = EquipIncoming(item);
+		return before - (leftover?.stackCount ?? 0);
 	}
 
-	// Units of `data` the equipped stack of the same kind has room for.
-	private int EquippedRoomFor(ItemData data)
-	{
-		ItemState equipped = data != null && data.IsStackable ? GetEquipped(data.EquipSlotKind) : null;
-		return equipped?.data == data ? equipped.RemainingStackSpace() : 0;
-	}
-
-	// Merge what fits of `item` into the equipped stack of its kind. Returns the
-	// units moved.
-	private int TopUpEquipped(ItemState item)
-	{
-		int room = EquippedRoomFor(item.data);
-		if (room <= 0)
-		{
-			return 0;
-		}
-		MarkAcquired(item);
-		int moved = item.TransferTo(GetEquipped(item.data.EquipSlotKind), room);
-		Changed();
-		return moved;
-	}
-
-	// Equip a detached item from outside the inventory (the stash). Returns what
-	// it displaced — detached and out of the inventory now — or `incoming` itself
-	// when it isn't equippable.
+	// Equip an item from outside the inventory (the stash, a pickup): it lands on
+	// the backpack's top level — never in a sack — and its slot points at it,
+	// re-pointing from whatever held it (that stays where it is). Returns what
+	// didn't fit, null when all of it went in; `incoming` itself when it isn't
+	// equippable.
 	public ItemState EquipIncoming(ItemState incoming)
 	{
-		EInventorySlot slot = incoming?.data?.EquipSlotKind ?? EInventorySlot.None;
-		if (slot == EInventorySlot.None)
+		if (incoming?.data == null || incoming.stackCount <= 0 || !incoming.data.IsEquippable)
 		{
 			return incoming;
 		}
 		MarkAcquired(incoming);
-		ItemState displaced = _equipped[(int)slot];
-		if (displaced != null)
+		int before = incoming.stackCount;
+		ItemState leftover = _backpackGrid.Add(incoming);
+		if ((leftover?.stackCount ?? 0) == before)
 		{
-			OnLeaving(displaced);
+			return leftover;
 		}
-		SetSlot(slot, incoming);
-		NotifySlot(slot);
-		return displaced;
+		// Merged away whole: the stack it joined is what gets equipped.
+		if (!Equip(IsOnTop(incoming) ? incoming : TopStackOf(incoming.data)))
+		{
+			Changed();
+		}
+		return leftover;
 	}
 
 	// Every path an item enters the inventory through routes its touched/spoil
@@ -609,40 +622,17 @@ public class Inventory : IItemSource
 		}
 	}
 
-	// Removes an item from the inventory entirely (dropped, sold, stashed, spent),
-	// from a grid or an equip slot. No-op for an item that isn't owned.
+	// Removes an item from the inventory entirely (dropped, sold, stashed, spent).
+	// Any slot pointing at it lets go (ReconcilePointers). No-op for an item that
+	// isn't owned.
 	public void Remove(ItemState item)
 	{
-		bool inGrid = Locate(item, out CarriedGrid grid, out int index);
-		if (!inGrid && !IsEquipped(item))
+		if (!Locate(item, out CarriedGrid grid, out int index))
 		{
 			return;
 		}
-		OnLeaving(item);
-		if (inGrid)
-		{
-			grid.grid[index] = null;
-		}
+		grid.grid[index] = null;
 		Changed();
-	}
-
-	// The single chokepoint for an item leaving the inventory, by any path. An
-	// equipped item's slot is emptied. A sack's contents leave with it.
-	private void OnLeaving(ItemState item)
-	{
-		if (item is SackState sack)
-		{
-			foreach (ItemState inner in sack.contents.EnumerateAll())
-			{
-				OnLeaving(inner);
-			}
-		}
-		EInventorySlot? equippedSlot = GetEquippedSlot(item);
-		if (equippedSlot.HasValue)
-		{
-			SetSlot(equippedSlot.Value, null);
-			onSlotChanged?.Invoke(equippedSlot.Value);
-		}
 	}
 
 	public ItemState GetEquipped(EInventorySlot slot)
@@ -682,72 +672,35 @@ public class Inventory : IItemSource
 		return null;
 	}
 
-	// Equip an item from any grid: it moves into its category's slot, and
-	// whatever held that slot moves into the grid slot it left — refused when that
-	// grid (a sack) wouldn't take it. False for an item that isn't in a grid or
+	// Point `item`'s equip slot at it. Whatever the slot pointed at stays where it
+	// is, unequipped. False for an item that isn't on the backpack's top level or
 	// isn't equippable; true (no-op) if already equipped.
 	public bool Equip(ItemState item)
 	{
 		EInventorySlot slot = item?.data?.EquipSlotKind ?? EInventorySlot.None;
-		if (slot == EInventorySlot.None)
+		if (slot == EInventorySlot.None || !IsOnTop(item))
 		{
 			return false;
 		}
-		if (_equipped[(int)slot] == item)
+		if (_equipped[(int)slot] != item)
 		{
-			return true;
+			SetSlot(slot, item);
+			NotifySlot(slot);
 		}
-		if (!Locate(item, out CarriedGrid grid, out int index))
-		{
-			return false;
-		}
-		ItemState displaced = _equipped[(int)slot];
-		if (displaced != null && !grid.Accepts(displaced.data))
-		{
-			return false;
-		}
-		grid.grid[index] = displaced;
-		SetSlot(slot, item);
-		NotifySlot(slot);
 		return true;
 	}
 
-	// Empty an equip slot into the first free grid slot, its PreferredGrid first.
-	// False when the slot is empty or both grids are full.
+	// True when Equip would take `item`: equippable and on the backpack's top
+	// level.
+	public bool CanEquip(ItemState item) => item?.data != null && item.data.IsEquippable && IsOnTop(item);
+
+	// Empty an equip slot; its item stays where it is. False when it was empty.
 	public bool Unequip(EInventorySlot slot)
 	{
-		ItemState item = GetEquipped(slot);
-		if (item == null)
+		if (GetEquipped(slot) == null)
 		{
 			return false;
 		}
-		CarriedGrid first = PreferredGrid(item.data);
-		CarriedGrid second = first == Belt ? Backpack : Belt;
-		int index = first.grid.FirstEmpty();
-		if (index >= 0)
-		{
-			return UnequipTo(slot, first, index);
-		}
-		index = second.grid.FirstEmpty();
-		return index >= 0 && UnequipTo(slot, second, index);
-	}
-
-	// Empty an equip slot into `grid` slot `index`. An empty slot takes it; one
-	// holding gear for the same equip slot swaps with it (that gear is equipped).
-	// False for anything else.
-	public bool UnequipTo(EInventorySlot slot, CarriedGrid grid, int index)
-	{
-		ItemState item = GetEquipped(slot);
-		if (item == null || grid?.owner != this || !grid.grid.InRange(index) || !grid.Accepts(item.data))
-		{
-			return false;
-		}
-		ItemState occupant = grid.grid[index];
-		if (occupant != null)
-		{
-			return occupant.data?.EquipSlotKind == slot && Equip(occupant);
-		}
-		grid.grid[index] = item;
 		SetSlot(slot, null);
 		NotifySlot(slot);
 		return true;
@@ -762,25 +715,95 @@ public class Inventory : IItemSource
 
 	// Drop an item: remove from inventory, spawn a Loot in the world. Optional
 	// stackCount splits a stack — when set and less than item.stackCount, the
-	// original stays in inventory with reduced count and a fresh ItemState of
-	// the same kind is spawned with the dropped count.
+	// original stays in inventory (and in any slot pointing at it) with reduced
+	// count and a fresh ItemState of the same kind is spawned with the dropped
+	// count.
 	public void Drop(ItemState item, int? stackCount = null)
 	{
-		if (item?.data == null || _owner == null || !Contains(item))
+		if (item?.data == null || _owner == null || !Locate(item, out CarriedGrid grid, out int index))
 		{
-			return;
-		}
-		if (IsEquipped(item))
-		{
-			Remove(item);
-			_owner.DropAtFeet(item);
 			return;
 		}
 		// Take carves a partial drop oldest-first with its real spoil cohorts, so
 		// dropping half a stack neither resets nor starts a clock.
 		int count = stackCount.HasValue ? Math.Max(1, stackCount.Value) : item.stackCount;
-		CarriedGrid grid = GridOf(item);
-		_owner.DropAtFeet(Take(grid, grid.IndexOf(item), count));
+		_owner.DropAtFeet(Take(grid, index, count));
+	}
+
+	// ---- Belt ------------------------------------------------------------------
+
+	// What may go on the belt: what the player uses from the hotbar.
+	public static bool Beltable(ItemData data) => data != null && data.Category == EItemCategory.Usable;
+
+	public int BeltSize => _belt.Length;
+
+	// The item belt slot `index` points at, or null (empty, or out of range).
+	public ItemState BeltAt(int index) => index >= 0 && index < _belt.Length ? _belt[index] : null;
+
+	// The belt slot pointing at `item`, or -1.
+	public int BeltIndexOf(ItemState item) => item == null ? -1 : Array.IndexOf(_belt, item);
+
+	public bool IsBelted(ItemState item) => BeltIndexOf(item) >= 0;
+
+	// The first empty belt slot, or -1 when the belt is full.
+	public int FirstFreeBeltSlot() => Array.IndexOf(_belt, null);
+
+	// The belt slot by slot, null where empty.
+	public IReadOnlyList<ItemState> BeltSlots => _belt;
+
+	private bool BeltHolds(ItemData data)
+	{
+		foreach (ItemState item in _belt)
+		{
+			if (item?.data == data)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// Point belt slot `index` at the top-level stack `item`; null empties it. An
+	// item already on the belt moves here, trading places with what `index` held.
+	// False when nothing changed or `item` can't go on the belt.
+	public bool SetBelt(int index, ItemState item)
+	{
+		if (index < 0 || index >= _belt.Length || _belt[index] == item)
+		{
+			return false;
+		}
+		if (item != null && (!Beltable(item.data) || !IsOnTop(item)))
+		{
+			return false;
+		}
+		int from = BeltIndexOf(item);
+		if (from >= 0)
+		{
+			_belt[from] = _belt[index];
+		}
+		_belt[index] = item;
+		Changed();
+		return true;
+	}
+
+	// Take `item` off the belt, or put it on the first free belt slot. False when
+	// nothing changed.
+	public bool ToggleBelt(ItemState item)
+	{
+		int at = BeltIndexOf(item);
+		if (at >= 0)
+		{
+			return SetBelt(at, null);
+		}
+		int free = FirstFreeBeltSlot();
+		return free >= 0 && SetBelt(free, item);
+	}
+
+	// True when `item` could go on the belt right now: beltable, on the
+	// backpack's top level, and a belt slot is free.
+	public bool CanBelt(ItemState item)
+	{
+		return item != null && Beltable(item.data) && IsOnTop(item) && FirstFreeBeltSlot() >= 0;
 	}
 
 	// ---- Capacity --------------------------------------------------------------
@@ -802,30 +825,33 @@ public class Inventory : IItemSource
 		backpack = Math.Max(0, backpack);
 	}
 
-	// Resize both grids to what the worn armor allows. Run on every change, so
-	// no equip path has to remember it. What sat in a lost slot is repacked into
-	// free slots (its PreferredGrid first), and what doesn't fit is dropped at
-	// the member's feet.
-	private void ApplyCapacity()
+	// Resize the belt and the backpack to what the worn armor allows. Run on every
+	// change, so no equip path has to remember it. A lost belt slot only loses its
+	// pointer. What sat in a lost backpack slot is repacked into free slots, and
+	// what doesn't fit is dropped at the member's feet. True when the backpack
+	// changed size.
+	private bool ApplyCapacity()
 	{
 		ComposeCapacity(out int belt, out int backpack);
-		if (belt == _beltGrid.Capacity && backpack == _backpackGrid.Capacity)
+		if (belt != _belt.Length)
 		{
-			return;
+			Array.Resize(ref _belt, belt);
+		}
+		if (backpack == _backpackGrid.Capacity)
+		{
+			return false;
 		}
 		var evicted = new List<ItemState>();
-		_beltGrid.Resize(belt, evicted);
 		_backpackGrid.Resize(backpack, evicted);
 		// An evicted sack is in no grid now; repacking must not fill it.
 		SyncSacks();
 		foreach (ItemState item in evicted)
 		{
-			ItemState leftover = AddPreferring(PreferredGrid(item.data), item);
+			ItemState leftover = AddPreferring(Backpack, item);
 			if (leftover == null)
 			{
 				continue;
 			}
-			OnLeaving(leftover);
 			if (_owner != null)
 			{
 				_owner.DropAtFeet(leftover);
@@ -835,43 +861,67 @@ public class Inventory : IItemSource
 				GD.PushError($"Inventory: no room for '{leftover.data?.ResourcePath}' after a resize, and no owner to drop it — it is lost.");
 			}
 		}
+		return true;
 	}
 
-	// ---- Lantern ---------------------------------------------------------------
+	// ---- Carried light ---------------------------------------------------------
 
 	// The lantern in the Lantern slot, lit or not; null when the slot is empty.
 	public LanternState EquippedLantern => _equipped[(int)EInventorySlot.Lantern] as LanternState;
 
-	public LanternState LitLantern => _lanternLit ? EquippedLantern : null;
+	// The carried light burning — a lantern or a torch — or null.
+	public ItemState LitLight => _lit;
 
-	public bool IsLit(ItemState item) => item != null && item == LitLantern;
+	public LanternState LitLantern => _lit as LanternState;
 
-	// Light the lantern in the Lantern slot. False when the slot is empty. The
-	// oil gate is the carrier's (Player.LightLantern).
-	public bool Light()
+	public bool IsLit(ItemState item) => item != null && item == _lit;
+
+	// Light the lantern in the Lantern slot, putting out a lit torch. False when
+	// the slot is empty. The oil gate is the carrier's (Player.LightLantern).
+	public bool LightLantern()
 	{
-		if (EquippedLantern == null)
+		return EquippedLantern != null && SetLit(EquippedLantern);
+	}
+
+	// Light `torch`, putting out any other light. False unless it is belted.
+	public bool LightTorch(TorchState torch)
+	{
+		return torch != null && IsBelted(torch) && SetLit(torch);
+	}
+
+	private bool SetLit(ItemState light)
+	{
+		if (_lit != light)
 		{
-			return false;
-		}
-		if (!_lanternLit)
-		{
-			_lanternLit = true;
+			_lit = light;
 			Changed();
 		}
 		return true;
 	}
 
-	// Put out the lit lantern. False when none was lit.
+	// Put out the carried light. False when none was lit.
 	public bool Extinguish()
 	{
-		if (!_lanternLit)
+		if (_lit == null)
 		{
 			return false;
 		}
-		_lanternLit = false;
+		_lit = null;
 		Changed();
 		return true;
+	}
+
+	// A light can only burn where it is lit from: the equipped lantern, a belted
+	// torch. Anything else puts it out.
+	private void ReconcileLit()
+	{
+		bool burns = _lit is LanternState
+			? _lit == EquippedLantern
+			: _lit is TorchState && IsBelted(_lit);
+		if (!burns)
+		{
+			_lit = null;
+		}
 	}
 
 	// ---- Hotbar --------------------------------------------------------------
@@ -880,7 +930,9 @@ public class Inventory : IItemSource
 	// a lantern — and index 1 + i is belt slot i.
 	public const int LanternHotbarIndex = 0;
 
-	public int HotbarSize => 1 + _beltGrid.Capacity;
+	public static int HotbarIndexOfBelt(int beltIndex) => 1 + beltIndex;
+
+	public int HotbarSize => 1 + _belt.Length;
 
 	// Hotbar index of the selected entry, or -1 when the hotbar is empty.
 	public int SelectedHotbarIndex => _hotbarSelected;
@@ -893,54 +945,23 @@ public class Inventory : IItemSource
 		{
 			return _equipped[(int)EInventorySlot.Lantern];
 		}
-		return index > 0 ? _beltGrid.At(index - 1) : null;
+		return index > 0 ? BeltAt(index - 1) : null;
 	}
 
-	// The hotbar entries the HUD shows, as hotbar indices in order: the lantern
-	// slot always, then the FILLED belt slots. Cleared first; caller owns the list.
-	public void GetHotbarEntries(List<int> into)
+	// Select hotbar index `index` — the position the HUD shows it at. False when
+	// it is out of range or empty.
+	public bool SelectHotbarIndex(int index)
 	{
-		into.Clear();
-		into.Add(LanternHotbarIndex);
-		int size = HotbarSize;
-		for (int i = LanternHotbarIndex + 1; i < size; i++)
+		if (index < 0 || index >= HotbarSize || HotbarItemAt(index) == null)
 		{
-			if (HotbarItemAt(i) != null)
-			{
-				into.Add(i);
-			}
+			return false;
 		}
-	}
-
-	// Select the `entry`-th hotbar entry as GetHotbarEntries lists them — the
-	// position the HUD shows it at. False when there is no such entry or it is
-	// the empty lantern slot.
-	public bool SelectHotbarEntry(int entry)
-	{
-		int size = HotbarSize;
-		int seen = 0;
-		for (int i = 0; i < size; i++)
+		if (_hotbarSelected != index)
 		{
-			if (i != LanternHotbarIndex && HotbarItemAt(i) == null)
-			{
-				continue;
-			}
-			if (seen++ != entry)
-			{
-				continue;
-			}
-			if (HotbarItemAt(i) == null)
-			{
-				return false;
-			}
-			if (_hotbarSelected != i)
-			{
-				_hotbarSelected = i;
-				onChanged?.Invoke();
-			}
-			return true;
+			_hotbarSelected = index;
+			onChanged?.Invoke();
 		}
-		return false;
+		return true;
 	}
 
 	// Step the selection `step` filled entries along the hotbar, wrapping.
@@ -1006,14 +1027,23 @@ public class Inventory : IItemSource
 
 	// ---- Ammo ------------------------------------------------------------------
 
-	public AmmoData LoadedAmmo(EAmmoType type) => IsAmmoType(type) ? _loadedAmmo[(int)type] : null;
+	// The stack in the Ammo slot; null when it is empty.
+	private ItemState EquippedAmmo => _equipped[(int)EInventorySlot.Ammo];
 
-	public int LoadedAmmoCount(EAmmoType type) => IsAmmoType(type) ? _loadedAmmoCount[(int)type] : 0;
+	private EAmmoType RangedAmmoType() => GetWeapon(EInventorySlot.WeaponRight)?.data?.ammoType ?? EAmmoType.None;
 
-	private static bool IsAmmoType(EAmmoType type) => type > EAmmoType.None && type < EAmmoType.Count;
+	// The equipped ammo when `weapon` fires its type, else null.
+	private ItemState AmmoFor(WeaponData weapon)
+	{
+		ItemState ammo = EquippedAmmo;
+		return weapon != null && weapon.NeedsAmmo && ammo?.data is AmmoData data && data.ammoType == weapon.ammoType
+			? ammo
+			: null;
+	}
 
-	// Rounds `weapon` has left to fire: the loaded ammo of its type, or a thrown
-	// weapon's own stack. MaxValue for a weapon that needs none.
+	// Rounds `weapon` has left to fire: the equipped ammo's (_ammoRounds) when the
+	// weapon fires its type, or a thrown weapon's own stack. MaxValue for a weapon
+	// that needs none.
 	public int RoundsFor(WeaponState weapon)
 	{
 		WeaponData data = weapon?.data;
@@ -1025,57 +1055,20 @@ public class Inventory : IItemSource
 		{
 			return weapon.stackCount;
 		}
-		return data.NeedsAmmo ? LoadedAmmoCount(data.ammoType) : int.MaxValue;
-	}
-
-	// Whether `ammo` can be loaded now: the equipped ranged weapon fires its type,
-	// and some is carried.
-	public bool CanLoad(AmmoData ammo)
-	{
-		WeaponData ranged = GetWeapon(EInventorySlot.WeaponRight)?.data;
-		return ammo != null && IsAmmoType(ammo.ammoType) && ranged != null && ranged.ammoType == ammo.ammoType
-			&& CountCarried(ammo) > 0;
-	}
-
-	// A carried stack of the loaded kind of `type`, to show it by; null when none.
-	public ItemState LoadedAmmoStack(EAmmoType type)
-	{
-		AmmoData ammo = LoadedAmmo(type);
-		for (int g = 0; ammo != null && g < _carried.Count; g++)
+		if (!data.NeedsAmmo)
 		{
-			ItemGrid grid = _carried[g].grid;
-			for (int i = 0; i < grid.Capacity; i++)
-			{
-				if (grid[i]?.data == ammo)
-				{
-					return grid[i];
-				}
-			}
+			return int.MaxValue;
 		}
-		return null;
+		return AmmoFor(data) != null ? _ammoRounds : 0;
 	}
 
-	public bool IsLoaded(ItemState item) => item?.data is AmmoData ammo && LoadedAmmo(ammo.ammoType) == ammo;
-
-	// Make `ammo` what weapons of its type fire. False when it can't be (CanLoad).
-	public bool Load(AmmoData ammo)
-	{
-		if (!CanLoad(ammo))
-		{
-			return false;
-		}
-		_loadedAmmo[(int)ammo.ammoType] = ammo;
-		Changed();
-		return true;
-	}
-
-	// Spend up to `count` rounds for a shot of `weapon`: units of its loaded ammo
-	// from any carried stack, or of a thrown weapon's own equipped stack. `round`
-	// is the kind spent (the weapon itself when thrown, null when it needs none).
-	// `piece` is the very item spent when it is one of a kind — a non-stacking
-	// thrown weapon, which flies and lands as itself so its wear comes back with
-	// it; null for units of a stack. Returns the rounds spent — `count` for a
-	// weapon that needs none.
+	// Spend up to `count` rounds for a shot of `weapon`: units of the equipped ammo
+	// (the slot moving on to the next stack as one empties), or of a thrown
+	// weapon's own equipped stack. `round` is the kind spent (the weapon itself
+	// when thrown, null when it needs none). `piece` is the very item spent when
+	// it is one of a kind — a non-stacking thrown weapon, which flies and lands as
+	// itself so its wear comes back with it; null for units of a stack. Returns
+	// the rounds spent — `count` for a weapon that needs none.
 	public int SpendRounds(WeaponState weapon, int count, out ItemData round, out ItemState piece)
 	{
 		round = null;
@@ -1094,25 +1087,29 @@ public class Inventory : IItemSource
 		{
 			return count;
 		}
-		AmmoData ammo = LoadedAmmo(data.ammoType);
-		round = ammo;
+		ItemState ammo = AmmoFor(data);
+		round = ammo?.data;
 		int spent = 0;
-		for (int g = 0; g < _carried.Count && spent < count; g++)
+		bool refilled = false;
+		while (ammo != null && spent < count)
 		{
-			ItemGrid grid = _carried[g].grid;
-			for (int i = 0; i < grid.Capacity && spent < count; i++)
+			spent += ammo.Consume(count - spent);
+			if (ammo.stackCount > 0)
 			{
-				ItemState stack = grid[i];
-				if (stack == null || stack.data != ammo)
-				{
-					continue;
-				}
-				spent += stack.Consume(count - spent);
-				if (stack.stackCount <= 0)
-				{
-					grid[i] = null;
-				}
+				break;
 			}
+			int index = _backpackGrid.IndexOf(ammo);
+			if (index >= 0)
+			{
+				_backpackGrid[index] = null;
+			}
+			ammo = FindAmmo(data.ammoType, (AmmoData)ammo.data);
+			SetSlot(EInventorySlot.Ammo, ammo);
+			refilled = true;
+		}
+		if (refilled)
+		{
+			onSlotChanged?.Invoke(EInventorySlot.Ammo);
 		}
 		if (spent > 0)
 		{
@@ -1122,8 +1119,8 @@ public class Inventory : IItemSource
 	}
 
 	// A thrown weapon spends its own stack — or, when it doesn't stack, leaves
-	// the slot whole as `piece`. The last unit leaves the slot, and another
-	// carried one of the same weapon is equipped in its place.
+	// the backpack whole as `piece`. The last unit leaves, and the slot moves on to
+	// another carried one of the same weapon.
 	private int SpendThrown(WeaponState weapon, int count, out ItemState piece)
 	{
 		piece = null;
@@ -1146,86 +1143,91 @@ public class Inventory : IItemSource
 			spent = 1;
 			piece = weapon;
 		}
+		// A stackable kind's slot follows its next stack itself (ReconcilePointers);
+		// a one-of-a-kind weapon's twin has to be picked out.
 		Remove(weapon);
-		for (int g = 0; g < _carried.Count; g++)
+		if (!weapon.data.IsStackable)
 		{
-			ItemGrid grid = _carried[g].grid;
-			for (int i = 0; i < grid.Capacity; i++)
-			{
-				if (grid[i]?.data == weapon.data)
-				{
-					Equip(grid[i]);
-					return spent;
-				}
-			}
+			Equip(TopStackOf(weapon.data));
 		}
 		return spent;
 	}
 
-	// Units of `ammo` across every carried grid.
-	private int CountCarried(AmmoData ammo)
+	// Units of `data` across the backpack's top level.
+	private int CountOnTop(ItemData data)
 	{
-		if (ammo == null)
-		{
-			return 0;
-		}
 		int count = 0;
-		for (int g = 0; g < _carried.Count; g++)
+		for (int i = 0; i < _backpackGrid.Capacity; i++)
 		{
-			ItemGrid grid = _carried[g].grid;
-			for (int i = 0; i < grid.Capacity; i++)
+			if (_backpackGrid[i]?.data == data)
 			{
-				if (grid[i]?.data == ammo)
-				{
-					count += grid[i].stackCount;
-				}
+				count += _backpackGrid[i].stackCount;
 			}
 		}
 		return count;
 	}
 
-	// Keep each type's loaded kind on one the member carries: a kind that ran out
-	// (or none yet) falls back to the type's standard round, else the first
-	// carried kind of the type, else nothing.
-	private void ReconcileLoadedAmmo()
+	private void CountAmmoRounds()
 	{
-		for (int t = (int)EAmmoType.None + 1; t < (int)EAmmoType.Count; t++)
-		{
-			int count = CountCarried(_loadedAmmo[t]);
-			if (count <= 0)
-			{
-				_loadedAmmo[t] = FallbackAmmo((EAmmoType)t);
-				count = CountCarried(_loadedAmmo[t]);
-			}
-			_loadedAmmoCount[t] = count;
-		}
+		ItemState ammo = EquippedAmmo;
+		_ammoRounds = ammo == null ? 0 : CountOnTop(ammo.data);
 	}
 
-	private AmmoData FallbackAmmo(EAmmoType type)
+	// A top-level backpack stack of `type` for the Ammo slot: `kind` first when
+	// given, then the type's standard round, then the first kind of the type.
+	// Null when none is carried.
+	private ItemState FindAmmo(EAmmoType type, AmmoData kind)
 	{
-		AmmoData first = null;
-		for (int g = 0; g < _carried.Count; g++)
+		ItemState standard = null;
+		ItemState first = null;
+		for (int i = 0; i < _backpackGrid.Capacity; i++)
 		{
-			ItemGrid grid = _carried[g].grid;
-			for (int i = 0; i < grid.Capacity; i++)
+			if (_backpackGrid[i]?.data is not AmmoData ammo || ammo.ammoType != type)
 			{
-				if (grid[i]?.data is not AmmoData ammo || ammo.ammoType != type)
-				{
-					continue;
-				}
-				if (ammo.isStandard)
-				{
-					return ammo;
-				}
-				first ??= ammo;
+				continue;
 			}
+			if (ammo == kind)
+			{
+				return _backpackGrid[i];
+			}
+			if (ammo.isStandard)
+			{
+				standard ??= _backpackGrid[i];
+			}
+			first ??= _backpackGrid[i];
 		}
-		return first;
+		return standard ?? first;
+	}
+
+	// When the ranged weapon has changed to one the equipped ammo can't feed, point
+	// the slot at carried ammo of its type (FindAmmo, standard first). Leaves the
+	// slot alone when none is carried, and never acts while the weapon stays the
+	// same type, so the player can equip any ammo by hand. True when the slot
+	// changed.
+	private bool ReconcileAmmo()
+	{
+		EAmmoType type = RangedAmmoType();
+		if (type == _rangedAmmoType)
+		{
+			return false;
+		}
+		_rangedAmmoType = type;
+		if (type == EAmmoType.None || (EquippedAmmo?.data as AmmoData)?.ammoType == type)
+		{
+			return false;
+		}
+		ItemState next = FindAmmo(type, null);
+		if (next == null)
+		{
+			return false;
+		}
+		SetSlot(EInventorySlot.Ammo, next);
+		return true;
 	}
 
 	// ---- Grid moves (CarriedGrid)----------------------------------------------
 
-	// Every move between grids (the stash screen, later chests and merchants) and
+	// Every move between grids (the stash screen, chests and merchants) and
 	// within the member's own comes through these.
 
 	private ItemState Take(CarriedGrid grid, int index, int count)
@@ -1255,10 +1257,6 @@ public class Inventory : IItemSource
 		MarkAcquired(incoming);
 		int before = incoming.stackCount;
 		ItemState leftover = grid.grid.PlaceAt(index, incoming, allowSwap, out displaced);
-		if (displaced != null)
-		{
-			OnLeaving(displaced);
-		}
 		if (displaced != null || (leftover?.stackCount ?? 0) != before)
 		{
 			Changed();
@@ -1267,10 +1265,10 @@ public class Inventory : IItemSource
 	}
 
 	// Move `count` units between two slots of this member's grids — the same grid,
-	// or any two of belt, backpack and sacks. Nothing enters or leaves the
-	// inventory, so no bookkeeping beyond a stack merged away entirely, which is
-	// gone. Refused when either side of a swap lands somewhere that won't take it.
-	// False when nothing moved.
+	// or the backpack and a sack. Nothing enters or leaves the inventory; a slot
+	// pointing at the moved stack follows it while it stays on the backpack's top
+	// level. Refused when either side of a swap lands somewhere that won't take
+	// it. False when nothing moved.
 	public bool Move(CarriedGrid from, int fromIndex, CarriedGrid to, int toIndex, int count)
 	{
 		if (from?.owner != this || to?.owner != this)
@@ -1292,71 +1290,16 @@ public class Inventory : IItemSource
 		{
 			return false;
 		}
-		if (source != null && source.stackCount <= 0)
-		{
-			OnLeaving(source);
-		}
 		Changed();
 		return true;
 	}
-
-	// Units of the carried `item` its other grid (belt <-> backpack) has room
-	// for; 0 when it isn't in either grid.
-	public int RoomInOtherGrid(ItemState item)
-	{
-		CarriedGrid from = GridOf(item);
-		return from == null ? 0 : Math.Min(item.stackCount, OtherGrid(from).grid.RoomFor(item.data));
-	}
-
-	// Move the carried `item` to its other grid (belt <-> backpack): matching
-	// stacks first, then the first empty slot. As much as fits moves and the rest
-	// stays put. False when nothing moved.
-	public bool MoveToOtherGrid(ItemState item)
-	{
-		int units = RoomInOtherGrid(item);
-		if (units <= 0)
-		{
-			return false;
-		}
-		CarriedGrid from = GridOf(item);
-		int index = from.IndexOf(item);
-		ItemState moving = from.grid.Take(index, units);
-		ItemState leftover = OtherGrid(from).grid.Add(moving);
-		if (leftover != null)
-		{
-			from.grid.PlaceAt(index, leftover, allowSwap: false, out _);
-		}
-		Changed();
-		return true;
-	}
-
-	// The grid holding `item`, null when it is in none (equipped, or not ours).
-	public CarriedGrid GridOf(ItemState item)
-	{
-		return Locate(item, out CarriedGrid grid, out _) ? grid : null;
-	}
-
-	// The belt for anything but the belt itself — a sack's contents included.
-	private CarriedGrid OtherGrid(CarriedGrid grid) => grid == Belt ? Backpack : Belt;
 
 	// ---- Enumeration -----------------------------------------------------------
 
-	// Every owned item: the belt, the backpack — each sack followed by its
-	// contents — then the equip slots.
+	// Every owned item: the backpack, each sack followed by its contents.
 	public IEnumerable<ItemState> EnumerateAll()
 	{
-		foreach (ItemState item in _beltGrid.EnumerateAll())
-		{
-			yield return item;
-		}
-		foreach (ItemState item in _backpackGrid.EnumerateAll())
-		{
-			yield return item;
-		}
-		for (int i = 0; i < _equipped.Length; i++)
-		{
-			if (_equipped[i] != null) { yield return _equipped[i]; }
-		}
+		return _backpackGrid.EnumerateAll();
 	}
 
 	// Worn armor only — the pieces that transmit wetness into the wearer's meter
@@ -1387,14 +1330,20 @@ public class Inventory : IItemSource
 
 	// ---- Bulk exits ------------------------------------------------------------
 
-	// Remove every unequipped item and return them, for the death sack
-	// (Sim.DropDeathSack). Worn gear — the lantern slot included, so the wake at
-	// the campfire isn't blind — stays on the body.
+	// Remove every item that isn't equipped and return them, for the death sack
+	// (Sim.DropDeathSack); belted items go with the rest. Worn gear — the lantern
+	// slot included, so the wake at the campfire isn't blind — stays in its slot.
 	public List<ItemState> TakeDeathDrop()
 	{
 		var taken = new List<ItemState>();
-		Collect(_beltGrid, taken);
-		Collect(_backpackGrid, taken);
+		for (int i = 0; i < _backpackGrid.Capacity; i++)
+		{
+			ItemState item = _backpackGrid[i];
+			if (item != null && !IsEquipped(item))
+			{
+				taken.Add(item);
+			}
+		}
 		foreach (ItemState item in taken)
 		{
 			Remove(item);
@@ -1402,42 +1351,34 @@ public class Inventory : IItemSource
 		return taken;
 	}
 
-	private static void Collect(ItemGrid grid, List<ItemState> into)
-	{
-		for (int i = 0; i < grid.Capacity; i++)
-		{
-			if (grid[i] != null)
-			{
-				into.Add(grid[i]);
-			}
-		}
-	}
-
 	// ---- Save ------------------------------------------------------------------
 
-	// Inside a shared EntitySerializer table (SaveGame). The equip slots first —
-	// they decide the grids' sizes — then the belt and the backpack slot by slot,
-	// gaps included, so the player's layout survives; then whether the lantern
-	// slot is lit, the hotbar selection, and the loaded ammo per type.
+	// Inside a shared EntitySerializer table (SaveGame). The backpack slot by
+	// slot, gaps included and at its own size (the worn armor that sizes it is
+	// inside it), then every pointer as a top-level backpack index: the equip
+	// slots, the belt, the lit light, then the hotbar selection.
+	private const int SavedNone = -1;
+	private const int SavedLanternLit = -2;
+
 	public void Serialize(BinaryWriter w)
 	{
+		_backpackGrid.Serialize(w);
 		for (int i = (int)EInventorySlot.None + 1; i < (int)EInventorySlot.Count; i++)
 		{
-			EntitySerializer.WriteItem(w, _equipped[i]);
+			w.Write(_backpackGrid.IndexOf(_equipped[i]));
 		}
-		_beltGrid.Serialize(w);
-		_backpackGrid.Serialize(w);
-		w.Write(_lanternLit);
-		w.Write(_hotbarSelected);
-		for (int t = (int)EAmmoType.None + 1; t < (int)EAmmoType.Count; t++)
+		w.Write(_belt.Length);
+		foreach (ItemState item in _belt)
 		{
-			EntitySerializer.WriteRef(w, _loadedAmmo[t]);
+			w.Write(_backpackGrid.IndexOf(item));
 		}
+		w.Write(_lit is LanternState ? SavedLanternLit : _lit != null ? _backpackGrid.IndexOf(_lit) : SavedNone);
+		w.Write(_hotbarSelected);
 	}
 
-	// Replaces everything carried with what the save holds. An item that no
-	// longer has its slot (a grid shrank) is repacked, and dropped with a warning
-	// if there is no room.
+	// Replaces everything carried with what the save holds. Changed() then sizes
+	// the backpack to the restored armor, repacking — or dropping with a warning
+	// — what no longer has a slot.
 	public void Restore(BinaryReader r)
 	{
 		for (int i = 0; i < _equipped.Length; i++)
@@ -1447,36 +1388,28 @@ public class Inventory : IItemSource
 				SetSlot((EInventorySlot)i, null);
 			}
 		}
-		_beltGrid.Clear();
-		_backpackGrid.Clear();
+		_backpackGrid.RestoreAtSavedSize(r);
 		for (int i = (int)EInventorySlot.None + 1; i < (int)EInventorySlot.Count; i++)
 		{
 			EInventorySlot slot = (EInventorySlot)i;
-			ItemState item = EntitySerializer.ReadItem(r);
-			if (item != null)
+			ItemState item = _backpackGrid.At(r.ReadInt32());
+			if (item != null && item.data?.EquipSlotKind == slot)
 			{
 				SetSlot(slot, item);
 			}
 			onSlotChanged?.Invoke(slot);
 		}
-		// The grids are empty, so sizing them to the restored armor evicts nothing.
-		ApplyCapacity();
-		List<ItemState> overflow = _beltGrid.Restore(r);
-		overflow.AddRange(_backpackGrid.Restore(r));
-		_lanternLit = r.ReadBoolean() && EquippedLantern != null;
+		_belt = new ItemState[r.ReadInt32()];
+		for (int i = 0; i < _belt.Length; i++)
+		{
+			ItemState item = _backpackGrid.At(r.ReadInt32());
+			_belt[i] = Beltable(item?.data) && BeltIndexOf(item) < 0 ? item : null;
+		}
+		int lit = r.ReadInt32();
+		_lit = lit == SavedLanternLit ? EquippedLantern : _backpackGrid.At(lit) as TorchState;
 		_hotbarSelected = r.ReadInt32();
-		for (int t = (int)EAmmoType.None + 1; t < (int)EAmmoType.Count; t++)
-		{
-			_loadedAmmo[t] = EntitySerializer.ReadRef<AmmoData>(r);
-		}
-		SyncSacks();
-		foreach (ItemState item in overflow)
-		{
-			if (AddPreferring(PreferredGrid(item.data), item) != null)
-			{
-				GD.PushWarning($"Inventory: no room for saved '{item.data?.ResourcePath}' — dropping it.");
-			}
-		}
+		// The saved ammo slot is the player's choice, not a weapon change to react to.
+		_rangedAmmoType = RangedAmmoType();
 		Changed();
 	}
 
@@ -1489,11 +1422,6 @@ public class Inventory : IItemSource
 		if (outgoing != item && outgoing is WeaponState weapon)
 		{
 			weapon.DestroyMinions();
-		}
-		// A lantern goes out when it leaves the slot, and a new one arrives unlit.
-		if (outgoing != item && slot == EInventorySlot.Lantern)
-		{
-			_lanternLit = false;
 		}
 		_equipped[(int)slot] = item;
 	}

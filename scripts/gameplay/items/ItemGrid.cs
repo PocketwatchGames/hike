@@ -436,8 +436,21 @@ public class ItemGrid : IItemGrid, IItemSource
 	public List<ItemState> Restore(BinaryReader r)
 	{
 		Clear();
+		return RestoreSlots(r, r.ReadInt32());
+	}
+
+	// Restore at the size the save holds, slot for slot, for a grid whose size
+	// depends on its own contents (the backpack, sized by the armor worn from
+	// it). The owner re-applies its real capacity afterwards.
+	public void RestoreAtSavedSize(BinaryReader r)
+	{
+		_slots = new ItemState[r.ReadInt32()];
+		RestoreSlots(r, _slots.Length);
+	}
+
+	private List<ItemState> RestoreSlots(BinaryReader r, int count)
+	{
 		var overflow = new List<ItemState>();
-		int count = r.ReadInt32();
 		for (int i = 0; i < count; i++)
 		{
 			ItemState item = EntitySerializer.ReadItem(r);

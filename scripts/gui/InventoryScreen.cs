@@ -1,13 +1,18 @@
 using Godot;
 
 // Inventory tab rendered inside AlmanacScreen: player stats, the member's equip
-// slots, the belt, the whole backpack and each carried sack slot for slot — highlighting a slot reads its item
-// out in the detail panel. Everything is editable:
+// slots and belt, the whole backpack and each carried sack slot for slot —
+// highlighting a slot reads its item out in the detail panel. The equip slots
+// and the belt only point at backpack stacks, so their items show in both
+// places. Everything is editable:
 //   A  — select the highlighted item; with one selected, move it to the
-//        highlighted slot. Grid to grid (belt or backpack) swaps with whatever is there; an
-//        equip slot takes only its own kind of gear, swapping out what it held.
+//        highlighted slot. Grid to grid (backpack or sack) swaps with whatever is
+//        there. An equip slot takes only its own kind of gear and a belt slot
+//        only a usable item, from the backpack's top level; one selected from an
+//        equip or belt slot and put down on a grid slot comes off that slot.
 //        Cancel deselects.
-//   X  — equip / unequip the highlighted gear.
+//   X  — equip / unequip the highlighted gear, or put a usable item on or off
+//        the belt.
 //   Y  — use / light / put out the highlighted item, per its kind and state.
 //   RT — drop the highlighted item at the member's feet: a tap drops the whole
 //        stack, a hold asks how many.
@@ -19,6 +24,16 @@ public partial class InventoryScreen : Control
 	[Export] private PlayerStatsPanel _statsPanel;
 	[Export] private PlayerVitalsHud _vitals;
 	[Export] private InventoryPanel _inventoryPanel;
+	[Export] private ItemSlotPanel _shieldPanel;
+	[Export] private ItemSlotPanel _armorBodyPanel;
+	[Export] private ItemSlotPanel _weaponLeftPanel;
+	[Export] private ItemSlotPanel _weaponRightPanel;
+	// The ammo the right-hand weapon fires.
+	[Export] private ItemSlotPanel _ammoPanel;
+	// The lantern slot — also the HUD's first hotbar entry.
+	[Export] private ItemSlotPanel _lanternPanel;
+	// The belt — the rest of the HUD hotbar — one slot per Inventory.BeltSlots.
+	[Export] private BackpackPanel _beltPanel;
 	[Export] private ItemInfoPanel _highlightPanel;
 	// Asks how many when a hold-to-drop lands on a stack.
 	[Export] private ItemCountPanel _countPanel;
@@ -39,16 +54,19 @@ public partial class InventoryScreen : Control
 		Carried,
 		// The equip slots; the index is the EInventorySlot.
 		Equip,
+		// The belt; the index is the belt slot.
+		Belt,
 	}
 
-	// A slot of the member's inventory: a grid and its index, or an equip slot.
+	// A slot of the member's inventory: a grid and its index, an equip slot, or a
+	// belt slot.
 	readonly struct Slot
 	{
 		public readonly ESide side;
-		public readonly Inventory.CarriedGrid grid;
+		public readonly IItemGrid grid;
 		public readonly int index;
 
-		public Slot(ESide side, int index, Inventory.CarriedGrid grid = null)
+		public Slot(ESide side, int index, IItemGrid grid = null)
 		{
 			this.side = side;
 			this.grid = grid;
@@ -95,17 +113,23 @@ public partial class InventoryScreen : Control
 		{
 			_inventoryPanel.onGridSlotFocused += (grid, index, _) => OnSlotFocused(new Slot(ESide.Carried, index, grid));
 			_inventoryPanel.onGridSlotButtonUp += (grid, index, _) => OnSlotActivated(new Slot(ESide.Carried, index, grid));
-			foreach (EInventorySlot equip in InventoryPanel.EquipSlots)
+			_inventoryPanel.onTabChanged += ApplySlotStates;
+		}
+		foreach (EInventorySlot equip in EquipSlots)
+		{
+			ItemSlotPanel panel = EquipPanel(equip);
+			if (panel == null)
 			{
-				ItemSlotPanel panel = _inventoryPanel.EquipPanel(equip);
-				if (panel == null)
-				{
-					continue;
-				}
-				var slot = new Slot(ESide.Equip, (int)equip);
-				panel.onFocusEntered += _ => OnSlotFocused(slot);
-				panel.onButtonUp += _ => OnSlotActivated(slot);
+				continue;
 			}
+			var slot = new Slot(ESide.Equip, (int)equip);
+			panel.onFocusEntered += _ => OnSlotFocused(slot);
+			panel.onButtonUp += _ => OnSlotActivated(slot);
+		}
+		if (_beltPanel != null)
+		{
+			_beltPanel.onSlotFocused += (index, _) => OnSlotFocused(new Slot(ESide.Belt, index));
+			_beltPanel.onSlotButtonUp += (index, _) => OnSlotActivated(new Slot(ESide.Belt, index));
 		}
 		_highlightPanel?.SetItem(null);
 	}
@@ -149,7 +173,28 @@ public partial class InventoryScreen : Control
 		{
 			return;
 		}
-		(_inventoryPanel?.BeltGrid?.FirstOccupied() ?? _inventoryPanel?.BackpackGrid?.FirstOccupied())?.GrabFocus();
+		(_beltPanel?.FirstOccupied() ?? _inventoryPanel?.FirstOccupied())?.GrabFocus();
+	}
+
+	// The equip slots shown, in display order.
+	static readonly EInventorySlot[] EquipSlots =
+	{
+		EInventorySlot.Lantern, EInventorySlot.Armor, EInventorySlot.Shield, EInventorySlot.WeaponLeft,
+		EInventorySlot.WeaponRight, EInventorySlot.Ammo,
+	};
+
+	ItemSlotPanel EquipPanel(EInventorySlot slot)
+	{
+		return slot switch
+		{
+			EInventorySlot.Shield => _shieldPanel,
+			EInventorySlot.Armor => _armorBodyPanel,
+			EInventorySlot.WeaponLeft => _weaponLeftPanel,
+			EInventorySlot.WeaponRight => _weaponRightPanel,
+			EInventorySlot.Ammo => _ammoPanel,
+			EInventorySlot.Lantern => _lanternPanel,
+			_ => null,
+		};
 	}
 
 	Inventory Inv => _player?.Inventory;
@@ -161,7 +206,12 @@ public partial class InventoryScreen : Control
 		{
 			return null;
 		}
-		return slot.equip ? inv.GetEquipped(slot.EquipSlot) : slot.grid?.At(slot.index);
+		return slot.side switch
+		{
+			ESide.Equip => inv.GetEquipped(slot.EquipSlot),
+			ESide.Belt => inv.BeltAt(slot.index),
+			_ => slot.grid?.At(slot.index),
+		};
 	}
 
 	// A slot took focus (D-pad / keyboard, or the mouse hovering it —
@@ -201,27 +251,35 @@ public partial class InventoryScreen : Control
 		}
 	}
 
-	static void MoveTo(Inventory inv, Slot from, Slot to)
+	void MoveTo(Inventory inv, Slot from, Slot to)
 	{
-		ItemState moving = from.equip ? inv.GetEquipped(from.EquipSlot) : from.grid?.At(from.index);
-		if (moving == null || (from.equip && to.equip))
+		ItemState moving = ItemAt(from);
+		if (moving == null)
 		{
 			return;
 		}
-		if (to.equip)
+		switch (to.side)
 		{
-			if (EquipCompatible(to.EquipSlot, moving))
-			{
-				inv.Equip(moving);
-			}
-			return;
+			case ESide.Equip:
+				if (EquipCompatible(to.EquipSlot, moving))
+				{
+					inv.Equip(moving);
+				}
+				return;
+			case ESide.Belt:
+				inv.SetBelt(to.index, moving);
+				return;
 		}
-		if (from.equip)
+		switch (from.side)
 		{
-			inv.UnequipTo(from.EquipSlot, to.grid, to.index);
-			return;
+			case ESide.Equip:
+				inv.Unequip(from.EquipSlot);
+				return;
+			case ESide.Belt:
+				inv.SetBelt(from.index, null);
+				return;
 		}
-		inv.Move(from.grid, from.index, to.grid, to.index, moving.stackCount);
+		ItemTransfer.MoveTo(from.grid, from.index, moving.stackCount, to.grid, to.index);
 	}
 
 	public override void _UnhandledInput(InputEvent e)
@@ -294,18 +352,25 @@ public partial class InventoryScreen : Control
 		{
 			return;
 		}
-		foreach ((Inventory.CarriedGrid grid, BackpackPanel panel) in _inventoryPanel.EnumerateCarriedPanels())
+		IItemGrid grid = _inventoryPanel.ShownGrid;
+		int i = 0;
+		foreach (ItemSlotPanel slot in _inventoryPanel.GridPanel.EnumerateSlots())
 		{
-			int i = 0;
-			foreach (ItemSlotPanel slot in panel.EnumerateSlots())
-			{
-				slot.SetDimmed(_selected.Is(new Slot(ESide.Carried, i, grid)));
-				i++;
-			}
+			slot.SetDimmed(_selected.Is(new Slot(ESide.Carried, i, grid)));
+			i++;
 		}
-		foreach (EInventorySlot equip in InventoryPanel.EquipSlots)
+		foreach (EInventorySlot equip in EquipSlots)
 		{
-			_inventoryPanel.EquipPanel(equip)?.SetDimmed(_selected.Is(new Slot(ESide.Equip, (int)equip)));
+			EquipPanel(equip)?.SetDimmed(_selected.Is(new Slot(ESide.Equip, (int)equip)));
+		}
+		if (_beltPanel != null)
+		{
+			int belt = 0;
+			foreach (ItemSlotPanel slot in _beltPanel.EnumerateSlots())
+			{
+				slot.SetDimmed(_selected.Is(new Slot(ESide.Belt, belt)));
+				belt++;
+			}
 		}
 	}
 
@@ -340,12 +405,26 @@ public partial class InventoryScreen : Control
 		}
 	}
 
-	// Repaint the equip slots and the backpack from the live inventory. Bound to
-	// Inventory.onChanged so an ammo change shows immediately. Re-reads the
-	// highlight too, so a stack spent or merged away leaves no stale detail.
+	// Repaint the equip slots, the belt and the backpack from the live inventory.
+	// Bound to Inventory.onChanged so an ammo change shows immediately. Re-reads
+	// the highlight too, so a stack spent or merged away leaves no stale detail.
 	void Refresh()
 	{
-		_inventoryPanel?.Paint(Inv);
+		Inventory inv = Inv;
+		_inventoryPanel?.Paint(inv);
+		foreach (EInventorySlot equip in EquipSlots)
+		{
+			EquipPanel(equip)?.SetItem(inv?.GetEquipped(equip));
+		}
+		_lanternPanel?.SetActive(inv?.LitLantern != null);
+		_beltPanel?.Refresh(inv?.BeltSlots);
+		if (_beltPanel != null)
+		{
+			foreach (ItemSlotPanel slot in _beltPanel.EnumerateSlots())
+			{
+				slot.SetActive(inv != null && inv.IsLit(slot.Item));
+			}
+		}
 		// A selected stack can vanish under the cursor (spoiled, spent elsewhere).
 		if (!_selected.IsNone && ItemAt(_selected) == null)
 		{
@@ -358,32 +437,26 @@ public partial class InventoryScreen : Control
 
 	// ---- Item verbs, shared with StashScreen and MerchantScreen -------------
 
-	// The Equip verb: equip / unequip gear (a spare lantern included); load ammo
-	// the ranged weapon fires; for an item that belongs on the belt (a potion, a
-	// meal — not a material), move it between the backpack and the belt.
+	// The Equip verb: equip / unequip gear (a spare lantern and ammo included); put
+	// a usable item (a potion, a torch — not a material) on or off the belt.
 	public static void ToggleEquip(Player player, ItemState item)
 	{
 		if (EquipVerb(player, item) == null)
 		{
 			return;
 		}
-		if (item.data is AmmoData ammo)
-		{
-			player.Inventory.Load(ammo);
-		}
-		else if (item.data.IsEquippable)
+		if (item.data.IsEquippable)
 		{
 			player.Inventory.ToggleEquip(item);
 		}
 		else
 		{
-			player.Inventory.MoveToOtherGrid(item);
+			player.Inventory.ToggleBelt(item);
 		}
 	}
 
 	// The Equip hint's label for `item`, null when it has no verb — a material,
-	// ammo already loaded or that the ranged weapon doesn't fire, or a belt item
-	// whose other grid has no room for it.
+	// an item inside a sack, or a usable item with the belt full.
 	public static string EquipVerb(Player player, ItemState item)
 	{
 		Inventory inv = player?.Inventory;
@@ -391,24 +464,16 @@ public partial class InventoryScreen : Control
 		{
 			return null;
 		}
-		if (item.data is AmmoData ammo)
+		if (inv.IsEquipped(item) || inv.IsBelted(item))
 		{
-			return inv.CanLoad(ammo) && !inv.IsLoaded(item) ? "Equip" : null;
+			return "Unequip";
 		}
-		if (item.data.IsEquippable)
-		{
-			return inv.IsEquipped(item) ? "Unequip" : "Equip";
-		}
-		if (inv.PreferredGrid(item.data) != inv.Belt || inv.RoomInOtherGrid(item) <= 0)
-		{
-			return null;
-		}
-		return inv.Belt.IndexOf(item) >= 0 ? "Unequip" : "Equip";
+		return inv.CanEquip(item) || inv.CanBelt(item) ? "Equip" : null;
 	}
 
 	// The Use verb: use an instant item (mud, a meal) on the member, or start a
 	// press-to-commit timeline (drinking a potion) — the menu stays open while it
-	// plays — or light / put out the lantern-slot lantern. `source` holds the item
+	// plays — or light / put out the lantern-slot lantern or a belt torch. `source` holds the item
 	// (null: the member's own inventory). Does nothing for an item with no verb
 	// (gear, a material, or a timeline that needs the button held, which only the
 	// hotbar can drive).
@@ -421,7 +486,11 @@ public partial class InventoryScreen : Control
 		}
 		if (item is LanternState lantern && inv.IsLit(lantern))
 		{
-			player.SnuffLantern();
+			player.SnuffLight();
+		}
+		else if (item is TorchState torch && TorchUsable(inv, torch))
+		{
+			player.ToggleTorch(torch);
 		}
 		else if (item is LanternState && inv.IsEquipped(item) && player.HasLanternOil)
 		{
@@ -437,6 +506,9 @@ public partial class InventoryScreen : Control
 		}
 	}
 
+	// A torch lights only on the belt.
+	static bool TorchUsable(Inventory inv, TorchState torch) => inv.IsBelted(torch);
+
 	// The Use hint's label for `item`, null when it has no verb.
 	public static string UseVerb(Player player, ItemState item)
 	{
@@ -448,6 +520,10 @@ public partial class InventoryScreen : Control
 		if (item is LanternState lantern && inv.IsLit(lantern))
 		{
 			return "Extinguish";
+		}
+		if (item is TorchState torch && TorchUsable(inv, torch))
+		{
+			return inv.IsLit(torch) ? "Extinguish" : "Light";
 		}
 		if (item is LanternState && inv.IsEquipped(item) && player.HasLanternOil)
 		{

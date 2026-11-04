@@ -1245,7 +1245,7 @@ public partial class Player : CharacterBody3D
 		return _inventory?.SpendKeyFor(lockData);
 	}
 
-	// Shows the lit lantern's prop. The HeldTorch prop carries its own world
+	// Shows the lit carried light's prop. The HeldTorch prop carries its own world
 	// light; placement is HeldItemVisual's job. Runs on every inventory change.
 	private void RefreshCarriedLight()
 	{
@@ -1253,32 +1253,50 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		LanternData lantern = _inventory?.LitLantern?.data;
-		_heldVisual.SetTorch(lantern?.heldLanternScene, inHand: false);
-		_heldVisual.SetTorchLit(lantern != null, this);
+		var light = _inventory?.LitLight?.data as CarriedLightData;
+		_heldVisual.SetTorch(light?.heldScene, inHand: false);
+		_heldVisual.SetTorchLit(light != null, this);
 	}
 
-	// Puts the lantern out by circumstance (water, rain, an empty tank) rather
-	// than by the player's hand, so it plays the lantern's douse cue.
-	private void DouseLantern(LanternState lantern)
+	// Puts the carried light out by circumstance (water, rain, an empty tank, a
+	// torch burning down) rather than by the player's hand, so it plays the douse
+	// cue. `light` is its data, read before it went out.
+	private void DouseLight(CarriedLightData light)
 	{
 		_inventory.Extinguish();
-		SpawnLanternCue(lantern.data.douseEffectScene);
+		SpawnLightCue(light?.douseEffectScene);
 	}
 
-	// The player putting the lit lantern out by hand.
-	public void SnuffLantern()
+	// The player putting the lit carried light out by hand.
+	public void SnuffLight()
 	{
-		LanternState lantern = _inventory?.LitLantern;
-		if (lantern == null)
+		var light = _inventory?.LitLight?.data as CarriedLightData;
+		if (light == null)
 		{
 			return;
 		}
 		_inventory.Extinguish();
-		SpawnLanternCue(lantern.data.extinguishEffect);
+		SpawnLightCue(light.extinguishEffect);
 	}
 
-	private void SpawnLanternCue(PackedScene scene)
+	// The player lighting or putting out `torch` (Use on it).
+	public void ToggleTorch(TorchState torch)
+	{
+		if (_inventory == null || torch == null)
+		{
+			return;
+		}
+		if (_inventory.IsLit(torch))
+		{
+			SnuffLight();
+		}
+		else if (_inventory.LightTorch(torch))
+		{
+			SpawnLightCue(torch.data.lightEffect);
+		}
+	}
+
+	private void SpawnLightCue(PackedScene scene)
 	{
 		if (scene != null)
 		{
@@ -1286,12 +1304,12 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Swimming (over the head) or rain past the douse threshold puts the lantern
-	// out. Wading in shallows keeps it lit (only Swimming counts).
-	private void DouseCarriedLantern()
+	// Swimming (over the head) or rain past the douse threshold puts the carried
+	// light out. Wading in shallows keeps it lit (only Swimming counts).
+	private void DouseCarriedLight()
 	{
-		LanternState lantern = _inventory?.LitLantern;
-		if (lantern == null || data == null) { return; }
+		var light = _inventory?.LitLight?.data as CarriedLightData;
+		if (light == null || data == null) { return; }
 
 		bool douse = IsSwimming;
 		if (!douse)
@@ -1304,7 +1322,7 @@ public partial class Player : CharacterBody3D
 		}
 		if (douse)
 		{
-			DouseLantern(lantern);
+			DouseLight(light);
 		}
 	}
 
@@ -1340,31 +1358,43 @@ public partial class Player : CharacterBody3D
 
 	public bool HasLanternOil => LanternOil > 0f;
 
-	// Sim-clock timestamp of the last oil drain, so TickLanternOil spends
-	// exactly the elapsed sim time each frame (frame-rate independent, slows
-	// under slow-mo). Reset to 0 = "first tick, nothing to spend yet".
-	private ulong _lastLanternOilTickMs;
+	// Sim-clock timestamp of the last burn, so TickCarriedLight spends exactly
+	// the elapsed sim time each frame (frame-rate independent, slows under
+	// slow-mo). Reset to 0 = "first tick, nothing to spend yet".
+	private ulong _lastLightBurnTickMs;
 
-	// Burns oil on the sim clock while a lantern is lit and puts it out when the
-	// oil runs dry — by this tick's burn, or an oil-costed action since the last
-	// tick.
-	private void TickLanternOil()
+	// Burns the lit carried light on the sim clock: a lantern's oil, put out when
+	// it runs dry (by this tick's burn, or an oil-costed action since the last
+	// tick); a torch's durability, destroyed and put out when it burns down.
+	private void TickCarriedLight()
 	{
 		ulong now = _world?.GameTimeMs ?? 0;
-		ulong last = _lastLanternOilTickMs;
-		_lastLanternOilTickMs = now;
+		ulong last = _lastLightBurnTickMs;
+		_lastLightBurnTickMs = now;
 		if (last == 0 || now <= last) { return; }
+		float seconds = (now - last) / 1000f;
 
+		if (_inventory?.LitLight is TorchState torch)
+		{
+			WearGear(torch, seconds);
+			if (torch.IsBroken)
+			{
+				// Leaving the belt puts it out (Inventory.ReconcileLit).
+				_inventory.Remove(torch);
+				SpawnLightCue(torch.data.douseEffectScene);
+			}
+			return;
+		}
 		LanternState lantern = _inventory?.LitLantern;
 		if (lantern == null) { return; }
 		float secondsPerOil = lantern.data.secondsPerOil;
 		if (secondsPerOil > 0f)
 		{
-			SpendLanternOil((now - last) / 1000f / secondsPerOil);
+			SpendLanternOil(seconds / secondsPerOil);
 		}
 		if (!HasLanternOil)
 		{
-			DouseLantern(lantern);
+			DouseLight(lantern.data);
 		}
 	}
 
@@ -1469,9 +1499,9 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Put out the lit lantern without the douse fx — the party lying down for the
-	// night (Sim.PutOutPartyLanterns), behind the sleep fade.
-	public void PutOutLantern()
+	// Put out the carried light without the douse fx — the party lying down for
+	// the night (Sim.PutOutPartyLanterns), behind the sleep fade.
+	public void PutOutLight()
 	{
 		_inventory?.Extinguish();
 	}
@@ -1479,7 +1509,7 @@ public partial class Player : CharacterBody3D
 	// Light the lantern in the lantern slot, if there is oil to burn.
 	public bool LightLantern()
 	{
-		return HasLanternOil && _inventory != null && _inventory.Light();
+		return HasLanternOil && _inventory != null && _inventory.LightLantern();
 	}
 
 	// The player lighting the lantern by hand: LightLantern plus its strike cue.
@@ -1489,7 +1519,7 @@ public partial class Player : CharacterBody3D
 		{
 			return false;
 		}
-		SpawnLanternCue(_inventory.LitLantern?.data.lightEffect);
+		SpawnLightCue(_inventory.LitLantern?.data.lightEffect);
 		return true;
 	}
 
@@ -1892,8 +1922,8 @@ public partial class Player : CharacterBody3D
 		_statusEffects.TickMovementTrail(this, IsDashing || _sprinting, GlobalPosition, dt);
 		UpdateNightVisionShaderGlobal();
 		TickWetEffect(dt);
-		DouseCarriedLantern();
-		TickLanternOil();
+		DouseCarriedLight();
+		TickCarriedLight();
 		TickDirtyEffect(dt);
 		TickMuddyEffect(dt);
 		TickBodyTemperature(dt);

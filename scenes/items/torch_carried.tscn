@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://cytlqy3efeo7k"]
+
+[ext_resource type="PackedScene" uid="uid://c0tanvr8884cb" path="res://scenes/items/torch_held.tscn" id="1_torch"]
+[ext_resource type="PackedScene" uid="uid://dmj3hp3rw122w" path="res://scenes/fx/moving_light_torch.tscn" id="2_light"]
+
+[node name="TorchCarried" instance=ExtResource("1_torch")]
+movingLightScene = ExtResource("2_light")
+startLit = false

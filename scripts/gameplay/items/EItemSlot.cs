@@ -10,5 +10,7 @@ public enum EInventorySlot
 	WeaponRight,
 	Shield,
 	Lantern,
+	// The rounds the right-hand weapon fires (AmmoData).
+	Ammo,
 	Count
 }

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3 uid="uid://cd1dd7yqhjtlp"]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "torch"
+description = "Three torches at your feet, at night. Pick them up (each takes its own belt slot), Use one to light it and again to put it out. A lit torch burns its durability (the info panel's bar, and the slot's worn warning); when it burns down it is destroyed and the light goes out. Lighting it puts out the lantern, and vice versa; swimming or heavy rain douses it."
+commands = "time_of_day 0.75
+spawn_loot torch 3"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

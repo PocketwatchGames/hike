@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_s")
 scenarioName = "ammo"
-description = "A bow with plain and fire arrows, a pistol with lead balls, and goblins. Equip the bow, then Equip the fire arrows in the inventory to load them: the HUD counts the loaded kind, and when the fire arrows run out the bow falls back to plain ones. Rounds land as pickups; some break."
+description = "A bow with plain and fire arrows, a pistol with lead balls, and goblins. Ammo is an equip slot: equip the fire arrows to fire them, and the HUD counts the slot plus every carried stack of the same kind. When they run out the slot refills with plain arrows. Swap to the pistol and its lead balls are swapped in. Rounds land as pickups; some break."
 commands = "spawn_loot bow 1
 spawn_loot arrow 10
 spawn_loot fire_arrow 5

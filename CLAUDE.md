@@ -638,8 +638,9 @@ Two events, and the split is the design:
 
 **No party member is ever lost, and there is no game over.** A death goes black,
 shows a Respawn prompt, and is then the same sunrise wake as any other: the
-fallen member's unequipped gear (`Inventory.TakeDeathDrop` — the belt and the
-backpack; worn gear, the lantern slot included, stays on the body) is
+fallen member's unequipped gear (`Inventory.TakeDeathDrop` — everything in the
+backpack an equip slot doesn't point at, belted items included; worn gear, the
+lantern slot included, stays on the body) is
 left in a `DeathSack` where they fell (their last solid footing if they died in
 water or mid-air), the party rests, wakes at the last campfire, the game
 autosaves, and the camp screen opens. Unbanked

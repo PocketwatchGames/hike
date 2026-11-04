@@ -76,12 +76,12 @@ public partial class Sim
     {
         if (_partyNodes == null)
         {
-            _player?.PutOutLantern();
+            _player?.PutOutLight();
             return;
         }
         for (int i = 0; i < _partyNodes.Count; i++)
         {
-            _partyNodes[i]?.PutOutLantern();
+            _partyNodes[i]?.PutOutLight();
         }
     }
 

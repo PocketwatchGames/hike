@@ -1,5 +1,5 @@
 // A row of item slots that items can be moved in and out of, whoever owns it —
-// a member's belt or backpack (Inventory.CarriedGrid) or the party stash (ItemGrid). ItemTransfer
+// a member's backpack or sack (Inventory.CarriedGrid) or the party stash (ItemGrid). ItemTransfer
 // moves between any two, so a screen pairing a backpack with a stash, a chest or
 // a merchant needs no move logic of its own.
 //
@@ -9,6 +9,9 @@
 public interface IItemGrid
 {
 	int Capacity { get; }
+
+	// Slots[i] is the stack at slot i, or null; Count is the capacity.
+	System.Collections.Generic.IReadOnlyList<ItemState> Slots { get; }
 
 	// The stack at `index`, null for an empty or out-of-range slot.
 	ItemState At(int index);

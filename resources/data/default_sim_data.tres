@@ -131,6 +131,7 @@
 [ext_resource type="Resource" path="res://resources/data/test_scenarios/blowgun.tres" id="ts_blowgun"]
 [ext_resource type="Resource" uid="uid://btwn5x5u68gc0" path="res://resources/data/test_scenarios/shockwave.tres" id="ts_shockwave"]
 [ext_resource type="Resource" uid="uid://bp5jv2gwndnus" path="res://resources/data/test_scenarios/snow.tres" id="ts_snow"]
+[ext_resource type="Resource" uid="uid://cd1dd7yqhjtlp" path="res://resources/data/test_scenarios/torch.tres" id="ts_torch"]
 [ext_resource type="Resource" uid="uid://cicb54ulbm8ov" path="res://resources/data/status_effects/upgrades/upgrade_armor_dash_range.tres" id="up_armor_dash_range"]
 [ext_resource type="Resource" uid="uid://y2pj4gl0q2fk" path="res://resources/data/status_effects/upgrades/upgrade_armor_oil_efficient.tres" id="up_armor_oil_efficient"]
 [ext_resource type="Resource" uid="uid://0r5x646wjhwx" path="res://resources/data/status_effects/upgrades/upgrade_armor_stealth.tres" id="up_armor_stealth"]
@@ -208,5 +209,5 @@ weatherLightning = ExtResource("12_lightning")
 rainVisionReduction = 0.35
 weightSpeedModifier = -0.07999999999999996
 weightDashDistanceModifier = -0.25
-testScenarios = [ExtResource("ts_snow"), ExtResource("ts_shockwave"), ExtResource("ts_invisibility"), ExtResource("ts_caltrops"), ExtResource("ts_dawn"), ExtResource("ts_oil_droplets"), ExtResource("ts_blood"), ExtResource("ts_needs"), ExtResource("ts_sack"), ExtResource("ts_salvage"), ExtResource("ts_meat"), ExtResource("ts_spear"), ExtResource("ts_sling"), ExtResource("ts_misfire"), ExtResource("ts_tomahawk"), ExtResource("ts_blowgun"), ExtResource("ts_ammo")]
+testScenarios = [ExtResource("ts_snow"), ExtResource("ts_shockwave"), ExtResource("ts_invisibility"), ExtResource("ts_caltrops"), ExtResource("ts_dawn"), ExtResource("ts_oil_droplets"), ExtResource("ts_blood"), ExtResource("ts_needs"), ExtResource("ts_sack"), ExtResource("ts_salvage"), ExtResource("ts_meat"), ExtResource("ts_spear"), ExtResource("ts_sling"), ExtResource("ts_misfire"), ExtResource("ts_tomahawk"), ExtResource("ts_blowgun"), ExtResource("ts_ammo"), ExtResource("ts_torch")]
 metadata/_custom_type_script = "uid://chvgahtb671mg"

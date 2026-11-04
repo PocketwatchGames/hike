@@ -39,7 +39,7 @@ At attack time `BehaviorAttack` reads `me.Weapons` and fires the **highest-`prio
 
 ## Gear durability (`GearData` / `GearState`)
 
-Weapons, armor and shields derive from `GearData` (`weight`, `maxDurability`) and
+Weapons, armor, shields and carried lights derive from `GearData` (`weight`, `maxDurability`) and
 their states from `GearState` (`durability`). `maxDurability = 0` never wears —
 mob weapons and the bare-hands fallbacks stay that way. **Only the player wears
 gear**, at the event's own site — weapons by uses, armor and shields by damage (`maxDurability` is in those units):
@@ -51,6 +51,7 @@ gear**, at the event's own site — weapons by uses, armor and shields by damage
 | thrown weapon (`WeaponData.thrown`: tomahawk, bomb) | never — each shot spends a unit of the stack outright | — |
 | shield | damage absorbed: the guard a block consumes, the whole blow a parry negates | no guard, no parry, no bare-hands fallback |
 | armor | damage the pool soaks (DoT chips included), split across worn pieces by their share of the pool | the pool stops recharging |
+| torch (`TorchData`, a `CarriedLightData` like the lantern) | lit seconds, while it burns (`Player.TickCarriedLight`) | destroyed, and the light goes out |
 
 - **Weapon wear is authored on the `ItemEvent`, like ammo.** `durabilityCostOnHit`
   (any Melee / Hitscan / Projectile event) is spent when the attack FIRST strikes
@@ -75,19 +76,47 @@ gear**, at the event's own site — weapons by uses, armor and shields by damage
 
 ## Ammo (`AmmoData`, `WeaponData.ammoType`)
 
+## Carrying: one backpack, and slots that point into it (`Inventory`)
+
+**Every owned item sits in a slot of the backpack (or a sack in it). The equip
+slots and the belt hold nothing of their own — each POINTS at a stack on the
+backpack's top level.** An equipped or belted item therefore shows in two places
+at once: its equip / belt slot on the inventory screen, and its backpack slot,
+framed (`ItemSlotPanel.SetEquipped`) or wearing its hotbar number
+(`SetBeltNumber`). Moving it within the backpack keeps the pointer.
+
+- **A pointer is re-checked on every change, never maintained by the paths that
+  remove items** (`Inventory.ReconcilePointers`, first thing in `Changed`). A slot
+  whose stack left the backpack's top level — dropped, stashed, sold, spent,
+  merged away, moved into a sack, death-sacked — moves to another top-level stack
+  of the same stackable kind, else empties. A new removal path needs nothing.
+- **Never inside a sack.** `Equip` / `SetBelt` refuse a sack's contents, so
+  dropping or trading a sack can never carry worn gear away.
+- **The belt takes only `Usable` items** (`Inventory.Beltable`), at most once each.
+  `TryAdd` / `Acquire` put a usable kind not on the belt yet on a free belt slot;
+  `Acquire` equips gear whose slot is empty. Both need backpack room — there is no
+  slot that holds an item outside the backpack.
+- **The hotbar is the Lantern slot then the belt** (`HotbarItemAt`). A torch burns
+  only while belted, a lantern only while equipped (`ReconcileLit`).
+- **Worn armor sizes the backpack it sits in.** `Changed` settles the two
+  together, and the save writes the backpack at its own size before the pointers
+  (`ItemGrid.RestoreAtSavedSize`), each pointer as a top-level backpack index.
+
 **A ranged weapon has no magazine. Its rounds are items** — an `AmmoData` of the
-weapon's `EAmmoType` (Arrow, Ball, Shot, Dart), carried in the grids like any
+weapon's `EAmmoType` (Arrow, Ball, Shot, Dart), carried in the backpack like any
 stackable. `ammoType = None` needs no rounds (the sling, wands, every mob weapon).
 
-- **What a weapon fires is the member's LOADED kind of its type**
-  (`Inventory.LoadedAmmo`), a selection per type, not an equip slot: "Equip" on an
-  ammo stack loads it, and only while the right-hand weapon fires that type. Shots
-  draw from every carried stack of the loaded kind, and the HUD counter is that
-  total (`Inventory.RoundsFor`). The selection is per type, so swapping bow →
-  musket → bow keeps the arrow choice.
-- **Running out falls back on its own** (`Inventory.ReconcileLoadedAmmo`, run on
-  every change): the type's `isStandard` round, else the first carried kind of the
-  type. At most one standard per type (`resource_check`).
+- **What a weapon fires is the `EInventorySlot.Ammo` equip slot** — equipped and
+  unequipped like any other gear, and fired only while the right-hand weapon is of
+  its type. The HUD counter (`Inventory.RoundsFor`) is every top-level backpack
+  stack of the equipped kind.
+- **The slot moves on when its stack empties** (`Inventory.SpendRounds`): the same
+  kind first, then the type's `isStandard` round, then the first carried kind of
+  the type (`FindAmmo`) — top-level backpack stacks only. At most one standard per type (`resource_check`).
+- **Changing the ranged weapon to one the slot can't feed points the slot at
+  carried ammo of the new type**, standard first (`Inventory.ReconcileAmmo`, run on every
+  change but acting only when the weapon's ammo TYPE changed — so equipping any
+  ammo by hand is never undone). With none carried the slot is left alone.
 - **A shot spends `ItemEvent.ammoCost` rounds on its `UseAmmo` event** (default 1),
   however many projectiles it fires — the blunderbuss's fan is one shell. Spending
   happens at the top of `DoProjectile` / `DoHitscan` (`SpendShotRounds`), so the
@@ -104,9 +133,9 @@ stackable. `ammoType = None` needs no rounds (the sling, wands, every mob weapon
   (`LootSimState.FiredRound`, set by `Sim.EjectFiredRound`).
 - **A thrown weapon is its own round** (`WeaponData.thrown`): a stackable weapon
   whose shots spend units of the equipped stack, landing as a unit of itself
-  (`thrownBreakChance`). The last unit leaves the slot and the next carried stack
-  of the same weapon is equipped; picking one up tops up the equipped stack
-  (`Inventory.Acquire`). It never wears (`resource_check`).
+  (`thrownBreakChance`). The last unit leaves the backpack and the slot follows
+  the next carried stack of the same weapon (`ReconcilePointers`); one picked up
+  merges into a carried stack like any stackable. It never wears (`resource_check`).
 
 ## Sacks (`SackData` / `SackState`)
 
@@ -117,20 +146,23 @@ saved sack keeps them with no help from the container. A dropped sack is exempt
 from the rest sweep (`ResetSpawns`).
 
 - **A carried sack's slots are carried slots.** `Inventory` keeps one
-  `CarriedGrid` per sack in the belt or backpack (`Inventory.Sacks`, rebuilt by
+  `CarriedGrid` per sack in the backpack (`Inventory.Sacks`, rebuilt by
   `SyncSacks`), and every owned-item query walks all of them. **A new reader of
   what a member carries goes through `EnumerateAll` / `Contains` / the carried
-  grids — never `Belt` and `Backpack` alone**, or sack contents silently drop out
+  grids — never `Backpack` alone**, or sack contents silently drop out
   of it. `ItemGrid.EnumerateAll` / `SpendMaterial` / `PruneExpired` recurse into
   sacks, so a sack in the stash still spoils and still cooks.
 - **Placement asks the grid** (`IItemGrid.Accepts`): `PlaceAt`, `Add`, `Move` and
   `ItemTransfer` refuse what a sack won't take, both sides of a swap included.
 - **Pickup order** (`Inventory.PlacementOrder`): top up existing stacks — sacks
-  first — then a sack's empty slot, then the backpack / belt.
-- A screen addresses a member's slot as (`CarriedGrid`, index) through
-  `InventoryPanel.onGridSlot*`, and a sack that leaves detaches its grid (reads
-  empty, refuses everything), so a held reference can't reach a sack no longer
-  carried.
+  first — then a sack's empty slot, then the backpack.
+- **`InventoryPanel` shows one grid at a time behind icon tabs**: the backpack,
+  each sack (`Inventory.Carried`), and — where a screen draws on it (cookpot,
+  crafting bench) — the stash last (`Paint(inventory, stash)`). A screen addresses
+  any slot as (`IItemGrid`, index) through `InventoryPanel.onGridSlot*`, tells the
+  stash apart by comparing grids, and re-applies its slot overlays on
+  `onTabChanged`. A sack that leaves detaches its grid (reads empty,
+  refuses everything), so a held reference can't reach a sack no longer carried.
 
 ## Salvage (`ItemData.salvage` / `ItemTransfer.SalvageInto`)
 
@@ -152,8 +184,8 @@ mods. Empty = not salvageable. The materials live in `resources/data/items/mater
 
 **What an item can do besides its main use is a row on the item; what an action
 needs is a requirement naming the kind.** A knife and a sword are Blades, the
-shovel is a Digging tool. Carrying one anywhere counts — equipped, belt, backpack
-or a sack.
+shovel is a Digging tool. Carrying one anywhere counts — the backpack or a sack,
+equipped or not.
 
 - **`Inventory.FindTool(kind)` is the one search**, broken gear skipped,
   non-allocating (prompts ask it every frame). **`Player.UseTool(kind)` /
