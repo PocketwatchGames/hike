@@ -113,10 +113,12 @@ stackable. `ammoType = None` needs no rounds (the sling, wands, every mob weapon
 - **The slot moves on when its stack empties** (`Inventory.SpendRounds`): the same
   kind first, then the type's `isStandard` round, then the first carried kind of
   the type (`FindAmmo`) — top-level backpack stacks only. At most one standard per type (`resource_check`).
-- **Changing the ranged weapon to one the slot can't feed points the slot at
-  carried ammo of the new type**, standard first (`Inventory.ReconcileAmmo`, run on every
-  change but acting only when the weapon's ammo TYPE changed — so equipping any
-  ammo by hand is never undone). With none carried the slot is left alone.
+- **The slot only ever holds rounds the right-hand weapon fires**
+  (`Inventory.EquipFits`): equipping, pickup auto-equip and equipping from the
+  stash all refuse other ammo, and with no ranged weapon there is nothing to
+  equip. Changing the weapon's ammo TYPE points the slot at carried ammo of the
+  new type, standard first, or empties it (`Inventory.ReconcileAmmo`, acting only
+  on a type change — so the player's pick among kinds of one type sticks).
 - **A shot spends `ItemEvent.ammoCost` rounds on its `UseAmmo` event** (default 1),
   however many projectiles it fires — the blunderbuss's fan is one shell. Spending
   happens at the top of `DoProjectile` / `DoHitscan` (`SpendShotRounds`), so the

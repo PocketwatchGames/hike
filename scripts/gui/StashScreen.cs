@@ -497,7 +497,7 @@ public partial class StashScreen : Control
 		{
 			return null;
 		}
-		bool fits = item.data.IsEquippable
+		bool fits = inv.EquipFits(item.data)
 			|| (Inventory.Beltable(item.data) && inv.FirstFreeBeltSlot() >= 0 && inv.Backpack.RoomFor(item.data) > 0);
 		return fits ? "Equip" : null;
 	}

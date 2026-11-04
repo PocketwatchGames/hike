@@ -87,7 +87,7 @@ public static class ItemTransfer
 			return inventory.Equip(from.At(fromIndex));
 		}
 		ItemState source = from.At(fromIndex);
-		if (source?.data == null || !source.data.IsEquippable)
+		if (source?.data == null || !inventory.EquipFits(source.data))
 		{
 			return false;
 		}

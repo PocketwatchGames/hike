@@ -507,11 +507,11 @@ public class Inventory : IItemSource
 		return leftover;
 	}
 
-	// True when taking `data` would equip it on the spot: equippable, its slot
-	// empty.
+	// True when taking `data` would equip it on the spot: it fits (EquipFits) and
+	// its slot is empty.
 	public bool WouldAutoEquip(ItemData data)
 	{
-		return data != null && data.IsEquippable && GetEquipped(data.EquipSlotKind) == null;
+		return EquipFits(data) && GetEquipped(data.EquipSlotKind) == null;
 	}
 
 	// True if Acquire would take all `count` units. Mirrors Acquire without
@@ -543,11 +543,11 @@ public class Inventory : IItemSource
 	// Equip an item from outside the inventory (the stash, a pickup): it lands on
 	// the backpack's top level — never in a sack — and its slot points at it,
 	// re-pointing from whatever held it (that stays where it is). Returns what
-	// didn't fit, null when all of it went in; `incoming` itself when it isn't
-	// equippable.
+	// didn't fit, null when all of it went in; `incoming` itself when it doesn't
+	// fit an equip slot (EquipFits).
 	public ItemState EquipIncoming(ItemState incoming)
 	{
-		if (incoming?.data == null || incoming.stackCount <= 0 || !incoming.data.IsEquippable)
+		if (incoming?.data == null || incoming.stackCount <= 0 || !EquipFits(incoming.data))
 		{
 			return incoming;
 		}
@@ -674,14 +674,14 @@ public class Inventory : IItemSource
 
 	// Point `item`'s equip slot at it. Whatever the slot pointed at stays where it
 	// is, unequipped. False for an item that isn't on the backpack's top level or
-	// isn't equippable; true (no-op) if already equipped.
+	// doesn't fit (EquipFits); true (no-op) if already equipped.
 	public bool Equip(ItemState item)
 	{
-		EInventorySlot slot = item?.data?.EquipSlotKind ?? EInventorySlot.None;
-		if (slot == EInventorySlot.None || !IsOnTop(item))
+		if (!CanEquip(item))
 		{
 			return false;
 		}
+		EInventorySlot slot = item.data.EquipSlotKind;
 		if (_equipped[(int)slot] != item)
 		{
 			SetSlot(slot, item);
@@ -690,9 +690,20 @@ public class Inventory : IItemSource
 		return true;
 	}
 
-	// True when Equip would take `item`: equippable and on the backpack's top
+	// True when Equip would take `item`: it fits and is on the backpack's top
 	// level.
-	public bool CanEquip(ItemState item) => item?.data != null && item.data.IsEquippable && IsOnTop(item);
+	public bool CanEquip(ItemState item) => item != null && EquipFits(item.data) && IsOnTop(item);
+
+	// True when `data` may go in its equip slot right now: it is equippable, and
+	// ammo only when the right-hand weapon fires its type.
+	public bool EquipFits(ItemData data)
+	{
+		if (data == null || !data.IsEquippable)
+		{
+			return false;
+		}
+		return data is not AmmoData ammo || (ammo.ammoType != EAmmoType.None && ammo.ammoType == RangedAmmoType());
+	}
 
 	// Empty an equip slot; its item stays where it is. False when it was empty.
 	public bool Unequip(EInventorySlot slot)
@@ -1199,11 +1210,11 @@ public class Inventory : IItemSource
 		return standard ?? first;
 	}
 
-	// When the ranged weapon has changed to one the equipped ammo can't feed, point
-	// the slot at carried ammo of its type (FindAmmo, standard first). Leaves the
-	// slot alone when none is carried, and never acts while the weapon stays the
-	// same type, so the player can equip any ammo by hand. True when the slot
-	// changed.
+	// The Ammo slot only ever holds rounds the right-hand weapon fires (EquipFits).
+	// When the weapon's ammo type changes, point the slot at carried ammo of the
+	// new type (FindAmmo, standard first), or empty it when there is none or no
+	// ranged weapon. Never acts while the type stays the same, so the player's
+	// choice among kinds of that type sticks. True when the slot changed.
 	private bool ReconcileAmmo()
 	{
 		EAmmoType type = RangedAmmoType();
@@ -1212,12 +1223,13 @@ public class Inventory : IItemSource
 			return false;
 		}
 		_rangedAmmoType = type;
-		if (type == EAmmoType.None || (EquippedAmmo?.data as AmmoData)?.ammoType == type)
+		ItemState current = EquippedAmmo;
+		if (current != null && EquipFits(current.data))
 		{
 			return false;
 		}
-		ItemState next = FindAmmo(type, null);
-		if (next == null)
+		ItemState next = type == EAmmoType.None ? null : FindAmmo(type, null);
+		if (next == current)
 		{
 			return false;
 		}
