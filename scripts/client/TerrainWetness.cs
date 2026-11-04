@@ -62,7 +62,7 @@ public static class TerrainWetness
         {
             return false;
         }
-        if (ws.GetSkyExposure01(worldPos) < MinSkyExposure)
+        if (ws.GetStandingSkyExposure01(worldPos) < MinSkyExposure)
         {
             return false;
         }

@@ -737,15 +737,38 @@ public class WorldState
     // dense enough to extinguish the column). Reads the non-leaky SkyExposure
     // field — the sunlight column scan's pre-spread value — so it answers "is
     // there cover overhead, and how much" WITHOUT the horizontal bleed of
-    // GetSkyLight01. Single source of truth for cover/shelter gameplay: rain
-    // wetness, rain-splash spawning, and verb gating like NoCeilingRequirement.
-    // Cross-chunk-correct (the column scan descends through chunk boundaries)
-    // and baked, so a ceiling in the chunk above still shelters the point.
+    // GetSkyLight01. Cross-chunk-correct (the column scan descends through chunk
+    // boundaries) and baked, so a ceiling in the chunk above still shelters the
+    // point. For "is there sky over someone standing here" use
+    // GetStandingSkyExposure01 — a feet position sits on a voxel boundary.
     public float GetSkyExposure01(Godot.Vector3 worldPos)
     {
         int wx = Mathf.FloorToInt(worldPos.X);
         int wy = Mathf.FloorToInt(worldPos.Y);
         int wz = Mathf.FloorToInt(worldPos.Z);
+        return SkyExposure01At(wx, wy, wz);
+    }
+
+    // Sky exposure of the air cell a body standing at `feetPos` occupies. Feet
+    // rest exactly on a voxel's top face, so flooring them flips between the
+    // solid ground (always sheltered) and the air above under physics jitter;
+    // rounding picks the cell above the face stably, and feet sunk into a grade
+    // voxel step up out of it. The one answer for every body-in-the-open
+    // question (rain, sunburn, shade, puddles, the grounding blob).
+    public float GetStandingSkyExposure01(Godot.Vector3 feetPos)
+    {
+        int wx = Mathf.FloorToInt(feetPos.X);
+        int wy = Mathf.FloorToInt(feetPos.Y + 0.5f);
+        int wz = Mathf.FloorToInt(feetPos.Z);
+        if (Blocks.IsSolid(GetBlockWorld(wx, wy, wz)))
+        {
+            wy++;
+        }
+        return SkyExposure01At(wx, wy, wz);
+    }
+
+    private float SkyExposure01At(int wx, int wy, int wz)
+    {
         int sky = GetSkyExposureWorld(wx, wy, wz);
         return Mathf.Clamp((float)sky / LightEngine.MAX_LIGHT, 0f, 1f);
     }

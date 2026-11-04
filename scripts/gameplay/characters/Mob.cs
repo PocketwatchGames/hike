@@ -2234,7 +2234,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return false;
         }
-        float sky01 = _world?.WorldState?.GetSkyExposure01(GlobalPosition + Vector3.Up) ?? 0f;
+        float sky01 = _world?.WorldState?.GetStandingSkyExposure01(GlobalPosition) ?? 0f;
         return sky01 >= (_world?.SimData?.mobWetRainSkyThreshold ?? 0.5f);
     }
 
@@ -2255,7 +2255,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return;
         }
-        float burn = _world.SunBurnExposure(GlobalPosition + Vector3.Up);
+        float burn = _world.SunBurnExposure(GlobalPosition);
         if (burn > 0f)
         {
             _statusEffects.AddBuildup(sunburn, rate * burn * dt);

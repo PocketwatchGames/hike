@@ -1087,10 +1087,8 @@ public partial class Player : CharacterBody3D
 	// so wetness never drains. RainPerceptibleFloor filters the noise.
 	private const float RainPerceptibleFloor = 0.01f;
 
-	// Height above the player's origin to sample sky exposure — chest level, so
-	// the probe lands in the air voxel the player occupies rather than the
-	// solid ground voxel under their feet (which would always read sheltered).
-	private const float SkyExposureProbeHeight = 1.0f;
+	// Chest height above the player's origin, where lantern cues spawn.
+	private const float LanternCueHeight = 1.0f;
 
 	private float RainExposure01()
 	{
@@ -1104,7 +1102,7 @@ public partial class Player : CharacterBody3D
 		{
 			return 0f;
 		}
-		float sky01 = ws.GetSkyExposure01(GlobalPosition + Vector3.Up * SkyExposureProbeHeight);
+		float sky01 = ws.GetStandingSkyExposure01(GlobalPosition);
 		float threshold = data.rainShelterSkyThreshold;
 		if (threshold >= 1f)
 		{
@@ -1284,7 +1282,7 @@ public partial class Player : CharacterBody3D
 	{
 		if (scene != null)
 		{
-			Fx.Create(scene, this, Vector3.Up * SkyExposureProbeHeight);
+			Fx.Create(scene, this, Vector3.Up * LanternCueHeight);
 		}
 	}
 

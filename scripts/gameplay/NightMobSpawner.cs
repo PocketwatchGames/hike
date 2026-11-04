@@ -288,7 +288,7 @@ public partial class NightMobSpawner : Node
             // clearing, and even a cave mouth within range), so those cells drop to
             // weight 0 and are never picked, smoothly ramping in at dawn/dusk. Same
             // exposure signal as the sunburn DoT.
-            float shade = sim.SunShade01(sample);
+            float shade = sim.SunShade01(_standable[k]);
             if (shade <= 0f)
             {
                 continue;

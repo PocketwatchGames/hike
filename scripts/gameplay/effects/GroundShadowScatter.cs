@@ -119,7 +119,7 @@ public partial class GroundShadowScatter : Node3D
             float envFactor = 1f;
             if (!ignoreDaylightFade)
             {
-                float skyExp = ws?.GetSkyExposure01(pos) ?? 1f;
+                float skyExp = ws?.GetStandingSkyExposure01(pos) ?? 1f;
                 envFactor = 1f - daylightFade * Mathf.Clamp(dirShadow * skyExp, 0f, 1f);
             }
             float alpha = baseAlpha * envFactor;

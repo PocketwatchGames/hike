@@ -441,7 +441,7 @@ public partial class Sim : Node3D
         float darkFromLight = data.nightDarkThreshold > 0f
             ? Mathf.Clamp((data.nightDarkThreshold - total01) / data.nightDarkThreshold, 0f, 1f)
             : (total01 <= 0f ? 1f : 0f);
-        float shade = _player != null ? SunShade01(_player.GlobalPosition + Vector3.Up) : 1f;
+        float shade = _player != null ? SunShade01(_player.GlobalPosition) : 1f;
         float darkTarget = darkFromLight * shade;
         if (darkTarget > _darknessDwell)
         {

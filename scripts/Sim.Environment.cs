@@ -126,14 +126,14 @@ public partial class Sim
     // single source of truth shared by the sunburn DoT (Mob.TickSunburn), the
     // darkness-dwell gate, and the night spawn-location gate so all three agree on
     // where the sun burns.
-    public float SunBurnExposure(Vector3 pos)
+    public float SunBurnExposure(Vector3 feetPos)
     {
         float sunFactor = SkyController.Current?.SunFactor ?? 0f;
         if (sunFactor <= 0f)
         {
             return 0f;
         }
-        return sunFactor * _worldState.GetSkyExposure01(pos);
+        return sunFactor * _worldState.GetStandingSkyExposure01(feetPos);
     }
 
     // Continuous "shade" factor [0,1] at `pos`: 1 in true shade / at night (no sun
@@ -144,10 +144,10 @@ public partial class Sim
     // real sun = never placed there), rather than a hard boolean gate. Independent
     // of cloud/fog dimming (keys on sun elevation), so a dim-but-open cloudy noon
     // still reads as full sun and zero shade.
-    public float SunShade01(Vector3 pos)
+    public float SunShade01(Vector3 feetPos)
     {
         float full = _worldState.SimData?.sunShadeFullExposure ?? 0.15f;
-        float exposure = SunBurnExposure(pos);
+        float exposure = SunBurnExposure(feetPos);
         if (full <= 0f)
         {
             return exposure > 0f ? 0f : 1f;
