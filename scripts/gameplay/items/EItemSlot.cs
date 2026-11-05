@@ -9,7 +9,6 @@ public enum EInventorySlot
 	WeaponLeft,
 	WeaponRight,
 	Shield,
-	Lantern,
 	// The rounds the right-hand weapon fires (AmmoData).
 	Ammo,
 	Count

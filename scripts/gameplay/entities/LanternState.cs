@@ -1,30 +1,14 @@
 // Carryable-lantern runtime state. Distinct from TorchSimState, which is the
 // world-placed torch prop. Whether it is lit is not stored here: the inventory
-// holds it for the lantern slot (Inventory.LitLantern). The oil in it is — only
-// the equipped lantern burns, and the carrier's oil flasks back it up
+// holds it (Inventory.LitLantern). It holds no oil — it burns the carrier's
 // (Player.LanternOil).
 public class LanternState : GearState
 {
 	public override LanternData data => _lanternData;
 	private readonly LanternData _lanternData;
 
-	public float oil;
-
 	public LanternState(LanternData d) : base(d)
 	{
 		_lanternData = d;
-		oil = d.oilCapacity;
-	}
-
-	public override void WriteSubclassState(System.IO.BinaryWriter w)
-	{
-		base.WriteSubclassState(w);
-		w.Write(oil);
-	}
-
-	public override void ReadSubclassState(System.IO.BinaryReader r)
-	{
-		base.ReadSubclassState(r);
-		oil = Godot.Mathf.Clamp(r.ReadSingle(), 0f, _lanternData.oilCapacity);
 	}
 }

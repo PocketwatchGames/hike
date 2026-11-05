@@ -98,8 +98,8 @@ framed (`ItemSlotPanel.SetEquipped`) or wearing its hotbar number
   usable kind not on the belt yet on a free belt slot;
   `Acquire` equips gear whose slot is empty. Both need backpack room — there is no
   slot that holds an item outside the backpack.
-- **The hotbar is the Lantern slot then the belt** (`HotbarItemAt`). A torch burns
-  only while belted, a lantern only while equipped (`ReconcileLit`).
+- **The hotbar is the belt** (`HotbarItemAt`). A lantern is a usable like a torch,
+  with no slot of its own: either burns only while belted (`ReconcileLit`).
 - **Worn armor sizes the backpack it sits in.** `Changed` settles the two
   together, and the save writes the backpack at its own size before the pointers
   (`ItemGrid.RestoreAtSavedSize`), each pointer as a top-level backpack index.

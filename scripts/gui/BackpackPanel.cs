@@ -32,8 +32,8 @@ public partial class BackpackPanel : Control
 	public System.Action<int, ItemSlotPanel> onSlotButtonUp;
 
 	// Every slot ever instanced; the first `_shown` are the live grid. Only these
-	// are shown, hidden or indexed, so a node authored into `_slotContainer` (the
-	// inventory screen's Lantern slot, leading the belt) stays put at any size.
+	// are shown, hidden or indexed, so a node authored into `_slotContainer` stays
+	// put at any size.
 	readonly List<ItemSlotPanel> _slots = new();
 	int _shown;
 

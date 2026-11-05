@@ -16,7 +16,7 @@
 [ext_resource type="PackedScene" uid="uid://obntj5em5frg" path="res://scenes/gui/player_vitals.tscn" id="vitals_scene"]
 [ext_resource type="Script" uid="uid://dxbje8s6mp5rh" path="res://scripts/gui/FloatBesideFocus.cs" id="float_beside_focus"]
 
-[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_vitals", "_inventoryPanel", "_shieldPanel", "_armorBodyPanel", "_weaponLeftPanel", "_weaponRightPanel", "_ammoPanel", "_lanternPanel", "_beltPanel", "_highlightPanel", "_countPanel")]
+[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_statsPanel", "_vitals", "_inventoryPanel", "_shieldPanel", "_armorBodyPanel", "_weaponLeftPanel", "_weaponRightPanel", "_ammoPanel", "_beltPanel", "_highlightPanel", "_countPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -32,7 +32,6 @@ _armorBodyPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/VBoxC
 _weaponLeftPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/VBoxContainer/Equipped/WeaponLeft")
 _weaponRightPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/VBoxContainer/Equipped/WeaponRight")
 _ammoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/VBoxContainer/Equipped/Ammo")
-_lanternPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/VBoxContainer/BeltPanel/VBoxContainer/GridContainer/Lantern")
 _beltPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/VBoxContainer/BeltPanel")
 _highlightPanel = NodePath("ItemInfoPanel")
 _countPanel = NodePath("MarginContainer/ItemCountPanel")
@@ -134,9 +133,6 @@ layout_mode = 2
 size_flags_horizontal = 4
 _titleLocKey = &"panel_belt"
 _columns = 16
-
-[node name="Lantern" parent="MarginContainer/HBoxContainer/MarginContainer2/VBoxContainer/BeltPanel/VBoxContainer/GridContainer" parent_id_path=PackedInt32Array(1583559512, 259826716) index="0" unique_id=1911043477 instance=ExtResource("2_4x1s7")]
-layout_mode = 2
 
 [node name="MarginContainer3" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1837419429]
 custom_minimum_size = Vector2(500, 0)

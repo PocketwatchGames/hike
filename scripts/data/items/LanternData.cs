@@ -1,9 +1,8 @@
 using Godot;
 
-// The carried lantern: a light source worn in the lantern equip slot (the
-// first hotbar entry), lit by hand and burning the oil it holds (LanternState.oil,
-// backed by the carrier's oil flasks — Player.LanternOil). Only the lantern-slot one can be lit
-// (Inventory.LitLight), and it goes out if it leaves the slot. It
+// The carried lantern: a belt item like a torch, lit by hand and burning the
+// carrier's oil (Player.LanternOil — the member's own, backed by oil flasks). Only a belted one can be lit (Inventory.LitLight), and it
+// goes out if it leaves the belt. It
 // drives its tap (put it out) and oil-costed actions through an
 // ItemActionProfile like a spell or weapon does, but is otherwise its own item
 // kind and is NOT a spell or a pickup consumable.
@@ -22,12 +21,7 @@ public partial class LanternData : CarriedLightData, IUsableItem
 	// fountain or with oil.
 	[Export(PropertyHint.Range, "0.1,60,0.1,or_greater")] public float secondsPerOil = 3.6f;
 
-	// Oil this lantern holds when full. Carried oil flasks add their capacity on
-	// top (Player.MaxLanternOil). A new lantern comes full.
-	[Export(PropertyHint.Range, "1,1000,1")] public float oilCapacity = 100f;
-
-	// Equips into EInventorySlot.Lantern; a spare is carried like any other gear.
-	protected override EItemCategory ComputeCategory() => EItemCategory.Lantern;
+	protected override EItemCategory ComputeCategory() => EItemCategory.Usable;
 
 	public override ItemState CreateState()
 	{

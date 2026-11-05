@@ -74,7 +74,7 @@ public enum EStatName
 	FatigueDrain,
 	// Hunger a food restores (ConsumableData.satiation).
 	Satiation,
-	// What a flask or lantern holds now, out of its capacity.
+	// What a flask holds now, out of its capacity.
 	Contents,
 	// How far an attack carries the wielder forward (ItemAction.ComputeLungeDistance).
 	Lunge,

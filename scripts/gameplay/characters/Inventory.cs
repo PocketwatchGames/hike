@@ -9,9 +9,8 @@ using Godot;
 // top level, so an equipped or belted item shows in both places and keeps its
 // pointer wherever it is moved within the backpack. Changed() re-checks every
 // pointer (ReconcilePointers), so no path that takes an item out of the
-// backpack has to remember to unequip it. The hotbar is the lantern slot
-// followed by the belt; at most one carried light burns (LitLight): the
-// equipped lantern or a belted torch. The backpack's and the belt's sizes are
+// backpack has to remember to unequip it. The hotbar is the belt; at most one
+// carried light burns (LitLight): a belted lantern or torch. The backpack's and the belt's sizes are
 // the PlayerData base plus whatever the worn armor adds, re-applied on every
 // change.
 public class Inventory : IItemSource
@@ -69,8 +68,8 @@ public class Inventory : IItemSource
 	// is on the belt at most once.
 	private ItemState[] _belt;
 
-	// The one carried light burning, or null: the equipped lantern or a belted
-	// torch. ReconcileLit puts it out whenever it stops being either.
+	// The one carried light burning, or null: a belted lantern or torch.
+	// ReconcileLit puts it out when it leaves the belt.
 	private ItemState _lit;
 
 	// Hotbar index of the selection (see HotbarItemAt), or -1 when the hotbar is
@@ -879,9 +878,6 @@ public class Inventory : IItemSource
 
 	// ---- Carried light ---------------------------------------------------------
 
-	// The lantern in the Lantern slot, lit or not; null when the slot is empty.
-	public LanternState EquippedLantern => _equipped[(int)EInventorySlot.Lantern] as LanternState;
-
 	// The carried light burning — a lantern or a torch — or null.
 	public ItemState LitLight => _lit;
 
@@ -889,17 +885,12 @@ public class Inventory : IItemSource
 
 	public bool IsLit(ItemState item) => item != null && item == _lit;
 
-	// Light the lantern in the Lantern slot, putting out a lit torch. False when
-	// the slot is empty. The oil gate is the carrier's (Player.LightLantern).
-	public bool LightLantern()
+	// Light `light` (a lantern or a torch), putting out any other. False unless it
+	// is a carried light on the belt. A lantern's oil gate is the carrier's
+	// (Player.ToggleLight).
+	public bool Light(ItemState light)
 	{
-		return EquippedLantern != null && SetLit(EquippedLantern);
-	}
-
-	// Light `torch`, putting out any other light. False unless it is belted.
-	public bool LightTorch(TorchState torch)
-	{
-		return torch != null && IsBelted(torch) && SetLit(torch);
+		return light?.data is CarriedLightData && IsBelted(light) && SetLit(light);
 	}
 
 	private bool SetLit(ItemState light)
@@ -924,14 +915,10 @@ public class Inventory : IItemSource
 		return true;
 	}
 
-	// A light can only burn where it is lit from: the equipped lantern, a belted
-	// torch. Anything else puts it out.
+	// A light burns only on the belt; leaving it puts it out.
 	private void ReconcileLit()
 	{
-		bool burns = _lit is LanternState
-			? _lit == EquippedLantern
-			: _lit is TorchState && IsBelted(_lit);
-		if (!burns)
+		if (_lit != null && !IsBelted(_lit))
 		{
 			_lit = null;
 		}
@@ -939,27 +926,15 @@ public class Inventory : IItemSource
 
 	// ---- Hotbar --------------------------------------------------------------
 
-	// Hotbar index 0 is the Lantern slot — always shown, whether or not it holds
-	// a lantern — and index 1 + i is belt slot i.
-	public const int LanternHotbarIndex = 0;
-
-	public static int HotbarIndexOfBelt(int beltIndex) => 1 + beltIndex;
-
-	public int HotbarSize => 1 + _belt.Length;
+	// The hotbar is the belt: hotbar index i is belt slot i.
+	public int HotbarSize => _belt.Length;
 
 	// Hotbar index of the selected entry, or -1 when the hotbar is empty.
 	public int SelectedHotbarIndex => _hotbarSelected;
 	public ItemState SelectedHotbarItem => HotbarItemAt(_hotbarSelected);
 
 	// The item at hotbar index `index`, or null (empty, or out of range).
-	public ItemState HotbarItemAt(int index)
-	{
-		if (index == LanternHotbarIndex)
-		{
-			return _equipped[(int)EInventorySlot.Lantern];
-		}
-		return index > 0 ? BeltAt(index - 1) : null;
-	}
+	public ItemState HotbarItemAt(int index) => BeltAt(index);
 
 	// Select hotbar index `index` — the position the HUD shows it at. False when
 	// it is out of range or empty.
@@ -1345,15 +1320,15 @@ public class Inventory : IItemSource
 	// ---- Bulk exits ------------------------------------------------------------
 
 	// Remove every item that isn't equipped and return them, for the death sack
-	// (Sim.DropDeathSack); belted items go with the rest. Worn gear — the lantern
-	// slot included, so the wake at the campfire isn't blind — stays in its slot.
+	// (Sim.DropDeathSack); belted items go with the rest. Worn gear stays in its
+	// slot, and a belted lantern stays too, so the wake at the campfire isn't blind.
 	public List<ItemState> TakeDeathDrop()
 	{
 		var taken = new List<ItemState>();
 		for (int i = 0; i < _backpackGrid.Capacity; i++)
 		{
 			ItemState item = _backpackGrid[i];
-			if (item != null && !IsEquipped(item))
+			if (item != null && !IsEquipped(item) && !(item is LanternState && IsBelted(item)))
 			{
 				taken.Add(item);
 			}
@@ -1372,7 +1347,6 @@ public class Inventory : IItemSource
 	// inside it), then every pointer as a top-level backpack index: the equip
 	// slots, the belt, the lit light, then the hotbar selection.
 	private const int SavedNone = -1;
-	private const int SavedLanternLit = -2;
 
 	public void Serialize(BinaryWriter w)
 	{
@@ -1386,7 +1360,7 @@ public class Inventory : IItemSource
 		{
 			w.Write(_backpackGrid.IndexOf(item));
 		}
-		w.Write(_lit is LanternState ? SavedLanternLit : _lit != null ? _backpackGrid.IndexOf(_lit) : SavedNone);
+		w.Write(_lit != null ? _backpackGrid.IndexOf(_lit) : SavedNone);
 		w.Write(_hotbarSelected);
 	}
 
@@ -1419,8 +1393,8 @@ public class Inventory : IItemSource
 			ItemState item = _backpackGrid.At(r.ReadInt32());
 			_belt[i] = Beltable(item?.data) && BeltIndexOf(item) < 0 ? item : null;
 		}
-		int lit = r.ReadInt32();
-		_lit = lit == SavedLanternLit ? EquippedLantern : _backpackGrid.At(lit) as TorchState;
+		ItemState lit = _backpackGrid.At(r.ReadInt32());
+		_lit = lit?.data is CarriedLightData ? lit : null;
 		_hotbarSelected = r.ReadInt32();
 		// The saved ammo slot is the player's choice, not a weapon change to react to.
 		_rangedAmmoType = RangedAmmoType();

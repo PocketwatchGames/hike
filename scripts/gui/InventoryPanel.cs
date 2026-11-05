@@ -180,7 +180,7 @@ public partial class InventoryPanel : VBoxContainer
 			int belt = backpack ? _painted.BeltIndexOf(item) : -1;
 			slot.SetActive(backpack && _painted.IsLit(item));
 			slot.SetEquipped(belt >= 0 || (backpack && _painted.IsEquipped(item)));
-			slot.SetBeltNumber(belt >= 0 ? Inventory.HotbarIndexOfBelt(belt) + 1 : 0);
+			slot.SetBeltNumber(belt >= 0 ? belt + 1 : 0);
 		}
 	}
 

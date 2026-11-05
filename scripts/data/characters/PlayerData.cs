@@ -675,6 +675,9 @@ public partial class PlayerData : Resource
 	// never auto-relights when conditions ease. 1.0 disables rain dousing
 	// (only a full downpour would ever hit it).
 	[Export(PropertyHint.Range, "0.01,1,0.01")] public float lanternDouseRainThreshold = 0.6f;
+	// Lantern oil the member holds without a flask (Player.LanternOil); carried
+	// oil flasks add their capacity on top. A new member starts full.
+	[Export(PropertyHint.Range, "1,1000,1")] public float oilCapacity = 100f;
 	// Wind accelerates drying via evaporation. SampleWindSpeed already
 	// zeroes out under overhead cover, so this only contributes outdoors.
 	// Default 0.1 means the dry rate doubles at 10 m/s of wind and triples

@@ -725,13 +725,14 @@ public partial class Player : CharacterBody3D
 	// What a save carries for this member's node, inside a shared EntitySerializer
 	// table (SaveGame). Only what a sunrise keeps: the inventory, effects acquired
 	// in play that outlast the dawn, non-transient buildups, health (the wake heals
-	// only the controlled member), the needs meters, and where a fallen member's
-	// body lies. Oil and water ride on their lantern and flasks in the inventory.
+	// only the controlled member), the needs meters, the member's oil, and where a
+	// fallen member's body lies. Flask contents ride on the flasks in the inventory.
 	public void WriteMemberSave(System.IO.BinaryWriter w)
 	{
 		w.Write(_health);
 		w.Write(_bonusHealth);
 		WriteNeeds(w);
+		w.Write(_oil);
 		_inventory.Serialize(w);
 		EntitySerializer.WriteStatusEffects(w, EnumerateAcquiredEffects());
 		var buildups = new List<(StatusEffectData data, float amount)>();
@@ -757,6 +758,7 @@ public partial class Player : CharacterBody3D
 		float health = r.ReadSingle();
 		_bonusHealth = Mathf.Clamp(r.ReadSingle(), 0f, MaxBonusHealth);
 		ReadNeeds(r);
+		_oil = Mathf.Clamp(r.ReadSingle(), 0f, data.oilCapacity);
 		_inventory.Restore(r);
 		List<EntitySerializer.StatusEffectRecord> effects = EntitySerializer.ReadStatusEffects(r);
 		int buildupCount = r.ReadInt32();
@@ -1279,21 +1281,39 @@ public partial class Player : CharacterBody3D
 		SpawnLightCue(light.extinguishEffect);
 	}
 
-	// The player lighting or putting out `torch` (Use on it).
-	public void ToggleTorch(TorchState torch)
+	// The player lighting or putting out `light`, a belted lantern or torch (Use
+	// on it).
+	public void ToggleLight(ItemState light)
 	{
-		if (_inventory == null || torch == null)
+		if (_inventory == null || light == null)
 		{
 			return;
 		}
-		if (_inventory.IsLit(torch))
+		if (_inventory.IsLit(light))
 		{
 			SnuffLight();
 		}
-		else if (_inventory.LightTorch(torch))
+		else if (Light(light))
 		{
-			SpawnLightCue(torch.data.lightEffect);
+			SpawnLightCue((light.data as CarriedLightData)?.lightEffect);
 		}
+	}
+
+	// True when `light` could be lit now: a carried light on the belt, and a
+	// lantern needs oil in it or in the flasks.
+	public bool CanLight(ItemState light)
+	{
+		if (_inventory == null || light?.data is not CarriedLightData || !_inventory.IsBelted(light))
+		{
+			return false;
+		}
+		return light is not LanternState || HasLanternOil;
+	}
+
+	// Light `light` without the strike cue. False when it can't be lit.
+	private bool Light(ItemState light)
+	{
+		return CanLight(light) && _inventory.Light(light);
 	}
 
 	private void SpawnLightCue(PackedScene scene)
@@ -1326,15 +1346,17 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Oil is the equipped lantern's own (LanternState.oil) backed by every oil
-	// flask carried: the lantern burns first, then the flasks, and a refill tops
-	// up the lantern first, then the flasks. With no lantern equipped the flasks
-	// alone are the supply.
+	// Oil is the member's own (_oil, out of PlayerData.oilCapacity) backed by
+	// every oil flask carried: the member's burns first, then the flasks', and a
+	// refill tops up the member's first, then the flasks. Any belted lantern
+	// burns from it.
+	private float _oil;
+
 	public float MaxLanternOil
 	{
 		get
 		{
-			float max = _inventory?.EquippedLantern?.data.oilCapacity ?? 0f;
+			float max = data?.oilCapacity ?? 0f;
 			foreach (FlaskState flask in CarriedFlasks(ELiquid.Oil))
 			{
 				max += flask.data.capacity;
@@ -1347,13 +1369,18 @@ public partial class Player : CharacterBody3D
 	{
 		get
 		{
-			float oil = _inventory?.EquippedLantern?.oil ?? 0f;
-			foreach (FlaskState flask in CarriedFlasks(ELiquid.Oil))
-			{
-				oil += flask.amount;
-			}
-			return oil;
+			return _oil + FlaskOil();
 		}
+	}
+
+	private float FlaskOil()
+	{
+		float oil = 0f;
+		foreach (FlaskState flask in CarriedFlasks(ELiquid.Oil))
+		{
+			oil += flask.amount;
+		}
+		return oil;
 	}
 
 	public bool HasLanternOil => LanternOil > 0f;
@@ -1409,7 +1436,7 @@ public partial class Player : CharacterBody3D
 		return amount <= 0f || LanternOil >= amount;
 	}
 
-	// The lantern's oil first, then the flasks'; clamps at empty. Also the
+	// The member's oil first, then the flasks'; clamps at empty. Also the
 	// continuous while-lit burn.
 	public void SpendLanternOil(float amount)
 	{
@@ -1417,13 +1444,9 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		LanternState lantern = _inventory?.EquippedLantern;
-		if (lantern != null)
-		{
-			float taken = Mathf.Min(lantern.oil, amount);
-			lantern.oil -= taken;
-			amount -= taken;
-		}
+		float taken = Mathf.Min(_oil, amount);
+		_oil -= taken;
+		amount -= taken;
 		foreach (FlaskState flask in CarriedFlasks(ELiquid.Oil))
 		{
 			if (amount <= 0f)
@@ -1434,21 +1457,17 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// The lantern first, then the flasks; what fits nowhere is lost (a droplet,
+	// The member first, then the flasks; what fits nowhere is lost (a droplet,
 	// the Lantern Oil consumable).
 	public void AddLanternOil(float amount)
 	{
-		if (amount <= 0f)
+		if (amount <= 0f || data == null)
 		{
 			return;
 		}
-		LanternState lantern = _inventory?.EquippedLantern;
-		if (lantern != null)
-		{
-			float taken = Mathf.Min(lantern.data.oilCapacity - lantern.oil, amount);
-			lantern.oil += taken;
-			amount -= taken;
-		}
+		float taken = Mathf.Min(data.oilCapacity - _oil, amount);
+		_oil += taken;
+		amount -= taken;
 		foreach (FlaskState flask in CarriedFlasks(ELiquid.Oil))
 		{
 			if (amount <= 0f)
@@ -1459,14 +1478,10 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Fill the lantern and every oil flask (an oil fountain).
+	// Fill the member and every oil flask (an oil fountain).
 	public void RefillAllOil()
 	{
-		LanternState lantern = _inventory?.EquippedLantern;
-		if (lantern != null)
-		{
-			lantern.oil = lantern.data.oilCapacity;
-		}
+		_oil = data?.oilCapacity ?? 0f;
 		foreach (FlaskState flask in CarriedFlasks(ELiquid.Oil))
 		{
 			flask.amount = flask.data.capacity;
@@ -1506,23 +1521,6 @@ public partial class Player : CharacterBody3D
 		_inventory?.Extinguish();
 	}
 
-	// Light the lantern in the lantern slot, if there is oil to burn.
-	public bool LightLantern()
-	{
-		return HasLanternOil && _inventory != null && _inventory.LightLantern();
-	}
-
-	// The player lighting the lantern by hand: LightLantern plus its strike cue.
-	public bool LightLanternByHand()
-	{
-		if (!LightLantern())
-		{
-			return false;
-		}
-		SpawnLightCue(_inventory.LitLantern?.data.lightEffect);
-		return true;
-	}
-
 	public void Initialize(Sim sim, PlayerState member, Vector3 position, Vector3 rotation)
 	{
 		_world = sim;
@@ -1550,6 +1548,7 @@ public partial class Player : CharacterBody3D
 		_scent = new ScentEmitter(this, sim, data.scentStrength, data.scentDecayRate,
 			data.scentStampInterval, data.scentStampMoveDistance, data.scentMaxCrumbs);
 		_health = MaxHealth;
+		_oil = data.oilCapacity;
 		_needsSettledClock = sim.WorldClockDays;
 
 		// Adopt the hosted member's name (blank keeps the default).
@@ -1806,9 +1805,9 @@ public partial class Player : CharacterBody3D
 			}
 			return;
 		}
-		if (item is LanternState && _inventory.LitLantern == null)
+		if (item is LanternState && _inventory.LitLight == null)
 		{
-			LightLantern();
+			Light(item);
 		}
 	}
 

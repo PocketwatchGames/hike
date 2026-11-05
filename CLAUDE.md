@@ -619,9 +619,10 @@ Two events, and the split is the design:
   `WorldClockDays` value: an `UntilTimeOfDay` effect (`expireAtTimeOfDay01`,
   0 = dawn — fairy boons), each spoil cohort, the regrow deadline of berry trees,
   forges, fountains and forage. The only reads of `DayNumber` are RNG seeds.
-- **Nothing a rest or a campfire does refills oil.** Oil lives in the equipped
-  lantern (`LanternState.oil`, `LanternData.oilCapacity`) backed by carried oil
-  flasks (`FlaskData`): burned lantern-first, refilled lantern-first (droplets,
+- **Nothing a rest or a campfire does refills oil.** Oil lives on the member
+  (`Player._oil`, out of `PlayerData.oilCapacity`; any belted lantern burns it)
+  backed by carried oil flasks (`FlaskData`): burned member-first, refilled
+  member-first (droplets,
   the Lantern Oil consumable), and filled to the brim only by an oil fountain
   (`RefillLanternOilEffect.fillCompletely`). Water flasks extend thirst the same
   way and a well refills them. Flasks are the only way to carry more — there is
@@ -639,8 +640,8 @@ Two events, and the split is the design:
 **No party member is ever lost, and there is no game over.** A death goes black,
 shows a Respawn prompt, and is then the same sunrise wake as any other: the
 fallen member's unequipped gear (`Inventory.TakeDeathDrop` — everything in the
-backpack an equip slot doesn't point at, belted items included; worn gear, the
-lantern slot included, stays on the body) is
+backpack an equip slot doesn't point at, belted items included; worn gear and
+belted lanterns stay on the body) is
 left in a `DeathSack` where they fell (their last solid footing if they died in
 water or mid-air), the party rests, wakes at the last campfire, the game
 autosaves, and the camp screen opens. Unbanked

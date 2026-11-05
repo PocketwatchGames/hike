@@ -356,12 +356,11 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	// it even if the hotbar selection has moved on since.
 	ItemState _hotbarUseItem;
 
-	// UseItem on the hotbar selection. An unlit lantern in the lantern slot is
-	// lit; a lit one runs its timeline (tap to douse, hold to cast). A torch is
-	// lit or put out. Any other item with an action timeline (a potion's drink)
-	// runs it. An instant-use item (mud, a meal) is spent on the spot. Belted gear
-	// that isn't equipped — a spare lantern included — is equipped, replacing what
-	// its slot pointed at.
+	// UseItem on the hotbar selection. An unlit lantern is lit; a lit one runs
+	// its timeline (tap to douse, hold to cast). A torch is lit or put out. Any
+	// other item with an action timeline (a potion's drink) runs it. An
+	// instant-use item (mud, a meal) is spent on the spot. Belted gear that isn't
+	// equipped is equipped, replacing what its slot pointed at.
 	void UseHotbarSelection()
 	{
 		ItemState item = _inventory?.SelectedHotbarItem;
@@ -374,14 +373,9 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 			_inventory.Equip(item);
 			return;
 		}
-		if (item is LanternState lantern && !_inventory.IsLit(lantern))
+		if (item is TorchState || (item is LanternState && !_inventory.IsLit(item)))
 		{
-			LightLanternByHand();
-			return;
-		}
-		if (item is TorchState torch)
-		{
-			ToggleTorch(torch);
+			ToggleLight(item);
 			return;
 		}
 		if (item.data is IUsableItem usable && usable.ActionProfile != null)

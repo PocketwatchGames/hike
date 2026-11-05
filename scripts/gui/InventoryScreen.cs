@@ -30,9 +30,7 @@ public partial class InventoryScreen : Control
 	[Export] private ItemSlotPanel _weaponRightPanel;
 	// The ammo the right-hand weapon fires.
 	[Export] private ItemSlotPanel _ammoPanel;
-	// The lantern slot — also the HUD's first hotbar entry.
-	[Export] private ItemSlotPanel _lanternPanel;
-	// The belt — the rest of the HUD hotbar — one slot per Inventory.BeltSlots.
+	// The belt — the HUD hotbar — one slot per Inventory.BeltSlots.
 	[Export] private BackpackPanel _beltPanel;
 	[Export] private ItemInfoPanel _highlightPanel;
 	// Asks how many when a hold-to-drop lands on a stack.
@@ -180,7 +178,7 @@ public partial class InventoryScreen : Control
 	// The equip slots shown, in display order.
 	static readonly EInventorySlot[] EquipSlots =
 	{
-		EInventorySlot.Lantern, EInventorySlot.Armor, EInventorySlot.Shield, EInventorySlot.WeaponLeft,
+		EInventorySlot.Armor, EInventorySlot.Shield, EInventorySlot.WeaponLeft,
 		EInventorySlot.WeaponRight, EInventorySlot.Ammo,
 	};
 
@@ -193,7 +191,6 @@ public partial class InventoryScreen : Control
 			EInventorySlot.WeaponLeft => _weaponLeftPanel,
 			EInventorySlot.WeaponRight => _weaponRightPanel,
 			EInventorySlot.Ammo => _ammoPanel,
-			EInventorySlot.Lantern => _lanternPanel,
 			_ => null,
 		};
 	}
@@ -417,7 +414,6 @@ public partial class InventoryScreen : Control
 		{
 			EquipPanel(equip)?.SetItem(inv?.GetEquipped(equip));
 		}
-		_lanternPanel?.SetActive(inv?.LitLantern != null);
 		_beltPanel?.Refresh(inv?.BeltSlots);
 		if (_beltPanel != null)
 		{
@@ -438,8 +434,8 @@ public partial class InventoryScreen : Control
 
 	// ---- Item verbs, shared with StashScreen and MerchantScreen -------------
 
-	// The Equip verb: equip / unequip gear (a spare lantern and ammo included); put
-	// a usable item (a potion, a torch — not a material) on or off the belt.
+	// The Equip verb: equip / unequip gear (ammo included); put a usable item (a
+	// potion, a lantern, a torch — not a material) on or off the belt.
 	public static void ToggleEquip(Player player, ItemState item)
 	{
 		if (EquipVerb(player, item) == null)
@@ -474,7 +470,7 @@ public partial class InventoryScreen : Control
 
 	// The Use verb: use an instant item (mud, a meal) on the member, or start a
 	// press-to-commit timeline (drinking a potion) — the menu stays open while it
-	// plays — or light / put out the lantern-slot lantern or a belt torch. `source` holds the item
+	// plays — or light / put out a belted lantern or torch. `source` holds the item
 	// (null: the member's own inventory). Does nothing for an item with no verb
 	// (gear, a material, or a timeline that needs the button held, which only the
 	// hotbar can drive).
@@ -485,17 +481,9 @@ public partial class InventoryScreen : Control
 		{
 			return;
 		}
-		if (item is LanternState lantern && inv.IsLit(lantern))
+		if (inv.IsLit(item) || player.CanLight(item))
 		{
-			player.SnuffLight();
-		}
-		else if (item is TorchState torch && TorchUsable(inv, torch))
-		{
-			player.ToggleTorch(torch);
-		}
-		else if (item is LanternState && inv.IsEquipped(item) && player.HasLanternOil)
-		{
-			player.LightLanternByHand();
+			player.ToggleLight(item);
 		}
 		else if (item.data is IInstantUseItem { CanUseInstantly: true })
 		{
@@ -507,9 +495,6 @@ public partial class InventoryScreen : Control
 		}
 	}
 
-	// A torch lights only on the belt.
-	static bool TorchUsable(Inventory inv, TorchState torch) => inv.IsBelted(torch);
-
 	// The Use hint's label for `item`, null when it has no verb.
 	public static string UseVerb(Player player, ItemState item)
 	{
@@ -518,15 +503,11 @@ public partial class InventoryScreen : Control
 		{
 			return null;
 		}
-		if (item is LanternState lantern && inv.IsLit(lantern))
+		if (inv.IsLit(item))
 		{
 			return "Extinguish";
 		}
-		if (item is TorchState torch && TorchUsable(inv, torch))
-		{
-			return inv.IsLit(torch) ? "Extinguish" : "Light";
-		}
-		if (item is LanternState && inv.IsEquipped(item) && player.HasLanternOil)
+		if (player.CanLight(item))
 		{
 			return "Light";
 		}
@@ -542,7 +523,7 @@ public partial class InventoryScreen : Control
 	// one's runner doesn't tick (camp's stash can show one).
 	static bool UsableFromMenu(Player player, ItemState item)
 	{
-		return player.IsActive && !item.data.IsEquippable
+		return player.IsActive && !item.data.IsEquippable && item.data is not CarriedLightData
 			&& item.data is IUsableItem { ActionProfile.commitOnPress: true };
 	}
 

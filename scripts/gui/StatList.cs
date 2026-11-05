@@ -657,7 +657,7 @@ public static class StatList
 		}
 	}
 
-	// How full a flask or lantern is: water in hours, oil in units.
+	// How full a flask is: water in hours, oil in units.
 	public static IEnumerable<(string name, string value)> Contents(ItemState item)
 	{
 		string label = GameClient.Current.statNames[EStatName.Contents];
@@ -665,10 +665,6 @@ public static class StatList
 		{
 			string held = $"{StatFormat.Number(flask.amount)} / {StatFormat.Number(flask.data.capacity)}";
 			yield return (label, flask.data.liquid == ELiquid.Water ? held + " h" : held);
-		}
-		else if (item is LanternState lantern)
-		{
-			yield return (label, $"{StatFormat.Number(lantern.oil)} / {StatFormat.Number(lantern.data.oilCapacity)}");
 		}
 	}
 

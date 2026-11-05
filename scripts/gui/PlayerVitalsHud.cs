@@ -38,7 +38,7 @@ public partial class PlayerVitalsHud : VBoxContainer
 	// sneaking (the only state in which block armor actually absorbs), and
 	// bright blue while the parry window is open.
 	[Export] ProgressBar _blockArmorBar;
-	// The member's lantern oil, out of their MaxLanternOil (the lantern plus oil
+	// The member's lantern oil, out of their MaxLanternOil (their own plus oil
 	// flasks, so the bar lengthens as flasks are carried).
 	[Export] ProgressBar _oilBar;
 	[Export] Control _staminaContainer;

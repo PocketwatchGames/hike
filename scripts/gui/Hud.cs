@@ -29,10 +29,9 @@ public partial class Hud : Control
 	// The armor slot, also show button hint for dashing
 	[Export] WeaponHud _armorSlot;
 	[Export] ButtonHint _dashHint;
-	// The hotbar strip, in display order: widget i shows hotbar index i (the
-	// lantern slot, then every belt slot, empty or not) and widgets past the
-	// hotbar's size are hidden, so wire one more than the largest belt armor can
-	// give (1 + PlayerData.beltCapacity + ArmorData.beltSlots).
+	// The hotbar strip, in display order: widget i shows belt slot i, empty or
+	// not, and widgets past the hotbar's size are hidden, so wire as many as the
+	// largest belt armor can give (PlayerData.beltCapacity + ArmorData.beltSlots).
 	[Export] Godot.Collections.Array<WeaponHud> _hotbarSlots = new();
 	// Optional cycle hints beside the strip, shown on the pad only.
 	[Export] ButtonHint _hotbarCycleLeftHint;

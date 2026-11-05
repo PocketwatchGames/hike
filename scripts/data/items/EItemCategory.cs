@@ -20,7 +20,6 @@ public enum EItemCategory
 	Material,
 	// Rounds for a ranged weapon (AmmoData), fired from the Ammo equip slot.
 	Ammo,
-	Lantern,
 	Shield,
 	// Carried vessels (flasks): kept in the backpack, never a cooking reagent and
 	// never picked up on contact.
