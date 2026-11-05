@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="WorldMapData" format=3]
+
+[ext_resource type="Script" uid="uid://q4y8a0jvwr2y" path="res://scripts/data/worldmap/WorldMapData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://bdbma2bpjch5w" path="res://resources/data/world_authoring/terrain_kits/mountain.tres" id="2_ground"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/world_finish_data.tres" id="3_finish"]
+[ext_resource type="Resource" uid="uid://dtl1e2kgvlr3j" path="res://resources/data/world_authoring/terrain/terrain_palette.tres" id="4_palette"]
+[ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="5_sim"]
+
+[resource]
+script = ExtResource("1_script")
+finish = ExtResource("3_finish")
+terrainPalette = ExtResource("4_palette")
+simData = ExtResource("5_sim")
+defaultGround = ExtResource("2_ground")
+sizeChunksX = 32
+sizeChunksZ = 36

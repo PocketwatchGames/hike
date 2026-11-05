@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://dn1uamwxkqjal" path="res://scenes/gui/recipe_button.tscn" id="2_ajy2t"]
 [ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="3_8rtqv"]
 
+
 [node name="StationPanel" type="MarginContainer" unique_id=1417314439 node_paths=PackedStringArray("_itemInputs", "_commitButton", "_announcementContainer", "_announcementLabel", "_announcementIcon", "_recipeButtonContainer", "_noReceipesLabel")]
 script = ExtResource("1_tclfs")
 _itemInputs = [NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/ItemSlotPanel"), NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/ItemSlotPanel2"), NodePath("VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/ItemSlotPanel3")]

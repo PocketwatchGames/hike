@@ -43,6 +43,16 @@ public partial class Sim
         }
     }
 
+    // Called by GameClient once a New Game is playable — not an event like the
+    // others, because only the client knows when the intro story is done.
+    public void DispatchNewGame()
+    {
+        if (_scriptApi != null)
+        {
+            _worldState?.ScriptData?.OnNewGame(_scriptApi);
+        }
+    }
+
     private void DispatchVariableChanged(StringName id)
     {
         _worldState?.ScriptData?.OnVariableChanged(_scriptApi, id);

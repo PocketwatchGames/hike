@@ -22,11 +22,11 @@
 [ext_resource type="PackedScene" uid="uid://dmlruv4p6oc8f" path="res://scenes/fx/sword_charge_tail.tscn" id="8_chgtail"]
 [ext_resource type="PackedScene" uid="uid://dao14hlapsltn" path="res://scenes/fx/club_smear_heavy.tscn" id="9_smearheavy"]
 [ext_resource type="PackedScene" uid="uid://ncybxa3beup5" path="res://scenes/fx/club_smear_light.tscn" id="9_smearlight"]
-[ext_resource type="Texture2D" uid="uid://bna05g3ywr0ca" path="res://assets/textures/items/Hammer.png" id="15_3a20y"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="16_eda6u"]
 [ext_resource type="PackedScene" uid="uid://bs6g5vb3w6472" path="res://scenes/items/mace_held.tscn" id="17_held"]
 [ext_resource type="Resource" uid="uid://bswd4n1msetq7" path="res://resources/data/characters/human/anim_sets/sword.tres" id="20_animset"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
+[ext_resource type="Texture2D" uid="uid://bna05g3ywr0ca" path="res://assets/textures/items/weapons/Hammer.png" id="26_oee8w"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="30_oee8w"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
@@ -228,6 +228,6 @@ repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")]
 displayName = &"Mace"
 description = "A flanged iron head on a stout haft. Heavy and slow, and it rattles whatever it hits."
 value = 50
-inventorySprite = ExtResource("15_3a20y")
+inventorySprite = ExtResource("26_oee8w")
 heldModel = ExtResource("17_held")
 salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])

@@ -70,7 +70,7 @@ public partial class MobSpawnEntry : SpawnEntryData
         {
             return base.NameCandidates(property);
         }
-        Godot.Collections.Array<BehaviorNode> nodes = species?.mob?.brain?.behaviors;
+        Godot.Collections.Array<BehaviorNode> nodes = SpeciesData.BrainFor(species, species?.mob)?.behaviors;
         if (nodes == null)
         {
             return null;

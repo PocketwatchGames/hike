@@ -1,12 +1,12 @@
 [gd_resource type="Resource" script_class="ArmorData" format=3 uid="uid://5q3iyfp2t5mj"]
 
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="1_armor"]
-[ext_resource type="Texture2D" uid="uid://lf6o4djji52u" path="res://assets/textures/items/HelmetGlimp.png" id="2_inv"]
+[ext_resource type="Texture2D" uid="uid://lf6o4djji52u" path="res://assets/textures/items/armor/HelmetGlimp.png" id="2_inv"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="repair_steel"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/beads.tres" id="repair_beads"]
+[ext_resource type="Resource" uid="uid://vcyxumjsqyfg" path="res://resources/data/items/materials/beads.tres" id="repair_beads"]
 
 [sub_resource type="Resource" id="m_nightvision"]
 script = ExtResource("m_script")

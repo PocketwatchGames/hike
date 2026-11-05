@@ -13,7 +13,8 @@ using System.Collections.Generic;
 // State machine:
 //   Hidden    — panel offscreen, no conversation
 //   Typing    — typewriter walking branch.lines; ui_accept reveals
-//               then advances, ui_cancel closes
+//               then advances, ui_cancel closes (unless the
+//               conversation is not dismissable)
 //   Choosing  — response buttons visible, focus on the first one;
 //               gamepad ui_up/ui_down + ui_accept work via the buttons'
 //               native focus chain, ui_cancel still closes from this
@@ -468,7 +469,10 @@ public partial class ConversationController : Control
 		if (e.IsActionPressed("ui_cancel"))
 		{
 			GetViewport().SetInputAsHandled();
-			Close();
+			if (_conversation == null || _conversation.dismissable)
+			{
+				Close();
+			}
 			return;
 		}
 		// Accept-to-advance is only the typewriter's concern. In Choosing

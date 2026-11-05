@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Godot;
 
 // Turns a painted document into a WorldState / .hike. The deterministic half of
@@ -21,9 +21,14 @@ public class WorldMapBake
     // The world under construction. Null until BuildWorld runs.
     public WorldState WorldState;
 
-    public WorldMapBake(WorldMapState map)
+    // Where the .hike is written. The document's own unless a caller redirects
+    // this one bake (worldmap_bake's test-output argument).
+    public readonly string OutputPath;
+
+    public WorldMapBake(WorldMapState map, string outputPath = "")
     {
         Map = map;
+        OutputPath = string.IsNullOrEmpty(outputPath) ? map.Data.OutputWorldPath : outputPath;
     }
 
     // ---- Bake -----------------------------------------------------------
@@ -68,7 +73,7 @@ public class WorldMapBake
         var ws = new WorldState(Map.Data.MinChunk, Map.Data.MaxChunk, Map.Data.simData, palette);
         // A placement's forked entry, and anything that entry authors inline,
         // lives in this document - which is a bake input and does not ship.
-        ws.AuthoringDocument = Map.Data.placementsPath ?? "";
+        ws.AuthoringDocument = Map.Data.PlacementsPath ?? "";
         BindZoneTerrains(palette);
 
         // Runtime zone table comes from the PAINTED palette, so a chunk's stamped
@@ -835,9 +840,9 @@ public class WorldMapBake
     // Step 1 — the painted document to voxels. The long one.
     public bool BakeBuild(System.Action<float, string> progress = null)
     {
-        if (string.IsNullOrEmpty(Map.Data.outputWorldPath))
+        if (string.IsNullOrEmpty(OutputPath))
         {
-            GD.PrintErr("WorldMapState: no OutputWorldPath set, nothing to bake.");
+            GD.PrintErr("WorldMapState: the document has no file, so there is nowhere to bake to.");
             return false;
         }
         _bakeClock = System.Diagnostics.Stopwatch.StartNew();
@@ -887,11 +892,11 @@ public class WorldMapBake
             long relightMs = sw.ElapsedMilliseconds;
             progress?.Invoke(WRITE_FILE_START, "Writing .hike");
             sw.Restart();
-            WorldFile.Write(Map.Data.outputWorldPath, WorldState);
+            WorldFile.Write(OutputPath, WorldState);
             long writeMs = sw.ElapsedMilliseconds;
             progress?.Invoke(1f, "Done");
             long ms = _bakeClock != null ? _bakeClock.ElapsedMilliseconds : 0;
-            GD.Print($"WorldMapState: baked world to {Map.Data.outputWorldPath} in {ms}ms");
+            GD.Print($"WorldMapState: baked world to {OutputPath} in {ms}ms");
             // Phase breakdown, because a bake is minutes and "it was slow" is not
             // a place to start optimizing from.
             GD.Print($"[bake] build={_bakeBuildMs}ms occluderStamp={_bakeStampMs}ms relight={relightMs}ms write={writeMs}ms");

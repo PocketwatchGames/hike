@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="ArmorData" format=3 uid="uid://dyfigpb2rrs57"]
 
-[ext_resource type="Texture2D" uid="uid://cxfdn0d5db6mw" path="res://assets/textures/items/LeatherArmor.png" id="1_kkvw5"]
+[ext_resource type="Texture2D" uid="uid://cxfdn0d5db6mw" path="res://assets/textures/items/armor/LeatherArmor.png" id="1_vsxjd"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_bvjtb"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="9_vsxjd"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
@@ -66,5 +66,5 @@ repair = Array[ExtResource("material_count")]([SubResource("repair_cost_leather"
 displayName = &"Trapper\'s Jerkin"
 description = "Smoke-tanned buckskin, stiff with old grease and patched at the elbows — it turns a thorn or a glancing knife, and smells of every campfire it has known."
 value = 60
-inventorySprite = ExtResource("1_kkvw5")
+inventorySprite = ExtResource("1_vsxjd")
 salvage = Array[ExtResource("material_count")]([SubResource("salvage_leather"), SubResource("salvage_sinew")])

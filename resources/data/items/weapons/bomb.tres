@@ -14,9 +14,9 @@
 [ext_resource type="PackedScene" uid="uid://bm0thrwfx02d" path="res://scenes/fx/bomb_throw.tscn" id="9_throw"]
 [ext_resource type="PackedScene" uid="uid://bm0held3mdl7" path="res://scenes/items/bomb_held.tscn" id="10_held"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_68y43"]
-[ext_resource type="Texture2D" uid="uid://ck8w0sjssnkkb" path="res://assets/textures/items/Bomb.png" id="11_inv"]
+[ext_resource type="Texture2D" uid="uid://ck8w0sjssnkkb" path="res://assets/textures/items/weapons/Bomb.png" id="11_inv"]
 [ext_resource type="Script" uid="uid://cbrtam2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="20_burst"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/gunpowder.tres" id="repair_gunpowder"]
 
 [sub_resource type="Resource" id="Resource_damage_primary"]

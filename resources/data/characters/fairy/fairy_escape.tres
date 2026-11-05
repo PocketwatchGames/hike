@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="FairyEscapeBehaviorData" format=3 uid="uid://djpsxr8n5n8wo"]
+
+[ext_resource type="Script" uid="uid://bfryesc7k2a02" path="res://scripts/data/behaviors/FairyEscapeBehaviorData.cs" id="1_escape"]
+
+[resource]
+script = ExtResource("1_escape")
+behaviorFlags = 2

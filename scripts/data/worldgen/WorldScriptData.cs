@@ -22,6 +22,10 @@ using Godot.Collections;
 [GlobalClass]
 public partial class WorldScriptData : Resource
 {
+    // A New Game's play begins: the party is in the world and the intro story,
+    // if any, has been read. Never on a load, so it runs once per run.
+    public virtual void OnNewGame(WorldScriptApi api) { }
+
     // The in-world clock crossed a sunrise — in play, a nap, or a sleep.
     public virtual void OnDawn(WorldScriptApi api) { }
 

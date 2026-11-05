@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="WorldMapPalettes" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/worldmap/WorldMapPaletteLedger.cs" id="1_elbyw"]
+[ext_resource type="Script" path="res://scripts/data/worldmap/WorldMapPalettes.cs" id="2_hvame"]
+
+[sub_resource type="Resource" id="Resource_elbyw"]
+script = ExtResource("1_elbyw")
+palette = "zones"
+slots = PackedStringArray("res://resources/data/world_authoring/zones/desert.tres", "res://resources/data/world_authoring/zones/desert_howling.tres", "res://resources/data/world_authoring/zones/forest.tres", "res://resources/data/world_authoring/zones/forest_glade.tres", "res://resources/data/world_authoring/zones/forest_summer.tres", "res://resources/data/world_authoring/zones/hub.tres", "res://resources/data/world_authoring/zones/mountain.tres", "res://resources/data/world_authoring/zones/mountain_peaceful.tres", "res://resources/data/world_authoring/zones/mountain_winter.tres", "res://resources/data/world_authoring/zones/ocean_deep.tres", "res://resources/data/world_authoring/zones/sea_foggy.tres", "res://resources/data/world_authoring/zones/sea_stormy.tres", "res://resources/data/world_authoring/zones/sea_temperate.tres", "res://resources/data/world_authoring/zones/sea_tropical.tres", "res://resources/data/world_authoring/zones/snowy_mountain.tres", "res://resources/data/world_authoring/zones/swamp.tres", "res://resources/data/world_authoring/zones/swamp_fire.tres", "res://resources/data/world_authoring/zones/swamp_highlands.tres", "res://resources/data/world_authoring/zones/swamp_mud.tres", "res://resources/data/world_authoring/zones/swamp_village.tres", "res://resources/data/world_authoring/zones/forest_dismal.tres")
+
+[sub_resource type="Resource" id="Resource_hvame"]
+script = ExtResource("1_elbyw")
+palette = "regions"
+slots = PackedStringArray("res://resources/data/worlds/shared/regions/desert.tres", "res://resources/data/worlds/shared/regions/forest.tres", "res://resources/data/worlds/shared/regions/mountain.tres", "res://resources/data/worlds/shared/regions/swamp.tres")
+
+[sub_resource type="Resource" id="Resource_dbefj"]
+script = ExtResource("1_elbyw")
+palette = "terrain_kits"
+slots = PackedStringArray("res://resources/data/world_authoring/terrain_kits/desert.tres", "res://resources/data/world_authoring/terrain_kits/forest.tres", "res://resources/data/world_authoring/terrain_kits/hub.tres", "res://resources/data/world_authoring/terrain_kits/mountain.tres", "res://resources/data/world_authoring/terrain_kits/snowy_mountain.tres", "res://resources/data/world_authoring/terrain_kits/swamp.tres", "res://resources/data/world_authoring/terrain_kits/swamp_fire.tres", "res://resources/data/world_authoring/terrain_kits/swamp_highlands.tres", "res://resources/data/world_authoring/terrain_kits/swamp_mud.tres", "res://resources/data/world_authoring/terrain_kits/swamp_village.tres")
+
+[sub_resource type="Resource" id="Resource_v4uft"]
+script = ExtResource("1_elbyw")
+palette = "props"
+slots = PackedStringArray("res://resources/data/world_authoring/props/beach_rocks.tres", "res://resources/data/world_authoring/props/bone_piles.tres", "res://resources/data/world_authoring/props/boulders.tres", "res://resources/data/world_authoring/props/breakable_rocks.tres", "res://resources/data/world_authoring/props/desert_rocks.tres", "res://resources/data/world_authoring/props/forest_trees.tres", "res://resources/data/world_authoring/props/marsh_willows.tres", "res://resources/data/world_authoring/props/mountain_trees.tres", "res://resources/data/world_authoring/props/pine_stand.tres", "res://resources/data/world_authoring/props/snowy_mountain_trees.tres", "res://resources/data/world_authoring/props/swamp_deadfall.tres", "res://resources/data/world_authoring/props/tall_grass.tres")
+
+[sub_resource type="Resource" id="Resource_6nwur"]
+script = ExtResource("1_elbyw")
+palette = "spawn_scatters"
+slots = PackedStringArray("res://resources/data/world_authoring/spawn_scatters/desert.tres", "res://resources/data/world_authoring/spawn_scatters/forest.tres", "res://resources/data/world_authoring/spawn_scatters/hub.tres", "res://resources/data/world_authoring/spawn_scatters/mountain.tres", "res://resources/data/world_authoring/spawn_scatters/swamp.tres", "res://resources/data/world_authoring/spawn_scatters/swamp_fire.tres", "res://resources/data/world_authoring/spawn_scatters/swamp_highlands.tres", "res://resources/data/world_authoring/spawn_scatters/swamp_mud.tres", "res://resources/data/world_authoring/spawn_scatters/swamp_village.tres")
+
+[sub_resource type="Resource" id="Resource_w0lhe"]
+script = ExtResource("1_elbyw")
+palette = "water_types"
+slots = PackedStringArray("res://resources/data/voxels/blocks/block_water.tres", "res://resources/data/voxels/blocks/block_water_clear.tres", "res://resources/data/voxels/blocks/block_water_murky.tres", "res://resources/data/voxels/blocks/block_water_scum_green_full.tres", "res://resources/data/voxels/blocks/block_water_scum_green_partial.tres", "res://resources/data/voxels/blocks/block_water_scum_red_partial.tres")
+
+[sub_resource type="Resource" id="Resource_ri6dy"]
+script = ExtResource("1_elbyw")
+palette = "building_blocks"
+slots = PackedStringArray("res://resources/data/voxels/blocks/block_cave_limestone.tres", "res://resources/data/voxels/blocks/block_cave_sandstone.tres", "res://resources/data/voxels/blocks/block_cobblestone.tres", "res://resources/data/voxels/blocks/block_desert_ground.tres", "res://resources/data/voxels/blocks/block_dirt.tres", "res://resources/data/voxels/blocks/block_forest_soil.tres", "res://resources/data/voxels/blocks/block_grass.tres", "res://resources/data/voxels/blocks/block_marsh_ground.tres", "res://resources/data/voxels/blocks/block_mud.tres", "res://resources/data/voxels/blocks/block_road.tres", "res://resources/data/voxels/blocks/block_rock.tres", "res://resources/data/voxels/blocks/block_sand.tres", "res://resources/data/voxels/blocks/block_snow.tres", "res://resources/data/voxels/blocks/block_stone.tres")
+
+[resource]
+script = ExtResource("2_hvame")
+ledgers = [SubResource("Resource_elbyw"), SubResource("Resource_hvame"), SubResource("Resource_dbefj"), SubResource("Resource_v4uft"), SubResource("Resource_6nwur"), SubResource("Resource_w0lhe"), SubResource("Resource_ri6dy")]

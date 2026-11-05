@@ -19,7 +19,7 @@
 [ext_resource type="PackedScene" uid="uid://dmlruv4p6oc8f" path="res://scenes/fx/sword_charge_tail.tscn" id="8_chgtail"]
 [ext_resource type="PackedScene" uid="uid://dao14hlapsltn" path="res://scenes/fx/club_smear_heavy.tscn" id="9_smearheavy"]
 [ext_resource type="PackedScene" uid="uid://ncybxa3beup5" path="res://scenes/fx/club_smear_light.tscn" id="9_smearlight"]
-[ext_resource type="Texture2D" uid="uid://bamasnw1w56u3" path="res://assets/textures/items/Sword.png" id="15_3a20y"]
+[ext_resource type="Texture2D" uid="uid://bamasnw1w56u3" path="res://assets/textures/items/weapons/Sword.png" id="15_3a20y"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="16_eda6u"]
 [ext_resource type="PackedScene" path="res://scenes/items/saber_held.tscn" id="17_held"]
 [ext_resource type="Resource" uid="uid://bswd4n1msetq7" path="res://resources/data/characters/human/anim_sets/sword.tres" id="20_animset"]

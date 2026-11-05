@@ -295,9 +295,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             if (!IsEmptyName(_simState?.InitialBehavior)) { return _simState.InitialBehavior; }
             if (!IsEmptyName(mobData?.defaultBehavior)) { return mobData.defaultBehavior; }
-            return mobData?.brain?.idleBehavior;
+            return Brain?.idleBehavior;
         }
     }
+
+    // The species' brain where it overrides one, else the mob's.
+    public BrainData Brain => SpeciesData.BrainFor(_simState?.Species, mobData);
+
+    // The species' team where it overrides one, else the mob's. Before taming.
+    public ETeam BaseTeam => SpeciesData.TeamFor(_simState?.Species, mobData);
 
     private static bool IsEmptyName(StringName n) => n == null || n.ToString().Length == 0;
     // True when this mob is the player's companion/pet (drives the follow/stay
@@ -1373,8 +1379,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
     // Effective faction. A tamed companion overrides its authored wild team
     // (Prey) to Friendly — joining the player's side for friendly-fire and
-    // HUD purposes (see Teams.AreAllied). All other mobs use MobData.team.
-    public ETeam ActorTeam => (_simState != null && _simState.Tamed) ? ETeam.Friendly : (mobData?.team ?? ETeam.Hostile);
+    // HUD purposes (see Teams.AreAllied). All other mobs use BaseTeam.
+    public ETeam ActorTeam => (_simState != null && _simState.Tamed) ? ETeam.Friendly : BaseTeam;
 
     // `animDuration` > 0 retimes the clip to run for exactly that many seconds
     // (an attack filling its action's Active window — see ItemEvent.animDuration);
@@ -1765,12 +1771,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _world?.PromoteCompanionToPersistent(this);
     }
 
-    private void SpeakDialogue()
+    // Opens this mob's conversation — the Talk verb, or a world script
+    // (WorldScriptApi.StartConversation). False when it has none.
+    public bool SpeakDialogue()
     {
         ConversationData conversation = _simState?.Conversation;
         if (conversation == null)
         {
-            return;
+            return false;
         }
         // Per-instance Language on the SimState wins over MobData.language —
         // lets WorldGen pin a language onto a shared MobData without
@@ -1787,6 +1795,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             speakerVoice = _voice,
         };
         GameClient.Current?.onConversation?.Invoke(conversation, ctx);
+        return true;
     }
 
     // A villager's own look wins, then the species variant's, then the base mob's
@@ -4515,7 +4524,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // MaxListenerHearingRange caps how far any receiver's hearing reaches.
             _yellReceivers.Clear();
             _world.MobSpatialHash.QueryRadius(GlobalPosition, MaxListenerHearingRange, _yellReceivers, exclude: this);
-            ETeam yellerTeam = mobData.team;
+            ETeam yellerTeam = BaseTeam;
             foreach (Mob mob in _yellReceivers)
             {
                 MobData receiverData = mob.mobData;
@@ -4530,7 +4539,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 {
                     continue;
                 }
-                bool lookOnly = receiverData.team != yellerTeam;
+                bool lookOnly = mob.BaseTeam != yellerTeam;
                 mob.Investigate(
                     point,
                     receiverData.investigateRange,

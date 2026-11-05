@@ -21,10 +21,10 @@
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_req"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="9_state"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="12_continuous"]
-[ext_resource type="Texture2D" uid="uid://e1r7kjk5qyau" path="res://assets/textures/items/Knife.png" id="15_sprite"]
 [ext_resource type="PackedScene" uid="uid://ce444jxc8syqg" path="res://scenes/items/knife_held.tscn" id="17_held"]
 [ext_resource type="Resource" uid="uid://ctqy5r6q3jmsx" path="res://resources/data/characters/human/anim_sets/knife.tres" id="20_animset"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
+[ext_resource type="Texture2D" uid="uid://e1r7kjk5qyau" path="res://assets/textures/items/weapons/Knife.png" id="26_nxnxc"]
 [ext_resource type="Resource" uid="uid://bv6a3ii0w5p06" path="res://resources/data/status_effects/status_bleeding.tres" id="bleeding"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="buildup_script"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
@@ -249,7 +249,7 @@ repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")]
 displayName = &"Hunting Knife"
 description = "A light, fast blade. Cuts that reach flesh make it bleed; extra damage from behind, and keen enough to butcher a kill."
 value = 50
-inventorySprite = ExtResource("15_sprite")
+inventorySprite = ExtResource("26_nxnxc")
 heldModel = ExtResource("17_held")
 salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])
 toolUses = Array[ExtResource("tool_use")]([SubResource("ToolUse_main")])

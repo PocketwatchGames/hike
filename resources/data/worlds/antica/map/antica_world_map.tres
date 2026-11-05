@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WorldMapData" format=3 uid="uid://cue41dirkpa48"]
+
+[ext_resource type="Resource" uid="uid://bdbma2bpjch5w" path="res://resources/data/world_authoring/terrain_kits/mountain.tres" id="1_wsiev"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/world_finish_data.tres" id="2_sc7q2"]
+[ext_resource type="Script" uid="uid://q4y8a0jvwr2y" path="res://scripts/data/worldmap/WorldMapData.cs" id="3_yaj1y"]
+[ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="4_jibq2"]
+[ext_resource type="Resource" uid="uid://xygbjhyweyc1" path="res://resources/data/worlds/antica/world_start_antica.tres" id="5_buh7e"]
+[ext_resource type="Resource" uid="uid://dtl1e2kgvlr3j" path="res://resources/data/world_authoring/terrain/terrain_palette.tres" id="6_wyn31"]
+
+[resource]
+script = ExtResource("3_yaj1y")
+startContent = ExtResource("5_buh7e")
+finish = ExtResource("2_sc7q2")
+terrainPalette = ExtResource("6_wyn31")
+simData = ExtResource("4_jibq2")
+defaultGround = ExtResource("1_wsiev")
+sizeChunksX = 32
+sizeChunksZ = 36

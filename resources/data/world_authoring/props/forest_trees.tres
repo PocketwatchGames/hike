@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="PropListData" format=3 uid="uid://bh17llh3mktyf"]
 
-[ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
-[ext_resource type="Script" uid="uid://mcl599wl0ordv" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
+[ext_resource type="Script" uid="uid://c0mfvq6fqt4gq" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://qeki35ub243l" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
 [ext_resource type="PackedScene" uid="uid://dahcrnl7vm3km" path="res://scenes/props/rock4.tscn" id="12_rx8im"]
 [ext_resource type="PackedScene" uid="uid://beodxq0b470rt" path="res://scenes/props/rock5.tscn" id="13_tq8oo"]
 [ext_resource type="PackedScene" uid="uid://b6ep4v48e1gt" path="res://scenes/props/rock6.tscn" id="14_bxjrd"]
@@ -41,9 +41,9 @@ weight = 2.0
 
 [sub_resource type="Resource" id="e_3"]
 script = ExtResource("2_row")
+tier = 3
 scene = ExtResource("sc_3")
 weight = 2.0
-tier = 3
 
 [sub_resource type="Resource" id="e_4"]
 script = ExtResource("2_row")
@@ -122,5 +122,4 @@ scene = ExtResource("sc_b8")
 [resource]
 script = ExtResource("1_list")
 displayName = "Forest Trees"
-mapColor = Color(0, 0, 0, 1)
 scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("e_2"), SubResource("e_3"), SubResource("e_4"), SubResource("e_5"), SubResource("e_6"), SubResource("e_7"), SubResource("e_8"), SubResource("e_9"), SubResource("Resource_wkhyt"), SubResource("Resource_fjj5n"), SubResource("Resource_1kd54"), SubResource("e_bs1"), SubResource("e_bs2"), SubResource("e_bs3"), SubResource("e_bs4"), SubResource("e_b5"), SubResource("e_b6"), SubResource("e_b7"), SubResource("e_b8")]

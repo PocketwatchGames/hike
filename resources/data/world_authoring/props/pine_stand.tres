@@ -1,25 +1,138 @@
-[gd_resource type="Resource" script_class="PropListData" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="PropListData" format=3 uid="uid://cjmv33aspfv25"]
 
-[ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
-[ext_resource type="Script" uid="uid://mcl599wl0ordv" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
+[ext_resource type="Script" uid="uid://c0mfvq6fqt4gq" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://qeki35ub243l" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
+[ext_resource type="PackedScene" uid="uid://dck6y1lgn4of8" path="res://scenes/props/rock_granite_1.tscn" id="4_vd2vb"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_2.tscn" id="5_f5ha2"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_3.tscn" id="6_r1kmi"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_4.tscn" id="7_veqhi"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_5.tscn" id="8_hswy3"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_6.tscn" id="9_1g07q"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_big1.tscn" id="10_imf4a"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_big2.tscn" id="11_4e0a6"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_big3.tscn" id="12_4jmvb"]
+[ext_resource type="PackedScene" uid="uid://5ms106hlrlms" path="res://scenes/props/tree_sequoia.tscn" id="13_sd7py"]
+[ext_resource type="PackedScene" uid="uid://b3eik2wv087fj" path="res://scenes/props/tree_sequoia_dead.tscn" id="14_18bg8"]
+[ext_resource type="PackedScene" uid="uid://ngyyjovwf6to" path="res://scenes/props/bush_01.tscn" id="15_t4rhu"]
+[ext_resource type="PackedScene" uid="uid://c55djo6ltlx45" path="res://scenes/props/bush_02.tscn" id="16_pguy2"]
+[ext_resource type="PackedScene" uid="uid://xhsasaphibi8" path="res://scenes/props/bush_03.tscn" id="17_txdvi"]
+[ext_resource type="PackedScene" uid="uid://m8i6fl11f8pg" path="res://scenes/props/bush_04.tscn" id="18_1a5wn"]
+[ext_resource type="PackedScene" uid="uid://b2ofxysedy4e1" path="res://scenes/props/bush_05.tscn" id="19_2j4n5"]
+[ext_resource type="PackedScene" uid="uid://dadtbftka62g7" path="res://scenes/props/bush_06.tscn" id="20_rdrse"]
+[ext_resource type="PackedScene" uid="uid://d0p0skp4l0qc6" path="res://scenes/props/bush_07.tscn" id="21_u0gik"]
+[ext_resource type="PackedScene" uid="uid://bmw6derouor6x" path="res://scenes/props/bush_08.tscn" id="22_a4jq1"]
 [ext_resource type="PackedScene" uid="uid://dgf3lsf0f6ngm" path="res://scenes/props/tree_pine.tscn" id="sc_0"]
 [ext_resource type="PackedScene" uid="uid://w7si8tgx547d" path="res://scenes/props/tree_pine_dead.tscn" id="sc_1"]
 
 [sub_resource type="Resource" id="e_0"]
 script = ExtResource("2_row")
-scene = ExtResource("sc_0")
-weight = 4.0
 tier = 3
+scene = ExtResource("sc_0")
+weight = 50.0
 
 [sub_resource type="Resource" id="e_1"]
 script = ExtResource("2_row")
-scene = ExtResource("sc_1")
 tier = 3
+scene = ExtResource("sc_1")
+weight = 10.0
+
+[sub_resource type="Resource" id="Resource_u2paq"]
+script = ExtResource("2_row")
+scene = ExtResource("4_vd2vb")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_gmvgn"]
+script = ExtResource("2_row")
+scene = ExtResource("5_f5ha2")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_6a5a6"]
+script = ExtResource("2_row")
+scene = ExtResource("6_r1kmi")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_ul3fm"]
+script = ExtResource("2_row")
+scene = ExtResource("7_veqhi")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_05of8"]
+script = ExtResource("2_row")
+scene = ExtResource("8_hswy3")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_myw5x"]
+script = ExtResource("2_row")
+scene = ExtResource("9_1g07q")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_3cw6o"]
+script = ExtResource("2_row")
+scene = ExtResource("10_imf4a")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_ok8ye"]
+script = ExtResource("2_row")
+scene = ExtResource("11_4e0a6")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_baibv"]
+script = ExtResource("2_row")
+scene = ExtResource("12_4jmvb")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_8ivxj"]
+script = ExtResource("2_row")
+scene = ExtResource("13_sd7py")
+weight = 10.0
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_8kq7p"]
+script = ExtResource("2_row")
+scene = ExtResource("14_18bg8")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_50g6s"]
+script = ExtResource("2_row")
+scene = ExtResource("15_t4rhu")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_70i2m"]
+script = ExtResource("2_row")
+scene = ExtResource("16_pguy2")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_2dxkx"]
+script = ExtResource("2_row")
+scene = ExtResource("17_txdvi")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_e65dp"]
+script = ExtResource("2_row")
+scene = ExtResource("18_1a5wn")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_qc2hq"]
+script = ExtResource("2_row")
+scene = ExtResource("19_2j4n5")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_xdnrq"]
+script = ExtResource("2_row")
+scene = ExtResource("20_rdrse")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_iqcji"]
+script = ExtResource("2_row")
+scene = ExtResource("21_u0gik")
+metadata/_custom_type_script = "uid://qeki35ub243l"
+
+[sub_resource type="Resource" id="Resource_lrhm2"]
+script = ExtResource("2_row")
+scene = ExtResource("22_a4jq1")
+metadata/_custom_type_script = "uid://qeki35ub243l"
 
 [resource]
 script = ExtResource("1_list")
 displayName = "Pine Stand"
-mapColor = Color(0, 0, 0, 1)
-scenes = [SubResource("e_0"), SubResource("e_1")]
-barrierDepthMeters = 3
-interiorHoleChance = 0.5
+scenes = [SubResource("e_0"), SubResource("e_1"), SubResource("Resource_u2paq"), SubResource("Resource_gmvgn"), SubResource("Resource_6a5a6"), SubResource("Resource_ul3fm"), SubResource("Resource_05of8"), SubResource("Resource_myw5x"), SubResource("Resource_3cw6o"), SubResource("Resource_ok8ye"), SubResource("Resource_baibv"), SubResource("Resource_8ivxj"), SubResource("Resource_8kq7p"), SubResource("Resource_50g6s"), SubResource("Resource_70i2m"), SubResource("Resource_2dxkx"), SubResource("Resource_e65dp"), SubResource("Resource_qc2hq"), SubResource("Resource_xdnrq"), SubResource("Resource_iqcji"), SubResource("Resource_lrhm2")]

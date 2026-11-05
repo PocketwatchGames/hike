@@ -942,6 +942,10 @@ public partial class GameClient : Node3D
 		{
 			WakeAtHome();
 		}
+		else
+		{
+			_world.DispatchNewGame();
+		}
 	}
 
 	// A real tree pause, but not the pause MENU (`paused` stays false); the input
@@ -953,6 +957,9 @@ public partial class GameClient : Node3D
 		{
 			GetTree().Paused = false;
 			InputSuppressed = false;
+			// Deferred: the click that closed the card must not also reach
+			// whatever the script opens (a conversation would take it as accept).
+			Callable.From(() => _world?.DispatchNewGame()).CallDeferred();
 		});
 	}
 

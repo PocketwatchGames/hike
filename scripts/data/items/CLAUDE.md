@@ -73,6 +73,9 @@ gear**, at the event's own site — weapons by uses, armor and shields by damage
   (`status_gear_sturdy` 0.5, `status_gear_brittle` 2.0). It is folded off the
   item's own controller (`GearState.ComposeWearMultiplier`), never the wearer's.
   Those mods carry an empty `weaponMod` only so the name affix applies.
+- **Armor amount scales the same way**: an `EStat.MaxArmorMultiplier` mod scales
+  that piece's own armor points (`ArmorState.ComposeMaxArmor`), never the
+  wearer's pool. A flat bonus to the wearer stays `EStat.MaxArmor`.
 
 ## Ammo (`AmmoData`, `WeaponData.ammoType`)
 

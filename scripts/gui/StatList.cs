@@ -400,6 +400,7 @@ public static class StatList
 			EStat.Camouflage => EStatName.Camouflage,
 			EStat.MaxStamina => EStatName.MaxStamina,
 			EStat.MaxArmor => EStatName.Armor,
+			EStat.MaxArmorMultiplier => EStatName.Armor,
 			EStat.MaxHealth => EStatName.Health,
 			EStat.ColdResist => EStatName.ColdResist,
 			EStat.HeatResist => EStatName.HeatResist,
@@ -591,9 +592,10 @@ public static class StatList
 			yield break;
 		}
 		Dictionary<EStatName, string> names = GameClient.Current.statNames;
-		if (data.maxArmor > 0f)
+		float maxArmor = armor.ComposeMaxArmor();
+		if (maxArmor > 0f)
 		{
-			yield return (names[EStatName.Armor], StatFormat.Number(data.maxArmor));
+			yield return (names[EStatName.Armor], StatFormat.Number(maxArmor));
 		}
 		foreach (var entry in Modifiers(data.modifiers))
 		{

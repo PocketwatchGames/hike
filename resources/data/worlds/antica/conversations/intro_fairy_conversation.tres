@@ -1,0 +1,57 @@
+[gd_resource type="Resource" script_class="ConversationData" format=3]
+
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="Script_ConversationData"]
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]
+[ext_resource type="Script" uid="uid://drrpmtebgfwg0" path="res://scripts/data/conversation/ConversationLine.cs" id="Script_ConversationLine"]
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
+[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
+[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
+[ext_resource type="Script" uid="uid://hs2aa8y8pqsyk" path="res://scripts/data/conversation/actions/StartQuestAction.cs" id="Script_StartQuestAction"]
+[ext_resource type="Resource" uid="uid://jqpw6pijk3a92" path="res://resources/data/worlds/antica/quests/find_festering_man.tres" id="Quest_find_festering_man"]
+[ext_resource type="Script" uid="uid://mrnerfan3gnb9" path="res://scripts/data/conversation/actions/SetSpeakerBehaviorAction.cs" id="Script_SetSpeakerBehaviorAction"]
+
+[sub_resource type="Resource" id="Inline_1"]
+script = ExtResource("Script_StartQuestAction")
+quest = ExtResource("Quest_find_festering_man")
+
+[sub_resource type="Resource" id="Inline_2"]
+script = ExtResource("Script_SetSpeakerBehaviorAction")
+behavior = &"Escape"
+
+[sub_resource type="Resource" id="Entry_1"]
+script = ExtResource("Script_ConversationEntry")
+branch = &"greeting"
+
+[sub_resource type="Resource" id="Line_greeting_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_greeting_01"
+
+[sub_resource type="Resource" id="Line_greeting_2"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_greeting_02"
+
+[sub_resource type="Resource" id="Line_greeting_3"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_greeting_03"
+
+[sub_resource type="Resource" id="Line_greeting_4"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_greeting_04"
+
+[sub_resource type="Resource" id="Line_greeting_5"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_greeting_05"
+completeActions = Array[Object]([SubResource("Inline_1"), SubResource("Inline_2")])
+
+[sub_resource type="Resource" id="Branch_greeting"]
+script = ExtResource("Script_ConversationBranch")
+name = &"greeting"
+lines = [SubResource("Line_greeting_1"), SubResource("Line_greeting_2"), SubResource("Line_greeting_3"), SubResource("Line_greeting_4"), SubResource("Line_greeting_5")]
+
+[resource]
+script = ExtResource("Script_ConversationData")
+entryBranches = [SubResource("Entry_1")]
+branches = [SubResource("Branch_greeting")]
+responseGroups = []
+descriptionLocKey = &"intro_fairy_description"
+dismissable = false

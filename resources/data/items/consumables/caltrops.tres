@@ -7,11 +7,11 @@
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="PackedScene" path="res://scenes/fx/caltrops_aoe.tscn" id="5_aoe"]
-[ext_resource type="Texture2D" uid="uid://dc1jfyggey0dd" path="res://assets/textures/items/ThrowingStars.png" id="6_inv"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="6_yfuu2"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_ab3qo"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="7_input"]
 [ext_resource type="Resource" uid="uid://d0y12rtrmtgie" path="res://resources/data/items/loot/spider_legs.tres" id="8_legs"]
+[ext_resource type="Texture2D" uid="uid://dc1jfyggey0dd" path="res://assets/textures/items/weapons/ThrowingStars.png" id="9_1wvor"]
 [ext_resource type="Resource" uid="uid://d0ghc0filpfpn" path="res://resources/data/items/loot/mushroom_black.tres" id="9_black"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="15_1wvor"]
 [ext_resource type="Script" uid="uid://ci8leenexn3d1" path="res://scripts/data/items/CraftRecipeData.cs" id="recipe_data"]
@@ -62,5 +62,5 @@ unidentifiedDisplayName = &"Unknown Potion"
 description = "Scatters iron spikes at your feet. Anything that walks through them is badly slowed."
 maxStack = 5
 value = 12
-inventorySprite = ExtResource("6_inv")
+inventorySprite = ExtResource("9_1wvor")
 recipe = SubResource("Recipe")

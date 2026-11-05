@@ -34,4 +34,5 @@ public enum EStat
 	HungerDrainRate = 22,     // multiplicative — scale on how fast the hunger meter empties (Cold sets it)
 	ThirstDrainRate = 23,     // multiplicative — scale on how fast the thirst meter empties (Hot sets it)
 	FatigueDrainRate = 24,    // multiplicative — scale on how fast the fatigue meter empties
+	MaxArmorMultiplier = 25,  // multiplicative — scale on a piece of armor's own armor points. Read off the ITEM's own composed mods (ArmorState.ComposeMaxArmor), never the wearer's
 }

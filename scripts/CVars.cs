@@ -1,4 +1,4 @@
-﻿public static class CVars
+public static class CVars
 {
     // The one save slot: written when the party wakes at a campfire, read by Load Game.
     public static CVarString savePath = new CVarString("savepath", "user://savegame.dat");
@@ -137,7 +137,7 @@
     //   worldmap_bake res://.../default_world_map.tres [res://out.hike]
     // Runs the same three steps Ctrl+S does (build, occluder stamp, relight +
     // write), straight through on this thread. The optional second argument
-    // overrides the document's authored outputWorldPath IN MEMORY ONLY, so a
+    // redirects this one bake away from the document's own .hike, so a
     // test bake cannot overwrite the real world. Minutes on a large document.
     public static CVarString worldMapBake = new CVarString("worldmap_bake", "", (cvar) =>
     {
@@ -154,25 +154,22 @@
             Godot.GD.PrintErr($"worldmap_bake: could not load '{parts[0]}'");
             return;
         }
-        if (parts.Length > 1)
-        {
-            data.outputWorldPath = parts[1];
-        }
+        string output = parts.Length > 1 ? parts[1] : data.OutputWorldPath;
         var sw = System.Diagnostics.Stopwatch.StartNew();
         // Report what actually happened. The write is the LAST thing a bake does
         // and the most likely thing to fail (a running game or editor holds the
         // .hike open), so printing the elapsed time unconditionally announces a
         // world that was never written — and the blob left on disk is the stale
         // one from whenever the last bake succeeded.
-        bool ok = data.BakeToWorldFile();
+        bool ok = data.BakeToWorldFile(output);
         if (!ok)
         {
             Godot.GD.PrintErr($"worldmap_bake: FAILED after {sw.ElapsedMilliseconds}ms, "
-                + $"'{data.outputWorldPath}' NOT written (see the error above; if it is a file lock, "
+                + $"'{output}' NOT written (see the error above; if it is a file lock, "
                 + "check for a running game or editor, or a stray headless Godot process)");
             return;
         }
-        Godot.GD.Print($"worldmap_bake: {sw.ElapsedMilliseconds}ms -> {data.outputWorldPath}");
+        Godot.GD.Print($"worldmap_bake: {sw.ElapsedMilliseconds}ms -> {output}");
     });
 
     // Build the initial world fill's ~535 chunk geometries on the thread pool

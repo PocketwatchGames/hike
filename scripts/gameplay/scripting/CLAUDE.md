@@ -34,10 +34,10 @@ Mod-friendly and quick to author, kept safe by a declared set + two-layer valida
 
 ## World scripts — logic per world
 
-`WorldScriptData` (the world's `WorldStartData.scriptData`) has virtual hooks — `OnDawn`, `OnRest`, `OnNightfall`, `OnVariableChanged`, `OnMobKilled` — that `Sim` calls (`Sim.WorldScript.cs`). A world that needs logic subclasses it (`scripts/world_scripts/TestWorldScript.cs`) and its `.tres` names the subclass.
+`WorldScriptData` (the world's `WorldStartData.scriptData`) has virtual hooks — `OnNewGame`, `OnDawn`, `OnRest`, `OnNightfall`, `OnVariableChanged`, `OnMobKilled` — that `Sim` calls (`Sim.WorldScript.cs`). `OnNewGame` is the one the CLIENT fires (`Sim.DispatchNewGame`), once a New Game is playable — after the intro story, deferred so the click that closed it reaches nothing — and never on a load, so it needs no run-once variable. A world that needs logic subclasses it (`scripts/world_scripts/TestWorldScript.cs`) and its `.tres` names the subclass.
 
 - **A script holds no state.** It is a shared resource and nothing on it is saved; whatever it must remember goes in a script variable. `TestWorldScript`'s `town_gate_locked` is both the gate's disabled variable and its run-once guard.
-- **A script reaches the game only through `WorldScriptApi`** — variables, `OpenDoor` / `CloseDoor` by placement name. Add a verb there rather than handing out `Sim`; it is the surface a future data-driven trigger would share.
+- **A script reaches the game only through `WorldScriptApi`** — variables, `OpenDoor` / `CloseDoor` and `StartConversation` (the named mob's own conversation, as if talked to; it must be streamed in) by placement name. Add a verb there rather than handing out `Sim`; it is the surface a future data-driven trigger would share.
 - **Named entities:** a painter placement's `name` is stamped onto `EntitySimState.Name`; `WorldState.FindNamed` finds it whether or not it is streamed in, which is why a door opens in the sim (`Sim.SetDoorOpen`) and the node, if any, follows.
 - **Variable names written in C# are invisible to `validate_script_vars`** — declare every one in a registry; the bank warns at runtime on an undeclared name.
 - **Modding:** a data-only mod can use every existing script class. A mod shipping its OWN C# script would need its assembly loaded and its types registered with Godot, which Godot .NET does not support out of the box.

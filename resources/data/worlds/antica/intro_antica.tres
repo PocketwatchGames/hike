@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="StoryData" format=3 uid="uid://imcfg6krandj"]
+
+[ext_resource type="Texture2D" uid="uid://gpgvhtiob16j" path="res://assets/textures/gui/story/intro_placeholder.png" id="1_170o6"]
+[ext_resource type="Script" uid="uid://b3g8lng6af6ed" path="res://scripts/data/world/StoryData.cs" id="2_ymqqq"]
+
+[resource]
+script = ExtResource("2_ymqqq")
+image = ExtResource("1_170o6")
+paragraphs = Array[StringName]([&"story_intro_antica_01", &"story_intro_antica_02", &"story_intro_antica_03"])

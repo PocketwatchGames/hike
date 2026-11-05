@@ -47,4 +47,8 @@ public partial class ConversationData : Resource
     // unset = an anonymous source, and the box is hidden.
     [Export] public StringName nameLocKey;
     [Export] public StringName descriptionLocKey;
+
+    // False = ui_cancel does nothing; the player can only read it through. Set
+    // by the sheet's `options` column (`undismissable`).
+    [Export] public bool dismissable = true;
 }

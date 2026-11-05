@@ -125,7 +125,7 @@ public partial class Player : CharacterBody3D
 	{
 		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data != null)
 		{
-			total += armor.EffectiveMaxArmor;
+			total += armor.ComposeMaxArmor();
 		}
 	}
 
@@ -186,8 +186,8 @@ public partial class Player : CharacterBody3D
 		}
 		ArmorState helmet = _inventory.GetEquipped(EInventorySlot.Helmet) as ArmorState;
 		ArmorState body = _inventory.GetEquipped(EInventorySlot.Armor) as ArmorState;
-		float helmetShare = helmet?.EffectiveMaxArmor ?? 0f;
-		float bodyShare = body?.EffectiveMaxArmor ?? 0f;
+		float helmetShare = helmet?.ComposeMaxArmor() ?? 0f;
+		float bodyShare = body?.ComposeMaxArmor() ?? 0f;
 		float total = helmetShare + bodyShare;
 		if (total <= 0f)
 		{

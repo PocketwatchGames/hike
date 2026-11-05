@@ -6,8 +6,8 @@
 [ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="4_dizzy"]
 [ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="5_parryfx"]
 [ext_resource type="PackedScene" path="res://scenes/items/shield_heater_held.tscn" id="6_held"]
-[ext_resource type="Texture2D" uid="uid://s0u3880g3w8n" path="res://assets/textures/items/ShieldLarge.png" id="7_icon"]
-[ext_resource type="Script" uid="uid://l6gx1iwvvcgsx" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
+[ext_resource type="Texture2D" uid="uid://s0u3880g3w8n" path="res://assets/textures/items/weapons/ShieldLarge.png" id="7_icon"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/iron.tres" id="repair_iron"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/leather.tres" id="repair_leather"]
 

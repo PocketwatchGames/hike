@@ -17,7 +17,8 @@ class TresWriter
 
 	readonly List<ResRef> _externals = new List<ResRef>();
 	readonly Dictionary<string, string> _externalIds = new Dictionary<string, string>(StringComparer.Ordinal);
-	// Inline cells (npcvar: / var: / spawn_loot: / teach: / understands) become sub-resources rather
+	// Inline cells (npcvar: / var: / spawn_loot: / teach: / start_quest: /
+	// complete_quest: / behavior: / understands) become sub-resources rather
 	// than named files, so they need ids of their own. Reset per character alongside
 	// the rest.
 	readonly StringBuilder _inlineSubResources = new StringBuilder();
@@ -147,6 +148,10 @@ class TresWriter
 		{
 			body.AppendLine($"descriptionLocKey = &\"{character.DescriptionKey}\"");
 		}
+		if (!character.Dismissable)
+		{
+			body.AppendLine("dismissable = false");
+		}
 
 		var file = new StringBuilder();
 		string uidAttribute = existingUid != null ? $" uid=\"{existingUid}\"" : "";
@@ -193,6 +198,11 @@ class TresWriter
 		if (TeachCell.IsTeachToken(name))
 		{
 			_report.Error(row, $"'{name}' teaches something - that is an action, not a condition (the gate for 'does the player know it yet' is e.g. 'understands<100%')");
+			return;
+		}
+		if (QuestCell.IsQuestToken(name) || BehaviorCell.IsBehaviorToken(name))
+		{
+			_report.Error(row, $"'{name}' is an action, not a condition");
 			return;
 		}
 		if (UnderstandsCell.IsUnderstandsToken(name))
@@ -272,6 +282,24 @@ class TresWriter
 				if (gift != null)
 				{
 					ids.Add($"SubResource(\"{AppendGift(gift)}\")");
+				}
+				continue;
+			}
+			if (QuestCell.IsQuestToken(name))
+			{
+				QuestRef quest = QuestCell.Parse(name, _index, character.World, row, _report);
+				if (quest != null)
+				{
+					ids.Add($"SubResource(\"{AppendQuest(quest)}\")");
+				}
+				continue;
+			}
+			if (BehaviorCell.IsBehaviorToken(name))
+			{
+				string node = BehaviorCell.Parse(name, row, _report);
+				if (node != null)
+				{
+					ids.Add($"SubResource(\"{AppendBehavior(node)}\")");
 				}
 				continue;
 			}
@@ -371,6 +399,26 @@ class TresWriter
 		_inlineSubResources.AppendLine($"concepts = Array[ExtResource(\"{ScriptId("TeachableConcept")}\")]([SubResource(\"{conceptId}\")])");
 		_inlineSubResources.AppendLine();
 		return teachId;
+	}
+
+	string AppendQuest(QuestRef quest)
+	{
+		string id = NextInlineId();
+		_inlineSubResources.AppendLine($"[sub_resource type=\"Resource\" id=\"{id}\"]");
+		_inlineSubResources.AppendLine($"script = ExtResource(\"{ScriptId(quest.ActionClass)}\")");
+		_inlineSubResources.AppendLine($"quest = ExtResource(\"{ExternalId(quest.Quest, "Quest")}\")");
+		_inlineSubResources.AppendLine();
+		return id;
+	}
+
+	string AppendBehavior(string node)
+	{
+		string id = NextInlineId();
+		_inlineSubResources.AppendLine($"[sub_resource type=\"Resource\" id=\"{id}\"]");
+		_inlineSubResources.AppendLine($"script = ExtResource(\"{ScriptId("SetSpeakerBehaviorAction")}\")");
+		_inlineSubResources.AppendLine($"behavior = &\"{node}\"");
+		_inlineSubResources.AppendLine();
+		return id;
 	}
 
 	string AppendUnderstands(UnderstandsRef gate)

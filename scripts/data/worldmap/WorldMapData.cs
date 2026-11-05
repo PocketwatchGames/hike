@@ -139,19 +139,47 @@ public partial class WorldMapData : Resource
     // the terrain generator snaps enclosed space to.
     [Export(PropertyHint.Range, "1,16,1")] public int elevationStepVoxels = 1;
 
-    // External layer files, stored as res:// paths (globalized at load/save).
-    [Export] public string elevationImagePath = "";   // .exr, Rf, per column (voxels rel. sea, signed)
-    [Export] public string waterImagePath = "";        // .exr, Rf, per column (voxels rel. sea, signed)
-    [Export] public string regionImagePath = "";       // .png, R8, per chunk
-    [Export] public string zoneImagePath = "";         // .png, R8, per chunk
-    // Prevailing wind, per CHUNK — the same grid the zone index is painted on,
-    // because that is the granularity the bake seeds ChunkState's wind velocity
-    // subgrid at. R = compass angle (0..255 spans a full turn), G = strength
-    // (0 = UNPAINTED, inherit the zone's prevailing direction; 1..255 = calm
-    // through gale). The strength byte doubling as the painted-mask is what
-    // makes an unpainted document behave exactly as it did before the layer
-    // existed.
-    [Export] public string windImagePath = "";         // .png, Rgba8, per chunk (R=angle, G=strength+1)
+    // A DOCUMENT IS ITS FOLDER. Every layer is a fixed file name beside this
+    // .tres, resolved from where the document was loaded — nothing to author,
+    // so copying a world's folder copies a world that edits only its own files.
+    // Don't reintroduce authored paths: a copied document then silently paints
+    // and bakes over the world it was copied from. A file that does not exist
+    // yet loads as a blank layer and is written on first save.
+    public const string ELEVATION_FILE = "elevation.exr";        // Rf, per column (voxels rel. sea, signed)
+    public const string WATER_FILE = "water.exr";                // Rf, per column (voxels rel. sea, signed)
+    public const string REGION_FILE = "region.png";              // R8, per chunk
+    public const string ZONE_FILE = "zone.png";                  // R8, per chunk
+    // Prevailing wind, per CHUNK — the grid the bake seeds ChunkState's wind
+    // velocity subgrid at. R = compass angle (0..255 spans a full turn), G =
+    // strength (0 = UNPAINTED, inherit the zone's prevailing direction; 1..255
+    // = calm through gale), so the strength byte doubles as the painted-mask.
+    public const string WIND_FILE = "wind.png";                  // Rgba8, per chunk
+    // The prop layer, per column: R = prop list index + 1 (0 = none). Direct
+    // placement — the painted region IS the furniture, so there is no density
+    // channel. One layer, because a painted region is a BARRIER and which list
+    // furnishes it says what the barrier is made of.
+    public const string BLOCKING_PROPS_FILE = "props_blocking.png"; // R8, per column
+    public const string GROUND_FILE = "ground.png";              // R8, per column (ground set + 1, 0 = default)
+    public const string WATER_TYPE_FILE = "water_type.png";      // R8, per column (water type + 1, 0 = the zone's)
+    // Rgba8, per column: R = paving block + 1 (0 = none), G/B = the world Y it
+    // is laid at + 1 (0 = seated on the column's own surface).
+    public const string PAVING_FILE = "paving.png";
+    public const string PLACEMENTS_FILE = "placements.tres";     // WorldMapPlacements
+    public const string PALETTES_FILE = "palettes.tres";         // WorldMapPalettes (palette slot ledgers)
+    public const string MOBS_FILE = "mobs.png";                  // Rgba8, per column (R = mob set + 1, G = density)
+    // Per-column SCALAR layers, one per channel: R = mob level, G = climb
+    // coverage (not yet painted), B/A spare.
+    public const string SCALARS_FILE = "scalars.png";
+    public const string TUNNELS_FILE = "tunnels.bin";            // per-voxel carve mask
+    public const string OUTPUT_WORLD_FILE = "painted_world.hike";
+
+    // Every file a document owns beside itself — what makes a folder taken.
+    public static readonly string[] LAYER_FILES =
+    {
+        ELEVATION_FILE, WATER_FILE, REGION_FILE, ZONE_FILE, WIND_FILE, BLOCKING_PROPS_FILE,
+        GROUND_FILE, WATER_TYPE_FILE, PAVING_FILE, PLACEMENTS_FILE, PALETTES_FILE, MOBS_FILE,
+        SCALARS_FILE, TUNNELS_FILE, OUTPUT_WORLD_FILE,
+    };
 
     // World m/s the wind layer's full strength paints. The layer stores a
     // normalized strength, so this is the only place the authored range lives;
@@ -159,29 +187,34 @@ public partial class WorldMapData : Resource
     // chunk inherits from its zone, so a max several times that is what makes
     // painting a gale worth doing.
     [Export(PropertyHint.Range, "0,40,0.5")] public float windPaintMaxSpeed = 20f;
-    // The prop layer, per column: R = prop list index + 1 (0 = none). Direct
-    // placement — the painted region IS the furniture, so there is no density
-    // channel to go with the index. One layer, because a painted region is a
-    // BARRIER: what a region does to movement is the whole reason to paint one,
-    // and which list furnishes it says what the barrier is made of.
-    [Export] public string blockingPropImagePath = "";  // .png, R8, per column (prop list + 1)
-    [Export] public string groundImagePath = "";       // .png, R8, per column (ground set + 1, 0 = default)
-    [Export] public string waterTypeImagePath = "";    // .png, R8, per column (waterTypes index + 1, 0 = the zone's)
-    // .png, Rgba8, per column: R = paving block + 1 (0 = none), G/B = the world
-    // Y it is laid at + 1 (0 = seated on the column's own surface).
-    [Export] public string pavingImagePath = "";
-    [Export] public string placementsPath = "";        // .tres, WorldMapPlacements (subscene stamps)
-    [Export] public string palettesPath = "";          // .tres, WorldMapPalettes (palette slot ledgers)
-    [Export] public string mobImagePath = "";          // .png, Rgba8, per column (R=mob set+1, G=density)
 
-    // Per-column SCALAR layers, packed one per channel of a single image rather
-    // than a file each: R = mob level, G = climb coverage (not yet painted),
-    // B/A spare.
-    [Export] public string scalarImagePath = "";       // .png, Rgba8, per column
-    [Export] public string tunnelMaskPath = "";        // .bin, per voxel carve mask
+    // The folder this document was loaded from. Empty for a document that has
+    // no file, which then has no layers to load and nowhere to save them.
+    public string DocumentDir => string.IsNullOrEmpty(ResourcePath) ? "" : ResourcePath.GetBaseDir();
 
-    // Where BakeToWorldFile writes the packed world (res:// path).
-    [Export] public string outputWorldPath = "";
+    private string LayerPath(string file)
+    {
+        string dir = DocumentDir;
+        return string.IsNullOrEmpty(dir) ? "" : dir.PathJoin(file);
+    }
+
+    public string ElevationImagePath => LayerPath(ELEVATION_FILE);
+    public string WaterImagePath => LayerPath(WATER_FILE);
+    public string RegionImagePath => LayerPath(REGION_FILE);
+    public string ZoneImagePath => LayerPath(ZONE_FILE);
+    public string WindImagePath => LayerPath(WIND_FILE);
+    public string BlockingPropImagePath => LayerPath(BLOCKING_PROPS_FILE);
+    public string GroundImagePath => LayerPath(GROUND_FILE);
+    public string WaterTypeImagePath => LayerPath(WATER_TYPE_FILE);
+    public string PavingImagePath => LayerPath(PAVING_FILE);
+    public string PlacementsPath => LayerPath(PLACEMENTS_FILE);
+    public string PalettesPath => LayerPath(PALETTES_FILE);
+    public string MobImagePath => LayerPath(MOBS_FILE);
+    public string ScalarImagePath => LayerPath(SCALARS_FILE);
+    public string TunnelMaskPath => LayerPath(TUNNELS_FILE);
+    // Where a bake writes the packed world. worldmap_bake can redirect a single
+    // bake elsewhere (BakeToWorldFile's argument); nothing else can.
+    public string OutputWorldPath => LayerPath(OUTPUT_WORLD_FILE);
 
     // The world this document authors — the worlds/<name>/ it sits in — which
     // decides what the painter's pickers offer (WorldScope). Null for a
@@ -214,12 +247,17 @@ public partial class WorldMapData : Resource
     // Returns whether the world actually reached disk. A bake can fail late —
     // the .hike is written last, and the file is commonly held open by a running
     // game or editor — so a caller that assumes success will report a world it
-    // never wrote.
-    public bool BakeToWorldFile()
+    // never wrote. outputPath redirects this one bake (a test bake that must not
+    // overwrite the real world); empty writes the document's own .hike.
+    public bool BakeToWorldFile(string outputPath = "")
     {
-        if (string.IsNullOrEmpty(outputWorldPath))
+        if (string.IsNullOrEmpty(outputPath))
         {
-            GD.PrintErr("WorldMapData: OutputWorldPath not set.");
+            outputPath = OutputWorldPath;
+        }
+        if (string.IsNullOrEmpty(outputPath))
+        {
+            GD.PrintErr("WorldMapData: the document has no file, so there is nowhere to bake to.");
             return false;
         }
         // WorldMapState.Bake, not BuildWorld + Write: the sun flood and the
@@ -231,51 +269,51 @@ public partial class WorldMapData : Resource
         // path reached it. Free in a fresh process; the point is that the rule
         // has no exception to remember.
         state.RefreshPropAssets();
-        return new WorldMapBake(state).Bake();
+        return new WorldMapBake(state, outputPath).Bake();
     }
 
     // ---- Layer load / create / save -------------------------------------
 
     public Image LoadOrCreateElevation()
     {
-        return LoadOrCreateColumnImage(elevationImagePath);
+        return LoadOrCreateColumnImage(ElevationImagePath);
     }
 
     public Image LoadOrCreateWater()
     {
-        return LoadOrCreateColumnImage(waterImagePath);
+        return LoadOrCreateColumnImage(WaterImagePath);
     }
 
     // Per-column index layer (R8 at column resolution) — unlike region/zone,
     // which are per chunk.
     public Image LoadOrCreateScalars()
     {
-        return LoadOrCreateSpawnImage(scalarImagePath);
+        return LoadOrCreateSpawnImage(ScalarImagePath);
     }
 
     public void SaveScalars(Image img)
     {
-        SavePng(scalarImagePath, img, "scalars");
+        SavePng(ScalarImagePath, img, "scalars");
     }
 
     public Image LoadOrCreateMobs()
     {
-        return LoadOrCreateSpawnImage(mobImagePath);
+        return LoadOrCreateSpawnImage(MobImagePath);
     }
 
     public void SaveMobs(Image img)
     {
-        SavePng(mobImagePath, img, "mobs");
+        SavePng(MobImagePath, img, "mobs");
     }
 
     public Image LoadOrCreateGround()
     {
-        return LoadOrCreateIndexImage(groundImagePath);
+        return LoadOrCreateIndexImage(GroundImagePath);
     }
 
     public Image LoadOrCreateWaterType()
     {
-        return LoadOrCreateIndexImage(waterTypeImagePath);
+        return LoadOrCreateIndexImage(WaterTypeImagePath);
     }
 
     // A per-column INDEX layer: R8, storing a palette index + 1 so 0 can mean
@@ -309,7 +347,7 @@ public partial class WorldMapData : Resource
     // G/B zero, which is exactly the surface-seated it always meant.
     public Image LoadOrCreatePaving()
     {
-        Image img = TryLoad(pavingImagePath);
+        Image img = TryLoad(PavingImagePath);
         if (img != null)
         {
             if (img.GetWidth() != ImageWidth || img.GetHeight() != ImageHeight)
@@ -329,37 +367,37 @@ public partial class WorldMapData : Resource
 
     public void SavePaving(Image img)
     {
-        SavePng(pavingImagePath, img, "paving");
+        SavePng(PavingImagePath, img, "paving");
     }
 
     public void SaveGround(Image img)
     {
-        SavePng(groundImagePath, img, "ground");
+        SavePng(GroundImagePath, img, "ground");
     }
 
     public void SaveWaterType(Image img)
     {
-        SavePng(waterTypeImagePath, img, "water type");
+        SavePng(WaterTypeImagePath, img, "water type");
     }
 
     public Image LoadOrCreateRegion()
     {
-        return LoadOrCreateChunkImage(regionImagePath);
+        return LoadOrCreateChunkImage(RegionImagePath);
     }
 
     public Image LoadOrCreateZone()
     {
-        return LoadOrCreateChunkImage(zoneImagePath);
+        return LoadOrCreateChunkImage(ZoneImagePath);
     }
 
     public Image LoadOrCreateWind()
     {
-        return LoadOrCreateChunkRgbaImage(windImagePath);
+        return LoadOrCreateChunkRgbaImage(WindImagePath);
     }
 
     public Image LoadOrCreateBlockingProps()
     {
-        return LoadOrCreateIndexImage(blockingPropImagePath);
+        return LoadOrCreateIndexImage(BlockingPropImagePath);
     }
 
     // A spawn layer is a per-column RGBA8: R = set index + 1 (0 = none),
@@ -460,11 +498,11 @@ public partial class WorldMapData : Resource
         int ny = VoxelHeight;
         int nz = ImageHeight;
         var arr = new ushort[nx, ny, nz];
-        if (string.IsNullOrEmpty(tunnelMaskPath))
+        if (string.IsNullOrEmpty(TunnelMaskPath))
         {
             return arr;
         }
-        string os = ProjectSettings.GlobalizePath(tunnelMaskPath);
+        string os = ProjectSettings.GlobalizePath(TunnelMaskPath);
         if (!System.IO.File.Exists(os))
         {
             return arr;
@@ -479,7 +517,7 @@ public partial class WorldMapData : Resource
         if (magic != TUNNEL_MAGIC || version != TUNNEL_VERSION)
         {
             throw new System.IO.InvalidDataException(
-                $"{tunnelMaskPath}: not a v{TUNNEL_VERSION} tunnel mask (magic {magic:X8}, version {version})");
+                $"{TunnelMaskPath}: not a v{TUNNEL_VERSION} tunnel mask (magic {magic:X8}, version {version})");
         }
         int fx = br.ReadInt32();
         int fy = br.ReadInt32();
@@ -487,7 +525,7 @@ public partial class WorldMapData : Resource
         if (fx != nx || fy != ny || fz != nz)
         {
             throw new System.IO.InvalidDataException(
-                $"{tunnelMaskPath}: mask is {fx}x{fy}x{fz}, document is {nx}x{ny}x{nz}");
+                $"{TunnelMaskPath}: mask is {fx}x{fy}x{fz}, document is {nx}x{ny}x{nz}");
         }
         byte[] buf = new byte[arr.Length * sizeof(ushort)];
         using (var z = new System.IO.Compression.ZLibStream(fs, System.IO.Compression.CompressionMode.Decompress))
@@ -500,37 +538,37 @@ public partial class WorldMapData : Resource
 
     public void SaveElevation(Image img)
     {
-        SaveExr(elevationImagePath, img, "elevation");
+        SaveExr(ElevationImagePath, img, "elevation");
     }
 
     public void SaveWater(Image img)
     {
-        SaveExr(waterImagePath, img, "water");
+        SaveExr(WaterImagePath, img, "water");
     }
 
     public void SaveRegion(Image img)
     {
-        SavePng(regionImagePath, img, "region");
+        SavePng(RegionImagePath, img, "region");
     }
 
     public void SaveZone(Image img)
     {
-        SavePng(zoneImagePath, img, "zone");
+        SavePng(ZoneImagePath, img, "zone");
     }
 
     public void SaveWind(Image img)
     {
-        SavePng(windImagePath, img, "wind");
+        SavePng(WindImagePath, img, "wind");
     }
 
     public void SaveBlockingProps(Image img)
     {
-        SavePng(blockingPropImagePath, img, "blocking props");
+        SavePng(BlockingPropImagePath, img, "blocking props");
     }
 
     public void SaveTunnels(ushort[,,] tunnels)
     {
-        if (string.IsNullOrEmpty(tunnelMaskPath))
+        if (string.IsNullOrEmpty(TunnelMaskPath))
         {
             return;
         }
@@ -538,7 +576,7 @@ public partial class WorldMapData : Resource
         {
             byte[] buf = new byte[tunnels.Length * sizeof(ushort)];
             System.Buffer.BlockCopy(tunnels, 0, buf, 0, buf.Length);
-            using var fs = System.IO.File.Create(ProjectSettings.GlobalizePath(tunnelMaskPath));
+            using var fs = System.IO.File.Create(ProjectSettings.GlobalizePath(TunnelMaskPath));
             using (var bw = new System.IO.BinaryWriter(fs, System.Text.Encoding.UTF8, leaveOpen: true))
             {
                 bw.Write(TUNNEL_MAGIC);

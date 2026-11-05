@@ -5,8 +5,9 @@
 [ext_resource type="Resource" uid="uid://bhodwg1042kim" path="res://resources/data/world_gen/world_gen_swamp.tres" id="5_swampgen"]
 [ext_resource type="PackedScene" uid="uid://w8ucvtu1v5688" path="res://scenes/gui/controls_screen.tscn" id="6_controls"]
 [ext_resource type="PackedScene" uid="uid://d0l5s8iba3nv8" path="res://scenes/gui/profile_screen.tscn" id="7_profiles"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/editor/new_world_map.tres" id="8_newmap"]
 
-[node name="MainMenu" type="Control" unique_id=316901958 node_paths=PackedStringArray("versionLabel", "buttonPanel", "fileSelector", "controlsScreen", "worldList", "profileScreen")]
+[node name="MainMenu" type="Control" unique_id=316901958 node_paths=PackedStringArray("versionLabel", "buttonPanel", "fileSelector", "controlsScreen", "worldList", "profileScreen", "openDialog", "newDialog", "errorDialog")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -21,8 +22,12 @@ fileSelector = NodePath("File Selector")
 controlsScreen = NodePath("ControlsScreen")
 profileScreen = NodePath("ProfileScreen")
 worldList = NodePath("File Selector/VBoxContainer/ItemList")
+openDialog = NodePath("OpenDialog")
+newDialog = NodePath("NewDialog")
+errorDialog = NodePath("ErrorDialog")
 worldOptions = [ExtResource("3_worldgen"), ExtResource("5_swampgen")]
 worldOptionLabels = PackedStringArray("Default", "Swamp")
+newWorldMapTemplate = ExtResource("8_newmap")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=496607952]
 layout_mode = 1
@@ -150,6 +155,21 @@ layout_mode = 1
 visible = false
 layout_mode = 1
 
+[node name="OpenDialog" type="FileDialog" parent="."]
+title = "Open"
+size = Vector2i(900, 600)
+ok_button_text = "Open"
+file_mode = 0
+access = 2
+
+[node name="NewDialog" type="FileDialog" parent="."]
+title = "New World Map"
+size = Vector2i(900, 600)
+ok_button_text = "Create"
+access = 2
+
+[node name="ErrorDialog" type="AcceptDialog" parent="."]
+title = "Can't do that"
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/PlayButton" to="." method="ShowProfiles"]
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/WorldEditorButton" to="." method="ShowEditorOptions"]
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/WorldMapPainterButton" to="." method="ShowPainterOptions"]
@@ -157,3 +177,5 @@ layout_mode = 1
 [connection signal="item_activated" from="File Selector/VBoxContainer/ItemList" to="." method="OnWorldActivated"]
 [connection signal="pressed" from="File Selector/VBoxContainer/HBoxContainer/BackButton" to="." method="SelectorBack"]
 [connection signal="pressed" from="File Selector/VBoxContainer/HBoxContainer/ContinueButton" to="." method="SelectorContinue"]
+[connection signal="file_selected" from="OpenDialog" to="." method="OnOpenFileSelected"]
+[connection signal="file_selected" from="NewDialog" to="." method="OnNewFileSelected"]

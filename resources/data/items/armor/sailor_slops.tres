@@ -1,0 +1,54 @@
+[gd_resource type="Resource" script_class="ArmorData" format=3 uid="uid://d1bevlwoq85t"]
+
+[ext_resource type="Texture2D" uid="uid://xbn8ns80jnq6" path="res://assets/textures/items/armor/BasicCloak.png" id="1_wr5fj"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="2_ctagt"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_b2p8w"]
+[ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="4_tashn"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="5_oxopc"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/cloth.tres" id="6_q7joo"]
+[ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="7_sqkpk"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="8_bag8f"]
+
+[sub_resource type="Resource" id="m_noise"]
+script = ExtResource("3_b2p8w")
+stat = 12
+value = 10.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="Resource_wr5fj"]
+script = ExtResource("3_b2p8w")
+stat = 14
+value = 5.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="outfit"]
+script = ExtResource("4_tashn")
+bodyMeshNamesFemale = PackedStringArray("F_Mage_Top", "F_Mage_Bottom", "F_Mage_Cape")
+bodyMeshNamesMale = PackedStringArray("M_Warlock_Top", "M_Warlock_Bottom", "M_Warlock_Cape")
+metadata/_custom_type_script = "uid://6h7yge1txki2"
+
+[sub_resource type="Resource" id="repair_cost_cloth"]
+script = ExtResource("5_oxopc")
+item = ExtResource("6_q7joo")
+count = 2
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[sub_resource type="Resource" id="salvage_yield_cloth"]
+script = ExtResource("5_oxopc")
+item = ExtResource("6_q7joo")
+count = 2
+metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
+
+[resource]
+script = ExtResource("7_sqkpk")
+maxArmor = 360.0
+modifiers = Array[ExtResource("2_ctagt")]([SubResource("m_noise"), SubResource("Resource_wr5fj")])
+outfit = SubResource("outfit")
+weight = 0.25
+maxDurability = 60
+repair = Array[ExtResource("5_oxopc")]([SubResource("repair_cost_cloth")])
+displayName = &"Sailor Slops"
+description = "Protects from the chill of the open ocean, dries quickly."
+value = 60
+inventorySprite = ExtResource("1_wr5fj")
+salvage = Array[ExtResource("5_oxopc")]([SubResource("salvage_yield_cloth")])

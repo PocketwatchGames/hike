@@ -38,6 +38,40 @@ public class QuestLog
         onQuestRemoved?.Invoke(quest);
     }
 
+    // The active quest authored by `data`, or null. A restored quest's Data is
+    // re-loaded by path, so the path is compared as well as the reference.
+    public QuestState Find(QuestData data)
+    {
+        if (data == null)
+        {
+            return null;
+        }
+        for (int i = 0; i < _quests.Count; i++)
+        {
+            QuestData other = _quests[i].Data;
+            if (other == data || (other != null && !string.IsNullOrEmpty(data.ResourcePath)
+                && other.ResourcePath == data.ResourcePath))
+            {
+                return _quests[i];
+            }
+        }
+        return null;
+    }
+
+    // Marks the quest authored by `data` complete. It leaves the log, and writes
+    // its completedVariable, on the next Tick like any self-completed quest.
+    // False when it is not in the log.
+    public bool Complete(QuestData data)
+    {
+        QuestState quest = Find(data);
+        if (quest == null)
+        {
+            return false;
+        }
+        quest.SetStatus(EQuestStatus.Complete);
+        return true;
+    }
+
     public bool HasQuestOfType<T>() where T : QuestState
     {
         for (int i = 0; i < _quests.Count; i++)

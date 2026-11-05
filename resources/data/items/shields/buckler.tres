@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="2_damage"]
 [ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="3_parryfx"]
 [ext_resource type="PackedScene" path="res://scenes/items/shield_buckler_held.tscn" id="4_held"]
-[ext_resource type="Texture2D" uid="uid://b7ui4uaaddgs" path="res://assets/textures/items/ShieldSmall.png" id="5_icon"]
+[ext_resource type="Texture2D" uid="uid://b7ui4uaaddgs" path="res://assets/textures/items/weapons/ShieldSmall.png" id="5_icon"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/leather.tres" id="repair_leather"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]

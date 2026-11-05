@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="NpcSpawnEntry" format=3 uid="uid://tibjs0vop3m6"]
+
+[ext_resource type="Script" uid="uid://hp1b1xye8rsv" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="1_npc"]
+[ext_resource type="Resource" uid="uid://4aapgtmjcmnm5" path="res://resources/data/characters/fairy/fairy_npc.tres" id="2_species"]
+
+[resource]
+script = ExtResource("1_npc")
+species = ExtResource("2_species")

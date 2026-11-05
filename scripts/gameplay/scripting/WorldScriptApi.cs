@@ -39,6 +39,23 @@ public class WorldScriptApi
 
     public bool CloseDoor(string name) => SetDoorsOpen(name, false);
 
+    // Opens the conversation of the mob an author gave this name, as if the
+    // player had talked to it. It must be streamed in — place it near where the
+    // party will be. False, with an error, when no resident mob has the name or
+    // it has no conversation.
+    public bool StartConversation(string name)
+    {
+        foreach (EntitySimState entity in _sim.WorldState.FindNamed(name))
+        {
+            if (entity is MobSimState && entity.RuntimeNode is Mob mob && mob.SpeakDialogue())
+            {
+                return true;
+            }
+        }
+        GD.PushError($"World script: no streamed-in mob named '{name}' has a conversation to start.");
+        return false;
+    }
+
     private bool SetDoorsOpen(string name, bool open)
     {
         bool any = false;

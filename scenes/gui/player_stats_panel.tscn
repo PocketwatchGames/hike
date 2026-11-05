@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://fboixafnubck" path="res://scripts/gui/PlayerStatsPanel.cs" id="1_sqdid"]
 [ext_resource type="PackedScene" uid="uid://cbnyp5wql6yh5" path="res://scenes/gui/status_effect_info_panel.tscn" id="2_4k1ay"]
 [ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="3_stat0"]
-[ext_resource type="Texture2D" uid="uid://whcsmapxod45" path="res://assets/textures/items/Armor.png" id="4_1r6lq"]
+[ext_resource type="Texture2D" uid="uid://whcsmapxod45" path="res://assets/textures/items/armor/Armor.png" id="4_1r6lq"]
 
 [node name="PlayerStats" type="PanelContainer" unique_id=1646474992 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_statContainer", "_statusEffectContainer", "_playerClassIcon")]
 custom_minimum_size = Vector2(500, 0)

@@ -8,16 +8,22 @@ meshes. Launched from the main menu (`GuiMainMenu.OnStartPainter` →
 `Main.StartPainter`), which just instantiates + `Init()`s the scene, so it opens
 instantly. Holds the tool list + a colourised `Rgba8` display image fed to
 
-**WHICH document opens is picked in the menu.** The World Map Painter button
-shows the same file selector New Game and the World Editor use, listing every
-`WorldMapData` under `GuiMainMenu.worldMapSearchDirs`; `Main.StartPainter` loads
-the pick and assigns `painter.data` before `Init`, and an empty pick keeps the
-document the scene authors. The `.tres` files are filtered by the class named in
-their HEADER LINE rather than by loading them — the layer images, the brush and
-the placements list share that directory and that extension, and loading a
-document to find out what it is pulls in its whole `WorldGenData` graph. There is
-no "new document" row: a document is a `.tres` plus the layer files it names, so
-making one is an authoring step, not something a picker can mint.
+**WHICH document opens is picked with a file dialog, never a search.** The World
+Map Painter button offers New World Map… and Open…, each a `FileDialog` on the
+main menu; `Main.StartPainter` loads the pick and assigns `painter.data` before
+`Init`, and an empty pick keeps the document the scene authors. Nothing lists
+documents by scanning folders, so a document is wherever its author (or a
+modder) put it, and nothing has to be registered for it to open. Open checks the
+`.tres` HEADER LINE for `WorldMapData` rather than loading it — loading a document
+to find out what it is pulls in its whole resource graph.
+
+**A document is its folder.** Every layer is a fixed file name beside the `.tres`
+(`WorldMapData.LAYER_FILES`), resolved from the document's own `ResourcePath`, so
+copying a world's folder gives a world that edits only its own files. New World
+Map duplicates `GuiMainMenu.newWorldMapTemplate` into the chosen file and refuses
+a folder that already holds a document or any of its layers; the layers appear
+on the first save. Start content is left unset for the author to point at the
+new world's own `WorldStartData`.
 
 **Escape opens a menu rather than leaving.** `WorldMapPauseMenu` is a full-rect
 Control in the HUD layer, so an open menu also stops the canvas painting under

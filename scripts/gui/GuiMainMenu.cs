@@ -16,28 +16,42 @@ public partial class GuiMainMenu : Node
 	// game in.
 	[Export] public ProfileScreen profileScreen;
 	[Export] public ItemList worldList;
+	// The editor and the painter open documents through these rather than a
+	// list the menu searched for: a document is wherever its author put it.
+	// Filters and mode are set per use; the scene authors size and access.
+	[Export] public FileDialog openDialog;
+	[Export] public FileDialog newDialog;
+	// Why an Open or a New was refused. A file dialog cannot say it itself.
+	[Export] public AcceptDialog errorDialog;
 	// Selectable worldgen templates shown in worldList; labels is the parallel
 	// display text (same length as worldOptions).
 	[Export] public WorldGenData[] worldOptions = System.Array.Empty<WorldGenData>();
 	[Export] public string[] worldOptionLabels = System.Array.Empty<string>();
-	// Directories scanned (non-recursively) for editor documents, per kind.
-	[Export] public string[] sceneFileSearchDirs = { SubsceneFile.DEFAULT_SCENE_DIR };
-	[Export] public string[] worldFileSearchDirs = { "user://", "res://resources/data/worlds/test_world/map/" };
-	// Scanned (non-recursively) for world-map painter documents. A .tres here is
-	// filtered by the class its header names, since the layer files, the brush
-	// and the placements list share the directory and the extension.
-	[Export] public string[] worldMapSearchDirs = { "res://resources/data/worlds/test_world/map/" };
-	// An exported build's New Game list is every .hike under here, searched
-	// recursively, and nothing else. What ships is decided by the export preset's
-	// include filter, so that filter is the one list of playable worlds.
+	// The New Game list is every .hike under here, searched recursively. In an
+	// exported build that is all it lists, and what ships is decided by the
+	// export preset's include filter, so that filter is the one list of
+	// playable worlds.
 	[Export(PropertyHint.Dir)] public string shippedWorldRoot = "res://resources/data/worlds/";
-	// Save target for a brand-new document; uniquified (scene_2.hikescene, ...)
-	// when the file already exists so a new one never clobbers an old one. The
-	// extension is also what tells the editor which kind it's opening.
+	// A development build's New Game list also offers the worlds the editor
+	// saved here (non-recursive: user:// also holds saves and caches).
+	[Export(PropertyHint.Dir)] public string userWorldDir = "user://";
+	// Where the open / new dialogs start the first time in a session; after
+	// that they reopen wherever the last pick of that kind was made.
+	[Export(PropertyHint.Dir)] public string editorDialogStartDir = SubsceneFile.DEFAULT_SCENE_DIR;
+	[Export(PropertyHint.Dir)] public string painterDialogStartDir = "res://resources/data/worlds/";
+	// What New World Map copies: the shared kit references every document
+	// needs (finish, terrain palette, sim data, default ground) and a default
+	// size. The new document's start content is the author's to set.
+	[Export] public WorldMapData newWorldMapTemplate;
+	// Save target for a brand-new editor document; uniquified (scene_2.hikescene,
+	// ...) when the file already exists so a new one never clobbers an old one.
+	// The extension is also what tells the editor which kind it's opening.
 	[Export] public string newScenePath = SubsceneFile.DEFAULT_SCENE_DIR + "scene.hikescene";
 	[Export] public string newWorldPath = "user://world.hike";
 	[Export] public string newSceneLabel = "New Scene";
 	[Export] public string newWorldLabel = "New World";
+	[Export] public string newWorldMapLabel = "New World Map…";
+	[Export] public string openDocumentLabel = "Open…";
 	[Signal] public delegate void OnNewGameEventHandler(Vector3 playerPosition, WorldGenData worldGenData);
 	[Signal] public delegate void OnLoadGameEventHandler(string savePath);
 	[Signal] public delegate void OnStartEditorEventHandler(WorldGenData worldGenData, string worldFilePath);
@@ -52,14 +66,23 @@ public partial class GuiMainMenu : Node
 		Painter,
 	}
 
-	// The two fixed rows at the top of the editor list.
-	private const int NEW_SCENE_INDEX = 0;
-	private const int NEW_WORLD_INDEX = 1;
+	// The fixed rows of the editor and painter lists. They are actions, not
+	// files: the files are reached through the dialogs.
+	private const int EDITOR_NEW_SCENE_INDEX = 0;
+	private const int EDITOR_NEW_WORLD_INDEX = 1;
+	private const int EDITOR_OPEN_INDEX = 2;
+	private const int PAINTER_NEW_INDEX = 0;
+	private const int PAINTER_OPEN_INDEX = 1;
+
+	private const string WORLD_MAP_EXTENSION = "tres";
+
+	// Last folder a dialog was used in, per tool. Static so it survives the
+	// menu being freed and rebuilt between sessions of the tools.
+	private static readonly Dictionary<SelectorMode, string> s_lastDialogDir = new Dictionary<SelectorMode, string>();
 
 	private SelectorMode _mode = SelectorMode.NewGame;
-	// Document path per worldList row, parallel to the items. Null means the row
-	// is not a file: a worldgen template in new-game mode, or one of the two
-	// "new document" rows in editor mode (whose path is minted on Continue).
+	// Document path per New Game row, parallel to the items. Null means the row
+	// is a worldgen template, which generates and has no file.
 	private readonly List<string> _documentPaths = new List<string>();
 
 	public override void _Ready()
@@ -124,7 +147,7 @@ public partial class GuiMainMenu : Node
 	public void ShowEditorOptions()
 	{
 		_mode = SelectorMode.Editor;
-		PopulateEditorList();
+		PopulateActions(newSceneLabel, newWorldLabel, openDocumentLabel);
 		ShowSelector();
 	}
 
@@ -136,7 +159,7 @@ public partial class GuiMainMenu : Node
 	public void ShowPainterOptions()
 	{
 		_mode = SelectorMode.Painter;
-		PopulatePainterList();
+		PopulateActions(newWorldMapLabel, openDocumentLabel);
 		ShowSelector();
 	}
 
@@ -168,13 +191,24 @@ public partial class GuiMainMenu : Node
 
 	public void SelectorContinue()
 	{
+		int index = SelectedIndex();
 		if (_mode == SelectorMode.Editor)
 		{
+			if (index == EDITOR_OPEN_INDEX)
+			{
+				PopupOpenDialog("*.hikescene ; Scene", "*.hike ; World");
+				return;
+			}
 			StartEditor();
 		}
 		else if (_mode == SelectorMode.Painter)
 		{
-			StartPainter();
+			if (index == PAINTER_OPEN_INDEX)
+			{
+				PopupOpenDialog($"*.{WORLD_MAP_EXTENSION} ; World Map");
+				return;
+			}
+			PopupNewWorldMapDialog();
 		}
 		else
 		{
@@ -232,17 +266,166 @@ public partial class GuiMainMenu : Node
 		EmitSignal(SignalName.OnNewGame, new Vector3(0, 24, 0), SelectedWorldGen());
 	}
 
+	// A new editor document, or — reached with no selector shown, as autostart
+	// does — whatever `world_file` names.
 	public void StartEditor()
 	{
-		EmitSignal(SignalName.OnStartEditor, worldGenData, SelectedWorldFile());
+		EmitSignal(SignalName.OnStartEditor, worldGenData, NewEditorDocumentPath());
 	}
 
-	public void StartPainter()
+	// --- Dialogs ----------------------------------------------------------
+
+	// The dialogs browse the real filesystem and hand back an OS path; the
+	// tools want a Godot path, so a pick inside the project or user data folds
+	// back to res:// or user://.
+	private void PopupOpenDialog(params string[] filters)
 	{
-		EmitSignal(SignalName.OnStartPainter, worldGenData, SelectedDocumentPath());
+		if (openDialog == null)
+		{
+			return;
+		}
+		openDialog.FileMode = FileDialog.FileModeEnum.OpenFile;
+		openDialog.Filters = filters;
+		openDialog.CurrentDir = ProjectSettings.GlobalizePath(DialogStartDir());
+		openDialog.PopupCentered();
 	}
 
-	// --- Selection ------------------------------------------------------
+	private void PopupNewWorldMapDialog()
+	{
+		if (newDialog == null)
+		{
+			return;
+		}
+		newDialog.FileMode = FileDialog.FileModeEnum.SaveFile;
+		newDialog.Filters = new[] { $"*.{WORLD_MAP_EXTENSION} ; World Map" };
+		newDialog.CurrentDir = ProjectSettings.GlobalizePath(DialogStartDir());
+		newDialog.CurrentFile = "world_map." + WORLD_MAP_EXTENSION;
+		newDialog.PopupCentered();
+	}
+
+	private string DialogStartDir()
+	{
+		if (s_lastDialogDir.TryGetValue(_mode, out string last) && DirAccess.DirExistsAbsolute(last))
+		{
+			return last;
+		}
+		return _mode == SelectorMode.Painter ? painterDialogStartDir : editorDialogStartDir;
+	}
+
+	public void OnOpenFileSelected(string osPath)
+	{
+		string path = ToGodotPath(osPath);
+		s_lastDialogDir[_mode] = path.GetBaseDir();
+		if (_mode == SelectorMode.Painter)
+		{
+			if (!path.StartsWith("res://"))
+			{
+				ShowError($"{path}\n\nA world map document must be inside the project folder.");
+				return;
+			}
+			if (!IsResourceOfClass(path, nameof(WorldMapData)))
+			{
+				ShowError($"{path.GetFile()} is not a world map document.");
+				return;
+			}
+			EmitSignal(SignalName.OnStartPainter, worldGenData, path);
+			return;
+		}
+		string ext = path.GetExtension();
+		if (!ext.Equals(WorldEditor.SCENE_FILE_EXTENSION, StringComparison.OrdinalIgnoreCase)
+			&& !ext.Equals(WorldEditor.WORLD_FILE_EXTENSION, StringComparison.OrdinalIgnoreCase))
+		{
+			ShowError($"{path.GetFile()} is not a scene (.{WorldEditor.SCENE_FILE_EXTENSION}) "
+				+ $"or a world (.{WorldEditor.WORLD_FILE_EXTENSION}).");
+			return;
+		}
+		EmitSignal(SignalName.OnStartEditor, worldGenData, path);
+	}
+
+	// A document is its folder (every layer is a fixed name beside the .tres),
+	// so a new one needs a folder no other document already claims — otherwise
+	// it would open, paint and bake over that document's layers.
+	public void OnNewFileSelected(string osPath)
+	{
+		string path = ToGodotPath(osPath);
+		if (!path.GetExtension().Equals(WORLD_MAP_EXTENSION, StringComparison.OrdinalIgnoreCase))
+		{
+			path += "." + WORLD_MAP_EXTENSION;
+		}
+		string dir = path.GetBaseDir();
+		s_lastDialogDir[_mode] = dir;
+		if (!path.StartsWith("res://"))
+		{
+			ShowError($"{path}\n\nA world map document must be inside the project folder.");
+			return;
+		}
+		if (newWorldMapTemplate == null)
+		{
+			ShowError("No new-world-map template is set on the main menu.");
+			return;
+		}
+		string claimant = DocumentFileIn(dir);
+		if (claimant != null)
+		{
+			ShowError($"{dir} already holds a world map ({claimant}).\n\n"
+				+ "A world map is its folder: make a new, empty folder for this one.");
+			return;
+		}
+		var document = (WorldMapData)newWorldMapTemplate.Duplicate();
+		Error err = ResourceSaver.Save(document, path);
+		if (err != Error.Ok)
+		{
+			ShowError($"Could not write {path}: {err}");
+			return;
+		}
+		EmitSignal(SignalName.OnStartPainter, worldGenData, path);
+	}
+
+	// The first file in dir that makes it some document's folder: a WorldMapData,
+	// or a layer one left behind. Null when the folder is free.
+	private static string DocumentFileIn(string dir)
+	{
+		if (!DirAccess.DirExistsAbsolute(dir))
+		{
+			return null;
+		}
+		foreach (string fileName in DirAccess.GetFilesAt(dir))
+		{
+			if (Array.IndexOf(WorldMapData.LAYER_FILES, fileName) >= 0)
+			{
+				return fileName;
+			}
+			if (fileName.GetExtension().Equals(WORLD_MAP_EXTENSION, StringComparison.OrdinalIgnoreCase)
+				&& IsResourceOfClass(dir.PathJoin(fileName), nameof(WorldMapData)))
+			{
+				return fileName;
+			}
+		}
+		return null;
+	}
+
+	private void ShowError(string message)
+	{
+		GD.PrintErr($"GuiMainMenu: {message}");
+		if (errorDialog != null)
+		{
+			errorDialog.DialogText = message;
+			errorDialog.PopupCentered();
+		}
+	}
+
+	private static string ToGodotPath(string osPath)
+	{
+		string path = osPath.Replace('\\', '/');
+		string userDir = ProjectSettings.GlobalizePath("user://").Replace('\\', '/').TrimEnd('/');
+		if (path.StartsWith(userDir + "/", StringComparison.OrdinalIgnoreCase))
+		{
+			return "user://" + path.Substring(userDir.Length + 1);
+		}
+		return ProjectSettings.LocalizePath(path);
+	}
+
+	// --- Lists ------------------------------------------------------------
 
 	private void PopulateWorldGenList()
 	{
@@ -252,47 +435,37 @@ public partial class GuiMainMenu : Node
 		}
 		worldList.Clear();
 		_documentPaths.Clear();
-		if (OS.HasFeature("template"))
+		if (!OS.HasFeature("template"))
 		{
-			AddDocumentsIn(shippedWorldRoot, WorldEditor.WORLD_FILE_EXTENSION, null, recursive: true);
-			if (worldList.ItemCount > 0)
+			for (int i = 0; i < worldOptions.Length; i++)
 			{
-				worldList.Select(0);
+				_documentPaths.Add(null);   // a template generates; it has no file
+				string label = i < worldOptionLabels.Length ? worldOptionLabels[i] : null;
+				if (string.IsNullOrEmpty(label))
+				{
+					label = worldOptions[i]?.ResourceName;
+				}
+				if (string.IsNullOrEmpty(label))
+				{
+					label = worldOptions[i]?.ResourcePath.GetFile() ?? $"World {i}";
+				}
+				worldList.AddItem(label);
 			}
-			else
-			{
-				GD.PrintErr($"GuiMainMenu: no .{WorldEditor.WORLD_FILE_EXTENSION} under '{shippedWorldRoot}' in this build — "
-					+ "add each shipped world to the export preset's non-resource include filter.");
-			}
-			return;
+			AddWorldFilesIn(userWorldDir, recursive: false);
 		}
-		for (int i = 0; i < worldOptions.Length; i++)
-		{
-			_documentPaths.Add(null);   // a template generates; it has no file
-			string label = i < worldOptionLabels.Length ? worldOptionLabels[i] : null;
-			if (string.IsNullOrEmpty(label))
-			{
-				label = worldOptions[i]?.ResourceName;
-			}
-			if (string.IsNullOrEmpty(label))
-			{
-				label = worldOptions[i]?.ResourcePath.GetFile() ?? $"World {i}";
-			}
-			worldList.AddItem(label);
-		}
-		// Baked worlds play directly — the painter's .hike and anything saved
-		// out of the editor, listed from the same dirs the editor picker scans.
-		AddDocuments(worldFileSearchDirs, WorldEditor.WORLD_FILE_EXTENSION);
+		AddWorldFilesIn(shippedWorldRoot, recursive: true);
 		if (worldList.ItemCount > 0)
 		{
 			worldList.Select(0);
 		}
+		else if (OS.HasFeature("template"))
+		{
+			GD.PrintErr($"GuiMainMenu: no .{WorldEditor.WORLD_FILE_EXTENSION} under '{shippedWorldRoot}' in this build — "
+				+ "add each shipped world to the export preset's non-resource include filter.");
+		}
 	}
 
-	// The two "new document" entries, then every scene, then every world.
-	// Scenes lead because they're the common case; index 0 stays selected so
-	// Continue with no selection makes a new scene.
-	private void PopulateEditorList()
+	private void PopulateActions(params string[] labels)
 	{
 		if (worldList == null)
 		{
@@ -300,48 +473,16 @@ public partial class GuiMainMenu : Node
 		}
 		worldList.Clear();
 		_documentPaths.Clear();
-		worldList.AddItem(newSceneLabel);
-		_documentPaths.Add(null);
-		worldList.AddItem(newWorldLabel);
-		_documentPaths.Add(null);
-		AddDocuments(sceneFileSearchDirs, WorldEditor.SCENE_FILE_EXTENSION);
-		AddDocuments(worldFileSearchDirs, WorldEditor.WORLD_FILE_EXTENSION);
+		foreach (string label in labels)
+		{
+			worldList.AddItem(label);
+		}
 		worldList.Select(0);
 	}
 
-	// Every WorldMapData the painter can open. No "new document" row: a document
-	// is a .tres plus the layer files it names, so making one is an authoring
-	// step in the editor rather than something a picker can mint.
-	private void PopulatePainterList()
-	{
-		if (worldList == null)
-		{
-			return;
-		}
-		worldList.Clear();
-		_documentPaths.Clear();
-		AddDocuments(worldMapSearchDirs, "tres", nameof(WorldMapData));
-		if (worldList.ItemCount > 0)
-		{
-			worldList.Select(0);
-		}
-	}
-
-	// scriptClass, when given, keeps only the .tres files whose header names that
-	// class — read as one line rather than loaded, since loading a world-map
-	// document pulls in its whole WorldGenData graph and the picker is listing
-	// files, not opening them.
-	private void AddDocuments(string[] searchDirs, string extension, string scriptClass = null)
-	{
-		foreach (string dir in searchDirs)
-		{
-			AddDocumentsIn(dir, extension, scriptClass, recursive: false);
-		}
-	}
-
-	// DirAccess / FileAccess rather than System.IO: an exported build's res:// is
-	// inside the .pck, which only Godot's file API can see.
-	private void AddDocumentsIn(string dir, string extension, string scriptClass, bool recursive)
+	// DirAccess rather than System.IO: an exported build's res:// is inside the
+	// .pck, which only Godot's file API can see.
+	private void AddWorldFilesIn(string dir, bool recursive)
 	{
 		if (string.IsNullOrEmpty(dir) || !DirAccess.DirExistsAbsolute(dir))
 		{
@@ -349,29 +490,29 @@ public partial class GuiMainMenu : Node
 		}
 		foreach (string fileName in DirAccess.GetFilesAt(dir))
 		{
-			if (!fileName.GetExtension().Equals(extension, StringComparison.OrdinalIgnoreCase))
+			if (!fileName.GetExtension().Equals(WorldEditor.WORLD_FILE_EXTENSION, StringComparison.OrdinalIgnoreCase))
 			{
 				continue;
 			}
 			// PathJoin, not manual concat: trimming slashes off a bare "user://"
 			// leaves "user:", which is a bogus path.
 			string path = dir.PathJoin(fileName);
-			if (scriptClass != null && !IsResourceOfClass(path, scriptClass))
-			{
-				continue;
-			}
-			worldList.AddItem(fileName);
+			// A world's folder names it better than its .hike does — every
+			// painted world bakes to the same file name.
+			worldList.AddItem(path.StartsWith(shippedWorldRoot) ? path.Substring(shippedWorldRoot.Length) : fileName);
 			_documentPaths.Add(path);
 		}
 		if (recursive)
 		{
 			foreach (string subDir in DirAccess.GetDirectoriesAt(dir))
 			{
-				AddDocumentsIn(dir.PathJoin(subDir), extension, scriptClass, recursive: true);
+				AddWorldFilesIn(dir.PathJoin(subDir), recursive: true);
 			}
 		}
 	}
 
+	// Reads the header line rather than loading: loading a world-map document
+	// pulls in its whole resource graph to answer a yes/no question.
 	private static bool IsResourceOfClass(string path, string scriptClass)
 	{
 		using Godot.FileAccess file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read);
@@ -382,6 +523,8 @@ public partial class GuiMainMenu : Node
 		}
 		return file.GetLine().Contains($"script_class=\"{scriptClass}\"");
 	}
+
+	// --- Selection ------------------------------------------------------
 
 	private int SelectedIndex()
 	{
@@ -415,30 +558,16 @@ public partial class GuiMainMenu : Node
 		return worldGenData ?? (worldOptions.Length > 0 ? worldOptions[0] : null);
 	}
 
-	// Path the editor should open, and — through its extension — which kind of
-	// document it opens. Empty selection (autostart) keeps the existing
-	// `world_file` cvar behavior; the two "new" rows mint an unused path so a
-	// new document's save has somewhere to go without overwriting a real file.
-	private string SelectedWorldFile()
+	// The two "new" rows mint an unused path so a new document's save has
+	// somewhere to go without overwriting a real file. Outside the editor list
+	// (autostart) the existing `world_file` cvar decides.
+	private string NewEditorDocumentPath()
 	{
 		if (_mode != SelectorMode.Editor)
 		{
 			return CVars.worldFile.Value;
 		}
-		int index = SelectedIndex();
-		if (index >= 0 && index < _documentPaths.Count && _documentPaths[index] != null)
-		{
-			return _documentPaths[index];
-		}
-		return UnusedDocumentPath(index == NEW_WORLD_INDEX ? newWorldPath : newScenePath);
-	}
-
-	// The picked file, or empty for no selection — which is what a direct launch
-	// (no selector shown) passes, and means "keep the scene's own default".
-	private string SelectedDocumentPath()
-	{
-		int index = SelectedIndex();
-		return index >= 0 && index < _documentPaths.Count ? _documentPaths[index] ?? "" : "";
+		return UnusedDocumentPath(SelectedIndex() == EDITOR_NEW_WORLD_INDEX ? newWorldPath : newScenePath);
 	}
 
 	private string UnusedDocumentPath(string template)

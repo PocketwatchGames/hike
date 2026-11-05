@@ -32,8 +32,11 @@ carries invariants that are not repeated here.
 The authored source of truth is **`WorldMapData`** (`scripts/data/worldmap/`,
 a plain `Resource` — deliberately NOT `[Tool]`, or the editor strips every
 typed reference it holds on save; see the note on the class) — bake settings
-(world extent in chunks, default sea level, height scale) plus references to the
-**layer files** (openable directly). It mirrors the `VoxelAtlasManifest` convention: one editor-visible
+(world extent in chunks, default sea level, height scale). The **layer files**
+(openable directly) are NOT referenced: each is a fixed name beside the `.tres`
+(`WorldMapData.LAYER_FILES`), so a document is its folder and a copied folder is
+an independent world. The painter opens one through a file dialog, never a
+folder search — see [docs/host.md](docs/host.md). It mirrors the `VoxelAtlasManifest` convention: one editor-visible
 resource of record + a re-runnable bake (`BakeToWorldFile`, pure C# so it runs
 headless).
 

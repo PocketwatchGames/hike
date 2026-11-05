@@ -124,7 +124,7 @@ public static class SpawnCheck
 
     private static bool BrainRuns(SpeciesData species, StringName behavior)
     {
-        Godot.Collections.Array<BehaviorNode> nodes = species.mob?.brain?.behaviors;
+        Godot.Collections.Array<BehaviorNode> nodes = SpeciesData.BrainFor(species, species.mob)?.behaviors;
         if (nodes == null)
         {
             return false;

@@ -67,6 +67,9 @@ class ResourceIndex
 	// match only - no substring convenience here, a build-time reference should
 	// say what it means.
 	readonly Dictionary<string, List<ResRef>> _items = new Dictionary<string, List<ResRef>>(StringComparer.OrdinalIgnoreCase);
+	// Quest basename -> the .tres, for the inline `start_quest:` /
+	// `complete_quest:` cells: every worlds/<name>/quests/, shared included.
+	readonly Dictionary<string, List<ResRef>> _quests = new Dictionary<string, List<ResRef>>(StringComparer.OrdinalIgnoreCase);
 	// Per world: file stem -> the .tres. Conditions and actions are separate
 	// namespaces so a gate and a side effect may share a name.
 	readonly Dictionary<string, Dictionary<string, ResRef>> _conditions = new Dictionary<string, Dictionary<string, ResRef>>(StringComparer.Ordinal);
@@ -79,6 +82,12 @@ class ResourceIndex
 		IndexResources();
 		IndexAuthoredVariables();
 		IndexItems();
+		IndexQuests();
+	}
+
+	public ResRef Quest(string world, string basename)
+	{
+		return Pick(_quests, world, basename);
 	}
 
 	public ResRef Item(string world, string basename)
@@ -319,6 +328,30 @@ class ResourceIndex
 			{
 				string name = Path.GetFileNameWithoutExtension(path);
 				Add(_items, name, new ResRef(ResPath(path), HeaderUid(path), name));
+			}
+		}
+	}
+
+	void IndexQuests()
+	{
+		string worldsDir = Path.Combine(_repoRoot, "resources", "data", "worlds");
+		if (!Directory.Exists(worldsDir))
+		{
+			return;
+		}
+		var worlds = new List<string>(Directory.GetDirectories(worldsDir));
+		worlds.Sort(StringComparer.Ordinal);
+		foreach (string world in worlds)
+		{
+			string dir = Path.Combine(world, "quests");
+			if (!Directory.Exists(dir))
+			{
+				continue;
+			}
+			foreach (string path in Directory.EnumerateFiles(dir, "*.tres", SearchOption.AllDirectories))
+			{
+				string name = Path.GetFileNameWithoutExtension(path);
+				Add(_quests, name, new ResRef(ResPath(path), HeaderUid(path), name));
 			}
 		}
 	}

@@ -8,7 +8,7 @@
 [ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/weapons/lantern.tres" id="6_4von2"]
 [ext_resource type="Resource" uid="uid://d3xp3psvbwcie" path="res://resources/data/items/weapons/knife.tres" id="6_knife"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="8_56gee"]
-[ext_resource type="Texture2D" uid="uid://xbn8ns80jnq6" path="res://assets/textures/items/BasicCloak.png" id="11_icon"]
+[ext_resource type="Texture2D" uid="uid://xbn8ns80jnq6" path="res://assets/textures/items/armor/BasicCloak.png" id="9_4von2"]
 [ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/ammo/arrow.tres" id="ammo_arrows"]
 [ext_resource type="Resource" uid="uid://dxknbtj4qcfvy" path="res://resources/data/items/armor/cloth_armor.tres" id="armor_start"]
 
@@ -70,7 +70,7 @@ gender = 1
 skinTone = 3
 hairColor = 1
 hairStyle = 1
-icon = ExtResource("11_icon")
+icon = ExtResource("9_4von2")
 health = 1.2
 stamina = 3.5
 fortitude = 1.1

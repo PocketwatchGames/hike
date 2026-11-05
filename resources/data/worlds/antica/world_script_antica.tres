@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="WorldScriptAntica" format=3 uid="uid://h5wvuapd0jnf"]
+
+[ext_resource type="Script" uid="uid://4fe0b4u73qwu" path="res://scripts/world_scripts/WorldScriptAntica.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://wnl1w7ak8uqg" path="res://scripts/data/quests/QuestData.cs" id="2_questbase"]
+[ext_resource type="Resource" uid="uid://dbug8h15xoww5" path="res://resources/data/worlds/shared/quests/return_to_camp.tres" id="4_return"]
+[ext_resource type="Resource" uid="uid://dbm31fa4y4f2r" path="res://resources/data/worlds/shared/quests/learn_song_of_gods.tres" id="5_song"]
+
+[resource]
+script = ExtResource("1_script")
+returnToCampQuest = ExtResource("4_return")
+startingQuests = Array[ExtResource("2_questbase")]([ExtResource("5_song")])

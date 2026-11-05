@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="ArmorData" format=3 uid="uid://bihoc0gmx5g3m"]
 
-[ext_resource type="Texture2D" uid="uid://bihqgais5fhrf" path="res://assets/textures/items/BonesteelArmor.png" id="1_sprite"]
+[ext_resource type="Texture2D" uid="uid://bihqgais5fhrf" path="res://assets/textures/items/armor/BonesteelArmor.png" id="1_sprite"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="8_g1rw3"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]

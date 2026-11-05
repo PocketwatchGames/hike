@@ -119,7 +119,7 @@ public partial class Mob
         _behaviors.Clear();
         _curBehavior = default;
 
-        BrainData brain = mobData?.brain;
+        BrainData brain = Brain;
         if (brain == null || brain.behaviors == null)
         {
             return;
@@ -335,6 +335,18 @@ public partial class Mob
         if (Teams.AreAllied(ActorTeam, ETeam.Player)) { return; }
         bool attacking = (output.behaviorFlags & EBehaviorFlags.Attacking) != 0;
         GameClient.Current?.Combat?.Report(this, attacking, _world.GameTimeMs);
+    }
+
+    // Scripted switch into a named node of this mob's brain (a conversation's
+    // `behavior:` cell). From there the brain's own transitions take over.
+    public void ForceBehavior(StringName behaviorName)
+    {
+        if (behaviorName == null || !_behaviors.ContainsKey(behaviorName))
+        {
+            GD.PushError($"Mob '{Name}': its brain has no behavior '{behaviorName}' to switch to.");
+            return;
+        }
+        StartBehavior(behaviorName);
     }
 
     private void StartBehavior(StringName behaviorName)

@@ -720,7 +720,7 @@ the master spreadsheet over it); `tools/conversation_import` turns it into one
 GENERATED — never hand-edit a conversation `.tres` in the Godot inspector, the
 next build overwrites it.
 
-Columns: `character  name  description  player  conversation key  goto  language  condition  on start  on complete  text`.
+Columns: `character  name  description  options  player  conversation key  goto  language  condition  on start  on complete  text`.
 A row is one NPC turn or one player choice, and the bipartite graph the runtime
 wants falls straight out of it:
 
@@ -742,6 +742,10 @@ wants falls straight out of it:
   the name, the name after, and hides for a source with neither. The `learn_name`
   action teaches it — `Knowledge.KnownNames`, keyed by the `ConversationData`, so
   provisional until camp like every other lesson.
+- **`options` describes the CHARACTER too**, once, `;`-separated keywords on
+  any of its rows: `undismissable` (`ConversationData.dismissable = false` —
+  `ui_cancel` does nothing, so it can only be read through). An unknown keyword
+  is an import error.
 - **A blank conversation key on an NPC row continues the branch above** — another
   paragraph.
 - **`goto`, `language` and `condition` describe the BRANCH, not the paragraph
@@ -823,6 +827,17 @@ wants falls straight out of it:
   several things at once, or teaches one of the
   two concepts whose payload is authored TEXT rather than a resource reference
   (`ScriptFlagTeachable.conceptName`, `TreasureMapTeachable.treasureName`).
+- **A quest is written inline too**: `start_quest:<name>` / `complete_quest:<name>`,
+  the basename of a `QuestData` under `worlds/shared/quests/` or the sheet's own
+  `worlds/<world>/quests/`. Starting is a no-op while the quest is active or once
+  its `completedVariable` is set; completing ends it on the next quest tick like
+  a self-completed one. A goal the game cannot observe is a `ScriptedQuestData`,
+  which only `complete_quest:` (or a script) ends.
+- **A speaker's exit is a brain node**: `behavior:<node>` switches the speaker
+  into that node of its brain (`SetSpeakerBehaviorAction`) — the NPC fairy's
+  `Escape` vanishes her with the wild fairy's own escape data. Unchecked at
+  import (the species is chosen on the placement); a missing node errors when it
+  fires. A walk-somewhere-then-act exit is more brain nodes, not a new action.
 - **Teaching is idempotent but reaching it is not** — `TeachableConcept.Teach`
   returns false on a re-teach, so a repeatable response grants nothing twice.
   What still needs gating is the FICTION: a tongue taught on an unconditional

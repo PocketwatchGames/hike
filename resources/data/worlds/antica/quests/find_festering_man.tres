@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="ScriptedQuestData" format=3 uid="uid://jqpw6pijk3a92"]
+
+[ext_resource type="Script" uid="uid://8tcttjmg60g2a" path="res://scripts/data/quests/ScriptedQuestData.cs" id="1_quest"]
+
+[resource]
+script = ExtResource("1_quest")
+textKey = &"quest_find_festering_man"

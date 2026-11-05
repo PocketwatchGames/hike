@@ -96,6 +96,29 @@ public partial class SpeciesData : Resource
     // forking it (a basic goblin without Dodge). See EMobAbility.
     [Export] public EMobAbility abilities;
 
+    // A different mind in the same body — the NPC fairy that talks instead of
+    // fleeing. Null runs the mob's brain. Read through BrainFor.
+    [Export] public BrainData brain;
+
+    // When set, mobs of this species are on `team` rather than MobData.team.
+    // Read through TeamFor.
+    [Export] public bool overridesTeam;
+    [Export] public ETeam team;
+
+    public static BrainData BrainFor(SpeciesData species, MobData mob)
+    {
+        return species?.brain ?? mob?.brain;
+    }
+
+    public static ETeam TeamFor(SpeciesData species, MobData mob)
+    {
+        if (species != null && species.overridesTeam)
+        {
+            return species.team;
+        }
+        return mob?.team ?? ETeam.Hostile;
+    }
+
     // Build the runtime sim state for a mob of this species at the given
     // transform. Returns null when the species has no usable MobData or scene.
     //

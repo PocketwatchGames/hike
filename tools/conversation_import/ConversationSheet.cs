@@ -11,6 +11,7 @@ class SheetRow
 	public string Character = "";
 	public string Name = "";
 	public string Description = "";
+	public string Options = "";
 	public string Player = "";
 	public string Key = "";
 	public string Goto = "";
@@ -95,6 +96,9 @@ class SheetCharacter
 	public string DescriptionKey = "";
 	public SheetRow NameRow;
 	public SheetRow DescriptionRow;
+	// From the `options` cell: false when it says `undismissable`.
+	public bool Dismissable = true;
+	public SheetRow OptionsRow;
 }
 
 static class ConversationSheet
@@ -104,9 +108,12 @@ static class ConversationSheet
 	// branch of its own.
 	public const string EntryKey = "entry";
 
+	// `options` keyword: the player cannot close the conversation early.
+	const string UndismissableOption = "undismissable";
+
 	static readonly string[] RequiredColumns =
 	{
-		"character", "name", "description", "player", "conversation key", "goto", "language", "condition", "on start", "on complete", "text",
+		"character", "name", "description", "options", "player", "conversation key", "goto", "language", "condition", "on start", "on complete", "text",
 	};
 
 	// Reads one sheet export into rows, applying the fill-down rule on the
@@ -169,6 +176,7 @@ static class ConversationSheet
 				Character = Cell(cells, columns, "character"),
 				Name = Cell(cells, columns, "name"),
 				Description = Cell(cells, columns, "description"),
+				Options = Cell(cells, columns, "options"),
 				Player = Cell(cells, columns, "player"),
 				Key = Cell(cells, columns, "conversation key"),
 				Goto = Cell(cells, columns, "goto"),
@@ -178,7 +186,7 @@ static class ConversationSheet
 				OnComplete = Cell(cells, columns, "on complete"),
 				Text = Cell(cells, columns, "text"),
 			};
-			if (row.Character.Length == 0 && row.Name.Length == 0 && row.Description.Length == 0 && row.Player.Length == 0 && row.Key.Length == 0
+			if (row.Character.Length == 0 && row.Name.Length == 0 && row.Description.Length == 0 && row.Options.Length == 0 && row.Player.Length == 0 && row.Key.Length == 0
 				&& row.Goto.Length == 0 && row.Language.Length == 0 && row.Condition.Length == 0
 				&& row.OnStart.Length == 0 && row.OnComplete.Length == 0 && row.Text.Length == 0)
 			{
@@ -228,7 +236,7 @@ static class ConversationSheet
 			if (row.Player.Length == 0 && row.Key.Length == 0 && row.Goto.Length == 0 && row.Language.Length == 0
 				&& row.Condition.Length == 0 && row.OnStart.Length == 0 && row.OnComplete.Length == 0 && row.Text.Length == 0)
 			{
-				// Nothing but the character's own name / description.
+				// Nothing but the character's own name / description / options.
 				continue;
 			}
 
@@ -266,8 +274,8 @@ static class ConversationSheet
 		return characters;
 	}
 
-	// name and description describe the CHARACTER, not the row, and may be
-	// written on any of its rows - one each per character.
+	// name, description and options describe the CHARACTER, not the row, and
+	// may be written on any of its rows - one each per character.
 	static void ApplyCharacterFields(SheetCharacter character, SheetRow row, Report report)
 	{
 		if (row.Name.Length > 0)
@@ -294,6 +302,26 @@ static class ConversationSheet
 				character.DescriptionKey = character.Name + "_description";
 				character.DescriptionRow = row;
 				character.Strings.Add(new KeyValuePair<string, string>(character.DescriptionKey, row.Description));
+			}
+		}
+		if (row.Options.Length > 0)
+		{
+			if (character.OptionsRow != null)
+			{
+				report.Error(row, $"{character.Name}'s options are already written at {character.OptionsRow.Where} - put them all in one cell, ';'-separated");
+				return;
+			}
+			character.OptionsRow = row;
+			foreach (string option in SplitNames(row.Options))
+			{
+				if (option.Equals(UndismissableOption, StringComparison.OrdinalIgnoreCase))
+				{
+					character.Dismissable = false;
+				}
+				else
+				{
+					report.Error(row, $"unknown option '{option}' - the options are: {UndismissableOption}");
+				}
 			}
 		}
 	}

@@ -15,10 +15,10 @@
 [ext_resource type="PackedScene" path="res://scenes/fx/thrust_smear.tscn" id="9_smear"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="9_state"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="12_fgw35"]
+[ext_resource type="Texture2D" uid="uid://blgk5830chakx" path="res://assets/textures/items/weapons/Fists.png" id="17_r0rxm"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="18_r0rxm"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="20_6fohh"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="21_repeat"]
-[ext_resource type="Texture2D" uid="uid://blgk5830chakx" path="res://assets/textures/items/Fists.png" id="22_sprite"]
 [ext_resource type="Resource" uid="uid://cgppl1e4iql2f" path="res://resources/data/characters/human/anim_sets/fists.tres" id="23_animset"]
 
 [sub_resource type="Resource" id="Resource_event_light"]
@@ -76,10 +76,8 @@ queueWindowSeconds = 0.25
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
 tags = 3205
-healthDamage = 20.0
-critChance = 0.1
+healthDamage = 5.0
 damageVariance = 0.25
-blunt = 0.2
 hitstun = 0.2
 knockbackDistance = 0.3
 knockbackTime = 0.2
@@ -95,4 +93,4 @@ actionProfile = SubResource("Resource_profile")
 animSet = ExtResource("23_animset")
 displayName = &"Fists"
 description = "Bare-handed."
-inventorySprite = ExtResource("22_sprite")
+inventorySprite = ExtResource("17_r0rxm")

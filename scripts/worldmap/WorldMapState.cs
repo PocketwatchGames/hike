@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Godot;
 
 // Runtime document + bake for the world-map painter. Owns every layer's mutable
@@ -889,9 +889,9 @@ public class WorldMapState
 
     private static WorldMapPlacements LoadOrCreatePlacements(WorldMapData data)
     {
-        if (!string.IsNullOrEmpty(data.placementsPath) && ResourceLoader.Exists(data.placementsPath))
+        if (!string.IsNullOrEmpty(data.PlacementsPath) && ResourceLoader.Exists(data.PlacementsPath))
         {
-            var loaded = ResourceLoader.Load<WorldMapPlacements>(data.placementsPath);
+            var loaded = ResourceLoader.Load<WorldMapPlacements>(data.PlacementsPath);
             if (loaded != null)
             {
                 loaded.placements ??= System.Array.Empty<SubscenePlacement>();
@@ -903,9 +903,9 @@ public class WorldMapState
 
     private static WorldMapPalettes LoadOrCreatePalettes(WorldMapData data)
     {
-        if (!string.IsNullOrEmpty(data.palettesPath) && ResourceLoader.Exists(data.palettesPath))
+        if (!string.IsNullOrEmpty(data.PalettesPath) && ResourceLoader.Exists(data.PalettesPath))
         {
-            var loaded = ResourceLoader.Load<WorldMapPalettes>(data.palettesPath);
+            var loaded = ResourceLoader.Load<WorldMapPalettes>(data.PalettesPath);
             if (loaded != null)
             {
                 // Duplicated because a resolve APPENDS newly discovered slots,
@@ -920,29 +920,29 @@ public class WorldMapState
 
     private void SavePalettes()
     {
-        if (string.IsNullOrEmpty(Data.palettesPath))
+        if (string.IsNullOrEmpty(Data.PalettesPath))
         {
             return;
         }
-        Palettes.ResourcePath = Data.palettesPath;
-        Error err = ResourceSaver.Save(Palettes, Data.palettesPath);
+        Palettes.ResourcePath = Data.PalettesPath;
+        Error err = ResourceSaver.Save(Palettes, Data.PalettesPath);
         if (err != Error.Ok)
         {
-            GD.PushError($"WorldMapState: could not save palettes to {Data.palettesPath}: {err}");
+            GD.PushError($"WorldMapState: could not save palettes to {Data.PalettesPath}: {err}");
         }
     }
 
     private void SavePlacements()
     {
-        if (string.IsNullOrEmpty(Data.placementsPath))
+        if (string.IsNullOrEmpty(Data.PlacementsPath))
         {
             return;
         }
-        Placements.ResourcePath = Data.placementsPath;
-        Error err = ResourceSaver.Save(Placements, Data.placementsPath);
+        Placements.ResourcePath = Data.PlacementsPath;
+        Error err = ResourceSaver.Save(Placements, Data.PlacementsPath);
         if (err != Error.Ok)
         {
-            GD.PushError($"WorldMapState: could not save placements to {Data.placementsPath}: {err}");
+            GD.PushError($"WorldMapState: could not save placements to {Data.PlacementsPath}: {err}");
         }
     }
 

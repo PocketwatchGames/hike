@@ -18,11 +18,11 @@
 [ext_resource type="PackedScene" uid="uid://c2jrl015q2rtn" path="res://scenes/fx/bow_charge_loop.tscn" id="8_chgloop"]
 [ext_resource type="PackedScene" uid="uid://c2jrtlu1q2rtn" path="res://scenes/fx/bow_charge_tail.tscn" id="8_chgtail"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="11_jf0yv"]
-[ext_resource type="Texture2D" uid="uid://dev3akgtvwnhk" path="res://assets/textures/items/Bow.png" id="15_tnjmy"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="17_kwtcm"]
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
 [ext_resource type="PackedScene" uid="uid://b6xvvkhj2thr" path="res://scenes/items/bow_held.tscn" id="20_kwtcm"]
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
+[ext_resource type="Texture2D" uid="uid://dev3akgtvwnhk" path="res://assets/textures/items/weapons/Bow.png" id="22_1sa4s"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="27_1sa4s"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/fiber.tres" id="salvage_fiber"]
@@ -168,6 +168,6 @@ repair = Array[ExtResource("material_count")]([SubResource("repair_cost_sinew"),
 displayName = &"Short Bow"
 description = "Fires arrows at range."
 value = 50
-inventorySprite = ExtResource("15_tnjmy")
+inventorySprite = ExtResource("22_1sa4s")
 heldModel = ExtResource("20_kwtcm")
 salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_sinew"), SubResource("salvage_yield_fiber")])

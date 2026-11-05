@@ -58,6 +58,9 @@ public partial class Hud : Control
 	[Export] PackedScene _questItemScene;
 	[Export] HudSignpostPanel _signpostPanel;
 	[Export] ConversationController _dialoguePanel;
+	// The gameplay widgets (vitals, hotbar, minimap, quests, effects), hidden
+	// while a conversation is open. The dialogue panel must sit outside it.
+	[Export] Control _gameplayWidgets;
 	[Export] HudRegionBanner _regionBanner;
 	[Export] TextureRect _minimapTexture;
 	// Shared "?" icon drawn for Sensed (unidentified) map markers. Optional —
@@ -223,6 +226,7 @@ public partial class Hud : Control
 		if (_dialoguePanel != null)
 		{
 			_dialoguePanel.gameClient = gameClient;
+			_dialoguePanel.VisibilityChanged += OnConversationVisibilityChanged;
 		}
 		_weaponLeftHint?.SetHint("AttackContextSensitive", "AttackMelee", string.Empty, string.Empty);
 		_weaponRightHint?.SetHint("AttackContextSensitive", "AttackRanged", "Aim", string.Empty);
@@ -291,10 +295,29 @@ public partial class Hud : Control
 		_dialoguePanel?.Close();
 	}
 
+	// VisibilityChanged covers every way a conversation opens or closes,
+	// including an action (open_shop) closing it from inside the controller.
+	void OnConversationVisibilityChanged()
+	{
+		bool hidden = IsConversationOpen;
+		if (_gameplayWidgets != null)
+		{
+			_gameplayWidgets.Visible = !hidden;
+		}
+		if (hidden && _statusEffectNotificationAnchor != null)
+		{
+			_statusEffectNotificationAnchor.Visible = false;
+		}
+	}
+
 	public override void _ExitTree()
 	{
 		if (Current == this) { Current = null; }
 		InputDevice.OnChanged -= OnInputDeviceChanged;
+		if (_dialoguePanel != null)
+		{
+			_dialoguePanel.VisibilityChanged -= OnConversationVisibilityChanged;
+		}
 		if (gameClient != null)
 		{
 			gameClient.onPlayerSpawned -= OnPlayerSpawned;
@@ -1076,7 +1099,7 @@ public partial class Hud : Control
 		}
 		Vector3 worldPos = _player.hudAnchor != null ? _player.hudAnchor.GlobalPosition : _player.GlobalPosition;
 		bool behindCamera = gameClient.camera.IsPositionBehind(worldPos);
-		_statusEffectNotificationAnchor.Visible = !behindCamera;
+		_statusEffectNotificationAnchor.Visible = !behindCamera && !IsConversationOpen;
 		if (!behindCamera)
 		{
 			_statusEffectNotificationAnchor.Position = GameClient.Current.ProjectToScreen(worldPos);

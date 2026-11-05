@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="ShieldData" format=3 uid="uid://cwbdpohr5162r"]
 
+[ext_resource type="Texture2D" uid="uid://kbe42hbs7n13" path="res://assets/textures/items/weapons/FistsGuard.png" id="1_nay8c"]
 [ext_resource type="Script" uid="uid://jqmwdcmyi4tc" path="res://scripts/data/items/ShieldData.cs" id="1_shield"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="2_damage"]
 [ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="3_parryfx"]
-[ext_resource type="Texture2D" uid="uid://kbe42hbs7n13" path="res://assets/textures/items/FistsGuard.png" id="4_icon"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="4_nay8c"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="6_jfijs"]
 
@@ -30,4 +30,4 @@ parryEffect = ExtResource("3_parryfx")
 parryDecibels = 0.4
 displayName = &"Guard"
 description = "Crouch to guard with your bare hands."
-inventorySprite = ExtResource("4_icon")
+inventorySprite = ExtResource("1_nay8c")

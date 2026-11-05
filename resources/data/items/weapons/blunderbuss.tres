@@ -17,7 +17,7 @@
 [ext_resource type="PackedScene" path="res://scenes/fx/gun_misfire.tscn" id="8_misfire"]
 [ext_resource type="PackedScene" uid="uid://b3la8d0l81l6i" path="res://scenes/projectiles/lead_shot.tscn" id="10_ajm0v"]
 [ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="11_bxhp7"]
-[ext_resource type="Texture2D" uid="uid://b2sf3vi1tiebh" path="res://assets/textures/items/Musket.png" id="15_sprite"]
+[ext_resource type="Texture2D" uid="uid://b2sf3vi1tiebh" path="res://assets/textures/items/weapons/Musket.png" id="15_sprite"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="16_rh7yu"]
 [ext_resource type="PackedScene" path="res://scenes/items/musket_held.tscn" id="20_held"]
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
