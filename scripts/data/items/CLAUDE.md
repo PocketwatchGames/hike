@@ -4,6 +4,24 @@ Covers `scripts/data/items/` (authored item data + the descriptor wrappers), `sc
 
 Items are customized by **composition, not new `ItemData`**. A spawn source (a `WorldGenData` loadout, a loot table, a chest) holds an `ItemDescriptor` — an `ItemData` paired with a list of permanent **status-effect mods** — instead of a bare `ItemData`. `ItemCount` / `LootSpawnEntry` HAS-A descriptor (neither IS one); `ItemDescriptor.CreateState()` builds the runtime `ItemState` and composes the mods onto its item-side `statusEffects` controller. This is how one "Fragile" bomb and one "Piercing" bow exist without authoring a unique `WeaponData` per permutation. **Expect to add many of these — prefer a new mod over a new item variant.**
 
+## Every item authored into the world is a descriptor, resolved to an `ItemState` at spawn
+
+- **An authored field that hands out an item is an `ItemDescriptor`, never a bare
+  `ItemData`.** Chest contents, carried loot, merchant stock (`MobInventoryData`),
+  loyalty gifts, buried spots and forage all are, so the painter's panel offers
+  level and mods on every one of them for free (a descriptor has no files to
+  pick, so the panel edits it in place).
+- **The sim state holds the resolved `ItemState`, not the descriptor.** The item
+  serializer writes a whole `ItemState` — level, mods, spoil, durability — so
+  nothing authored is lost in the bake. A state holding the descriptor would
+  have to round-trip it through the ref table, which stores a painter fork only
+  as a flat record and refuses its mod list. Carried loot was stored as item
+  path + count and silently dropped every level and mod.
+- **Something handed out more than once keeps a TEMPLATE and presents
+  `ItemState.Duplicate()`** — the forage spawner. `Duplicate` (and `SplitOff`)
+  carry the composition along; a subclass with runtime state overrides
+  `CopySubclassStateTo`.
+
 ## The mod is a `duration = 0` `StatusEffectData` with a `weaponMod` payload
 
 The mod itself is an ordinary `StatusEffectData` authored with `duration = 0` (a permanent passive), carrying a **`weaponMod` sub-resource** (`WeaponModData`, null on non-weapon effects) that holds the weapon-modifier **payload** fields — `projectilesDetonateOnContact`, `projectilePierceCount` (creatures a shot passes *through* before stopping; 0 = stops on the first), and future ones. The payload says *what* the mod does; it is intrinsic to the effect. `StatusEffectData`'s feature-specific fields are grouped into optional sub-resources this way (`dot`, `attackImpact`, `dashBurst`, `trail`, `instant`, `weaponMod`) so the core stays small and each cluster lives in its own `*Data` class under `scripts/data/effects/payloads/`; null = feature absent. Each `ItemState` owns a `StatusEffectController` (`statusEffects`) constructed with null actor/world/health, so item-side mods are passive modifiers — no fx, no DoT — that travel with the object (a dropped enchanted sword keeps its enchant).
@@ -132,7 +150,9 @@ stackable. `ammoType = None` needs no rounds (the sling, wands, every mob weapon
   upgrade. A fire arrow is a new `AmmoData` with the flaming mod, not a new bow.
 - **A landed round is an ordinary pickup of its own item**, rolled against
   `AmmoData.breakChance` per round where it lands (`Sim.LandRecoverableRound`,
-  which floats "<name> broken!" on a break). It embeds in a living mob it struck
+  which floats "<name> broken!" on a break). `breakChance = 1` is a round
+  spent on firing (ball, shot, bomb): it never lands, never embeds, and shows no
+  cue and no Break Chance row — a certainty is not a break. It embeds in a living mob it struck
   (`embedsInTargets`, `ArrowStuck`) and drops loose when that mob dies; a mob that
   unloads alive takes it along. Nothing binds a round to the weapon that fired it,
   nothing times it out, and like all dropped loot the next rest sweeps it. It

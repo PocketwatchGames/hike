@@ -19,7 +19,11 @@ to find out what it is pulls in its whole resource graph.
 
 **A document is its folder.** Every layer is a fixed file name beside the `.tres`
 (`WorldMapData.LAYER_FILES`), resolved from the document's own `ResourcePath`, so
-copying a world's folder gives a world that edits only its own files. New World
+copying a world's folder gives a world that edits only its own files. The one
+exception is the bake OUTPUT, which is the world's, not the document's: it is
+written to `worlds/<world>/<world>.hike`, outside `map/`, because it is the only
+thing the document produces that a build ships. A document outside
+`worlds/<name>/` has no world, and its bake refuses with a message saying so. New World
 Map duplicates `GuiMainMenu.newWorldMapTemplate` into the chosen file and refuses
 a folder that already holds a document or any of its layers; the layers appear
 on the first save. Start content is left unset for the author to point at the

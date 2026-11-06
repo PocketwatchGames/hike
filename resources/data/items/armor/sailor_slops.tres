@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="ArmorData" format=3 uid="uid://d1bevlwoq85t"]
 
-[ext_resource type="Texture2D" uid="uid://xbn8ns80jnq6" path="res://assets/textures/items/armor/BasicCloak.png" id="1_wr5fj"]
+[ext_resource type="Texture2D" uid="uid://mfqa2y8v66b7" path="res://assets/textures/items/armor/RagArmor.png" id="1_wr5fj"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="2_ctagt"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="3_b2p8w"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="4_tashn"]
@@ -45,7 +45,7 @@ maxArmor = 360.0
 modifiers = Array[ExtResource("2_ctagt")]([SubResource("m_noise"), SubResource("Resource_wr5fj")])
 outfit = SubResource("outfit")
 weight = 0.25
-maxDurability = 60
+maxDurability = 3000
 repair = Array[ExtResource("5_oxopc")]([SubResource("repair_cost_cloth")])
 displayName = &"Sailor Slops"
 description = "Protects from the chill of the open ocean, dries quickly."

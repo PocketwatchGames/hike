@@ -32,6 +32,7 @@ public class WorldState
     public PlayerState[] StartingParty = System.Array.Empty<PlayerState>();
     public TeachableConcept[] InitialKnowledge = System.Array.Empty<TeachableConcept>();
     public StoryData IntroStory;
+    public StartConditionData StartingCondition;
 
     // Resource path of the authored asset the fields above came from, recorded so
     // a .hike can resolve them again. A PATH rather than three serialized
@@ -77,6 +78,7 @@ public class WorldState
             ? System.Linq.Enumerable.ToArray(start.initialKnowledge)
             : System.Array.Empty<TeachableConcept>();
         IntroStory = start.introStory;
+        StartingCondition = start.startingCondition;
         StartContentPath = start.ResourcePath ?? "";
         WorldName = start.displayName ?? "";
     }

@@ -15,8 +15,8 @@ public partial class ForageSpawnEntry : SpawnEntryData
 
     public override PackedScene PaletteScene => scene;
 
-    // The item the spawner presents as a pickup.
-    [Export] public ItemData item;
+    // The item the spawner presents as a pickup, with any level and mods.
+    [Export] public ItemDescriptor item;
 
     // In-world days from harvest until the pickup regrows. Measured in days, so a
     // patch cleared at dusk is back several sleeps later.
@@ -24,11 +24,12 @@ public partial class ForageSpawnEntry : SpawnEntryData
 
     protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (scene == null || item == null)
+        ItemState template = item?.CreateState();
+        if (scene == null || template == null)
         {
             return;
         }
-        ws.AddEntity(new ForageSpawnerSimState(position, scene, item, regrowDays)
+        ws.AddEntity(new ForageSpawnerSimState(position, scene, template, regrowDays)
         {
             RotationY = FacingY(context),
         });

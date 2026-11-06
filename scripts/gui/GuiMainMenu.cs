@@ -497,9 +497,7 @@ public partial class GuiMainMenu : Node
 			// PathJoin, not manual concat: trimming slashes off a bare "user://"
 			// leaves "user:", which is a bogus path.
 			string path = dir.PathJoin(fileName);
-			// A world's folder names it better than its .hike does — every
-			// painted world bakes to the same file name.
-			worldList.AddItem(path.StartsWith(shippedWorldRoot) ? path.Substring(shippedWorldRoot.Length) : fileName);
+			worldList.AddItem(fileName.GetBaseName());
 			_documentPaths.Add(path);
 		}
 		if (recursive)

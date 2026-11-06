@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="ArmorData" format=3 uid="uid://b7fxk2m4n8rap"]
 
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="1_armor"]
-[ext_resource type="Texture2D" uid="uid://mfqa2y8v66b7" path="res://assets/textures/items/armor/WolfCloak.png" id="2_sprite"]
+[ext_resource type="Texture2D" uid="uid://b1rg64a0klpom" path="res://assets/textures/items/armor/FurArmor.png" id="1_h7tg2"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="9_h7tg2"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
@@ -66,5 +66,5 @@ repair = Array[ExtResource("material_count")]([SubResource("repair_cost_fur"), S
 displayName = &"Hide Robe"
 description = "A whole hide worn hair-side in, its outer face painted with the tally of winters past. Heavy as a sleeping child, and warm enough to sleep through a blizzard."
 value = 60
-inventorySprite = ExtResource("2_sprite")
+inventorySprite = ExtResource("1_h7tg2")
 salvage = Array[ExtResource("material_count")]([SubResource("salvage_fur"), SubResource("salvage_sinew")])

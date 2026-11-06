@@ -9,6 +9,29 @@
 [ext_resource type="Resource" path="res://resources/data/characters/fairy/fairy_npc.tres" id="6_tnxmk"]
 [ext_resource type="Script" path="res://scripts/data/worldmap/EntityPlacement.cs" id="7_1qx4t"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/npcs/fairy.tres" id="8_q6pm2"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/ambient/firefly_swarm.tres" id="9_tf1ad"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/npcs/appearances/villager_plain_m.tres" id="10_tme81"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/npcs/appearances/hermit.tres" id="11_mgj0k"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/npcs/appearances/merchant_leather.tres" id="12_03j7x"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/npcs/appearances/villager_archer_f.tres" id="13_slhei"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/npcs/appearances/villager_elder_m.tres" id="14_opxsq"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/npcs/appearances/villager_fighter_f.tres" id="15_8gal1"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/npcs/appearances/villager_hunter_m.tres" id="16_hcgh4"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/npcs/appearances/wanderer_talia.tres" id="17_c6uuj"]
+[ext_resource type="Resource" path="res://resources/data/worlds/swamp_world/conversations/swamp_villager01_conversation.tres" id="18_aarnj"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="19_esoxi"]
+[ext_resource type="Resource" path="res://resources/data/characters/human/standard_npc.tres" id="20_cim0t"]
+[ext_resource type="Script" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="21_8gal1"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/npcs/npc.tres" id="21_k4cij"]
+[ext_resource type="Resource" path="res://resources/data/items/weapons/pistol.tres" id="22_8rpwt"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/items/status_gear_brittle.tres" id="22_hcgh4"]
+[ext_resource type="Resource" path="res://resources/data/items/ammo/lead_ball.tres" id="28_mgj0k"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/cookpot.tscn" id="30_c6uuj"]
+[ext_resource type="Script" path="res://scripts/data/spawn/CookpotSpawnEntry.cs" id="31_aarnj"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/cookpot.tres" id="32_cim0t"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/bed.tres" id="32_esoxi"]
+[ext_resource type="Resource" path="res://resources/data/items/weapons/mace.tres" id="33_cim0t"]
+[ext_resource type="Script" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_mig"]
 
 [sub_resource type="Resource" id="Resource_7s08i"]
 script = ExtResource("5_ki3pu")
@@ -26,8 +49,131 @@ custom = SubResource("Resource_7s08i")
 anchorXZ = Vector2i(70, 214)
 name = "intro_fairy"
 
+[sub_resource type="Resource" id="Resource_biew4"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(78, 206)
+
+[sub_resource type="Resource" id="Resource_uauec"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(86, 198)
+
+[sub_resource type="Resource" id="Resource_ki3pu"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(90, 206)
+
+[sub_resource type="Resource" id="Resource_tnxmk"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(101, 210)
+
+[sub_resource type="Resource" id="Resource_tf1ad"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(118, 206)
+
+[sub_resource type="Resource" id="Resource_1qx4t"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(108, 215)
+
+[sub_resource type="Resource" id="Resource_q6pm2"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(102, 192)
+
+[sub_resource type="Resource" id="Resource_opxsq"]
+script = ExtResource("21_8gal1")
+effect = ExtResource("22_hcgh4")
+
+[sub_resource type="Resource" id="Resource_8gal1"]
+script = ExtResource("itemdesc_mig")
+item = ExtResource("22_8rpwt")
+statusEffects = Array[ExtResource("21_8gal1")]([SubResource("Resource_opxsq")])
+
+[sub_resource type="Resource" id="Resource_hcgh4"]
+script = ExtResource("1_a5xhh")
+descriptor = SubResource("Resource_8gal1")
+
+[sub_resource type="Resource" id="Resource_c6uuj"]
+script = ExtResource("itemdesc_mig")
+item = ExtResource("28_mgj0k")
+
+[sub_resource type="Resource" id="Resource_aarnj"]
+script = ExtResource("1_a5xhh")
+descriptor = SubResource("Resource_c6uuj")
+
+[sub_resource type="Resource" id="Resource_y7d5i"]
+script = ExtResource("5_ki3pu")
+language = ExtResource("19_esoxi")
+conversation = ExtResource("18_aarnj")
+appearance = ExtResource("10_tme81")
+appearances = [ExtResource("11_mgj0k"), ExtResource("12_03j7x"), ExtResource("13_slhei"), ExtResource("14_opxsq"), ExtResource("15_8gal1"), ExtResource("16_hcgh4"), ExtResource("10_tme81"), ExtResource("17_c6uuj")]
+idleAnimation = &""
+species = ExtResource("20_cim0t")
+initialBehavior = &""
+carriedLoot = Array[ExtResource("1_a5xhh")]([SubResource("Resource_hcgh4"), SubResource("Resource_aarnj")])
+respawnsOnRest = false
+dead = true
+disabledVariable = &""
+metadata/_custom_type_script = "uid://hp1b1xye8rsv"
+
+[sub_resource type="Resource" id="Resource_0sbeh"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("21_k4cij")
+custom = SubResource("Resource_y7d5i")
+anchorXZ = Vector2i(102, 210)
+
+[sub_resource type="Resource" id="Resource_1l3hx"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("32_esoxi")
+anchorXZ = Vector2i(41, 195)
+
+[sub_resource type="Resource" id="ItemDescriptor_mig2"]
+script = ExtResource("itemdesc_mig")
+item = ExtResource("33_cim0t")
+
+[sub_resource type="Resource" id="Resource_e2gst"]
+script = ExtResource("4_uauec")
+item = SubResource("ItemDescriptor_mig2")
+
+[sub_resource type="Resource" id="Resource_gp7n2"]
+script = ExtResource("5_ki3pu")
+appearance = ExtResource("11_mgj0k")
+appearances = [ExtResource("11_mgj0k"), ExtResource("12_03j7x"), ExtResource("13_slhei"), ExtResource("14_opxsq"), ExtResource("15_8gal1"), ExtResource("16_hcgh4"), ExtResource("10_tme81"), ExtResource("17_c6uuj")]
+idleAnimation = &""
+loyaltyGifts = Array[ExtResource("4_uauec")]([SubResource("Resource_e2gst")])
+species = ExtResource("20_cim0t")
+initialBehavior = &""
+respawnsOnRest = false
+disabledVariable = &""
+metadata/_custom_type_script = "uid://hp1b1xye8rsv"
+
+[sub_resource type="Resource" id="Resource_bto32"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("21_k4cij")
+custom = SubResource("Resource_gp7n2")
+anchorXZ = Vector2i(38, 197)
+facing = 6
+name = "festering_man"
+
+[sub_resource type="Resource" id="Resource_7yhs3"]
+script = ExtResource("31_aarnj")
+scene = ExtResource("30_c6uuj")
+lit = true
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_hoevj"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("32_cim0t")
+custom = SubResource("Resource_7yhs3")
+anchorXZ = Vector2i(41, 200)
+facing = 6
+
 [resource]
 script = ExtResource("1_ghrgx")
-entities = [SubResource("Resource_6skfk")]
+entities = [SubResource("Resource_6skfk"), SubResource("Resource_biew4"), SubResource("Resource_uauec"), SubResource("Resource_ki3pu"), SubResource("Resource_tnxmk"), SubResource("Resource_tf1ad"), SubResource("Resource_1qx4t"), SubResource("Resource_q6pm2"), SubResource("Resource_0sbeh"), SubResource("Resource_1l3hx"), SubResource("Resource_bto32"), SubResource("Resource_hoevj")]
 hasSpawn = true
 spawnXZ = Vector2i(67, 213)

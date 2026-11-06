@@ -86,7 +86,7 @@ Measured warm on this machine, so the choice is by cost rather than by feel:
 - **One world-building run per task, at the end** — not per iteration. In particular, do NOT spend a run reproducing a bug that is already localized: when the exception names a file and line, fix it and verify once. An A/B "prove it was broken before" run is for a diagnosis that is still a guess.
 - **A run over ~30s is announced and backgrounded**, never silently blocking. Say what it costs and why it is needed, then keep working while it runs.
 - **Temporary instrumentation beats a bigger run.** A throwaway hook plus `GD.Print` reaches a code path in one 12s boot where driving the real UI to it costs minutes — just remove it in the same session.
-- **Never pipe Godot's stdout into `grep` — redirect to a file and grep that.** Under Git Bash the pipeline returns as soon as grep is satisfied, Godot does not die of SIGPIPE, and you are left with an ORPHANED process. It holds `painted_world.hike` open, so every later `worldmap_bake` writes nothing while still reporting a plausible elapsed time, and you debug a "stale" blob that is simply the last one that landed. **Check the `.hike`'s mtime after a bake**, and `Get-Process | ? ProcessName -match Godot` if one seems to do nothing. This cost six 30s cycles once. (`worldmap_bake` now reports the real outcome — `BakeToWorldFile` returns a bool — but the orphan itself is still the trap.)
+- **Never pipe Godot's stdout into `grep` — redirect to a file and grep that.** Under Git Bash the pipeline returns as soon as grep is satisfied, Godot does not die of SIGPIPE, and you are left with an ORPHANED process. It holds the world's `.hike` open, so every later `worldmap_bake` writes nothing while still reporting a plausible elapsed time, and you debug a "stale" blob that is simply the last one that landed. **Check the `.hike`'s mtime after a bake**, and `Get-Process | ? ProcessName -match Godot` if one seems to do nothing. This cost six 30s cycles once. (`worldmap_bake` now reports the real outcome — `BakeToWorldFile` returns a bool — but the orphan itself is still the trap.)
 - **`1 resources still in use at exit` + `ObjectDB instances leaked` is INTERMITTENT and means nothing.** Roughly 1 run in 3–5, always paired, on `block_check` and `spawn_check` alike. Two separate investigations blamed a static holding a `Resource` and a mid-rewrite resource tree; both were disproved by re-running (a static would fire every time; a settled tree still leaks). Nondeterministic shutdown ordering, not attributable to any change. Exit code stays 0. Do not chase it, and do not re-derive it.
 
 ### Running Headless (Automated Play)
@@ -492,9 +492,12 @@ way, and a non-empty collection on one is refused with an error naming the field
 rather than half-written — a resource with structure of its own has earned a
 `.tres` of its own.
 
-So a shipped build needs the world's start content, zones and regions. It does
-NOT need anything else under `map/`: the raster layers (`*.png`, `*.exr`,
-`tunnels.bin` — 27 MB on its own), the `WorldMapData`, or `placements.tres`.
+So a shipped build needs the world's baked `worlds/<world>/<world>.hike` (the
+bake writes it there, beside the start content, not into `map/`), its start
+content, zones and regions. It needs NOTHING under `map/`: the raster layers
+(`*.png`, `*.exr`, `tunnels.bin` — 27 MB on its own), the `WorldMapData`, or
+`placements.tres`. The `.hike` is gitignored (`worlds/*/*.hike`) and the export
+preset includes the same pattern; re-bake rather than commit it.
 
 ### World Map Painting Tool (`scripts/worldmap/`, `scripts/data/worldmap/`, `scripts/data/world_editor/`)
 
@@ -559,6 +562,9 @@ weather): the load re-derives it the way a real wake does.
 A rest revives every dead mob EXCEPT one whose spawn entry has
 `respawnsOnRest` off (`NpcSpawnEntry`'s default): an individual stays dead,
 and the save carries that through the entity diff like any other change.
+A mob killed in play leaves no node once its chunk unloads; one PLACED dead
+(`MobSpawnEntry.dead` → `MobSimState.PlacedDead`) is a body that re-spawns as a
+corpse every load and never revives.
 Mid-day saves are a likely later extension.
 
 The header is read before a world exists (`SaveGame.Read` → `SaveFile`), then

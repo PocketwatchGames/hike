@@ -9,6 +9,7 @@
 [ext_resource type="Script" uid="uid://hs2aa8y8pqsyk" path="res://scripts/data/conversation/actions/StartQuestAction.cs" id="Script_StartQuestAction"]
 [ext_resource type="Resource" uid="uid://jqpw6pijk3a92" path="res://resources/data/worlds/antica/quests/find_festering_man.tres" id="Quest_find_festering_man"]
 [ext_resource type="Script" uid="uid://mrnerfan3gnb9" path="res://scripts/data/conversation/actions/SetSpeakerBehaviorAction.cs" id="Script_SetSpeakerBehaviorAction"]
+[ext_resource type="Resource" uid="uid://ey6lcqevxhr8" path="res://resources/data/dialogue_scripts/actions/wake_up.tres" id="Act_wake_up"]
 
 [sub_resource type="Resource" id="Inline_1"]
 script = ExtResource("Script_StartQuestAction")
@@ -41,7 +42,7 @@ locKey = &"intro_fairy_greeting_04"
 [sub_resource type="Resource" id="Line_greeting_5"]
 script = ExtResource("Script_ConversationLine")
 locKey = &"intro_fairy_greeting_05"
-completeActions = Array[Object]([SubResource("Inline_1"), SubResource("Inline_2")])
+completeActions = Array[Object]([SubResource("Inline_1"), SubResource("Inline_2"), ExtResource("Act_wake_up")])
 
 [sub_resource type="Resource" id="Branch_greeting"]
 script = ExtResource("Script_ConversationBranch")

@@ -37,6 +37,11 @@ public class FlaskState : ItemState
 		w.Write(amount);
 	}
 
+	protected override void CopySubclassStateTo(ItemState dest)
+	{
+		((FlaskState)dest).amount = amount;
+	}
+
 	public override void ReadSubclassState(System.IO.BinaryReader r)
 	{
 		amount = Mathf.Clamp(r.ReadSingle(), 0f, _flaskData.capacity);

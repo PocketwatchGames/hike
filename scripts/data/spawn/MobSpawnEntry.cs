@@ -41,6 +41,13 @@ public partial class MobSpawnEntry : SpawnEntryData
     // a one-off boss — who stays dead. NpcSpawnEntry defaults it off.
     [Export] public bool respawnsOnRest = true;
 
+    // THIS individual is placed already dead: a body lying where it was put,
+    // with no death played (no species loot, no kill credit). Its carriedLoot is
+    // what a member finds by searching it (Mob.SearchBody). It stays dead through
+    // a rest whatever respawnsOnRest says. Set on a placement's own copy, never on
+    // a shared entry.
+    [Export] public bool dead;
+
     // Mobs require flat terrain to keep physics from knocking them off step
     // edges into the cliff face below. Water-bound mobs are exempt — they spawn
     // in the water column, where the dry-ground flatness test is meaningless
@@ -157,7 +164,7 @@ public partial class MobSpawnEntry : SpawnEntryData
             return;
         }
         state.SpawnConditions = context?.SpawnConditions ?? ESpawnConditions.None;
-        state.RespawnsOnRest = respawnsOnRest;
+        ApplyLifeState(state);
         StringName behavior = InitialBehaviorFor(rng, context);
         if (behavior != null)
         {
@@ -165,6 +172,17 @@ public partial class MobSpawnEntry : SpawnEntryData
         }
         AddCarriedLoot(state, rng, context);
         ws.AddEntity(state);
+    }
+
+    protected void ApplyLifeState(MobSimState state)
+    {
+        state.RespawnsOnRest = respawnsOnRest && !dead;
+        if (dead)
+        {
+            state.Alive = false;
+            state.PlacedDead = true;
+            state.Health = 0f;
+        }
     }
 
     // Which behaviour a spawn of this entry starts in, or null for the brain's
@@ -205,10 +223,16 @@ public partial class MobSpawnEntry : SpawnEntryData
         {
             return;
         }
-        var merged = new Godot.Collections.Array<ItemCount>();
+        var merged = new System.Collections.Generic.List<ItemState>();
         if (ownCarries)
         {
-            AppendLoot(merged, carriedLoot);
+            foreach (ItemCount item in carriedLoot)
+            {
+                if (item != null)
+                {
+                    ItemCountRange.AppendStates(item.descriptor, item.count, merged);
+                }
+            }
         }
         if (rowHasLoot)
         {
@@ -216,7 +240,7 @@ public partial class MobSpawnEntry : SpawnEntryData
             {
                 if (row != null && RollCarried(row, rng, context))
                 {
-                    merged.Add(new ItemCount { descriptor = row.item, count = row.RollCount(rng) });
+                    ItemCountRange.AppendStates(row.item, row.RollCount(rng), merged);
                 }
             }
         }
@@ -232,18 +256,4 @@ public partial class MobSpawnEntry : SpawnEntryData
         return context.AuthoredPosition || row.RollPresent(rng);
     }
 
-    private static void AppendLoot(Godot.Collections.Array<ItemCount> into, Godot.Collections.Array<ItemCount> from)
-    {
-        if (from == null)
-        {
-            return;
-        }
-        foreach (ItemCount item in from)
-        {
-            if (item != null)
-            {
-                into.Add(item);
-            }
-        }
-    }
 }

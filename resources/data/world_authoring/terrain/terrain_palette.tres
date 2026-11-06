@@ -16,7 +16,7 @@
 [ext_resource type="Resource" uid="uid://dyxoe4k26a80k" path="res://resources/data/world_authoring/terrain/swamp_mud.tres" id="14_swamp_mud_kit"]
 [ext_resource type="Resource" uid="uid://ds1ldsisnfc4e" path="res://resources/data/world_authoring/terrain/swamp_village.tres" id="15_swamp_village_kit"]
 [ext_resource type="Resource" uid="uid://cxs634ps8mnal" path="res://resources/data/world_authoring/terrain/snowy_mountain.tres" id="16_snowy_mountain_kit"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/terrain/marsh_shallows.tres" id="17_marsh_shallows"]
+[ext_resource type="Resource" uid="uid://im6u3kyb350o" path="res://resources/data/world_authoring/terrain/marsh_shallows.tres" id="17_marsh_shallows"]
 
 [resource]
 script = ExtResource("1_script")

@@ -11,8 +11,8 @@ Godot ... --path . --headless -- \
   "worldmap_bake res://resources/data/worlds/test_world/map/default_world_map.tres user://bake_test.hike" "quit 1"
 ```
 
-The second argument redirects this one bake away from the document's own
-`painted_world.hike`, so a test bake cannot overwrite `resources/data/worlds/test_world/map/painted_world.hike` (230MB
+The second argument redirects this one bake away from the world's own `.hike`,
+so a test bake cannot overwrite `resources/data/worlds/test_world/test_world.hike` (230MB
 of authored output). Omit it and it writes the real thing — don't.
 
 It prints its own phase breakdown, and two sub-breakdowns under it:

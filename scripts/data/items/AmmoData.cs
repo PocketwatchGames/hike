@@ -18,6 +18,7 @@ public partial class AmmoData : ItemData
 	[Export] public bool isStandard = false;
 
 	// Chance a fired round is destroyed where it lands instead of leaving a pickup.
+	// 1 = spent on firing (a ball, shot): never recovered, and no "broken" cue.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float breakChance = 0f;
 
 	// Off = a hit on a living mob glances off and lands loose instead of embedding.

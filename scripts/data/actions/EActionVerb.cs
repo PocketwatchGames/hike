@@ -46,4 +46,7 @@ public enum EActionVerb
 	// Dig up a buried spot a held treasure map points at, with a carried Digging
 	// tool (BuriedSpot).
 	Dig,
+	// Search a body placed dead that still carries something (Mob.SearchBody):
+	// its carried loot spills out as ordinary pickups.
+	Search,
 }

@@ -14,9 +14,9 @@ using Godot;
 [GlobalClass]
 public partial class LoyaltyGift : Resource
 {
-    // Optional item handed to the player. Stack size is `count`. Null = no
-    // item portion (this gift is language-only).
-    [Export] public ItemData item;
+    // Optional item handed to the player, with any level and mods. Stack size is
+    // `count`. Null = no item portion (this gift is language-only).
+    [Export] public ItemDescriptor item;
     [Export] public int count = 1;
 
     // Optional language teaching. When `language` is non-null and
@@ -30,4 +30,18 @@ public partial class LoyaltyGift : Resource
     // gifts can share a threshold; Mob.ReceiveGift hands out every gift the
     // crossing covers in authored order.
     [Export] public float requiredLoyalty = 1f;
+
+    // The runtime gift a mob holds — see LoyaltyGiftState.
+    public LoyaltyGiftState CreateState()
+    {
+        ItemState state = item?.CreateState();
+        state?.SetCount(Mathf.Max(1, count));
+        return new LoyaltyGiftState
+        {
+            item = state,
+            language = language,
+            languageComponents = languageComponents,
+            requiredLoyalty = requiredLoyalty,
+        };
+    }
 }

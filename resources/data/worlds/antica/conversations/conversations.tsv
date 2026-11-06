@@ -3,4 +3,4 @@ intro_fairy		Glowing Figure	undismissable		greeting						It moves! Soggy thing. 
 											Soggy one, can you hear? Hear me.
 											I tell you your friends ran off. The bear ate one. But the other left.
 											He took your stuff. He went towards the festering man.
-										start_quest:find_festering_man; behavior:Escape	Soggy one, I’m near grown. But my sisters are out there. The festering man knows. Find him.
+										start_quest:find_festering_man; behavior:Escape; wake_up	Soggy one, I’m near grown. But my sisters are out there. The festering man knows. Find him.

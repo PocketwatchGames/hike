@@ -5,6 +5,17 @@
 [ext_resource type="Script" uid="uid://drxfkl5d06to2" path="res://scripts/data/world/WorldStartData.cs" id="3_v8u1f"]
 [ext_resource type="Resource" uid="uid://h5wvuapd0jnf" path="res://resources/data/worlds/antica/world_script_antica.tres" id="4_s58o5"]
 [ext_resource type="Resource" uid="uid://pojtffxggqnp" path="res://resources/data/worlds/shared/party/mischa.tres" id="5_ju74c"]
+[ext_resource type="Script" uid="uid://c00ychcdyeinw" path="res://scripts/data/world/StartConditionData.cs" id="6_cond"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="7_effect"]
+[ext_resource type="Resource" uid="uid://ftxqx1hhi5j3" path="res://resources/data/status_effects/status_unconscious.tres" id="8_unconscious"]
+
+[sub_resource type="Resource" id="Resource_start_condition"]
+script = ExtResource("6_cond")
+health = 0.35
+hunger = 1.0
+fatigue = 1.0
+effects = Array[ExtResource("7_effect")]([ExtResource("8_unconscious")])
+metadata/_custom_type_script = "uid://shngoo0d76zoy"
 
 [resource]
 script = ExtResource("3_v8u1f")
@@ -12,3 +23,4 @@ displayName = "Antica"
 introStory = ExtResource("2_3y86w")
 scriptData = ExtResource("4_s58o5")
 startingParty = [ExtResource("5_ju74c")]
+startingCondition = SubResource("Resource_start_condition")

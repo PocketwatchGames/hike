@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://mfqa2y8v66b7"
-path="res://.godot/imported/WolfCloak.png-bd8589dcfae1b62885f593bd50606f15.ctex"
+uid="uid://b1rg64a0klpom"
+path="res://.godot/imported/FurArmor.png-69a54ddd2cbfa1c177dcd8f3feab776a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/textures/items/armor/WolfCloak.png"
-dest_files=["res://.godot/imported/WolfCloak.png-bd8589dcfae1b62885f593bd50606f15.ctex"]
+source_file="res://assets/textures/items/armor/FurArmor.png"
+dest_files=["res://.godot/imported/FurArmor.png-69a54ddd2cbfa1c177dcd8f3feab776a.ctex"]
 
 [params]
 

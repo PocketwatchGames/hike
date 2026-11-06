@@ -25,7 +25,10 @@ worldgen_debug/
 # Character animation FBX are build-inputs for the baked *_anims.res libraries
 # (tools/build_*_anims.gd, PlayerAnimManifest); the .res is self-contained, so the source FBX are not committed.
 asset_src/models/characters/*/anims/
-resources/data/worlds/test_world/map/painted_world.hike
+
+# A painted world's baked output (worlds/<world>/<world>.hike, ~230 MB) is a
+# cache of its map/ document; re-bake it rather than commit it.
+/resources/data/worlds/*/*.hike
 
 # LibreOffice/Excel lock files left beside an open .tsv sheet
 .~lock.*#

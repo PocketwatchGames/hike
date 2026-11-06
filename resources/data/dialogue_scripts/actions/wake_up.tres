@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ApplyItemEffectsAction" format=3 uid="uid://ey6lcqevxhr8"]
+
+[ext_resource type="Script" uid="uid://zewwmaq26ivn5" path="res://scripts/data/conversation/actions/ApplyItemEffectsAction.cs" id="1_action"]
+[ext_resource type="Script" uid="uid://ka8317ruesjt" path="res://scripts/data/effects/RemoveStatusEffectsEffect.cs" id="2_remove"]
+[ext_resource type="Resource" uid="uid://ftxqx1hhi5j3" path="res://resources/data/status_effects/status_unconscious.tres" id="3_unconscious"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="4_effect"]
+
+[sub_resource type="Resource" id="Resource_remove"]
+script = ExtResource("2_remove")
+effects = Array[ExtResource("4_effect")]([ExtResource("3_unconscious")])
+metadata/_custom_type_script = "uid://ka8317ruesjt"
+
+[resource]
+script = ExtResource("1_action")
+effects = [SubResource("Resource_remove")]

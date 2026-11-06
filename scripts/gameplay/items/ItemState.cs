@@ -72,6 +72,42 @@ public class ItemState
 	{
 	}
 
+	// Copy the subclass runtime state onto `dest`, which is a fresh state of the
+	// same ItemData (so the same subclass). Override wherever the two above are.
+	protected virtual void CopySubclassStateTo(ItemState dest)
+	{
+	}
+
+	// A separate instance that is everything this one is: its units and their
+	// spoil deadlines, cooldown, composition and subclass state.
+	public ItemState Duplicate()
+	{
+		ItemState copy = _data.CreateState();
+		copy._cohorts.Clear();
+		copy._cohorts.AddRange(_cohorts);
+		copy.cooldownExpireMs = cooldownExpireMs;
+		copy.cooldownDurationMs = cooldownDurationMs;
+		CopyCompositionTo(copy);
+		CopySubclassStateTo(copy);
+		return copy;
+	}
+
+	// What makes this instance more than a fresh state of its ItemData: level,
+	// touched, item-side effects (an authored mod, a wet shirt) and boons.
+	private void CopyCompositionTo(ItemState dest)
+	{
+		dest.touched = touched;
+		dest.level = level;
+		foreach (StatusEffectState effect in statusEffects.StatusEffects)
+		{
+			if (effect?.data != null)
+			{
+				EntitySerializer.StatusEffectRecord.From(effect).AddTo(dest.statusEffects);
+			}
+		}
+		dest.possibleBoons.AddRange(possibleBoons);
+	}
+
 	public ItemState(ItemData d)
 	{
 		_data = d;
@@ -257,14 +293,13 @@ public class ItemState
 	}
 
 	// Carve `count` units oldest-first into a fresh same-kind ItemState (copying
-	// touched / level and preserving spoil deadlines). The source shrinks by whatever
-	// was available. Used by Drop and the backpack split gesture.
+	// the composition and preserving spoil deadlines). The source shrinks by
+	// whatever was available. Used by Drop and the backpack split gesture.
 	public ItemState SplitOff(int count)
 	{
 		ItemState fresh = _data.CreateState();
 		fresh.SetCount(0);
-		fresh.touched = touched;
-		fresh.level = level;
+		CopyCompositionTo(fresh);
 		TransferTo(fresh, count);
 		return fresh;
 	}

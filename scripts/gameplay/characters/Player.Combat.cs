@@ -182,6 +182,12 @@ public partial class Player : CharacterBody3D
 		{
 			RequestEndBirdsEye();
 		}
+		// A discrete hit wakes an incapacitated player (unconscious, stunned), as it
+		// does a mob; a DoT tick does not.
+		if (!hit.dot)
+		{
+			_statusEffects.ClearIncapacitating();
+		}
 		_sneaking = false;
 		// Layered damage resolution. Bypass-aware split first: a portion of
 		// `incomingDamage` skips armor entirely (discrete `ArmorPenetrated` =

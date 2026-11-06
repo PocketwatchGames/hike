@@ -11,7 +11,8 @@ using Godot;
 [GlobalClass]
 public partial class MobInventoryData : Resource
 {
-    [Export] public ItemData item;
+    // The item stocked, with any level and mods.
+    [Export] public ItemDescriptor item;
     [Export] public int count = 1;
     // Authored loyalty price for this entry. Not enforced by the merchant
     // screen — purely data for downstream consumers.

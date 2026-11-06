@@ -3,7 +3,7 @@ using Godot;
 // Persistent sim state for a buried spot: what is in the ground, how the spot
 // looks, and whether it has been dug. The payload is spawned at dig time, after
 // which the dug-up entity (chest / loot / mob) persists on its own terms — this
-// state never stores rolled contents.
+// state never stores a payload's rolled contents.
 //
 // Excavated is always serialized (EntitySerializer, Tag.BuriedSpot). For a spot
 // in a baked world that keeps a dug treasure dug while the session lasts; for a
@@ -13,9 +13,9 @@ public class BuriedSpotSimState : EntitySimState
 {
     public readonly BuriedSpotStyleData Style;
 
-    // What digging yields — see BuriedSpotSpawnEntry.
-    public ItemData Item;
-    public int Count = 1;
+    // What digging yields — see BuriedSpotSpawnEntry. Contents are real items,
+    // resolved at spawn; the payload is an entry spawned at dig time.
+    public readonly System.Collections.Generic.List<ItemState> Contents = new();
     public SpawnEntryData Payload;
 
     // Set true once the spot has been dug. Drives the runtime visual (hint vs

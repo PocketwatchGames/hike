@@ -705,7 +705,8 @@ public static class StatList
 		}
 	}
 
-	// A round's odds of breaking where it lands. 0 = no row.
+	// A round's odds of breaking where it lands. 0 = no row; 1 = spent on firing,
+	// which is no chance at all, so no row either.
 	public static IEnumerable<(string name, string value)> BreakChance(ItemData item)
 	{
 		float chance = item switch
@@ -714,7 +715,7 @@ public static class StatList
 			WeaponData { thrown: true } thrown => thrown.thrownBreakChance,
 			_ => 0f,
 		};
-		if (chance > 0f)
+		if (chance > 0f && chance < 1f)
 		{
 			yield return (GameClient.Current.statNames[EStatName.BreakChance], StatFormat.Percent(chance));
 		}

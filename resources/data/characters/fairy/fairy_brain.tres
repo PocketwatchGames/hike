@@ -9,7 +9,7 @@
 [ext_resource type="Script" uid="uid://cq57gys23wvvh" path="res://scripts/data/behaviors/conditions/AggroAcquiredCondition.cs" id="8_aggro_acquired"]
 [ext_resource type="Script" uid="uid://bthrbynd7k204" path="res://scripts/data/behaviors/conditions/ThreatBeyondDistanceCondition.cs" id="10_threat_beyond"]
 [ext_resource type="Script" uid="uid://172mcn8bn0g0" path="res://scripts/data/behaviors/conditions/BehaviorElapsedCondition.cs" id="11_elapsed"]
-[ext_resource type="Resource" uid="uid://lajj4v26a2zf7" path="res://resources/data/characters/fairy/fairy_escape.tres" id="12_escape"]
+[ext_resource type="Resource" uid="uid://djpsxr8n5n8wo" path="res://resources/data/characters/fairy/fairy_escape.tres" id="12_escape"]
 
 [sub_resource type="Resource" id="Resource_idle"]
 script = ExtResource("4_idle")

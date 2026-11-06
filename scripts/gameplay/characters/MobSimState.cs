@@ -90,7 +90,7 @@ public class MobSimState : EntitySimState
     // removes entries as they're handed back to the player; when the list
     // is empty the mob has nothing left to give and WillAcceptGift starts
     // rejecting (one of the rejection cases the spec calls out).
-    public List<LoyaltyGift> LoyaltyGifts = new();
+    public List<LoyaltyGiftState> LoyaltyGifts = new();
     // Per-instance merchant inventory. Seeded by WorldGen from the
     // worldgen-level placement entry so each merchant can stock different
     // wares without forking the shared MobData. The MerchantScreen reads
@@ -173,11 +173,11 @@ public class MobSimState : EntitySimState
     // every node spawn (Mob.Initialize), since the status controller itself isn't
     // serialized — so these survive chunk eviction and .hike load.
     public Godot.Collections.Array<StatusEffectData> StatusEffects;
-    // What this individual carries and drops on death on top of its species'
-    // rolled loot (MobSpawnEntry.AddCarriedLoot). Null = nothing. Persisted via
-    // EntitySerializer (item path + count per entry); descriptor mods aren't.
-    // Read by Mob.EjectLoot.
-    public Godot.Collections.Array<ItemCount> Loot;
+    // What this individual carries — dropped on death on top of its species'
+    // rolled loot, or found by searching a body placed dead. Resolved to real
+    // items at spawn (MobSpawnEntry.AddCarriedLoot), so a level or mod authored
+    // on the placement survives the bake. Null = nothing.
+    public List<ItemState> Loot;
     // HUD badge icon (EliteData.badge, via the spawn entry's elite
     // reference), read once by MobHUD. Null = no badge.
     public Texture2D Badge;
@@ -186,6 +186,10 @@ public class MobSimState : EntitySimState
     // SimData.EliteCrownScene. Only meaningful when Elite.
     public PackedScene EliteCrownScene;
     public bool Alive;
+    // Placed already dead (MobSpawnEntry.dead): unlike a mob killed in play,
+    // whose state spawns nothing once its node is gone, this one's body is part
+    // of the world and comes back as a corpse every time its chunk loads.
+    public bool PlacedDead;
     // Whether a rest (Sim.ResetSpawns) brings this mob back once it is dead — a
     // population, as opposed to an individual who stays dead. Set from the spawn
     // entry (MobSpawnEntry.respawnsOnRest).
@@ -413,7 +417,10 @@ public class MobSimState : EntitySimState
     {
         if (!Alive)
         {
-            return false;
+            // A body is there whatever the time or weather, so the spawn
+            // conditions (night-only goblins) don't gate it. A corpse-less
+            // species has no body to show.
+            return PlacedDead && !MobData.despawnOnDeath;
         }
         if (!sim.SpawnConditionsMet(SpawnConditions))
         {

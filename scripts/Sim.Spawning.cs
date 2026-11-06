@@ -65,14 +65,17 @@ public partial class Sim
     // The pickup still rides the chunk's active-entity list so it's freed on
     // eviction; its ForageLootSimState re-arms the spawner's regrow deadline when
     // collected. Returns null if no loot scene is configured.
-    public Loot SpawnForageLoot(ItemData item, Vector3 position, ForageSpawnerSimState owner)
+    public Loot SpawnForageLoot(ItemState template, Vector3 position, ForageSpawnerSimState owner)
     {
         PackedScene scene = GameClient.Current?.lootScene;
-        if (item == null || scene == null)
+        if (template?.data == null || scene == null)
         {
             return null;
         }
-        var simState = new ForageLootSimState(position, item, owner);
+        var simState = new ForageLootSimState(position, template.data, owner)
+        {
+            Item = template.Duplicate(),
+        };
         Loot loot = Loot.Create(this, simState, scene, Vector3.Zero);
 
         Vector3I coord = WorldToChunkCoord(position);
@@ -233,6 +236,11 @@ public partial class Sim
             WeaponData thrown => thrown.thrownBreakChance,
             _ => 1f,
         };
+        if (breakChance >= 1f)
+        {
+            // Spent on firing (a ball, a bomb) — nothing broke, so no cue.
+            return;
+        }
         if (GD.Randf() < breakChance)
         {
             string name = WorldState?.SimState?.GetItemDisplayName(round) ?? round.displayName.ToString();

@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="InteractiveAction" format=3 uid="uid://bl67mq0iuewk8"]
+
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="1_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_khiii"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_44io3"]
+[ext_resource type="Texture2D" uid="uid://bbp21smdd4f0b" path="res://assets/textures/interactions/pickup.png" id="3_icon"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="5_qslhc"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_nx526"]
+
+[sub_resource type="Resource" id="Event_complete"]
+script = ExtResource("2_event")
+type = 256
+
+[sub_resource type="Resource" id="Event_search_pose"]
+script = ExtResource("2_event")
+type = 64
+animName = 25
+
+[resource]
+script = ExtResource("1_action")
+verb = 11
+displayName = &"Search"
+icon = ExtResource("3_icon")
+interactEvents = Array[ExtResource("2_event")]([SubResource("Event_search_pose")])
+completionEvents = Array[ExtResource("2_event")]([SubResource("Event_complete")])
+durationSeconds = 2.0
+locksMovement = true

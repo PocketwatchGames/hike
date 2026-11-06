@@ -216,6 +216,11 @@ public partial class Player : CharacterBody3D
 		{
 			loopAnim = EAnimation.Dead;
 		}
+		else if (_statusEffects?.LoopAnimOverride is EAnimation statusAnim && statusAnim != EAnimation.None)
+		{
+			// A status effect holding a pose (unconscious lies Dead, dizzy sways).
+			loopAnim = statusAnim;
+		}
 		else if (_camping || !IsActive)
 		{
 			// Sit by the fire: the controlled player while the camp screen is open

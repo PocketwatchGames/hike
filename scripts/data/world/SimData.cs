@@ -263,6 +263,9 @@ public partial class SimData : Resource
     // Dig a burrowed mob out of the ground with a carried Digging tool — the same
     // Dig a buried spot offers, shared by every species.
     [Export] public InteractiveAction digUpAction;
+    // Search a body placed dead (MobSpawnEntry.dead) for what it carries, shared
+    // by every species. Null leaves such bodies unsearchable.
+    [Export] public InteractiveAction searchAction;
 
     // The sack a fallen member's gear is left in (DeathSack). Null leaves the
     // gear on the member, with an error.

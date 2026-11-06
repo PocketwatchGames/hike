@@ -507,13 +507,14 @@ public class FountainSimState : RegrowSimState
 // forageable variant.
 public class ForageSpawnerSimState : RegrowSimState
 {
-    // The item the presented pickup carries (e.g. a mushroom).
-    public ItemData Item;
+    // What every presented pickup is a copy of (e.g. a mushroom). Never handed
+    // out itself — each regrow presents ItemState.Duplicate of it.
+    public ItemState Item;
 
     // In-world days from harvest until the pickup regrows.
     public int RegrowDays;
 
-    public ForageSpawnerSimState(Vector3 worldPosition, PackedScene scene, ItemData item, int regrowDays)
+    public ForageSpawnerSimState(Vector3 worldPosition, PackedScene scene, ItemState item, int regrowDays)
         : base(worldPosition, scene)
     {
         Item = item;

@@ -120,10 +120,9 @@ public partial class BuriedSpot : Node3D, IWorldEntity, IInteractive
         }
 
         // Pop the buried item out of the hole exactly like a chest ejects contents.
-        if (_state.Item != null)
-        {
-            _world.EjectLoot(_state.Item, _state.Count, GlobalPosition + Vector3.Up);
-        }
+        // The states BECOME the ejected piles, so the spot lets go of them.
+        _world.EjectLoot(_state.Contents, GlobalPosition + Vector3.Up);
+        _state.Contents.Clear();
 
         if (Style.digEffect != null)
         {

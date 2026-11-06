@@ -7,6 +7,16 @@
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="6_itempref"]
 [ext_resource type="Resource" uid="uid://dbm53bqcpue8w" path="res://resources/data/blood/red_blood.tres" id="blood_1"]
 
+[sub_resource type="Resource" id="Resource_anim_dead"]
+script = ExtResource("4_animdata")
+name = &"dead"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_die"]
+script = ExtResource("4_animdata")
+name = &"die"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
 [sub_resource type="Resource" id="Resource_anim_idle"]
 script = ExtResource("4_animdata")
 name = &"idle"
@@ -54,6 +64,8 @@ defaultBehavior = &""
 brain = ExtResource("2_brain")
 appearsInBestiary = false
 animations = Dictionary[int, ExtResource("4_animdata")]({
+1: SubResource("Resource_anim_dead"),
+2: SubResource("Resource_anim_die"),
 4: SubResource("Resource_anim_idle")
 })
 mobScene = ExtResource("3_scene")

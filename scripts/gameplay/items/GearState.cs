@@ -123,6 +123,11 @@ public class GearState : ItemState
 		w.Write(durability);
 	}
 
+	protected override void CopySubclassStateTo(ItemState dest)
+	{
+		((GearState)dest).durability = durability;
+	}
+
 	public override void ReadSubclassState(System.IO.BinaryReader r)
 	{
 		durability = r.ReadSingle();

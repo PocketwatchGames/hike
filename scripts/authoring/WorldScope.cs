@@ -20,6 +20,12 @@ public static class WorldScope
     private const string WorldsRoot = "res://resources/data/worlds/";
     private const string Shared = "shared";
 
+    // The folder a world's own files live in.
+    public static string RootOf(string world)
+    {
+        return WorldsRoot + world + "/";
+    }
+
     // The world a res:// path belongs to, or null for an unscoped one.
     public static string Of(string resPath)
     {

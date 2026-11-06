@@ -26,9 +26,9 @@ public partial class BuriedSpotSpawnEntry : SpawnEntryData
 
     public override PackedScene PaletteScene => scene;
 
-    // The item sprayed out of the hole when it is dug, `count` of it as one
-    // pile.
-    [Export] public ItemData item;
+    // The item sprayed out of the hole when it is dug, with any level and mods,
+    // `count` of it.
+    [Export] public ItemDescriptor item;
     [Export(PropertyHint.Range, "1,99,1,or_greater")] public int count = 1;
 
     // An ENTITY buried here — a chest, a mob that bursts out — spawned through
@@ -65,9 +65,9 @@ public partial class BuriedSpotSpawnEntry : SpawnEntryData
     // What is buried names the individual: "buried_spot: scroll_vyeshal_vocab2".
     public override string VariantName()
     {
-        if (item != null && !string.IsNullOrEmpty(item.ResourcePath))
+        if (item?.item != null && !string.IsNullOrEmpty(item.item.ResourcePath))
         {
-            return item.ResourcePath.GetFile().GetBaseName();
+            return item.item.ResourcePath.GetFile().GetBaseName();
         }
         return payload != null ? PaletteName(payload) : null;
     }
@@ -78,7 +78,7 @@ public partial class BuriedSpotSpawnEntry : SpawnEntryData
         {
             return;
         }
-        if (item == null && payload == null)
+        if (item?.item == null && payload == null)
         {
             GD.PushError($"BuriedSpotSpawnEntry at {position}: nothing is buried — pick an item or a "
                 + "payload (on the placement, in the painter's property panel). Not placed.");
@@ -86,11 +86,10 @@ public partial class BuriedSpotSpawnEntry : SpawnEntryData
         }
         var state = new BuriedSpotSimState(position, scene, style)
         {
-            Item = item,
-            Count = Math.Max(1, count),
             Payload = payload,
             RotationY = FacingY(context),
         };
+        ItemCountRange.AppendStates(item, Math.Max(1, count), state.Contents);
         string name = context?.AuthoredName;
         if (!string.IsNullOrEmpty(name))
         {

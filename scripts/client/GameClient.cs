@@ -867,6 +867,7 @@ public partial class GameClient : Node3D
 			if (save == null)
 			{
 				TeachInitialKnowledge(worldState);
+				ApplyStartCondition(worldState);
 			}
 		}
 		finally
@@ -979,6 +980,21 @@ public partial class GameClient : Node3D
 			initialKnowledge[i]?.Teach(_player);
 		}
 		worldState.SimState?.BankActiveKnowledge();
+	}
+
+	// A New Game's opening state, on every starting member. A load carries what is
+	// left of it in the save; a mid-run recruit never gets it.
+	void ApplyStartCondition(WorldState worldState)
+	{
+		StartConditionData condition = worldState?.StartingCondition;
+		if (condition == null)
+		{
+			return;
+		}
+		foreach (Player member in _partyPlayers)
+		{
+			member.ApplyStartCondition(condition);
+		}
 	}
 
 	// A loaded save or a death is a wake at sunrise, so it opens the way a real one

@@ -1028,6 +1028,37 @@ public partial class Player : CharacterBody3D
 
 	public void RemoveStatusEffectsByTagMask(EHitTag mask) => _statusEffects.RemoveByTagMask(mask);
 
+	public void RemoveStatusEffectsOfType(StatusEffectData data) => _statusEffects.RemoveAllOfType(data);
+
+	// True while an active effect flags `incapacitates` (unconscious, stunned):
+	// no movement and no action presses. A discrete hit wakes them (OnHurtBoxHit).
+	public bool Incapacitated => _statusEffects?.Incapacitated ?? false;
+
+	// 0 would spawn the member dead.
+	const float MinStartHealthFraction = 0.01f;
+
+	// A New Game's opening state (WorldStartData.startingCondition), applied once
+	// after spawn. Effects first, so health is a fraction of the max they leave.
+	public void ApplyStartCondition(StartConditionData condition)
+	{
+		if (condition == null)
+		{
+			return;
+		}
+		SetNeed(ENeed.Hunger, condition.hunger);
+		SetNeed(ENeed.Thirst, condition.thirst);
+		SetNeed(ENeed.Fatigue, condition.fatigue);
+		if (condition.effects != null)
+		{
+			foreach (StatusEffectData effect in condition.effects)
+			{
+				AddStatusEffect(effect);
+			}
+		}
+		_health = MaxHealth * Mathf.Clamp(condition.health, MinStartHealthFraction, 1f);
+		_drainedHealth = 0f;
+	}
+
 	// Wipe ordinary combat states (poison, burning, wet, buildup, timed boons)
 	// while sparing permanent traits and elite auras. Used by the sleep-to-sunrise
 	// rest, which clears afflictions and full-heals rather than integrating a DoT

@@ -250,7 +250,8 @@ public partial class Player : CharacterBody3D
 		// through the lock. ui_cancel is handled by GameClient
 		// since it shares ESC with TogglePause and needs to consume the input
 		// before TogglePause sees it.
-		if (_birdsEye)
+		// Incapacitated (unconscious, stunned): no movement, no look, no presses.
+		if (_birdsEye || Incapacitated)
 		{
 			_inputMove = Vector3.Zero;
 			_inputLook = Vector3.Zero;

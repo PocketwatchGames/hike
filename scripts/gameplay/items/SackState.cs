@@ -32,6 +32,20 @@ public class SackState : ItemState
 		contents.Serialize(w);
 	}
 
+	// Slot for slot, each item its own copy.
+	protected override void CopySubclassStateTo(ItemState dest)
+	{
+		var sack = (SackState)dest;
+		for (int i = 0; i < _sackData.capacity; i++)
+		{
+			ItemState item = contents.At(i);
+			if (item != null)
+			{
+				sack.contents.PlaceAt(i, item.Duplicate(), allowSwap: false, out _);
+			}
+		}
+	}
+
 	public override void ReadSubclassState(BinaryReader r)
 	{
 		// More saved slots than the sack now has (its capacity was cut): repack

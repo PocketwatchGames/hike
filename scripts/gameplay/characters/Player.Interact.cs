@@ -310,9 +310,9 @@ public partial class Player : CharacterBody3D
 		return _interactiveCollisions.Contains(interactive);
 	}
 
-	// The interact area masks Interactive and BurrowedHurtBox: a burrowed mob is
-	// targeted by its hurtbox, so no mob scene has to author an InteractiveBox to
-	// be dug up. A mob that has both is listed once.
+	// The interact area masks Interactive, BurrowedHurtBox and DeadHurtBox: a
+	// burrowed mob or a body is targeted by its hurtbox, so no mob scene has to
+	// author an InteractiveBox to be dug up or searched. A mob that has both is listed once.
 	private void OnInteractAreaEntered(Area3D area)
 	{
 		IInteractive interactive = InteractiveOf(area);

@@ -960,10 +960,14 @@ source = ExtResource("17_npc")
 custom = SubResource("Resource_f8a1f")
 anchorXZ = Vector2i(28, 148)
 
+[sub_resource type="Resource" id="ItemDescriptor_mig0"]
+script = ExtResource("77_5av3f")
+item = ExtResource("52_0mdw8")
+
 [sub_resource type="Resource" id="Resource_mko67"]
 script = ExtResource("54_ce1ad")
 scene = ExtResource("53_oxleg")
-item = ExtResource("52_0mdw8")
+item = SubResource("ItemDescriptor_mig0")
 style = ExtResource("55_yp151")
 disabledVariable = &""
 
@@ -975,14 +979,22 @@ anchorXZ = Vector2i(-73, 119)
 facing = 6
 name = "city_center"
 
+[sub_resource type="Resource" id="ItemDescriptor_mig1"]
+script = ExtResource("77_5av3f")
+item = ExtResource("73_tdxo6")
+
 [sub_resource type="Resource" id="Resource_2mx78"]
 script = ExtResource("M_5_r")
-item = ExtResource("73_tdxo6")
+item = SubResource("ItemDescriptor_mig1")
 loyaltyCost = 100.0
+
+[sub_resource type="Resource" id="ItemDescriptor_mig2"]
+script = ExtResource("77_5av3f")
+item = ExtResource("74_l6wjl")
 
 [sub_resource type="Resource" id="Resource_bev2f"]
 script = ExtResource("M_5_r")
-item = ExtResource("74_l6wjl")
+item = SubResource("ItemDescriptor_mig2")
 loyaltyCost = 100.0
 
 [sub_resource type="Resource" id="Resource_jwncb"]

@@ -89,11 +89,11 @@ public partial class NpcSpawnEntry : MobSpawnEntry
     }
 
     // What an author actually sets on a villager, in the order they set it:
-    // who it looks like, how it stands, what it says, what tongue it says it in,
-    // and whether it can join the party.
+    // who it looks like, whether it is alive, how it stands, what it says, what
+    // tongue it says it in, and whether it can join the party.
     private static readonly StringName[] Order =
     {
-        PropertyName.appearance, PropertyName.idleAnimation,
+        PropertyName.appearance, PropertyName.dead, PropertyName.idleAnimation,
         PropertyName.conversation, PropertyName.language,
         PropertyName.recruitTemplate,
     };
@@ -215,7 +215,7 @@ public partial class NpcSpawnEntry : MobSpawnEntry
             return;
         }
         state.SpawnConditions = context?.SpawnConditions ?? ESpawnConditions.None;
-        state.RespawnsOnRest = respawnsOnRest;
+        ApplyLifeState(state);
         state.Appearance = appearance;
         if (idleAnimation != null && (string)idleAnimation != "") { state.IdleAnimation = idleAnimation; }
         StringName behavior = InitialBehaviorFor(rng, context);
@@ -230,15 +230,15 @@ public partial class NpcSpawnEntry : MobSpawnEntry
         {
             foreach (LoyaltyGift gift in loyaltyGifts)
             {
-                if (gift != null) { state.LoyaltyGifts.Add(gift); }
+                if (gift != null) { state.LoyaltyGifts.Add(gift.CreateState()); }
             }
         }
         if (inventory != null)
         {
             foreach (MobInventoryData entry in inventory)
             {
-                if (entry == null || entry.item == null) { continue; }
-                ItemState itemState = entry.item.CreateState();
+                ItemState itemState = entry?.item?.CreateState();
+                if (itemState == null) { continue; }
                 itemState.SetCount(Mathf.Max(1, entry.count));
                 state.Inventory.Add(new MobInventoryItem
                 {

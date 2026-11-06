@@ -853,7 +853,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public void OnSpawned(Sim sim)
     {
         sim.MobSpatialHash.Add(this);
-        SpawnWorldEffect(_spawnFx);
+        if (alive)
+        {
+            SpawnWorldEffect(_spawnFx);
+        }
         if (IsCompanion)
         {
             sim.RegisterCompanion(this);
@@ -900,6 +903,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (burrowing || burrowed)
         {
             SetBurrowed(true);
+        }
+        // A body placed dead (MobSimState.PlacedDead — nothing else spawns a node
+        // for a dead state): the corpse Die leaves, without the dying. Nothing a
+        // living mob wears at spawn applies, and UpdateAnimation holds Dead.
+        if (!alive)
+        {
+            EnterCorpseBody();
+            sim.RegisterCorpse(this);
+            return;
         }
         // Elite mobs get the shared elite buff + crown. The elite's own signature
         // effect rides the descriptor StatusEffects list applied just below.
@@ -1402,8 +1414,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _animator.Play(name, restart: true, animDuration: animDuration);
     }
 
-    // IInteractive — only mobs with authored _interactiveActions surface as
-    // interactable. The InteractiveBox on the mob's .tscn drives detection;
+    // IInteractive — a mob is interactable only when it offers a verb: authored
+    // _interactiveActions, Talk, or a shop verb (see ShopAction); a body placed
+    // dead offers only Search. The InteractiveBox on the mob's .tscn drives detection;
     // CanInteract / CanActorInteract gate the press itself.
     public Vector3 hudPosition => hudAnchor != null ? hudAnchor.GlobalPosition : GlobalPosition;
 
@@ -1441,15 +1454,36 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     {
         if (!alive)
         {
-            return false;
+            return CanBeSearched();
         }
         if (burrowed || burrowing)
         {
             return CanBeDugUp();
         }
         bool hasAuthored = _interactiveActions != null && _interactiveActions.Count > 0;
-        bool hasConversation = _simState?.Conversation != null;
-        return hasAuthored || hasConversation;
+        return hasAuthored || _simState?.Conversation != null || ShopAction() != null;
+    }
+
+    // Give, or Trade for a merchant — offered only while gifting this mob can
+    // reach something: a loyalty gift, stock, a trade, or taming. Loyalty feeds
+    // nothing else, so a mob with none of those has no shop verb.
+    private InteractiveAction ShopAction()
+    {
+        SimData simData = _world?.SimData;
+        if (simData == null || _simState == null)
+        {
+            return null;
+        }
+        bool tameable = mobData != null && mobData.tameLoyalty > 0f && !_simState.Tamed;
+        bool reachesAnything = _simState.WillTrade
+            || _simState.Inventory.Count > 0
+            || _simState.LoyaltyGifts.Count > 0
+            || tameable;
+        if (!reachesAnything)
+        {
+            return null;
+        }
+        return _simState.WillTrade ? simData.tradeAction : simData.giveItemAction;
     }
 
     // A mob the player hasn't perceived offers nothing, or the interact prompt
@@ -1466,7 +1500,34 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return _world.SimData.digUpAction.IsOfferedTo(player);
         }
+        if (!alive)
+        {
+            return IsKnownToPlayer || _simState.DiscoveryState == EPlayerPerceptionState.CorpseDiscovered;
+        }
         return IsKnownToPlayer || _simState.DiscoveryState == EPlayerPerceptionState.Discovered;
+    }
+
+    // Only a body PLACED dead is searched: one killed in play dropped everything
+    // in Die.
+    private bool CanBeSearched()
+    {
+        return _simState != null
+            && _simState.PlacedDead
+            && _simState.Loot != null
+            && _simState.Loot.Count > 0
+            && _world?.SimData?.searchAction != null;
+    }
+
+    // Spill what the body carries as ordinary pickups. Clearing Loot is what
+    // makes it stick: the save's entity content diff records an emptied body.
+    private void SearchBody()
+    {
+        if (!CanBeSearched())
+        {
+            return;
+        }
+        _world.EjectLoot(_simState.Loot, GlobalPosition + Vector3.Up);
+        _simState.Loot = null;
     }
 
     // A burrowed mob is dug up only where it shows — its dirt mound — so the
@@ -1477,53 +1538,60 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         return burrowed && _burrowMound != null && _world?.SimData?.digUpAction != null;
     }
 
-    // Authored actions prepended with SimData.TalkAction + GiveItemAction
-    // for any mob carrying a Conversation. Cached so we don't allocate the
-    // merged array per HUD refresh — neither input mutates at runtime.
+    // Talk (with a conversation) and the shop verb, then the authored actions.
+    // Cached so the merged array isn't allocated per HUD refresh, and rebuilt
+    // when the verbs change — the shop verb comes and goes as gifts run out or
+    // a conversation turns the mob into a trader.
     private Godot.Collections.Array<InteractiveAction> _resolvedActions;
+    private InteractiveAction _resolvedTalk;
+    private InteractiveAction _resolvedShop;
     private bool _resolvedActionsBuilt;
     private Godot.Collections.Array<InteractiveAction> _burrowedActions;
+    private Godot.Collections.Array<InteractiveAction> _corpseActions;
 
-    // The action list for the mob's current state: a burrowed mob's Dig, or its
-    // authored actions merged with any conversation verbs.
+    // The action list for the mob's current state: a body's Search, a burrowed
+    // mob's Dig, or its authored actions behind whichever social verbs it offers.
     private Godot.Collections.Array<InteractiveAction> ResolveActions()
     {
+        if (!alive)
+        {
+            _corpseActions ??= new Godot.Collections.Array<InteractiveAction> { _world?.SimData?.searchAction };
+            return _corpseActions;
+        }
         if (burrowed || burrowing)
         {
             _burrowedActions ??= new Godot.Collections.Array<InteractiveAction> { _world?.SimData?.digUpAction };
             return _burrowedActions;
         }
-        if (!_resolvedActionsBuilt)
+        InteractiveAction talk = _simState?.Conversation != null ? _world?.SimData?.talkAction : null;
+        InteractiveAction shop = ShopAction();
+        if (talk == null && shop == null)
+        {
+            return _interactiveActions;
+        }
+        if (!_resolvedActionsBuilt || talk != _resolvedTalk || shop != _resolvedShop)
         {
             _resolvedActionsBuilt = true;
-            bool hasConversation = _simState?.Conversation != null;
-            SimData simData = _world?.SimData;
-            if (hasConversation && simData != null)
+            _resolvedTalk = talk;
+            _resolvedShop = shop;
+            _resolvedActions = new Godot.Collections.Array<InteractiveAction>();
+            if (talk != null)
             {
-                _resolvedActions = new Godot.Collections.Array<InteractiveAction>();
-                if (simData.talkAction != null)
+                _resolvedActions.Add(talk);
+            }
+            if (shop != null)
+            {
+                _resolvedActions.Add(shop);
+            }
+            if (_interactiveActions != null)
+            {
+                foreach (InteractiveAction a in _interactiveActions)
                 {
-                    _resolvedActions.Add(simData.talkAction);
-                }
-                // Trade replaces Give on merchants; the two are mutually
-                // exclusive so the player only sees one shop verb per mob.
-                InteractiveAction shopAction = _simState != null && _simState.WillTrade
-                    ? simData.tradeAction
-                    : simData.giveItemAction;
-                if (shopAction != null)
-                {
-                    _resolvedActions.Add(shopAction);
-                }
-                if (_interactiveActions != null)
-                {
-                    foreach (InteractiveAction a in _interactiveActions)
-                    {
-                        _resolvedActions.Add(a);
-                    }
+                    _resolvedActions.Add(a);
                 }
             }
         }
-        return _resolvedActions ?? _interactiveActions;
+        return _resolvedActions;
     }
 
     public Godot.Collections.Array<InteractiveAction> GetActions(Player player)
@@ -1559,6 +1627,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 break;
             case EActionVerb.Dig:
                 DigOut(GameClient.Current?.Player);
+                break;
+            case EActionVerb.Search:
+                SearchBody();
                 break;
         }
     }
@@ -1660,7 +1731,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // True if the gift would teach only language components the player
     // already has. Item-bearing gifts are never redundant — even a known-
     // language gift still carries a real item payload.
-    private bool IsGiftRedundant(LoyaltyGift gift, Player player)
+    private bool IsGiftRedundant(LoyaltyGiftState gift, Player player)
     {
         if (gift == null) { return true; }
         if (gift.item != null) { return false; }
@@ -1677,7 +1748,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool HasReciprocableGift(Player player)
     {
         if (_simState == null) { return false; }
-        foreach (LoyaltyGift gift in _simState.LoyaltyGifts)
+        foreach (LoyaltyGiftState gift in _simState.LoyaltyGifts)
         {
             if (!IsGiftRedundant(gift, player)) { return true; }
         }
@@ -1694,9 +1765,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // already covers). Returns the list of unlocked gifts in authored
     // order so MerchantScreen can hand them back; player-side application
     // (inventory add, language learn, HUD announcement) is the caller's job.
-    public List<LoyaltyGift> AcceptGift(IList<ItemState> items, float loyaltyGained, Player player)
+    public List<LoyaltyGiftState> AcceptGift(IList<ItemState> items, float loyaltyGained, Player player)
     {
-        List<LoyaltyGift> awarded = new();
+        List<LoyaltyGiftState> awarded = new();
         if (_simState == null)
         {
             return awarded;
@@ -1717,7 +1788,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         for (int i = 0; i < _simState.LoyaltyGifts.Count;)
         {
-            LoyaltyGift gift = _simState.LoyaltyGifts[i];
+            LoyaltyGiftState gift = _simState.LoyaltyGifts[i];
             if (gift == null)
             {
                 _simState.LoyaltyGifts.RemoveAt(i);
@@ -4856,6 +4927,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     public void RemoveStatusEffectsByTagMask(EHitTag mask) => _statusEffects.RemoveByTagMask(mask);
 
+    public void RemoveStatusEffectsOfType(StatusEffectData data) => _statusEffects.RemoveAllOfType(data);
+
     // IActionActor — restore HP, clamped at maxHealth. Routes through the
     // status-health path so a vampiric mob heal shows its floating heal number
     // the same way a heal-over-time tick does. Heals skip armor (armorPenetration 1).
@@ -5235,23 +5308,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
 
         alive = false;
-        // Move the rigid body onto Dead and the hurtbox onto DeadHurtBox
-        // so projectile sweeps / aim raycasts / melee + hitscan attack
-        // masks (all keyed off Mob / HurtBox) stop picking up the corpse.
-        // The body keeps Environment in its mask so it still rests on
-        // terrain and knockback impulses carry the corpse through the rest
-        // of the hitstun window. Live mobs no longer collide with corpses
-        // as a side effect (their mask is Environment | Player | Mob),
-        // which is fine — pathing already steers around the mob spatial
-        // hash. Split into two layers (matching Burrowed/BurrowedHurtBox)
-        // so future corpse-targeting tools can pick the hurtbox shape
-        // without also catching the movement-collision volume.
-        CollisionLayer = (uint)ECollisionLayer.Dead;
-        CollisionMask = (uint)ECollisionLayer.Blocking;
-        if (_hurtBox != null)
-        {
-            _hurtBox.CollisionLayer = (uint)ECollisionLayer.DeadHurtBox;
-        }
+        EnterCorpseBody();
         // Fire the death event before the despawn / fx cascade below so
         // subscribers see a consistent snapshot (mob still in the world,
         // sim state intact). GameClient bridges this into bestiary kill
@@ -5264,10 +5321,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // run-away grace). Routed here with the live instance + time because
         // NotifyMobKilled only carries the species.
         GameClient.Current?.Combat?.OnMobDied(this, _world.GameTimeMs);
-        // Hide the held weapon prop — a corpse shouldn't brandish its weapon — and
-        // douse it if it's a lit torch so the corpse goes dark instead of burning on.
-        _heldVisual?.ExtinguishWeaponTorch();
-        _heldVisual?.SetWeaponConcealed(true);
         // Drop the elite crown — the marker is for live elites; a corpse keeps
         // no halo.
         if (_crown != null)
@@ -5285,19 +5338,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         SpawnVoice(_voice?.death);
         EjectLoot();
         EjectStuckArrows();
-        AxisLockAngularY = false;
-        // Undo the airborne/swim physics leftovers so the corpse falls and
-        // settles like any other dead body. The GravityScale write and the
-        // flight collision-mask restore both live in the alive branch of
-        // _PhysicsProcess and never run for a corpse, so a mob killed
-        // mid-flight would otherwise keep GravityScale=0 — with no normal
-        // force, ground contact friction can't bite and it slides forever on
-        // the gentle corpse LinearDamp alone (and a hovering death would just
-        // hang in the air). Restore gravity and clear the airborne flag here.
-        GravityScale = 1f;
-        _lastGravityScale = 1f;
-        _simState.Airborne = false;
-        _flightCollisionDisabled = false;
         // Don't unfreeze on death — a mob that was idle-pinned when it
         // died stays pinned. A mob that died mid-motion / from a hit
         // already has Freeze=false; the new auto-freeze branch above
@@ -5321,6 +5361,38 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             BeginVanish(0f, mobData.deathDespawnSeconds);
         }
+    }
+
+    // The physical state of a dead body, shared by a death in play (Die) and a
+    // body placed dead (Initialize), so the two are the same corpse.
+    private void EnterCorpseBody()
+    {
+        // Move the rigid body onto Dead and the hurtbox onto DeadHurtBox
+        // so projectile sweeps / aim raycasts / melee + hitscan attack
+        // masks (all keyed off Mob / HurtBox) stop picking up the corpse.
+        // The body keeps Environment in its mask so it still rests on
+        // terrain and knockback impulses carry the corpse through the rest
+        // of the hitstun window. Split into two layers (matching
+        // Burrowed/BurrowedHurtBox) so corpse-targeting tools can pick the
+        // hurtbox shape without also catching the movement-collision volume.
+        CollisionLayer = (uint)ECollisionLayer.Dead;
+        CollisionMask = (uint)ECollisionLayer.Blocking;
+        if (_hurtBox != null)
+        {
+            _hurtBox.CollisionLayer = (uint)ECollisionLayer.DeadHurtBox;
+        }
+        // A corpse doesn't brandish its weapon, and a lit torch goes dark.
+        _heldVisual?.ExtinguishWeaponTorch();
+        _heldVisual?.SetWeaponConcealed(true);
+        AxisLockAngularY = false;
+        // The GravityScale write and the flight collision-mask restore both live
+        // in the alive branch of _PhysicsProcess and never run for a corpse, so
+        // a mob killed mid-flight would otherwise keep GravityScale=0 and slide
+        // forever (or hang in the air).
+        GravityScale = 1f;
+        _lastGravityScale = 1f;
+        _simState.Airborne = false;
+        _flightCollisionDisabled = false;
     }
 
     // Recall the companion to the player's side: teleported in and healed to
@@ -5382,7 +5454,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _simState.Species.RollLoot(System.Random.Shared, rolled);
             _world.EjectLoot(rolled, origin);
         }
+        // The states BECOME the ejected piles, so the body lets go of them.
         _world.EjectLoot(_simState?.Loot, origin);
+        if (_simState != null)
+        {
+            _simState.Loot = null;
+        }
         if (_simState?.Species?.mob?.carriesZoneLoot == true)
         {
             ItemCountRange[] zoneLoot = _world.WorldState?.ZoneDataAt(GlobalPosition)?.zoneLoot;

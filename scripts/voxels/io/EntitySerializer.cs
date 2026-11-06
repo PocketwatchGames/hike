@@ -504,6 +504,7 @@ public static class EntitySerializer
                 WriteVec3(w, mob.SpawnPosition);
                 w.Write(mob.SpawnRotationY);
                 w.Write(mob.Alive);
+                w.Write(mob.PlacedDead);
                 w.Write(mob.RespawnsOnRest);
                 w.Write(mob.Burrowed);
                 w.Write(mob.Burrowing);
@@ -538,7 +539,11 @@ public static class EntitySerializer
                 w.Write(giftCount);
                 for (int i = 0; i < giftCount; i++)
                 {
-                    WriteResource(w, mob.LoyaltyGifts[i]);
+                    LoyaltyGiftState gift = mob.LoyaltyGifts[i];
+                    WriteItemState(w, gift?.item);
+                    WriteResource(w, gift?.language);
+                    w.Write((int)(gift?.languageComponents ?? ELanguageComponents.None));
+                    w.Write(gift?.requiredLoyalty ?? 0f);
                 }
                 int giftCountsCount = mob.GiftCounts?.Count ?? 0;
                 w.Write(giftCountsCount);
@@ -577,18 +582,9 @@ public static class EntitySerializer
                 // Per-elite crown scene override (EliteData.crownScene),
                 // scene ref, may be null (then SimData.EliteCrownScene is used).
                 WriteScene(w, mob.EliteCrownScene);
-                // Carried death loot (MobSimState.Loot); species loot is rolled
-                // at death and not stored. Only item path + count are persisted —
-                // if modded carried loot is ever added, write the descriptor's
-                // statusEffects here too.
-                int mobLootCount = mob.Loot?.Count ?? 0;
-                w.Write(mobLootCount);
-                for (int i = 0; i < mobLootCount; i++)
-                {
-                    ItemCount entry = mob.Loot[i];
-                    WriteResource(w, entry?.descriptor?.item);
-                    w.Write(entry?.count ?? 0);
-                }
+                // Carried loot (MobSimState.Loot); species loot is rolled at
+                // death and not stored.
+                WriteItemList(w, (IReadOnlyList<ItemState>)mob.Loot ?? System.Array.Empty<ItemState>());
                 // Per-instance item-preference overrides (NpcSpawnEntry):
                 // resource-ref list of standalone ItemTagPreference .tres, may
                 // be empty. Appended last so older world files still parse.
@@ -769,8 +765,7 @@ public static class EntitySerializer
                 WriteVec3(w, buried.WorldPosition);
                 WriteScene(w, buried.Scene);
                 WriteResource(w, buried.Style);
-                WriteResource(w, buried.Item);
-                w.Write(buried.Count);
+                WriteItemList(w, buried.Contents);
                 WriteResource(w, buried.Payload);
                 w.Write(buried.Excavated);
                 w.Write(buried.TreasureName ?? "");
@@ -831,7 +826,7 @@ public static class EntitySerializer
                 w.Write((byte)Tag.ForageSpawner);
                 WriteVec3(w, forage.WorldPosition);
                 WriteScene(w, forage.Scene);
-                WriteResource(w, forage.Item);
+                WriteItemState(w, forage.Item);
                 w.Write(forage.RegrowDays);
                 w.Write(forage.RegrowAtClock);
                 break;
@@ -996,6 +991,7 @@ public static class EntitySerializer
                 Vector3 spawnPos = ReadVec3(r);
                 float spawnRotationY = r.ReadSingle();
                 bool alive = r.ReadBoolean();
+                bool placedDead = r.ReadBoolean();
                 bool respawnsOnRest = r.ReadBoolean();
                 bool burrowed = r.ReadBoolean();
                 bool burrowing = r.ReadBoolean();
@@ -1029,10 +1025,16 @@ public static class EntitySerializer
                     });
                 }
                 int giftCount = r.ReadInt32();
-                var loyaltyGifts = new List<LoyaltyGift>(giftCount);
+                var loyaltyGifts = new List<LoyaltyGiftState>(giftCount);
                 for (int i = 0; i < giftCount; i++)
                 {
-                    loyaltyGifts.Add(ReadResource<LoyaltyGift>(r));
+                    loyaltyGifts.Add(new LoyaltyGiftState
+                    {
+                        item = ReadItemState(r),
+                        language = ReadResource<LanguageData>(r),
+                        languageComponents = (ELanguageComponents)r.ReadInt32(),
+                        requiredLoyalty = r.ReadSingle(),
+                    });
                 }
                 int giftCountsCount = r.ReadInt32();
                 var giftCounts = new Dictionary<ItemData, int>(giftCountsCount);
@@ -1053,14 +1055,7 @@ public static class EntitySerializer
                 var statusEffects = ReadStatusEffectList(r);
                 var badge = ReadResource<Texture2D>(r);
                 var eliteCrownScene = ReadScene(r);
-                int mobLootCount = r.ReadInt32();
-                Godot.Collections.Array<ItemCount> loot = mobLootCount > 0 ? new Godot.Collections.Array<ItemCount>() : null;
-                for (int i = 0; i < mobLootCount; i++)
-                {
-                    ItemData item = ReadResource<ItemData>(r);
-                    int count = r.ReadInt32();
-                    loot.Add(new ItemCount { descriptor = new ItemDescriptor { item = item }, count = count });
-                }
+                List<ItemState> loot = ReadItemList(r);
                 int prefCount = r.ReadInt32();
                 var itemPreferences = new List<ItemTagPreference>(prefCount);
                 for (int i = 0; i < prefCount; i++)
@@ -1082,6 +1077,7 @@ public static class EntitySerializer
                 }
                 mob.SpawnConditions = spawnConditions;
                 mob.Alive = alive;
+                mob.PlacedDead = placedDead;
                 mob.RespawnsOnRest = respawnsOnRest;
                 mob.Burrowed = burrowed;
                 mob.Burrowing = burrowing;
@@ -1108,7 +1104,7 @@ public static class EntitySerializer
                 mob.StatusEffects = statusEffects;
                 mob.Badge = badge;
                 mob.EliteCrownScene = eliteCrownScene;
-                mob.Loot = loot;
+                mob.Loot = loot.Count > 0 ? loot : null;
                 mob.ItemPreferences = itemPreferences;
                 mob.Appearance = appearance;
                 if (!string.IsNullOrEmpty(idleAnimation))
@@ -1295,14 +1291,11 @@ public static class EntitySerializer
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
-                var buried = new BuriedSpotSimState(pos, scene, ReadResource<BuriedSpotStyleData>(r))
-                {
-                    Item = ReadResource<ItemData>(r),
-                    Count = r.ReadInt32(),
-                    Payload = ReadResource<SpawnEntryData>(r),
-                    Excavated = r.ReadBoolean(),
-                    TreasureName = r.ReadString(),
-                };
+                var buried = new BuriedSpotSimState(pos, scene, ReadResource<BuriedSpotStyleData>(r));
+                buried.Contents.AddRange(ReadItemList(r));
+                buried.Payload = ReadResource<SpawnEntryData>(r);
+                buried.Excavated = r.ReadBoolean();
+                buried.TreasureName = r.ReadString();
                 return buried;
             }
             case Tag.Bed:
@@ -1366,7 +1359,7 @@ public static class EntitySerializer
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
-                var item = ReadResource<ItemData>(r);
+                ItemState item = ReadItemState(r);
                 int regrowDays = r.ReadInt32();
                 double regrowAt = r.ReadDouble();
                 var forage = new ForageSpawnerSimState(pos, scene, item, regrowDays);
@@ -1844,6 +1837,12 @@ public static class EntitySerializer
     public readonly record struct StatusEffectRecord(StatusEffectData Data, int Level, EUpgradeSlot AppliedSlot,
         float Potency, HazardProfileData Hazard, EWeaponModScope Scope, int ChargeIndex, double ExpireClockDays)
     {
+        public static StatusEffectRecord From(StatusEffectState state)
+        {
+            return new StatusEffectRecord(state.data, state.level, state.appliedUpgradeSlot, state.potency,
+                state.hazardProfile, state.weaponModScope, state.weaponModChargeIndex, state.expireClockDays);
+        }
+
         public StatusEffectState AddTo(StatusEffectController controller)
         {
             StatusEffectState state = controller.Add(Data, Level, AppliedSlot, Potency, Hazard);

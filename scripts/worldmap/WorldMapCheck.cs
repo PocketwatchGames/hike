@@ -897,7 +897,7 @@ public static class WorldMapCheck
         int emptyLoot = 0;
         foreach (EntityPlacement placement in entities)
         {
-            if (placement?.Entry is BuriedSpotSpawnEntry spot && spot.item == null && spot.payload == null)
+            if (placement?.Entry is BuriedSpotSpawnEntry spot && spot.item?.item == null && spot.payload == null)
             {
                 emptySpots++;
             }

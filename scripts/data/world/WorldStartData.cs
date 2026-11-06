@@ -37,6 +37,11 @@ public partial class WorldStartData : Resource
     // loadout (starting gear is now per-character, on PlayerState).
     [Export] public PlayerState[] startingParty = System.Array.Empty<PlayerState>();
 
+    // The state every starting member wakes in on a New Game. Null = fresh.
+    // On the world rather than the character: how a run opens is the world's
+    // story, and the same character is shared across worlds.
+    [Export] public StartConditionData startingCondition;
+
     // Things the player already knows about when the run begins. Each
     // entry is a TeachableConcept subclass — ItemTeachable identifies an
     // item by name, RecipeTeachable seeds a recipe into the cookbook,

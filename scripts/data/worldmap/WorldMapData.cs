@@ -171,14 +171,13 @@ public partial class WorldMapData : Resource
     // coverage (not yet painted), B/A spare.
     public const string SCALARS_FILE = "scalars.png";
     public const string TUNNELS_FILE = "tunnels.bin";            // per-voxel carve mask
-    public const string OUTPUT_WORLD_FILE = "painted_world.hike";
 
     // Every file a document owns beside itself — what makes a folder taken.
     public static readonly string[] LAYER_FILES =
     {
         ELEVATION_FILE, WATER_FILE, REGION_FILE, ZONE_FILE, WIND_FILE, BLOCKING_PROPS_FILE,
         GROUND_FILE, WATER_TYPE_FILE, PAVING_FILE, PLACEMENTS_FILE, PALETTES_FILE, MOBS_FILE,
-        SCALARS_FILE, TUNNELS_FILE, OUTPUT_WORLD_FILE,
+        SCALARS_FILE, TUNNELS_FILE,
     };
 
     // World m/s the wind layer's full strength paints. The layer stores a
@@ -212,14 +211,25 @@ public partial class WorldMapData : Resource
     public string MobImagePath => LayerPath(MOBS_FILE);
     public string ScalarImagePath => LayerPath(SCALARS_FILE);
     public string TunnelMaskPath => LayerPath(TUNNELS_FILE);
-    // Where a bake writes the packed world. worldmap_bake can redirect a single
-    // bake elsewhere (BakeToWorldFile's argument); nothing else can.
-    public string OutputWorldPath => LayerPath(OUTPUT_WORLD_FILE);
-
     // The world this document authors — the worlds/<name>/ it sits in — which
     // decides what the painter's pickers offer (WorldScope). Null for a
     // document outside worlds/.
     public string World => WorldScope.Of(ResourcePath);
+
+    // Where a bake writes the packed world: worlds/<world>/<world>.hike, beside
+    // the world's start content and OUTSIDE the document's folder, because it is
+    // the one thing in a world a build ships that the document produces. Empty
+    // for a document with no world (NoWorldMessage says why). worldmap_bake can
+    // redirect a single bake (BakeToWorldFile's argument).
+    public string OutputWorldPath => World == null
+        ? ""
+        : WorldScope.RootOf(World) + World + "." + WorldEditor.WORLD_FILE_EXTENSION;
+
+    public string NoWorldMessage()
+    {
+        return $"'{ResourcePath}' is not inside a world folder (res://resources/data/worlds/<name>/), "
+            + "so it has no world to bake. Move its folder into one.";
+    }
 
     public Vector3I MinChunk => new Vector3I(-sizeChunksX / 2, floorChunkY, -sizeChunksZ / 2);
     public Vector3I MaxChunk => new Vector3I(MinChunk.X + sizeChunksX - 1, ceilChunkY, MinChunk.Z + sizeChunksZ - 1);
@@ -257,7 +267,7 @@ public partial class WorldMapData : Resource
         }
         if (string.IsNullOrEmpty(outputPath))
         {
-            GD.PrintErr("WorldMapData: the document has no file, so there is nowhere to bake to.");
+            GD.PrintErr($"WorldMapData: {NoWorldMessage()}");
             return false;
         }
         // WorldMapState.Bake, not BuildWorld + Write: the sun flood and the

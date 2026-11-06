@@ -65,6 +65,13 @@ public partial class Player
 		_needs[(int)need] = Mathf.Max(0f, _needs[(int)need] - stages);
 	}
 
+	// Overwrite a need outright — a New Game's starting condition.
+	public void SetNeed(ENeed need, float stages)
+	{
+		SettleNeeds();
+		_needs[(int)need] = Mathf.Max(0f, stages);
+	}
+
 	public void RestoreNeedFully(ENeed need)
 	{
 		SettleNeeds();

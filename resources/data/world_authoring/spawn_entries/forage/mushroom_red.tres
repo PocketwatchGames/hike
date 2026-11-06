@@ -1,10 +1,17 @@
-[gd_resource type="Resource" script_class="ForageSpawnEntry" format=3]
+[gd_resource type="Resource" script_class="ForageSpawnEntry" format=3 uid="uid://bf5ua6b3nyare"]
 
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="3_tml60"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_mig"]
+[ext_resource type="PackedScene" uid="uid://mmebyrpme26l" path="res://scenes/interactives/forage_spawner.tscn" id="r1"]
+[ext_resource type="Resource" uid="uid://drykavgefoqa7" path="res://resources/data/items/loot/mushroom_red.tres" id="r2"]
 [ext_resource type="Script" uid="uid://bjj3q8wtg6sjl" path="res://scripts/data/spawn/ForageSpawnEntry.cs" id="script"]
-[ext_resource type="PackedScene" uid="uid://txnqaadygfgyf" path="res://scenes/interactives/forage_spawner.tscn" id="r1"]
-[ext_resource type="Resource" uid="uid://s8l1m34eoh8ca" path="res://resources/data/items/loot/mushroom_red.tres" id="r2"]
+
+[sub_resource type="Resource" id="ItemDescriptor_mig0"]
+script = ExtResource("itemdesc_mig")
+item = ExtResource("r2")
 
 [resource]
 script = ExtResource("script")
 scene = ExtResource("r1")
-item = ExtResource("r2")
+item = SubResource("ItemDescriptor_mig0")
+disabledVariable = null

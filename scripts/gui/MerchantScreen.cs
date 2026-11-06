@@ -656,7 +656,7 @@ public partial class MerchantScreen : Control
 			SetConversation("I cannot accept any of these.");
 			return;
 		}
-		List<LoyaltyGift> awarded = _merchant.AcceptGift(accepted, loyaltyGained, _player);
+		List<LoyaltyGiftState> awarded = _merchant.AcceptGift(accepted, loyaltyGained, _player);
 		ApplyAwardedGifts(awarded);
 		FinalizeMerchantInventoryAfterCommit(accepted);
 		if (awarded.Count > 0)
@@ -712,7 +712,7 @@ public partial class MerchantScreen : Control
 			}
 		}
 		float loyaltyGained = giveValue - getValue;
-		List<LoyaltyGift> awarded = _merchant.AcceptGift(accepted, loyaltyGained, _player);
+		List<LoyaltyGiftState> awarded = _merchant.AcceptGift(accepted, loyaltyGained, _player);
 		ApplyAwardedGifts(awarded);
 		FinalizeMerchantInventoryAfterCommit(accepted);
 		SetConversation(awarded.Count > 0 ? "Pleasure doing business — and please, take this as well." : "Pleasure doing business.");
@@ -763,14 +763,14 @@ public partial class MerchantScreen : Control
 		return accepted;
 	}
 
-	void ApplyAwardedGifts(List<LoyaltyGift> awarded)
+	void ApplyAwardedGifts(List<LoyaltyGiftState> awarded)
 	{
 		if (awarded == null || awarded.Count == 0 || _player == null)
 		{
 			return;
 		}
 		GameClient gc = GameClient.Current;
-		foreach (LoyaltyGift gift in awarded)
+		foreach (LoyaltyGiftState gift in awarded)
 		{
 			if (gift == null)
 			{
@@ -778,8 +778,9 @@ public partial class MerchantScreen : Control
 			}
 			if (gift.item != null)
 			{
-				ItemState state = gift.item.CreateState();
-				state.SetCount(Mathf.Max(1, gift.count));
+				// The gift's own state is handed over — it leaves the mob here.
+				ItemState state = gift.item;
+				ItemData given = state.data;
 				int initial = state.stackCount;
 				int added = _player.Inventory?.TryAdd(state) ?? 0;
 				if (added < initial)
@@ -790,8 +791,8 @@ public partial class MerchantScreen : Control
 				{
 					type = EAnnouncementType.GiftReceived,
 					title = "Gift Received",
-					subtitle = gift.item.displayName.ToString(),
-					icon = gift.item.inventorySprite,
+					subtitle = given.displayName.ToString(),
+					icon = given.inventorySprite,
 				});
 			}
 			if (gift.language != null && gift.languageComponents != ELanguageComponents.None)

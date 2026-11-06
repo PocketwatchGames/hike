@@ -2,11 +2,12 @@
 
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="1_armor"]
 [ext_resource type="Texture2D" uid="uid://lf6o4djji52u" path="res://assets/textures/items/armor/HelmetGlimp.png" id="2_inv"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="8_tl5qy"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
-[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="repair_steel"]
 [ext_resource type="Resource" uid="uid://vcyxumjsqyfg" path="res://resources/data/items/materials/beads.tres" id="repair_beads"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="repair_steel"]
 
 [sub_resource type="Resource" id="m_nightvision"]
 script = ExtResource("m_script")
@@ -17,13 +18,11 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 [sub_resource type="Resource" id="repair_cost_steel"]
 script = ExtResource("material_count")
 item = ExtResource("repair_steel")
-count = 1
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [sub_resource type="Resource" id="repair_cost_beads"]
 script = ExtResource("material_count")
 item = ExtResource("repair_beads")
-count = 1
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [sub_resource type="Resource" id="salvage_steel"]
@@ -40,9 +39,9 @@ maxArmor = 360.0
 armorSlot = 1
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_nightvision")])
 maxDurability = 3600
-salvage = Array[ExtResource("material_count")]([SubResource("salvage_steel"), SubResource("salvage_beads")])
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel"), SubResource("repair_cost_beads")])
 displayName = &"Glimp Visor"
 description = "Luminous lenses pierce the gloom, granting sight in near-total darkness."
 value = 40
 inventorySprite = ExtResource("2_inv")
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_steel"), SubResource("salvage_beads")])

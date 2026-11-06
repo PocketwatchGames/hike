@@ -2,6 +2,7 @@
 
 [ext_resource type="Texture2D" uid="uid://whcsmapxod45" path="res://assets/textures/items/armor/Armor.png" id="1_sprite"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_armor"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="9_p6b2x"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
@@ -47,10 +48,10 @@ maxArmor = 1050.0
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_pen")])
 outfit = SubResource("outfit")
 weight = 1.0
-maxDurability = 10500
-salvage = Array[ExtResource("material_count")]([SubResource("salvage_steel"), SubResource("salvage_leather")])
+maxDurability = 10000
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel"), SubResource("repair_cost_leather")])
 displayName = &"Brigandine"
 description = "Overlapping metal scales spread the force of a blow — heavier than mail, and it shows in the stride."
 value = 60
 inventorySprite = ExtResource("1_sprite")
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_steel"), SubResource("salvage_leather")])

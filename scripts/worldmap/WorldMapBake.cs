@@ -842,7 +842,7 @@ public class WorldMapBake
     {
         if (string.IsNullOrEmpty(OutputPath))
         {
-            GD.PrintErr("WorldMapState: the document has no file, so there is nowhere to bake to.");
+            GD.PrintErr($"WorldMapState: {Map.Data.NoWorldMessage()}");
             return false;
         }
         _bakeClock = System.Diagnostics.Stopwatch.StartNew();

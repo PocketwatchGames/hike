@@ -301,7 +301,11 @@ public static class WorldFile
     // v82: a cookpot's payload carries its meal (a MealData ref, empty when
     //      none) and the WorldClockDays it goes off at, after Lit.
     // v83: a crafting bench's payload carries its craft queue (CraftQueue).
-    public const uint VERSION = 83;
+    // v84: a mob's payload carries PlacedDead after Alive.
+    // v85: every authored item is a full item state — a mob's carried loot and
+    //      loyalty gifts, a buried spot's contents and a forage spawner's
+    //      template item (gifts also carry their language fields inline).
+    public const uint VERSION = 85;
 
     public struct IndexEntry
     {
