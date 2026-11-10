@@ -644,6 +644,7 @@ public partial class Main : Node
 		worldState.Spawn = source.Spawn;
 		worldState.Zones = source.Zones;
 		worldState.Regions = source.Regions;
+		worldState.Habitats = source.Habitats;
 		foreach (KeyValuePair<string, Vector3> poi in source.PointsOfInterest)
 		{
 			worldState.PointsOfInterest[poi.Key] = poi.Value;

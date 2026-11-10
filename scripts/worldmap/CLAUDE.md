@@ -57,6 +57,11 @@ Layers:
   safe here and not on `ZoneWaterData`: `WorldMapData` is deliberately not
   `[Tool]`, so nothing it holds is subject to the `[Tool]` closure rule.
 - **Region** / **Zone** — `.png` `R8`, per **chunk** (index → `ChunkState.RegionIndex` / `ZoneIndex`).
+- **Habitat** — `habitat.png` `R8`, per **chunk** (slot + 1; 0 = none →
+  `ChunkState.HabitatIndex`, same encoding). What LIVES in a place — fairy
+  chance and breakable/creature loot — painted apart from the zone so one look
+  can host different wildlife. Per chunk because that is what the world
+  records; a passage shares the habitat of the chunk column it is carved in.
 - **Wind** — `.png` `Rgba8`, per **chunk**: R = compass angle over a full turn,
   G = strength, with **0 reserved for UNPAINTED**. Per chunk because that is the
   granularity the bake seeds `ChunkState`'s wind-velocity subgrid at.
@@ -222,12 +227,13 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | `TunnelTool` | LMB carves the box ABOVE `PaintY`, which is the floor left behind; RMB erases the whole exposed passage | `PaintY` (R/F), `Height` (Q/E) | `CutawayElevationView` — the elevation map cut at `view.CutawayY` (T/G): the highest floor under the cut in its own band, dithered where seen through rock |
 | `BlockTool` | the same box, LMB filling it DOWN to `PaintY`, the new surface — or, in wall mode, `Height` voxels stood on each column's ground | the same, plus the block (option row; "Ground" = the column's terrain) and `WallMode` (**X**) | the same view, built blocks in their `minimapColor` |
 | `RegionTool` | per-chunk region index | `RegionIndex`, named in the option row | region colours, **50% darker under water** |
+| `HabitatTool` | per-chunk habitat (RMB clears to none) | `HabitatIndex`, named in the option row | habitat colours, unpainted grey, **50% darker under water** |
 | `ZoneTool` | per-chunk zone index | `ZoneIndex`, named in the option row | zone colours, **brightness by elevation** |
 | `WindTool` | per-chunk wind direction + strength (RMB clears back to the zone's) | `Mode` (Stroke / Inward / Outward), `AdjustLevel` = strength in m/s; alt+click samples | hue = compass angle, a sawtooth ramp ALONG the flow, unpainted chunks flat grey |
 | `PaveTool` | a block on the floor the map is SHOWING — the surface, or a passage's floor under the cut | `BlockIndex` | `CutawayGroundView` — the ground map, **cutting away** (T/G) once the plane comes down |
 | `PropPaintTool` ("Blocking") | which `PropListData` fills a column (RMB clears, alt+click samples) | `ListIndex` | ground colour, a dot per painted column in that list's own `mapColor` — black for a barrier, mid-grey for a breakable one |
 | `ClimbTool` | climbing route on a column's walls | none | `CutawayElevationView`, routed edges inked magenta — **cuts away** (T/G), so a route can be painted on a passage's walls |
-| `SceneTool` | `.hikescene` stamps — place / select / move / rotate / delete | `SceneIndex`, `Selected` | the ground map (the stamps themselves draw on EVERY view) |
+| `SceneTool` | `.hikescene` stamps — place / select / move / rotate / delete; seat follows the ground or is pinned (`fixedY`: X, shift+R/F, alt+click) | `SceneIndex`, `Selected` | `CutawayGroundView` — **cuts away** (T/G), so a stamp can be placed in a passage (the stamps themselves draw on EVERY view) |
 | `MobLevelTool` | per-column danger level; with the plane lowered, the level of the PASSAGE under the cut | `Level` | terrain recoloured, one shade per level — **cuts away** (T/G) to shade passages |
 | `MobTool` | which `SpawnScatterData` supplies a column's wildlife + density; with the plane lowered, the PASSAGE's scatter; the inspector lists the set's entries at `n / km²` | `SetIndex`, `Density` | ground colour + a dot per mob spawn, the SELECTED set full weight and the rest dimmed — **cuts away** (T/G), dotting the passage scatter |
 | `EntityTool` | individual entities, their per-placement properties, and the player spawn | `PaletteIndex`, `Selected` | the ground map (the marks themselves draw on EVERY view that shows props) |
@@ -366,6 +372,7 @@ KIND of thing.
 |---|---|
 | Zones | `world_authoring/zones/` |
 | Regions | `worlds/shared/regions/` |
+| Habitats | `resources/data/habitats/` — runtime data, read by path from the baked world |
 | Ground | `world_authoring/terrain_kits/` |
 | Props | `world_authoring/props/` |
 | Mobs | `world_authoring/spawn_scatters/` |
@@ -377,7 +384,7 @@ KIND of thing.
 Four rules, three of which were real bugs:
 
 - **A palette whose index is painted is a WIRE FORMAT, and its slots live in a
-  LEDGER.** `zone.png`, `region.png`, `ground.png`, `props_blocking.png`,
+  LEDGER.** `zone.png`, `region.png`, `habitat.png`, `ground.png`, `props_blocking.png`,
   `mobs.png`,
   `paving.png` and `water_type.png` all store a slot number, so a slot that moves
   silently re-zones or re-textures every world already baked — with the stored

@@ -6,7 +6,7 @@ using Godot;
 // bolts when the threat actually closes in and stays put once it's a safe
 // distance away. A perched bird uses this for Perch -> FlyFlee so it doesn't
 // keep fleeing from a player it can see but that's already far off.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

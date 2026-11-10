@@ -11,7 +11,7 @@ using Godot;
 // If the interactive implements IMobWard (a lit campfire), mobs it wards off
 // (fire-fearing slimes) are ignored — so lighting/camping isn't blocked by the
 // very mobs the fire scares away.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

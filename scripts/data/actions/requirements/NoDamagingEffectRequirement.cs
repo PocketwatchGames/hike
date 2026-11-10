@@ -5,7 +5,7 @@ using Godot;
 // (sleeping in a tent) so the player can't skip time — and integrate the full
 // elapsed DoT — while a damaging effect is active. Reads
 // IActionActor.HasDamagingStatusEffect; no per-press state of its own.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

@@ -13,8 +13,7 @@ using Godot;
 //   overlayFaces   : 1 byte present-flag, then 4096 bytes ONLY if set (which
 //                    of each voxel's six faces the overlay dresses, EVoxelFace
 //                    bits; 0 = all). Optional because it is sparse — see
-//                    ChunkState.OverlayFaces. Written last, after the entity
-//                    list, per the append-only rule below.
+//                    ChunkState.OverlayFaces. Written after the entity list.
 //   climbLips      : ushort count, then that many ushorts — the chunk's baked
 //                    mantleable ledge lips, packed cell index + face mask (see
 //                    ChunkState.ClimbLips). Sparse, so a count of 0 is the
@@ -41,15 +40,15 @@ using Godot;
 //   windVelocityZ  : 64 bytes (Z component)
 //   zoneIndex    : 1 byte (index into WorldState.Zones[])
 //   regionIndex  : 1 byte (index into WorldState.Regions[])
+//   habitatIndex : 1 byte (1-based index into WorldState.Habitats[]; 0 = none)
 //   entities : type-tagged list (see EntitySerializer)
 //
 // BlockLight is NOT serialized — it's the additive sum of contributions from
 // LightSources, and it's recomputed on world load when each torch entity
 // spawns and registers itself.
 //
-// Wire-format additions must be APPENDED, never inserted mid-blob, so the
-// WorldFile's per-chunk (offset, length) index remains valid and old chunk
-// payloads stay readable after a version bump. See WorldFile.VERSION.
+// Any change to this layout bumps WorldFile.VERSION; a file of any other
+// version is refused, never read, so a field goes where it belongs.
 public static class ChunkSerializer
 {
     public const int VOXEL_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
@@ -126,11 +125,10 @@ public static class ChunkSerializer
 
         w.Write(chunk.ZoneIndex);
         w.Write(chunk.RegionIndex);
+        w.Write(chunk.HabitatIndex);
 
         EntitySerializer.WriteList(w, entities);
 
-        // Trails the entity list only because the append-only rule above puts
-        // every addition at the end of the blob, never mid-stream.
         bool hasOverlayFaces = chunk.OverlayFaces != null;
         w.Write(hasOverlayFaces);
         if (hasOverlayFaces)
@@ -175,6 +173,7 @@ public static class ChunkSerializer
 
         chunk.ZoneIndex = r.ReadByte();
         chunk.RegionIndex = r.ReadByte();
+        chunk.HabitatIndex = r.ReadByte();
 
         entities = EntitySerializer.ReadList(r, pathTable);
 

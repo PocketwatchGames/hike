@@ -27,8 +27,13 @@ using Godot;
 // per placement.
 public static class SubsceneStamper
 {
+    // A scene's plain AIR is never written: it is the empty space around the
+    // build, not part of it, so water, terrain and carves under a bridge deck or
+    // inside a bbox survive the stamp. Openings and the scene's own water are
+    // authored and still write. Clearing space for a scene is a carve.
     public static void StampVoxels(WorldState ws, SubsceneState sub, Vector3 worldAnchor)
     {
+        int airId = Blocks.AirId;
         Vector3I worldOrigin = ComputeWorldOrigin(sub, worldAnchor);
         Vector3I size = sub.Size;
         // Sampled before the first write — the stamp overwrites the very
@@ -42,7 +47,7 @@ public static class SubsceneStamper
             {
                 for (int lz = 0; lz < size.Z; lz++)
                 {
-                    if (!sub.PresenceMask[lx, ly, lz])
+                    if (!sub.PresenceMask[lx, ly, lz] || sub.Voxels[lx, ly, lz] == airId)
                     {
                         continue;
                     }

@@ -13,7 +13,11 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     // 180-degree yaw is not a substitute: it shows the leaf's back face, and
     // setting rotation would overwrite it outright.
     [Export] private Godot.Collections.Array<Node3D> _hinges = new();
+    // The open pose, in each leaf's own frame: a swing about its hinge, then a
+    // lift along its axes. A hinged door swings and does not lift; a portcullis
+    // lifts (local +Y) and does not swing. A mirrored leaf mirrors the lift's X.
     [Export(PropertyHint.Range, "0,180,1")] private float _openAngleDeg = 95f;
+    [Export] private Vector3 _openLift = Vector3.Zero;
     [Export] private float _openSeconds = 0.35f;
     // Height in voxels of the doorway column a CLOSED door makes opaque,
     // measured up from the doorway base. Authored per door scene rather than
@@ -21,6 +25,11 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     // doorHeight, and an occluder shorter than the opening leaves lit, walkable
     // cells above the leaf.
     [Export(PropertyHint.Range, "1,8,1")] private int _occluderHeight = 2;
+    // Bars rather than a leaf: closed, it still stops bodies, navigation and
+    // shots, but light, sight, sound and smell pass. Drives BOTH the collider's
+    // layer (SeeThrough, not Environment) and the doorway stamp (ClearBarrier, not
+    // Barrier), so the two can never disagree.
+    [Export] private bool _seeThrough;
     [Export] private HurtBox _hurtBox;
     [Export] private Node3D _hudNode;
     // Swing cues, spawned at the door on each toggle. Split open/close because
@@ -33,27 +42,29 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
-    // Doors are solid walls — their block collider is a plain StaticBody3D on
-    // Environment (not a PorousBody) so smell, sound, sight, and flight are all
-    // stopped, unlike porous interactives (chests, wells).
+    // A leaf door is a solid wall — its block collider is a plain StaticBody3D
+    // on Environment (not a PorousBody) so smell, sound, sight, and flight are
+    // all stopped, unlike porous interactives (chests, wells). A see-through
+    // door moves the same collider to SeeThrough in _Ready.
 
     private bool _open;
     // Kept so a re-toggle mid-swing retargets instead of stacking a second
     // tween against the first -- with several leaves that reads as them
     // drifting out of sync.
     private Tween _swingTween;
-    // Each leaf's hanging, captured before it first moves, and the swing angle
-    // currently applied on top of it. Both exist because the swing has to be
-    // composed in the LEAF's frame (rest * R_y), which Node3D.Rotation cannot
-    // express -- see ApplySwing.
-    private Basis[] _restBases;
-    private float _swingRadians;
+    // Each leaf's hanging, captured before it first moves, and how far open
+    // (0..1) the pose applied on top of it is. Both exist because the motion has
+    // to be composed in the LEAF's frame (rest * open), which Node3D.Rotation
+    // cannot express -- see ApplyOpenPose.
+    private Transform3D[] _restTransforms;
+    private float _openProgress;
     private DoorSimState _interactiveState;
     private Sim _world;
     private Vector3I _baseWorldPos;
 
     public override void _Ready()
     {
+        _blockCollider.CollisionLayer = (uint)(_seeThrough ? ECollisionLayer.SeeThrough : ECollisionLayer.Environment);
         if (_hurtBox != null)
         {
             _hurtBox.OnHit = OnHurtBoxHit;
@@ -82,62 +93,64 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         return _actions != null && _actions.Count > 0 ? _actions : null;
     }
 
-    // Snapshot how each leaf is hung, before anything swings it.
-    private void CaptureRestBases()
+    // Snapshot how each leaf is hung, before anything moves it.
+    private void CaptureRestTransforms()
     {
-        if (_restBases != null)
+        if (_restTransforms != null)
         {
             return;
         }
         int hingeCount = _hinges != null ? _hinges.Count : 0;
-        _restBases = new Basis[hingeCount];
+        _restTransforms = new Transform3D[hingeCount];
         for (int i = 0; i < hingeCount; i++)
         {
-            _restBases[i] = _hinges[i] != null ? _hinges[i].Basis : Basis.Identity;
+            _restTransforms[i] = _hinges[i] != null ? _hinges[i].Transform : Transform3D.Identity;
         }
     }
 
-    // Swing every leaf to `radians` about its OWN hinge axis: rest * R_y, not
-    // R_y * rest. Node3D.Rotation (and so a "rotation:y" tween) can only do the
-    // latter -- it rebuilds the basis as rotation * scale, which resolves a
-    // mirrored leaf's hanging into a scale of (-1,-1,-1) plus a 180-degree X
-    // rotation and then swings it through the world Y axis instead of its own.
-    // The visible symptom is a double door whose leaves open opposite ways, one
-    // of them inward through the wall.
-    private void ApplySwing(float radians)
+    // Pose every leaf `progress` (0..1) of the way open, in its OWN frame:
+    // rest * open, not open * rest. Node3D.Rotation (and so a "rotation:y"
+    // tween) can only do the latter -- it rebuilds the basis as rotation *
+    // scale, which resolves a mirrored leaf's hanging into a scale of (-1,-1,-1)
+    // plus a 180-degree X rotation and then swings it through the world Y axis
+    // instead of its own. The visible symptom is a double door whose leaves open
+    // opposite ways, one of them inward through the wall.
+    private void ApplyOpenPose(float progress)
     {
-        _swingRadians = radians;
-        var swing = new Basis(Vector3.Up, radians);
-        for (int i = 0; i < _restBases.Length; i++)
+        _openProgress = progress;
+        var open = new Transform3D(
+            new Basis(Vector3.Up, Mathf.DegToRad(_openAngleDeg) * progress),
+            _openLift * progress);
+        for (int i = 0; i < _restTransforms.Length; i++)
         {
             Node3D hinge = _hinges[i];
             if (hinge == null)
             {
                 continue;
             }
-            hinge.Basis = _restBases[i] * swing;
+            hinge.Transform = _restTransforms[i] * open;
         }
     }
 
     private void UpdateVisuals(bool animate)
     {
-        CaptureRestBases();
-        if (_restBases.Length == 0)
+        CaptureRestTransforms();
+        if (_restTransforms.Length == 0)
         {
             return;
         }
-        float target = Mathf.DegToRad(_open ? _openAngleDeg : 0f);
+        float target = _open ? 1f : 0f;
         _swingTween?.Kill();
         _swingTween = null;
         if (!animate)
         {
-            ApplySwing(target);
+            ApplyOpenPose(target);
             return;
         }
-        // One tween driving the shared angle, so every leaf stays in step
+        // One tween driving the shared progress, so every leaf stays in step
         // however many there are, and a re-toggle resumes from the live pose.
         _swingTween = CreateTween();
-        _swingTween.TweenMethod(Callable.From<float>(ApplySwing), _swingRadians, target, _openSeconds)
+        _swingTween.TweenMethod(Callable.From<float>(ApplyOpenPose), _openProgress, target, _openSeconds)
             .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
     }
 
@@ -230,6 +243,14 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     public static int GetOccluderHeight(PackedScene scene)
     {
         return _occluderHeights.Get(scene);
+    }
+
+    private static readonly ScenePropertyCache _seeThroughs = new ScenePropertyCache("_seeThrough", 0);
+
+    // The block a CLOSED door of this scene fills its doorway column with.
+    public static int GetClosedBlock(PackedScene scene)
+    {
+        return _seeThroughs.Get(scene) != 0 ? Blocks.ClearBarrierId : Blocks.BarrierId;
     }
 
     public static Door Create(Sim sim, DoorSimState data)

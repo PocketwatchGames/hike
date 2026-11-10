@@ -4,7 +4,7 @@ using Godot;
 // which is what the right-hand weapon fires when it is of that type; carried
 // stacks of the same kind refill the slot as it empties. A fired round lands as
 // an ordinary pickup of this same item, unless it breaks.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

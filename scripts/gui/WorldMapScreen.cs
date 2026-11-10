@@ -498,7 +498,10 @@ public partial class WorldMapScreen : Control
 		_zoomBlend = 0f;
 		_panPrimed = false;
 
-		PushLayerState(detailMat, minimap, _detailBind, includeStateA: false);
+		// Always the surface heightmap: the live state B is the indoor slice
+		// whenever the player reads the map under a roof or underground.
+		PushTileLut(detailMat, minimap, _detailBind);
+		PushState(detailMat, minimap.CaptureOutdoorState(), "_b", _detailBind.B);
 		Vector2 center = new Vector2(map.DigLocation.X, map.DigLocation.Z);
 		PushFraming(detailMat, center, treasureMapViewRadiusMeters, map.MapRotation, 1f, 1f);
 		// Read the surrounding terrain relative to the dig site's own elevation.
@@ -847,16 +850,21 @@ public partial class WorldMapScreen : Control
 
 	void PushLayerState(ShaderMaterial mat, Minimap minimap, LayerBinding bind, bool includeStateA)
 	{
-		if (minimap.TileLutTexture != bind.TileLut)
-		{
-			mat.SetShaderParameter("tile_lut", minimap.TileLutTexture);
-			bind.TileLut = minimap.TileLutTexture;
-		}
+		PushTileLut(mat, minimap, bind);
 		if (includeStateA)
 		{
 			PushState(mat, minimap.StateA, "_a", bind.A);
 		}
 		PushState(mat, minimap.StateB, "_b", bind.B);
+	}
+
+	static void PushTileLut(ShaderMaterial mat, Minimap minimap, LayerBinding bind)
+	{
+		if (minimap.TileLutTexture != bind.TileLut)
+		{
+			mat.SetShaderParameter("tile_lut", minimap.TileLutTexture);
+			bind.TileLut = minimap.TileLutTexture;
+		}
 	}
 
 	static void PushState(ShaderMaterial mat, in Minimap.StateSnapshot s, string suffix, BoundStateTextures bound)

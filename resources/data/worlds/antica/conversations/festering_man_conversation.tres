@@ -1,0 +1,105 @@
+[gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://b2sw7lq7w1tsp"]
+
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="Script_ConversationData"]
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]
+[ext_resource type="Script" uid="uid://drrpmtebgfwg0" path="res://scripts/data/conversation/ConversationLine.cs" id="Script_ConversationLine"]
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
+[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
+[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="Lang_vyeshal"]
+[ext_resource type="Resource" path="res://resources/data/dialogue_scripts/actions/open_shop.tres" id="Act_open_shop"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/languages/common.tres" id="Lang_common"]
+[ext_resource type="Script" uid="uid://t1zyh3upz5bn7" path="res://scripts/data/conversation/conditions/UnderstandsLanguageCondition.cs" id="Script_UnderstandsLanguageCondition"]
+
+[sub_resource type="Resource" id="Inline_1"]
+script = ExtResource("Script_UnderstandsLanguageCondition")
+language = ExtResource("Lang_vyeshal")
+threshold = 0.5
+below = true
+
+[sub_resource type="Resource" id="Inline_2"]
+script = ExtResource("Script_UnderstandsLanguageCondition")
+language = ExtResource("Lang_vyeshal")
+threshold = 0.5
+
+[sub_resource type="Resource" id="Entry_1"]
+script = ExtResource("Script_ConversationEntry")
+branch = &"greeting"
+
+[sub_resource type="Resource" id="Line_greeting_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"festering_man_greeting_01"
+
+[sub_resource type="Resource" id="Branch_greeting"]
+script = ExtResource("Script_ConversationBranch")
+name = &"greeting"
+language = ExtResource("Lang_vyeshal")
+lines = [SubResource("Line_greeting_1")]
+exitGroup = &"language"
+isPrimaryGroupEntry = true
+
+[sub_resource type="Resource" id="Line_gestures_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"festering_man_gestures_01"
+
+[sub_resource type="Resource" id="Line_gestures_2"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"festering_man_gestures_02"
+
+[sub_resource type="Resource" id="Line_gestures_3"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"festering_man_gestures_03"
+
+[sub_resource type="Resource" id="Branch_gestures"]
+script = ExtResource("Script_ConversationBranch")
+name = &"gestures"
+lines = [SubResource("Line_gestures_1"), SubResource("Line_gestures_2"), SubResource("Line_gestures_3")]
+
+[sub_resource type="Resource" id="Line_convo_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"festering_man_convo_01"
+
+[sub_resource type="Resource" id="Line_convo_2"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"festering_man_convo_02"
+
+[sub_resource type="Resource" id="Line_convo_3"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"festering_man_convo_03"
+
+[sub_resource type="Resource" id="Line_convo_4"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"festering_man_convo_04"
+completeActions = Array[Object]([ExtResource("Act_open_shop")])
+
+[sub_resource type="Resource" id="Branch_convo"]
+script = ExtResource("Script_ConversationBranch")
+name = &"convo"
+language = ExtResource("Lang_vyeshal")
+lines = [SubResource("Line_convo_1"), SubResource("Line_convo_2"), SubResource("Line_convo_3"), SubResource("Line_convo_4")]
+
+[sub_resource type="Resource" id="Resp_language_1"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"festering_man_language_gestures"
+language = ExtResource("Lang_common")
+condition = SubResource("Inline_1")
+destination = &"gestures"
+
+[sub_resource type="Resource" id="Resp_language_2"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"festering_man_language_convo"
+language = ExtResource("Lang_common")
+condition = SubResource("Inline_2")
+destination = &"convo"
+
+[sub_resource type="Resource" id="Group_language"]
+script = ExtResource("Script_ConversationResponseGroup")
+name = &"language"
+responses = [SubResource("Resp_language_1"), SubResource("Resp_language_2")]
+
+[resource]
+script = ExtResource("Script_ConversationData")
+entryBranches = [SubResource("Entry_1")]
+branches = [SubResource("Branch_greeting"), SubResource("Branch_gestures"), SubResource("Branch_convo")]
+responseGroups = [SubResource("Group_language")]
+descriptionLocKey = &"festering_man_description"

@@ -26,6 +26,7 @@ public static class Blocks
     public static int DefaultWaterId { get; private set; }
     public static int BarrierId { get; private set; }
     public static int OpeningId { get; private set; }
+    public static int ClearBarrierId { get; private set; }
     public static int StoneId { get; private set; }
     // Stand-in natural ground for code with no terrain in hand — probe scaffolding
     // and the fallback when a terrain names no block.
@@ -110,13 +111,11 @@ public static class Blocks
             empty[id] = !b.solid && b.IsInvisible();
         }
 
-        // A Barrier is solid but produces no surface, so it is the one block
-        // whose two answers differ — see HasGeometry. Resolved off the catalog
-        // rather than BarrierId, which is not assigned until the end of Bind.
-        int barrierId = catalog.GetIdByName("Barrier");
+        // A door's markers (Barrier, ClearBarrier) are solid but produce no surface,
+        // so they are the blocks whose two answers differ — see HasGeometry.
         for (int id = 0; id < n; id++)
         {
-            hasGeometry[id] = solid[id] && id != barrierId;
+            hasGeometry[id] = solid[id] && !invisible[id];
         }
 
         // Published only now that every table is complete.
@@ -141,12 +140,14 @@ public static class Blocks
         DefaultWaterId = catalog.GetIdByName("Water");
         BarrierId = catalog.GetIdByName("Barrier");
         OpeningId = catalog.GetIdByName("Opening");
+        ClearBarrierId = catalog.GetIdByName("ClearBarrier");
         StoneId = catalog.GetIdByName("Stone");
         GroundId = catalog.GetIdByName("Grass");
     }
 
-    // Blocks movement, sight and light. NOT the same question as HasGeometry:
-    // a Barrier answers yes here and no there.
+    // Blocks navigation, and light unless IsTransparent (ClearBarrier is solid and
+    // transparent). NOT the same question as HasGeometry: a Barrier answers yes
+    // here and no there.
     public static bool IsSolid(int id) => _solid[id];
 
     // Occupies space PHYSICALLY — produces a drawn surface and the collision
@@ -154,9 +155,9 @@ public static class Blocks
     // geometry: meshing, density, collision, ledge barriers, "what am I
     // standing on", "is there a wall in front of me".
     //
-    // Barrier is the whole reason this exists. It is a shut door's marker: solid
-    // to navigation and to light, but the meshers skip it, so no triangle and no
-    // collider is ever built for one. Code that asked IsSolid here saw ground
+    // Barrier is the whole reason this exists. It is a shut door's marker
+    // (ClearBarrier is the see-through door's): solid to navigation, but the
+    // meshers skip it, so no triangle and no collider is ever built for one. Code that asked IsSolid here saw ground
     // that is not there — LedgeBarrierMesher did, and fabricated a phantom
     // walkable surface on top of every closed door's occluder, ringed by the
     // invisible wall it emits at a drop. The player, alone in masking the

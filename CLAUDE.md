@@ -445,6 +445,13 @@ colour, ambience) and no display name; a region carries nothing BUT a display
 name ("The Crowns", "Mire of the Lost"). Themes are reusable, named places are
 not.
 
+**`HabitatData` is what LIVES in a place** — its fairy chance and the loot
+breakables and creatures give up (`resources/data/habitats/`). It is a third
+per-chunk channel (`ChunkState.HabitatIndex`, `WorldState.HabitatAt`), kept off
+`ZoneData` so one look can host different wildlife and loot. The painter paints
+it on its own layer; a generated world takes `ZoneGenData.habitat`. A chunk with
+none gets no fairies and no habitat loot.
+
 Three rules, each of which was a real bug:
 
 - **A leaf `SpawnEntryData` is a *what* and belongs in a `spawn_entries/`; only a
@@ -503,7 +510,7 @@ preset includes the same pattern; re-bake rather than commit it.
 
 The first step in the world-authoring chain: a broad-brush, in-game paint program that authors a layered raster *document* and bakes it into a real `WorldState` / `.hike` (the downstream `WorldEditor` does fine per-voxel detail; the game loads the baked `.hike`).
 
-**What the painter can paint is DISCOVERED from disk, never registered.** A zone, terrain kit, prop list, scatter set, preset or placeable entity becomes available by existing in the directory `AuthoringPaletteSource.Table` names for it — that table is the one place a palette is declared. A placeable entity is one spawn-entry file, one row, and its folder under `spawn_entries/` is its section (a prop is a three-line `PropSpawnEntry` under `props/<category>/`). The palettes whose index a raster stores (zone, region, ground, scatter, mobs, paving, water type) keep an append-only slot ledger in `map/palettes.tres` so a newly discovered file can never re-point an already-painted column. See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
+**What the painter can paint is DISCOVERED from disk, never registered.** A zone, terrain kit, prop list, scatter set, preset or placeable entity becomes available by existing in the directory `AuthoringPaletteSource.Table` names for it — that table is the one place a palette is declared. A placeable entity is one spawn-entry file, one row, and its folder under `spawn_entries/` is its section (a prop is a three-line `PropSpawnEntry` under `props/<category>/`). The palettes whose index a raster stores (zone, region, habitat, ground, scatter, mobs, paving, water type) keep an append-only slot ledger in `map/palettes.tres` so a newly discovered file can never re-point an already-painted column. See [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md).
 
 ### Blocks — the voxel material model (`scripts/data/world/`)
 
@@ -707,6 +714,12 @@ intro_dying_01	[lang:common]Sanctuary[/lang]... you must find it. My family, …
   place and the fragments around it jumble on their own — the anchor is the point.
 - **Spans do not nest**, and the tags work in a `.tres` `Text` field (signpost,
   knowledge stone) exactly as they do in the tsv.
+- **Narration is `[narrate]…[/narrate]`** — a stage direction inside a spoken
+  line (`[narrate]He points to the tent.[/narrate]`). It is in no language: never
+  scrambled and excluded from `Comprehension`, so it doesn't change the speaker's
+  language or move an `understands` gate. The dialogue panel is a `RichTextLabel`
+  fed `LanguageText.RenderBbcode`, which draws it in italics; plain `Render`
+  shows it unstyled, and `Strip` drops the tags (player choices).
 - **A span renders in its language's own script** where that language has a
   `glyphBase` — see "Checking That the In-World Scripts Still Render". A line
   mixing tongues therefore mixes scripts, resolved per glyph by the font's
@@ -974,12 +987,13 @@ past the component:
   Every `PropSimState` carries one, so every path that places props (prop
   library, painter prop lists, foliage scatter, stamped scenes) gets breakables
   free.
-- **Loot = the scene's own rows + `ZoneData.zoneLoot`**, both
+- **Loot = the scene's own rows + `HabitatData.loot`**, both
   `ItemCountRange` (item, count range, chance), rolled AT THE BREAK from the
-  chunk's zone and the day's seed. Nothing is stored, so retuning a zone needs no
-  rebake, and a stamped scene reused in three zones holds three zones' loot.
-  **A breakable never holds a one-off item** — it comes back; that is a chest.
-  The same zone table drops from a dying creature whose `MobData.carriesZoneLoot`
+  chunk's habitat and the day's seed. Nothing is stored, so retuning a habitat
+  needs no rebake, and a stamped scene reused in three habitats holds three
+  habitats' loot. **A breakable never holds a one-off item** — it comes back;
+  that is a chest. The same table drops from a dying creature whose
+  `MobData.carriesHabitatLoot`
   is set (goblins, trolls, drakes, spiders) — a trait of the creature, not the
   variant, and authored because nothing else about a mob implies it.
 - **Nothing looks breakable that isn't, and nothing breakable has a
@@ -1050,7 +1064,7 @@ Run `dotnet run --project tools/validate_uids` to scan for missing `.cs.uid` sid
   - **It is data loss, not just a display bug.** The field reads empty, so the next time the editor saves that resource it writes the file back *without* the reference. You lose authored data to a diff you didn't make, and only in-editor — runtime has no `[Tool]` gate, so the game keeps working and hides it.
   - **It cascades.** Tagging `X` makes `X`'s own typed fields subject to the same rule, so the real cost is the transitive closure (subclasses + everything reachable through `[Export]`s), not one attribute. Measure that closure before starting: it is 5 classes for `ZoneData` but ~90 for `ItemData` and ~174 for `WorldGenData`. A half-applied sweep leaves the bug in place.
 
-  Match the parent: if it's `[Tool]`, everything it can reach is too, and say so in a comment on each so nobody strips it later. `StatusEffectData`'s payloads (`WeaponModData`, `DamageOverTimeData`, …) and the `SkyController`/`ZoneData` ambience graph are `[Tool]` for exactly this reason, and so is the whole item closure — `ZoneData.zoneLoot` reaches `ItemCountRange` → `ItemData` → every item, effect, teachable and, through a summoned pet, `MobData` and its brains (~100 classes).
+  Match the parent: if it's `[Tool]`, everything it can reach is too, and say so in a comment on each so nobody strips it later. `StatusEffectData`'s payloads (`WeaponModData`, `DamageOverTimeData`, …) and the `SkyController`/`ZoneData` ambience graph are `[Tool]` for exactly this reason, and so is the whole item closure — `ItemEvent` must be `[Tool]` for its own `_ValidateProperty`, and its `reagent` reaches `ItemData` → every item, effect, teachable and, through a summoned pet, `MobData` and its brains (~100 classes).
 - No namespaces; all classes are global scope.
 - Event communication uses C# `Action` delegates and Godot `[Signal]` attributes.
 - Factory methods (`Create()`) for instantiating scene-backed objects.

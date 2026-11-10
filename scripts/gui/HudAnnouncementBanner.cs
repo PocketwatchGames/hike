@@ -5,6 +5,7 @@ using System.Collections.Generic;
 // language, an identified item). Owns its own queue: each
 // announcement fades in, holds, fades out, and only then does the next one
 // start, so a burst of discoveries reads one at a time instead of overwriting.
+// An announcement carrying progress also fills a bar during its hold.
 //
 // Presentational, so timing is the node's tween (wall clock) — not dragged by
 // slow-mo. Visual style lives on the scene; only the text comes from the data.
@@ -14,10 +15,15 @@ public partial class HudAnnouncementBanner : PanelContainer
 	[Export] public Label label;
 	// Optional default entry sound; an Announcement.sound overrides it.
 	[Export] public AudioStreamPlayer sound;
+	// Shown only for an announcement carrying progress (language understanding).
+	// Its range is 0..1.
+	[Export] public ProgressBar progressBar;
 
 	[Export(PropertyHint.Range, "0,5,0.05")] public float fadeInSeconds = 0.4f;
 	[Export(PropertyHint.Range, "0,20,0.1")] public float holdSeconds = 2.5f;
 	[Export(PropertyHint.Range, "0,5,0.05")] public float fadeOutSeconds = 0.8f;
+	// Time the bar takes to fill to its new value; part of the hold, not added to it.
+	[Export(PropertyHint.Range, "0,5,0.05")] public float progressFillSeconds = 1.2f;
 
 	readonly Queue<Announcement> _queue = new();
 	Tween _tween;
@@ -59,13 +65,33 @@ public partial class HudAnnouncementBanner : PanelContainer
 		{
 			label.Text = FormatText(a);
 		}
+		bool hasProgress = progressBar != null && a.progressTo.HasValue;
+		if (progressBar != null)
+		{
+			progressBar.Visible = hasProgress;
+			if (hasProgress)
+			{
+				progressBar.Value = a.progressFrom ?? a.progressTo.Value;
+			}
+		}
 		Visible = true;
 		PlaySound(a.sound);
 
 		_tween?.Kill();
 		_tween = CreateTween();
 		_tween.TweenProperty(this, "modulate:a", 1f, fadeInSeconds);
-		_tween.TweenInterval(holdSeconds);
+		if (hasProgress)
+		{
+			float fill = Mathf.Min(progressFillSeconds, holdSeconds);
+			_tween.TweenProperty(progressBar, "value", (double)a.progressTo.Value, fill)
+				.SetTrans(Tween.TransitionType.Cubic)
+				.SetEase(Tween.EaseType.Out);
+			_tween.TweenInterval(holdSeconds - fill);
+		}
+		else
+		{
+			_tween.TweenInterval(holdSeconds);
+		}
 		_tween.TweenProperty(this, "modulate:a", 0f, fadeOutSeconds);
 		// Deferred: starting the next tween from inside this one's completion
 		// callback would kill the tween that is still finishing.

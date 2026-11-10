@@ -4,7 +4,7 @@ using Godot;
 // central bank — the AI-side analog of ScriptVarCondition. Fires an edge when
 // a world flag / quest variable meets the comparison (e.g. a guard mob leaves
 // its post once town_gate_opened is true). No world / bank reads as false.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

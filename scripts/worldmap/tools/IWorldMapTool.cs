@@ -114,6 +114,11 @@ public interface IWorldMapTool
     // Move the active elevation / cross-section (e.g. tunnel slice, ocean level).
     void AdjustLevel(WorldMapState ctx, int dir);
 
+    // Shift+R/F, for a tool whose R/F is spoken for (the scene tool turns with
+    // R/F and raises with shift). Returns whether it handled the key; false falls
+    // back to AdjustLevel, so shift costs nothing for the tools without one.
+    bool AdjustSecondaryLevel(WorldMapState ctx, int dir) => false;
+
     // Where this tool wants the cutaway when it becomes active, or null to leave
     // it where it is. A tool that works under the ground wants the plane just
     // over the height it is about to paint at — otherwise picking it up means
@@ -123,7 +128,7 @@ public interface IWorldMapTool
     // A second MODE for tools that have one, bound to X. Returns whether it
     // handled the key, so the binding costs nothing for the tools that don't —
     // a default implementation rather than a stub on all sixteen.
-    bool ToggleMode() => false;
+    bool ToggleMode(WorldMapState ctx) => false;
 
     // The stamp this tool has selected, or null. Stamps are composited onto
     // EVERY view, so the painter needs to know which one to highlight without
@@ -195,7 +200,8 @@ public interface IWorldMapView
 
     // Which spawn layers this view draws dots for. Views whose colour answers an
     // unrelated question (elevation, water, tunnels, region, zone, danger) draw
-    // none — there the dots would be noise.
+    // none at full weight — the painter still lays blocking regions and entities
+    // over them as faint dots, so where things stand is never hidden.
     ESpawnPreview PreviewLayer { get; }
 
     // Does this view cut the world away above WorldMapView.CutawayY? A column

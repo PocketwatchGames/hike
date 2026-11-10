@@ -140,8 +140,8 @@ public static class TerrainMath
 
     // The ground level a footprint should seat on: the most common plateau level
     // across it, ties going to the lower. Averaging or taking the max floats a
-    // building over a dip; the stamp overwrites its whole bbox, so cutting in is
-    // self-correcting and floating is not.
+    // building over a dip. A stamp writes only its solid voxels, so ground that
+    // rises into the box stays there — clear it with a carve.
     //
     // Takes the ground lookup rather than a HeightMap so the painter — which has
     // no height field — seats its stamps by the identical rule.

@@ -5460,13 +5460,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             _simState.Loot = null;
         }
-        if (_simState?.Species?.mob?.carriesZoneLoot == true)
+        if (_simState?.Species?.mob?.carriesHabitatLoot == true)
         {
-            ItemCountRange[] zoneLoot = _world.WorldState?.ZoneDataAt(GlobalPosition)?.zoneLoot;
-            if (zoneLoot != null && zoneLoot.Length > 0)
+            ItemCountRange[] habitatLoot = _world.WorldState?.HabitatAt(GlobalPosition)?.loot;
+            if (habitatLoot != null && habitatLoot.Length > 0)
             {
                 var carried = new List<ItemState>();
-                ItemCountRange.ResolveAll(zoneLoot, System.Random.Shared, carried);
+                ItemCountRange.ResolveAll(habitatLoot, System.Random.Shared, carried);
                 _world.EjectLoot(carried, origin);
             }
         }

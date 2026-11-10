@@ -4,7 +4,7 @@ using Godot;
 // (ItemData.salvage) or costs to repair (GearData.repair). Certain, not rolled,
 // so either can be planned; and no ItemDescriptor, because a material carries
 // no mods.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

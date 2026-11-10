@@ -32,7 +32,10 @@ using System.Collections.Generic;
 [GlobalClass]
 public partial class ConversationController : Control
 {
-	[Export] public Label label;
+	// BBCode on, so narration renders in italics (LanguageText.RenderBbcode).
+	// The typewriter reveals through VisibleCharacters, which counts glyphs
+	// and never splits a tag.
+	[Export] public RichTextLabel label;
 	[Export] public GameClient gameClient;
 	[Export] PackedScene responseOptionScene;
 	[Export] Control responseOptionsContainer;
@@ -66,6 +69,8 @@ public partial class ConversationController : Control
 	// Float so the per-tick advance can roll fractional characters in
 	// without dropping a glyph per frame when speed × dt < 1.
 	float _revealedChars;
+	// Visible glyphs in the current line — its length with the BBCode removed.
+	int _lineLength;
 	Action _onClose;
 
 	// Live response buttons spawned into responseOptionsContainer; tracked
@@ -168,18 +173,37 @@ public partial class ConversationController : Control
 		RefreshNameBox();
 		ResolveAndScrambleLines(branch, _ctx);
 		_lineIndex = 0;
-		_revealedChars = 0f;
 		_state = EState.Typing;
-		if (label != null)
-		{
-			label.Text = string.Empty;
-		}
 		if (_lines.Count == 0)
 		{
+			BeginLine(string.Empty);
 			ShowResponseChooser();
 			return;
 		}
+		BeginLine(_lines[0]);
 		FireActions(_lineData[0].startActions, _ctx);
+	}
+
+	// Loads a whole line into the label with nothing yet revealed.
+	void BeginLine(string bbcode)
+	{
+		_revealedChars = 0f;
+		_lineLength = 0;
+		if (label == null)
+		{
+			return;
+		}
+		label.Text = bbcode;
+		label.VisibleCharacters = 0;
+		_lineLength = label.GetTotalCharacterCount();
+	}
+
+	void RevealLine(int chars)
+	{
+		if (label != null)
+		{
+			label.VisibleCharacters = chars;
+		}
 	}
 
 	// The speaker's talk clip, from the speaker, in its voice's pitch. Plays as
@@ -446,15 +470,13 @@ public partial class ConversationController : Control
 		{
 			return;
 		}
-		string line = _lines[_lineIndex];
-		if (_revealedChars >= line.Length)
+		if (_revealedChars >= _lineLength)
 		{
 			return;
 		}
 		float speed = Mathf.Max(0f, CVars.dialogueTypingSpeed.Value);
-		_revealedChars = Mathf.Min(line.Length, _revealedChars + speed * (float)delta);
-		int reveal = Mathf.Min(line.Length, Mathf.FloorToInt(_revealedChars));
-		label.Text = line.Substring(0, reveal);
+		_revealedChars = Mathf.Min(_lineLength, _revealedChars + speed * (float)delta);
+		RevealLine(Mathf.FloorToInt(_revealedChars));
 	}
 
 	public override void _UnhandledInput(InputEvent e)
@@ -489,14 +511,10 @@ public partial class ConversationController : Control
 			ShowResponseChooser();
 			return;
 		}
-		string line = _lines[_lineIndex];
-		if (_revealedChars < line.Length)
+		if (_revealedChars < _lineLength)
 		{
-			_revealedChars = line.Length;
-			if (label != null)
-			{
-				label.Text = line;
-			}
+			_revealedChars = _lineLength;
+			RevealLine(_lineLength);
 			return;
 		}
 		FireActions(_lineData[_lineIndex].completeActions, _ctx);
@@ -510,11 +528,7 @@ public partial class ConversationController : Control
 			ShowResponseChooser();
 			return;
 		}
-		_revealedChars = 0f;
-		if (label != null)
-		{
-			label.Text = string.Empty;
-		}
+		BeginLine(_lines[_lineIndex]);
 		FireActions(_lineData[_lineIndex].startActions, _ctx);
 	}
 
@@ -660,7 +674,7 @@ public partial class ConversationController : Control
 			{
 				continue;
 			}
-			_lines.Add(LanguageText.Render(Loc.Get(key), lang, ctx.player));
+			_lines.Add(LanguageText.RenderBbcode(Loc.Get(key), lang, ctx.player));
 			_lineData.Add(line);
 		}
 	}

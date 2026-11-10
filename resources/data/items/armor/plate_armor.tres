@@ -53,6 +53,7 @@ outfit = SubResource("outfit")
 weight = 1.5
 maxDurability = 15000
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")])
+repairHours = 12.0
 displayName = &"Breastplate"
 description = "A full harness of shaped steel — the best protection coin can buy, if you can bear the weight."
 value = 60

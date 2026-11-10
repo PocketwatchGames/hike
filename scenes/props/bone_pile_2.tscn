@@ -103,6 +103,6 @@ transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0.375, 0)
 script = ExtResource("5_destructible")
 _drops = [SubResource("Drop_ancient_bone"), SubResource("Drop_oil_droplet")]
 _hurtBox = NodePath("../Intact/HurtBox")
-_fillWithZoneLoot = true
+_fillWithHabitatLoot = true
 _intact = NodePath("../Intact")
 _rubble = NodePath("../Rubble")

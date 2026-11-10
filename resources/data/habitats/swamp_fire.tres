@@ -1,0 +1,86 @@
+[gd_resource type="Resource" script_class="HabitatData" format=3 uid="uid://qdq4alxx0y4e"]
+
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="3_a5e6k"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/ancient_bone.tres" id="bl_ancient_bone"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="bl_desc"]
+[ext_resource type="Resource" uid="uid://dgldn4p2qx8wt" path="res://resources/data/items/loot/gold.tres" id="bl_gold"]
+[ext_resource type="Resource" uid="uid://d0ghc0filpfpn" path="res://resources/data/items/loot/mushroom_black.tres" id="bl_mushroom_black"]
+[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="bl_mushroom_gold"]
+[ext_resource type="Resource" uid="uid://chpmfha5lvycx" path="res://resources/data/items/loot/mushroom_purple.tres" id="bl_mushroom_purple"]
+[ext_resource type="Resource" uid="uid://drykavgefoqa7" path="res://resources/data/items/loot/mushroom_red.tres" id="bl_mushroom_red"]
+[ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="bl_oil_droplet"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="bl_range"]
+[ext_resource type="Script" uid="uid://bbwa7igks862i" path="res://scripts/data/world/HabitatData.cs" id="habitat_script"]
+
+[sub_resource type="Resource" id="BlDesc_ancient_bone"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_ancient_bone")
+
+[sub_resource type="Resource" id="BlLoot_ancient_bone"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_ancient_bone")
+chance = 0.1
+
+[sub_resource type="Resource" id="BlDesc_oil_droplet"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_oil_droplet")
+
+[sub_resource type="Resource" id="BlLoot_oil_droplet"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_oil_droplet")
+chance = 0.1
+
+[sub_resource type="Resource" id="BlDesc_gold"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_gold")
+
+[sub_resource type="Resource" id="BlLoot_gold"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_gold")
+countRange = 2
+chance = 0.35
+
+[sub_resource type="Resource" id="BlDesc_mushroom_black"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_mushroom_black")
+
+[sub_resource type="Resource" id="BlLoot_mushroom_black"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_mushroom_black")
+countRange = 1
+chance = 0.06
+
+[sub_resource type="Resource" id="BlDesc_mushroom_gold"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_mushroom_gold")
+
+[sub_resource type="Resource" id="BlLoot_mushroom_gold"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_mushroom_gold")
+countRange = 1
+chance = 0.06
+
+[sub_resource type="Resource" id="BlDesc_mushroom_purple"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_mushroom_purple")
+
+[sub_resource type="Resource" id="BlLoot_mushroom_purple"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_mushroom_purple")
+countRange = 1
+chance = 0.06
+
+[sub_resource type="Resource" id="BlDesc_mushroom_red"]
+script = ExtResource("bl_desc")
+item = ExtResource("bl_mushroom_red")
+
+[sub_resource type="Resource" id="BlLoot_mushroom_red"]
+script = ExtResource("bl_range")
+item = SubResource("BlDesc_mushroom_red")
+countRange = 1
+chance = 0.06
+
+[resource]
+script = ExtResource("habitat_script")
+fairySpawnChance = 1.0
+loot = [SubResource("BlLoot_ancient_bone"), SubResource("BlLoot_oil_droplet"), SubResource("BlLoot_gold"), SubResource("BlLoot_mushroom_black"), SubResource("BlLoot_mushroom_gold"), SubResource("BlLoot_mushroom_purple"), SubResource("BlLoot_mushroom_red")]

@@ -6,7 +6,7 @@ using Godot.Collections;
 // Nothing is matched — only a learned recipe can be crafted
 // (SimState.IsRecipeDiscovered), so unlike a meal's RecipeData there is no
 // accepted range or priority.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

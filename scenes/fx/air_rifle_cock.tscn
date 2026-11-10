@@ -1,0 +1,22 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://bgh2jc6ncvrh8" path="res://assets/audio/source/weapons/sfx_weapon_air_rifle_cock_01.wav" id="2_a01"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_airriflecock"]
+playback_mode = 1
+random_pitch = 1.08
+random_volume_offset_db = 1.5
+streams_count = 1
+stream_0/stream = ExtResource("2_a01")
+stream_0/weight = 1.0
+
+[node name="AirRifleCock" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_airriflecock")
+unit_size = 6.0
+max_distance = 20.0
+volume_db = -8.0
+bus = &"World3D"

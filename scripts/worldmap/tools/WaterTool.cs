@@ -87,7 +87,7 @@ public class WaterTool : IWorldMapTool
         set => _typeIndex = Mathf.Max(-1, value - 1);
     }
 
-    public bool ToggleMode()
+    public bool ToggleMode(WorldMapState ctx)
     {
         ReplaceOnly = !ReplaceOnly;
         return true;

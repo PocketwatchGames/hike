@@ -6,7 +6,7 @@ using Godot;
 // own AI engagement tuning; BehaviorAttack reads them off the mob.
 // This data holds only the chase / encircle geometry that's the same regardless
 // of which weapon swings.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]
@@ -34,6 +34,11 @@ public partial class AttackBehaviorData : BehaviorData
     // desiredAttackRange among the mob's weapons, collapsing the ring onto attack
     // range (no disengage).
     [Export] public float encircleDistance = -1f;
+
+    // Fraction of the mob's maxSpeed while it backs off from inside its hold
+    // ring out to it (between swings). Chasing and closing to swing stay at
+    // full speed.
+    [Export(PropertyHint.Range, "0.05,1,0.01")] public float backOffSpeed = 1f;
 
     // Max angle (degrees) between the mob's facing and the direction to the
     // target for it to commit a swing — it won't initiate an attack while turned

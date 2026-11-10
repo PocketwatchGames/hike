@@ -31,7 +31,8 @@ public class DoorSimState : EntitySimState, IVoxelStamper
     public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells) { }
 
     // The doorway column, following the leaf: Barrier while closed (opaque to
-    // sunlight, block light and navigation), Opening while open. Active ==
+    // sunlight, block light and navigation) — ClearBarrier for a see-through door,
+    // which blocks navigation only — and Opening while open. Active ==
     // closed, the same way Door.Create derives its own _open.
     //
     // Open writes Opening, not Air. Opening is empty in every sense that matters
@@ -49,7 +50,7 @@ public class DoorSimState : EntitySimState, IVoxelStamper
         return new VoxelStamp(
             Door.ResolveOccluderBase(world, this),
             Mathf.Max(1, Door.GetOccluderHeight(Scene)),
-            Active ? Blocks.BarrierId : Blocks.OpeningId,
+            Active ? Door.GetClosedBlock(Scene) : Blocks.OpeningId,
             carves: false);
     }
 }

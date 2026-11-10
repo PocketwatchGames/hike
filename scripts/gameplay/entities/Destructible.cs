@@ -64,9 +64,9 @@ public partial class Destructible : Node3D
     // mud. Each row rolls its own chance.
     [Export] private ItemCountRange[] _drops;
 
-    // Also drop the zone's loot (ZoneData.zoneLoot) — a
-    // crate, barrel or pot holds whatever such things hold in this zone.
-    [Export] private bool _fillWithZoneLoot;
+    // Also drop the habitat's loot (HabitatData.loot) — a crate, barrel or pot
+    // holds whatever such things hold where it stands.
+    [Export] private bool _fillWithHabitatLoot;
 
     // When it stands again, and after how many rests / sunrises.
     [Export] private ERestoreSchedule _restore = ERestoreSchedule.Rests;
@@ -212,15 +212,15 @@ public partial class Destructible : Node3D
         {
             return;
         }
-        ItemCountRange[] zoneLoot = _fillWithZoneLoot ? sim.WorldState?.ZoneDataAt(origin)?.zoneLoot : null;
-        if ((_drops == null || _drops.Length == 0) && (zoneLoot == null || zoneLoot.Length == 0))
+        ItemCountRange[] habitatLoot = _fillWithHabitatLoot ? sim.WorldState?.HabitatAt(origin)?.loot : null;
+        if ((_drops == null || _drops.Length == 0) && (habitatLoot == null || habitatLoot.Length == 0))
         {
             return;
         }
         Random rng = LootRandom(sim, origin);
         var items = new List<ItemState>();
         ItemCountRange.ResolveAll(_drops, rng, items);
-        ItemCountRange.ResolveAll(zoneLoot, rng, items);
+        ItemCountRange.ResolveAll(habitatLoot, rng, items);
         sim.EjectLoot(items, origin);
     }
 

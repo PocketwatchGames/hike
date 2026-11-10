@@ -97,6 +97,7 @@ public static class WorldMapResize
         // Per-CHUNK layers scale by the chunk count, not the texel count.
         state.Region = Resample(state.Region, newChunksX, newChunksZ);
         state.Zone = Resample(state.Zone, newChunksX, newChunksZ);
+        state.Habitat = Resample(state.Habitat, newChunksX, newChunksZ);
         state.Wind = Resample(state.Wind, newChunksX, newChunksZ);
 
         state.Tunnels = ResampleTunnels(state.Tunnels, oldW, oldH, newW, newH, data.VoxelHeight);
@@ -178,6 +179,7 @@ public static class WorldMapResize
         state.Scalars = Recanvas(state.Scalars, newW, newH, texelShift);
         state.Region = Recanvas(state.Region, newChunksX, newChunksZ, chunkShift);
         state.Zone = Recanvas(state.Zone, newChunksX, newChunksZ, chunkShift);
+        state.Habitat = Recanvas(state.Habitat, newChunksX, newChunksZ, chunkShift);
         state.Wind = Recanvas(state.Wind, newChunksX, newChunksZ, chunkShift);
         state.Tunnels = RecanvasTunnels(state.Tunnels, oldW, oldH, newW, newH, texelShift, data.VoxelHeight);
         state.InvalidateVoxelEdits();

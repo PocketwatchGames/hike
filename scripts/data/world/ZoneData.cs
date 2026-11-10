@@ -1,6 +1,6 @@
 using Godot;
 
-// Per-zone theming. A large world can have many zones (deserts,
+// Per-zone theming: how a place LOOKS and SOUNDS. A large world can have many zones (deserts,
 // forests, mountains) — each tints its atmosphere through these four
 // colors, but the *weather* (cloud cover, wind, rain, etc.) blowing
 // across them stays the same. See WeatherDerivation for the full map
@@ -86,20 +86,6 @@ public partial class ZoneData : Resource
     // visual palette already blends.
     [Export] public ZoneAmbienceData ambience;
 
-    // Whether the ambient FairySpawner may spawn a fairy while the player stands in
-    // this zone. Off by default — turn it on for the zones (forests, glades) where
-    // fairies belong. When on, FairySpawnChance modulates how likely each of the
-    // day's spawn windows actually produces a fairy here. Read live off the chunk
-    // under the player, so it lives on the runtime-loaded ZoneData rather than the
-    // worldgen-only ZoneGenData. See FairySpawner.
-    [Export] public bool canSpawnFairy = false;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float fairySpawnChance = 1f;
-
-    // What turns up in this zone: rolled from the chunk's zone the moment a
-    // breakable that fills with zone loot breaks (Destructible._fillWithZoneLoot)
-    // or a creature that carries it dies (MobData.carriesZoneLoot), on top of
-    // their own drops. Retuning it needs no rebake. Each row rolls its own
-    // chance. Breakables and mobs both come back, so nothing here should be a
-    // one-off — that belongs in a chest.
-    [Export] public ItemCountRange[] zoneLoot = System.Array.Empty<ItemCountRange>();
+    // What LIVES here (fairies, the loot breakables and creatures give up) is
+    // not the zone's — see HabitatData.
 }

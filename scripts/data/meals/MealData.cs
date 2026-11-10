@@ -5,7 +5,7 @@ using Godot;
 // `potHours` after cooking — eating never empties it. Listed in SimData.meals,
 // which is the cookpot's whole recipe list; known through the same recipe
 // discovery as crafted items (SimState.IsRecipeDiscovered).
-// [Tool]: reachable from ZoneData.zoneLoot through a cookbook scroll's
+// [Tool]: in the item closure (ItemEvent → ItemData) through a cookbook scroll's
 // MealTeachable — see the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

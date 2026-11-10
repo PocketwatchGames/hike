@@ -57,6 +57,7 @@ parryDecibels = 1.0
 weight = 1.0
 maxDurability = 600
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")])
+repairHours = 8.0
 displayName = &"Spiked Shield"
 description = "Iron spikes bristle from its face. Anything that strikes it bleeds for the trouble, and a timed crouch drives the spikes home."
 value = 75

@@ -32,7 +32,7 @@ script = ExtResource("3_canvas")
 [node name="Hud" type="CanvasLayer" parent="." unique_id=445149964 node_paths=PackedStringArray("layerLabel", "toolLabel", "coordsLabel", "hoverLabel", "bakePanel", "bakeLabel", "bakeBar", "toolButtonBar", "optionTree", "optionFilter", "hintLabel", "entityInspector")]
 script = ExtResource("4_hud")
 layerLabel = NodePath("")
-toolLabel = NodePath("")
+toolLabel = NodePath("MarginContainer2/VBoxContainer/StatusLabel")
 coordsLabel = NodePath("MarginContainer2/VBoxContainer/CoordsLabel")
 hoverLabel = NodePath("MarginContainer2/VBoxContainer/HoverLabel")
 bakePanel = NodePath("BakePanel")
@@ -92,6 +92,9 @@ alignment = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.72, 0.35, 1)
 
+[node name="StatusLabel" type="Label" parent="Hud/MarginContainer2/VBoxContainer"]
+layout_mode = 2
+
 [node name="CoordsLabel" type="Label" parent="Hud/MarginContainer2/VBoxContainer" unique_id=1465641328]
 layout_mode = 2
 text = "[R/F] Texel: (0, 0)"
@@ -125,7 +128,7 @@ max_value = 1.0
 step = 0.001
 show_percentage = false
 
-[node name="EntityInspector" type="PanelContainer" parent="Hud" unique_id=915880909 node_paths=PackedStringArray("titleLabel", "rows")]
+[node name="EntityInspector" type="PanelContainer" parent="Hud" unique_id=915880909 node_paths=PackedStringArray("titleLabel", "scroll", "rows")]
 visible = false
 anchors_preset = 1
 anchor_left = 1.0
@@ -137,7 +140,8 @@ offset_bottom = 16.0
 grow_horizontal = 0
 script = ExtResource("7_inspector")
 titleLabel = NodePath("Margin/VBoxContainer/TitleLabel")
-rows = NodePath("Margin/VBoxContainer/Rows")
+scroll = NodePath("Margin/VBoxContainer/Scroll")
+rows = NodePath("Margin/VBoxContainer/Scroll/Rows")
 
 [node name="Margin" type="MarginContainer" parent="Hud/EntityInspector" unique_id=118425607]
 layout_mode = 2
@@ -153,8 +157,13 @@ layout_mode = 2
 layout_mode = 2
 text = "Entity"
 
-[node name="Rows" type="VBoxContainer" parent="Hud/EntityInspector/Margin/VBoxContainer" unique_id=718857789]
+[node name="Scroll" type="ScrollContainer" parent="Hud/EntityInspector/Margin/VBoxContainer" unique_id=1733920586]
 layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Rows" type="VBoxContainer" parent="Hud/EntityInspector/Margin/VBoxContainer/Scroll" unique_id=718857789]
+layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="PauseMenu" type="Control" parent="Hud" unique_id=1451043540 node_paths=PackedStringArray("versionLabel")]
 layout_mode = 3

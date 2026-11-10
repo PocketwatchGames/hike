@@ -7,7 +7,7 @@ using Godot;
 // `areaIntervals` array holds zero or more of these; at spawn time, the
 // area-effect handler resolves each key against the firing weapon's /
 // mob's damage profiles and configures the DamageZone accordingly.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

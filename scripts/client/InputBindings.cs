@@ -9,7 +9,7 @@ using Godot;
 // in project.godot.
 //
 // THIS CODE OWNS the bindings for Interact / InteractCancel / Dash / UseItem /
-// Sneak: it overwrites whatever project.godot authored for them on
+// Sneak / TogglePause: it overwrites whatever project.godot authored for them on
 // startup. Edit the set here, not the editor's Input Map, or your change is
 // silently undone.
 // If player-facing rebinding lands later, this becomes the supplier of defaults
@@ -21,6 +21,7 @@ public static class InputBindings
     private const string Dash = "Dash";
     private const string UseItem = "UseItem";
     private const string Sneak = "Sneak";
+    private const string TogglePause = "TogglePause";
 
     public static void Apply()
     {
@@ -39,6 +40,7 @@ public static class InputBindings
         // Player.ProcessInput only lets it consume the frame when there is
         // something to abort, so an ordinary interact press still falls through.
         SetBindings(InteractCancel, Key.Escape, JoyButton.B);
+        SetBindings(TogglePause, Key.Escape, JoyButton.Start);
         SetBindings(UseItem, Key.Ctrl, JoyButton.Y);
         SetBindings(Sneak, Key.Shift, JoyAxis.TriggerLeft);
     }

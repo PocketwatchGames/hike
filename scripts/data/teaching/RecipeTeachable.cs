@@ -4,7 +4,7 @@ using Godot;
 // shows up in its station's recipe list before the player has ever made it. Each
 // scroll points at exactly one item; standard and high-quality variants of a
 // dish are separate items, so each is taught on its own.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

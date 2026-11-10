@@ -16,7 +16,7 @@ public enum ESubsceneRotation
 
 // Declarative placement of a subscene in WorldGenData. Path points at a
 // `.hikescene` file; AnchorXZ is the world XZ where the subscene's anchor
-// should land. Y is computed by TerrainMath.FootprintPlateauY — the dominant
+// should land. Y (unless `fixedY` pins it) is TerrainMath.FootprintPlateauY — the dominant
 // plateau level across the footprint — so the cottage sits flush on the
 // terrace WorldGen built underneath it, and a cave that breached the ground
 // nearby can't drag it down. The scene's bottom layer lands ON that top
@@ -44,6 +44,25 @@ public partial class SubscenePlacement : Resource
     // An absolute Y would pin the building while the hill walked out from under
     // it.
     [Export] public int yOffset;
+
+    // An ABSOLUTE world Y for the anchor, or FollowsGround to seat from the
+    // footprint as above. For what the ground under the footprint does not
+    // describe: a bridge span over a gap (the "most common level" there is the
+    // riverbed or a bank, and differs piece to piece), or a room inside a cave
+    // (seating from the surface would put it on the hilltop, and repainting the
+    // hill would drag it through the rock). yOffset is ignored while this is set.
+    [Export] public int fixedY = FollowsGround;
+
+    public const int FollowsGround = int.MinValue;
+
+    public bool IsFixed => fixedY != FollowsGround;
+
+    // THE seat rule, shared by WorldGen and the painter's bake and map, given
+    // the footprint's ground level.
+    public int SeatOn(int groundY)
+    {
+        return IsFixed ? fixedY : groundY + yOffset;
+    }
 
     // What this stamp puts in the scene's marker pools (see SubsceneVariant).
     // Empty means every marker in the scene stays empty here — which is what

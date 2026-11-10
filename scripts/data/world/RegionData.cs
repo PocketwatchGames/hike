@@ -12,7 +12,7 @@ using Godot;
 // distance hysteresis so the banner doesn't flicker on seam
 // crossings and the player can't ride a chain of border zones
 // forever.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

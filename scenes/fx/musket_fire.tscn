@@ -4,7 +4,7 @@
 [ext_resource type="AudioStream" uid="uid://ep3kmqlcia7l" path="res://assets/audio/source/weapons/sfx_weapon_musket_fire_01.wav" id="2_a01"]
 [ext_resource type="AudioStream" uid="uid://cvbginipxbbb0" path="res://assets/audio/source/weapons/sfx_weapon_musket_fire_02.wav" id="2_a02"]
 [ext_resource type="AudioStream" uid="uid://rfrblcriee5h" path="res://assets/audio/source/weapons/sfx_weapon_musket_fire_03.wav" id="2_a03"]
-
+[ext_resource type="PackedScene" path="res://scenes/fx/gun_smoke.tscn" id="3_smoke"]
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_musketfire"]
 playback_mode = 1
 random_pitch = 1.05
@@ -26,3 +26,8 @@ unit_size = 10.0
 max_distance = 80.0
 volume_db = 2.0
 bus = &"World3D"
+
+[node name="Smoke" parent="." instance=ExtResource("3_smoke")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.45)
+amount = 22
+lifetime = 1.9

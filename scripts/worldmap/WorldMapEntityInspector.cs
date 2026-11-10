@@ -39,7 +39,14 @@ using System.Linq;
 public partial class WorldMapEntityInspector : PanelContainer
 {
     [Export] public Label titleLabel;
+    // Holds `rows`. A ScrollContainer reports no height of its own, so FitScroll
+    // sizes it: the rows' full height, capped at what is left of the screen.
+    [Export] public ScrollContainer scroll;
     [Export] public Container rows;
+    // Gap kept between the panel's bottom edge and the screen's.
+    [Export] public int bottomMargin = 16;
+    // Floor for the scroll area on a window too short to fit anything.
+    [Export] public int minScrollHeight = 120;
     // Width of the name column, so the editors line up down the panel.
     [Export] public int labelWidth = 130;
     // Height of the box a multiline string gets.
@@ -78,6 +85,60 @@ public partial class WorldMapEntityInspector : PanelContainer
     // so the step is opened by the first one and closed when the field is left —
     // otherwise a typed sentence would be a dozen entries on the undo stack.
     private bool _typing;
+
+    public override void _Ready()
+    {
+        if (rows != null)
+        {
+            rows.MinimumSizeChanged += QueueFitScroll;
+        }
+        GetViewport().SizeChanged += QueueFitScroll;
+    }
+
+    public override void _ExitTree()
+    {
+        if (rows != null)
+        {
+            rows.MinimumSizeChanged -= QueueFitScroll;
+        }
+        GetViewport().SizeChanged -= QueueFitScroll;
+    }
+
+    // Deferred: the signals fire mid-layout, and resizing the scroll from inside
+    // one re-enters it.
+    private void QueueFitScroll()
+    {
+        Callable.From(FitScroll).CallDeferred();
+    }
+
+    private void FitScroll()
+    {
+        if (scroll == null || rows == null || !IsInsideTree())
+        {
+            return;
+        }
+        float content = rows.GetCombinedMinimumSize().Y;
+        // Everything in the panel that is not the scroll area: title, margins,
+        // separation.
+        float chrome = GetCombinedMinimumSize().Y - scroll.GetCombinedMinimumSize().Y;
+        float available = GetViewportRect().Size.Y - GlobalPosition.Y - bottomMargin - chrome;
+        float height = Mathf.Min(content, Mathf.Max(available, minScrollHeight));
+        if (!Mathf.IsEqualApprox(scroll.CustomMinimumSize.Y, height))
+        {
+            scroll.CustomMinimumSize = new Vector2(0, height);
+        }
+    }
+
+    // A new selection opens at its top. Not done on every rebuild: the first
+    // edit forks the entry and adding a list element rebuilds, and either
+    // jumping back to the top would lose the author's place.
+    private void ScrollToTop()
+    {
+        if (scroll != null)
+        {
+            scroll.ScrollVertical = 0;
+        }
+    }
 
     // Commit whatever is half-typed. A row commits on Enter or on losing focus,
     // and nothing in the painter takes focus away — the map canvas is
@@ -134,6 +195,10 @@ public partial class WorldMapEntityInspector : PanelContainer
             return;
         }
         FlushPendingEdit();
+        if (!ReferenceEquals(placement, _shown))
+        {
+            ScrollToTop();
+        }
         // Assigned BEFORE the rebuild: a commit the flush triggers calls back
         // through AfterEdit into Show, and these are what make that call take the
         // same-rows path instead of re-entering Rebuild mid-clear.
@@ -168,6 +233,7 @@ public partial class WorldMapEntityInspector : PanelContainer
         _shown = null;
         _shownEntry = null;
         _shownScatter = set;
+        ScrollToTop();
         RebuildScatter();
     }
 

@@ -45,6 +45,10 @@ public class ChunkState
     // a future editor) at world creation.
     public byte RegionIndex;
 
+    // WorldState.Habitats[HabitatIndex - 1]; 0 = no habitat. Orthogonal to
+    // ZoneIndex: a zone is how a place looks, a habitat what lives there.
+    public byte HabitatIndex;
+
     public readonly byte[,,] Voxels;
 
     // Per-voxel shape tag: stores SharpAxes flags as a byte.

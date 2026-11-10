@@ -6,7 +6,7 @@ using Godot;
 // safety, then LookAt times out back to the mob's default idle/wander. The
 // safe-gated AggroAcquiredCondition then keeps it from re-engaging until the
 // player steps back out.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

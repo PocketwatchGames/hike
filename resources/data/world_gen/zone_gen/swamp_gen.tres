@@ -20,6 +20,7 @@
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab1.tres" id="e_knowledge_stone"]
 [ext_resource type="Resource" uid="uid://wwydvupgfm6a" path="res://resources/data/world_gen/foliage_gen/marsh.tres" id="F_foliage"]
 [ext_resource type="Script" uid="uid://bhy5xnkiybhbv" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
+[ext_resource type="Resource" uid="uid://dfuecl3djtox" path="res://resources/data/habitats/swamp.tres" id="habitat"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_script"]
 [ext_resource type="Resource" uid="uid://pap3pg64kjlv" path="res://resources/data/items/scrolls/scroll_grilled_goblin.tres" id="sc0"]
 [ext_resource type="Resource" uid="uid://bvwbp0bcuwn4i" path="res://resources/data/items/scrolls/scroll_grilled_sparrow.tres" id="sc1"]
@@ -161,6 +162,7 @@ metadata/_custom_type_script = "uid://61iu4uosbxjog"
 [resource]
 script = ExtResource("1_script")
 zone = ExtResource("2_region")
+habitat = ExtResource("habitat")
 surfaceTerrain = ExtResource("3_kit_temperate")
 caveTerrain = ExtResource("4_kit_cave")
 submergedTerrain = ExtResource("5_kit_underwater")

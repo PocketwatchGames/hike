@@ -16,6 +16,7 @@
 [ext_resource type="Resource" uid="uid://fxpkjyqvrcjf" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_4.tres" id="97_spot"]
 [ext_resource type="Resource" uid="uid://558a5fhxihqs" path="res://resources/data/world_gen/foliage_gen/swamp_highlands.tres" id="F_foliage"]
 [ext_resource type="Script" uid="uid://bhy5xnkiybhbv" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
+[ext_resource type="Resource" uid="uid://b4wat5hdbv8ee" path="res://resources/data/habitats/swamp_highlands.tres" id="habitat"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_script"]
 [ext_resource type="Resource" uid="uid://bydps7ac5slb7" path="res://resources/data/items/scrolls/scroll_stew_drake_fortitude.tres" id="rc0"]
 [ext_resource type="Resource" uid="uid://kogvearm5wi2" path="res://resources/data/items/scrolls/scroll_stew_spider_stealth.tres" id="rc1"]
@@ -77,6 +78,7 @@ metadata/_custom_type_script = "uid://3pbpzzvmrk0vy"
 [resource]
 script = ExtResource("8_4e6x3")
 zone = ExtResource("14_cpg00")
+habitat = ExtResource("habitat")
 surfaceTerrain = ExtResource("6_4w8xh")
 caveTerrain = ExtResource("2_5sonw")
 submergedTerrain = ExtResource("4_b1dty")

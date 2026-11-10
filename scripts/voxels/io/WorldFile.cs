@@ -305,7 +305,11 @@ public static class WorldFile
     // v85: every authored item is a full item state — a mob's carried loot and
     //      loyalty gifts, a buried spot's contents and a forage spawner's
     //      template item (gifts also carry their language fields inline).
-    public const uint VERSION = 85;
+    // v86: header gained a habitats table (HabitatData resource path per
+    //      habitat) after regions; chunk payload gained a 1-byte HabitatIndex
+    //      (1-based, 0 = none) after RegionIndex. Fairy chance and the loot
+    //      breakables/creatures give up moved off ZoneData onto HabitatData.
+    public const uint VERSION = 86;
 
     public struct IndexEntry
     {
@@ -339,6 +343,9 @@ public static class WorldFile
         public string StartContentPath;
         public ZoneEntry[] Zones;
         public RegionEntry[] Regions;
+        // HabitatData resource path per habitat; ChunkState.HabitatIndex - 1
+        // indexes it. See VERSION v86.
+        public string[] Habitats;
         // Named points of interest baked with the world — see VERSION v49.
         public Dictionary<string, Vector3> PointsOfInterest;
         // Named buried treasures still in the ground — see VERSION v56.
@@ -462,6 +469,12 @@ public static class WorldFile
         {
             w.Write(regions[i].Data != null ? regions[i].Data.ResourcePath : "");
         }
+        HabitatData[] habitats = worldState.Habitats ?? [];
+        w.Write((uint)habitats.Length);
+        for (int i = 0; i < habitats.Length; i++)
+        {
+            w.Write(habitats[i] != null ? habitats[i].ResourcePath : "");
+        }
         WriteNamedPositions(w, worldState.PointsOfInterest);
         WriteNamedPositions(w, worldState.TreasureSpots);
         // One resource-path table for every entity list in the file — chunk
@@ -550,6 +563,12 @@ public static class WorldFile
         for (uint i = 0; i < regionCount; i++)
         {
             header.Regions[i] = new RegionEntry { DataPath = r.ReadString() };
+        }
+        uint habitatCount = r.ReadUInt32();
+        header.Habitats = new string[habitatCount];
+        for (uint i = 0; i < habitatCount; i++)
+        {
+            header.Habitats[i] = r.ReadString();
         }
         header.PointsOfInterest = ReadNamedPositions(r);
         header.TreasureSpots = ReadNamedPositions(r);

@@ -7,7 +7,7 @@ using Godot;
 // awareness thresholds live on MobData (visionRange / perceptionThreshold*), and
 // the dog scans threats by virtue of being a companion, so there is nothing
 // extra to author here.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

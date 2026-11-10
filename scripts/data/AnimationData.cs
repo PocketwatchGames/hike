@@ -7,7 +7,7 @@ using Godot;
 // (only movement loops whose underlying action is also slowed by statusMoveMul
 // should be retimed; one-shots like attack / hitstun / die play at authored
 // speed regardless of status).
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

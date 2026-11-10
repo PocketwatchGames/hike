@@ -5,7 +5,7 @@ using Godot;
 // instantiate the matching BehaviorBase subclass. This keeps per-behavior exports
 // typed and lets two nodes in the same brain share a behavior type but differ in
 // tuning.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

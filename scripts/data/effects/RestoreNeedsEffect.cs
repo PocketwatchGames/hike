@@ -4,7 +4,7 @@ using Godot;
 // drink, which also refills every water flask. Food restores hunger through
 // ConsumableData.satiation instead, so a meal's filling is a stat on the item
 // rather than an effect buried in a list.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

@@ -31,10 +31,13 @@
 [sub_resource type="Resource" id="Resource_event_shot"]
 script = ExtResource("3_event")
 time = 500
-type = 41952324
+type = 42017860
 animName = 20
 fx = ExtResource("8_fire")
 motionForwardSpeed = -10.0
+cameraShakeMagnitude = 0.25
+cameraShakeDuration = 0.2
+cameraShakeRange = 15.0
 noiseDecibels = 0.3
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
@@ -91,18 +94,18 @@ hitstun = 0.3
 knockbackDistance = 3.0
 knockbackTime = 0.3
 buildups = [SubResource("buildup_dizzy"), SubResource("buildup_bleed")]
-modifiers = null
+modifiers = []
+
+[sub_resource type="Resource" id="repair_cost_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 2
 
 [sub_resource type="Resource" id="salvage_yield_steel"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_steel")
 count = 2
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
-
-[sub_resource type="Resource" id="repair_cost_steel"]
-script = ExtResource("material_count")
-item = ExtResource("salvage_steel")
-count = 2
 
 [resource]
 script = ExtResource("2_weapon")
@@ -122,9 +125,10 @@ animSet = ExtResource("21_animset")
 weight = 0.6
 maxDurability = 80
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")])
+repairHours = 12.0
 displayName = &"Musket"
 description = "A long rifled flintlock with a slow lock: half a second after the trigger, it sends one heavy lead ball that staggers and bleeds whatever it strikes."
-value = 60
+value = 80
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("20_held")
 salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])

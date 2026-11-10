@@ -7,7 +7,7 @@
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/sinew.tres" id="repair_sinew"]
+[ext_resource type="Resource" uid="uid://d2memcvl5drkq" path="res://resources/data/items/materials/sinew.tres" id="repair_sinew"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/fur.tres" id="salvage_fur"]
 
 [sub_resource type="Resource" id="m_cold"]
@@ -63,6 +63,7 @@ outfit = SubResource("outfit")
 weight = 0.5
 maxDurability = 6000
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_fur"), SubResource("repair_cost_sinew")])
+repairHours = 8.0
 displayName = &"Hide Robe"
 description = "A whole hide worn hair-side in, its outer face painted with the tally of winters past. Heavy as a sleeping child, and warm enough to sleep through a blizzard."
 value = 60

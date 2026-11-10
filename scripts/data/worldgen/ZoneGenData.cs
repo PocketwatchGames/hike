@@ -40,6 +40,11 @@ public partial class ZoneGenData : Resource
 {
     [Export] public ZoneData zone;
 
+    // What lives in this zone at runtime — its fairies and the loot breakables
+    // and creatures give up. Stamped on every chunk the zone owns
+    // (ChunkState.HabitatIndex). Null = none.
+    [Export] public HabitatData habitat;
+
     // Gen terrain stamped on surface terrain inside this zone (above sea level,
     // not inside caves). Drives the AUTO terrain shader's flat/wall tile
     // pick and the terrain-controlled footstep + scatter behaviour. Null falls

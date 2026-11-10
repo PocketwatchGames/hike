@@ -91,7 +91,9 @@ public partial class BlockData : Resource
     // --- Sim behavior -------------------------------------------------------
     // Never palette-resolved: a wall is solid in every biome.
 
-    // Blocks movement, sight and light. False for Air, Water and Opening.
+    // Blocks navigation, and light unless `transparent` is also set — what glass is, and a see-through door's ClearBarrier.
+    // False for Air, Water and Opening. Physical collision and sight come from
+    // meshed geometry and node colliders, not from this flag.
     [Export] public bool solid = true;
 
     // Light passes through. Water and Opening; drives the light engine's

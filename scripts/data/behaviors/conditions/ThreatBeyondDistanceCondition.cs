@@ -6,7 +6,7 @@ using Godot;
 // after a fleeing mob has broken line of sight and its perception has decayed.
 // Used to send a fleeing fairy into its escape (vanish) once it has put enough
 // ground between itself and the player.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

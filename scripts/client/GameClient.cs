@@ -1435,11 +1435,29 @@ public partial class GameClient : Node3D
 		if (language == null) { return; }
 		string langName = language.displayName.ToString();
 		string subtitle = FormatLanguageSubtitle(langName, addedComponents);
+		// The bar shows the same score the conversation `understands` gates read.
+		float? from = null;
+		float? to = null;
+		SimData simData = _world?.SimData;
+		if (simData != null && _player != null)
+		{
+			ELanguageComponents now = _player.GetLearnedComponents(language);
+			float before = TextScrambler.ComputeUnderstanding(now & ~addedComponents, simData.languageGrammarWeight);
+			float after = TextScrambler.ComputeUnderstanding(now, simData.languageGrammarWeight);
+			// Nothing to 100% in one lesson is a whole thing learned, not progress.
+			if (before > 0f || after < 1f)
+			{
+				from = before;
+				to = after;
+			}
+		}
 		Announce(new Announcement
 		{
 			type = EAnnouncementType.LanguageLearned,
-			title = "Language Learned",
+			title = Loc.Get(Loc.Keys.language_learned),
 			subtitle = subtitle,
+			progressFrom = from,
+			progressTo = to,
 		});
 		CelebrateDiscovery();
 	}
@@ -1447,7 +1465,7 @@ public partial class GameClient : Node3D
 	// Single-bit grants describe the specific component ("Vyeshal Grammar");
 	// All-bit and multi-bit grants collapse to the language name to avoid
 	// long compound strings in a 3-second banner. Vocabulary slots use a
-	// 1/2/3 suffix so the player can tell partial vocabulary unlocks apart.
+	// numeric suffix so the player can tell partial vocabulary unlocks apart.
 	static string FormatLanguageSubtitle(string langName, ELanguageComponents added)
 	{
 		if (added == ELanguageComponents.All || added == ELanguageComponents.None)
@@ -1456,16 +1474,16 @@ public partial class GameClient : Node3D
 		}
 		string component = added switch
 		{
-			ELanguageComponents.Grammar => "Grammar",
-			ELanguageComponents.Numbers => "Numbers",
-			ELanguageComponents.Vocabulary1 => "Vocabulary 1",
-			ELanguageComponents.Vocabulary2 => "Vocabulary 2",
-			ELanguageComponents.Vocabulary3 => "Vocabulary 3",
-			ELanguageComponents.Vocabulary4 => "Vocabulary 4",
-			ELanguageComponents.Vocabulary5 => "Vocabulary 5",
+			ELanguageComponents.Grammar => Loc.Get(Loc.Keys.language_component_grammar),
+			ELanguageComponents.Numbers => Loc.Get(Loc.Keys.language_component_numbers),
+			ELanguageComponents.Vocabulary1 => Loc.Format(Loc.Keys.language_component_vocabulary, 1),
+			ELanguageComponents.Vocabulary2 => Loc.Format(Loc.Keys.language_component_vocabulary, 2),
+			ELanguageComponents.Vocabulary3 => Loc.Format(Loc.Keys.language_component_vocabulary, 3),
+			ELanguageComponents.Vocabulary4 => Loc.Format(Loc.Keys.language_component_vocabulary, 4),
+			ELanguageComponents.Vocabulary5 => Loc.Format(Loc.Keys.language_component_vocabulary, 5),
 			_ => null,
 		};
-		return component != null ? $"{langName} {component}" : langName;
+		return component != null ? Loc.Format(Loc.Keys.language_learned_component, langName, component) : langName;
 	}
 
 	[ExportGroup("Detail Sprite Reaction")]

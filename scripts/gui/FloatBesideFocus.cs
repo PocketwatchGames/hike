@@ -21,6 +21,10 @@ public partial class FloatBesideFocus : Node
 	{
 		Right,
 		Left,
+		// Away from the screen's center: left of a container on the left half,
+		// right of one on the right half, so it covers the screen's edge rather
+		// than whatever sits between the panels.
+		Outward,
 	}
 
 	[Export] private Control _target;
@@ -95,7 +99,13 @@ public partial class FloatBesideFocus : Node
 		float left = anchor.Position.X - _gap - size.X;
 		bool fitsRight = right + size.X <= screen.End.X;
 		bool fitsLeft = left >= screen.Position.X;
-		bool goRight = _preferredSide == ESide.Right ? fitsRight || !fitsLeft : fitsRight && !fitsLeft;
+		bool preferRight = _preferredSide switch
+		{
+			ESide.Left => false,
+			ESide.Outward => anchor.GetCenter().X >= screen.GetCenter().X,
+			_ => true,
+		};
+		bool goRight = preferRight ? fitsRight || !fitsLeft : fitsRight && !fitsLeft;
 		float x = Mathf.Clamp(goRight ? right : left, screen.Position.X, Mathf.Max(screen.Position.X, screen.End.X - size.X));
 		float y = Mathf.Clamp(anchor.Position.Y, screen.Position.Y, Mathf.Max(screen.Position.Y, screen.End.Y - size.Y));
 		_target.GlobalPosition = new Vector2(x, y);

@@ -246,6 +246,7 @@ animSet = ExtResource("20_animset")
 weight = 0.1
 maxDurability = 150
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")])
+repairHours = 6.0
 displayName = &"Hunting Knife"
 description = "A light, fast blade. Cuts that reach flesh make it bleed; extra damage from behind, and keen enough to butcher a kill."
 value = 50

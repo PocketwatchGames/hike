@@ -92,6 +92,7 @@ public static class WorldMapRotate
         state.Scalars = Turn(state.Scalars);
         state.Region = Turn(state.Region);
         state.Zone = Turn(state.Zone);
+        state.Habitat = Turn(state.Habitat);
         state.Wind = Turn(state.Wind);
         TurnWindAngles(state.Wind);
         state.Tunnels = TurnTunnels(state.Tunnels);

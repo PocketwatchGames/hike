@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="RegionData" format=3 uid="uid://d0ug3yi0poqvb"]
+
+[ext_resource type="Script" uid="uid://bj1yp8np3xx0j" path="res://scripts/data/world/RegionData.cs" id="1_sdvqb"]
+
+[resource]
+script = ExtResource("1_sdvqb")
+displayName = &"Mire of the Lost"

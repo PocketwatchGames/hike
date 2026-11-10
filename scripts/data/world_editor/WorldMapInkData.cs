@@ -80,6 +80,12 @@ public partial class WorldMapInkData : Resource
     [Export] public Color entityMatchInk = new Color(1f, 0.9f, 0.35f);
     [Export] public Color entitySelectedInk = new Color(1f, 1f, 1f);
 
+    // An entity on a view that does not show props (elevation, water, zone...):
+    // still placed, so still marked, but as a faint dot that leaves the view's
+    // own colour readable. Its alpha is the weight; blocking regions on those
+    // views draw at propDotDimAlpha for the same reason.
+    [Export] public Color entityGhostInk = new Color(1f, 1f, 1f, 0.5f);
+
     // How far a mark grows, in metres, when the tool is picking it out — the
     // cursor is over it, it is the selection, or it matches the palette entry. A
     // one-metre dot is smaller than the cursor that has to hit it, so growing is

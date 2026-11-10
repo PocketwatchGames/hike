@@ -41,6 +41,7 @@ public class WorldMapState
     public Image Water;            // Rf, per column (water surface height)
     public Image Region;           // R8, per chunk (region index)
     public Image Zone;             // R8, per chunk (zone index)
+    public Image Habitat;          // R8, per chunk (habitat index + 1; 0 = none)
     public Image Wind;             // Rgba8, per chunk (R = angle, G = strength; G 0 = unpainted)
     // The prop layer, per column: R = prop list index + 1 (0 = none). No
     // density channel — placement is direct and one prop per column, so a
@@ -65,6 +66,7 @@ public class WorldMapState
     public WorldMapPalettes Palettes;
     public ZoneData[] Zones;
     public RegionData[] Regions;
+    public HabitatData[] Habitats;
     public Image Mobs;             // Rgba8, per column (R = mob set + 1, G = density)
     public Image Scalars;          // Rgba8, per column (R = mob level, G = climb)
     // Per-voxel edits to the heightfield: EditCarve removes a voxel the height
@@ -150,6 +152,7 @@ public class WorldMapState
         Water = data.LoadOrCreateWater();
         Region = data.LoadOrCreateRegion();
         Zone = data.LoadOrCreateZone();
+        Habitat = data.LoadOrCreateHabitat();
         Wind = data.LoadOrCreateWind();
         BlockingProps = data.LoadOrCreateBlockingProps();
         Ground = data.LoadOrCreateGround();
@@ -159,6 +162,7 @@ public class WorldMapState
         Palettes = LoadOrCreatePalettes(data);
         Zones = AuthoringPaletteSource.Resolve<ZoneData>(AuthoringPaletteSource.Zones, Palettes);
         Regions = AuthoringPaletteSource.Resolve<RegionData>(AuthoringPaletteSource.Regions, Palettes);
+        Habitats = AuthoringPaletteSource.Resolve<HabitatData>(AuthoringPaletteSource.Habitats, Palettes);
         Terrains = AuthoringPaletteSource.Resolve<TerrainKitData>(AuthoringPaletteSource.TerrainKits, Palettes);
         PropLists = AuthoringPaletteSource.Resolve<PropListData>(AuthoringPaletteSource.PropLists, Palettes);
         ScatterSets = AuthoringPaletteSource.Resolve<SpawnScatterData>(AuthoringPaletteSource.ScatterSets, Palettes);
@@ -208,6 +212,23 @@ public class WorldMapState
         return string.IsNullOrEmpty(file) ? $"Region {index}" : file;
     }
 
+    public string HabitatName(int index)
+    {
+        if (index < 0 || index >= Habitats.Length)
+        {
+            return $"Habitat {index}";
+        }
+        string file = FileStem(Habitats[index]?.ResourcePath);
+        return string.IsNullOrEmpty(file) ? $"Habitat {index}" : file;
+    }
+
+    // The habitat painted on a chunk texel, or -1 for none.
+    public int HabitatIndexAt(Vector2I chunkTexel)
+    {
+        int idx = Mathf.RoundToInt(Habitat.GetPixel(chunkTexel.X, chunkTexel.Y).R * 255f) - 1;
+        return idx < Habitats.Length ? idx : -1;
+    }
+
     private static string FileStem(string resourcePath)
     {
         return string.IsNullOrEmpty(resourcePath) ? "" : resourcePath.GetFile().GetBaseName();
@@ -215,6 +236,7 @@ public class WorldMapState
 
     public int RegionCount => Regions.Length;
     public int ZoneCount => Zones.Length;
+    public int HabitatCount => Habitats.Length;
 
     // ---- Queries --------------------------------------------------------
 
@@ -869,6 +891,7 @@ public class WorldMapState
             new RasterLayer(Zone, ChunkState.SIZE),
             new RasterLayer(Wind, ChunkState.SIZE),
             new RasterLayer(WaterType, 1),
+            new RasterLayer(Habitat, ChunkState.SIZE),
         };
     }
 
@@ -990,11 +1013,20 @@ public class WorldMapState
         return new Rect2I(x, z, sub.Size.X, sub.Size.Z);
     }
 
-    // The Y a stamp seats at: WorldGen's own rule (the most common ground level
-    // across the footprint, ties to the lower) plus the placement's nudge. Used
-    // by the bake AND by the tool's alt+click, so the number the author aims at
-    // is the number the bake uses.
+    // The Y a stamp seats at: its fixedY, else WorldGen's own rule (the most
+    // common ground level across the footprint, ties to the lower) plus the
+    // placement's nudge. Used by the bake AND by the tool, so the number the
+    // author aims at is the number the bake uses.
     public int SeatY(SubscenePlacement placement)
+    {
+        // A fixed stamp skips the footprint walk; the plan cache asks per rebuild.
+        return placement.IsFixed ? placement.fixedY : placement.SeatOn(FootprintGroundY(placement));
+    }
+
+    // The ground level under a stamp's footprint, before its nudge — what a
+    // ground-following stamp seats on. Not short-circuited for a fixed stamp:
+    // the scene tool converts between the two modes against it.
+    public int FootprintGroundY(SubscenePlacement placement)
     {
         SubsceneState sub = SubsceneFor(placement);
         if (sub == null)
@@ -1004,10 +1036,9 @@ public class WorldMapState
         var origin = new Vector3I(
             Mathf.FloorToInt(placement.anchorXZ.X - sub.Anchor.X), 0,
             Mathf.FloorToInt(placement.anchorXZ.Y - sub.Anchor.Z));
-        int ground = TerrainMath.FootprintPlateauY(
+        return TerrainMath.FootprintPlateauY(
             (x, z) => TerrainHeight(x - Data.WorldMinX, z - Data.WorldMinZ),
             Data.elevationStepVoxels, origin, sub.Size, out _);
-        return ground + placement.yOffset;
     }
 
     // Top-down colour of a stamp's contents, one entry per footprint column,
@@ -2976,6 +3007,7 @@ public class WorldMapState
         Data.SaveWater(Water);
         Data.SaveRegion(Region);
         Data.SaveZone(Zone);
+        Data.SaveHabitat(Habitat);
         Data.SaveWind(Wind);
         Data.SaveBlockingProps(BlockingProps);
         Data.SaveGround(Ground);

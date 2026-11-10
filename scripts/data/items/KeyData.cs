@@ -2,7 +2,7 @@ using Godot;
 
 // An item that opens locks (LockData). Stacks like any material; one is spent
 // per lock opened.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

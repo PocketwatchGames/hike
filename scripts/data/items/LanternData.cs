@@ -6,7 +6,7 @@ using Godot;
 // drives its tap (put it out) and oil-costed actions through an
 // ItemActionProfile like a spell or weapon does, but is otherwise its own item
 // kind and is NOT a spell or a pickup consumable.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

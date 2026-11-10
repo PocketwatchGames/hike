@@ -806,7 +806,9 @@ public class ActionRunner
 			LockData barring = LockBarring(_action.interactiveAction, _action.context);
 			if (barring != null)
 			{
-				SpentItem.Add(spent, _actor.SpendKeyFor(barring), 1);
+				KeyData key = _actor.SpendKeyFor(barring);
+				SpentItem.Add(spent, key, 1);
+				ItemEventHandlers.ShowKeyUsed(_action.context.primaryInteractive, key);
 				_action.context.primaryInteractive.Unlock();
 			}
 			// Before the completion events: one may free the interactive (a loot

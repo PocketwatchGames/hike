@@ -92,9 +92,13 @@ public sealed class AuthoringPaletteSource
 
     private const string AUTHORING = "res://resources/data/world_authoring/";
     private const string SHARED = "res://resources/data/worlds/shared/";
+    // Runtime data an authoring tool happens to offer (see "Where authored data
+    // lives" in the root CLAUDE.md): the baked world reads it by path.
+    private const string RUNTIME = "res://resources/data/";
 
     public const string Zones = "zones";
     public const string Regions = "regions";
+    public const string Habitats = "habitats";
     public const string TerrainKits = "terrain_kits";
     public const string PropLists = "props";
     public const string ScatterSets = "spawn_scatters";
@@ -112,6 +116,9 @@ public sealed class AuthoringPaletteSource
 
         new(Regions, "Regions", typeof(RegionData), indexed: true,
             roots: new[] { new PaletteRoot(SHARED + "regions/", "Regions") }),
+
+        new(Habitats, "Habitats", typeof(HabitatData), indexed: true,
+            roots: new[] { new PaletteRoot(RUNTIME + "habitats/", "Habitats") }),
 
         new(TerrainKits, "Ground", typeof(TerrainKitData), indexed: true,
             roots: new[] { new PaletteRoot(AUTHORING + "terrain_kits/", "Ground") }),

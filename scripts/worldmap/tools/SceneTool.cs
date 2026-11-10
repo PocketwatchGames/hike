@@ -36,7 +36,7 @@ public class SceneTool : IWorldMapTool
 
     public SceneTool()
     {
-        View = new SceneView();
+        View = new CutawayGroundView();
     }
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
@@ -100,7 +100,8 @@ public class SceneTool : IWorldMapTool
     public Color CursorColor(WorldMapInk ink) => ink.Data.placementInk;
 
     public string HintText(WorldMapState ctx)
-        => "Click to place, drag to move, R/F to turn, RMB to delete";
+        => "Click to place, drag to move, R/F to turn, RMB to delete; "
+            + "alt+click seats on that floor, shift+R/F raise/lower, X pins/unpins height";
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
@@ -118,8 +119,10 @@ public class SceneTool : IWorldMapTool
         {
             return "";
         }
-        string nudge = Selected.yOffset == 0 ? "" : $", Y{Selected.yOffset:+#;-#}";
-        return $"Selected {(int)Selected.rotation * 90} deg{nudge} (seats at Y={ctx.SeatY(Selected)})";
+        string seat = Selected.IsFixed
+            ? $"pinned at Y={Selected.fixedY}"
+            : $"on ground{(Selected.yOffset == 0 ? "" : $" {Selected.yOffset:+#;-#}")}, seats at Y={ctx.SeatY(Selected)}";
+        return $"Selected {(int)Selected.rotation * 90} deg, {seat}";
     }
 
     // The press decides what the stroke is ABOUT — the stamp under the cursor,
@@ -132,10 +135,10 @@ public class SceneTool : IWorldMapTool
         _strokeActed = false;
         _dirty = null;
 
-        // alt+click SEATS the stamp on the ground under the cursor: point at the
-        // terrace you want its floor on, and the nudge is solved to put it
-        // there. Sampling a height beats stepping an offset blind, because the
-        // number that matters is where the floor LANDS, not how far it moved.
+        // alt+click SEATS the stamp on the floor under the cursor: point at the
+        // terrace (or the passage floor under the cut) you want
+        // its floor on. Sampling a height beats stepping an offset blind, because
+        // the number that matters is where the floor LANDS, not how far it moved.
         //
         // A pick paints nothing (the canvas skips the stamp entirely), so this
         // is the whole of it.
@@ -144,13 +147,74 @@ public class SceneTool : IWorldMapTool
             SubscenePlacement target = _pressHit ?? Selected;
             if (target != null)
             {
-                // Solve against the seat WITHOUT the current nudge, or each pick
-                // would move it by the offset it already had.
-                int autoSeat = ctx.SeatY(target) - target.yOffset;
-                target.yOffset = ctx.TerrainHeight(texel.X, texel.Y) - autoSeat;
+                SeatOnFloorAt(ctx, view, target, texel);
                 Selected = target;
             }
         }
+    }
+
+    // The floor the map is SHOWING at the column — under the cut, so a pick in a
+    // passage lands in the passage rather than on the hilltop over it. A floor
+    // with something above it (a passage, under a deck) pins the stamp, because
+    // a nudge measured from the surface would drag it through the rock whenever
+    // the hill is repainted; an open floor keeps the stamp's mode and, if it
+    // follows the ground, solves the nudge.
+    private static void SeatOnFloorAt(WorldMapState ctx, WorldMapView view, SubscenePlacement target, Vector2I texel)
+    {
+        int floor = ctx.CutawayFloor(texel.X, texel.Y, view.CutawayY, out _);
+        if (floor < ctx.Data.WorldMinY)
+        {
+            return;
+        }
+        bool roofed = ctx.FloorForEntity(texel.X, texel.Y, view.CutawayY) != EntityPlacement.OnTheGround;
+        if (target.IsFixed || roofed)
+        {
+            target.fixedY = floor;
+        }
+        else
+        {
+            target.yOffset = floor - ctx.FootprintGroundY(target);
+        }
+    }
+
+    // Shift+R/F: a metre up or down, in whichever terms the stamp is seated.
+    public bool AdjustSecondaryLevel(WorldMapState ctx, int dir)
+    {
+        if (Selected == null)
+        {
+            return true;
+        }
+        if (Selected.IsFixed)
+        {
+            Selected.fixedY += dir;
+        }
+        else
+        {
+            Selected.yOffset += dir;
+        }
+        return true;
+    }
+
+    // X: pin the selected stamp at the height it seats at now, or hand it back
+    // to the ground with the nudge that keeps it there. Either way it does not
+    // move on the press — the mode says what it follows LATER.
+    public bool ToggleMode(WorldMapState ctx)
+    {
+        SubscenePlacement p = Selected;
+        if (p == null)
+        {
+            return true;
+        }
+        if (p.IsFixed)
+        {
+            p.yOffset = p.fixedY - ctx.FootprintGroundY(p);
+            p.fixedY = SubscenePlacement.FollowsGround;
+        }
+        else
+        {
+            p.fixedY = ctx.SeatY(p);
+        }
+        return true;
     }
 
     public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
@@ -195,6 +259,13 @@ public class SceneTool : IWorldMapTool
                     path = paths[Mathf.Clamp(SceneIndex, 0, paths.Length - 1)],
                     anchorXZ = ctx.WorldXZ(texel),
                 };
+                // Dropped on a floor with something over it — a passage the cut
+                // exposes — it is pinned there; on open ground it follows the
+                // ground as before.
+                if (ctx.FloorForEntity(texel.X, texel.Y, view.CutawayY) != EntityPlacement.OnTheGround)
+                {
+                    SeatOnFloorAt(ctx, view, Selected, texel);
+                }
                 _grabOffset = Vector2I.Zero;
                 ctx.AddPlacement(Selected);
                 _dirty = ctx.FootprintOf(Selected);
@@ -236,18 +307,4 @@ public class SceneTool : IWorldMapTool
         }
         Selected.rotation = (ESubsceneRotation)(((int)Selected.rotation + dir) & 3);
     }
-}
-
-// The plain ground map. The stamps themselves are drawn by the painter over
-// whatever view is active (WorldMapState.StampColorAt), so this view only has to
-// choose the ground UNDER them — and ground rather than elevation, because a
-// building is placed against what is around it: the road it fronts, the props it
-// displaces. The terrain shape still reads through the step outlines.
-public class SceneView : IWorldMapView
-{
-    public bool ShowsAllSteps => true;
-    public bool DrawsWater => true;
-    public ESpawnPreview PreviewLayer => ESpawnPreview.Props;
-
-    public Color ColorAt(WorldMapInk ink, int px, int pz) => ink.GroundColorAt(px, pz);
 }

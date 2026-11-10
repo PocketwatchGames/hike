@@ -9,9 +9,8 @@ using Godot;
 //
 // The stretch from sunrise to midnight is split into
 // SimData.fairyDayPeriods equal blocks. Crossing into each block AFTER the first
-// makes ONE spawn decision: if the player's current zone allows fairies
-// (ZoneData.canSpawnFairy) a roll against that zone's ZoneData.fairySpawnChance
-// decides whether a fairy actually appears. At most SimData.fairyMaxSpawnsPerDay
+// makes ONE spawn decision: a roll against the HabitatData.fairySpawnChance of
+// the chunk the player stands in decides whether a fairy appears. At most SimData.fairyMaxSpawnsPerDay
 // spawn in a day, and once the player has killed SimData.fairyKillStopCount of them
 // no more spawn until the next day. All per-day counters reset on Sim.OnDawn.
 //
@@ -134,10 +133,8 @@ public partial class FairySpawner : Node
             _decidedPeriod = currentPeriod;
             if (_spawnedToday < data.fairyMaxSpawnsPerDay)
             {
-                ZoneData zone = sim.WorldState?.ZoneDataAt(player.GlobalPosition);
-                // No fairy in a zone that forbids them (skip this window entirely),
-                // else roll the zone's chance.
-                if (zone != null && zone.canSpawnFairy && _rng.Randf() < zone.fairySpawnChance)
+                HabitatData habitat = sim.WorldState?.HabitatAt(player.GlobalPosition);
+                if (habitat != null && _rng.Randf() < habitat.fairySpawnChance)
                 {
                     _pendingSpawn = true;
                     // Scale level with how far into the day we are: period 1 (first

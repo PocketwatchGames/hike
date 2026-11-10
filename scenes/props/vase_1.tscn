@@ -72,6 +72,6 @@ script = ExtResource("5_destructible")
 _drops = [SubResource("Drop_oil_droplet")]
 _hurtBox = NodePath("../Intact/HurtBox")
 _destroyEffect = ExtResource("7_fx")
-_fillWithZoneLoot = true
+_fillWithHabitatLoot = true
 _intact = NodePath("../Intact")
 _rubble = NodePath("../Rubble")

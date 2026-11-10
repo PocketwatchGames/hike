@@ -9,7 +9,7 @@ using Godot.Collections;
 // activation the full attack cycle (activeDurationSeconds + cooldownSeconds)
 // is written to the driving item's cooldownExpireMs, gating re-firing of that
 // specific item until the swing AND its recovery tail have both elapsed.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

@@ -95,6 +95,9 @@ public class WorldMapBake
         {
             ws.Regions[i] = new RegionState { Data = regions[i] };
         }
+        // The raster and the chunk byte share one encoding (slot + 1, 0 =
+        // none), so the palette goes over as it stands.
+        ws.Habitats = (HabitatData[])Map.Habitats.Clone();
 
         for (int cx = Map.Data.MinChunk.X; cx <= Map.Data.MaxChunk.X; cx++)
         {
@@ -106,6 +109,7 @@ public class WorldMapBake
                     var chunk = new ChunkState(coord);
                     chunk.RegionIndex = SampleChunkIndex(Map.Region, cx, cz, Map.RegionCount);
                     chunk.ZoneIndex = SampleChunkIndex(Map.Zone, cx, cz, Map.ZoneCount);
+                    chunk.HabitatIndex = SampleHabitatIndex(cx, cz);
                     ws._chunks[coord] = chunk;
                 }
             }
@@ -319,8 +323,8 @@ public class WorldMapBake
     // The height is WorldGen's own FootprintPlateauY — the most common ground
     // level across the footprint, ties to the lower one — fed the painted
     // terrain instead of a HeightMap. Averaging or taking the max would float a
-    // building over a dip or bury it in a rise; the stamp overwrites its whole
-    // bbox, so cutting in is self-correcting and floating is not.
+    // building over a dip or bury it in a rise. The stamp writes only its
+    // solid voxels (SubsceneStamper), so terrain and water inside the box stay.
     private void StampPlacements()
     {
         foreach (SubscenePlacement placement in Map.Placements.placements)
@@ -932,6 +936,17 @@ public class WorldMapBake
     // a baked .hike shipped a subgrid of stored zeros — signed zero, so not a
     // wrong wind, just no wind at all for the grass, the motes and mob drift to
     // read.
+    private byte SampleHabitatIndex(int cx, int cz)
+    {
+        var texel = new Vector2I(cx - Map.Data.MinChunk.X, cz - Map.Data.MinChunk.Z);
+        if (texel.X < 0 || texel.X >= Map.Habitat.GetWidth() || texel.Y < 0 || texel.Y >= Map.Habitat.GetHeight())
+        {
+            return 0;
+        }
+        int idx = Map.HabitatIndexAt(texel);
+        return idx >= 0 && Map.Habitats[idx] != null ? (byte)(idx + 1) : (byte)0;
+    }
+
     private void StampWind(WorldState ws)
     {
         foreach (ChunkState chunk in ws._chunks.Values)

@@ -8,7 +8,7 @@
 [ext_resource type="AudioStream" uid="uid://c3t0cdg4cj6po" path="res://assets/audio/source/weapons/sfx_weapon_blunderbuss_fire_05.wav" id="2_a05"]
 [ext_resource type="AudioStream" uid="uid://b0mkj5lw3rlfc" path="res://assets/audio/source/weapons/sfx_weapon_blunderbuss_fire_06.wav" id="2_a06"]
 [ext_resource type="AudioStream" uid="uid://c5kr38f7jci7g" path="res://assets/audio/source/weapons/sfx_weapon_blunderbuss_fire_07.wav" id="2_a07"]
-
+[ext_resource type="PackedScene" path="res://scenes/fx/gun_smoke.tscn" id="3_smoke"]
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_blunderbussfire"]
 playback_mode = 1
 random_pitch = 1.05
@@ -38,3 +38,8 @@ unit_size = 8.0
 max_distance = 60.0
 volume_db = -6.0
 bus = &"World3D"
+
+[node name="Smoke" parent="." instance=ExtResource("3_smoke")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.45)
+amount = 30
+lifetime = 2.0

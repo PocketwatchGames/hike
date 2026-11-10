@@ -158,7 +158,7 @@ hitstun = 0.5
 knockbackDistance = 1.0
 knockbackTime = 0.5
 buildups = []
-modifiers = null
+modifiers = []
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
@@ -171,7 +171,7 @@ hitstun = 0.25
 knockbackDistance = 1.0
 knockbackTime = 0.25
 buildups = []
-modifiers = null
+modifiers = []
 
 [sub_resource type="Resource" id="repair_cost_steel"]
 script = ExtResource("material_count")
@@ -202,9 +202,10 @@ animSet = ExtResource("20_animset")
 weight = 0.5
 maxDurability = 80
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")])
+repairHours = 8.0
 displayName = &"Saber"
 description = "A curved cavalry blade with a heavy charged slash."
-value = 50
+value = 70
 inventorySprite = ExtResource("15_3a20y")
 heldModel = ExtResource("17_held")
 salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])

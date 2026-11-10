@@ -147,7 +147,7 @@ public abstract class VoxelEditTool : IWorldMapTool
         return PaintsSolid && BlockIndex >= 0 && BlockIndex < blocks.Length ? blocks[BlockIndex] : null;
     }
 
-    public bool ToggleMode()
+    public bool ToggleMode(WorldMapState ctx)
     {
         if (!PaintsSolid)
         {

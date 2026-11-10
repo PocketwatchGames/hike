@@ -14,7 +14,7 @@ using Godot;
 // With an actionProfile the consumable takes time: the hotbar runs that timeline
 // (a potion's drinking pose) and its UseConsumable event applies the
 // payload. Without one it is spent the instant it's used.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

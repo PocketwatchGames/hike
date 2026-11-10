@@ -5,7 +5,7 @@ using Godot;
 // to merely glance at (a cross-team alarm). Pair it on the Investigate
 // transition; pair plain HasInvestigationCondition on the LookAt transition
 // (ordered after) so look-only stimuli fall through to a glance.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

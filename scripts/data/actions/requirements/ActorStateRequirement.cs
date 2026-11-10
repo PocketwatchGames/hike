@@ -9,7 +9,7 @@ using Godot;
 //   forbidSwimming = true    — club / two-handed melee that needs footing
 //   requireAirborne = true   — ground-slam variant that only fires mid-air
 //   requireGrounded = true   — heavy windup that can't start while falling
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

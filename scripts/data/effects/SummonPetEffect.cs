@@ -7,7 +7,7 @@ using Godot;
 // needs a loaded chunk to spawn into. Mirrors DoSummonMinion's spawn, but taming
 // routes the pet through the companion follow/persist path rather than the
 // self-draining minion path.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

@@ -171,7 +171,7 @@ public static class ItemEventHandlers
 			var envQuery = new PhysicsShapeQueryParameters3D
 			{
 				Shape = shape,
-				CollisionMask = (uint)ECollisionLayer.Solid,
+				CollisionMask = (uint)ECollisionLayer.Impact,
 				CollideWithAreas = false,
 				CollideWithBodies = true,
 			};
@@ -379,7 +379,7 @@ public static class ItemEventHandlers
 
 		// Clip against environment.
 		using var envQuery = PhysicsRayQueryParameters3D.Create(origin, rayEnd);
-		envQuery.CollisionMask = (uint)ECollisionLayer.Solid;
+		envQuery.CollisionMask = (uint)ECollisionLayer.Impact;
 		envQuery.CollideWithAreas = false;
 		envQuery.CollideWithBodies = true;
 		envQuery.Exclude = bodyExclude;
@@ -894,11 +894,13 @@ public static class ItemEventHandlers
 		}
 
 		// Launch ("muzzle") cue, fired once at the origin regardless of shot count —
-		// the per-event fx field (a fire hiss, a magic whoosh). Distinct from the
+		// the per-event fx field (a fire hiss, a muzzle puff). Its -Z faces down the
+		// unspread shot so directional particles blow forward. Distinct from the
 		// per-result impact fx the projectile spawns where it lands.
 		if (ev.fx != null)
 		{
-			Fx.Create(ev.fx, parent, origin);
+			Vector3 launchDir = ev.projectileArcing ? velocity : AimForward(actor, action.context, origin);
+			Fx.Create(ev.fx, parent, new Transform3D(LaunchBasis(launchDir), origin), null);
 		}
 
 		// Fire one shot, or a fanned volley when projectileCount > 1. A flat volley
@@ -1901,6 +1903,19 @@ public static class ItemEventHandlers
 		GameClient.Current?.ShowItemsUsed(interactive.hudPosition, spent);
 	}
 
+	// Floating "Used <key>" over the lock a key just opened.
+	public static void ShowKeyUsed(IInteractive interactive, KeyData key)
+	{
+		GameClient client = GameClient.Current;
+		if (interactive == null || key == null || client == null)
+		{
+			return;
+		}
+		SimState sim = Sim.Current?.WorldState?.SimState;
+		string name = sim != null ? sim.GetItemDisplayName(key) : key.displayName.ToString();
+		client.onHudText?.Invoke(interactive.hudPosition, Loc.Format(Loc.Keys.key_used, name), EHudTextType.Info);
+	}
+
 	// Build the HitInfo a Melee/Hitscan event should apply: looks up the
 	// event's damageProfileKey on the driving weapon's damageProfiles dict.
 	// Both player and mob attacks carry a WeaponState as primaryItem (the mob's
@@ -2112,6 +2127,19 @@ public static class ItemEventHandlers
 			}
 		}
 		return actor.ActorForward;
+	}
+
+	// Turns a scene's -Z along `dir`; LookingAt needs a non-zero direction and a
+	// non-parallel up.
+	private static Basis LaunchBasis(Vector3 dir)
+	{
+		if (dir.LengthSquared() < 1e-6f)
+		{
+			return Basis.Identity;
+		}
+		Vector3 forward = dir.Normalized();
+		Vector3 up = Mathf.Abs(forward.Dot(Vector3.Up)) > 0.99f ? Vector3.Back : Vector3.Up;
+		return Basis.LookingAt(forward, up);
 	}
 
 	private static Vector3 ApplySpread(Vector3 forward, float halfAngle)

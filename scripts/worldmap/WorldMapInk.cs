@@ -125,6 +125,15 @@ public class WorldMapInk
         return Color.FromHsv((idx * 0.61803398875f + 0.13f) % 1f, 0.45f, 0.9f);
     }
 
+    public static readonly Color UnpaintedChunkColor = new Color(0.22f, 0.22f, 0.24f);
+
+    // Takes a palette SLOT (the raster stores slot + 1); offset from the zone
+    // and region hues so switching tool visibly switches map.
+    public static Color HabitatColor(int slot)
+    {
+        return Color.FromHsv((slot * 0.61803398875f + 0.37f) % 1f, 0.6f, 0.8f);
+    }
+
     // Hillshade of the RAW (unsnapped) height field: the smooth surface the
     // author is sculpting, so the map reads as landform. Deliberately not the
     // snapped field — a terraced height field has zero gradient across each

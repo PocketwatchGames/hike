@@ -1,0 +1,52 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+
+[sub_resource type="Gradient" id="Gradient_wisp"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(1, 1, 1, 0.5, 1, 1, 1, 0.3, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_wisp"]
+gradient = SubResource("Gradient_wisp")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_wisp"]
+emission_shape = 1
+emission_sphere_radius = 0.01
+inherit_velocity_ratio = 1.0
+direction = Vector3(0, 0, -0.25)
+spread = 0.0
+initial_velocity_min = 5.0
+initial_velocity_max = 10.0
+gravity = Vector3(0, 0, 0)
+scale_min = 0.9
+color_ramp = SubResource("GradientTexture1D_wisp")
+
+[sub_resource type="Curve" id="Curve_taper"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wisp"]
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.55, 0.55, 0.55, 0.6)
+use_particle_trails = true
+
+[sub_resource type="RibbonTrailMesh" id="RibbonTrailMesh_wisp"]
+material = SubResource("StandardMaterial3D_wisp")
+size = 0.03
+sections = 8
+section_length = 0.12
+curve = SubResource("Curve_taper")
+
+[node name="LeadShotTrail" type="Node3D"]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Wisp" type="GPUParticles3D" parent="."]
+lifetime = 0.25
+trail_enabled = true
+trail_lifetime = 0.1
+process_material = SubResource("ParticleProcessMaterial_wisp")
+draw_pass_1 = SubResource("RibbonTrailMesh_wisp")

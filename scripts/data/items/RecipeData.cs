@@ -5,7 +5,7 @@ using Godot.Collections;
 // item crafted at a bench (ItemData.recipe) or a meal cooked in a pot
 // (MealData.recipe) — and matched by Recipes.TryMatch against that station's
 // list. Knowing it is keyed by what it makes (SimState.IsRecipeDiscovered).
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

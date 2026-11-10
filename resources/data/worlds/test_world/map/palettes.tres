@@ -38,6 +38,11 @@ script = ExtResource("2_led")
 palette = "props"
 slots = PackedStringArray("res://resources/data/world_authoring/props/boulders.tres", "res://resources/data/world_authoring/props/desert_rocks.tres", "res://resources/data/world_authoring/props/forest_trees.tres", "res://resources/data/world_authoring/props/marsh_willows.tres", "res://resources/data/world_authoring/props/mountain_trees.tres", "res://resources/data/world_authoring/props/pine_stand.tres", "res://resources/data/world_authoring/props/snowy_mountain_trees.tres", "res://resources/data/world_authoring/props/swamp_deadfall.tres", "res://resources/data/world_authoring/props/tall_grass.tres", "res://resources/data/world_authoring/props/breakable_rocks.tres", "res://resources/data/world_authoring/props/bone_piles.tres", "res://resources/data/world_authoring/props/beach_rocks.tres")
 
+[sub_resource type="Resource" id="Resource_habitats"]
+script = ExtResource("2_led")
+palette = "habitats"
+slots = PackedStringArray("res://resources/data/habitats/forest.tres", "res://resources/data/habitats/forest_dismal.tres", "res://resources/data/habitats/hub.tres", "res://resources/data/habitats/sea.tres", "res://resources/data/habitats/swamp.tres", "res://resources/data/habitats/swamp_fire.tres", "res://resources/data/habitats/swamp_highlands.tres", "res://resources/data/habitats/swamp_mud.tres", "res://resources/data/habitats/swamp_village.tres", "res://resources/data/habitats/wilds.tres", "res://resources/data/habitats/wilds_harsh.tres")
+
 [resource]
 script = ExtResource("1_pal")
-ledgers = [SubResource("Resource_3lysr"), SubResource("Resource_gbhvp"), SubResource("Resource_eahu8"), SubResource("Resource_57qnm"), SubResource("Resource_3y7g4"), SubResource("Resource_ua1it"), SubResource("Resource_gn0jf")]
+ledgers = [SubResource("Resource_3lysr"), SubResource("Resource_gbhvp"), SubResource("Resource_eahu8"), SubResource("Resource_57qnm"), SubResource("Resource_3y7g4"), SubResource("Resource_ua1it"), SubResource("Resource_gn0jf"), SubResource("Resource_habitats")]

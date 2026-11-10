@@ -8,7 +8,7 @@ using Godot.Collections;
 //
 // Non-stackable on purpose — the pickup applies once per Loot, so a rolled count
 // of N must eject as N separate pickups.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

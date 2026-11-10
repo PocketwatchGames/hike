@@ -39,7 +39,10 @@ screen. With no menu wired Escape keeps its old meaning and quits, so the
 painter is never a screen you cannot leave.
 **Prop dots draw on every ground-based view** (`ESpawnPreview` is a flag SET, not
 a choice): props are what the ground is furnished with, and nothing else on those
-maps answers "is this spot already taken". Mob dots stay with the layers that
+maps answers "is this spot already taken". Every OTHER view (elevation, water,
+zone...) still gets them faintly — blocking regions at `propDotDimAlpha` and each
+entity as a translucent white dot (`entityGhostInk`) — so a barrier or a chest
+never disappears just because the tool changed. Mob dots stay with the layers that
 paint mobs — they are about encounters, not terrain — and draw last, since two
 dots cannot share a cell and what LIVES somewhere is the more urgent answer.
 
@@ -384,7 +387,7 @@ passage reads the surface field above it. See "Passages" in
 **Subscene stamps are a LIST, and the tool is a pointer, not a brush.** Click
 empty ground to drop the palette's scene, click a stamp to select it, drag to
 slide it (grabbed where you clicked, so it does not snap its anchor to the
-cursor), **R/F** to turn it 90°, RMB to delete the one under the press. The press
+cursor), **R/F** to turn it 90° (seating: see below), RMB to delete the one under the press. The press
 only ever DECIDES what the stroke is about — it cannot place, because the right
 button fires it too and a right-click on bare ground would drop a building for
 the erase that follows to delete again.
@@ -408,8 +411,8 @@ same argument climbing routes and spill edges are inked everywhere — and a
 footprint you cannot see is one you scatter props into. The one view that
 holds anything back is the tunnel cutaway, which shows a stamp only where it
 reaches the cut plane — see Carving and building. The composite lives in
-the painter's fill pass (`WorldMapState.StampColorAt`) rather than in `SceneView`,
-which is now just the plain ground map; the selection highlight comes from
+the painter's fill pass (`WorldMapState.StampColorAt`) rather than in the scene tool's
+view, which is just the ground map (cut away below the plane); the selection highlight comes from
 `IWorldMapTool.SelectedPlacement`, which only the scene tool answers, so the plan
 stays plain while another tool is active.
 
@@ -430,22 +433,52 @@ building's full height every time would show. Columns the scene leaves empty (a
 courtyard, the gap around a tower) still take the wash, or a stamp's extent would
 vanish wherever its scene authors nothing.
 
-**Y is derived, with an authored nudge.** The seat is `WorldGen`'s own
+**Y is derived, with an authored nudge — or pinned.** The seat is `WorldGen`'s own
 `FootprintPlateauY` — the most common ground level across the footprint, ties to
 the lower — refactored to take the ground lookup instead of a `HeightMap`, since
 the painter has none. Averaging or taking the max would float a building over a
-dip; the stamp overwrites its whole bbox, so cutting in is self-correcting and
-floating is not.
+dip.
+
+**A stamp writes only its solid voxels.** `SubsceneStamper` skips voxels the scene
+authored as plain air (an Opening and the scene's own water still write), so
+water, terrain and carves inside the box survive: a bridge leaves the river under
+its deck. The price is that ground rising into a building's rooms stays there —
+clear it with a carve. This used to be the other way round (every voxel of the
+bbox written, air included), which drained rivers under bridges; it applies to
+WorldGen's stamps and world-editor pastes too, since they share the stamper. The
+footprint still counts as a stamp for `CanSpawnAt`, so nothing scatters under a
+span.
 
 `SubscenePlacement.yOffset` nudges that seat, and is deliberately a NUDGE rather
 than an absolute Y: the seat is recomputed from the ground under the footprint,
 so a scene follows terrain that moves under it while the offset keeps saying "and
-a metre lower than that". An absolute Y would pin the building while the hill
-walked out from under it. **alt+click solves the nudge from the ground under the
-cursor** — point at the terrace you want the floor on — because the number that
-matters is where the floor LANDS, not how far it moved. `SeatY` is one method
-used by both the bake and the tool, so the height the HUD shows is the height the
-bake uses.
+a metre lower than that".
+
+**`SubscenePlacement.fixedY` pins it instead** (`FollowsGround` = unset, which is
+what every older document loads with). Two cases the ground cannot describe, and
+the same split `EntityPlacement.floorY` makes: a bridge span, whose footprint's
+"most common level" is the riverbed or a bank and differs piece to piece; and a
+room in a cave, which a surface-relative nudge would drag through the rock
+whenever the hill above is repainted. `SubscenePlacement.SeatOn` is THE rule, and
+both `WorldGen` and `WorldMapState.SeatY` call it.
+
+The tool's gestures, all on the selection:
+
+- **alt+click seats it on the floor the map is SHOWING** (`CutawayFloor` under the
+  plane — the view cuts away, so a passage is reachable). A floor with something
+  over it pins the stamp there; an open floor keeps its mode and, for a
+  ground-follower, solves the nudge. It reads the terrain and the carve/build
+  layer only — a STAMP is not in it, so it cannot sample another piece's deck
+  (and alt+click on a stamp re-seats that stamp). Level a span by reading one
+  piece's `pinned at Y` and stepping the rest to it.
+- **A new stamp dropped on a roofed floor is pinned** to it, so placing in a cave
+  is lower the plane, click.
+- **X pins / unpins without moving it** — pinning takes the current seat,
+  unpinning solves the nudge that keeps it there. **Shift+R/F** steps whichever
+  of the two applies by a metre.
+
+`SeatY` is one method used by both the bake and the tool, so the height the HUD
+shows is the height the bake uses.
 
 Footprints are excluded from `CanSpawnAt`, the way worldgen reserves them with
 `MarkNoSpawn`.

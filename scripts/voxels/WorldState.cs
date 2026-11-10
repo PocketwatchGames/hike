@@ -100,6 +100,10 @@ public class WorldState
     // off in that world.
     public RegionState[] Regions = [];
 
+    // Habitats present in this world; ChunkState.HabitatIndex picks one per
+    // chunk, 1-based so 0 can mean none. Read through HabitatAt.
+    public HabitatData[] Habitats = [];
+
     // Named points of interest resolved during worldgen: name -> world
     // position (XZ centered, Y at the ground top). The reusable anchor map for
     // POI-driven placement — roads and signposts today; bosses, important loot,
@@ -1350,6 +1354,18 @@ public class WorldState
         }
         int zi = chunk.ZoneIndex;
         return (zi >= 0 && zi < Zones.Length) ? Zones[zi].Data : null;
+    }
+
+    // The habitat of the chunk containing `pos`. Null outside the world or
+    // where none is painted.
+    public HabitatData HabitatAt(Vector3 pos)
+    {
+        ChunkState chunk = GetChunk(new Vector3I(
+            Mathf.FloorToInt(pos.X / ChunkState.SIZE),
+            Mathf.FloorToInt(pos.Y / ChunkState.SIZE),
+            Mathf.FloorToInt(pos.Z / ChunkState.SIZE)));
+        int hi = (chunk?.HabitatIndex ?? 0) - 1;
+        return hi >= 0 && hi < Habitats.Length ? Habitats[hi] : null;
     }
 
     // World-XZ centroid of every named region in the loaded world,

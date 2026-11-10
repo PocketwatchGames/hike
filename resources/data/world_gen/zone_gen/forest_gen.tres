@@ -18,6 +18,7 @@
 [ext_resource type="Resource" uid="uid://fxpkjyqvrcjf" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_4.tres" id="97_spot"]
 [ext_resource type="Script" uid="uid://38wffcrscjmc" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="forest_gen_zoneterrain"]
 [ext_resource type="Resource" uid="uid://qop38fcqf4o7" path="res://resources/data/world_gen/foliage_gen/forest.tres" id="F_foliage"]
+[ext_resource type="Resource" uid="uid://cj53eojx64a16" path="res://resources/data/habitats/forest.tres" id="habitat"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_script"]
 [ext_resource type="Resource" uid="uid://csrlgrkkra006" path="res://resources/data/items/scrolls/scroll_grilled_kun_kun.tres" id="sc0"]
 [ext_resource type="Resource" uid="uid://pap3pg64kjlv" path="res://resources/data/items/scrolls/scroll_grilled_goblin.tres" id="sc1"]
@@ -156,6 +157,7 @@ metadata/_custom_type_script = "uid://61iu4uosbxjog"
 [resource]
 script = ExtResource("1_script")
 zone = ExtResource("2_region")
+habitat = ExtResource("habitat")
 surfaceTerrain = ExtResource("3_kit_temperate")
 caveTerrain = ExtResource("4_kit_cave")
 submergedTerrain = ExtResource("5_kit_underwater")

@@ -19,7 +19,7 @@ public sealed class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 136;
+    public const int WORLDGEN_VERSION = 137;
 
     // Bitmask flags for the debug_worldgen_skip CVar — see CVars.debugWorldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -301,6 +301,7 @@ public sealed class WorldGen
 
         BuildZoneStates(ws, genData, worldSeed);
         BuildRegionStates(ws, genData);
+        BuildHabitats(ws, genData);
 
         WorldNoise noise = BuildWorldNoise(genData, worldSeed);
 
@@ -741,6 +742,26 @@ public sealed class WorldGen
         }
     }
 
+    // One habitat slot per zone, in zone order, so a chunk's habitat is its
+    // zone's: HabitatIndex = ZoneIndex + 1, or 0 where the zone authors none.
+    // Two zones sharing a habitat just name it twice.
+    private static void BuildHabitats(WorldState ws, WorldGenData genData)
+    {
+        ZoneGenData[] gens = genData.ZoneGens;
+        ws.Habitats = new HabitatData[gens.Length];
+        for (int i = 0; i < gens.Length; i++)
+        {
+            ws.Habitats[i] = gens[i]?.habitat;
+        }
+    }
+
+    private static byte HabitatIndexForZone(WorldState ws, byte zoneIndex)
+    {
+        return zoneIndex < ws.Habitats.Length && ws.Habitats[zoneIndex] != null
+            ? (byte)(zoneIndex + 1)
+            : (byte)0;
+    }
+
     // Generate every chunk's voxels: assign zone / region index, then run the
     // per-chunk terrain + tunnel pass against the prebuilt height field.
     private void GenerateChunks(WorldState ws, WorldGenData genData, ITerrainGenerator terrainGen, HeightMap heightMap)
@@ -755,6 +776,7 @@ public sealed class WorldGen
                     var chunk = new ChunkState(coord);
                     chunk.ZoneIndex = _zones.ChunkZoneIndex(coord, ws.Zones.Length);
                     chunk.RegionIndex = TerrainMath.PickRegionIndex(coord, ws.Regions.Length);
+                    chunk.HabitatIndex = HabitatIndexForZone(ws, chunk.ZoneIndex);
                     GenerateChunk(chunk, genData, ws.Terrains, terrainGen, heightMap);
                     ws._chunks[coord] = chunk;
                 }
@@ -1956,7 +1978,7 @@ public sealed class WorldGen
         // stacking on it — a scene carries its own floor. Everything the scene
         // authored below y=0 goes under the ground from here.
         public Vector3 Anchor => new Vector3(Placement.anchorXZ.X,
-            PlateauY + Placement.yOffset, Placement.anchorXZ.Y);
+            Placement.SeatOn(PlateauY), Placement.anchorXZ.Y);
     }
 
     // Turn every stamped scene's authored path hints into named points of

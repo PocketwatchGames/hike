@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://rmy8owd5hawv" path="res://scripts/gameplay/entities/Projectile.cs" id="1_toxrf"]
 [ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="2_lit"]
-[ext_resource type="PackedScene" uid="uid://b8wq3n7rvtak2" path="res://scenes/fx/arrow_trail.tscn" id="3_pihhc"]
+[ext_resource type="PackedScene" path="res://scenes/fx/lead_shot_trail.tscn" id="3_pihhc"]
 
 [sub_resource type="ShaderMaterial" id="Mat_lead"]
 render_priority = 0

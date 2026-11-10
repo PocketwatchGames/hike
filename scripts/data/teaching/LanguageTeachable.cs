@@ -4,7 +4,7 @@ using Godot;
 // the polymorphic TeachableConcept system to the existing
 // Player.LearnLanguageComponents flow — pre-existing knowledge stones and
 // language scrolls land here so they reuse TextScrambler unchanged.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

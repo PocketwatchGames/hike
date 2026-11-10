@@ -3,7 +3,7 @@ using Godot;
 // Refuses picking up loot whose whole stack won't fit in the actor's backpack,
 // so the press is answered with a reason ("Inventory Full") instead of the pile
 // ignoring the player. Passes for any interactive that isn't loot.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

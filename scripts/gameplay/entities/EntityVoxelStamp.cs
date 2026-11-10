@@ -112,14 +112,14 @@ public static class EntityVoxelStamper
         return true;
     }
 
-    // Empty cells and the markers stamps themselves write are always fair game —
-    // Opening has to be, or a door that stamped one on opening could never close
-    // back to Barrier. Solid geometry only gives way to a carving stamp, and
+    // Empty cells and the markers stamps themselves write (Opening, Barrier,
+    // ClearBarrier — everything geometry-less but water) are always fair game — Opening
+    // has to be, or a door that stamped one on opening could never close back. Solid geometry only gives way to a carving stamp, and
     // water never does: an aperture punched through a water volume would drain a
     // hole in it rather than make a window.
     private static bool CanOverwrite(int existing, bool carves)
     {
-        if (existing == Blocks.AirId || existing == Blocks.BarrierId || existing == Blocks.OpeningId)
+        if (!Blocks.HasGeometry(existing) && !Blocks.IsWater(existing))
         {
             return true;
         }

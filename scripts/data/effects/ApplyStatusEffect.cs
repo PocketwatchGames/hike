@@ -5,7 +5,7 @@ using Godot;
 // existing ApplyEffect event's `effects` array — same authoring path as
 // HealEffect, but the target accumulates ticks over the data's duration
 // instead of getting an immediate one-shot HP delta.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

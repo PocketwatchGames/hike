@@ -2,7 +2,7 @@ using Godot;
 
 // Tuning for BehaviorFollow: a companion mob trails its master (the player),
 // closing to followDistance and holding once inside stopDistance.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

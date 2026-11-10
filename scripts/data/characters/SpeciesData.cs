@@ -18,7 +18,7 @@ using Godot;
 // rather than authored here. That keeps an elite goblin the same bestiary row,
 // discovery and kill-quest target as a plain one, and spares every elite a
 // forked copy of the seven fields below.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

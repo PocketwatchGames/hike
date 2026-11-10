@@ -6,7 +6,7 @@ using Godot;
 // a pickup it accepts goes into it before the backpack. Its contents travel
 // with it: dropped, stashed or left in a death sack, it keeps them
 // (SackState.contents). Never holds another sack, whatever `accepts` lists.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

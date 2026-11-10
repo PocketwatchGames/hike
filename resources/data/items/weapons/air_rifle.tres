@@ -1,32 +1,37 @@
-[gd_resource type="Resource" script_class="WeaponData" format=3]
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://cy2o76joma05l"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_dnlr5"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_3504l"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
-[ext_resource type="PackedScene" uid="uid://dxxldcqs8hb6v" path="res://scenes/fx/bow_hit_creature.tscn" id="7_hitcreature"]
-[ext_resource type="PackedScene" uid="uid://dbkwlsxhbirtn" path="res://scenes/fx/bow_kill.tscn" id="7_hitkill"]
-[ext_resource type="PackedScene" uid="uid://dxx2ajycuaxpv" path="res://scenes/fx/bow_hit_solid.tscn" id="7_hitsolid"]
-[ext_resource type="PackedScene" uid="uid://c0vvhpnc8yctn" path="res://scenes/fx/bow_attack_heavy.tscn" id="8_atkheavy"]
-[ext_resource type="PackedScene" uid="uid://c2jrhpmsq2rtn" path="res://scenes/fx/bow_charge_head.tscn" id="8_chghead"]
-[ext_resource type="PackedScene" uid="uid://c2jrl015q2rtn" path="res://scenes/fx/bow_charge_loop.tscn" id="8_chgloop"]
-[ext_resource type="PackedScene" uid="uid://c2jrtlu1q2rtn" path="res://scenes/fx/bow_charge_tail.tscn" id="8_chgtail"]
+[ext_resource type="PackedScene" path="res://scenes/fx/sling_hit_creature.tscn" id="7_hitcreature"]
+[ext_resource type="PackedScene" path="res://scenes/fx/sling_kill.tscn" id="7_hitkill"]
+[ext_resource type="PackedScene" path="res://scenes/fx/sling_hit_solid.tscn" id="7_hitsolid"]
+[ext_resource type="PackedScene" path="res://scenes/fx/air_rifle_cock.tscn" id="8_cock"]
+[ext_resource type="PackedScene" path="res://scenes/fx/air_rifle_fire.tscn" id="8_fire"]
+[ext_resource type="PackedScene" path="res://scenes/fx/air_rifle_pump.tscn" id="8_pump"]
 [ext_resource type="PackedScene" uid="uid://b3la8d0l81l6i" path="res://scenes/projectiles/lead_shot.tscn" id="10_ajm0v"]
+[ext_resource type="Script" uid="uid://mdffi1hq8u6y" path="res://scripts/data/actions/ActionRepeatOverride.cs" id="11_scmqh"]
 [ext_resource type="Texture2D" uid="uid://35su23r5he88" path="res://assets/textures/items/weapons/AirRifle.png" id="15_sprite"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="17_xyvao"]
 [ext_resource type="PackedScene" path="res://scenes/items/air_rifle_held.tscn" id="20_held"]
 [ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="21_5rhbf"]
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="22_17x6i"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="27_3k405"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/lead.tres" id="repair_lead"]
+[ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
 
 [sub_resource type="Resource" id="Resource_event_scatter"]
 script = ExtResource("3_event")
 type = 41951300
+fx = ExtResource("8_fire")
 noiseDecibels = 0.05
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
@@ -55,9 +60,7 @@ positionalAreaRadius = 3.0
 spreadDegrees = 4.0
 chargedAccuracyScale = 5.0
 speedMultiplierActive = 0.5
-chargeStartEffect = ExtResource("8_chghead")
-chargeLoopEffect = ExtResource("8_chgloop")
-releaseEffect = ExtResource("8_atkheavy")
+chargeStartEffect = ExtResource("8_cock")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")
 
@@ -65,6 +68,7 @@ impactBackstabEffect = ExtResource("7_hitcreature")
 script = ExtResource("3_event")
 type = 41952324
 animName = 20
+fx = ExtResource("8_fire")
 damageProfileKey = &"charged"
 motionForwardSpeed = -10.0
 noiseDecibels = 0.05
@@ -87,9 +91,7 @@ events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy")])
 requirements = Array[ExtResource("4_req")]([SubResource("Resource_req_no_swim")])
 maxSpeedCharging = 1
 speedMultiplierActive = 0.0
-chargeStartEffect = ExtResource("8_chgtail")
-chargeLoopEffect = ExtResource("8_chgloop")
-releaseEffect = ExtResource("8_atkheavy")
+chargeStartEffect = ExtResource("8_pump")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")
 
@@ -115,6 +117,7 @@ hitstun = 0.25
 knockbackDistance = 5.0
 knockbackTime = 0.3
 buildups = [SubResource("Resource_el1ut")]
+modifiers = null
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
@@ -126,6 +129,7 @@ hitstun = 0.2
 knockbackDistance = 0.5
 knockbackTime = 0.2
 buildups = []
+modifiers = null
 
 [sub_resource type="Resource" id="repair_cost_steel"]
 script = ExtResource("material_count")
@@ -136,7 +140,6 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 [sub_resource type="Resource" id="repair_cost_lead"]
 script = ExtResource("material_count")
 item = ExtResource("repair_lead")
-count = 1
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [sub_resource type="Resource" id="salvage_steel"]
@@ -150,8 +153,8 @@ item = ExtResource("repair_lead")
 
 [resource]
 script = ExtResource("2_weapon")
-rightHandSlot = true
 ammoType = 2
+rightHandSlot = true
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"charged": SubResource("Resource_charged_damage"),
 &"primary": SubResource("Resource_damage")
@@ -164,10 +167,11 @@ wieldHand = 1
 animSet = ExtResource("21_animset")
 weight = 0.7
 maxDurability = 150
-salvage = Array[ExtResource("material_count")]([SubResource("salvage_steel"), SubResource("salvage_lead")])
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel"), SubResource("repair_cost_lead")])
+repairHours = 12.0
 displayName = &"Air Rifle"
 description = "A rifle powered by a reservoir of compressed air. Fires lead balls nearly silently, but hits lighter than powder. Hold for a pumped shot."
-value = 70
+value = 80
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("20_held")
+salvage = Array[ExtResource("material_count")]([SubResource("salvage_steel"), SubResource("salvage_lead")])

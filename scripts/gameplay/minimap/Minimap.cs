@@ -941,6 +941,33 @@ public partial class Minimap : Node3D
         };
     }
 
+    // The outdoor heightmap whatever mode the HUD is in. A treasure map charts a
+    // SURFACE dig spot, so it must not inherit the indoor slice the player happens
+    // to be standing in when they read it. Reference elevation is left 0; the
+    // caller supplies its own.
+    public StateSnapshot CaptureOutdoorState()
+    {
+        Texture2D surf = _textures?.SurfaceTexture;
+        Texture2D expl = _textures?.ExplorationTexture;
+        return new StateSnapshot
+        {
+            Surface = surf,
+            SurfaceBelow1 = surf,
+            SurfaceBelow2 = surf,
+            Exploration = expl,
+            ExplorationBelow1 = expl,
+            ExplorationBelow2 = expl,
+            WorldMapExploration = expl,
+            WorldMapExplorationBelow1 = expl,
+            WorldMapExplorationBelow2 = expl,
+            WorldOriginXZ = _textures?.WorldOriginXZ ?? Vector2I.Zero,
+            ExtentPixels = _textures == null
+                ? Vector2.One
+                : new Vector2(_textures.WidthPixels, _textures.HeightPixels),
+            MetersPerPixel = MinimapData.OutdoorMetersPerPixel,
+        };
+    }
+
     // Reveal radius = effective vision range × multiplier. Same value for outdoor
     // and indoor — the player perceives the same distance regardless of which mode
     // the minimap renders. Vision-affecting stats (base perception, buffs, gear —

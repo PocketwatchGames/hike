@@ -9,13 +9,13 @@
 [ext_resource type="Resource" uid="uid://b14bjvdgd0r3h" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_desert.tres" id="e_goblin_desert"]
 [ext_resource type="Resource" uid="uid://ve3xasncxbo1" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_desert_elite.tres" id="e_goblin_desert_elite"]
 [ext_resource type="Resource" uid="uid://bc6u818sl1sl4" path="res://resources/data/world_authoring/spawn_entries/mobs/kun_kun/kun_kun_desert.tres" id="e_kun_kun_desert"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_gold.tres" id="e_mushroom_gold"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_orange.tres" id="e_mushroom_orange"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_red.tres" id="e_mushroom_red"]
+[ext_resource type="Resource" uid="uid://bhnoquepjesoc" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_gold.tres" id="e_mushroom_gold"]
+[ext_resource type="Resource" uid="uid://drfljmn1n3mcx" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_orange.tres" id="e_mushroom_orange"]
+[ext_resource type="Resource" uid="uid://bf5ua6b3nyare" path="res://resources/data/world_authoring/spawn_entries/forage/mushroom_red.tres" id="e_mushroom_red"]
+[ext_resource type="Resource" uid="uid://bc2fbcfh1qjag" path="res://resources/data/world_authoring/spawn_entries/forage/shell.tres" id="e_shell"]
 [ext_resource type="Resource" uid="uid://c44my6q0osrw6" path="res://resources/data/world_authoring/spawn_entries/mobs/spider/spider_desert.tres" id="e_spider_desert"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/spike_trap.tres" id="e_spike_trap"]
 [ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/forage/shell.tres" id="e_shell"]
 
 [sub_resource type="Resource" id="Row_goblin_desert"]
 script = ExtResource("listrow")
@@ -67,23 +67,23 @@ initialBehavior = null
 [sub_resource type="Resource" id="Row_mushroom_orange"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 350.0
+bands = 1
 entry = ExtResource("e_mushroom_orange")
 initialBehavior = null
-bands = 1
 
 [sub_resource type="Resource" id="Row_mushroom_gold"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 350.0
+bands = 1
 entry = ExtResource("e_mushroom_gold")
 initialBehavior = null
-bands = 1
 
 [sub_resource type="Resource" id="Row_mushroom_red"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 350.0
+bands = 1
 entry = ExtResource("e_mushroom_red")
 initialBehavior = null
-bands = 1
 
 [sub_resource type="Resource" id="Row_bone_pile_1"]
 script = ExtResource("listrow")
@@ -100,8 +100,9 @@ initialBehavior = null
 [sub_resource type="Resource" id="Row_shell"]
 script = ExtResource("listrow")
 squareMetersPerSpawn = 15.0
-entry = ExtResource("e_shell")
 bands = 2
+entry = ExtResource("e_shell")
+initialBehavior = null
 
 [resource]
 script = ExtResource("8_88i6m")

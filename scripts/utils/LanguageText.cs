@@ -23,6 +23,15 @@ using Godot;
 // was spoken and the fragments around it jumble within themselves — which is
 // the point: one anchor the player understood in a line they didn't.
 //
+// Narration — a stage direction inside a spoken line — is [narrate] ...
+// [/narrate]. It is not speech, so it is in no language: never scrambled and
+// left out of the comprehension score, so "he points to the tent" neither
+// reveals nor dilutes how much of the speech the player followed. RenderBbcode
+// draws it in italics; Render shows it plain. Narration and language spans do
+// not nest inside each other.
+//
+//   [narrate]He points to the tent.[/narrate] Vash'eth tolun mira.
+//
 // Every display path goes through Render rather than calling TextScrambler
 // directly, because the markup has to be stripped even when nothing is
 // scrambled — a fluent player, an unlanguaged sign, or no player at all.
@@ -30,6 +39,8 @@ public static class LanguageText
 {
     const string TagOpen = "[lang:";
     const string TagClose = "[/lang]";
+    const string NarrateOpen = "[narrate]";
+    const string NarrateClose = "[/narrate]";
     // Reserved span id: resolves to SimData.commonTongue, which every player
     // knows in full, so nothing in it scrambles.
     const string CommonId = "common";
@@ -40,11 +51,14 @@ public static class LanguageText
         // Null = an unlanguaged line (nothing to scramble). The common tongue
         // is a real LanguageData now, and reads the same way.
         public readonly LanguageData Language;
+        // Narration carries no language (Language is null).
+        public readonly bool Narration;
 
-        public Span(string text, LanguageData language)
+        public Span(string text, LanguageData language, bool narration)
         {
             Text = text;
             Language = language;
+            Narration = narration;
         }
     }
 
@@ -76,6 +90,42 @@ public static class LanguageText
         return sb.ToString();
     }
 
+    // Render for a RichTextLabel with bbcode_enabled: narration wrapped in
+    // [i], and every authored '[' escaped so a line can't inject BBCode.
+    public static string RenderBbcode(string raw, LanguageData defaultLanguage, Player player)
+    {
+        if (string.IsNullOrEmpty(raw))
+        {
+            return raw;
+        }
+        if (raw.IndexOf('[') < 0)
+        {
+            return EscapeBbcode(ScrambleFor(raw, defaultLanguage, player));
+        }
+
+        List<Span> spans = new List<Span>();
+        Parse(raw, defaultLanguage, player, spans);
+        StringBuilder sb = new StringBuilder(raw.Length + 16);
+        for (int i = 0; i < spans.Count; i++)
+        {
+            string text = EscapeBbcode(ScrambleFor(spans[i].Text, spans[i].Language, player));
+            if (spans[i].Narration)
+            {
+                sb.Append("[i]").Append(text).Append("[/i]");
+            }
+            else
+            {
+                sb.Append(text);
+            }
+        }
+        return sb.ToString();
+    }
+
+    static string EscapeBbcode(string text)
+    {
+        return string.IsNullOrEmpty(text) || text.IndexOf('[') < 0 ? text : text.Replace("[", "[lb]");
+    }
+
     // Fraction of `raw` the player understands, in [0, 1] — per-span
     // ComputeComprehension weighted by how many word tokens each span is.
     // Drives ConversationVisibility's soft gate on response options.
@@ -98,6 +148,10 @@ public static class LanguageText
         int totalWeight = 0;
         for (int i = 0; i < spans.Count; i++)
         {
+            if (spans[i].Narration)
+            {
+                continue;
+            }
             LanguageData lang = spans[i].Language;
             ELanguageComponents learned = lang == null
                 ? ELanguageComponents.All
@@ -143,6 +197,14 @@ public static class LanguageText
         {
             return TagClose.Length;
         }
+        if (Matches(raw, index, NarrateOpen))
+        {
+            return NarrateOpen.Length;
+        }
+        if (Matches(raw, index, NarrateClose))
+        {
+            return NarrateClose.Length;
+        }
         if (Matches(raw, index, TagOpen))
         {
             int end = raw.IndexOf(']', index + TagOpen.Length);
@@ -160,14 +222,17 @@ public static class LanguageText
             && string.CompareOrdinal(raw, index, tag, 0, tag.Length) == 0;
     }
 
-    // Splits `raw` into runs of one language each. Malformed markup is
-    // reported and then treated as the default language rather than dropping
-    // the line — the author sees the error with the text still legible.
+    enum ESpanKind { None, Language, Narration }
+
+    // Splits `raw` into runs of one language each, narration its own run.
+    // Malformed markup is reported and then treated as the default language
+    // rather than dropping the line — the author sees the error with the text
+    // still legible.
     static void Parse(string raw, LanguageData defaultLanguage, Player player, List<Span> spans)
     {
         SimData simData = player?.Sim?.SimData;
         LanguageData current = defaultLanguage;
-        bool inSpan = false;
+        ESpanKind open = ESpanKind.None;
         int spanStart = 0;
         int i = 0;
         while (i < raw.Length)
@@ -177,16 +242,32 @@ public static class LanguageText
                 i++;
                 continue;
             }
-            if (Matches(raw, i, TagClose))
+            bool langClose = Matches(raw, i, TagClose);
+            if (langClose || Matches(raw, i, NarrateClose))
             {
-                if (!inSpan)
+                ESpanKind closing = langClose ? ESpanKind.Language : ESpanKind.Narration;
+                string tag = langClose ? TagClose : NarrateClose;
+                if (open != closing)
                 {
-                    GD.PushError($"LanguageText: '{TagClose}' with no open span in \"{raw}\".");
+                    GD.PushError($"LanguageText: '{tag}' with no matching open span in \"{raw}\".");
                 }
-                AddSpan(spans, raw, spanStart, i, current);
+                AddSpan(spans, raw, spanStart, i, current, open == ESpanKind.Narration);
                 current = defaultLanguage;
-                inSpan = false;
-                i += TagClose.Length;
+                open = ESpanKind.None;
+                i += tag.Length;
+                spanStart = i;
+                continue;
+            }
+            if (Matches(raw, i, NarrateOpen))
+            {
+                if (open != ESpanKind.None)
+                {
+                    GD.PushError($"LanguageText: '{NarrateOpen}' inside another span in \"{raw}\" — spans don't nest.");
+                }
+                AddSpan(spans, raw, spanStart, i, current, open == ESpanKind.Narration);
+                current = null;
+                open = ESpanKind.Narration;
+                i += NarrateOpen.Length;
                 spanStart = i;
                 continue;
             }
@@ -198,32 +279,33 @@ public static class LanguageText
                     GD.PushError($"LanguageText: unterminated '{TagOpen}' tag in \"{raw}\".");
                     break;
                 }
-                if (inSpan)
+                if (open != ESpanKind.None)
                 {
-                    GD.PushError($"LanguageText: nested '{TagOpen}' tag in \"{raw}\" — spans don't nest.");
+                    GD.PushError($"LanguageText: '{TagOpen}' inside another span in \"{raw}\" — spans don't nest.");
                 }
-                AddSpan(spans, raw, spanStart, i, current);
+                AddSpan(spans, raw, spanStart, i, current, open == ESpanKind.Narration);
                 string id = raw.Substring(i + TagOpen.Length, end - i - TagOpen.Length);
                 current = Resolve(id, defaultLanguage, simData, raw);
-                inSpan = true;
+                open = ESpanKind.Language;
                 i = end + 1;
                 spanStart = i;
                 continue;
             }
             i++;
         }
-        if (inSpan)
+        if (open != ESpanKind.None)
         {
-            GD.PushError($"LanguageText: span left open (missing '{TagClose}') in \"{raw}\".");
+            string tag = open == ESpanKind.Narration ? NarrateClose : TagClose;
+            GD.PushError($"LanguageText: span left open (missing '{tag}') in \"{raw}\".");
         }
-        AddSpan(spans, raw, spanStart, raw.Length, current);
+        AddSpan(spans, raw, spanStart, raw.Length, current, open == ESpanKind.Narration);
     }
 
-    static void AddSpan(List<Span> spans, string raw, int start, int end, LanguageData language)
+    static void AddSpan(List<Span> spans, string raw, int start, int end, LanguageData language, bool narration)
     {
         if (end > start)
         {
-            spans.Add(new Span(raw.Substring(start, end - start), language));
+            spans.Add(new Span(raw.Substring(start, end - start), language, narration));
         }
     }
 
@@ -235,6 +317,11 @@ public static class LanguageText
             // identically (both render unscrambled and score 1) so a world
             // missing the reference still reads correctly.
             return simData?.commonTongue;
+        }
+        if (simData == null)
+        {
+            // No player to scramble for, so the language is never read.
+            return defaultLanguage;
         }
         LanguageData found = simData?.LanguageById(id);
         if (found == null)

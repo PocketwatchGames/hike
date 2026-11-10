@@ -7,7 +7,7 @@ using Godot;
 // partially-charged effect doesn't immediately re-apply after the cure.
 // `effects` removes named effects that belong to no family (waking from
 // Unconscious); an effect matching either is removed.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

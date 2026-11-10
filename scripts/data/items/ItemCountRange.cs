@@ -8,7 +8,7 @@ using Godot;
 // inventory, a mob's already-rolled carried loot) is an ItemCount instead.
 // Rolled count is `count + rng.Next(0, countRange + 1)`, so the defaults produce
 // a deterministic 1.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

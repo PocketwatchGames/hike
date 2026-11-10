@@ -87,6 +87,12 @@ public enum ECollisionLayer
     // Environment it would block movement, catch arrows and read as cover, and
     // a rope you cannot walk through is a fence. Only the climb queries mask it.
     Climbable = 131072,
+    // Solid you can see through — bars, a portcullis, and the place glass
+    // windows belong: felt by bodies and stops what is struck or shot, but seen
+    // and lit through. Outside Solid AND Environment, so every sight and sense
+    // query (smell and sound too) passes it untouched; inside Blocking (bodies)
+    // and Impact (shots, swings and the aim queries that predict them).
+    SeeThrough = 262144,
     // Convenience combo: "solid to the world" — terrain/walls plus porous
     // props. World raycasts (vision, arrows, aim, pathing, rain, lightning) mask
     // this so props still block them; the few queries that should see / smell /
@@ -96,5 +102,10 @@ public enum ECollisionLayer
     // What a moving BODY must not pass through — the world's solids plus the
     // boundary. Every CollisionMask that exists to contain something masks this;
     // masking Solid instead lets the thing leave the world.
-    Blocking = Solid | WorldBounds,
+    Blocking = Solid | WorldBounds | SeeThrough,
+    // What a strike or a shot stops on: the world's solids plus see-through ones. Every
+    // projectile / hitscan / melee environment query masks this, and so does
+    // any aim query predicting where a shot lands -- masking Solid instead
+    // shoots straight through a portcullis.
+    Impact = Solid | SeeThrough,
 }

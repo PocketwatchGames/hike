@@ -42,6 +42,7 @@ outfit = SubResource("outfit")
 weight = 0.25
 maxDurability = 3000
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_cloth")])
+repairHours = 8.0
 displayName = &"Chemist\'s Cloak"
 description = "Layered robes with lots of pockets — light and quiet, but it stops nothing."
 value = 60

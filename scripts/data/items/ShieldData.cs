@@ -4,7 +4,7 @@ using Godot;
 // shield equipped, its guard pool soaks hits before central armor and a
 // well-timed crouch parries (Player.OnHurtBoxHit). The model in `heldModel` is
 // shown on the off hand only while the guard stance is held.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

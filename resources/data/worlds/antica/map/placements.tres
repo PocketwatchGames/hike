@@ -25,12 +25,50 @@
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/npcs/npc.tres" id="21_k4cij"]
 [ext_resource type="Resource" path="res://resources/data/items/weapons/pistol.tres" id="22_8rpwt"]
 [ext_resource type="Resource" path="res://resources/data/status_effects/items/status_gear_brittle.tres" id="22_hcgh4"]
+[ext_resource type="Resource" path="res://resources/data/worlds/antica/conversations/festering_man_conversation.tres" id="28_aarnj"]
 [ext_resource type="Resource" path="res://resources/data/items/ammo/lead_ball.tres" id="28_mgj0k"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/items/status_gear_sturdy.tres" id="29_hcgh4"]
+[ext_resource type="Script" path="res://scripts/data/characters/MobInventoryData.cs" id="30_aarnj"]
 [ext_resource type="PackedScene" path="res://scenes/interactives/cookpot.tscn" id="30_c6uuj"]
 [ext_resource type="Script" path="res://scripts/data/spawn/CookpotSpawnEntry.cs" id="31_aarnj"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/cookpot.tres" id="32_cim0t"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/bed.tres" id="32_esoxi"]
 [ext_resource type="Resource" path="res://resources/data/items/weapons/mace.tres" id="33_cim0t"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/door_double.tres" id="34_c6uuj"]
+[ext_resource type="Resource" path="res://resources/data/worlds/antica/items/lock_tutorial_bridge.tres" id="35_bto32"]
+[ext_resource type="Resource" path="res://resources/data/worlds/antica/items/key_tutorial_bridge.tres" id="36_1l3hx"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/door_double.tscn" id="36_pf02c"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/buried_spot.tscn" id="37_e2gst"]
+[ext_resource type="Script" path="res://scripts/data/spawn/DoorSpawnEntry.cs" id="37_y7d5i"]
+[ext_resource type="Script" path="res://scripts/data/spawn/BuriedSpotSpawnEntry.cs" id="38_gp7n2"]
+[ext_resource type="Resource" path="res://resources/data/buried/treasure.tres" id="39_bto32"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/buried_spot.tres" id="40_pf02c"]
+[ext_resource type="Resource" path="res://resources/data/items/tools/shovel.tres" id="44_o3bvd"]
+[ext_resource type="Script" path="res://scripts/data/items/ItemCountRange.cs" id="45_0ywsg"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/chest.tscn" id="46_grigp"]
+[ext_resource type="Script" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="47_mvljt"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/chest.tres" id="48_uaahq"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/blood/blood_pool_red_large.tres" id="49_yqvgw"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/blood/blood_pool_red_medium.tres" id="50_6vjt1"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/blood/blood_pool_red_small.tres" id="51_wor7w"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/knowledge_stone.tscn" id="52_4vgdq"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/ambient/fly_swarm.tres" id="52_gbt4h"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/signpost.tscn" id="53_4vgdq"]
+[ext_resource type="Script" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="53_p408l"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/knowledge_stone.tres" id="54_6qgqu"]
+[ext_resource type="Script" path="res://scripts/data/spawn/SignpostSpawnEntry.cs" id="54_p408l"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/signpost.tres" id="55_6qgqu"]
+[ext_resource type="Resource" path="res://resources/data/worlds/antica/items/map_tutorial_bridge_key.tres" id="55_kkc0b"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/fountain_health.tres" id="56_0ywsg"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/spike_trap.tres" id="61_28mc2"]
+[ext_resource type="Resource" path="res://resources/data/items/lights/torch.tres" id="62_g6wiu"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/street_lamp.tres" id="63_wdkrc"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/well.tres" id="64_p408l"]
+[ext_resource type="Script" path="res://scripts/data/SubscenePlacement.cs" id="64_upae5"]
+[ext_resource type="Resource" path="res://resources/data/characters/elites/elite_poison.tres" id="65_g6wiu"]
+[ext_resource type="Script" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="66_wdkrc"]
+[ext_resource type="Resource" path="res://resources/data/characters/goblin/goblin_swamp.tres" id="67_upae5"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_swamp_elite.tres" id="68_mxty6"]
 [ext_resource type="Script" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_mig"]
 
 [sub_resource type="Resource" id="Resource_7s08i"]
@@ -46,7 +84,7 @@ disabledVariable = &""
 script = ExtResource("7_1qx4t")
 source = ExtResource("8_q6pm2")
 custom = SubResource("Resource_7s08i")
-anchorXZ = Vector2i(70, 214)
+anchorXZ = Vector2i(62, 216)
 name = "intro_fairy"
 
 [sub_resource type="Resource" id="Resource_biew4"]
@@ -101,9 +139,10 @@ descriptor = SubResource("Resource_8gal1")
 script = ExtResource("itemdesc_mig")
 item = ExtResource("28_mgj0k")
 
-[sub_resource type="Resource" id="Resource_aarnj"]
+[sub_resource type="Resource" id="Resource_ar4ge"]
 script = ExtResource("1_a5xhh")
 descriptor = SubResource("Resource_c6uuj")
+count = 7
 
 [sub_resource type="Resource" id="Resource_y7d5i"]
 script = ExtResource("5_ki3pu")
@@ -114,7 +153,7 @@ appearances = [ExtResource("11_mgj0k"), ExtResource("12_03j7x"), ExtResource("13
 idleAnimation = &""
 species = ExtResource("20_cim0t")
 initialBehavior = &""
-carriedLoot = Array[ExtResource("1_a5xhh")]([SubResource("Resource_hcgh4"), SubResource("Resource_aarnj")])
+carriedLoot = Array[ExtResource("1_a5xhh")]([SubResource("Resource_hcgh4"), SubResource("Resource_ar4ge")])
 respawnsOnRest = false
 dead = true
 disabledVariable = &""
@@ -129,22 +168,46 @@ anchorXZ = Vector2i(102, 210)
 [sub_resource type="Resource" id="Resource_1l3hx"]
 script = ExtResource("7_1qx4t")
 source = ExtResource("32_esoxi")
-anchorXZ = Vector2i(41, 195)
+anchorXZ = Vector2i(39, 191)
 
-[sub_resource type="Resource" id="ItemDescriptor_mig2"]
+[sub_resource type="Resource" id="Resource_esoxi"]
+script = ExtResource("21_8gal1")
+effect = ExtResource("29_hcgh4")
+
+[sub_resource type="Resource" id="Resource_cim0t"]
 script = ExtResource("itemdesc_mig")
 item = ExtResource("33_cim0t")
+statusEffects = Array[ExtResource("21_8gal1")]([SubResource("Resource_esoxi")])
+
+[sub_resource type="Resource" id="Resource_k4cij"]
+script = ExtResource("30_aarnj")
+item = SubResource("Resource_cim0t")
+
+[sub_resource type="Resource" id="Resource_28mc2"]
+script = ExtResource("itemdesc_mig")
+item = ExtResource("62_g6wiu")
+
+[sub_resource type="Resource" id="Resource_g6wiu"]
+script = ExtResource("30_aarnj")
+item = SubResource("Resource_28mc2")
+
+[sub_resource type="Resource" id="Resource_8rpwt"]
+script = ExtResource("itemdesc_mig")
+item = ExtResource("28_mgj0k")
 
 [sub_resource type="Resource" id="Resource_e2gst"]
 script = ExtResource("4_uauec")
-item = SubResource("ItemDescriptor_mig2")
+item = SubResource("Resource_8rpwt")
+count = 5
 
 [sub_resource type="Resource" id="Resource_gp7n2"]
 script = ExtResource("5_ki3pu")
+conversation = ExtResource("28_aarnj")
 appearance = ExtResource("11_mgj0k")
 appearances = [ExtResource("11_mgj0k"), ExtResource("12_03j7x"), ExtResource("13_slhei"), ExtResource("14_opxsq"), ExtResource("15_8gal1"), ExtResource("16_hcgh4"), ExtResource("10_tme81"), ExtResource("17_c6uuj")]
 idleAnimation = &""
 loyaltyGifts = Array[ExtResource("4_uauec")]([SubResource("Resource_e2gst")])
+inventory = [SubResource("Resource_k4cij"), SubResource("Resource_g6wiu")]
 species = ExtResource("20_cim0t")
 initialBehavior = &""
 respawnsOnRest = false
@@ -155,8 +218,7 @@ metadata/_custom_type_script = "uid://hp1b1xye8rsv"
 script = ExtResource("7_1qx4t")
 source = ExtResource("21_k4cij")
 custom = SubResource("Resource_gp7n2")
-anchorXZ = Vector2i(38, 197)
-facing = 6
+anchorXZ = Vector2i(36, 193)
 name = "festering_man"
 
 [sub_resource type="Resource" id="Resource_7yhs3"]
@@ -169,11 +231,321 @@ disabledVariable = &""
 script = ExtResource("7_1qx4t")
 source = ExtResource("32_cim0t")
 custom = SubResource("Resource_7yhs3")
-anchorXZ = Vector2i(41, 200)
+anchorXZ = Vector2i(33, 191)
 facing = 6
+
+[sub_resource type="Resource" id="Resource_6tv71"]
+script = ExtResource("37_y7d5i")
+scene = ExtResource("36_pf02c")
+lockData = ExtResource("35_bto32")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_pf02c"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("34_c6uuj")
+custom = SubResource("Resource_6tv71")
+anchorXZ = Vector2i(66, 166)
+floorY = 6
+name = "bridge_gate"
+
+[sub_resource type="Resource" id="Resource_fw2xx"]
+script = ExtResource("itemdesc_mig")
+item = ExtResource("36_1l3hx")
+
+[sub_resource type="Resource" id="Resource_62kvh"]
+script = ExtResource("38_gp7n2")
+scene = ExtResource("37_e2gst")
+item = SubResource("Resource_fw2xx")
+style = ExtResource("39_bto32")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_tfvip"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("40_pf02c")
+custom = SubResource("Resource_62kvh")
+anchorXZ = Vector2i(43, 211)
+name = "key_tutorial_bridge"
+
+[sub_resource type="Resource" id="Resource_upae5"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("49_yqvgw")
+anchorXZ = Vector2i(101, 209)
+facing = 5
+
+[sub_resource type="Resource" id="Resource_mxty6"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("50_6vjt1")
+anchorXZ = Vector2i(99, 211)
+
+[sub_resource type="Resource" id="Resource_len05"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("51_wor7w")
+anchorXZ = Vector2i(94, 212)
+
+[sub_resource type="Resource" id="Resource_87wr4"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("51_wor7w")
+anchorXZ = Vector2i(61, 216)
+
+[sub_resource type="Resource" id="Resource_odsir"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("50_6vjt1")
+anchorXZ = Vector2i(59, 216)
+
+[sub_resource type="Resource" id="Resource_kq0fb"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("50_6vjt1")
+anchorXZ = Vector2i(93, 210)
+facing = 1
+
+[sub_resource type="Resource" id="Resource_53cks"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("52_gbt4h")
+anchorXZ = Vector2i(59, 215)
+
+[sub_resource type="Resource" id="Resource_wcwq6"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("52_gbt4h")
+anchorXZ = Vector2i(100, 210)
+
+[sub_resource type="Resource" id="Resource_1wcul"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("52_gbt4h")
+anchorXZ = Vector2i(102, 209)
+
+[sub_resource type="Resource" id="Resource_k8rsf"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(50, 201)
+
+[sub_resource type="Resource" id="Resource_bodnb"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(49, 193)
+
+[sub_resource type="Resource" id="Resource_n5m4u"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(38, 181)
+
+[sub_resource type="Resource" id="Resource_0vt3u"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(58, 196)
+
+[sub_resource type="Resource" id="Resource_ohxtm"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(73, 190)
+
+[sub_resource type="Resource" id="Resource_b0eil"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(85, 184)
+
+[sub_resource type="Resource" id="Resource_rb5st"]
+script = ExtResource("54_p408l")
+scene = ExtResource("53_4vgdq")
+text = "Iluna's Way"
+language = ExtResource("19_esoxi")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_og6bv"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("55_6qgqu")
+custom = SubResource("Resource_rb5st")
+anchorXZ = Vector2i(78, 178)
+
+[sub_resource type="Resource" id="Resource_grigp"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("56_0ywsg")
+anchorXZ = Vector2i(55, 172)
+
+[sub_resource type="Resource" id="Resource_4ye3p"]
+script = ExtResource("53_p408l")
+scene = ExtResource("52_4vgdq")
+language = ExtResource("19_esoxi")
+components = 124
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_ou7c5"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("54_6qgqu")
+custom = SubResource("Resource_4ye3p")
+anchorXZ = Vector2i(14, 225)
+facing = 7
+
+[sub_resource type="Resource" id="Resource_ouep4"]
+script = ExtResource("itemdesc_mig")
+item = ExtResource("55_kkc0b")
+
+[sub_resource type="Resource" id="Resource_wa2ke"]
+script = ExtResource("45_0ywsg")
+item = SubResource("Resource_ouep4")
+
+[sub_resource type="Resource" id="Resource_tf0rn"]
+script = ExtResource("itemdesc_mig")
+item = ExtResource("44_o3bvd")
+
+[sub_resource type="Resource" id="Resource_7dofp"]
+script = ExtResource("45_0ywsg")
+item = SubResource("Resource_tf0rn")
+
+[sub_resource type="Resource" id="Resource_dkm4j"]
+script = ExtResource("47_mvljt")
+scene = ExtResource("46_grigp")
+contents = [SubResource("Resource_wa2ke"), SubResource("Resource_7dofp")]
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_35503"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("48_uaahq")
+custom = SubResource("Resource_dkm4j")
+anchorXZ = Vector2i(55, 190)
+floorY = 0
+
+[sub_resource type="Resource" id="Resource_a3q8t"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("61_28mc2")
+anchorXZ = Vector2i(45, 198)
+floorY = 0
+
+[sub_resource type="Resource" id="Resource_61vef"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("61_28mc2")
+anchorXZ = Vector2i(48, 192)
+floorY = 0
+
+[sub_resource type="Resource" id="Resource_0wuby"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("61_28mc2")
+anchorXZ = Vector2i(51, 203)
+floorY = 0
+
+[sub_resource type="Resource" id="Resource_eaidk"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("61_28mc2")
+anchorXZ = Vector2i(45, 205)
+floorY = 0
+
+[sub_resource type="Resource" id="Resource_bnkyu"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("61_28mc2")
+anchorXZ = Vector2i(50, 197)
+floorY = 0
+
+[sub_resource type="Resource" id="Resource_y6bqp"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("61_28mc2")
+anchorXZ = Vector2i(50, 210)
+floorY = 0
+
+[sub_resource type="Resource" id="Resource_itcdu"]
+script = ExtResource("itemdesc_mig")
+item = ExtResource("62_g6wiu")
+
+[sub_resource type="Resource" id="Resource_n3cwx"]
+script = ExtResource("45_0ywsg")
+item = SubResource("Resource_itcdu")
+count = 3
+
+[sub_resource type="Resource" id="Resource_t51h4"]
+script = ExtResource("47_mvljt")
+scene = ExtResource("46_grigp")
+contents = [SubResource("Resource_n3cwx")]
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_0lonx"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("48_uaahq")
+custom = SubResource("Resource_t51h4")
+anchorXZ = Vector2i(22, 193)
+facing = 7
+floorY = 0
+
+[sub_resource type="Resource" id="Resource_yd32f"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("52_gbt4h")
+anchorXZ = Vector2i(17, 197)
+
+[sub_resource type="Resource" id="Resource_54585"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("52_gbt4h")
+anchorXZ = Vector2i(49, 221)
+
+[sub_resource type="Resource" id="Resource_w3fjj"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("52_gbt4h")
+anchorXZ = Vector2i(53, 223)
+
+[sub_resource type="Resource" id="Resource_cvfvb"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("63_wdkrc")
+anchorXZ = Vector2i(39, 204)
+
+[sub_resource type="Resource" id="Resource_88djj"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("63_wdkrc")
+anchorXZ = Vector2i(32, 204)
+
+[sub_resource type="Resource" id="Resource_ud8eg"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("63_wdkrc")
+anchorXZ = Vector2i(64, 168)
+
+[sub_resource type="Resource" id="Resource_nfewt"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("63_wdkrc")
+anchorXZ = Vector2i(68, 168)
+
+[sub_resource type="Resource" id="Resource_4vgdq"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(20, 213)
+
+[sub_resource type="Resource" id="Resource_p408l"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(19, 204)
+
+[sub_resource type="Resource" id="Resource_6qgqu"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("64_p408l")
+anchorXZ = Vector2i(42, 201)
+
+[sub_resource type="Resource" id="Resource_11tej"]
+script = ExtResource("66_wdkrc")
+species = ExtResource("67_upae5")
+elite = ExtResource("65_g6wiu")
+initialBehavior = &""
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_wwrru"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("68_mxty6")
+custom = SubResource("Resource_11tej")
+anchorXZ = Vector2i(59, 171)
+facing = 6
+
+[sub_resource type="Resource" id="Resource_wdkrc"]
+script = ExtResource("7_1qx4t")
+source = ExtResource("9_tf1ad")
+anchorXZ = Vector2i(78, 178)
+
+[sub_resource type="Resource" id="Resource_kkc0b"]
+script = ExtResource("64_upae5")
+path = "res://resources/data/world_authoring/subscenes/small_broken_house.hikescene"
+anchorXZ = Vector2i(31, 188)
+
+[sub_resource type="Resource" id="Resource_s82tm"]
+script = ExtResource("64_upae5")
+path = "res://resources/data/world_authoring/subscenes/bridge_span.hikescene"
+anchorXZ = Vector2i(63, 155)
+yOffset = 4
 
 [resource]
 script = ExtResource("1_ghrgx")
-entities = [SubResource("Resource_6skfk"), SubResource("Resource_biew4"), SubResource("Resource_uauec"), SubResource("Resource_ki3pu"), SubResource("Resource_tnxmk"), SubResource("Resource_tf1ad"), SubResource("Resource_1qx4t"), SubResource("Resource_q6pm2"), SubResource("Resource_0sbeh"), SubResource("Resource_1l3hx"), SubResource("Resource_bto32"), SubResource("Resource_hoevj")]
+placements = [SubResource("Resource_kkc0b"), SubResource("Resource_s82tm")]
+entities = [SubResource("Resource_6skfk"), SubResource("Resource_biew4"), SubResource("Resource_uauec"), SubResource("Resource_ki3pu"), SubResource("Resource_tnxmk"), SubResource("Resource_tf1ad"), SubResource("Resource_1qx4t"), SubResource("Resource_q6pm2"), SubResource("Resource_0sbeh"), SubResource("Resource_1l3hx"), SubResource("Resource_bto32"), SubResource("Resource_hoevj"), SubResource("Resource_pf02c"), SubResource("Resource_tfvip"), SubResource("Resource_upae5"), SubResource("Resource_mxty6"), SubResource("Resource_len05"), SubResource("Resource_87wr4"), SubResource("Resource_odsir"), SubResource("Resource_kq0fb"), SubResource("Resource_53cks"), SubResource("Resource_wcwq6"), SubResource("Resource_1wcul"), SubResource("Resource_k8rsf"), SubResource("Resource_bodnb"), SubResource("Resource_n5m4u"), SubResource("Resource_0vt3u"), SubResource("Resource_ohxtm"), SubResource("Resource_b0eil"), SubResource("Resource_og6bv"), SubResource("Resource_grigp"), SubResource("Resource_ou7c5"), SubResource("Resource_35503"), SubResource("Resource_a3q8t"), SubResource("Resource_61vef"), SubResource("Resource_0wuby"), SubResource("Resource_eaidk"), SubResource("Resource_bnkyu"), SubResource("Resource_y6bqp"), SubResource("Resource_0lonx"), SubResource("Resource_yd32f"), SubResource("Resource_54585"), SubResource("Resource_w3fjj"), SubResource("Resource_cvfvb"), SubResource("Resource_88djj"), SubResource("Resource_ud8eg"), SubResource("Resource_nfewt"), SubResource("Resource_4vgdq"), SubResource("Resource_p408l"), SubResource("Resource_6qgqu"), SubResource("Resource_wwrru"), SubResource("Resource_wdkrc")]
 hasSpawn = true
-spawnXZ = Vector2i(67, 213)
+spawnXZ = Vector2i(60, 216)

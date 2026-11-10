@@ -1,7 +1,7 @@
 using Godot;
 
 // Fires when the mob can burrow now and its target is beyond hideRange.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

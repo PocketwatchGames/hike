@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="ScrollData" format=3 uid="uid://ddd8x4t1fnf3y"]
+
+[ext_resource type="Script" uid="uid://but61wdla5xal" path="res://scripts/data/teaching/TreasureMapTeachable.cs" id="1_tdyq8"]
+[ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="2_05wpf"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="3_hpkdb"]
+[ext_resource type="Script" uid="uid://b8udvxvx1n3ug" path="res://scripts/data/items/ScrollData.cs" id="4_2ttrx"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="5_hvo8j"]
+
+[sub_resource type="Resource" id="Concept"]
+script = ExtResource("1_tdyq8")
+treasureName = "key_tutorial_bridge"
+mapName = "The Festering Man's Hiding Spot"
+
+[resource]
+script = ExtResource("4_2ttrx")
+concept = SubResource("Concept")
+unidentifiedDisplayName = &"Weathered Map"
+description = "The Festering Man buried the key to the bridge."
+value = 15
+inventorySprite = ExtResource("2_05wpf")

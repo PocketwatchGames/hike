@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="RegionData" format=3 uid="uid://grary0lf8qbz2"]
+[gd_resource type="Resource" script_class="RegionData" format=3 uid="uid://cvuwexn6ojgab"]
 
 [ext_resource type="Script" uid="uid://bj1yp8np3xx0j" path="res://scripts/data/world/RegionData.cs" id="1_script"]
 
 [resource]
 script = ExtResource("1_script")
-displayName = &"Mire of the Lost"
+displayName = &"Iluna\'s Rock"

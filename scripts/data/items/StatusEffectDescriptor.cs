@@ -19,7 +19,7 @@ public enum EWeaponModScope
 // through several foes. Composed onto the item's `statusEffects` controller at
 // creation; the scope + chargeIndex travel onto the live StatusEffectState so
 // the firing path (ItemEventHandlers.DoProjectile) can filter by charge tier.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

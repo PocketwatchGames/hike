@@ -9,9 +9,9 @@
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_mqa74"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
-[ext_resource type="PackedScene" uid="uid://dxxldcqs8hb6v" path="res://scenes/fx/bow_hit_creature.tscn" id="7_hitcreature"]
-[ext_resource type="PackedScene" uid="uid://dbkwlsxhbirtn" path="res://scenes/fx/bow_kill.tscn" id="7_hitkill"]
-[ext_resource type="PackedScene" uid="uid://dxx2ajycuaxpv" path="res://scenes/fx/bow_hit_solid.tscn" id="7_hitsolid"]
+[ext_resource type="PackedScene" path="res://scenes/fx/sling_hit_creature.tscn" id="7_hitcreature"]
+[ext_resource type="PackedScene" path="res://scenes/fx/sling_kill.tscn" id="7_hitkill"]
+[ext_resource type="PackedScene" path="res://scenes/fx/sling_hit_solid.tscn" id="7_hitsolid"]
 [ext_resource type="PackedScene" path="res://scenes/fx/blunderbuss_fire.tscn" id="8_fire"]
 [ext_resource type="PackedScene" path="res://scenes/fx/blunderbuss_load.tscn" id="8_load"]
 [ext_resource type="PackedScene" path="res://scenes/fx/gun_misfire.tscn" id="8_misfire"]
@@ -27,8 +27,11 @@
 
 [sub_resource type="Resource" id="Resource_event_scatter"]
 script = ExtResource("3_event")
-type = 41951300
+type = 42016836
 fx = ExtResource("8_fire")
+cameraShakeMagnitude = 0.3
+cameraShakeDuration = 0.22
+cameraShakeRange = 15.0
 noiseDecibels = 0.2
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
@@ -76,18 +79,18 @@ hitstun = 0.2
 knockbackDistance = 0.5
 knockbackTime = 0.2
 buildups = []
-modifiers = null
+modifiers = []
+
+[sub_resource type="Resource" id="repair_cost_steel"]
+script = ExtResource("material_count")
+item = ExtResource("salvage_steel")
+count = 2
 
 [sub_resource type="Resource" id="salvage_yield_steel"]
 script = ExtResource("material_count")
 item = ExtResource("salvage_steel")
 count = 2
 metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
-
-[sub_resource type="Resource" id="repair_cost_steel"]
-script = ExtResource("material_count")
-item = ExtResource("salvage_steel")
-count = 2
 
 [resource]
 script = ExtResource("2_weapon")
@@ -107,9 +110,10 @@ animSet = ExtResource("21_animset")
 weight = 0.6
 maxDurability = 60
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel")])
+repairHours = 12.0
 displayName = &"Blunderbuss"
 description = "A flared smoothbore that sprays a fan of shot: three pellets on a quick pull, up to nine if you hold to load more. Each pull spends one shell of shot."
-value = 50
+value = 80
 inventorySprite = ExtResource("15_sprite")
 heldModel = ExtResource("20_held")
 salvage = Array[ExtResource("material_count")]([SubResource("salvage_yield_steel")])

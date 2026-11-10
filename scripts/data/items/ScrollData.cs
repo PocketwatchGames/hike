@@ -12,7 +12,7 @@ using Godot;
 // Read-side: SimState.GetItemDisplayName routes through here so the info panel
 // and cook-discovery announcement stay in sync with the (post-identification)
 // concept-derived name.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

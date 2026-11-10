@@ -26,6 +26,7 @@ public sealed class WorldFileChunkSource : IChunkSource
     // Detail-palette slots, same contract — DetailGroup bytes index this.
     public string[] DetailSlots { get; }
     public RegionState[] Regions { get; }
+    public HabitatData[] Habitats { get; }
 
     // Named points of interest baked into the file. Main.LoadWorldFromFile
     // copies these into WorldState — nothing recomputes them after worldgen.
@@ -104,6 +105,13 @@ public sealed class WorldFileChunkSource : IChunkSource
             {
                 Data = string.IsNullOrEmpty(entry.DataPath) ? null : GD.Load<RegionData>(entry.DataPath),
             };
+        }
+
+        Habitats = new HabitatData[header.Habitats.Length];
+        for (int i = 0; i < header.Habitats.Length; i++)
+        {
+            string habitatPath = header.Habitats[i];
+            Habitats[i] = string.IsNullOrEmpty(habitatPath) ? null : GD.Load<HabitatData>(habitatPath);
         }
 
         PersistentEntities = header.PersistentEntities ?? new List<EntitySimState>();

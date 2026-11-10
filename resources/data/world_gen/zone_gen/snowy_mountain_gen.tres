@@ -11,6 +11,7 @@
 [ext_resource type="Resource" uid="uid://ok7jp66gk0al" path="res://resources/data/world_gen/spawn_groups/zone_campfire_fixtures.tres" id="10_fixtures"]
 [ext_resource type="Script" uid="uid://38wffcrscjmc" path="res://scripts/data/worldgen/OrganicZoneTerrainData.cs" id="11_zoneterrain"]
 [ext_resource type="Resource" uid="uid://bo7ej1snf13qx" path="res://resources/data/world_gen/foliage_gen/snowy_mountain.tres" id="F_foliage"]
+[ext_resource type="Resource" uid="uid://cmt7hbf3vxit4" path="res://resources/data/habitats/wilds_harsh.tres" id="habitat"]
 
 [sub_resource type="Resource" id="ZoneTerrain_snowy_mountain"]
 script = ExtResource("11_zoneterrain")
@@ -22,6 +23,7 @@ metadata/_custom_type_script = "uid://61iu4uosbxjog"
 [resource]
 script = ExtResource("1_script")
 zone = ExtResource("2_zone")
+habitat = ExtResource("habitat")
 surfaceTerrain = ExtResource("3_kit_surface")
 foliage = ExtResource("F_foliage")
 caveTerrain = ExtResource("4_kit_cave")

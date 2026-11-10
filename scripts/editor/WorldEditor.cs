@@ -375,11 +375,13 @@ public partial class WorldEditor : Node3D
     private WorldState _worldState;
     private EditorHistory _history;
     private Vector3 _cursorPosition;
-    // The cutaway. Always finite, even when "off" — off parks it above the
-    // world's highest voxel rather than at infinity, so the camera, the cap mask
-    // and PaintCells all keep working on a real number. Seeded in Init.
+    // The cutaway height, meaningful only while _clipOff is false. Everything that
+    // tests against the cut reads CutY instead, which is +inf while off — a
+    // height parked at the ceiling goes stale the moment anything is built above
+    // it, and PaintCells then silently refused every cell on the new storey.
     private float _clipY;
     private bool _clipOff = true;
+    private float CutY => _clipOff ? float.PositiveInfinity : _clipY;
     // The drafting plane: what a click that hits no geometry resolves against,
     // and where the ground sheet draws. Always a plateau increment (see
     // SetClipY), so it reads the same for every brush shape. Held across a
@@ -552,7 +554,6 @@ public partial class WorldEditor : Node3D
         // in the sky), so it starts at the authored ground line and becomes
         // clip-driven from the first R/F press.
         _clipOff = true;
-        _clipY = ClipCeiling();
         _buildY = SnapToPlateau(emptyAirPaintY);
         // Before the Sim is built — it latches day/night off the clock.
         ApplyTimeOfDay(editorTimeOfDay);
@@ -951,7 +952,7 @@ public partial class WorldEditor : Node3D
         // are invisible, so they must keep drawing while the view is moved.
         if (CVars.editorMarkerOverlay.Value)
         {
-            EditorMarkerOverlay.Draw(_worldState, _cursorPosition, _clipY,
+            EditorMarkerOverlay.Draw(_worldState, _cursorPosition, CutY,
                 markerOverlayRadiusXZ, markerOverlayRadiusY,
                 openingMarkerColor, barrierMarkerColor, markerOccludedColor);
         }
@@ -1849,7 +1850,8 @@ public partial class WorldEditor : Node3D
         // geometry would pass through without any hit. Detect this case by
         // sampling the voxel at the ray/clip-plane intersection and, if it's
         // solid, synthesize a hit on the top of that block. With the clip off
-        // the sampled cell is above every voxel, so this falls through.
+        // there is no plane, so nothing is cut open.
+        if (!_clipOff)
         {
             Vector3 rayOrigin = camera.ProjectRayOrigin(screenPos);
             Vector3 rayDir = camera.ProjectRayNormal(screenPos);
@@ -1943,17 +1945,10 @@ public partial class WorldEditor : Node3D
     }
 
     // The cutaway parked OFF cuts nothing, so the camera gets infinity rather
-    // than a height derived from the world's content. _clipY stays finite there
-    // (the drafting plane, the marker overlay and picking all measure against
-    // it), but handing that number to the camera cut away whatever stood at the
-    // ceiling itself — a roof, which is tested at its anchor and sits exactly on
-    // the band its walls top out at, came off while the cutaway claimed to be
-    // off. Worse, the ceiling is sampled when the cutaway is turned off, so a
-    // roof drawn afterwards was invisible until R/F was pressed.
+    // than a height derived from the world's content.
     private void PushCameraClip()
     {
-        float clip = _clipOff ? float.PositiveInfinity : _clipY - CLIP_VISUAL_BIAS;
-        camera.SetClip(clip, _cursorPosition, allowMaxClip: false);
+        camera.SetClip(CutY - CLIP_VISUAL_BIAS, _cursorPosition, allowMaxClip: false);
     }
 
     // Rounds a base elevation down onto the camera's cutaway band grid, so a
@@ -2073,7 +2068,6 @@ public partial class WorldEditor : Node3D
     private void SetClipOff()
     {
         _clipOff = true;
-        _clipY = ClipCeiling();
     }
 
     // The stamp shapes (Voxel / Window / Door), applied at a single click or
@@ -2429,7 +2423,7 @@ public partial class WorldEditor : Node3D
     // pokes through the cutaway still lays down the part you can see.
     private void PaintCells(EditorEdit edit, List<Vector3I> cells, EEditorBrushOperation operation)
     {
-        int clipFloor = Mathf.FloorToInt(_clipY);
+        int clipFloor = _clipOff ? int.MaxValue : Mathf.FloorToInt(_clipY);
         bool erasing = operation == EEditorBrushOperation.Erase;
         VoxelBrush brush = _voxelBrushes[_voxelTypeIndex];
         int type = erasing ? Blocks.AirId : brush.BlockId;
@@ -3190,7 +3184,7 @@ public partial class WorldEditor : Node3D
         if (rayDir.Y < 0f)
         {
             const float CLIP_RAY_EXTRA = 0.01f;
-            float targetY = _clipY - CLIP_VISUAL_BIAS - CLIP_RAY_EXTRA;
+            float targetY = CutY - CLIP_VISUAL_BIAS - CLIP_RAY_EXTRA;
             if (rayOrigin.Y > targetY)
             {
                 float t = (targetY - rayOrigin.Y) / rayDir.Y;

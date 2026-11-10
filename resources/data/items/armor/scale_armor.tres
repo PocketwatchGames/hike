@@ -50,6 +50,7 @@ outfit = SubResource("outfit")
 weight = 1.0
 maxDurability = 10000
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_steel"), SubResource("repair_cost_leather")])
+repairHours = 12.0
 displayName = &"Brigandine"
 description = "Overlapping metal scales spread the force of a blow — heavier than mail, and it shows in the stride."
 value = 60

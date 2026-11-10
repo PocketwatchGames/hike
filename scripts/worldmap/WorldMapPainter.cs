@@ -200,6 +200,7 @@ public partial class WorldMapPainter : Node3D
             new SceneTool(),
             new MobLevelTool(),
             new MobTool(),
+            new HabitatTool(),
             new EntityTool(),
         };
         _toolIndex = 0;
@@ -448,6 +449,24 @@ public partial class WorldMapPainter : Node3D
         UpdateHud();
     }
 
+    // R/F, with shift reaching the tool's secondary level where it has one.
+    // Bracketed like a stroke: for most tools this only moves a tool parameter
+    // and the edit drops itself, but the scene tool turns or raises the SELECTED
+    // stamp, which is document state.
+    private void AdjustLevelKey(InputEvent e, int dir)
+    {
+        _history.Begin(ActiveTool.Name).TouchPlacements(_ctx);
+        bool shifted = e is InputEventKey key && key.ShiftPressed;
+        if (!shifted || !ActiveTool.AdjustSecondaryLevel(_ctx, dir))
+        {
+            ActiveTool.AdjustLevel(_ctx, dir);
+        }
+        _history.Commit();
+        RebuildFull();
+        UpdateHud();
+        GetViewport().SetInputAsHandled();
+    }
+
     public override void _UnhandledInput(InputEvent e)
     {
         if (ConsoleUI.IsOpen)
@@ -510,25 +529,12 @@ public partial class WorldMapPainter : Node3D
         }
         if (e.IsActionPressed("EditorUp"))  // R — active elevation / carve level up
         {
-            // Bracketed like a stroke: for most tools this only moves a tool
-            // parameter and the edit drops itself, but the scene tool turns the
-            // SELECTED stamp, which is document state.
-            _history.Begin(ActiveTool.Name).TouchPlacements(_ctx);
-            ActiveTool.AdjustLevel(_ctx, 1);
-            _history.Commit();
-            RebuildFull();
-            UpdateHud();
-            GetViewport().SetInputAsHandled();
+            AdjustLevelKey(e, 1);
             return;
         }
         if (e.IsActionPressed("EditorDown"))  // F — active elevation / carve level down
         {
-            _history.Begin(ActiveTool.Name).TouchPlacements(_ctx);
-            ActiveTool.AdjustLevel(_ctx, -1);
-            _history.Commit();
-            RebuildFull();
-            UpdateHud();
-            GetViewport().SetInputAsHandled();
+            AdjustLevelKey(e, -1);
             return;
         }
 
@@ -582,13 +588,25 @@ public partial class WorldMapPainter : Node3D
                     GetViewport().SetInputAsHandled();
                     return;
                 case Key.X:
-                    if (ActiveTool.ToggleMode())
+                {
+                    // Bracketed: the scene tool's mode is the SELECTED stamp's
+                    // seating, which is document state. Elsewhere it moves a tool
+                    // parameter and the edit drops itself.
+                    _history.Begin(ActiveTool.Name).TouchPlacements(_ctx);
+                    bool handled = ActiveTool.ToggleMode(_ctx);
+                    _history.Commit();
+                    if (handled)
                     {
+                        if (ActiveTool.SelectedPlacement != null)
+                        {
+                            RebuildFull();
+                        }
                         UpdateHud();
                         GetViewport().SetInputAsHandled();
                         return;
                     }
                     break;
+                }
                 case Key.Bracketleft:
                     AdjustRadius(-1);
                     GetViewport().SetInputAsHandled();
@@ -1051,9 +1069,16 @@ public partial class WorldMapPainter : Node3D
         // is the answer, and hiding it zoomed out hides the barrier you came to
         // look at. A mob dot is one roll off a rate, where a smear says nothing
         // and needs a couple of pixels per metre to read at all.
-        if (view.PreviewLayer.HasFlag(ESpawnPreview.Props))
+        bool showsProps = view.PreviewLayer.HasFlag(ESpawnPreview.Props);
+        if (showsProps)
         {
             DrawPropDots(x0, z0, x1, z1, _markedPropList);
+        }
+        else
+        {
+            // A view about something else still shows where the barriers are,
+            // receded so its own colour stays the answer.
+            DrawPropDots(x0, z0, x1, z1, null, ink.propDotDimAlpha);
         }
         if (view.PreviewLayer.HasFlag(ESpawnPreview.Mobs) && pixelsPerMeter >= 2)
         {
@@ -1077,9 +1102,31 @@ public partial class WorldMapPainter : Node3D
         // zoom the way the dots are — a dot is an impression of a random roll and
         // a smear of them says nothing, while an entity is one thing you put
         // somewhere and needing to find it is why you are looking.
-        if (view.PreviewLayer.HasFlag(ESpawnPreview.Props))
+        if (showsProps)
         {
             DrawEntityMarks(x0, z0, x1, z1);
+        }
+        else
+        {
+            DrawEntityGhosts(x0, z0, x1, z1);
+        }
+    }
+
+    // The entities on a view that does not show props: a faint white dot each,
+    // no highlight and no facing line — where things stand, not what they are.
+    private void DrawEntityGhosts(int x0, int z0, int x1, int z1)
+    {
+        foreach (EntityPlacement placement in _ctx.Placements.entities)
+        {
+            if (placement == null)
+            {
+                continue;
+            }
+            Vector2I at = _ctx.TexelXZ(placement.anchorXZ);
+            if (at.X >= x0 && at.X < x1 && at.Y >= z0 && at.Y < z1)
+            {
+                DrawSpawnDot(at.X, at.Y, ink.entityGhostInk, ink.propDotFraction);
+            }
         }
     }
 
@@ -1443,7 +1490,9 @@ public partial class WorldMapPainter : Node3D
     // so every region draws full. The others recede on ALPHA rather than losing
     // their colour, so "which list is this" and "what does it do to movement"
     // are both still legible while one of them is being answered.
-    private void DrawPropDots(int x0, int z0, int x1, int z1, PropListData picked)
+    // `alpha`, when given, overrides both weights — a view about something else
+    // draws every region at one receded weight.
+    private void DrawPropDots(int x0, int z0, int x1, int z1, PropListData picked, float? alpha = null)
     {
         PropListData[] lists = _ctx.PropLists;
         for (int px = x0; px < x1; px++)
@@ -1458,7 +1507,7 @@ public partial class WorldMapPainter : Node3D
                 Color c = lists[idx]?.mapColor ?? Colors.White;
                 bool full = picked == null || ReferenceEquals(lists[idx], picked);
                 DrawSpawnDot(px, pz,
-                    new Color(c.R, c.G, c.B, full ? ink.propDotAlpha : ink.propDotDimAlpha),
+                    new Color(c.R, c.G, c.B, alpha ?? (full ? ink.propDotAlpha : ink.propDotDimAlpha)),
                     ink.propDotFraction);
             }
         }

@@ -2,7 +2,7 @@ using Godot;
 
 // Teaches a cookpot meal — adds it to SimState.DiscoveredRecipes so it shows up
 // in the cookpot's recipe list before the player has ever cooked it.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

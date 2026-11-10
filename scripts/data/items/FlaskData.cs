@@ -6,7 +6,7 @@ using Godot;
 // the member's lantern oil (burned once the member's own runs dry). A well refills every
 // water flask, an oil fountain every oil flask. Non-stackable — each one holds
 // its own amount (FlaskState.amount), and a new flask comes full.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

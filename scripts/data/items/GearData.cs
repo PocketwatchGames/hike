@@ -3,7 +3,7 @@ using Godot;
 // Equipment that wears out with use: weapons, armor, shields, and hotbar tools
 // (ToolData). GearState holds the live durability; what each kind of use costs
 // and what breaking takes away is described on GearState.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

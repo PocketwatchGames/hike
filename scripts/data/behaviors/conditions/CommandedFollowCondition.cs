@@ -2,7 +2,7 @@ using Godot;
 
 // Fires when the player has released the stay command. Drives the
 // Stay -> Follow transition.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

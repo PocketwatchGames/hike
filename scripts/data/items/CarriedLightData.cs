@@ -5,7 +5,7 @@ using Godot;
 // when it leaves the place it can burn in. Rain past PlayerData
 // .lanternDouseRainThreshold and swimming douse either kind. Gear, so a torch's
 // burn is durability; the lantern never wears (maxDurability 0).
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

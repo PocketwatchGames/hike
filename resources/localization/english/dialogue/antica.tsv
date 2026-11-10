@@ -5,3 +5,14 @@ intro_fairy_greeting_02	Soggy one, can you hear? Hear me.
 intro_fairy_greeting_03	I tell you your friends ran off. The bear ate one. But the other left.
 intro_fairy_greeting_04	He took your stuff. He went towards the festering man.
 intro_fairy_greeting_05	Soggy one, I’m near grown. But my sisters are out there. The festering man knows. Find him.
+festering_man_description	The Festering Man
+festering_man_greeting_01	Another! The sea spat you out too, huh?
+festering_man_language_gestures	Your language is foreign to me. Do you speak the common tongue?
+festering_man_language_convo	Aye. My flesh was unwelcome even in her hungry gullet, thanks be.
+festering_man_gestures_01	[narrate]He shakes his head and points down the hill at a monument along the shore.[/narrate]
+festering_man_gestures_02	[narrate]Next, he holds up three fingers, points to the goblins in the forest, and then points to his cookpot.[/narrate]
+festering_man_gestures_03	[narrate]Finally, he points to the tent and bows his head.[/narrate]
+festering_man_convo_01	I’m afraid my cookpot is also empty. But if you find 3 cuts of goblin flesh you’ll feed us both!
+festering_man_convo_02	And sleep if you wish.
+festering_man_convo_03	And I am always willing to trade if you have brought anything of value.
+festering_man_convo_04	Welcome to my most unpleasant home.

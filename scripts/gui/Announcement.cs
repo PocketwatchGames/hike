@@ -56,4 +56,9 @@ public class Announcement
 
 	// Region context used by HudRegionBanner — only set when type=Region.
 	public RegionData region;
+
+	// Optional 0..1 progress the announcement moved, drawn by HudAnnouncementBanner
+	// as a bar filling from progressFrom to progressTo. Null = no bar.
+	public float? progressFrom;
+	public float? progressTo;
 }

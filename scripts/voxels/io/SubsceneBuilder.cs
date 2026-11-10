@@ -40,8 +40,8 @@ public static class SubsceneBuilder
         return any;
     }
 
-    // Every voxel inside the bbox is marked present (= it overwrites the
-    // destination on stamp), so enclosed air overwrites too.
+    // Every voxel inside the bbox is marked present; the stamper still skips
+    // plain air, so a scene never clears the space it lands in.
     //
     // The anchor's Y is the AUTHORING WORLD'S y=0 plane, not the bbox floor:
     // whatever you built at y=0 lands on the destination ground, and anything

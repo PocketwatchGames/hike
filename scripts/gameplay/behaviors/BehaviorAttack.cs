@@ -229,6 +229,10 @@ public partial class BehaviorAttack : BehaviorBase
         // Keyed off targetPos, the ring sits on the last-known spot until the
         // mob reacquires line of sight, matching where it's facing.
         Vector3 standoff = NavigationGoals.PickStandoffPoint(sim, me.Navigator.Profile, targetPos, standoffDistance, ringAngle, lungeReach);
+        if (!closing && dist2d < standoffDistance)
+        {
+            output.speed = _data.backOffSpeed;
+        }
         me.Navigator.Goto(standoff, allowFalling: true, avoidHazards: false);
         return new BehaviorOutput(EBehaviorResult.Running);
     }

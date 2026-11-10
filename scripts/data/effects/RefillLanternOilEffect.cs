@@ -3,7 +3,7 @@ using Godot;
 // Tops up the player's lantern oil — the payload of the Lantern Oil consumable,
 // an oil droplet and an oil fountain. Fills the member's own oil first, then the
 // carried oil flasks (Player.AddLanternOil).
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

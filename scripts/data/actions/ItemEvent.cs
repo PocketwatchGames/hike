@@ -11,7 +11,8 @@ using Godot.Collections;
 // The inspector hides fields whose owning flag isn't selected (see
 // `_ValidateProperty`). Storage is preserved while hidden, so toggling a
 // flag off and back on doesn't lose previously-authored values. `[Tool]`
-// is required for `_ValidateProperty` to fire in the editor.
+// is required for `_ValidateProperty` to fire in the editor — and because
+// `reagent` is an ItemData, it is what keeps the whole item closure [Tool].
 [Tool]
 [GlobalClass]
 public partial class ItemEvent : Resource

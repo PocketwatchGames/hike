@@ -1283,7 +1283,7 @@ public partial class AimingReticle : Node3D
 			Vector3 next = pos + vel * ArcSimStep;
 			if (space != null)
 			{
-				using var q = PhysicsRayQueryParameters3D.Create(pos, next, (uint)ECollisionLayer.Solid);
+				using var q = PhysicsRayQueryParameters3D.Create(pos, next, (uint)ECollisionLayer.Impact);
 				q.CollideWithBodies = true;
 				q.CollideWithAreas = false;
 				if (exclude != null)
@@ -1797,7 +1797,7 @@ public partial class AimingReticle : Node3D
 		{
 			bodyExclude.Add(_player.GetRid());
 		}
-		using var envQuery = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
+		using var envQuery = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Impact);
 		envQuery.CollideWithBodies = true;
 		envQuery.CollideWithAreas = false;
 		envQuery.Exclude = bodyExclude;

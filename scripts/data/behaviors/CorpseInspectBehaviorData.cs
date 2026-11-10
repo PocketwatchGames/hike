@@ -4,7 +4,7 @@ using Godot;
 // three cases — a death witnessed at the hands of an attacker, a death by trap,
 // and a body come across later — because they are the same sequence with legs
 // left out; the stimulus (CorpseSighting) says which.
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

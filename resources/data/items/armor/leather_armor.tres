@@ -7,7 +7,7 @@
 [ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 [ext_resource type="Script" uid="uid://6h7yge1txki2" path="res://scripts/data/characters/OutfitData.cs" id="outfit_script"]
-[ext_resource type="Resource" path="res://resources/data/items/materials/sinew.tres" id="repair_sinew"]
+[ext_resource type="Resource" uid="uid://d2memcvl5drkq" path="res://resources/data/items/materials/sinew.tres" id="repair_sinew"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/leather.tres" id="salvage_leather"]
 
 [sub_resource type="Resource" id="m_cold"]
@@ -63,6 +63,7 @@ outfit = SubResource("outfit")
 weight = 0.5
 maxDurability = 6000
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_leather"), SubResource("repair_cost_sinew")])
+repairHours = 8.0
 displayName = &"Trapper\'s Jerkin"
 description = "Smoke-tanned buckskin, stiff with old grease and patched at the elbows — it turns a thorn or a glancing knife, and smells of every campfire it has known."
 value = 60

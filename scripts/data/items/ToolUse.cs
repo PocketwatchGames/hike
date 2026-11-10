@@ -3,7 +3,7 @@ using Godot;
 // One kind of tool an item serves as (ItemData.toolUses), and the durability one
 // use spends when the item wears (a GearData). Carrying the item anywhere —
 // equipped, belt, backpack or a sack — is enough (Inventory.FindTool).
-// [Tool]: reachable from ZoneData.zoneLoot through ItemCountRange — see
+// [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]

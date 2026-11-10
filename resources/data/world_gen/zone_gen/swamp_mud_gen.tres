@@ -14,6 +14,7 @@
 [ext_resource type="Resource" uid="uid://bfcfe26d6bj6a" path="res://resources/data/items/scrolls/treasure_map_swamp_mud.tres" id="96_map"]
 [ext_resource type="Resource" uid="uid://4efn43odde5i" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_3.tres" id="97_spot"]
 [ext_resource type="Resource" uid="uid://duhbyv7bnv3p7" path="res://resources/data/world_gen/foliage_gen/swamp_mud.tres" id="F_foliage"]
+[ext_resource type="Resource" uid="uid://cen738jhlmthl" path="res://resources/data/habitats/swamp_mud.tres" id="habitat"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_script"]
 [ext_resource type="Resource" uid="uid://bante0m1vlh6a" path="res://resources/data/items/scrolls/scroll_grilled_drake.tres" id="rc0"]
 [ext_resource type="Resource" uid="uid://bvwbp0bcuwn4i" path="res://resources/data/items/scrolls/scroll_grilled_sparrow.tres" id="rc1"]
@@ -74,6 +75,7 @@ metadata/_custom_type_script = "uid://3pbpzzvmrk0vy"
 [resource]
 script = ExtResource("8_6p0r5")
 zone = ExtResource("9_p15ox")
+habitat = ExtResource("habitat")
 surfaceTerrain = ExtResource("6_4e0co")
 caveTerrain = ExtResource("2_p15ox")
 submergedTerrain = ExtResource("4_64pvx")

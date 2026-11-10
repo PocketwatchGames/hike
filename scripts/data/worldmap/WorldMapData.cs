@@ -149,6 +149,7 @@ public partial class WorldMapData : Resource
     public const string WATER_FILE = "water.exr";                // Rf, per column (voxels rel. sea, signed)
     public const string REGION_FILE = "region.png";              // R8, per chunk
     public const string ZONE_FILE = "zone.png";                  // R8, per chunk
+    public const string HABITAT_FILE = "habitat.png";            // R8, per chunk (habitat + 1, 0 = none)
     // Prevailing wind, per CHUNK — the grid the bake seeds ChunkState's wind
     // velocity subgrid at. R = compass angle (0..255 spans a full turn), G =
     // strength (0 = UNPAINTED, inherit the zone's prevailing direction; 1..255
@@ -177,7 +178,7 @@ public partial class WorldMapData : Resource
     {
         ELEVATION_FILE, WATER_FILE, REGION_FILE, ZONE_FILE, WIND_FILE, BLOCKING_PROPS_FILE,
         GROUND_FILE, WATER_TYPE_FILE, PAVING_FILE, PLACEMENTS_FILE, PALETTES_FILE, MOBS_FILE,
-        SCALARS_FILE, TUNNELS_FILE,
+        SCALARS_FILE, TUNNELS_FILE, HABITAT_FILE,
     };
 
     // World m/s the wind layer's full strength paints. The layer stores a
@@ -201,6 +202,7 @@ public partial class WorldMapData : Resource
     public string WaterImagePath => LayerPath(WATER_FILE);
     public string RegionImagePath => LayerPath(REGION_FILE);
     public string ZoneImagePath => LayerPath(ZONE_FILE);
+    public string HabitatImagePath => LayerPath(HABITAT_FILE);
     public string WindImagePath => LayerPath(WIND_FILE);
     public string BlockingPropImagePath => LayerPath(BLOCKING_PROPS_FILE);
     public string GroundImagePath => LayerPath(GROUND_FILE);
@@ -395,6 +397,11 @@ public partial class WorldMapData : Resource
         return LoadOrCreateChunkImage(RegionImagePath);
     }
 
+    public Image LoadOrCreateHabitat()
+    {
+        return LoadOrCreateChunkImage(HabitatImagePath);
+    }
+
     public Image LoadOrCreateZone()
     {
         return LoadOrCreateChunkImage(ZoneImagePath);
@@ -559,6 +566,11 @@ public partial class WorldMapData : Resource
     public void SaveRegion(Image img)
     {
         SavePng(RegionImagePath, img, "region");
+    }
+
+    public void SaveHabitat(Image img)
+    {
+        SavePng(HabitatImagePath, img, "habitat");
     }
 
     public void SaveZone(Image img)

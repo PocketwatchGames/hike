@@ -394,7 +394,7 @@ public partial class Projectile : Node3D
 			if (bounceWorld != null)
 			{
 				using var envQuery = PhysicsRayQueryParameters3D.Create(prev, next);
-				envQuery.CollisionMask = (uint)ECollisionLayer.Solid;
+				envQuery.CollisionMask = (uint)ECollisionLayer.Impact;
 				envQuery.CollideWithBodies = true;
 				envQuery.CollideWithAreas = false;
 				if (_bodyExclude != null)
@@ -445,7 +445,7 @@ public partial class Projectile : Node3D
 				if (EnvironmentCollisionArmed)
 				{
 					using var envQuery = PhysicsRayQueryParameters3D.Create(prev, next);
-					envQuery.CollisionMask = (uint)ECollisionLayer.Solid;
+					envQuery.CollisionMask = (uint)ECollisionLayer.Impact;
 					envQuery.CollideWithBodies = true;
 					envQuery.CollideWithAreas = false;
 					if (_bodyExclude != null)

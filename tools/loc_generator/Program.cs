@@ -123,6 +123,8 @@ class Program
 
 	const string TagOpen = "[lang:";
 	const string TagClose = "[/lang]";
+	const string NarrateOpen = "[narrate]";
+	const string NarrateClose = "[/narrate]";
 	// Mirrors LanguageText.CommonId - the reserved span id meaning "no
 	// language", so it is never registered as a LanguageData.
 	const string CommonId = "common";
@@ -175,48 +177,71 @@ class Program
 	// particular line happens to be shown in game.
 	static void ValidateLanguageSpans(string key, string value, HashSet<string> knownIds, ref int warnings)
 	{
-		bool open = false;
+		// The closing tag the span we are inside expects; null outside a span.
+		string openClose = null;
 		int i = 0;
-		while (true)
+		while (i < value.Length)
 		{
-			int nextOpen = value.IndexOf(TagOpen, i, StringComparison.Ordinal);
-			int nextClose = value.IndexOf(TagClose, i, StringComparison.Ordinal);
-			if (nextOpen < 0 && nextClose < 0)
+			if (value[i] != '[')
 			{
-				break;
-			}
-			if (nextClose >= 0 && (nextOpen < 0 || nextClose < nextOpen))
-			{
-				if (!open)
-				{
-					Warn(key, $"'{TagClose}' with no open span", ref warnings);
-				}
-				open = false;
-				i = nextClose + TagClose.Length;
+				i++;
 				continue;
 			}
-			int end = value.IndexOf(']', nextOpen + TagOpen.Length);
-			if (end < 0)
+			string close = StartsAt(value, i, TagClose) ? TagClose
+				: StartsAt(value, i, NarrateClose) ? NarrateClose
+				: null;
+			if (close != null)
 			{
-				Warn(key, $"unterminated '{TagOpen}' tag", ref warnings);
-				return;
+				if (openClose != close)
+				{
+					Warn(key, $"'{close}' with no matching open span", ref warnings);
+				}
+				openClose = null;
+				i += close.Length;
+				continue;
 			}
-			if (open)
+			if (StartsAt(value, i, NarrateOpen))
 			{
-				Warn(key, $"nested '{TagOpen}' tag - spans do not nest", ref warnings);
+				if (openClose != null)
+				{
+					Warn(key, $"'{NarrateOpen}' inside another span - spans do not nest", ref warnings);
+				}
+				openClose = NarrateClose;
+				i += NarrateOpen.Length;
+				continue;
 			}
-			string id = value.Substring(nextOpen + TagOpen.Length, end - nextOpen - TagOpen.Length);
-			if (id != CommonId && !knownIds.Contains(id))
+			if (StartsAt(value, i, TagOpen))
 			{
-				Warn(key, $"unknown language id '{id}' - no LanguageData under resources/ declares it, and it is not '{CommonId}'", ref warnings);
+				int end = value.IndexOf(']', i + TagOpen.Length);
+				if (end < 0)
+				{
+					Warn(key, $"unterminated '{TagOpen}' tag", ref warnings);
+					return;
+				}
+				if (openClose != null)
+				{
+					Warn(key, $"'{TagOpen}' inside another span - spans do not nest", ref warnings);
+				}
+				string id = value.Substring(i + TagOpen.Length, end - i - TagOpen.Length);
+				if (id != CommonId && !knownIds.Contains(id))
+				{
+					Warn(key, $"unknown language id '{id}' - no LanguageData under resources/ declares it, and it is not '{CommonId}'", ref warnings);
+				}
+				openClose = TagClose;
+				i = end + 1;
+				continue;
 			}
-			open = true;
-			i = end + 1;
+			i++;
 		}
-		if (open)
+		if (openClose != null)
 		{
-			Warn(key, $"span left open (missing '{TagClose}')", ref warnings);
+			Warn(key, $"span left open (missing '{openClose}')", ref warnings);
 		}
+	}
+
+	static bool StartsAt(string value, int index, string tag)
+	{
+		return string.CompareOrdinal(value, index, tag, 0, tag.Length) == 0;
 	}
 
 	static void Warn(string key, string message, ref int warnings)

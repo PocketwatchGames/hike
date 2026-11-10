@@ -83,6 +83,7 @@ transitions = [SubResource("Resource_idle_to_retreat"), SubResource("Resource_id
 [sub_resource type="Resource" id="Resource_attack"]
 script = ExtResource("5_attack")
 encircleDistance = 6.0
+backOffSpeed = 0.45
 attackFacingToleranceDegrees = 45.0
 attackPauseRandomSeconds = 1.0
 behaviorFlags = 1

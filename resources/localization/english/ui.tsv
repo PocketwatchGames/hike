@@ -6,6 +6,11 @@ status_duration_until_time	Until %0
 danger_nearby	Danger Nearby
 too_hurt_to_rest	Too Hurt to Rest
 game_saved	Game Saved
+language_learned	Language Learned
+language_learned_component	%0 %1
+language_component_grammar	Grammar
+language_component_numbers	Numbers
+language_component_vocabulary	Vocabulary %0
 not_enough_health_to_revive	Not Enough Health
 inventory_full	Inventory Full
 picked_up	Picked up
@@ -65,6 +70,7 @@ merchant_return	Return
 requires_key	Requires a Key
 item_used	%0 used
 item_used_count	%0 x%1 used
+key_used	Used %0
 panel_backpack	Backpack
 panel_stash	Stash
 panel_belt	Belt

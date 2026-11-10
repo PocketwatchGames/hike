@@ -1335,9 +1335,8 @@ public partial class SimData : Resource
     [ExportGroup("Fairy Ambient Spawn")]
     // The fairy the FairySpawner materializes near the player at a few points across
     // the day (its daytime sibling to the NightMobSpawner). Null = the fairy spawner
-    // stays dormant (no cost). WHICH zones spawn fairies — and how likely — is
-    // authored per zone on ZoneData.canSpawnFairy / fairySpawnChance, read live at
-    // the player's location. Spawns are TRANSIENT (Sim.SpawnMobTransient with
+    // stays dormant (no cost). WHERE fairies spawn — and how likely — is
+    // HabitatData.fairySpawnChance, read live at the player's location. Spawns are TRANSIENT (Sim.SpawnMobTransient with
     // ESpawnConditions.None), so like the night gellies they live only near the
     // player and are never persisted.
     [Export] public SpeciesData fairySpawnSpecies;

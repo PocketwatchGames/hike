@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://shaders/ground_stain_tinted.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://d4iwadglgkda0" path="res://assets/textures/effects/blood_stain_02.png" id="2_stain"]
+
+[resource]
+resource_name = "blood_pool_02"
+shader = ExtResource("1_shader")
+shader_parameter/stain_texture = ExtResource("2_stain")

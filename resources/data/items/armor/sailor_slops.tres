@@ -47,6 +47,7 @@ outfit = SubResource("outfit")
 weight = 0.25
 maxDurability = 3000
 repair = Array[ExtResource("5_oxopc")]([SubResource("repair_cost_cloth")])
+repairHours = 6.0
 displayName = &"Sailor Slops"
 description = "Protects from the chill of the open ocean, dries quickly."
 value = 60

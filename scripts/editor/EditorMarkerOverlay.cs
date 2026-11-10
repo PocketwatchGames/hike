@@ -54,7 +54,7 @@ public static class EditorMarkerOverlay
                 for (int x = cx - radiusXZ; x <= cx + radiusXZ; x++)
                 {
                     int type = ws.GetBlockWorld(x, y, z);
-                    if (type != Blocks.OpeningId && type != Blocks.BarrierId)
+                    if (type != Blocks.OpeningId && type != Blocks.BarrierId && type != Blocks.ClearBarrierId)
                     {
                         continue;
                     }
