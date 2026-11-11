@@ -162,6 +162,15 @@ public interface IWorldMapTool
     // grab radius — which is what lets the painter grow and name whatever the
     // cursor is over without knowing how one is grabbed.
     EntityPlacement EntityUnder(WorldMapState ctx, Vector2I texel) => null;
+
+    // The entity of a STAMPED SCENE this tool has selected, or null — the same
+    // panel edits it, forking its entry for that stamp alone. Only the entity
+    // tool answers with anything.
+    SceneEntityTarget SelectedSceneEntity => null;
+
+    // The stamped scene's entity under this column, or null, by the same rule
+    // EntityUnder follows. A hand placement in the same cell wins.
+    SceneEntityTarget SceneEntityUnder(WorldMapState ctx, Vector2I texel) => null;
 }
 
 // Which spawn layers a view previews as dots. A SET, not a choice: every view

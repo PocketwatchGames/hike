@@ -1,0 +1,63 @@
+[gd_resource type="Resource" script_class="SubsceneEntities" format=3]
+
+[ext_resource type="Script" uid="uid://x2lwcbq1u8tta" path="res://scripts/data/SceneEntityPlacement.cs" id="1_s2qvj"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/other/windowframe_timber.tres" id="2_q3rma"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/door.tres" id="3_hbpvj"]
+[ext_resource type="PackedScene" uid="uid://z99zlzrjpchbb" path="res://scenes/editor/spawn_marker.tscn" id="4_kwgjc"]
+[ext_resource type="Script" uid="uid://8j6fhe7o4517t" path="res://scripts/data/spawn/MarkerSpawnEntry.cs" id="5_nmwj5"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/marker.tres" id="6_jixoq"]
+[ext_resource type="Script" uid="uid://41lo9qn3msvo8" path="res://scripts/data/spawn/RoofSpawnEntry.cs" id="7_cni54"]
+[ext_resource type="Resource" uid="uid://bun2d7ceigicv" path="res://resources/data/roofs/roof_wood_shakes.tres" id="8_spg1b"]
+[ext_resource type="Script" uid="uid://gdg3bigklxmsu" path="res://scripts/data/SubsceneEntities.cs" id="9_pxqla"]
+
+[sub_resource type="Resource" id="Resource_ms1k4"]
+script = ExtResource("1_s2qvj")
+id = 1
+position = Vector3(5.5, 2, 2.5)
+source = ExtResource("2_q3rma")
+
+[sub_resource type="Resource" id="Resource_ms8qq"]
+script = ExtResource("1_s2qvj")
+id = 2
+position = Vector3(5.5, 2, 10.5)
+source = ExtResource("2_q3rma")
+
+[sub_resource type="Resource" id="Resource_6s8pm"]
+script = ExtResource("1_s2qvj")
+id = 3
+position = Vector3(2.5, 1, 6.5)
+rotationY = -1.5707964
+source = ExtResource("3_hbpvj")
+
+[sub_resource type="Resource" id="Resource_n0uvp"]
+script = ExtResource("5_nmwj5")
+scene = ExtResource("4_kwgjc")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_x3g3r"]
+script = ExtResource("1_s2qvj")
+id = 4
+position = Vector3(7, 1, 6)
+rotationY = -1.5707964
+source = ExtResource("6_jixoq")
+custom = SubResource("Resource_n0uvp")
+
+[sub_resource type="Resource" id="Resource_g1xg0"]
+script = ExtResource("7_cni54")
+style = ExtResource("8_spg1b")
+sizeX = 7.0
+sizeZ = 9.0
+disabledVariable = null
+
+[sub_resource type="Resource" id="Resource_nbn6e"]
+script = ExtResource("1_s2qvj")
+id = 5
+position = Vector3(5.5, 4, 6.5)
+custom = SubResource("Resource_g1xg0")
+
+[resource]
+script = ExtResource("9_pxqla")
+placements = [SubResource("Resource_ms1k4"), SubResource("Resource_ms8qq"), SubResource("Resource_6s8pm"), SubResource("Resource_x3g3r"), SubResource("Resource_nbn6e")]
+nextId = 6

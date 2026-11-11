@@ -80,6 +80,14 @@ public partial class WorldMapInkData : Resource
     [Export] public Color entityMatchInk = new Color(1f, 0.9f, 0.35f);
     [Export] public Color entitySelectedInk = new Color(1f, 1f, 1f);
 
+    // An entity a STAMPED SCENE places. Its own colour because it does not
+    // behave like a hand placement — it moves with its stamp and cannot be
+    // dragged or deleted — and one that has been edited for its stamp is inked
+    // as `sceneEntityEditedInk` so the stamps that differ from their scene can
+    // be found.
+    [Export] public Color sceneEntityInk = new Color(0.45f, 0.7f, 1f);
+    [Export] public Color sceneEntityEditedInk = new Color(0.75f, 0.45f, 1f);
+
     // An entity on a view that does not show props (elevation, water, zone...):
     // still placed, so still marked, but as a faint dot that leaves the view's
     // own colour readable. Its alpha is the weight; blocking regions on those

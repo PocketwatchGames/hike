@@ -3,58 +3,53 @@ using Godot;
 
 // The entity tool's current selection.
 //
-// Holds EntitySimStates rather than nodes: committing a move respawns the
-// affected chunks' entity nodes, so a node reference would dangle after the
-// first drag while the state survives it.
+// Holds PLACEMENTS rather than states or nodes: a move or a retune respawns a
+// placement's states, so anything that pointed at those would dangle after the
+// first drag, while the placement is the thing being edited and survives it.
 public sealed class EditorEntitySelection
 {
-    private readonly List<EntitySimState> _states = new List<EntitySimState>();
+    private readonly List<SceneEntityPlacement> _placements = new List<SceneEntityPlacement>();
 
-    public IReadOnlyList<EntitySimState> States => _states;
-    public int Count => _states.Count;
-    public bool IsEmpty => _states.Count == 0;
-
-    public bool Contains(EntitySimState state)
-    {
-        return state != null && _states.Contains(state);
-    }
+    public IReadOnlyList<SceneEntityPlacement> Placements => _placements;
+    public int Count => _placements.Count;
+    public bool IsEmpty => _placements.Count == 0;
 
     public void Clear()
     {
-        _states.Clear();
+        _placements.Clear();
     }
 
-    public void SetSingle(EntitySimState state)
+    public void SetSingle(SceneEntityPlacement placement)
     {
-        _states.Clear();
-        if (state != null)
+        _placements.Clear();
+        if (placement != null)
         {
-            _states.Add(state);
+            _placements.Add(placement);
         }
     }
 
-    public void SetMany(IEnumerable<EntitySimState> states)
+    public void SetMany(IEnumerable<SceneEntityPlacement> placements)
     {
-        _states.Clear();
-        foreach (EntitySimState state in states)
+        _placements.Clear();
+        foreach (SceneEntityPlacement placement in placements)
         {
-            if (state != null && !_states.Contains(state))
+            if (placement != null && !_placements.Contains(placement))
             {
-                _states.Add(state);
+                _placements.Add(placement);
             }
         }
     }
 
     // Shift-click: into the group if it wasn't in it, out if it was.
-    public void Toggle(EntitySimState state)
+    public void Toggle(SceneEntityPlacement placement)
     {
-        if (state == null)
+        if (placement == null)
         {
             return;
         }
-        if (!_states.Remove(state))
+        if (!_placements.Remove(placement))
         {
-            _states.Add(state);
+            _placements.Add(placement);
         }
     }
 
@@ -64,53 +59,23 @@ public sealed class EditorEntitySelection
     {
         get
         {
-            if (_states.Count == 0)
+            if (_placements.Count == 0)
             {
                 return Vector3.Zero;
             }
             Vector3 sum = Vector3.Zero;
-            foreach (EntitySimState state in _states)
+            foreach (SceneEntityPlacement placement in _placements)
             {
-                sum += state.WorldPosition;
+                sum += placement.position;
             }
-            return sum / _states.Count;
+            return sum / _placements.Count;
         }
     }
 
-    // Drops states the world no longer holds — after a delete, or after an undo
-    // swapped a chunk's bucket for a different set of objects. Only the paths
-    // that can remove a state call this; chunk eviction frees nodes but leaves
-    // the states filed, so there is nothing to prune per frame.
-    public void Prune(WorldState world)
+    // Drops placements the scene no longer holds — after a delete, or an undo
+    // of the placement that added one.
+    public void Prune(SceneEntityDocument doc)
     {
-        _states.RemoveAll(state => !IsFiled(world, state));
-    }
-
-    // Sweeps the neighbouring buckets too: a state isn't necessarily filed under
-    // the chunk its position maps to (a mob saved mid-walk, an entity between a
-    // move and its re-file), and pruning one of those would silently drop it out
-    // of the selection.
-    private static bool IsFiled(WorldState world, EntitySimState state)
-    {
-        if (state == null)
-        {
-            return false;
-        }
-        Vector3I center = Sim.WorldToChunkCoord(state.WorldPosition);
-        for (int dx = -1; dx <= 1; dx++)
-        {
-            for (int dy = -1; dy <= 1; dy++)
-            {
-                for (int dz = -1; dz <= 1; dz++)
-                {
-                    List<EntitySimState> bucket = world.GetEntities(center + new Vector3I(dx, dy, dz));
-                    if (bucket != null && bucket.Contains(state))
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
+        _placements.RemoveAll(p => !doc.Contains(p));
     }
 }

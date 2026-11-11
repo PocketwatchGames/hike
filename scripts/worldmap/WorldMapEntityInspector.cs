@@ -69,7 +69,7 @@ public partial class WorldMapEntityInspector : PanelContainer
     // What the rows were built for. Rebuilding every frame would destroy the
     // widget being typed into, so the panel rebuilds only when the selection —
     // or the entry under it, which the first edit forks — actually changes.
-    private EntityPlacement _shown;
+    private IEntryEditTarget _shown;
     private SpawnEntryData _shownEntry;
     // The set the scatter listing was built for. Mutually exclusive with the
     // pair above: whichever mode is up, the other's fields are null.
@@ -79,7 +79,7 @@ public partial class WorldMapEntityInspector : PanelContainer
     // another entity (releasing focus destroys the widget). Reading and writing
     // through this instead of through _shown is what stops one signpost's text
     // landing on the next one selected.
-    private EntityPlacement _rowsOwner;
+    private IEntryEditTarget _rowsOwner;
     private readonly List<System.Action> _refreshers = new();
     // Is a run of typing holding an undo step open? Text applies per keystroke,
     // so the step is opened by the first one and closed when the field is left —
@@ -171,9 +171,9 @@ public partial class WorldMapEntityInspector : PanelContainer
         AfterEdit?.Invoke();
     }
 
-    // The selected placement, or null for "nothing selected". Called every
-    // frame.
-    public void Show(EntityPlacement placement)
+    // The selected placement — a hand placement, or an entity a stamped scene
+    // brings — or null for "nothing selected". Called every frame.
+    public void Show(IEntryEditTarget placement)
     {
         SpawnEntryData entry = placement?.Entry;
         if (entry == null)
@@ -282,7 +282,12 @@ public partial class WorldMapEntityInspector : PanelContainer
         {
             titleLabel.Text = _shown.DisplayName();
         }
-        AddNameRow();
+        // Only a hand placement can be named: a scene's entity is the scene's,
+        // and a name is what makes a placement a point of interest.
+        if (_shown is EntityPlacement)
+        {
+            AddNameRow();
+        }
         foreach (Godot.Collections.Dictionary property in OrderedProperties(_shownEntry))
         {
             var name = new StringName(property["name"].AsString());
@@ -795,7 +800,7 @@ public partial class WorldMapEntityInspector : PanelContainer
         {
             if (!edit.HasFocus())
             {
-                edit.Text = _rowsOwner?.name ?? "";
+                edit.Text = (_rowsOwner as EntityPlacement)?.name ?? "";
             }
         });
         var row = new HBoxContainer();
@@ -812,7 +817,7 @@ public partial class WorldMapEntityInspector : PanelContainer
 
     private void ApplyName(string text)
     {
-        if (_rowsOwner == null || (_rowsOwner.name ?? "") == text)
+        if (_rowsOwner is not EntityPlacement named || (named.name ?? "") == text)
         {
             return;
         }
@@ -821,7 +826,7 @@ public partial class WorldMapEntityInspector : PanelContainer
             BeforeEdit?.Invoke();
             _typing = true;
         }
-        _rowsOwner.name = text;
+        named.name = text;
     }
 
     private Control BuildLine(Binding binding)

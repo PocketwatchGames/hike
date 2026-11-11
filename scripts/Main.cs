@@ -191,8 +191,8 @@ public partial class Main : Node
 			return;
 		}
 
-		// Same skip-the-menu path for the world editor, so `-- "autostart_editor 1"`
-		// drops straight into it (respects `world_file`, else the empty stub).
+		// Same skip-the-menu path for the scene editor, so `-- "autostart_editor 1"`
+		// drops straight into a new scene.
 		if (CVars.autostartEditor.Value)
 		{
 			StartMainMenu();
@@ -687,21 +687,11 @@ public partial class Main : Node
 		return worldState;
 	}
 
-	// documentPath is what the menu picked, or a fresh unused path it minted for
-	// a new document. Its extension decides what the editor is editing — a
-	// `.hikescene` opens as a scene, anything else as a world — so the two
-	// document kinds need no separate signal.
+	// documentPath is the scene the menu picked, or a fresh unused path it
+	// minted for a new one.
 	void StartEditor(WorldGenData worldGenData, string documentPath)
 	{
 		_currentScreen.QueueFree();
-
-		bool isScene = WorldEditor.KindForPath(documentPath) == EEditorDocumentKind.Scene;
-		if (!string.IsNullOrEmpty(documentPath) && !isScene)
-		{
-			// world_file means "the world the game loads" — a scene document
-			// must not claim it.
-			CVars.worldFile.Value = documentPath;
-		}
 
 		// Same palette bind StartGame does. The editor needs it too: int
 		// .Terrain carries no fixed tile (the shader resolves one per voxel from
@@ -722,22 +712,7 @@ public partial class Main : Node
 		{
 			try
 			{
-				worldState = isScene
-					? editor.CreateSubsceneWorld(worldGenData, documentPath, out includeEnv)
-					: LoadWorldFromFile(documentPath, editorPalette);
-				if (!isScene)
-				{
-					// Same closing move the game's load path makes, and for the
-					// same two reasons: SkyExposure is derived rather than
-					// stored, and an edit's incremental relight needs the canopy
-					// field live or it erases tree shadows around whatever was
-					// edited — then saves that back into the .hike. (Sunlight
-					// itself comes out of the file baked; nothing re-propagates
-					// it here.) The stub paths do their own pairing.
-					FoliageStamper.Stamp(worldState);
-					EntityVoxelStamper.Stamp(worldState);
-					LightEngine.ComputeSkyExposure(worldState);
-				}
+				worldState = editor.CreateSubsceneWorld(worldGenData, documentPath, out includeEnv);
 			}
 			catch (System.Exception e)
 			{

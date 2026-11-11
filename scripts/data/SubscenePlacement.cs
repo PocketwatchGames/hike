@@ -70,6 +70,23 @@ public partial class SubscenePlacement : Resource
     // occupants.
     [Export] public SubsceneVariant[] variants = System.Array.Empty<SubsceneVariant>();
 
+    // This stamp's forks of its scene's own entities, by scene entity id (see
+    // SubsceneEntityOverride). A stamp may retune what its scene places, never
+    // move or remove it.
+    [Export] public SubsceneEntityOverride[] entityOverrides = System.Array.Empty<SubsceneEntityOverride>();
+
+    public SubsceneEntityOverride OverrideFor(int entityId)
+    {
+        foreach (SubsceneEntityOverride o in entityOverrides ?? System.Array.Empty<SubsceneEntityOverride>())
+        {
+            if (o != null && o.entityId == entityId)
+            {
+                return o;
+            }
+        }
+        return null;
+    }
+
     // Namespace this stamp's path hints register under: a hint tagged "door" in
     // a placement named "house01" becomes the POI "house01.door", which a
     // RoadConnection can name like any other place. Naming the PLACEMENT alone

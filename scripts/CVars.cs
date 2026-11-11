@@ -2135,7 +2135,7 @@ public static class CVars
     // controls. No effect until a game is actually running.
     public static CVarBool autoplay = new CVarBool("autoplay", false);
 
-    // When true, Main skips the main menu and opens the world editor instead.
+    // When true, Main skips the main menu and opens the scene editor on a new scene.
     // Same intent as `autostart`, for iterating on the editor without clicking
     // through the menu. Ignored when `autostart` is also set.
     public static CVarBool autostartEditor = new CVarBool("autostart_editor", false);
@@ -2331,43 +2331,6 @@ public static class CVars
         }
     }
 
-    // Action: converts a packed world file into a subscene file, auto-fitting
-    // the bbox to its voxels — the headless equivalent of opening the world in
-    // the editor and running `subscene_save`. Needs no editor and no running
-    // game. The destination defaults to the standard scene dir, same file stem.
-    // Usage: `subscene_from_world user://house01.hike [res://path/out.hikescene]`
-    public static CVarString subsceneFromWorld = new CVarString("subscene_from_world", "", (cvar) =>
-    {
-        string arg = ((CVarString)cvar).Value;
-        if (string.IsNullOrEmpty(arg))
-        {
-            return;
-        }
-        string[] parts = arg.Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
-        string src = parts[0];
-        string dst = parts.Length > 1
-            ? parts[1]
-            : Godot.StringExtensions.PathJoin(
-                SubsceneFile.DEFAULT_SCENE_DIR,
-                $"{Godot.StringExtensions.GetBaseName(Godot.StringExtensions.GetFile(src))}.{WorldEditor.SCENE_FILE_EXTENSION}");
-        try
-        {
-            WorldState ws = Main.LoadWorldFromFile(src);
-            if (!SubsceneBuilder.TryGetContentBounds(ws, out Godot.Vector3I min, out Godot.Vector3I max))
-            {
-                Godot.GD.PrintErr($"subscene_from_world: '{src}' has no voxels to save.");
-                return;
-            }
-            SubsceneState sub = SubsceneBuilder.Build(ws, min, max, includeEnv: false, filterEntitiesToBox: false);
-            SubsceneFile.Write(dst, sub);
-            Godot.GD.Print($"subscene_from_world: wrote {dst} (bbox min={min} max={max} size={sub.Size}, entities={sub.Entities.Count})");
-        }
-        catch (System.Exception e)
-        {
-            Godot.GD.PrintErr($"subscene_from_world failed: {e.Message}");
-        }
-    });
-
     // Action: prints what a `.hikescene` contains without opening it — bbox,
     // anchor, entity count, and the variant pools it defines with how many
     // positions each offers. Needs no editor and no running game. The pool list
@@ -2386,15 +2349,18 @@ public static class CVars
             SubsceneDirectory directory = SubsceneFile.ReadDirectory(path);
             SubsceneState sub = SubsceneFile.Read(path);
             Godot.GD.Print($"subscene_info: {path} size={sub.Size} anchor={sub.Anchor} entities={sub.Entities.Count}");
-            // Path hints are read off the entity list rather than the baked
-            // directory: the directory lists variant POOLS, and a hint is a road
-            // endpoint, not a position a variant may fill.
+            // One line per entity: what a stamp places there. Path hints are
+            // gathered off this list rather than the baked directory: the
+            // directory lists variant POOLS, and a hint is a road endpoint, not a
+            // position a variant may fill.
             var hints = new System.Collections.Generic.List<string>();
-            foreach (EntitySimState entity in sub.Entities)
+            foreach (SceneEntity entity in sub.Entities)
             {
-                if (entity is PathHintSimState hint)
+                Godot.GD.Print($"  #{entity.Id} {entity.Placement.Label()} at {entity.Position} "
+                    + $"yaw {Godot.Mathf.RadToDeg(entity.RotationY):0}");
+                if (entity.Placement.Entry is PathHintSpawnEntry hint)
                 {
-                    hints.Add(string.IsNullOrEmpty(hint.Tag) ? "<untagged>" : hint.Tag);
+                    hints.Add(string.IsNullOrEmpty(hint.hintTag) ? "<untagged>" : hint.hintTag);
                 }
             }
             if (hints.Count > 0)

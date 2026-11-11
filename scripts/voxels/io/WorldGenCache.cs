@@ -63,7 +63,8 @@ public static class WorldGenCache
     // (the cached world's sunlight is loaded as baked, never re-propagated, so
     // a change to the light pipeline has to invalidate the file) + the content of
     // every transitively-reachable .tres/.tscn dependency from genData
-    // plus any .hikescene paths it references via SubscenePlacement[].
+    // plus any .hikescene paths it references via SubscenePlacement[], and the
+    // .entities.tres beside each.
     // Resources whose extension is none of those (textures, audio, shaders,
     // etc.) are walked for further deps but not hashed — their content
     // doesn't affect worldgen output.
@@ -98,7 +99,9 @@ public static class WorldGenCache
 
         // SubscenePlacement.Path strings reference .hikescene files, which are
         // not Godot resources — ResourceLoader.GetDependencies won't surface
-        // them. Pull them in explicitly.
+        // them. Pull them in explicitly, with the entity .tres beside each: it
+        // is found by name rather than by reference, and it is what names the
+        // palette entries a scene places, so it is walked like any resource.
         if (genData.subscenes != null)
         {
             foreach (SubscenePlacement sp in genData.subscenes)
@@ -110,6 +113,11 @@ public static class WorldGenCache
                 if (visited.Add(sp.path))
                 {
                     queue.Enqueue(sp.path);
+                }
+                string entities = SubsceneEntities.PathFor(sp.path);
+                if (visited.Add(entities))
+                {
+                    queue.Enqueue(entities);
                 }
             }
         }

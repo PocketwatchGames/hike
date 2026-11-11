@@ -1,0 +1,140 @@
+[gd_resource type="Resource" script_class="SubsceneEntities" format=3]
+
+[ext_resource type="Script" uid="uid://x2lwcbq1u8tta" path="res://scripts/data/SceneEntityPlacement.cs" id="1_gllhm"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/crate_plain_3.tres" id="2_iekl4"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/barrel_staves.tres" id="3_r8fga"]
+[ext_resource type="PackedScene" uid="uid://z99zlzrjpchbb" path="res://scenes/editor/spawn_marker.tscn" id="4_yxm5p"]
+[ext_resource type="Script" uid="uid://8j6fhe7o4517t" path="res://scripts/data/spawn/MarkerSpawnEntry.cs" id="5_iddot"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/marker.tres" id="6_pgbvt"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/street_lamp.tres" id="7_6n0do"]
+[ext_resource type="Script" uid="uid://gdg3bigklxmsu" path="res://scripts/data/SubsceneEntities.cs" id="8_eesu7"]
+
+[sub_resource type="Resource" id="Resource_wlddy"]
+script = ExtResource("1_gllhm")
+id = 1
+position = Vector3(1.5, 1, 11.5)
+source = ExtResource("2_iekl4")
+
+[sub_resource type="Resource" id="Resource_8jkk6"]
+script = ExtResource("1_gllhm")
+id = 2
+position = Vector3(2.5, 1, 11.5)
+source = ExtResource("3_r8fga")
+
+[sub_resource type="Resource" id="Resource_rej10"]
+script = ExtResource("5_iddot")
+scene = ExtResource("4_yxm5p")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_nm3kd"]
+script = ExtResource("1_gllhm")
+id = 3
+position = Vector3(2.5, 1, 9)
+rotationY = 2.3561945
+source = ExtResource("6_pgbvt")
+custom = SubResource("Resource_rej10")
+
+[sub_resource type="Resource" id="Resource_i5vmj"]
+script = ExtResource("5_iddot")
+scene = ExtResource("4_yxm5p")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_nsqki"]
+script = ExtResource("1_gllhm")
+id = 4
+position = Vector3(12, 1, 5.5)
+rotationY = -1.5707964
+source = ExtResource("6_pgbvt")
+custom = SubResource("Resource_i5vmj")
+
+[sub_resource type="Resource" id="Resource_pnvpq"]
+script = ExtResource("5_iddot")
+scene = ExtResource("4_yxm5p")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_o530c"]
+script = ExtResource("1_gllhm")
+id = 5
+position = Vector3(6.5, 1, 1.5)
+rotationY = -1.5707964
+source = ExtResource("6_pgbvt")
+custom = SubResource("Resource_pnvpq")
+
+[sub_resource type="Resource" id="Resource_u10cg"]
+script = ExtResource("5_iddot")
+scene = ExtResource("4_yxm5p")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_2qh07"]
+script = ExtResource("1_gllhm")
+id = 6
+position = Vector3(4, 1, 11)
+rotationY = 2.3561945
+source = ExtResource("6_pgbvt")
+custom = SubResource("Resource_u10cg")
+
+[sub_resource type="Resource" id="Resource_vl3s0"]
+script = ExtResource("5_iddot")
+scene = ExtResource("4_yxm5p")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_msieb"]
+script = ExtResource("1_gllhm")
+id = 7
+position = Vector3(4.5, 1, 2)
+source = ExtResource("6_pgbvt")
+custom = SubResource("Resource_vl3s0")
+
+[sub_resource type="Resource" id="Resource_rhvi0"]
+script = ExtResource("5_iddot")
+scene = ExtResource("4_yxm5p")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_cyl2s"]
+script = ExtResource("1_gllhm")
+id = 8
+position = Vector3(2, 1, 4)
+rotationY = 1.5707964
+source = ExtResource("6_pgbvt")
+custom = SubResource("Resource_rhvi0")
+
+[sub_resource type="Resource" id="Resource_b84oh"]
+script = ExtResource("1_gllhm")
+id = 9
+position = Vector3(0.5, 2, 12.5)
+source = ExtResource("7_6n0do")
+
+[sub_resource type="Resource" id="Resource_k36kw"]
+script = ExtResource("1_gllhm")
+id = 10
+position = Vector3(0.5, 2, 0.5)
+source = ExtResource("7_6n0do")
+
+[sub_resource type="Resource" id="Resource_mcp5i"]
+script = ExtResource("1_gllhm")
+id = 11
+position = Vector3(13.5, 2, 0.5)
+source = ExtResource("7_6n0do")
+
+[sub_resource type="Resource" id="Resource_onn34"]
+script = ExtResource("1_gllhm")
+id = 12
+position = Vector3(13.5, 2, 12.5)
+source = ExtResource("7_6n0do")
+
+[resource]
+script = ExtResource("8_eesu7")
+placements = [SubResource("Resource_wlddy"), SubResource("Resource_8jkk6"), SubResource("Resource_nm3kd"), SubResource("Resource_nsqki"), SubResource("Resource_o530c"), SubResource("Resource_2qh07"), SubResource("Resource_msieb"), SubResource("Resource_cyl2s"), SubResource("Resource_b84oh"), SubResource("Resource_k36kw"), SubResource("Resource_mcp5i"), SubResource("Resource_onn34")]
+nextId = 13

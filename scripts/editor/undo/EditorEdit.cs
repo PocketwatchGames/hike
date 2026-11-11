@@ -37,8 +37,7 @@ public sealed class EditorEdit
 
     private VoxelCellsAspect _voxels;
     private ChunkFieldsAspect _chunkFields;
-    private EntityBucketsAspect _entities;
-    private EntityTransformsAspect _entityTransforms;
+    private ScenePlacementsAspect _placements;
     private SpawnAspect _spawn;
 
     public EditorEdit(string name, WorldState world)
@@ -77,32 +76,13 @@ public sealed class EditorEdit
         _chunkFields.Touch(_world, chunkCoord);
     }
 
-    // Declares that the set of entities filed in a chunk is about to change —
-    // an add, a delete, or a bulk stamp. The whole bucket is snapshotted, so the
-    // caller never has to say which entity or how many.
-    public void TouchEntityChunk(Vector3I chunkCoord)
+    // Declares that the scene's entity placements are about to change — an add,
+    // a delete, a move, a retune. The whole list is snapshotted (a scene holds
+    // dozens, not thousands), so the caller never says which or how many.
+    public void TouchScenePlacements(SceneEntityDocument doc)
     {
-        _entities ??= Add(new EntityBucketsAspect());
-        _entities.Touch(_world, chunkCoord);
-    }
-
-    public void TouchEntitiesAt(Vector3 worldPosition)
-    {
-        TouchEntityChunk(Sim.WorldToChunkCoord(worldPosition));
-    }
-
-    // Declares that an already-placed entity is about to be moved or rotated.
-    // Its current chunk is touched too, so a move that crosses a chunk boundary
-    // restores its old bucket membership as well as its old transform.
-    public void TouchEntityTransform(EntitySimState state)
-    {
-        if (state == null)
-        {
-            return;
-        }
-        _entityTransforms ??= Add(new EntityTransformsAspect());
-        _entityTransforms.Touch(state);
-        TouchEntitiesAt(state.WorldPosition);
+        _placements ??= Add(new ScenePlacementsAspect(doc));
+        _placements.Touch();
     }
 
     public void TouchSpawn()

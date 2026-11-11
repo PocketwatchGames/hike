@@ -1,0 +1,231 @@
+[gd_resource type="Resource" script_class="SubsceneEntities" format=3]
+
+[ext_resource type="Script" uid="uid://x2lwcbq1u8tta" path="res://scripts/data/SceneEntityPlacement.cs" id="1_4wvvs"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/torch.tres" id="2_laf51"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/bed_5.tres" id="3_v85ba"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/table_long.tres" id="4_he2wc"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/shelf_1.tres" id="5_laons"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/chair_5.tres" id="6_78pw0"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/chair_1.tres" id="7_o00sh"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/chair_2.tres" id="8_xmrsn"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/stool_3.tres" id="9_h1fvh"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/bookcase.tres" id="10_88t60"]
+[ext_resource type="Script" uid="uid://41lo9qn3msvo8" path="res://scripts/data/spawn/RoofSpawnEntry.cs" id="11_b42w6"]
+[ext_resource type="Resource" uid="uid://bun2d7ceigicv" path="res://resources/data/roofs/roof_wood_shakes.tres" id="12_qye8o"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/door.tres" id="13_m3l1w"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/other/windowframe_timber.tres" id="14_vt05h"]
+[ext_resource type="PackedScene" uid="uid://z99zlzrjpchbb" path="res://scenes/editor/spawn_marker.tscn" id="15_tyvjg"]
+[ext_resource type="Script" uid="uid://8j6fhe7o4517t" path="res://scripts/data/spawn/MarkerSpawnEntry.cs" id="16_0lc7s"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/marker.tres" id="17_k2idy"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/door_double.tres" id="18_eyl1k"]
+[ext_resource type="Script" uid="uid://gdg3bigklxmsu" path="res://scripts/data/SubsceneEntities.cs" id="19_ivigh"]
+
+[sub_resource type="Resource" id="Resource_3o0ux"]
+script = ExtResource("1_4wvvs")
+id = 1
+position = Vector3(15.79704, 2.3149097, 6.828234)
+source = ExtResource("2_laf51")
+
+[sub_resource type="Resource" id="Resource_4n2wv"]
+script = ExtResource("1_4wvvs")
+id = 2
+position = Vector3(6.575795, 1.0000005, 9.733269)
+rotationY = -1.6345663
+source = ExtResource("3_v85ba")
+
+[sub_resource type="Resource" id="Resource_wx8rl"]
+script = ExtResource("1_4wvvs")
+id = 3
+position = Vector3(11.746751, 1.0000005, 6.0113225)
+source = ExtResource("4_he2wc")
+
+[sub_resource type="Resource" id="Resource_rlu7x"]
+script = ExtResource("1_4wvvs")
+id = 4
+position = Vector3(3.9738922, 1.0000005, 5.7186885)
+source = ExtResource("5_laons")
+
+[sub_resource type="Resource" id="Resource_o3w4f"]
+script = ExtResource("1_4wvvs")
+id = 5
+position = Vector3(11.786584, 1.0000005, 5.22529)
+source = ExtResource("6_78pw0")
+
+[sub_resource type="Resource" id="Resource_68bx2"]
+script = ExtResource("1_4wvvs")
+id = 6
+position = Vector3(13.502233, 1.0000005, 5.976559)
+rotationY = -1.8286204
+source = ExtResource("7_o00sh")
+
+[sub_resource type="Resource" id="Resource_03fdf"]
+script = ExtResource("1_4wvvs")
+id = 7
+position = Vector3(11.560423, 1.0000005, 6.941656)
+rotationY = 2.2855015
+source = ExtResource("8_xmrsn")
+
+[sub_resource type="Resource" id="Resource_plgsc"]
+script = ExtResource("1_4wvvs")
+id = 8
+position = Vector3(7.5341234, 1.0000007, 10.766317)
+source = ExtResource("9_h1fvh")
+
+[sub_resource type="Resource" id="Resource_etluf"]
+script = ExtResource("1_4wvvs")
+id = 9
+position = Vector3(15.255408, 1.0000007, 10.298353)
+rotationY = -2.3415096
+source = ExtResource("10_88t60")
+
+[sub_resource type="Resource" id="Resource_nhh7u"]
+script = ExtResource("11_b42w6")
+style = ExtResource("12_qye8o")
+sizeX = 12.0
+sizeZ = 10.0
+broken = 0.2
+disabledVariable = null
+
+[sub_resource type="Resource" id="Resource_1rquc"]
+script = ExtResource("1_4wvvs")
+id = 10
+position = Vector3(11, 4, 7)
+custom = SubResource("Resource_nhh7u")
+
+[sub_resource type="Resource" id="Resource_7f8ke"]
+script = ExtResource("11_b42w6")
+style = ExtResource("12_qye8o")
+sizeX = 3.0
+sizeZ = 5.0
+broken = 0.17
+disabledVariable = null
+
+[sub_resource type="Resource" id="Resource_n61qy"]
+script = ExtResource("1_4wvvs")
+id = 11
+position = Vector3(3.5, 4, 4.5)
+custom = SubResource("Resource_7f8ke")
+
+[sub_resource type="Resource" id="Resource_l6le2"]
+script = ExtResource("1_4wvvs")
+id = 12
+position = Vector3(6.0693083, 0.9685044, 5.7218113)
+source = ExtResource("5_laons")
+
+[sub_resource type="Resource" id="Resource_lbjhn"]
+script = ExtResource("1_4wvvs")
+id = 13
+position = Vector3(2.5, 0.99589276, 4.5)
+rotationY = 1.5601624
+source = ExtResource("13_m3l1w")
+
+[sub_resource type="Resource" id="Resource_fw7ey"]
+script = ExtResource("1_4wvvs")
+id = 14
+position = Vector3(6.245602, 2.4275818, 7.352573)
+source = ExtResource("2_laf51")
+
+[sub_resource type="Resource" id="Resource_sj3mv"]
+script = ExtResource("1_4wvvs")
+id = 15
+position = Vector3(13.5, 2, 11.5)
+source = ExtResource("14_vt05h")
+
+[sub_resource type="Resource" id="Resource_w2has"]
+script = ExtResource("1_4wvvs")
+id = 16
+position = Vector3(8.5, 2, 11.5)
+source = ExtResource("14_vt05h")
+
+[sub_resource type="Resource" id="Resource_u8283"]
+script = ExtResource("1_4wvvs")
+id = 17
+position = Vector3(10.5, 2, 2.5)
+source = ExtResource("14_vt05h")
+
+[sub_resource type="Resource" id="Resource_7ko0p"]
+script = ExtResource("1_4wvvs")
+id = 18
+position = Vector3(13.5, 2, 2.5)
+source = ExtResource("14_vt05h")
+
+[sub_resource type="Resource" id="Resource_uyjfk"]
+script = ExtResource("16_0lc7s")
+scene = ExtResource("15_tyvjg")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_1b5al"]
+script = ExtResource("1_4wvvs")
+id = 19
+position = Vector3(13, 1, 8.5)
+source = ExtResource("17_k2idy")
+custom = SubResource("Resource_uyjfk")
+
+[sub_resource type="Resource" id="Resource_hfh1x"]
+script = ExtResource("16_0lc7s")
+scene = ExtResource("15_tyvjg")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_okviv"]
+script = ExtResource("1_4wvvs")
+id = 20
+position = Vector3(14.5, 1, 4.5)
+source = ExtResource("17_k2idy")
+custom = SubResource("Resource_hfh1x")
+
+[sub_resource type="Resource" id="Resource_8kkgk"]
+script = ExtResource("16_0lc7s")
+scene = ExtResource("15_tyvjg")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_8fmwr"]
+script = ExtResource("1_4wvvs")
+id = 21
+position = Vector3(7.5, 1, 7.5)
+source = ExtResource("17_k2idy")
+custom = SubResource("Resource_8kkgk")
+
+[sub_resource type="Resource" id="Resource_kx6ck"]
+script = ExtResource("16_0lc7s")
+scene = ExtResource("15_tyvjg")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_umjt7"]
+script = ExtResource("1_4wvvs")
+id = 22
+position = Vector3(10.5, 1, 4.5)
+source = ExtResource("17_k2idy")
+custom = SubResource("Resource_kx6ck")
+
+[sub_resource type="Resource" id="Resource_32f3r"]
+script = ExtResource("1_4wvvs")
+id = 23
+position = Vector3(11, 1, 11.5)
+source = ExtResource("18_eyl1k")
+
+[sub_resource type="Resource" id="Resource_4s7eh"]
+script = ExtResource("1_4wvvs")
+id = 24
+position = Vector3(16.5, 2, 5.5)
+rotationY = 1.5707964
+source = ExtResource("14_vt05h")
+
+[sub_resource type="Resource" id="Resource_qw36t"]
+script = ExtResource("1_4wvvs")
+id = 25
+position = Vector3(16.5, 2, 8.5)
+rotationY = 1.5707964
+source = ExtResource("14_vt05h")
+
+[resource]
+script = ExtResource("19_ivigh")
+placements = [SubResource("Resource_3o0ux"), SubResource("Resource_4n2wv"), SubResource("Resource_wx8rl"), SubResource("Resource_rlu7x"), SubResource("Resource_o3w4f"), SubResource("Resource_68bx2"), SubResource("Resource_03fdf"), SubResource("Resource_plgsc"), SubResource("Resource_etluf"), SubResource("Resource_1rquc"), SubResource("Resource_n61qy"), SubResource("Resource_l6le2"), SubResource("Resource_lbjhn"), SubResource("Resource_fw7ey"), SubResource("Resource_sj3mv"), SubResource("Resource_w2has"), SubResource("Resource_u8283"), SubResource("Resource_7ko0p"), SubResource("Resource_1b5al"), SubResource("Resource_okviv"), SubResource("Resource_8fmwr"), SubResource("Resource_umjt7"), SubResource("Resource_32f3r"), SubResource("Resource_4s7eh"), SubResource("Resource_qw36t")]
+nextId = 26

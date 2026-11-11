@@ -106,18 +106,6 @@ public readonly struct EntityBrush
     }
 }
 
-// What the editor session is editing, fixed when it opens and derived from the
-// document's file extension. It decides what Ctrl+S writes — there is no
-// save-time choice between the two.
-//   Scene — a `.hikescene`, the normal case: one building / dungeon / landmark,
-//           authored in a blank world and stamped into real worlds later.
-//   World — a `.hike`, a whole playable world.
-public enum EEditorDocumentKind
-{
-    Scene,
-    World,
-}
-
 // What the voxel brush does to the cells it covers. Paint targets the empty
 // cell the ray came from; Erase and Replace both target the cell that was hit.
 // Ctrl and Alt momentarily force Erase / Replace over the selected operation.
@@ -203,7 +191,6 @@ public partial class WorldEditor : Node3D
     // Where a newly named document is written, per kind. Scenes live under
     // res:// because worldgen's SubscenePlacement references them by res:// path.
     [Export] public string defaultSceneDir = SubsceneFile.DEFAULT_SCENE_DIR;
-    [Export] public string defaultWorldDir = "user://";
     // Blank-document extent, in chunks — also the floor on a scene workspace.
     [Export] public Vector3I emptyWorldMinChunk = new Vector3I(-4, -1, -4);
     [Export] public Vector3I emptyWorldMaxChunk = new Vector3I(3, 1, 3);
@@ -355,7 +342,6 @@ public partial class WorldEditor : Node3D
     private const float FLY_SPEED_SCALE_MAX = 8f;
     private const float CLIP_START_OFFSET = 10f;
     private const float CLIP_VISUAL_BIAS = 0.05f;
-    public const string WORLD_FILE_EXTENSION = "hike";
     public const string SCENE_FILE_EXTENSION = "hikescene";
 
     // Index-aligned with the voxel palette buttons.
@@ -412,9 +398,9 @@ public partial class WorldEditor : Node3D
     // it without anyone having to aim.
     private bool _snapToGrid = true;
     private bool _snapRotation = true;
-    // The entity the still-held left button just placed. Motion aims it until
+    // The placement the still-held left button just made. Motion aims it until
     // the release commits, so dropping a prop and turning it is one gesture.
-    private EntitySimState _placingEntity;
+    private SceneEntityPlacement _placingEntity;
     // Authored state of the inner environment's built-in depth fog, captured
     // before the lighting toggle ever touches it — the flat view only ever
     // turns it OFF, so restoring means restoring what game.tscn ships with.
@@ -467,14 +453,27 @@ public partial class WorldEditor : Node3D
     private readonly List<SelectedTransform> _gizmoDragStart = new List<SelectedTransform>();
 
     // A selected entity's transform as it was when a gizmo drag began.
+    // Placements first, then the preview states they spawned: the placement is
+    // what the drag edits, and its states follow live so the drag is smooth —
+    // the release then respawns them from the placement.
     private readonly struct SelectedTransform
     {
+        public readonly SceneEntityPlacement Placement;
         public readonly EntitySimState State;
         public readonly Vector3 Position;
         public readonly float RotationY;
 
+        public SelectedTransform(SceneEntityPlacement placement)
+        {
+            Placement = placement;
+            State = null;
+            Position = placement.position;
+            RotationY = placement.rotationY;
+        }
+
         public SelectedTransform(EntitySimState state)
         {
+            Placement = null;
             State = state;
             Position = state.WorldPosition;
             RotationY = state.RotationY;
@@ -496,12 +495,15 @@ public partial class WorldEditor : Node3D
     private Vector3I? _roofAnchor;
     private Vector3I _roofCurrent;
 
-    // The placed roof the Roofs panel is retuning (Edit mode). Clicking a roof
-    // latches it here and it stays latched, so the sliders and toggles keep
-    // acting on it without another click. Replaced wholesale on every push —
-    // RoofSimState's shape is readonly — so this always names the LIVE state.
-    private RoofSimState _editingRoof;
-    private Vector3I _editingRoofBucket;
+    // The roof placement the Roofs panel is retuning (Edit mode). Clicking a
+    // roof latches it here and it stays latched, so the sliders and toggles
+    // keep acting on it without another click.
+    private SceneEntityPlacement _editingRoof;
+
+    // The scene's entities: the placements that are the document, and the
+    // states they have spawned as the preview. Every entity tool edits
+    // placements and then calls SyncEntities.
+    private SceneEntityDocument _entities;
 
     // Optional two-corner bbox override for subscene save. Each is the floored
     // voxel coordinate of the editor cursor at the time the corner was marked.
@@ -510,43 +512,24 @@ public partial class WorldEditor : Node3D
     private Vector3I? _subsceneCornerA;
     private Vector3I? _subsceneCornerB;
 
-    // The open document. Kind is set at Init and never changes for the session;
-    // the path is empty until the first save names the file. IncludeEnv is a
-    // scene-document property, read off the file it was opened from.
-    private EEditorDocumentKind _documentKind = EEditorDocumentKind.Scene;
+    // The open scene: the path is empty until the first save names the file.
+    // IncludeEnv is read off the file it was opened from, so a re-save keeps it.
     private string _documentPath = "";
     private bool _documentIncludeEnv;
 
-    // A path's document kind. Extension is the whole signal, which is what lets
-    // the menu hand the editor one path and nothing else.
-    public static EEditorDocumentKind KindForPath(string path)
-    {
-        return path.GetExtension() == SCENE_FILE_EXTENSION
-            ? EEditorDocumentKind.Scene
-            : EEditorDocumentKind.World;
-    }
-
-    private string DocumentExtension =>
-        _documentKind == EEditorDocumentKind.Scene ? SCENE_FILE_EXTENSION : WORLD_FILE_EXTENSION;
-
-    private string DocumentDefaultDir =>
-        _documentKind == EEditorDocumentKind.Scene ? defaultSceneDir : defaultWorldDir;
-
-    private string DocumentKindLabel =>
-        _documentKind == EEditorDocumentKind.Scene ? "Scene" : "World";
-
     // documentPath is what Ctrl+S writes back to — a real file when the menu
-    // opened one, or a not-yet-existing path it minted for a new document
-    // (whose extension still fixes the kind). includeEnv only means anything
-    // for a scene document.
+    // opened one, or a not-yet-existing path it minted for a new scene.
     public void Init(WorldState worldState, string documentPath, bool includeEnv)
     {
         Current = this;
         MusicManager.Instance?.SetEditor(true);
         _documentPath = documentPath ?? "";
-        _documentKind = KindForPath(_documentPath);
         _documentIncludeEnv = includeEnv;
         _worldState = worldState;
+        // Created with the world (CreateSubsceneWorld / CreateEmptyWorld); this
+        // covers a world that reached Init some other way.
+        _entities ??= new SceneEntityDocument(worldState);
+        _entities.Restored = () => SyncEntities(null);
         _cursorPosition = worldState.Spawn;
         // Open with nothing cut away, so the top of every roof is on screen and
         // R/F only ever has to travel DOWN to reach the storey being edited. The
@@ -589,7 +572,7 @@ public partial class WorldEditor : Node3D
         }
 
         UpdateDocumentHud();
-        GD.Print($"[Editor] editing {DocumentKindLabel} document: {(string.IsNullOrEmpty(_documentPath) ? "(unsaved)" : _documentPath)}");
+        GD.Print($"[Editor] editing scene: {(string.IsNullOrEmpty(_documentPath) ? "(unsaved)" : _documentPath)}");
         BuildToolPalette();
         editorHud.onVoxelBrushSelected += index => { _voxelTypeIndex = index; UpdateHud(); };
         editorHud.onEntityBrushSelected += index => { _entityTypeIndex = index; UpdateHud(); };
@@ -1017,13 +1000,16 @@ public partial class WorldEditor : Node3D
         }
         editorHud.SetSelectionCount(_selection.Count);
 
-        foreach (EntitySimState state in _selection.States)
+        foreach (SceneEntityPlacement placement in _selection.Placements)
         {
-            Node3D node = state.RuntimeNode;
-            if (node != null && IsInstanceValid(node))
+            foreach (EntitySimState state in _entities.StatesOf(placement))
             {
-                Aabb bounds = WorldBoundsOf(node);
-                DebugDraw.Box(bounds.Position, bounds.End, selectionColor);
+                Node3D node = state.RuntimeNode;
+                if (node != null && IsInstanceValid(node))
+                {
+                    Aabb bounds = WorldBoundsOf(node);
+                    DebugDraw.Box(bounds.Position, bounds.End, selectionColor);
+                }
             }
         }
 
@@ -1763,6 +1749,12 @@ public partial class WorldEditor : Node3D
             // empty edit for the history to drop.
             PlaceRoof(_history.Begin("Place Roof"), _roofAnchor.Value, _roofCurrent);
         }
+        if (_placingEntity != null)
+        {
+            // The aim turned the placement live; respawning it now is what
+            // seats everything it owns (a door's occluder) at the final facing.
+            SyncEntities(_history.Current);
+        }
         EndDrag();
         _history.Commit();
     }
@@ -1786,17 +1778,14 @@ public partial class WorldEditor : Node3D
         // history is about to close, so end it first.
         EndDrag();
         CancelGizmoDrag();
-        // A step can add OR remove roofs, so diff the two sides: the region to
-        // re-propagate is what the roofs that appeared or vanished covered. Most
-        // steps touch no roof at all and skip the sun work entirely.
-        Dictionary<RoofSimState, VoxelBox> roofsBefore = CollectRoofFootprints();
+        // Entity changes reach the preview through the document's Restored hook
+        // (SyncEntities), which also re-covers the sun under any roof that came
+        // or went.
         EditorEdit edit = redo ? _history.Redo() : _history.Undo();
         string action = redo ? "Redo" : "Undo";
         GD.Print(edit != null ? $"{action}: {edit.Name}" : $"Nothing to {action.ToLowerInvariant()}");
-        // Undoing a placement or a delete swaps out the very states the
-        // selection points at, so drop the ones the world no longer holds.
-        _selection.Prune(_worldState);
-        RefreshRoofSunOcclusion(RegionOfDifference(roofsBefore, CollectRoofFootprints()));
+        // Undoing a placement drops a placement the selection may hold.
+        _selection.Prune(_entities);
     }
 
     // Erase and Replace both act on the cell the ray hit; only Paint targets the
@@ -2209,88 +2198,60 @@ public partial class WorldEditor : Node3D
     {
         Node3D picked = PickEntityAt(screenPos, out _);
         _editingRoof = null;
-        if (picked == null || !TryFindEntityState(picked, out EntitySimState state, out Vector3I bucket)
-            || state is not RoofSimState roof)
+        if (picked == null || !TryFindEntityState(picked, out EntitySimState state, out _)
+            || state is not RoofSimState)
         {
             return;
         }
-        _editingRoof = roof;
-        _editingRoofBucket = bucket;
+        _editingRoof = _entities.OwnerOf(state);
         PushRoofSettings();
     }
 
-    // Rebuilds the retune target with the panel's current seam / form / slope /
-    // brokenness. Called for every roof-panel change and no-ops unless a roof is
-    // being edited, so no handler has to know whether one is.
+    // Retunes the latched roof to the panel's seam / form / slope / brokenness.
+    // Called for every roof-panel change and no-ops unless a roof is being
+    // edited, so no handler has to know whether one is.
     //
-    // The shape fields are readonly and the mesh is regenerated from them, so
-    // this swaps in a new state carrying the same footprint rather than mutating
-    // in place — then re-spawns and re-stamps exactly as a placement does.
+    // The placement gets a NEW entry rather than having its old one written
+    // into: undo restores the reference, and the preview respawns on the change.
     private void PushRoofSettings()
     {
-        if (!EditingRoofIsLive())
+        if (!EditingRoofIsLive() || _editingRoof.Entry is not RoofSpawnEntry roof)
         {
             return;
         }
-        RoofSimState roof = _editingRoof;
         // Nothing to do when the panel already matches — a re-pressed toggle
-        // would otherwise cost an undo slot and a chunk reload for no change.
-        if (roof.SeamAxis == _roofSeamAxis && roof.Form == _roofForm
-            && Mathf.IsEqualApprox(roof.SlopeDegrees, _roofSlopeDegrees)
-            && Mathf.IsEqualApprox(roof.Broken, _roofBroken))
+        // would otherwise cost an undo slot and a respawn for no change.
+        if (roof.seamAxis == _roofSeamAxis && roof.form == _roofForm
+            && Mathf.IsEqualApprox(roof.slopeDegrees, _roofSlopeDegrees)
+            && Mathf.IsEqualApprox(roof.broken, _roofBroken))
         {
             return;
         }
-        List<EntitySimState> entities = _worldState.GetEntities(_editingRoofBucket);
-        int index = entities.IndexOf(roof);
-
         EditorEdit edit = _history.Begin("Edit Roof");
-        edit?.TouchEntityChunk(_editingRoofBucket);
-
-        var replacement = new RoofSimState(
-            roof.WorldPosition, roof.Style, roof.SizeX, roof.SizeZ,
-            _roofSeamAxis, _roofForm, _roofSlopeDegrees, _roofBroken)
-        {
-            RotationY = roof.RotationY,
-        };
-        entities[index] = replacement;
-        // The panel keeps pointing at the roof, not at the state object it
-        // happened to have when it was picked.
-        _editingRoof = replacement;
-        Node3D node = roof.RuntimeNode;
-        if (node != null && IsInstanceValid(node))
-        {
-            _world.RemoveEntity(node);
-            node.QueueFree();
-        }
-        ReloadChunkEntities(_editingRoofBucket);
-        // Re-styling changes the footprint, so both shapes need re-propagating.
-        RefreshRoofSunOcclusion(RoofSunStamper.FootprintBox(roof).Union(RoofSunStamper.FootprintBox(replacement)));
+        edit?.TouchScenePlacements(_entities);
+        var retuned = (RoofSpawnEntry)roof.Fork();
+        retuned.seamAxis = _roofSeamAxis;
+        retuned.form = _roofForm;
+        retuned.slopeDegrees = _roofSlopeDegrees;
+        retuned.broken = _roofBroken;
+        _editingRoof.custom = retuned;
+        SyncEntities(edit);
         _history.Commit();
     }
 
     // Whether a roof is still under the panel's control. A delete or an undo can
-    // swap out the very state it points at, so the target is dropped the moment
-    // it's no longer filed in the world.
+    // take its placement out of the scene, so the target is dropped the moment
+    // it is.
     private bool EditingRoofIsLive()
     {
-        if (_editingRoof == null)
-        {
-            return false;
-        }
-        List<EntitySimState> entities = _worldState.GetEntities(_editingRoofBucket);
-        if (entities == null || !entities.Contains(_editingRoof))
+        if (_editingRoof != null && !_entities.Contains(_editingRoof))
         {
             _editingRoof = null;
-            return false;
         }
-        return true;
+        return _editingRoof != null;
     }
 
-    // Commits a roof footprint drag. Like every other entity placement this goes
-    // through the streaming path rather than instantiating directly, so the
-    // roof lands in Sim.ActiveEntities and gets its RuntimeNode back-reference —
-    // without which the editor couldn't pick, move or delete it.
+    // Commits a roof footprint drag as a placement, like every other entity.
     private void PlaceRoof(EditorEdit edit, Vector3I anchor, Vector3I current)
     {
         RoofStyleData style = CurrentRoofStyle;
@@ -2300,11 +2261,21 @@ public partial class WorldEditor : Node3D
             return;
         }
         BuildRoofFootprint(anchor, current, out Vector3 center, out float sizeX, out float sizeZ);
-        var simState = new RoofSimState(center, style, sizeX, sizeZ, _roofSeamAxis, _roofForm, _roofSlopeDegrees, _roofBroken);
-        edit?.TouchEntitiesAt(center);
-        _worldState.AddEntity(simState);
-        ReloadChunkEntities(Sim.WorldToChunkCoord(center));
-        RefreshRoofSunOcclusion(RoofSunStamper.FootprintBox(simState));
+        // A roof is its own entry, authored whole here: no palette file offers
+        // one, since its footprint and pitch are the whole of what it is.
+        var entry = new RoofSpawnEntry
+        {
+            style = style,
+            sizeX = sizeX,
+            sizeZ = sizeZ,
+            seamAxis = _roofSeamAxis,
+            form = _roofForm,
+            slopeDegrees = _roofSlopeDegrees,
+            broken = _roofBroken,
+        };
+        edit?.TouchScenePlacements(_entities);
+        _entities.Add(new SceneEntityPlacement { custom = entry, position = center, seed = (int)GD.Randi() });
+        SyncEntities(edit);
     }
 
     // Rebuilds sun occlusion over the region a roof edit covers and relights it,
@@ -2343,50 +2314,6 @@ public partial class WorldEditor : Node3D
         // RelightRegion leaves SunlightChunkDirty naming exactly what moved.
         _world.RebuildChunkMeshes(EditorRefresh.GrowByOne(_worldState.SunlightChunkDirty));
         _world.FlushLighting();
-    }
-
-    // What every roof in the world currently covers. Cheap enough to run on both
-    // sides of an undo step (arithmetic only, no rasterization), which is how
-    // the history path learns whether a step touched cover at all.
-    private Dictionary<RoofSimState, VoxelBox> CollectRoofFootprints()
-    {
-        var roofs = new Dictionary<RoofSimState, VoxelBox>();
-        foreach (List<EntitySimState> bucket in _worldState._entities.Values)
-        {
-            foreach (EntitySimState state in bucket)
-            {
-                if (state is RoofSimState roof)
-                {
-                    roofs[roof] = RoofSunStamper.FootprintBox(roof);
-                }
-            }
-        }
-        return roofs;
-    }
-
-    // Footprint spanning every roof an undo step added, removed or MOVED —
-    // compared by what each covers, not by identity, because undoing a gizmo
-    // drag puts the same state object back at a different position. A re-style
-    // shows up as an add plus a remove; it swaps the object rather than mutating
-    // it.
-    private static VoxelBox RegionOfDifference(Dictionary<RoofSimState, VoxelBox> before, Dictionary<RoofSimState, VoxelBox> after)
-    {
-        VoxelBox region = VoxelBox.Empty;
-        foreach (KeyValuePair<RoofSimState, VoxelBox> kvp in before)
-        {
-            if (!after.TryGetValue(kvp.Key, out VoxelBox now) || !now.Equals(kvp.Value))
-            {
-                region = region.Union(kvp.Value);
-            }
-        }
-        foreach (KeyValuePair<RoofSimState, VoxelBox> kvp in after)
-        {
-            if (!before.TryGetValue(kvp.Key, out VoxelBox was) || !was.Equals(kvp.Value))
-            {
-                region = region.Union(kvp.Value);
-            }
-        }
-        return region;
     }
 
     // First empty cell above the ground in a column, searched downward from
@@ -2460,10 +2387,10 @@ public partial class WorldEditor : Node3D
         }
     }
 
-    // Returns the state a place-click stamped so the caller can keep aiming it
+    // Returns the placement a place-click made so the caller can keep aiming it
     // while the button is held; null for a delete, a miss, or a brush that
     // writes no entity of its own.
-    private EntitySimState HandleEntityClick(EditorEdit edit, Vector2 screenPos, bool delete)
+    private SceneEntityPlacement HandleEntityClick(EditorEdit edit, Vector2 screenPos, bool delete)
     {
         // Deleting picks the entity under the cursor directly. Placing still
         // goes through the terrain raycast — it needs a surface, not an entity.
@@ -2566,7 +2493,7 @@ public partial class WorldEditor : Node3D
     {
         Vector3 rayOrigin = camera.ProjectRayOrigin(screenPos);
         Vector3 rayDir = camera.ProjectRayNormal(screenPos);
-        Vector3 anchor = _placingEntity.WorldPosition;
+        Vector3 anchor = _placingEntity.position;
         if (!EditorGizmo.RayPlaneY(rayOrigin, rayDir, anchor.Y, out Vector3 planeHit))
         {
             return;
@@ -2578,11 +2505,19 @@ public partial class WorldEditor : Node3D
         }
         // Atan2(x, z) is the project's yaw convention, so the entity's front
         // ends up pointing at the cursor.
-        _placingEntity.RotationY = SnapRotation(Mathf.Atan2(offset.X, offset.Y));
-        Node3D node = _placingEntity.RuntimeNode;
-        if (node != null && IsInstanceValid(node))
+        float yaw = SnapRotation(Mathf.Atan2(offset.X, offset.Y));
+        float turn = yaw - _placingEntity.rotationY;
+        _placingEntity.rotationY = yaw;
+        // The preview follows live; the release respawns it from the placement.
+        foreach (EntitySimState state in _entities.StatesOf(_placingEntity))
         {
-            _placingEntity.SeatTransform(node);
+            state.WorldPosition = anchor + (state.WorldPosition - anchor).Rotated(Vector3.Up, turn);
+            state.RotationY += turn;
+            Node3D node = state.RuntimeNode;
+            if (node != null && IsInstanceValid(node))
+            {
+                state.SeatTransform(node);
+            }
         }
     }
 
@@ -2628,38 +2563,26 @@ public partial class WorldEditor : Node3D
         return best;
     }
 
-    // Removes the state behind a picked node. Every spawned entity's state
+    // Deletes the placement behind a picked node. Every spawned entity's state
     // carries a RuntimeNode back-reference, so match on that rather than
-    // re-searching by position — proximity picks whatever state happens to sit
-    // nearest, which is the wrong one wherever entities overlap and finds
-    // nothing at all if a node sits even slightly off its authored position.
+    // re-searching by position — proximity picks whatever happens to sit
+    // nearest, which is the wrong one wherever entities overlap.
     private void DeletePickedEntity(EditorEdit edit, Node3D picked)
     {
-        if (!TryFindEntityState(picked, out EntitySimState state, out Vector3I bucket))
+        if (!TryFindEntityState(picked, out EntitySimState state, out _))
         {
             GD.PushWarning($"WorldEditor: picked entity '{picked.Name}' has no sim state filed near {Sim.WorldToChunkCoord(picked.GlobalPosition)}; nothing deleted.");
             return;
         }
-        DeleteEntityState(edit, state, bucket);
-    }
-
-    // Drops one entity's state and its live node. `bucket` is the chunk the
-    // state is actually filed under, which isn't necessarily the one its
-    // position maps to (a mob that walked over a boundary, an entity mid-move).
-    private void DeleteEntityState(EditorEdit edit, EntitySimState state, Vector3I bucket)
-    {
-        // Captured before the removal: once the roof is gone its columns can't
-        // be enumerated, and they're exactly the ones needing re-propagation.
-        VoxelBox roofRegion = state is RoofSimState roof ? RoofSunStamper.FootprintBox(roof) : VoxelBox.Empty;
-        edit?.TouchEntityChunk(bucket);
-        _worldState.GetEntities(bucket)?.Remove(state);
-        Node3D node = state.RuntimeNode;
-        if (node != null && IsInstanceValid(node))
+        SceneEntityPlacement placement = _entities.OwnerOf(state);
+        if (placement == null)
         {
-            _world.RemoveEntity(node);
-            node.QueueFree();
+            GD.PushWarning($"WorldEditor: picked entity '{picked.Name}' belongs to no placement; nothing deleted.");
+            return;
         }
-        RefreshRoofSunOcclusion(roofRegion);
+        edit?.TouchScenePlacements(_entities);
+        _entities.Remove(placement);
+        SyncEntities(edit);
     }
 
     // ----- Entity selection ------------------------------------------------
@@ -2671,7 +2594,10 @@ public partial class WorldEditor : Node3D
     private void HandleSelectClick(Vector2 screenPos, bool shift)
     {
         Node3D picked = PickEntityAt(screenPos, out _);
-        if (picked == null || !TryFindEntityState(picked, out EntitySimState state, out _))
+        SceneEntityPlacement placement = picked != null && TryFindEntityState(picked, out EntitySimState state, out _)
+            ? _entities.OwnerOf(state)
+            : null;
+        if (placement == null)
         {
             if (!shift)
             {
@@ -2681,11 +2607,11 @@ public partial class WorldEditor : Node3D
         }
         if (shift)
         {
-            _selection.Toggle(state);
+            _selection.Toggle(placement);
         }
         else
         {
-            _selection.SetSingle(state);
+            _selection.SetSingle(placement);
         }
     }
 
@@ -2694,31 +2620,22 @@ public partial class WorldEditor : Node3D
     // leaves the originals where they were.
     private void DuplicateSelection()
     {
-        List<EntitySimState> copies = EntitySerializer.CloneList(_selection.States);
-        if (copies.Count == 0)
+        if (_selection.IsEmpty)
         {
             return;
         }
-
-        EditorEdit edit = _history.Begin(copies.Count > 1 ? $"Duplicate {copies.Count} Entities" : "Duplicate Entity");
-        var refresh = new EditorRefresh();
-        VoxelBox roofRegion = VoxelBox.Empty;
-        foreach (EntitySimState copy in copies)
+        EditorEdit edit = _history.Begin(_selection.Count > 1 ? $"Duplicate {_selection.Count} Entities" : "Duplicate Entity");
+        edit?.TouchScenePlacements(_entities);
+        // Same entry and same roll; the copy gets an id of its own at the next
+        // save.
+        var copies = new List<SceneEntityPlacement>();
+        foreach (SceneEntityPlacement placement in _selection.Placements)
         {
-            Vector3 position = copy.WorldPosition;
-            edit?.TouchEntitiesAt(position);
-            _worldState.AddEntity(copy);
-            refresh.AddEntityChunk(Sim.WorldToChunkCoord(position));
-            if (copy is RoofSimState roof)
-            {
-                roofRegion = roofRegion.Union(RoofSunStamper.FootprintBox(roof));
-            }
+            SceneEntityPlacement copy = placement.CopyWithoutId();
+            _entities.Add(copy);
+            copies.Add(copy);
         }
-        // Respawn before selecting: the copies only get their RuntimeNode
-        // back-reference from the streaming path, and without it the gizmo has
-        // nothing to draw over and picking can't find them again.
-        refresh.Apply(_world);
-        RefreshRoofSunOcclusion(roofRegion);
+        SyncEntities(edit);
         _selection.SetMany(copies);
         _history.Commit();
     }
@@ -2726,23 +2643,12 @@ public partial class WorldEditor : Node3D
     private void DeleteSelection()
     {
         EditorEdit edit = _history.Begin(_selection.Count > 1 ? $"Delete {_selection.Count} Entities" : "Delete Entity");
-        // Copy first: DeleteEntityState mutates the buckets the selection is
-        // pruned against, and the selection itself is cleared below.
-        var doomed = new List<EntitySimState>(_selection.States);
-        foreach (EntitySimState state in doomed)
+        edit?.TouchScenePlacements(_entities);
+        foreach (SceneEntityPlacement placement in _selection.Placements)
         {
-            if (TryFindEntityState(state.RuntimeNode, out _, out Vector3I bucket))
-            {
-                DeleteEntityState(edit, state, bucket);
-            }
-            else
-            {
-                // No live node to locate it by (culled above the clip plane, or
-                // its chunk streamed out mid-selection) — fall back to the
-                // bucket its position maps to.
-                DeleteEntityState(edit, state, Sim.WorldToChunkCoord(state.WorldPosition));
-            }
+            _entities.Remove(placement);
         }
+        SyncEntities(edit);
         _selection.Clear();
         _history.Commit();
     }
@@ -2770,10 +2676,17 @@ public partial class WorldEditor : Node3D
         _gizmoDragStart.Clear();
         // One edit for the whole drag, opened here and committed on release.
         EditorEdit edit = _history.Begin(handle == EGizmoHandle.Rotate ? "Rotate Entities" : "Move Entities");
-        foreach (EntitySimState state in _selection.States)
+        edit?.TouchScenePlacements(_entities);
+        foreach (SceneEntityPlacement placement in _selection.Placements)
         {
-            _gizmoDragStart.Add(new SelectedTransform(state));
-            edit?.TouchEntityTransform(state);
+            _gizmoDragStart.Add(new SelectedTransform(placement));
+        }
+        foreach (SceneEntityPlacement placement in _selection.Placements)
+        {
+            foreach (EntitySimState state in _entities.StatesOf(placement))
+            {
+                _gizmoDragStart.Add(new SelectedTransform(state));
+            }
         }
 
         EditorGizmo.RayPlaneY(rayOrigin, rayDir, pivot.Y, out _gizmoDragStartPlaneHit);
@@ -2836,10 +2749,16 @@ public partial class WorldEditor : Node3D
             {
                 position = _gizmoDragPivot + (position - _gizmoDragPivot).Rotated(Vector3.Up, rotation);
             }
+            if (start.Placement != null)
+            {
+                start.Placement.position = position + translation;
+                start.Placement.rotationY = start.RotationY + rotation;
+                continue;
+            }
             start.State.WorldPosition = position + translation;
             start.State.RotationY = start.RotationY + rotation;
-            // Move the live node directly rather than respawning the chunk every
-            // frame — the entity buckets are only re-filed once, on release.
+            // Move the live node directly rather than respawning every frame —
+            // the release respawns the moved placements once.
             Node3D node = start.State.RuntimeNode;
             if (node != null && IsInstanceValid(node))
             {
@@ -2848,67 +2767,13 @@ public partial class WorldEditor : Node3D
         }
     }
 
-    // Re-files anything that crossed a chunk boundary and respawns the affected
-    // chunks, so the nodes end up owned by the chunk they now sit in.
+    // Respawns the moved placements from where they now stand, which is also
+    // what re-files a state that crossed a chunk boundary.
     private void CommitGizmoDrag()
     {
-        var refresh = new EditorRefresh();
-        EditorEdit edit = _history.Current;
-
-        // Snapshot every destination bucket before touching any of them: with
-        // two entities swapping chunks, capturing one bucket's "before" after
-        // the other has already been re-filed would record a mutated state.
-        foreach (SelectedTransform start in _gizmoDragStart)
-        {
-            Vector3I from = Sim.WorldToChunkCoord(start.Position);
-            Vector3I to = Sim.WorldToChunkCoord(start.State.WorldPosition);
-            if (from != to)
-            {
-                edit?.TouchEntityChunk(to);
-            }
-        }
-        // A roof that moved covers different columns at each end of the drag, and
-        // its cover is stamped, not derived from the node — so both need
-        // re-propagating once the states are settled.
-        VoxelBox roofRegion = VoxelBox.Empty;
-        foreach (SelectedTransform start in _gizmoDragStart)
-        {
-            Vector3I from = Sim.WorldToChunkCoord(start.Position);
-            Vector3I to = Sim.WorldToChunkCoord(start.State.WorldPosition);
-            refresh.AddEntityChunk(from);
-            if (start.State is RoofSimState roof)
-            {
-                roofRegion = roofRegion
-                    .Union(RoofSunStamper.FootprintBox(roof).Union(FootprintBoxAt(roof, start.Position)));
-            }
-            if (from == to)
-            {
-                continue;
-            }
-            // Pull it out of the bucket it is actually filed under — the
-            // position has already moved, so RemoveEntity would look in the
-            // wrong chunk and quietly find nothing.
-            _worldState.GetEntities(from)?.Remove(start.State);
-            _worldState.AddEntity(start.State);
-            refresh.AddEntityChunk(to);
-        }
-
         _gizmoDrag = EGizmoHandle.None;
         _gizmoDragStart.Clear();
-        refresh.Apply(_world);
-        RefreshRoofSunOcclusion(roofRegion);
-    }
-
-    // The footprint a roof HAD, by measuring it at a position it no longer
-    // occupies. Restoring the position is the only way to ask — the footprint
-    // depends on style, size, form and rotation as well as where it sits.
-    private static VoxelBox FootprintBoxAt(RoofSimState roof, Vector3 position)
-    {
-        Vector3 current = roof.WorldPosition;
-        roof.WorldPosition = position;
-        VoxelBox box = RoofSunStamper.FootprintBox(roof);
-        roof.WorldPosition = current;
-        return box;
+        SyncEntities(_history.Current);
     }
 
     // Abandons a drag without committing it — used when the mode changes out
@@ -3017,9 +2882,15 @@ public partial class WorldEditor : Node3D
         return true;
     }
 
-    // The state that was placed, or null when the brush wrote no entity of its
-    // own (the player spawn, an unconfigured palette slot).
-    private EntitySimState PlaceEntity(EditorEdit edit, Vector3 position)
+    // The placement that was made, or null when the brush wrote no entity of its
+    // own (the player spawn, an unconfigured palette slot, a refused spot).
+    //
+    // Placed through the SAME call the painter's bake and every worldgen pass
+    // make, so a chest placed here and one rolled by a spawn list differ in
+    // position and nothing else. Rolled on a fresh seed the placement keeps:
+    // every stamp of the scene rolls the same way, so what the author sees here
+    // is what a stamp places.
+    private SceneEntityPlacement PlaceEntity(EditorEdit edit, Vector3 position)
     {
         if (_entityTypeIndex < 0 || _entityTypeIndex >= _entityBrushes.Count)
         {
@@ -3035,69 +2906,76 @@ public partial class WorldEditor : Node3D
             return null;
         }
 
-        EntitySimState simState = SpawnFromEntry(brush, position);
-        if (simState == null)
-        {
-            return null;
-        }
-
-        edit?.TouchEntitiesAt(position);
-        // Before the spawn: an entity that stamps voxels on spawn (a door) would
-        // otherwise write them itself, outside the undo step and without a
-        // rebuild.
-        StampEntityVoxels(edit, simState);
-        // Spawn through the normal streaming path instead of instantiating here.
-        // A directly-created node is never filed in Sim.ActiveEntities and never
-        // gets its state's RuntimeNode back-reference set, so it's invisible to
-        // every consumer that walks the active set — culling, eviction, and the
-        // editor's own entity picking.
-        ReloadChunkEntities(Sim.WorldToChunkCoord(position));
-        return simState;
-    }
-
-    // Place the brush's entry through the SAME call the painter's bake and every
-    // worldgen scatter pass make, so a chest placed by hand and one rolled by a
-    // spawn list differ in position and nothing else.
-    //
-    // The state comes back off WorldState.RecordingAdds rather than from the
-    // call: Spawn returns void because a composite entry files several, and the
-    // editor needs them to select, to stamp the voxels they own and to put them
-    // in the undo step. The FIRST is what the tool treats as "the thing you
-    // placed" — a group's anchor member — and the rest ride along in the world.
-    private EntitySimState SpawnFromEntry(EntityBrush brush, Vector3 position)
-    {
         SpawnEntryData entry = brush.Resolve();
         if (entry == null)
         {
             return null;
         }
-        var placed = new List<EntitySimState>();
-        _worldState.RecordingAdds = placed;
-        try
+        // The brush's variant is a fork; the palette entry stays the source, so
+        // the placement still tracks that file.
+        var placement = new SceneEntityPlacement
         {
-            SpawnContext context = EditorSpawnContext();
-            // The author put the mark exactly here, so the gates that judge an
-            // AUTO-PICKED spot are skipped — flat patch, lateral clearance,
-            // minimum spacing. The same claim the painter makes for a hand
-            // placement, and for the same reason.
-            context.AuthoredPosition = true;
-            entry.TrySpawn(_worldState, position, new Random(), context);
-        }
-        finally
+            source = brush.Entry,
+            custom = ReferenceEquals(entry, brush.Entry) ? null : entry,
+            position = position,
+            seed = (int)GD.Randi(),
+        };
+        edit?.TouchScenePlacements(_entities);
+        _entities.Add(placement);
+        SyncEntities(edit);
+        if (_entities.StatesOf(placement).Count == 0)
         {
-            _worldState.RecordingAdds = null;
-        }
-        if (placed.Count == 0)
-        {
-            GD.PushWarning($"WorldEditor: '{brush.Name}' placed nothing at {position} — the entry "
-                + "refused the spot (see any error above it).");
+            // Refused (the document warned); a placement that places nothing
+            // would only be an invisible entry in the saved scene.
+            _entities.Remove(placement);
+            SyncEntities(edit);
             return null;
         }
-        foreach (EntitySimState state in placed)
+        return placement;
+    }
+
+    // Brings the preview in line with the placements after an edit to them:
+    // frees the nodes of what was despawned, stamps the voxels the new states
+    // own, respawns their chunks, and re-covers the sun under any roof that
+    // came or went. `edit` takes the entity-owned voxels into the undo step;
+    // null during an undo, which restores those voxels itself.
+    private void SyncEntities(EditorEdit edit)
+    {
+        SceneEntityDocument.Changes changes = _entities.Sync(EditorSpawnContext());
+        VoxelBox roofRegion = VoxelBox.Empty;
+        foreach (EntitySimState state in changes.Removed)
         {
-            StampEntityVoxels(null, state);
+            if (state is RoofSimState roof)
+            {
+                roofRegion = roofRegion.Union(RoofSunStamper.FootprintBox(roof));
+            }
+            // The state is already out of its bucket, so the chunk reload below
+            // would not find this node to free.
+            Node3D node = state.RuntimeNode;
+            if (node != null && IsInstanceValid(node))
+            {
+                _world.RemoveEntity(node);
+                node.QueueFree();
+            }
         }
-        return placed[0];
+        foreach (EntitySimState state in changes.Added)
+        {
+            StampEntityVoxels(edit, state);
+            if (state is RoofSimState roof)
+            {
+                roofRegion = roofRegion.Union(RoofSunStamper.FootprintBox(roof));
+            }
+        }
+        // Through the streaming path rather than instantiating here: only it
+        // files a node in Sim.ActiveEntities and sets the state's RuntimeNode,
+        // which picking, culling and eviction all read.
+        var refresh = new EditorRefresh();
+        foreach (Vector3I chunk in changes.Chunks)
+        {
+            refresh.AddEntityChunk(chunk);
+        }
+        refresh.Apply(_world);
+        RefreshRoofSunOcclusion(roofRegion);
     }
 
     // What an editor placement resolves against: the world under the cursor and
@@ -3165,13 +3043,6 @@ public partial class WorldEditor : Node3D
             refresh.AddVoxels(changed);
             refresh.Apply(_world);
         }
-    }
-
-    private void ReloadChunkEntities(Vector3I coord)
-    {
-        // Unload then reload entities for this chunk so the newly added one appears
-        _world.UnloadChunkEntities(coord);
-        _world.LoadChunkEntities(coord);
     }
 
     private Godot.Collections.Dictionary Raycast(Vector2 screenPos)
@@ -3293,16 +3164,16 @@ public partial class WorldEditor : Node3D
         }
         // Take the file part only so a stray path can't escape the save dir.
         name = name.GetFile();
-        if (name.GetExtension() != DocumentExtension)
+        if (name.GetExtension() != SCENE_FILE_EXTENSION)
         {
-            name = $"{name}.{DocumentExtension}";
+            name = $"{name}.{SCENE_FILE_EXTENSION}";
         }
         // Save-As into the document's own folder; a first save lands in the
         // default one for its kind.
         string dir = string.IsNullOrEmpty(_documentPath) ? "" : _documentPath.GetBaseDir();
         if (string.IsNullOrEmpty(dir))
         {
-            dir = DocumentDefaultDir;
+            dir = defaultSceneDir;
         }
         // PathJoin, not manual concat: trimming slashes off a bare "user://"
         // leaves "user:", which globalizes to a bogus relative path.
@@ -3319,17 +3190,10 @@ public partial class WorldEditor : Node3D
             editorHud?.ShowToast("Save failed: no document path.", success: false);
             return;
         }
+        string warning;
         try
         {
-            if (_documentKind == EEditorDocumentKind.Scene)
-            {
-                WriteSubscene(path, _documentIncludeEnv);
-            }
-            else
-            {
-                WorldFile.Write(path, _worldState);
-                GD.Print($"World saved to {path}");
-            }
+            warning = WriteSubscene(path, _documentIncludeEnv);
         }
         catch (Exception e)
         {
@@ -3339,21 +3203,15 @@ public partial class WorldEditor : Node3D
         }
 
         _documentPath = path;
-        if (_documentKind == EEditorDocumentKind.World)
-        {
-            // Keep world_file pointing at the world being edited, so the game
-            // and a later autostart load what was just saved.
-            CVars.worldFile.Value = path;
-        }
         UpdateDocumentHud();
-        editorHud?.ShowToast($"Saved {path.GetFile()}", success: true);
+        ShowSavedToast(path, warning);
     }
 
     private void UpdateDocumentHud()
     {
         bool saved = !string.IsNullOrEmpty(_documentPath)
             && File.Exists(ProjectSettings.GlobalizePath(_documentPath));
-        editorHud?.SetDocument(DocumentKindLabel, _documentPath, saved);
+        editorHud?.SetDocument("Scene", _documentPath, saved);
     }
 
     public override void _ExitTree()
@@ -3423,14 +3281,15 @@ public partial class WorldEditor : Node3D
         return true;
     }
 
-    // Console entry point (subscene_save / subscene_save_env), kept for saving
-    // a scene out of a world document — the scene document's own Ctrl+S goes
+    // Console entry point (subscene_save / subscene_save_env): the open scene to
+    // another path, choosing whether env overrides go with it. Ctrl+S goes
     // through SaveDocument instead.
     public void SaveSubscene(string path, bool includeEnv)
     {
+        string warning;
         try
         {
-            WriteSubscene(path, includeEnv);
+            warning = WriteSubscene(path, includeEnv);
         }
         catch (Exception e)
         {
@@ -3438,13 +3297,16 @@ public partial class WorldEditor : Node3D
             editorHud?.ShowToast($"Save failed: {e.Message}", success: false);
             return;
         }
-        editorHud?.ShowToast($"Saved {path.GetFile()}", success: true);
+        ShowSavedToast(path, warning);
     }
 
     // Throws on failure so callers can report it their own way. The bbox comes
     // from ResolveSaveBounds — normally auto-fit to every non-air voxel, which
     // is why a scene document is authored in a world that starts blank.
-    private void WriteSubscene(string path, bool includeEnv)
+    //
+    // Returns a warning, or null: the painter entries this save has cut loose
+    // (see PainterEditsOn).
+    private string WriteSubscene(string path, bool includeEnv)
     {
         bool explicitBox = _subsceneCornerA != null && _subsceneCornerB != null;
         if (!ResolveSaveBounds(out Vector3I min, out Vector3I max))
@@ -3452,10 +3314,151 @@ public partial class WorldEditor : Node3D
             throw new InvalidOperationException("nothing to save — the world has no voxels.");
         }
         int interiorClass = CVars.subsceneInteriorClass.Value;
-        SubsceneState sub = SubsceneBuilder.Build(_worldState, min, max, includeEnv, filterEntitiesToBox: explicitBox, interiorClassOverride: interiorClass);
+        SubsceneState sub = SubsceneBuilder.Build(_worldState, min, max, includeEnv, interiorClassOverride: interiorClass);
+        // The placements, re-based into the scene's own space. Copies, so the
+        // editor keeps its world-space ones; an id handed out here goes on the
+        // original, so the next save writes the same one. Two marked corners
+        // carve out a piece, and take only the entities standing in it.
+        foreach (SceneEntityPlacement placement in _entities.Placements)
+        {
+            if (explicitBox && !Inside(placement.position, min, max))
+            {
+                continue;
+            }
+            if (placement.id <= 0)
+            {
+                placement.id = _entities.NextId++;
+            }
+            sub.Entities.Add(new SceneEntity(placement.CopyAt(placement.position - (Vector3)min)));
+        }
+        sub.NextEntityId = _entities.NextId;
+
+        // Read before the write replaces it: which entities the file had.
+        var removed = SavedEntityIds(path);
+        foreach (SceneEntity entity in sub.Entities)
+        {
+            removed.Remove(entity.Id);
+        }
+        string warning = removed.Count > 0 ? PainterEditsOn(path, removed) : null;
+
         SubsceneFile.Write(path, sub);
         string interiorNote = interiorClass >= 0 ? $", interiorClass={interiorClass}" : "";
         GD.Print($"subscene_save: wrote {path} (bbox min={min} max={max} size={sub.Size}, env={(includeEnv ? "yes" : "no")}, entities={sub.Entities.Count}{interiorNote})");
+        return warning;
+    }
+
+    private void ShowSavedToast(string path, string warning)
+    {
+        if (warning == null)
+        {
+            editorHud?.ShowToast($"Saved {path.GetFile()}", success: true);
+            return;
+        }
+        GD.PushWarning(warning);
+        editorHud?.ShowToast($"Saved {path.GetFile()}, but: {warning}", success: false);
+    }
+
+    // The entity ids the scene file at `path` holds on disk, or none for a
+    // scene not yet saved.
+    private static HashSet<int> SavedEntityIds(string path)
+    {
+        var ids = new HashSet<int>();
+        string entitiesPath = SubsceneEntities.PathFor(path);
+        if (!ResourceLoader.Exists(entitiesPath))
+        {
+            return ids;
+        }
+        var saved = ResourceLoader.Load<SubsceneEntities>(entitiesPath, null, ResourceLoader.CacheMode.Ignore);
+        foreach (SceneEntityPlacement p in saved?.placements ?? Array.Empty<SceneEntityPlacement>())
+        {
+            if (p != null && p.id > 0)
+            {
+                ids.Add(p.id);
+            }
+        }
+        return ids;
+    }
+
+    // Painter edits made to entities this save removes. A painter stamp edits
+    // a scene's entity by its id (SubsceneEntityOverride), and ids are never
+    // reused, so deleting the entity — even to place a "new" door where the old
+    // one stood — leaves that edit pointing at nothing, and the stamp bakes
+    // without it. Undo restores the same entity with the same id, so undoing
+    // the delete and saving again puts the edit back in force; this says so
+    // while that is still easy.
+    //
+    // Painter documents are found by their placements file under the resources
+    // tree, which is where every one lives; the text is checked for the scene's
+    // path before anything is loaded.
+    private static string PainterEditsOn(string scenePath, HashSet<int> removed)
+    {
+        var placementFiles = new List<string>();
+        CollectNamed(RESOURCE_ROOT, WorldMapData.PLACEMENTS_FILE, placementFiles);
+        var hits = new List<string>();
+        foreach (string file in placementFiles)
+        {
+            if (!Godot.FileAccess.GetFileAsString(file).Contains(scenePath))
+            {
+                continue;
+            }
+            var doc = ResourceLoader.Load<WorldMapPlacements>(file, null, ResourceLoader.CacheMode.Ignore);
+            foreach (SubscenePlacement stamp in doc?.placements ?? Array.Empty<SubscenePlacement>())
+            {
+                if (stamp?.path != scenePath)
+                {
+                    continue;
+                }
+                foreach (SubsceneEntityOverride o in stamp.entityOverrides ?? Array.Empty<SubsceneEntityOverride>())
+                {
+                    if (o?.custom != null && removed.Contains(o.entityId))
+                    {
+                        hits.Add($"entity #{o.entityId} in {file.GetBaseDir().GetBaseDir().GetFile()} (stamp at {stamp.anchorXZ})");
+                    }
+                }
+            }
+        }
+        if (hits.Count == 0)
+        {
+            return null;
+        }
+        return $"{hits.Count} painter edit(s) were on entities this save deleted, and no longer apply: "
+            + string.Join("; ", hits) + ". To keep them, undo the delete and save again.";
+    }
+
+    private const string RESOURCE_ROOT = "res://resources";
+
+    private static void CollectNamed(string dir, string fileName, List<string> into)
+    {
+        using DirAccess da = DirAccess.Open(dir);
+        if (da == null)
+        {
+            return;
+        }
+        da.ListDirBegin();
+        for (string entry = da.GetNext(); entry != ""; entry = da.GetNext())
+        {
+            if (entry.StartsWith("."))
+            {
+                continue;
+            }
+            string full = dir.PathJoin(entry);
+            if (da.CurrentIsDir())
+            {
+                CollectNamed(full, fileName, into);
+            }
+            else if (entry == fileName)
+            {
+                into.Add(full);
+            }
+        }
+        da.ListDirEnd();
+    }
+
+    private static bool Inside(Vector3 p, Vector3I min, Vector3I max)
+    {
+        return p.X >= min.X && p.X < max.X + 1
+            && p.Y >= min.Y && p.Y < max.Y + 1
+            && p.Z >= min.Z && p.Z < max.Z + 1;
     }
 
     // Stamp a subscene file at the editor cursor and rebuild meshes /
@@ -3498,40 +3501,33 @@ public partial class WorldEditor : Node3D
             }
         }
 
-        // Track the chunks that gained entities so we can refresh their
-        // active entity nodes after stamping.
-        var entityChunks = new HashSet<Vector3I>();
-        if (sub.Entities != null)
-        {
-            foreach (EntitySimState e in sub.Entities)
-            {
-                Vector3 worldPos = e.WorldPosition + SubsceneStamper.WorldOffset(sub, anchor);
-                entityChunks.Add(Sim.WorldToChunkCoord(worldPos));
-            }
-        }
-
         // The stamper writes straight into WorldState, so the edit is told what
         // it is about to overwrite up front — voxel cells (which carry their
-        // chunks' env overrides with them) and the entity buckets it lands in.
+        // chunks' env overrides with them) and the placements it adds to.
         EditorEdit edit = _history?.Begin($"Stamp {Path.GetFileName(path)}");
         edit?.TouchVoxels(changed);
-        foreach (Vector3I cc in entityChunks)
-        {
-            edit?.TouchEntityChunk(cc);
-        }
+        edit?.TouchScenePlacements(_entities);
 
-        SubsceneStamper.StampAll(_worldState, sub, anchor);
+        SubsceneStamper.StampVoxels(_worldState, sub, anchor);
+        // Its entities become this scene's own placements — copies, given ids of
+        // this scene's at the next save.
+        Vector3 offset = SubsceneStamper.WorldOffset(sub, anchor);
+        foreach (SceneEntity entity in sub.Entities)
+        {
+            SceneEntityPlacement copy = entity.Placement.CopyWithoutId();
+            copy.position = entity.Position + offset;
+            copy.rotationY = entity.RotationY;
+            _entities.Add(copy);
+        }
+        SubsceneStamper.StampEnvOverrides(_worldState, sub, anchor);
 
         var refresh = new EditorRefresh();
         refresh.AddVoxels(changed);
-        foreach (Vector3I cc in entityChunks)
-        {
-            refresh.AddEntityChunk(cc);
-        }
         refresh.Apply(_world);
+        SyncEntities(edit);
         _history?.Commit();
 
-        GD.Print($"subscene_stamp: stamped {Path.GetFileName(path)} at {anchor} (voxels={changed.Count}, entityChunks={entityChunks.Count})");
+        GD.Print($"subscene_stamp: stamped {Path.GetFileName(path)} at {anchor} (voxels={changed.Count}, entities={sub.Entities.Count})");
     }
 
     private static Vector3I ComponentMin(Vector3I a, Vector3I b)
@@ -3550,7 +3546,9 @@ public partial class WorldEditor : Node3D
     // geometry to click on (see ComputeVoxelTarget).
     public WorldState CreateEmptyWorld(WorldGenData genData)
     {
-        return CreateEmptyWorld(genData, emptyWorldMinChunk, emptyWorldMaxChunk);
+        WorldState ws = CreateEmptyWorld(genData, emptyWorldMinChunk, emptyWorldMaxChunk);
+        _entities = new SceneEntityDocument(ws);
+        return ws;
     }
 
     // Open a .hikescene as the editor's document: a blank world big enough to
@@ -3572,12 +3570,23 @@ public partial class WorldEditor : Node3D
         Vector3I minChunk = ComponentMin(ChunkOf(worldMin) - sceneWorkspacePadChunks, emptyWorldMinChunk);
         Vector3I maxChunk = ComponentMax(ChunkOf(worldMax) + sceneWorkspacePadChunks, emptyWorldMaxChunk);
 
-        int entityCount = sub.Entities?.Count ?? 0;
+        int entityCount = sub.Entities.Count;
         WorldState ws = CreateEmptyWorld(genData, minChunk, maxChunk);
         // Safe here in a way it isn't during WorldGen.Generate: the default
         // env bakes never ran on this stub, so authored overrides can't be
-        // clobbered by one.
-        SubsceneStamper.StampAll(ws, sub, Vector3.Zero);
+        // clobbered by one. The scene's placements become the document, moved
+        // into this world's space, and spawn as its preview; the save moves
+        // them back.
+        SubsceneStamper.StampVoxels(ws, sub, Vector3.Zero);
+        _entities = new SceneEntityDocument(ws) { NextId = sub.NextEntityId };
+        Vector3 offset = SubsceneStamper.WorldOffset(sub, Vector3.Zero);
+        foreach (SceneEntity entity in sub.Entities)
+        {
+            entity.Placement.position = entity.Position + offset;
+            _entities.Add(entity.Placement);
+        }
+        _entities.Sync(new SpawnContext());
+        SubsceneStamper.StampEnvOverrides(ws, sub, Vector3.Zero);
         // Rasterize the non-voxel sun occluders the scene just brought in —
         // foliage canopies and roofs — BEFORE relighting. Without this an opened
         // scene's roofs neither darken the room beneath them nor hold any dust,

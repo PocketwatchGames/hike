@@ -16,8 +16,9 @@ using Godot;
 // the bbox swings around it — which is why a scene anchored at a corner covers
 // different ground once turned.
 //
-// The source state is CONSUMED: its entities are rotated in place and moved
-// onto the result. Read a fresh state from disk to rotate the same file again.
+// The source state is left untouched: the result shares its entity PLACEMENTS
+// and carries turned positions and yaws of its own (SceneEntity), so one loaded
+// file can be rotated any number of times.
 public static class SubsceneRotator
 {
     // quarterTurns counts 90° steps about +Y, the same sense as an entity's
@@ -75,15 +76,12 @@ public static class SubsceneRotator
 
         dst.Anchor = RotatePoint(src.Anchor, turns, size);
 
-        if (src.Entities != null)
+        dst.NextEntityId = src.NextEntityId;
+        float turn = turns * Mathf.Pi * 0.5f;
+        foreach (SceneEntity e in src.Entities)
         {
-            Func<Vector3, Vector3> map = p => RotatePoint(p, turns, size);
-            foreach (EntitySimState e in src.Entities)
-            {
-                e.RotateQuarterTurns(turns, map);
-                dst.Entities.Add(e);
-            }
-            src.Entities.Clear();
+            dst.Entities.Add(new SceneEntity(e.Placement, RotatePoint(e.Position, turns, size),
+                Mathf.Wrap(e.RotationY + turn, -Mathf.Pi, Mathf.Pi)));
         }
 
         return dst;

@@ -1348,6 +1348,56 @@ public class WorldMapState
         return best;
     }
 
+    // One target per (stamp, scene entity id) for the session, so the hover, the
+    // tool's selection and the property panel all hold the same object and can
+    // compare by reference.
+    private readonly System.Collections.Generic.Dictionary<(SubscenePlacement, int), SceneEntityTarget> _sceneTargets = new();
+
+    public SceneEntityTarget SceneTarget(SubscenePlacement stamp, int id)
+    {
+        if (!_sceneTargets.TryGetValue((stamp, id), out SceneEntityTarget target))
+        {
+            target = new SceneEntityTarget(this, stamp, id);
+            _sceneTargets[(stamp, id)] = target;
+        }
+        return target;
+    }
+
+    // The texel a stamped scene's entity stands in. The stamp's own Y does not
+    // enter: the map is a plan.
+    public Vector2I SceneEntityTexel(SubscenePlacement stamp, SubsceneState sub, SceneEntity entity)
+    {
+        float wx = stamp.anchorXZ.X - sub.Anchor.X + entity.Position.X;
+        float wz = stamp.anchorXZ.Y - sub.Anchor.Z + entity.Position.Z;
+        return new Vector2I(Mathf.FloorToInt(wx) - Data.WorldMinX, Mathf.FloorToInt(wz) - Data.WorldMinZ);
+    }
+
+    // The stamped scene entity standing in a texel, or null. The entity's own
+    // cell only, like EntityAt at radius 0; the later stamp wins a tie, matching
+    // draw order. Not gated on the footprint: a scene's entities are a list
+    // translated by its anchor, and one may stand outside the voxel box.
+    public SceneEntityTarget SceneEntityAt(int px, int pz)
+    {
+        var at = new Vector2I(px, pz);
+        SubscenePlacement[] stamps = Placements.placements;
+        for (int i = stamps.Length - 1; i >= 0; i--)
+        {
+            SubsceneState sub = SubsceneFor(stamps[i]);
+            if (sub == null)
+            {
+                continue;
+            }
+            for (int k = sub.Entities.Count - 1; k >= 0; k--)
+            {
+                if (SceneEntityTexel(stamps[i], sub, sub.Entities[k]) == at)
+                {
+                    return SceneTarget(stamps[i], sub.Entities[k].Id);
+                }
+            }
+        }
+        return null;
+    }
+
     // The spawn is a single point rather than a list, so it gets its own three
     // little queries instead of pretending to be an entity.
     public bool IsSpawnAt(int px, int pz)

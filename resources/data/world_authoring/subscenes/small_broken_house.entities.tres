@@ -1,0 +1,133 @@
+[gd_resource type="Resource" script_class="SubsceneEntities" format=3]
+
+[ext_resource type="Script" uid="uid://x2lwcbq1u8tta" path="res://scripts/data/SceneEntityPlacement.cs" id="1_3ndge"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/door.tres" id="2_n5j5n"]
+[ext_resource type="Script" uid="uid://41lo9qn3msvo8" path="res://scripts/data/spawn/RoofSpawnEntry.cs" id="3_kw6qe"]
+[ext_resource type="Resource" uid="uid://bun2d7ceigicv" path="res://resources/data/roofs/roof_wood_shakes.tres" id="4_smurq"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/other/windowframe_timber.tres" id="5_tvbuh"]
+[ext_resource type="Script" uid="uid://gdg3bigklxmsu" path="res://scripts/data/SubsceneEntities.cs" id="6_ltqms"]
+
+[sub_resource type="Resource" id="Resource_0yu4r"]
+script = ExtResource("1_3ndge")
+id = 1
+position = Vector3(5.5, 1, 10.5)
+source = ExtResource("2_n5j5n")
+
+[sub_resource type="Resource" id="Resource_7p2ks"]
+script = ExtResource("3_kw6qe")
+style = ExtResource("4_smurq")
+sizeX = 11.0
+sizeZ = 11.0
+slopeDegrees = 20.0
+broken = 0.05
+disabledVariable = null
+
+[sub_resource type="Resource" id="Resource_0m4v3"]
+script = ExtResource("1_3ndge")
+id = 2
+position = Vector3(5.5, 4, 5.5)
+custom = SubResource("Resource_7p2ks")
+
+[sub_resource type="Resource" id="Resource_lkr63"]
+script = ExtResource("1_3ndge")
+id = 3
+position = Vector3(2.5, 2, 10.5)
+source = ExtResource("5_tvbuh")
+
+[sub_resource type="Resource" id="Resource_qywum"]
+script = ExtResource("1_3ndge")
+id = 4
+position = Vector3(8.5, 2, 10.5)
+rotationY = -3.1415927
+source = ExtResource("5_tvbuh")
+
+[sub_resource type="Resource" id="Resource_o0b0m"]
+script = ExtResource("1_3ndge")
+id = 5
+position = Vector3(10.5, 2, 8.5)
+rotationY = 1.5707964
+source = ExtResource("5_tvbuh")
+
+[sub_resource type="Resource" id="Resource_idw6n"]
+script = ExtResource("1_3ndge")
+id = 6
+position = Vector3(10.5, 2, 5.5)
+rotationY = 1.5707964
+source = ExtResource("5_tvbuh")
+
+[sub_resource type="Resource" id="Resource_tby6l"]
+script = ExtResource("1_3ndge")
+id = 7
+position = Vector3(10.5, 2, 2.5)
+rotationY = 1.5707964
+source = ExtResource("5_tvbuh")
+
+[sub_resource type="Resource" id="Resource_7vam3"]
+script = ExtResource("1_3ndge")
+id = 8
+position = Vector3(0.5, 2, 2.5)
+rotationY = -1.5707964
+source = ExtResource("5_tvbuh")
+
+[sub_resource type="Resource" id="Resource_i10cf"]
+script = ExtResource("1_3ndge")
+id = 9
+position = Vector3(0.5, 2, 5.5)
+rotationY = -1.5707964
+source = ExtResource("5_tvbuh")
+
+[sub_resource type="Resource" id="Resource_iqavy"]
+script = ExtResource("1_3ndge")
+id = 10
+position = Vector3(0.5, 2, 8.5)
+rotationY = 1.5707964
+source = ExtResource("5_tvbuh")
+
+[sub_resource type="Resource" id="Resource_vkj5u"]
+script = ExtResource("1_3ndge")
+id = 11
+position = Vector3(5.5, 7, 6.5)
+source = ExtResource("5_tvbuh")
+
+[sub_resource type="Resource" id="Resource_c4a8h"]
+script = ExtResource("1_3ndge")
+id = 12
+position = Vector3(5.5, 7, 4.5)
+source = ExtResource("5_tvbuh")
+
+[sub_resource type="Resource" id="Resource_d8m26"]
+script = ExtResource("3_kw6qe")
+style = ExtResource("4_smurq")
+sizeX = 3.0
+sizeZ = 3.0
+slopeDegrees = 20.0
+disabledVariable = null
+
+[sub_resource type="Resource" id="Resource_drx74"]
+script = ExtResource("1_3ndge")
+id = 13
+position = Vector3(5.5, 8, 5.5)
+custom = SubResource("Resource_d8m26")
+
+[sub_resource type="Resource" id="Resource_7kvsv"]
+script = ExtResource("1_3ndge")
+id = 14
+position = Vector3(8.5, 2, 0.5)
+source = ExtResource("5_tvbuh")
+
+[sub_resource type="Resource" id="Resource_vd0in"]
+script = ExtResource("1_3ndge")
+id = 15
+position = Vector3(5.5, 2, 0.5)
+source = ExtResource("5_tvbuh")
+
+[sub_resource type="Resource" id="Resource_khi6m"]
+script = ExtResource("1_3ndge")
+id = 16
+position = Vector3(2.5, 2, 0.5)
+source = ExtResource("5_tvbuh")
+
+[resource]
+script = ExtResource("6_ltqms")
+placements = [SubResource("Resource_0yu4r"), SubResource("Resource_0m4v3"), SubResource("Resource_lkr63"), SubResource("Resource_qywum"), SubResource("Resource_o0b0m"), SubResource("Resource_idw6n"), SubResource("Resource_tby6l"), SubResource("Resource_7vam3"), SubResource("Resource_i10cf"), SubResource("Resource_iqavy"), SubResource("Resource_vkj5u"), SubResource("Resource_c4a8h"), SubResource("Resource_drx74"), SubResource("Resource_7kvsv"), SubResource("Resource_vd0in"), SubResource("Resource_khi6m")]
+nextId = 17

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="SubsceneEntities" format=3]
+
+[ext_resource type="Script" uid="uid://x2lwcbq1u8tta" path="res://scripts/data/SceneEntityPlacement.cs" id="1_k6mde"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/street_lamp.tres" id="2_bwbqn"]
+[ext_resource type="Script" uid="uid://gdg3bigklxmsu" path="res://scripts/data/SubsceneEntities.cs" id="3_jpgba"]
+
+[sub_resource type="Resource" id="Resource_cnvj7"]
+script = ExtResource("1_k6mde")
+id = 1
+position = Vector3(0.5, 9.5, 3)
+source = ExtResource("2_bwbqn")
+
+[sub_resource type="Resource" id="Resource_tlhdu"]
+script = ExtResource("1_k6mde")
+id = 2
+position = Vector3(7.5, 9.5, 3)
+source = ExtResource("2_bwbqn")
+
+[resource]
+script = ExtResource("3_jpgba")
+placements = [SubResource("Resource_cnvj7"), SubResource("Resource_tlhdu")]
+nextId = 3

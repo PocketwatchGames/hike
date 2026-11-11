@@ -2,8 +2,23 @@
 
 [ext_resource type="Texture2D" uid="uid://6ncu56tjyv8e" path="res://assets/textures/gui/story/intro_antica.png" id="1_fwt5l"]
 [ext_resource type="Script" uid="uid://b3g8lng6af6ed" path="res://scripts/data/world/StoryData.cs" id="2_ymqqq"]
+[ext_resource type="Script" uid="uid://c3yge3nwyyu43" path="res://scripts/data/world/StoryPageData.cs" id="3_page"]
+
+[sub_resource type="Resource" id="Resource_page01"]
+script = ExtResource("3_page")
+image = ExtResource("1_fwt5l")
+text = &"story_intro_antica_01"
+
+[sub_resource type="Resource" id="Resource_page02"]
+script = ExtResource("3_page")
+image = ExtResource("1_fwt5l")
+text = &"story_intro_antica_02"
+
+[sub_resource type="Resource" id="Resource_page03"]
+script = ExtResource("3_page")
+image = ExtResource("1_fwt5l")
+text = &"story_intro_antica_03"
 
 [resource]
 script = ExtResource("2_ymqqq")
-image = ExtResource("1_fwt5l")
-paragraphs = Array[StringName]([&"story_intro_antica_01", &"story_intro_antica_02", &"story_intro_antica_03"])
+pages = Array[ExtResource("3_page")]([SubResource("Resource_page01"), SubResource("Resource_page02"), SubResource("Resource_page03")])

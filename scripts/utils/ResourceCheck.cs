@@ -37,6 +37,13 @@ using System.Text;
 //   Tool uses — every ItemData.toolUses row names a kind; a None row makes the
 //   item serve as nothing while reading as if it did.
 //
+//   Scene pairs — a `.hikescene` and its `.entities.tres` are one document
+//   (SubsceneEntities.PathFor). A rename or copy that moves one without the
+//   other is caught here: a scene missing its entities fails to load, and an
+//   entities file with no scene is an orphan nothing reads. Each scene is also
+//   read in full, so a wrong version or a broken entity file fails here rather
+//   than at the next stamp.
+//
 //   Ammo — every AmmoData names a type, at most one per type is the standard
 //   round a weapon falls back to (two would make the fallback depend on grid
 //   order), and a thrown weapon stacks and never wears (each unit is spent
@@ -50,9 +57,10 @@ public static class ResourceCheck
         var problems = new List<string>();
         int toolTypes = CheckToolClosure(problems);
         int loaded = CheckLoads(problems);
+        int scenes = CheckScenePairs(problems);
 
         GD.Print($"[resource_check] {toolTypes} [Tool] resource types, {loaded} .tres loaded, "
-            + $"{_damageTemplates} damage templates typed");
+            + $"{_damageTemplates} damage templates typed, {scenes} scenes paired");
         if (problems.Count == 0)
         {
             GD.Print("[resource_check] ok");
@@ -462,7 +470,51 @@ public static class ResourceCheck
         return end < 0 ? null : header.Substring(start, end - start);
     }
 
+    // --- scene pairs ----------------------------------------------------
+
+    private static int CheckScenePairs(List<string> problems)
+    {
+        var scenes = new List<string>();
+        var entityFiles = new List<string>();
+        Collect(ResourceRoot, scenes, "." + WorldEditor.SCENE_FILE_EXTENSION);
+        Collect(ResourceRoot, entityFiles, SubsceneEntities.FILE_SUFFIX);
+        var claimed = new HashSet<string>();
+        foreach (string scene in scenes)
+        {
+            string entities = SubsceneEntities.PathFor(scene);
+            claimed.Add(entities);
+            if (!entityFiles.Contains(entities))
+            {
+                problems.Add($"{scene}: its entities file '{entities.GetFile()}' is missing — "
+                    + "the two are one scene and must be moved, renamed and copied together");
+                continue;
+            }
+            try
+            {
+                SubsceneFile.Read(scene);
+            }
+            catch (Exception e)
+            {
+                problems.Add($"{scene}: does not read ({e.Message})");
+            }
+        }
+        foreach (string entities in entityFiles)
+        {
+            if (!claimed.Contains(entities))
+            {
+                problems.Add($"{entities}: no scene beside it — expected "
+                    + $"'{entities[..^SubsceneEntities.FILE_SUFFIX.Length].GetFile()}.{WorldEditor.SCENE_FILE_EXTENSION}'");
+            }
+        }
+        return scenes.Count;
+    }
+
     private static void Collect(string dir, List<string> paths)
+    {
+        Collect(dir, paths, ".tres");
+    }
+
+    private static void Collect(string dir, List<string> paths, string suffix)
     {
         using DirAccess da = DirAccess.Open(dir);
         if (da == null)
@@ -478,11 +530,11 @@ public static class ResourceCheck
             }
             if (da.CurrentIsDir())
             {
-                Collect($"{dir}/{entry}", paths);
+                Collect($"{dir}/{entry}", paths, suffix);
                 continue;
             }
             string file = entry.EndsWith(".remap") ? entry.Substring(0, entry.Length - ".remap".Length) : entry;
-            if (file.EndsWith(".tres"))
+            if (file.EndsWith(suffix))
             {
                 paths.Add($"{dir}/{file}");
             }

@@ -1,0 +1,259 @@
+[gd_resource type="Resource" script_class="SubsceneEntities" format=3]
+
+[ext_resource type="Script" uid="uid://x2lwcbq1u8tta" path="res://scripts/data/SceneEntityPlacement.cs" id="1_s12pi"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/other/windowframe_timber.tres" id="2_iokml"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/door.tres" id="3_jndk1"]
+[ext_resource type="PackedScene" uid="uid://z99zlzrjpchbb" path="res://scenes/editor/spawn_marker.tscn" id="4_ljs8w"]
+[ext_resource type="Script" uid="uid://8j6fhe7o4517t" path="res://scripts/data/spawn/MarkerSpawnEntry.cs" id="5_cuer4"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/marker.tres" id="6_fx5a1"]
+[ext_resource type="Script" uid="uid://41lo9qn3msvo8" path="res://scripts/data/spawn/RoofSpawnEntry.cs" id="7_olxcw"]
+[ext_resource type="Resource" uid="uid://bun2d7ceigicv" path="res://resources/data/roofs/roof_wood_shakes.tres" id="8_t670q"]
+[ext_resource type="Script" uid="uid://gdg3bigklxmsu" path="res://scripts/data/SubsceneEntities.cs" id="9_06ju7"]
+
+[sub_resource type="Resource" id="Resource_h3fjm"]
+script = ExtResource("1_s12pi")
+id = 1
+position = Vector3(15.5, 6, 2.5)
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_r3roq"]
+script = ExtResource("1_s12pi")
+id = 2
+position = Vector3(11.5, 6, 2.5)
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_jfsu6"]
+script = ExtResource("1_s12pi")
+id = 3
+position = Vector3(5.5, 2, 2.5)
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_l0d88"]
+script = ExtResource("1_s12pi")
+id = 4
+position = Vector3(9.5, 2, 13.5)
+rotationY = -1.5707964
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_1c1ia"]
+script = ExtResource("1_s12pi")
+id = 5
+position = Vector3(9.5, 6, 13.5)
+rotationY = -1.5707964
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_mfqit"]
+script = ExtResource("1_s12pi")
+id = 6
+position = Vector3(5.5, 2, 10.5)
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_aoahn"]
+script = ExtResource("1_s12pi")
+id = 7
+position = Vector3(2.5, 1, 6.5)
+rotationY = -1.5707964
+source = ExtResource("3_jndk1")
+
+[sub_resource type="Resource" id="Resource_o6e73"]
+script = ExtResource("5_cuer4")
+scene = ExtResource("4_ljs8w")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_xspsd"]
+script = ExtResource("1_s12pi")
+id = 8
+position = Vector3(12, 5, 13)
+source = ExtResource("6_fx5a1")
+custom = SubResource("Resource_o6e73")
+
+[sub_resource type="Resource" id="Resource_eawfv"]
+script = ExtResource("5_cuer4")
+scene = ExtResource("4_ljs8w")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_r3s8d"]
+script = ExtResource("1_s12pi")
+id = 9
+position = Vector3(14.5, 5, 9)
+source = ExtResource("6_fx5a1")
+custom = SubResource("Resource_eawfv")
+
+[sub_resource type="Resource" id="Resource_66u02"]
+script = ExtResource("5_cuer4")
+scene = ExtResource("4_ljs8w")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_t08qo"]
+script = ExtResource("1_s12pi")
+id = 10
+position = Vector3(15, 5, 13.5)
+source = ExtResource("6_fx5a1")
+custom = SubResource("Resource_66u02")
+
+[sub_resource type="Resource" id="Resource_b6tub"]
+script = ExtResource("5_cuer4")
+scene = ExtResource("4_ljs8w")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_olwsd"]
+script = ExtResource("1_s12pi")
+id = 11
+position = Vector3(12.5, 1, 13.5)
+source = ExtResource("6_fx5a1")
+custom = SubResource("Resource_b6tub")
+
+[sub_resource type="Resource" id="Resource_ji8g5"]
+script = ExtResource("5_cuer4")
+scene = ExtResource("4_ljs8w")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_fxdfh"]
+script = ExtResource("1_s12pi")
+id = 12
+position = Vector3(15.5, 1, 13.5)
+source = ExtResource("6_fx5a1")
+custom = SubResource("Resource_ji8g5")
+
+[sub_resource type="Resource" id="Resource_f3oqe"]
+script = ExtResource("5_cuer4")
+scene = ExtResource("4_ljs8w")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_62j6q"]
+script = ExtResource("1_s12pi")
+id = 13
+position = Vector3(9.5, 1, 7.5)
+source = ExtResource("6_fx5a1")
+custom = SubResource("Resource_f3oqe")
+
+[sub_resource type="Resource" id="Resource_h6b5m"]
+script = ExtResource("5_cuer4")
+scene = ExtResource("4_ljs8w")
+poolTag = "npc"
+variants = PackedStringArray("npc")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_y6x3c"]
+script = ExtResource("1_s12pi")
+id = 14
+position = Vector3(7.5, 1, 4)
+source = ExtResource("6_fx5a1")
+custom = SubResource("Resource_h6b5m")
+
+[sub_resource type="Resource" id="Resource_o4c07"]
+script = ExtResource("7_olxcw")
+style = ExtResource("8_t670q")
+sizeX = 9.0
+sizeZ = 16.0
+seamAxis = 1
+disabledVariable = null
+
+[sub_resource type="Resource" id="Resource_c2jcs"]
+script = ExtResource("1_s12pi")
+id = 15
+position = Vector3(13.5, 8, 9)
+custom = SubResource("Resource_o4c07")
+
+[sub_resource type="Resource" id="Resource_45q52"]
+script = ExtResource("7_olxcw")
+style = ExtResource("8_t670q")
+sizeX = 7.0
+sizeZ = 9.0
+slopeDegrees = 26.0
+disabledVariable = null
+
+[sub_resource type="Resource" id="Resource_g28ak"]
+script = ExtResource("1_s12pi")
+id = 16
+position = Vector3(5.5, 4, 6.5)
+custom = SubResource("Resource_45q52")
+
+[sub_resource type="Resource" id="Resource_0xc00"]
+script = ExtResource("1_s12pi")
+id = 17
+position = Vector3(17.5, 2, 5.5)
+rotationY = 1.5707964
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_b1ysn"]
+script = ExtResource("1_s12pi")
+id = 18
+position = Vector3(17.5, 6, 5.5)
+rotationY = 1.5707964
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_5iwbs"]
+script = ExtResource("1_s12pi")
+id = 19
+position = Vector3(17.5, 6, 13.5)
+rotationY = 1.5707964
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_i112k"]
+script = ExtResource("1_s12pi")
+id = 20
+position = Vector3(17.5, 6, 9.5)
+rotationY = 1.5707964
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_7qsfm"]
+script = ExtResource("1_s12pi")
+id = 21
+position = Vector3(17.5, 2, 13.5)
+rotationY = 1.5707964
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_yjo75"]
+script = ExtResource("1_s12pi")
+id = 22
+position = Vector3(17.5, 2, 9.5)
+rotationY = 1.5707964
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_b0t8v"]
+script = ExtResource("1_s12pi")
+id = 23
+position = Vector3(11.5, 2, 16.5)
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_srrwe"]
+script = ExtResource("1_s12pi")
+id = 24
+position = Vector3(11.5, 6, 16.5)
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_fbce3"]
+script = ExtResource("1_s12pi")
+id = 25
+position = Vector3(15.5, 6, 16.5)
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_pw0ea"]
+script = ExtResource("1_s12pi")
+id = 26
+position = Vector3(15.5, 2, 16.5)
+source = ExtResource("2_iokml")
+
+[sub_resource type="Resource" id="Resource_gwhjq"]
+script = ExtResource("1_s12pi")
+id = 27
+position = Vector3(13.5, 1, 16.5)
+source = ExtResource("3_jndk1")
+
+[resource]
+script = ExtResource("9_06ju7")
+placements = [SubResource("Resource_h3fjm"), SubResource("Resource_r3roq"), SubResource("Resource_jfsu6"), SubResource("Resource_l0d88"), SubResource("Resource_1c1ia"), SubResource("Resource_mfqit"), SubResource("Resource_aoahn"), SubResource("Resource_xspsd"), SubResource("Resource_r3s8d"), SubResource("Resource_t08qo"), SubResource("Resource_olwsd"), SubResource("Resource_fxdfh"), SubResource("Resource_62j6q"), SubResource("Resource_y6x3c"), SubResource("Resource_c2jcs"), SubResource("Resource_g28ak"), SubResource("Resource_0xc00"), SubResource("Resource_b1ysn"), SubResource("Resource_5iwbs"), SubResource("Resource_i112k"), SubResource("Resource_7qsfm"), SubResource("Resource_yjo75"), SubResource("Resource_b0t8v"), SubResource("Resource_srrwe"), SubResource("Resource_fbce3"), SubResource("Resource_pw0ea"), SubResource("Resource_gwhjq")]
+nextId = 28

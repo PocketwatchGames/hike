@@ -28,18 +28,20 @@ using Godot;
 //     [if ENVTAG bit] envTag     : EX*EY*EZ bytes
 //     [if OVERLAYFACES bit] overlayFaces : SX*SY*SZ bytes (EVoxelFace bits per
 //                    cell, 0 = all faces)
-//     entities      : type-tagged list (see EntitySerializer; positions are subscene-local)
+//
+// The ENTITIES are not in this file. They are spawn-entry placements, in a
+// `.tres` beside it (SubsceneEntities.PathFor): `house01.hikescene` +
+// `house01.entities.tres` are one document, written and read together.
 //
 // Wire-format additions: append new optional channels by allocating a new
 // CHANNEL_* bit and appending the read/write at the end of the existing
-// channel block (before entities). Mandatory channels can ONLY be appended
+// channel block. Mandatory channels can ONLY be appended
 // at the end of the body, never inserted; bump VERSION when you do so.
 //
 // The directory is the one exception to that rule, and it earns it by sitting
 // at a known offset: ReadDirectory seeks straight to it and reads nothing else,
 // which is what lets the variant inspector query a scene's pools without
-// decoding a dungeon's worth of voxels. Version-gated, so pre-v6 files (which
-// have no tags to summarize) still read.
+// decoding a dungeon's worth of voxels.
 public static class SubsceneFile
 {
     // Where authored subscenes live. Under res:// because worldgen's
@@ -47,43 +49,10 @@ public static class SubsceneFile
     public const string DEFAULT_SCENE_DIR = "res://resources/data/world_authoring/subscenes/";
 
     public const uint MAGIC = 0x4E435348; // 'HSCN' little-endian
-    // v2: the entity list gained EntitySerializer's resource-path table prefix
-    //     (see WorldFile v34) — subscenes share that serializer, so their wire
-    //     layout moved with it.
-    // v4: Roof entity payload gained a trailing per-instance `broken` float.
-    //     v3 subscenes are still read — their roofs simply load intact.
-    // v5: Roof entity payload gained a trailing form byte (gable / hip). v4 and
-    //     earlier subscenes still read — their roofs load as gables.
-    // v6: entities gained a trailing variant pool tag, and the header gained a
-    //     directory summarizing those tags. v5 and earlier still read — their
-    //     entities load untagged, i.e. unconditional, which is what they were.
-    // v8: the per-voxel byte is a BlockData.blockId, not a VoxelType.
-    // v9: every resource reference in an entity payload is a ref-table slot, and
-    //     a slot can hold a resource's value (see WorldFile v51). v8 and earlier
-    //     still read — their tables are bare path strings and their weapon,
-    //     status-effect and item-state lists spell their references out.
-    // v11: the BuriedSpot payload carries its contents (see WorldFile v56). No
-    //      earlier subscene holds a buried spot, so there is nothing to gate.
-    // v12: the ItemState wire format gained the item's status effects, boon menu
-    //      and subclass state (see WorldFile v57). v11 and earlier still read -
-    //      their items (a stash chest's contents) load without them.
-    // v13: entities gained trailing script fields — an author's name and a
-    //      disabled gate (see WorldFile v61). v12 and earlier still read — their
-    //      entities load unnamed and ungated. A fountain's payload lost its own
-    //      enabled variable in the same step; no subscene holds a fountain.
-    // v14/v15: a chest's payload gained and then lost a lock (see WorldFile
-    //      v66/v67). No subscene holds a chest, so there is nothing to gate.
-    // v16: a chest's payload carries its rigged trap (see WorldFile v68).
-    // v17: entities gained a trailing discovered flag (see WorldFile v72). v16
-    //      and earlier still read — their entities load undiscovered.
-    // v18: props and berry trees carry a BreakState (see WorldFile v73). A
-    //      prop's flag is the byte that was always written false, so every
-    //      earlier prop reads as standing; no subscene holds a berry tree.
-    // v19: a torch's payload dropped its AutoLightAtNight bool (see WorldFile
-    //      v74). v18 and earlier still read — the byte is skipped.
-    // v20: a door's payload carries its lock (see WorldFile v76). v19 and
-    //      earlier still read — their doors load unlocked.
-    public const uint VERSION = 20;
+    // v21: entities are spawn-entry placements in the `.entities.tres` beside
+    //      the scene, not serialized states in its body. Nothing older reads:
+    //      every scene was converted when the format changed.
+    public const uint VERSION = 21;
 
     // Bytes before the directory block: magic + version + size + anchor +
     // channelMask + dirLength. ReadDirectory seeks past exactly this much.
@@ -93,9 +62,7 @@ public static class SubsceneFile
     public enum ChannelMask : uint
     {
         None = 0,
-        // Legacy slot: WindFactor in old files, briefly Interiorness after the
-        // rename. Read and discarded, never written. See Read().
-        Legacy = 1u << 0,
+        // 1u << 0 was a wind / interiorness slot. Do not reuse the bit.
         EnvTag = 1u << 1,
         OverlayFaces = 1u << 2,
     }
@@ -119,6 +86,9 @@ public static class SubsceneFile
         // Buffered so its length can precede it — the length is what makes the
         // block skippable by a full read and bounded by a directory-only read.
         byte[] directory = EncodeDirectory(SubsceneDirectory.FromEntities(sub.Entities));
+        // First, so a scene whose entities cannot be written leaves the old
+        // pair on disk rather than a new body beside stale entities.
+        WriteEntities(path, sub);
 
         w.Write(MAGIC);
         w.Write(VERSION);
@@ -145,8 +115,49 @@ public static class SubsceneFile
         {
             WriteByteChannel(w, sub.OverlayFaces, size);
         }
+    }
 
-        EntitySerializer.WriteList(w, sub.Entities);
+    // The placements, as the `.tres` beside the scene. Ids are assigned here to
+    // any placement that has none (a fresh one), from the counter the file
+    // carries, so an id is never handed out twice.
+    private static void WriteEntities(string scenePath, SubsceneState sub)
+    {
+        string docPath = SubsceneEntities.PathFor(scenePath);
+        int next = Mathf.Max(1, sub.NextEntityId);
+        var placements = new SceneEntityPlacement[sub.Entities.Count];
+        var used = new System.Collections.Generic.HashSet<int>();
+        for (int i = 0; i < placements.Length; i++)
+        {
+            SceneEntity entity = sub.Entities[i];
+            SceneEntityPlacement p = entity.Placement;
+            // A turned state's entities stand somewhere their placements do not
+            // say; writing one would save the turn into the scene.
+            if (entity.Position != p.position || !Mathf.IsEqualApprox(entity.RotationY, p.rotationY))
+            {
+                throw new System.InvalidOperationException("a rotated scene cannot be written back.");
+            }
+            if (p.id > 0 && !used.Add(p.id))
+            {
+                throw new System.InvalidOperationException($"two entities share id {p.id}.");
+            }
+            next = Mathf.Max(next, p.id + 1);
+            placements[i] = p;
+        }
+        foreach (SceneEntityPlacement p in placements)
+        {
+            if (p.id <= 0)
+            {
+                p.id = next++;
+            }
+            EmbeddedResources.DetachFromOtherFiles(p, docPath);
+        }
+        var doc = new SubsceneEntities { placements = placements, nextId = next };
+        Error err = ResourceSaver.Save(doc, docPath);
+        if (err != Error.Ok)
+        {
+            throw new IOException($"could not write '{docPath}' ({err})");
+        }
+        sub.NextEntityId = next;
     }
 
     // Reads through Godot's FileAccess, not System.IO: in an exported build a
@@ -169,27 +180,19 @@ public static class SubsceneFile
             throw new InvalidDataException($"Not a HSCN subscene file (magic = 0x{magic:X8})");
         }
         uint version = r.ReadUInt32();
-        // v2 and v3 are still readable. v2 entities carry no trailing RotationY
-        // (they load facing zero); v3 roofs carry no trailing `broken` (they load
-        // intact). Both pick the field up the next time the scene is saved.
-        // Anything older is gone.
-        const uint MIN_READABLE_VERSION = 2;
-        if (version > VERSION || version < MIN_READABLE_VERSION)
+        if (version != VERSION)
         {
-            throw new InvalidDataException($"Unsupported HSCN subscene version {version}");
+            throw new InvalidDataException($"'{path}' is subscene version {version}; this build reads only {VERSION}.");
         }
 
         Vector3I size = ReadVec3I(r);
         Vector3 anchor = ReadVec3(r);
         var mask = (ChannelMask)r.ReadUInt32();
-        if (version >= 6)
-        {
-            // Skipped, not parsed: a full read reconstructs the entities the
-            // directory summarizes, so re-deriving it costs nothing and can't
-            // disagree with them.
-            uint directoryLength = r.ReadUInt32();
-            r.BaseStream.Seek(directoryLength, SeekOrigin.Current);
-        }
+        // Skipped, not parsed: a full read reconstructs the entities the
+        // directory summarizes, so re-deriving it costs nothing and can't
+        // disagree with them.
+        uint directoryLength = r.ReadUInt32();
+        r.BaseStream.Seek(directoryLength, SeekOrigin.Current);
 
         var sub = new SubsceneState(size) { Anchor = anchor };
         ReadByteChannel(r, sub.Voxels, size);
@@ -200,18 +203,6 @@ public static class SubsceneFile
         ReadByteChannel(r, sub.DetailStrength, size);
         ReadPresenceMask(r, sub.PresenceMask, size);
 
-        if ((mask & ChannelMask.Legacy) != 0)
-        {
-            // Consumed and DISCARDED. This slot held WindFactor in older files
-            // and briefly held Interiorness after the rename — two fields whose
-            // meanings are inverted (wind 255 = wide open, interiorness 255 =
-            // deeply enclosed), so trusting it makes a sealed room read as open
-            // field. Nothing authors it now either: the editor has no flood, so
-            // a save would only ever capture zeros. Worldgen's InteriornessGen
-            // is the sole source, and it runs over the stamped result anyway.
-            Vector3I es = sub.EnvSize;
-            ReadByteChannel(r, new byte[es.X, es.Y, es.Z], es);
-        }
         if ((mask & ChannelMask.EnvTag) != 0)
         {
             sub.EnsureEnvTag();
@@ -223,19 +214,37 @@ public static class SubsceneFile
             ReadByteChannel(r, sub.OverlayFaces, size);
         }
 
-        int roofFormat = version >= 5 ? EntitySerializer.ROOF_FORMAT_FORM
-            : version >= 4 ? EntitySerializer.ROOF_FORMAT_BROKEN
-            : EntitySerializer.ROOF_FORMAT_ORIGINAL;
-        sub.Entities = EntitySerializer.ReadList(r, shared: null, hasRotation: version >= 3, roofFormat: roofFormat, hasTag: version >= 6, tableRefs: version >= 9,
-            hasScale: version >= 10, itemExtras: version >= 12, hasScriptFields: version >= 13,
-            hasDiscovered: version >= 17, torchAutoLightByte: version < 19, doorLock: version >= 20);
+        ReadEntities(path, sub);
         return sub;
+    }
+
+    private static void ReadEntities(string scenePath, SubsceneState sub)
+    {
+        string docPath = SubsceneEntities.PathFor(scenePath);
+        if (!ResourceLoader.Exists(docPath))
+        {
+            throw new IOException($"'{scenePath}' has no entity file beside it ('{docPath}').");
+        }
+        // Ignore, not Reuse: the editor rewrites this file in-session, and a
+        // cached copy would reopen the scene as it was before the save. The
+        // palette entries it names still load through the cache (Godot's rule
+        // for a dependency), so a placement's `source` IS the palette file.
+        var doc = ResourceLoader.Load<SubsceneEntities>(docPath, null, ResourceLoader.CacheMode.Ignore)
+            ?? throw new IOException($"'{docPath}' did not load as SubsceneEntities.");
+        foreach (SceneEntityPlacement p in doc.placements ?? System.Array.Empty<SceneEntityPlacement>())
+        {
+            if (p != null)
+            {
+                sub.Entities.Add(new SceneEntity(p));
+            }
+        }
+        sub.NextEntityId = doc.nextId;
     }
 
     // The scene's variant pools, without decoding its voxel body. Reads the
     // fixed header plus the directory block and stops — the point is that the
     // authoring inspector can query a scene cheaply and often. Returns an empty
-    // directory for a pre-v6 file (no tags existed) or one that can't be read.
+    // directory for a file that can't be read.
     public static SubsceneDirectory ReadDirectory(string path)
     {
         using Godot.FileAccess file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read);
@@ -252,7 +261,7 @@ public static class SubsceneFile
         }
         using var headStream = new MemoryStream(head);
         using var headReader = new BinaryReader(headStream, Encoding.UTF8, leaveOpen: false);
-        if (headReader.ReadUInt32() != MAGIC || headReader.ReadUInt32() < 6)
+        if (headReader.ReadUInt32() != MAGIC || headReader.ReadUInt32() != VERSION)
         {
             return new SubsceneDirectory();
         }

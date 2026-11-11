@@ -33,25 +33,11 @@ public enum EEntityFacing
 // A `SpawnEntryData` rather than a prop scene, because that is what the bake
 // already knows how to place: the same entries the scatter layers use, spawned
 // through the same `TrySpawn`. It also means one palette covers props, mobs,
-// chests, loot and NPCs instead of one list per kind.
+// chests, loot and NPCs instead of one list per kind. The source / fork pair is
+// AuthoredPlacement's, shared with the entities a scene is built from.
 [GlobalClass]
-public partial class EntityPlacement : Resource
+public partial class EntityPlacement : AuthoredPlacement
 {
-    // The palette entry this placement was made from. NEVER replaced — a fork
-    // goes beside it, in `custom`, so the link to the palette survives being
-    // customized. Reconstructing that link afterwards was tried and cannot be
-    // made to work: with the reference overwritten, the only thing left saying
-    // where a fork came from was a name (its `ResourceName`, or an exported
-    // family string), and a name drifts. Three forked knowledge stones in the
-    // default world carried "knowledge_stone_vyeshal" against a palette file
-    // named knowledge_stone_vyeshal_vocab1 and silently stopped matching it.
-    [Export] public SpawnEntryData source;
-
-    // This placement's private copy of `source`, once something on it has been
-    // edited. Null until then, which is what makes an uncustomized placement
-    // track whatever the palette entry is retuned to.
-    [Export] public SpawnEntryData custom;
-
     [Export] public Vector2I anchorXZ;
 
     // Which way this entity is aimed. Every entry honours one — it is seated
@@ -83,45 +69,14 @@ public partial class EntityPlacement : Resource
     // The name as the bake uses it — trimmed, or null when there is none.
     public string Name => string.IsNullOrWhiteSpace(name) ? null : name.Trim();
 
-    // What this placement actually spawns: its own copy once it has one, else
-    // the shared palette entry. Every reader wants this; only the palette
-    // MEMBERSHIP questions read `source`.
-    public SpawnEntryData Entry => custom ?? source;
-
-    // Has this placement been edited away from its palette entry? A customized
-    // one still belongs to the palette entry it came from — it is the one most
-    // worth finding — so this marks it rather than un-matching it.
-    public bool IsCustomized => custom != null;
-
-    // Was this placement made from that palette entry? Reference equality, so a
-    // fork answers exactly as its original does and a renamed palette file
-    // changes nothing.
-    public bool IsFrom(SpawnEntryData paletteEntry)
-        => source != null && paletteEntry != null && source == paletteEntry;
-
     // What to call this placement in the authoring UI: its own name if it has
     // one, the palette entry it came from, plus the variant this individual is,
     // plus a mark when it carries its own copy. One answer, because the tool row,
     // the hover readout and the property panel all name the same thing and a
     // name that differs between them reads as two different entries.
-    public string DisplayName()
+    public override string DisplayName()
     {
         return Name != null ? $"{Name} ({Label()})" : Label();
-    }
-
-    // What this placement IS, without its name: named off the SOURCE palette
-    // entry but varied by the live one — a fork keeps the name of the file it
-    // came from, and says which member of that family this individual is. Never
-    // off the fork's own path, which after a reload is placements.tres::<id>.
-    public string Label()
-    {
-        string label = SpawnEntryData.PaletteName(source);
-        string variant = Entry?.VariantName();
-        if (!string.IsNullOrEmpty(variant) && variant != label)
-        {
-            label = $"{label}: {variant}";
-        }
-        return IsCustomized ? $"{label} *" : label;
     }
 
     // Radians about +Y — what the bake hands the spawn as SpawnContext.FacingY.
@@ -148,28 +103,5 @@ public partial class EntityPlacement : Resource
         }
         int step = Mathf.RoundToInt(Mathf.Atan2(dirXZ.X, dirXZ.Y) / (Mathf.Pi * 0.25f));
         return (EEntityFacing)((step % 8 + 8) % 8);
-    }
-
-    // This placement's entry, ready to be EDITED — the properties of a
-    // hand-placed entity ARE its entry's, so there is no second place to put a
-    // signpost's text or a chest's spawn conditions.
-    //
-    // Copy-on-write: the first edit forks `source` into `custom`, which — having
-    // no resource path — saves INTO placements.tres as a sub-resource belonging
-    // to this placement alone. Shallow on purpose: a forked signpost still
-    // references the same LanguageData rather than getting a private copy of it.
-    public SpawnEntryData EditableEntry()
-    {
-        if (custom != null || source == null)
-        {
-            return Entry;
-        }
-        SpawnEntryData copy = source.Fork();
-        if (ReferenceEquals(copy, source))
-        {
-            return source;
-        }
-        custom = copy;
-        return custom;
     }
 }

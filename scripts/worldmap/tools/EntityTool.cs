@@ -18,6 +18,11 @@ using Godot;
 // dropping a new entity leaves the stroke AIMING it — the natural follow-through
 // of the click that placed it — and shift+drag aims one already on the map.
 //
+// The entities a STAMPED SCENE brings are on the map too, in their own ink, and
+// a click selects one into the same panel — but they stay where the scene put
+// them: no drag, no aim, no delete. Editing one forks its entry for that stamp
+// alone (SceneEntityTarget), which is how one house's door gets its own lock.
+//
 // EVERY placement can be aimed. A facing reaches whatever the entry files (see
 // SpawnEntryData.FacingY), so there is no palette entry the gesture does nothing
 // for and nothing here has to ask whether this one is turnable.
@@ -40,6 +45,12 @@ public class EntityTool : IWorldMapTool
 
     public EntityPlacement SelectedEntity => Selected;
 
+    // A stamped scene's entity, selected for the panel. Mutually exclusive with
+    // Selected.
+    public SceneEntityTarget SelectedScene;
+
+    public SceneEntityTarget SelectedSceneEntity => SelectedScene;
+
     // How near a click has to be, in metres, to grab an entity rather than place
     // a new one: 0 is the entity's own one-metre cell and nothing around it, so
     // a new entity can be dropped in the very next cell.
@@ -52,6 +63,7 @@ public class EntityTool : IWorldMapTool
     private const int AimDeadZone = 2;
 
     private EntityPlacement _pressHit;
+    private SceneEntityTarget _pressScene;
     private bool _pressWasSpawn;
     private Vector2I _grabOffset;
     private bool _strokeActed;
@@ -112,7 +124,8 @@ public class EntityTool : IWorldMapTool
 
     public string HintText(WorldMapState ctx)
         => "Hover to name  |  Click to place then drag to aim, drag to move, "
-            + "Shift+drag to aim, R/F to turn 45 deg, RMB to delete";
+            + "Shift+drag to aim, R/F to turn 45 deg, RMB to delete  |  "
+            + "A scene's entities: click to edit for that stamp (fixed in place)";
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
@@ -141,8 +154,15 @@ public class EntityTool : IWorldMapTool
     public EntityPlacement EntityUnder(WorldMapState ctx, Vector2I texel)
         => ctx.EntityAt(texel.X, texel.Y, GrabRadius);
 
+    public SceneEntityTarget SceneEntityUnder(WorldMapState ctx, Vector2I texel)
+        => EntityUnder(ctx, texel) == null ? ctx.SceneEntityAt(texel.X, texel.Y) : null;
+
     public string LevelText(WorldMapState ctx, WorldMapView view)
     {
+        if (SelectedScene != null)
+        {
+            return "Scene entity: placed by its stamp, edits apply to this stamp only";
+        }
         return Selected == null ? "" : $"Selected facing {(int)Selected.facing * 45} deg";
     }
 
@@ -160,7 +180,8 @@ public class EntityTool : IWorldMapTool
     public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
         _pressHit = ctx.EntityAt(texel.X, texel.Y, GrabRadius);
-        _pressWasSpawn = _pressHit == null && ctx.IsSpawnNear(texel.X, texel.Y, GrabRadius);
+        _pressScene = _pressHit == null ? ctx.SceneEntityAt(texel.X, texel.Y) : null;
+        _pressWasSpawn = _pressHit == null && _pressScene == null && ctx.IsSpawnNear(texel.X, texel.Y, GrabRadius);
         _strokeActed = false;
         _dirty = null;
         // Shift: this drag aims what it grabbed instead of sliding it.
@@ -172,6 +193,20 @@ public class EntityTool : IWorldMapTool
         // Per stamp, not per stroke: a rect that accumulated over a whole drag
         // would repaint the entire path travelled on every motion event.
         _dirty = null;
+
+        // A scene's entity is selected and nothing else: the scene decides where
+        // it stands, so a drag cannot move or aim it and RMB cannot delete it.
+        if (_pressScene != null)
+        {
+            if (!_strokeActed && !erase)
+            {
+                _strokeActed = true;
+                Selected = null;
+                SelectedScene = _pressScene;
+            }
+            return;
+        }
+
         if (erase)
         {
             // Only what was under the press, and only once — a right-drag across
@@ -206,6 +241,7 @@ public class EntityTool : IWorldMapTool
         if (!_strokeActed)
         {
             _strokeActed = true;
+            SelectedScene = null;
             if (_pressHit != null)
             {
                 // Grab where you clicked, so a drag slides it instead of

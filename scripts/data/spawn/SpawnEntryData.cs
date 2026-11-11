@@ -178,6 +178,19 @@ public partial class SpawnEntryData : Resource
         return string.IsNullOrEmpty(file) ? entry.GetType().Name : file;
     }
 
+    // What to call an entry no palette file offers (a roof the roof tool
+    // authored whole): its type, minus the suffix every entry type carries.
+    public static string TypeLabel(SpawnEntryData entry)
+    {
+        if (entry == null)
+        {
+            return "";
+        }
+        string name = entry.GetType().Name;
+        const string SUFFIX = "SpawnEntry";
+        return (name.EndsWith(SUFFIX) ? name[..^SUFFIX.Length] : name).ToSnakeCase();
+    }
+
     // What to CALL this entry wherever one is named — the panel title, the hover
     // readout, a set's listing. Its palette name, plus what it holds when that
     // says something the name does not: `goblin_swamp_elite.tres` reads

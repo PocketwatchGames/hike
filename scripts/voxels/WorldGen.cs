@@ -19,7 +19,7 @@ public sealed class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 137;
+    public const int WORLDGEN_VERSION = 138;
 
     // Bitmask flags for the debug_worldgen_skip CVar — see CVars.debugWorldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -2002,7 +2002,7 @@ public sealed class WorldGen
         foreach (ReservedSubscene entry in reserved)
         {
             SubscenePlacement placement = entry.Placement;
-            List<PathHintSimState> hints = ExtractPathHints(entry.Sub);
+            List<ScenePoint> hints = ExtractPathHints(entry.Sub, placement);
             if (hints.Count == 0)
             {
                 continue;
@@ -2019,7 +2019,7 @@ public sealed class WorldGen
 
             Vector3 worldOffset = SubsceneStamper.WorldOffset(entry.Sub, entry.Anchor);
             var registered = new List<PathHint>(hints.Count);
-            foreach (PathHintSimState hint in hints)
+            foreach (ScenePoint hint in hints)
             {
                 string poiName = string.IsNullOrEmpty(hint.Tag) ? placementName : $"{placementName}.{hint.Tag}";
                 if (ws.PointsOfInterest.ContainsKey(poiName))
@@ -2027,7 +2027,7 @@ public sealed class WorldGen
                     GD.PushWarning($"WorldGen: subscene '{placement.path}' registers the point of interest '{poiName}' twice — give its path hints distinct tags.");
                     continue;
                 }
-                Vector3 position = hint.WorldPosition + worldOffset;
+                Vector3 position = hint.Position + worldOffset;
                 ws.PointsOfInterest[poiName] = position;
                 var registeredHint = new PathHint(poiName, hint.Tag, position, placement.connectPathHints);
                 registered.Add(registeredHint);
@@ -2050,25 +2050,37 @@ public sealed class WorldGen
         }
     }
 
+    // A tagged spot a scene authors for whoever stamps it — a marker's pool or
+    // a path hint's name — in the scene's (turned) local space.
+    private readonly struct ScenePoint
+    {
+        public readonly string Tag;
+        public readonly Vector3 Position;
+        public readonly float RotationY;
+
+        public ScenePoint(string tag, Vector3 position, float rotationY)
+        {
+            Tag = tag ?? "";
+            Position = position;
+            RotationY = rotationY;
+        }
+    }
+
     // Removes the scene's path hints from the stamp list and returns them.
     // Consumed here like markers: a hint is a place a road may reach, never an
     // entity the world keeps. Positions are still subscene-local.
-    private List<PathHintSimState> ExtractPathHints(SubsceneState sub)
+    private static List<ScenePoint> ExtractPathHints(SubsceneState sub, SubscenePlacement stamp)
     {
-        var hints = new List<PathHintSimState>();
-        if (sub.Entities == null)
+        var hints = new List<ScenePoint>();
+        for (int i = 0; i < sub.Entities.Count; i++)
         {
-            return hints;
-        }
-        for (int i = sub.Entities.Count - 1; i >= 0; i--)
-        {
-            if (sub.Entities[i] is PathHintSimState hint)
+            SceneEntity e = sub.Entities[i];
+            if (e.EntryFor(stamp) is PathHintSpawnEntry hint)
             {
-                hints.Add(hint);
-                sub.Entities.RemoveAt(i);
+                hints.Add(new ScenePoint(hint.hintTag, e.Position, e.RotationY));
+                sub.Entities.RemoveAt(i--);
             }
         }
-        hints.Reverse();
         return hints;
     }
 
@@ -2086,8 +2098,8 @@ public sealed class WorldGen
             Vector3 anchor = entry.Anchor;
             // Pulled out BEFORE the stamp: a marker is a position this placement
             // may or may not fill, never an entity the world keeps.
-            List<MarkerSimState> markers = ExtractMarkers(sub);
-            int entityCount = sub.Entities?.Count ?? 0;
+            List<ScenePoint> markers = ExtractMarkers(sub, placement);
+            int entityCount = sub.Entities.Count;
             // A fixture-open scene keeps what is already standing on it: the
             // fixture pass ran earlier and placed there deliberately, and a
             // plaza's stamp only re-paves the ground they stand on.
@@ -2096,6 +2108,10 @@ public sealed class WorldGen
                 : ClearEntitiesInVolume(ws, origin, SubsceneStamper.ComputeWorldOrigin(sub, anchor).Y, sub.Size);
             Vector3 markerOffset = SubsceneStamper.WorldOffset(sub, anchor);
             SubsceneStamper.StampVoxels(ws, sub, anchor);
+            // After the voxels, so an entity's own gates see the building rather
+            // than the ground it replaced; the destination's level sampler is
+            // what a scene mob is levelled by, since a scene has no zone.
+            SubsceneStamper.StampEntities(ws, sub, anchor, Ctx(ws, new SpawnContext()), placement);
             int fromVariants = SpawnSubsceneVariants(ws, placement, markers, markerOffset,
                 new Random(TerrainMath.StableMix(TerrainMath.DeriveSeed(worldSeed, SEED_SALT_SUBSCENE), si, 0)));
             stamped.Add((sub, anchor));
@@ -2104,26 +2120,22 @@ public sealed class WorldGen
         return stamped;
     }
 
-    // Removes the scene's markers from the stamp list and returns them. They
-    // still hold subscene-local positions — the caller translates.
-    private List<MarkerSimState> ExtractMarkers(SubsceneState sub)
+    // Removes the scene's markers from the stamp list and returns them, in
+    // authored order — a variant that fills every marker in a pool then does so
+    // predictably. They still hold subscene-local positions; the caller
+    // translates.
+    private static List<ScenePoint> ExtractMarkers(SubsceneState sub, SubscenePlacement stamp)
     {
-        var markers = new List<MarkerSimState>();
-        if (sub.Entities == null)
+        var markers = new List<ScenePoint>();
+        for (int i = 0; i < sub.Entities.Count; i++)
         {
-            return markers;
-        }
-        for (int i = sub.Entities.Count - 1; i >= 0; i--)
-        {
-            if (sub.Entities[i] is MarkerSimState marker)
+            SceneEntity e = sub.Entities[i];
+            if (e.EntryFor(stamp) is MarkerSpawnEntry marker)
             {
-                markers.Add(marker);
-                sub.Entities.RemoveAt(i);
+                markers.Add(new ScenePoint(marker.poolTag, e.Position, e.RotationY));
+                sub.Entities.RemoveAt(i--);
             }
         }
-        // The removal walks backwards, so restore authored order — a variant
-        // that fills every marker in a pool then does so predictably.
-        markers.Reverse();
         return markers;
     }
 
@@ -2132,7 +2144,7 @@ public sealed class WorldGen
     // see the building, not the ground it replaced. Returns how many entities
     // were actually placed.
     private int SpawnSubsceneVariants(WorldState ws, SubscenePlacement placement,
-        List<MarkerSimState> markers, Vector3 worldOffset, Random rng)
+        List<ScenePoint> markers, Vector3 worldOffset, Random rng)
     {
         SubsceneVariant[] variants = placement.variants ?? System.Array.Empty<SubsceneVariant>();
         if (variants.Length == 0)
@@ -2148,7 +2160,7 @@ public sealed class WorldGen
         bool wasTagging = ws.TaggingFixtures;
         ws.TaggingFixtures = true;
         int spawned = 0;
-        var pool = new List<MarkerSimState>();
+        var pool = new List<ScenePoint>();
         foreach (SubsceneVariant variant in variants)
         {
             if (variant == null || string.IsNullOrEmpty(variant.poolTag) || variant.content?.rows == null)
@@ -2156,7 +2168,7 @@ public sealed class WorldGen
                 continue;
             }
             pool.Clear();
-            foreach (MarkerSimState marker in markers)
+            foreach (ScenePoint marker in markers)
             {
                 if (marker.Tag == variant.poolTag)
                 {
@@ -2189,7 +2201,7 @@ public sealed class WorldGen
             {
                 int j = i + rng.Next(pool.Count - i);
                 (pool[i], pool[j]) = (pool[j], pool[i]);
-                MarkerSimState marker = pool[i];
+                ScenePoint marker = pool[i];
                 SpawnListRow row = variant.content.rows[i % entryCount];
                 if (row?.entry == null)
                 {
@@ -2200,7 +2212,7 @@ public sealed class WorldGen
                 // sampler to offer — and the terrain gates it would drive judge
                 // the ground the building replaced, not the floor stood on.
                 context.FacingY = marker.RotationY;
-                Vector3 position = marker.WorldPosition + worldOffset;
+                Vector3 position = marker.Position + worldOffset;
                 if (row.TrySpawn(ws, position, rng, context))
                 {
                     spawned++;

@@ -60,7 +60,15 @@ public class SubsceneState
     public byte[,,] Interiorness;
     public byte[,,] EnvTag;
 
-    public List<EntitySimState> Entities = new();
+    // What the scene places, already turned with the scene (SubsceneRotator).
+    // Spawned per stamp by SubsceneStamper.StampEntities, never kept as states:
+    // the scene stores the entries, so every stamp re-places them through the
+    // same TrySpawn any other authored placement takes.
+    public List<SceneEntity> Entities = new();
+
+    // SubsceneEntities.nextId of the file this was read from, carried so a
+    // re-save never hands out an id an earlier entity already had.
+    public int NextEntityId = 1;
 
     public SubsceneState(Vector3I size)
     {
@@ -110,5 +118,50 @@ public class SubsceneState
         {
             OverlayFaces = new byte[Size.X, Size.Y, Size.Z];
         }
+    }
+}
+
+// One entity of a loaded scene: its authored placement, and where it stands in
+// THIS state's space. The two differ once the scene is turned — a rotated
+// state shares its file's placements and carries its own position and yaw for
+// each, so a cached rotation never writes to the placement it was read from.
+public sealed class SceneEntity
+{
+    public readonly SceneEntityPlacement Placement;
+    public readonly Vector3 Position;
+    public readonly float RotationY;
+
+    public SceneEntity(SceneEntityPlacement placement, Vector3 position, float rotationY)
+    {
+        Placement = placement;
+        Position = position;
+        RotationY = rotationY;
+    }
+
+    // As authored: the placement's own transform.
+    public SceneEntity(SceneEntityPlacement placement)
+        : this(placement, placement.position, placement.rotationY)
+    {
+    }
+
+    public int Id => Placement.id;
+
+    // What a stamp places here: its own override when it has one of the same
+    // type, else what the scene authored. Asked per frame by the painter, so it
+    // says nothing about a mismatch; the stamp and worldmap_check report that.
+    public SpawnEntryData EntryFor(SubscenePlacement stamp)
+    {
+        SpawnEntryData custom = stamp?.OverrideFor(Placement.id)?.custom;
+        return custom == null || HasMismatchedOverride(stamp) ? Placement.Entry : custom;
+    }
+
+    // An override of a different TYPE than the scene now places here — only
+    // possible when the scene was re-authored after the override was made. It
+    // is ignored rather than obeyed, since it describes a different entity.
+    public bool HasMismatchedOverride(SubscenePlacement stamp)
+    {
+        SpawnEntryData custom = stamp?.OverrideFor(Placement.id)?.custom;
+        SpawnEntryData authored = Placement.Entry;
+        return custom != null && authored != null && custom.GetType() != authored.GetType();
     }
 }

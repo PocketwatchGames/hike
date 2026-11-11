@@ -211,7 +211,13 @@ public partial class WorldMapPainter : Node3D
         canvas.CursorRadiusTexels = ActiveTool.Radius;
         canvas.OnPaint = OnCanvasPaint;
         canvas.OnStrokeStart = OnCanvasStrokeStart;
-        canvas.OnStrokeEnd = () => _history.Commit();
+        // The HUD too: a click can select a stamp, and a drag moves where it
+        // seats, and neither passes through any other UpdateHud path.
+        canvas.OnStrokeEnd = () =>
+        {
+            _history.Commit();
+            UpdateHud();
+        };
         // Wheel UP shrinks the brush. The canvas reports the raw notch; the
         // mapping to brush size is policy and lives here, so [ and ] keep their
         // own (smaller / bigger) sense.
@@ -258,6 +264,9 @@ public partial class WorldMapPainter : Node3D
     // the map would survive until the next full rebuild.
     private EntityPlacement _hoverEntity;
     private EntityPlacement _markedSelection;
+    // The same pair for the entities a stamped scene places.
+    private SceneEntityTarget _hoverScene;
+    private SceneEntityTarget _markedSceneSelection;
     private SpawnEntryData _markedEntry;
     // The scatter set the tool is picking out, for the same reason: its dots
     // draw full while every other set's recede, so changing it repaints the map.
@@ -270,7 +279,7 @@ public partial class WorldMapPainter : Node3D
     // look like it sampled the wrong thing — which is exactly how it read.
     private void ReportHover(Vector2I t)
     {
-        SetHoverEntity(ActiveTool.EntityUnder(_ctx, t));
+        SetHoverEntity(ActiveTool.EntityUnder(_ctx, t), ActiveTool.SceneEntityUnder(_ctx, t));
         int clip = ActiveTool.View.CutsAway ? _view.CutawayY : int.MaxValue;
         int shown = _ctx.CutawayFloor(t.X, t.Y, clip, out _);
         // Solid rock at the plane has no floor to report; fall back to the ground
@@ -288,18 +297,22 @@ public partial class WorldMapPainter : Node3D
     // which — and whether the cursor is on one at all — is not otherwise
     // readable. Only the two marks involved are repainted, since this runs on
     // mouse motion.
-    private void SetHoverEntity(EntityPlacement hover)
+    private void SetHoverEntity(EntityPlacement hover, SceneEntityTarget hoverScene)
     {
-        if (ReferenceEquals(hover, _hoverEntity))
+        if (ReferenceEquals(hover, _hoverEntity) && ReferenceEquals(hoverScene, _hoverScene))
         {
             return;
         }
         EntityPlacement was = _hoverEntity;
+        SceneEntityTarget wasScene = _hoverScene;
         _hoverEntity = hover;
+        _hoverScene = hoverScene;
         RefreshEntityMark(was);
         RefreshEntityMark(hover);
+        RefreshSceneMark(wasScene);
+        RefreshSceneMark(hoverScene);
         PushDisplay();
-        hud.SetHovered(hover == null ? "" : hover.DisplayName());
+        hud.SetHovered(hover?.DisplayName() ?? hoverScene?.DisplayName() ?? "");
     }
 
     // Repaint the cells one mark covers, at its GROWN size — a mark that has just
@@ -312,6 +325,19 @@ public partial class WorldMapPainter : Node3D
             return;
         }
         Vector2I at = _ctx.TexelXZ(placement.anchorXZ);
+        int r = EntityMarkReach;
+        RebuildDisplay(new Rect2I(at.X - r, at.Y - r, 2 * r + 1, 2 * r + 1));
+    }
+
+    // The same for a stamped scene's entity, wherever its stamp now puts it.
+    private void RefreshSceneMark(SceneEntityTarget target)
+    {
+        SceneEntity entity = target?.Entity;
+        if (entity == null)
+        {
+            return;
+        }
+        Vector2I at = _ctx.SceneEntityTexel(target.Stamp, _ctx.SubsceneFor(target.Stamp), entity);
         int r = EntityMarkReach;
         RebuildDisplay(new Rect2I(at.X - r, at.Y - r, 2 * r + 1, 2 * r + 1));
     }
@@ -334,11 +360,15 @@ public partial class WorldMapPainter : Node3D
     private void RefreshEntityHighlight()
     {
         EntityPlacement selection = ActiveTool.SelectedEntity;
-        if (!ReferenceEquals(selection, _markedSelection))
+        SceneEntityTarget sceneSelection = ActiveTool.SelectedSceneEntity;
+        if (!ReferenceEquals(selection, _markedSelection) || !ReferenceEquals(sceneSelection, _markedSceneSelection))
         {
             RefreshEntityMark(_markedSelection);
             RefreshEntityMark(selection);
+            RefreshSceneMark(_markedSceneSelection);
+            RefreshSceneMark(sceneSelection);
             _markedSelection = selection;
+            _markedSceneSelection = sceneSelection;
             PushDisplay();
             // The property panel is pushed from UpdateHud, and a CLICK reaches
             // neither — so without this the panel keeps showing the entry it was
@@ -378,6 +408,7 @@ public partial class WorldMapPainter : Node3D
         // The hover belongs to the tool that answered it; the rebuild below
         // repaints the mark it had grown.
         _hoverEntity = null;
+        _hoverScene = null;
         hud.SetHovered("");
         // A tool that works under the ground brings the plane with it.
         int? wantCutaway = ActiveTool.CutawayFor(cutawayHeadroom);
@@ -391,6 +422,7 @@ public partial class WorldMapPainter : Node3D
             ActiveTool.NumberKeys, SelectOption, ActiveTool.OptionSections(_ctx));
         hud.SetActiveOption(ActiveTool.OptionIndex);
         _markedSelection = ActiveTool.SelectedEntity;
+        _markedSceneSelection = ActiveTool.SelectedSceneEntity;
         _markedEntry = ActiveTool.SelectedEntry(_ctx);
         _markedScatter = ActiveTool.SelectedScatter(_ctx);
         _markedPropList = ActiveTool.SelectedPropList(_ctx);
@@ -924,7 +956,7 @@ public partial class WorldMapPainter : Node3D
         RefreshEntityHighlight();
         // What the cursor is over may be what this stroke just placed or just
         // deleted, and neither moves the mouse.
-        SetHoverEntity(ActiveTool.EntityUnder(_ctx, texel));
+        SetHoverEntity(ActiveTool.EntityUnder(_ctx, texel), ActiveTool.SceneEntityUnder(_ctx, texel));
         PushDisplay();
     }
 
@@ -1142,6 +1174,7 @@ public partial class WorldMapPainter : Node3D
         SpawnEntryData match = ActiveTool.SelectedEntry(_ctx);
         int grow = Mathf.Max(0, ink.entityMarkHighlightRadius);
         int reach = EntityMarkReach;
+        DrawSceneEntityMarks(x0, z0, x1, z1, grow, reach);
         foreach (EntityPlacement placement in _ctx.Placements.entities)
         {
             if (placement == null)
@@ -1197,7 +1230,7 @@ public partial class WorldMapPainter : Node3D
             Color mark = isSelected ? ink.entitySelectedInk
                 : isMatch ? ink.entityMatchInk
                 : ink.entityInk;
-            DrawFacingLine(placement, at, r, mark);
+            DrawFacingLine(EntityPlacement.Direction(placement.facing), at, r, mark);
         }
         if (_ctx.Placements.hasSpawn)
         {
@@ -1205,6 +1238,57 @@ public partial class WorldMapPainter : Node3D
             if (at.X >= x0 && at.X < x1 && at.Y >= z0 && at.Y < z1)
             {
                 FillCell(at.X, at.Y, ink.spawnInk);
+            }
+        }
+    }
+
+    // The entities the stamped scenes place, in their own ink: they move with
+    // their stamp and the tool will not drag or delete them, so they must not
+    // read as hand placements. One edited for its stamp takes the edited ink.
+    // Walked per stamp rather than per texel, like the hand placements, and
+    // rejected at the mark's reach for the same partial-rebuild reason.
+    private void DrawSceneEntityMarks(int x0, int z0, int x1, int z1, int grow, int reach)
+    {
+        SceneEntityTarget selected = ActiveTool.SelectedSceneEntity;
+        // Twice — marks, then lines — so a neighbour's grown mark cannot paint
+        // over a line, as for the hand placements.
+        for (int pass = 0; pass < 2; pass++)
+        {
+            foreach (SubscenePlacement stamp in _ctx.Placements.placements)
+            {
+                SubsceneState sub = _ctx.SubsceneFor(stamp);
+                if (sub == null)
+                {
+                    continue;
+                }
+                foreach (SceneEntity entity in sub.Entities)
+                {
+                    Vector2I at = _ctx.SceneEntityTexel(stamp, sub, entity);
+                    if (at.X + reach < x0 || at.X - reach >= x1
+                        || at.Y + reach < z0 || at.Y - reach >= z1)
+                    {
+                        continue;
+                    }
+                    bool isSelected = selected != null && selected.Stamp == stamp && selected.Id == entity.Id;
+                    bool isHover = _hoverScene != null && _hoverScene.Stamp == stamp && _hoverScene.Id == entity.Id;
+                    int r = isSelected || isHover ? grow : 0;
+                    Color mark = isSelected ? ink.entitySelectedInk
+                        : stamp.OverrideFor(entity.Id)?.custom != null ? ink.sceneEntityEditedInk
+                        : ink.sceneEntityInk;
+                    if (pass == 1)
+                    {
+                        var dir = new Vector2(Mathf.Sin(entity.RotationY), Mathf.Cos(entity.RotationY));
+                        DrawFacingLine(dir, at, r, mark);
+                        continue;
+                    }
+                    for (int px = Mathf.Max(at.X - r, x0); px <= Mathf.Min(at.X + r, x1 - 1); px++)
+                    {
+                        for (int pz = Mathf.Max(at.Y - r, z0); pz <= Mathf.Min(at.Y + r, z1 - 1); pz++)
+                        {
+                            FillCell(px, pz, mark);
+                        }
+                    }
+                }
             }
         }
     }
@@ -1224,13 +1308,12 @@ public partial class WorldMapPainter : Node3D
     // The line starts where it leaves the mark's (possibly grown) square, so its
     // full length always shows OUTSIDE the mark — from the centre, a highlighted
     // mark swallowed nearly all of it in its own colour.
-    private void DrawFacingLine(EntityPlacement placement, Vector2I at, int grownBy, Color mark)
+    private void DrawFacingLine(Vector2 dir, Vector2I at, int grownBy, Color mark)
     {
         if (ink.entityFacingLength <= 0f)
         {
             return;
         }
-        Vector2 dir = EntityPlacement.Direction(placement.facing);
         float x = at.X * pixelsPerMeter + pixelsPerMeter * 0.5f;
         float z = at.Y * pixelsPerMeter + pixelsPerMeter * 0.5f;
         float axis = Mathf.Max(Mathf.Abs(dir.X), Mathf.Abs(dir.Y));
@@ -1651,7 +1734,7 @@ public partial class WorldMapPainter : Node3D
         WorldMapEntityInspector inspector = hud.entityInspector;
         if (inspector != null)
         {
-            EntityPlacement selected = ActiveTool.SelectedEntity;
+            IEntryEditTarget selected = (IEntryEditTarget)ActiveTool.SelectedEntity ?? ActiveTool.SelectedSceneEntity;
             if (selected != null)
             {
                 inspector.Show(selected);

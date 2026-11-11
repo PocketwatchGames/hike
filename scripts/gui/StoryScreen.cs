@@ -1,20 +1,23 @@
 using Godot;
 using System;
-using System.Text;
 
-// Full-screen story card (a StoryData) over a paused, silent world. GameClient
+// Full-screen story (a StoryData) over a paused, silent world. GameClient
 // pauses the tree and holds InputSuppressed before Show; this node runs with
-// ProcessMode Always. The picture and text fade in, the player clicks (or
-// presses ui_accept) through, onContinue hands the world back, and the whole
-// card fades out over it while the world audio ramps up.
+// ProcessMode Always. The first page fades in from black, each click (or
+// ui_accept) crossfades to the next page, and on the last page onContinue
+// hands the world back and the whole card fades out over it while the world
+// audio ramps up.
 [GlobalClass]
 public partial class StoryScreen : Control
 {
+	// Fades in from black as a whole; holds the two page layers.
 	[Export] public Control content;
-	[Export] public TextureRect image;
-	[Export] public Label text;
+	// Two layers so a page can be drawn over the one it replaces.
+	[Export] public StoryPageView pageA;
+	[Export] public StoryPageView pageB;
 	[Export] public ButtonHint continueHint;
 	[Export(PropertyHint.Range, "0,5,0.05")] public float fadeInSeconds = 1.0f;
+	[Export(PropertyHint.Range, "0,5,0.05")] public float crossfadeSeconds = 0.75f;
 	[Export(PropertyHint.Range, "0,5,0.05")] public float fadeOutSeconds = 1.0f;
 	// Duck (dB) on the World3D + Ambience2D buses while the card is opaque;
 	// matches LoadingScreen so the hand-off between the two is silent.
@@ -25,12 +28,17 @@ public partial class StoryScreen : Control
 		Hidden,
 		FadingIn,
 		Waiting,
+		Crossfading,
 		FadingOut,
 	}
 
 	EState _state = EState.Hidden;
 	float _fade;
 	Action _onContinue;
+	StoryData _story;
+	int _pageIndex;
+	StoryPageView _front;
+	StoryPageView _back;
 
 	public override void _Ready()
 	{
@@ -40,20 +48,15 @@ public partial class StoryScreen : Control
 
 	public void Show(StoryData story, Action onContinue)
 	{
+		_story = story;
 		_onContinue = onContinue;
-		if (image != null)
-		{
-			image.Texture = story.image;
-			image.Visible = story.image != null;
-		}
-		if (text != null)
-		{
-			text.Text = ComposeText(story);
-		}
-		if (continueHint != null)
-		{
-			continueHint.Visible = false;
-		}
+		_pageIndex = 0;
+		_front = pageA;
+		_back = pageB;
+		_front.ShowPage(PageAt(0));
+		_front.SetAlpha(1f);
+		_back.SetAlpha(0f);
+		SetHintVisible(false);
 		Visible = true;
 		MouseFilter = MouseFilterEnum.Stop;
 		Modulate = Colors.White;
@@ -63,18 +66,9 @@ public partial class StoryScreen : Control
 		_state = EState.FadingIn;
 	}
 
-	static string ComposeText(StoryData story)
+	StoryPageData PageAt(int index)
 	{
-		var sb = new StringBuilder();
-		foreach (StringName key in story.paragraphs)
-		{
-			if (sb.Length > 0)
-			{
-				sb.Append("\n\n");
-			}
-			sb.Append(Loc.Get(key));
-		}
-		return sb.ToString();
+		return _story != null && index < _story.pages.Count ? _story.pages[index] : null;
 	}
 
 	public override void _ExitTree()
@@ -88,15 +82,26 @@ public partial class StoryScreen : Control
 		{
 			case EState.FadingIn:
 			{
-				_fade = fadeInSeconds > 0f ? Mathf.Min(1f, _fade + (float)delta / fadeInSeconds) : 1f;
+				_fade = Step(_fade, delta, fadeInSeconds);
 				SetContentAlpha(_fade);
 				if (_fade >= 1f)
 				{
-					_state = EState.Waiting;
-					if (continueHint != null)
-					{
-						continueHint.Visible = true;
-					}
+					EnterWaiting();
+				}
+				break;
+			}
+			case EState.Crossfading:
+			{
+				// The incoming page is drawn OVER the outgoing one, which stays
+				// opaque until the end — a true crossfade, with no dip to black
+				// halfway the way two opposing alphas would give.
+				_fade = Step(_fade, delta, crossfadeSeconds);
+				_back.SetAlpha(_fade);
+				if (_fade >= 1f)
+				{
+					_front.SetAlpha(0f);
+					(_front, _back) = (_back, _front);
+					EnterWaiting();
 				}
 				break;
 			}
@@ -109,11 +114,23 @@ public partial class StoryScreen : Control
 				{
 					_state = EState.Hidden;
 					Visible = false;
+					_story = null;
 					AudioVolume.ClearDuck(this);
 				}
 				break;
 			}
 		}
+	}
+
+	static float Step(float fade, double delta, float seconds)
+	{
+		return seconds > 0f ? Mathf.Min(1f, fade + (float)delta / seconds) : 1f;
+	}
+
+	void EnterWaiting()
+	{
+		_state = EState.Waiting;
+		SetHintVisible(true);
 	}
 
 	// Mouse clicks land here: the card is the topmost full-screen Control.
@@ -135,20 +152,41 @@ public partial class StoryScreen : Control
 		}
 	}
 
-	// Ignored until the card has fully faded in, so the click or key press that
-	// started the game can't skip a story nobody has seen yet.
+	// Ignored until the current page has fully faded in, so the press that
+	// started the game (or a double-click) can't skip a page nobody has seen.
 	void Continue()
 	{
 		if (_state != EState.Waiting)
 		{
 			return;
 		}
+		SetHintVisible(false);
+		_fade = 0f;
+
+		if (_story != null && _pageIndex + 1 < _story.pages.Count)
+		{
+			_pageIndex++;
+			_back.ShowPage(PageAt(_pageIndex));
+			_back.SetAlpha(0f);
+			_back.MoveToFront();
+			_state = EState.Crossfading;
+			return;
+		}
+
 		_state = EState.FadingOut;
 		_fade = 1f;
 		MouseFilter = MouseFilterEnum.Ignore;
 		Action onContinue = _onContinue;
 		_onContinue = null;
 		onContinue?.Invoke();
+	}
+
+	void SetHintVisible(bool visible)
+	{
+		if (continueHint != null)
+		{
+			continueHint.Visible = visible;
+		}
 	}
 
 	void SetContentAlpha(float alpha)

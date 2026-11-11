@@ -45,14 +45,6 @@ public static class EntitySerializer
         CraftingBench = 34,
     }
 
-    // How much of the Roof payload a stream carries. Containers map their own
-    // file version onto one of these and pass it to ReadList; a reader that
-    // says nothing gets the current layout.
-    public const int ROOF_FORMAT_ORIGINAL = 0;
-    public const int ROOF_FORMAT_BROKEN = 1;
-    public const int ROOF_FORMAT_FORM = 2;
-    public const int ROOF_FORMAT_CURRENT = ROOF_FORMAT_FORM;
-
     // Legacy PropType byte values for loot. PropSimState used to cover loot
     // before LootSimState was split out; old world files still carry Tag.Prop
     // with these PropType bytes and must round-trip through the legacy reader.
@@ -89,27 +81,6 @@ public static class EntitySerializer
     // True while a shared table is installed, meaning WriteList must not emit
     // its own — the container already wrote it.
     [ThreadStatic] private static bool _sharedWrite;
-    // Which trailing fields the Roof payload being read carries — the roof is
-    // the one entity whose payload has grown since it shipped. A per-payload
-    // version gate can't ride ReadList's signature the way hasRotation does
-    // (that one is consumed in ReadOne), so it goes here with the other
-    // per-list read state.
-    [ThreadStatic] private static int _roofFormat;
-    // Set while reading a stream written before every resource reference moved
-    // into the ref table (pre-v9 subscenes), which spelled some of them out as
-    // bare path strings instead.
-    [ThreadStatic] private static bool _legacyPathRefs;
-    // False while reading a subscene written before items carried their status
-    // effects, boons and subclass state (pre-v12). Defaults true, so a reader
-    // outside ReadList (the save game) always gets the current layout.
-    [ThreadStatic] private static bool _noItemExtras;
-    // True while reading a subscene written when a torch still carried an
-    // AutoLightAtNight bool (pre-v19); the byte is consumed and discarded.
-    [ThreadStatic] private static bool _torchAutoLightByte;
-    // False while reading a subscene written before a door carried its lock
-    // (pre-v20); those doors read unlocked.
-    [ThreadStatic] private static bool _noDoorLock;
-
     // How one ref-table slot stores its resource.
     private enum RefKind : byte
     {
@@ -322,16 +293,14 @@ public static class EntitySerializer
         w.Write(ms.ToArray());
     }
 
-    // `tagged` false reads a table written before a slot could hold a value -
-    // every entry is a bare path string.
-    public static ReadPathTable ReadTable(BinaryReader r, bool tagged = true)
+    public static ReadPathTable ReadTable(BinaryReader r)
     {
         int pathCount = r.Read7BitEncodedInt();
         var paths = new string[pathCount];
         var inline = new InlineRecord[pathCount];
         for (int i = 0; i < pathCount; i++)
         {
-            if (tagged && (RefKind)r.ReadByte() == RefKind.Inline)
+            if ((RefKind)r.ReadByte() == RefKind.Inline)
             {
                 paths[i] = "";
                 inline[i] = ReadInline(r);
@@ -386,67 +355,25 @@ public static class EntitySerializer
     }
 
     // `shared` is the container's table when the list was written under
-    // BeginSharedWrite; null means the list carries its own.
-    //
-    // `hasRotation` false reads a list written before RotationY became a common
-    // trailing field — the only such files left are pre-v3 subscenes, which load
-    // with every entity at zero facing. `hasTag` false likewise reads one written
-    // before the variant pool tag joined it (pre-v6 subscenes), which load
-    // untagged. Both are subscene-only: the world file demands an exact version
-    // match, so a stale .hike is rejected rather than read compatibly.
-    // Deep-copies entities through a write/read round-trip. Clone semantics stay
-    // aligned with the disk format for free — a field added to an entity
-    // propagates here without anyone remembering to copy it. The clones carry no
-    // RuntimeNode; whoever files them is responsible for spawning.
-    public static List<EntitySimState> CloneList(IReadOnlyList<EntitySimState> source)
-    {
-        if (source == null || source.Count == 0)
-        {
-            return new List<EntitySimState>();
-        }
-
-        using var ms = new MemoryStream();
-        using (var bw = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true))
-        {
-            WriteList(bw, source);
-        }
-        ms.Position = 0;
-        using var br = new BinaryReader(ms, Encoding.UTF8, leaveOpen: false);
-        return ReadList(br);
-    }
-
-    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null, bool hasRotation = true, int roofFormat = ROOF_FORMAT_CURRENT, bool hasTag = true, bool tableRefs = true, bool hasScale = true, bool itemExtras = true, bool hasScriptFields = true, bool hasDiscovered = true, bool torchAutoLightByte = false, bool doorLock = true)
+    // BeginSharedWrite; null means the list carries its own. Every container
+    // demands an exact version match, so there is one layout to read.
+    public static List<EntitySimState> ReadList(BinaryReader r, ReadPathTable shared = null)
     {
         ReadPathTable outer = _readPaths;
-        int outerRoofFormat = _roofFormat;
-        bool outerLegacyRefs = _legacyPathRefs;
-        bool outerNoItemExtras = _noItemExtras;
-        bool outerTorchAutoLightByte = _torchAutoLightByte;
-        bool outerNoDoorLock = _noDoorLock;
-        _noDoorLock = !doorLock;
-        _legacyPathRefs = !tableRefs;
-        _noItemExtras = !itemExtras;
-        _torchAutoLightByte = torchAutoLightByte;
-        _readPaths = shared ?? ReadTable(r, tagged: tableRefs);
-        _roofFormat = roofFormat;
+        _readPaths = shared ?? ReadTable(r);
         try
         {
             uint count = r.ReadUInt32();
             var list = new List<EntitySimState>((int)count);
             for (uint i = 0; i < count; i++)
             {
-                list.Add(hasRotation ? ReadOne(r, hasTag, hasScale, hasScriptFields, hasDiscovered) : ReadPayload(r));
+                list.Add(ReadOne(r));
             }
             return list;
         }
         finally
         {
             _readPaths = outer;
-            _roofFormat = outerRoofFormat;
-            _legacyPathRefs = outerLegacyRefs;
-            _noItemExtras = outerNoItemExtras;
-            _torchAutoLightByte = outerTorchAutoLightByte;
-            _noDoorLock = outerNoDoorLock;
         }
     }
 
@@ -921,16 +848,16 @@ public static class EntitySerializer
     // to be assigned after the payload because the payload is what constructs
     // the state. A payload that returns null (an unknown tag) still consumes it,
     // so the stream stays aligned.
-    private static EntitySimState ReadOne(BinaryReader r, bool hasTag, bool hasScale, bool hasScriptFields, bool hasDiscovered)
+    private static EntitySimState ReadOne(BinaryReader r)
     {
         EntitySimState state = ReadPayload(r);
         float rotationY = r.ReadSingle();
-        string tag = hasTag ? ReadInternedString(r) : "";
-        float scale = hasScale ? r.ReadSingle() : 1f;
-        string name = hasScriptFields ? ReadInternedString(r) : "";
-        string disabledVariable = hasScriptFields ? ReadInternedString(r) : "";
-        var disabledWhen = hasScriptFields ? (EDisabledWhen)r.ReadByte() : EDisabledWhen.True;
-        bool discovered = hasDiscovered && r.ReadBoolean();
+        string tag = ReadInternedString(r);
+        float scale = r.ReadSingle();
+        string name = ReadInternedString(r);
+        string disabledVariable = ReadInternedString(r);
+        var disabledWhen = (EDisabledWhen)r.ReadByte();
+        bool discovered = r.ReadBoolean();
         if (state != null)
         {
             state.RotationY = rotationY;
@@ -1121,7 +1048,7 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 bool active = r.ReadBoolean();
-                LockData doorLock = _noDoorLock ? null : ReadResource<LockData>(r);
+                LockData doorLock = ReadResource<LockData>(r);
                 var door = new DoorSimState(pos, rotationY: 0f, scene);
                 door.Active = active;
                 door.Lock = doorLock;
@@ -1169,10 +1096,6 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 bool active = r.ReadBoolean();
-                if (_torchAutoLightByte)
-                {
-                    r.ReadBoolean();
-                }
                 var torch = new TorchSimState(pos, scene);
                 torch.Active = active;
                 return torch;
@@ -1380,11 +1303,8 @@ public static class EntitySerializer
                 float sizeZ = r.ReadSingle();
                 var seamAxis = (ERoofSeamAxis)r.ReadByte();
                 float slopeDegrees = r.ReadSingle();
-                // Subscenes written before these fields existed stop short;
-                // reading one anyway would eat the next entity's tag byte and
-                // derail the whole list.
-                float broken = _roofFormat >= ROOF_FORMAT_BROKEN ? r.ReadSingle() : 0f;
-                var form = _roofFormat >= ROOF_FORMAT_FORM ? (ERoofForm)r.ReadByte() : ERoofForm.Gable;
+                float broken = r.ReadSingle();
+                var form = (ERoofForm)r.ReadByte();
                 return new RoofSimState(pos, style, sizeX, sizeZ, seamAxis, form, slopeDegrees, broken);
             }
             case Tag.Marker:
@@ -1643,14 +1563,6 @@ public static class EntitySerializer
         return GD.Load<T>(path);
     }
 
-    // A reference spelled out as a bare path — the shape the three lists below
-    // used before every reference moved into the ref table.
-    private static T LegacyRef<T>(BinaryReader r) where T : Resource
-    {
-        string path = r.ReadString();
-        return string.IsNullOrEmpty(path) ? null : LoadRef<T>(path);
-    }
-
     // Weapon loadout (MobSimState.Weapons), stamped from SpeciesData.weapons at
     // spawn: count + each WeaponData resource path. Null/empty writes a 0 count
     // and reads back as null (a mob that never attacks).
@@ -1674,7 +1586,7 @@ public static class EntitySerializer
         var weapons = new Godot.Collections.Array<WeaponData>();
         for (int i = 0; i < count; i++)
         {
-            weapons.Add(_legacyPathRefs ? LegacyRef<WeaponData>(r) : ReadResource<WeaponData>(r));
+            weapons.Add(ReadResource<WeaponData>(r));
         }
         return weapons;
     }
@@ -1702,7 +1614,7 @@ public static class EntitySerializer
         var effects = new Godot.Collections.Array<StatusEffectData>();
         for (int i = 0; i < count; i++)
         {
-            effects.Add(_legacyPathRefs ? LegacyRef<StatusEffectData>(r) : ReadResource<StatusEffectData>(r));
+            effects.Add(ReadResource<StatusEffectData>(r));
         }
         return effects;
     }
@@ -1751,29 +1663,16 @@ public static class EntitySerializer
     {
         // An absent item writes the null reference and nothing else, so the
         // trailing fields are only there when the reference names something.
-        ItemData data;
-        if (_legacyPathRefs)
+        int slot = r.Read7BitEncodedInt();
+        if (IsNullRef(slot))
         {
-            string path = r.ReadString();
-            if (string.IsNullOrEmpty(path))
-            {
-                return null;
-            }
-            data = LoadRef<ItemData>(path);
+            return null;
         }
-        else
-        {
-            int slot = r.Read7BitEncodedInt();
-            if (IsNullRef(slot))
-            {
-                return null;
-            }
-            // Read all trailing fields unconditionally to keep the stream aligned
-            // even if the resource itself has been renamed/removed since the file
-            // was written — a missing item silently drops the slot, but the
-            // following entries still parse correctly.
-            data = Resolve(slot) as ItemData;
-        }
+        // Read all trailing fields unconditionally to keep the stream aligned
+        // even if the resource itself has been renamed/removed since the file
+        // was written — a missing item silently drops the slot, but the
+        // following entries still parse correctly.
+        var data = Resolve(slot) as ItemData;
         int cohortCount = r.ReadInt32();
         var cohorts = new (int count, double spoilAtClock)[System.Math.Max(0, cohortCount)];
         for (int i = 0; i < cohortCount; i++)
@@ -1784,22 +1683,17 @@ public static class EntitySerializer
         ulong cooldownDurationMs = r.ReadUInt64();
         bool touched = r.ReadBoolean();
         int level = r.ReadInt32();
-        var effects = new List<StatusEffectRecord>();
+        List<StatusEffectRecord> effects = ReadStatusEffects(r);
         var boons = new List<BoonData>();
-        byte[] subclassState = System.Array.Empty<byte>();
-        if (!_noItemExtras)
+        int boonCount = r.ReadInt32();
+        for (int i = 0; i < boonCount; i++)
         {
-            effects = ReadStatusEffects(r);
-            int boonCount = r.ReadInt32();
-            for (int i = 0; i < boonCount; i++)
+            if (ReadResource<BoonData>(r) is BoonData boon)
             {
-                if (ReadResource<BoonData>(r) is BoonData boon)
-                {
-                    boons.Add(boon);
-                }
+                boons.Add(boon);
             }
-            subclassState = r.ReadBytes(r.Read7BitEncodedInt());
         }
+        byte[] subclassState = r.ReadBytes(r.Read7BitEncodedInt());
         if (data == null)
         {
             return null;

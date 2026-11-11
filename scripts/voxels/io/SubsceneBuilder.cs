@@ -2,9 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-// Builds a SubsceneState out of a live WorldState. Shared by the editor's
-// save path and the headless world→subscene conversion, so both produce
-// identical files from the same world.
+// Builds a SubsceneState's voxel body out of the scene editor's world.
 public static class SubsceneBuilder
 {
     // Bbox of every non-air voxel in the world (water counts — it's painted
@@ -49,17 +47,15 @@ public static class SubsceneBuilder
     // being lifted until its deepest voxel rests on the surface. X/Z stay at the
     // bbox min corner, which is what footprint placement measures from.
     //
-    // filterEntitiesToBox keeps only the entities standing inside the bbox,
-    // for carving one piece out of a larger world. Otherwise every entity in
-    // the world comes along: subscene entities are a flat list translated by
-    // the stamp anchor, not grid cells, so one outside the bbox stamps fine.
+    // Voxels and env only. The entities are the scene editor's placements,
+    // which it adds itself — a world's states are never read back into a scene.
     //
     // includeEnv bakes Wind/EnvTag from the source chunks' subgrids — for
     // castles/dungeons that need to override the destination's ambience.
     // interiorClassOverride >= 0 rewrites every enclosed cell of the captured
     // EnvTag to that palette index — the scene-level "what kind of interior is
     // this" knob. Negative leaves the captured bytes alone.
-    public static SubsceneState Build(WorldState ws, Vector3I min, Vector3I max, bool includeEnv, bool filterEntitiesToBox, int interiorClassOverride = -1)
+    public static SubsceneState Build(WorldState ws, Vector3I min, Vector3I max, bool includeEnv, int interiorClassOverride = -1)
     {
         Vector3I size = max - min + new Vector3I(1, 1, 1);
         var sub = new SubsceneState(size);
@@ -96,9 +92,6 @@ public static class SubsceneBuilder
             BakeEnvFromWorld(ws, sub, min, interiorClassOverride);
         }
 
-        sub.Entities = filterEntitiesToBox
-            ? CollectEntitiesInBox(ws, min, max, size)
-            : CollectAllEntities(ws, min);
         sub.Anchor = new Vector3(0f, -min.Y, 0f);
         return sub;
     }
@@ -143,74 +136,6 @@ public static class SubsceneBuilder
                 }
             }
         }
-    }
-
-    private static List<EntitySimState> CollectAllEntities(WorldState ws, Vector3I min)
-    {
-        var all = new List<EntitySimState>();
-        foreach (EntitySimState e in ws.AllChunkEntities())
-        {
-            all.Add(e);
-        }
-        return CloneToLocal(all, min);
-    }
-
-    // Walk every chunk overlapping the bbox and collect the EntitySimStates
-    // inside it.
-    private static List<EntitySimState> CollectEntitiesInBox(WorldState ws, Vector3I min, Vector3I max, Vector3I size)
-    {
-        var inside = new List<EntitySimState>();
-        Vector3I cMin = new Vector3I(
-            (int)Math.Floor((double)min.X / ChunkState.SIZE),
-            (int)Math.Floor((double)min.Y / ChunkState.SIZE),
-            (int)Math.Floor((double)min.Z / ChunkState.SIZE));
-        Vector3I cMax = new Vector3I(
-            (int)Math.Floor((double)max.X / ChunkState.SIZE),
-            (int)Math.Floor((double)max.Y / ChunkState.SIZE),
-            (int)Math.Floor((double)max.Z / ChunkState.SIZE));
-        for (int cx = cMin.X; cx <= cMax.X; cx++)
-        {
-            for (int cy = cMin.Y; cy <= cMax.Y; cy++)
-            {
-                for (int cz = cMin.Z; cz <= cMax.Z; cz++)
-                {
-                    List<EntitySimState> chunkEntities = ws.GetEntities(new Vector3I(cx, cy, cz));
-                    if (chunkEntities == null)
-                    {
-                        continue;
-                    }
-                    foreach (EntitySimState e in chunkEntities)
-                    {
-                        Vector3 p = e.WorldPosition;
-                        if (p.X >= min.X && p.X < min.X + size.X
-                            && p.Y >= min.Y && p.Y < min.Y + size.Y
-                            && p.Z >= min.Z && p.Z < min.Z + size.Z)
-                        {
-                            inside.Add(e);
-                        }
-                    }
-                }
-            }
-        }
-
-        return CloneToLocal(inside, min);
-    }
-
-    // Deep-clone, then translate into subscene-local space. Cloning avoids
-    // mutating the source world's entities.
-    private static List<EntitySimState> CloneToLocal(List<EntitySimState> source, Vector3I min)
-    {
-        List<EntitySimState> clones = EntitySerializer.CloneList(source);
-        Vector3 offset = new Vector3(-min.X, -min.Y, -min.Z);
-        foreach (EntitySimState clone in clones)
-        {
-            clone.WorldPosition += offset;
-            if (clone is MobSimState mob)
-            {
-                mob.SpawnPosition += offset;
-            }
-        }
-        return clones;
     }
 
     private static Vector3I ComponentMin(Vector3I a, Vector3I b)

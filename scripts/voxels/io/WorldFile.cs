@@ -37,6 +37,8 @@ using Godot;
 //   Payload : concatenated chunk blobs (see ChunkSerializer)
 public static class WorldFile
 {
+    public const string FILE_EXTENSION = "hike";
+
     public const uint MAGIC = 0x454B4948; // 'HIKE' little-endian
     // v5: chunk payload gained a per-voxel Shape byte (SharpAxes) channel between
     //     Voxels and Sunlight, plus a fog-density byte array after Sunlight.

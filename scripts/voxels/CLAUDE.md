@@ -24,9 +24,47 @@ Lighting is **baked into each chunk blob** so the runtime never has to recompute
 
 **Producing a world file** (`CVars.worldExport`): with a game running, `world_export <path>` writes the active `WorldState` through `WorldFile.Write`. Used for testing the disk loader against real data before the custom editor exists.
 
+## A `.hikescene` stores placements, not states
+
+**A scene is two files: `house01.hikescene` (the voxel body) and
+`house01.entities.tres` (`SubsceneEntities`, beside it by name).** The `.tres`
+holds `SceneEntityPlacement`s — a palette entry (`source`), the placement's own
+fork once edited (`custom`), a scene-local position and yaw, a seed, and an id.
+Move, copy or rename the two together — `resource_check` fails on a scene
+without its entities file or an entities file without its scene.
+
+- **Every stamp SPAWNS them** (`SubsceneStamper.StampEntities` → `TrySpawn`,
+  `AuthoredPosition`, rolled on the placement's seed), in worldgen, the painter's
+  bake and the scene editor alike. So a scene's door tracks `door.tres`, a mob
+  is levelled by the destination's context, and what the scene editor showed is
+  what every stamp places. Nothing clones states any more.
+- **Ids are stable and never reused** (`SubsceneEntities.nextId`). They are what
+  a stamp's `SubscenePlacement.entityOverrides` key on — a stamp may fork an
+  entity's entry (one house's door gets a lock) but never move or remove it.
+  An override of the wrong type is ignored and reported (`worldmap_check`).
+- **In the scene editor the placements ARE the document; states are only the
+  preview** (`SceneEntityDocument`). Every tool — place, aim, move, duplicate,
+  delete, roof retune, pasting a scene in — edits placements and then syncs,
+  which respawns exactly the placements whose spawn no longer matches. Nothing
+  reads a placement back off a state; the one reverse lookup (`OwnerOf`) is for
+  picking a clicked node. Undo snapshots the placements
+  (`ScenePlacementsAspect`) and re-syncs. The scene editor edits scenes only — a
+  `.hike` is the game's output, and a world's states are never turned back into
+  a scene.
+- **Deleting an entity a painter stamp has edited warns at save.** The scene
+  editor compares the ids on disk with the ids it is writing and names any
+  painter document that overrides a removed one; undoing the delete restores the
+  same id, so undo-and-save keeps the edit. `worldmap_check` reports any such
+  override that slipped through as an ERROR.
+- **Roofs are `RoofSpawnEntry` placements with no `source`**: the roof tool
+  authors the whole entry, since a footprint and pitch are the whole of a roof.
+- **The format is exact-version** (v21), like `.hike`. All earlier versions
+  stored serialized states; the eight scenes were converted once and the old
+  reader deleted, along with every old-scene branch in `EntitySerializer`.
+
 ## WorldGen output cache — bump `WORLDGEN_VERSION` on logic changes
 
-`WorldGenCache` (`scripts/voxels/io/`) memoizes `WorldGen.Generate` output to a `.hike` under `user://` keyed by `seed + size + fingerprint`. **The fingerprint is `WorldGen.WORLDGEN_VERSION` + `WorldFile.VERSION` + `LightEngine.LIGHT_VERSION` + the content-hash of every `.tres`/`.tscn`/`.hikescene` reachable from the `WorldGenData` — it does NOT hash the worldgen C# itself.**
+`WorldGenCache` (`scripts/voxels/io/`) memoizes `WorldGen.Generate` output to a `.hike` under `user://` keyed by `seed + size + fingerprint`. **The fingerprint is `WorldGen.WORLDGEN_VERSION` + `WorldFile.VERSION` + `LightEngine.LIGHT_VERSION` + the content-hash of every `.tres`/`.tscn`/`.hikescene` reachable from the `WorldGenData` (a scene's `.entities.tres` included — it is found by name, not by reference, so `WorldGenCache` enqueues it beside each scene) — it does NOT hash the worldgen C# itself.**
 
 So editing `.tres` data invalidates the cache automatically, but **changing worldgen *logic* (any `.cs` under generation — height, caves, terrains, spawns, …) does NOT.** A code-only fix silently loads a stale pre-fix world on the next run; the symptom is "my change had no effect" (and `Generate` never runs, so debug prints inside it never fire). **Bump `WORLDGEN_VERSION` (one int, top of `WorldGen.cs`) whenever you change generation behavior** — it invalidates every cached world. To force a one-off regen without a bump, set `world_cache_enabled false` in the console (or delete the `worldgen_cache` dir). When a worldgen fix "won't take," suspect this first.
 

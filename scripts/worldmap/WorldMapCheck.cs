@@ -425,6 +425,7 @@ public static class WorldMapCheck
         sb.AppendLine($"[worldmap_check] stamps: {allStamps.Stamps.Length} placed, "
             + $"{covered} columns drawn, "
             + $"{disagreements} partial-vs-full disagreements (must be 0)");
+        ReportSceneEntities(sb, ctx);
 
         // Again on a CUTAWAY, which is the same invariant through the extra
         // `baseYs` array — parallel to the candidate list, so a prefilter that
@@ -579,6 +580,51 @@ public static class WorldMapCheck
     // at — the same listing the painter's panel shows for the selected set, off
     // the same helper. It is the one place a density is legible as a NUMBER
     // rather than as square metres between spawns.
+    // The entities the stamps' scenes place, and each stamp's own forks of them.
+    // An override whose id the scene no longer has, or whose type no longer
+    // matches what the scene places there, bakes as nothing at all — the
+    // scene's own entry stands — so this is the one place either is visible.
+    private static void ReportSceneEntities(System.Text.StringBuilder sb, WorldMapState ctx)
+    {
+        int entities = 0;
+        int overrides = 0;
+        foreach (SubscenePlacement stamp in ctx.Placements.placements)
+        {
+            SubsceneState sub = ctx.SubsceneFor(stamp);
+            if (sub == null)
+            {
+                continue;
+            }
+            entities += sub.Entities.Count;
+            foreach (SubsceneEntityOverride o in stamp.entityOverrides ?? System.Array.Empty<SubsceneEntityOverride>())
+            {
+                if (o?.custom == null)
+                {
+                    continue;
+                }
+                overrides++;
+                SceneEntity entity = sub.Entities.Find(e => e.Id == o.entityId);
+                string where = $"{stamp.path.GetFile()} at {stamp.anchorXZ}, entity {o.entityId}";
+                if (entity == null)
+                {
+                    sb.AppendLine($"[worldmap_check] ERROR: orphaned override: {where} — the scene has no such "
+                        + "entity, so this stamp bakes without it. Restore the entity in the scene editor (undo its "
+                        + "delete and save), or remove the override from placements.tres.");
+                }
+                else if (entity.HasMismatchedOverride(stamp))
+                {
+                    sb.AppendLine($"[worldmap_check] ERROR: mismatched override: {where} is a "
+                        + $"{o.custom.GetType().Name} but the scene places {entity.Placement.Label()}, so it is ignored");
+                }
+                else
+                {
+                    sb.AppendLine($"[worldmap_check]   override {where}: {entity.Placement.Label()}");
+                }
+            }
+        }
+        sb.AppendLine($"[worldmap_check] scene entities: {entities} across the stamps, {overrides} overridden per stamp");
+    }
+
     private static void ReportScatterSets(System.Text.StringBuilder sb, WorldMapState ctx)
     {
         foreach (SpawnScatterData set in ctx.ScatterSets)

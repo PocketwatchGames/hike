@@ -225,7 +225,7 @@ public partial class WorldMapData : Resource
     // redirect a single bake (BakeToWorldFile's argument).
     public string OutputWorldPath => World == null
         ? ""
-        : WorldScope.RootOf(World) + World + "." + WorldEditor.WORLD_FILE_EXTENSION;
+        : WorldScope.RootOf(World) + World + "." + WorldFile.FILE_EXTENSION;
 
     public string NoWorldMessage()
     {

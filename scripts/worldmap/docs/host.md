@@ -405,6 +405,27 @@ tool report the columns it actually changed — a stamp moves its whole footprin
 which is nowhere near the cursor's disk, and the move has to repaint the ground
 it LEFT as well as the ground it arrived on.
 
+**A stamp's scene entities are on the map, fixed, and editable per stamp.** A
+`.hikescene` stores spawn-entry PLACEMENTS (see "A `.hikescene` stores
+placements" in `scripts/voxels/CLAUDE.md`), so each entity a stamp brings is an
+entry like any hand placement — and the entity tool selects it into the same
+panel (`SceneEntityTarget`, an `IEntryEditTarget`). What it will not do is move,
+aim or delete one: where it stands is the scene's. Editing forks the entry into
+the stamp's `entityOverrides`, keyed by the scene entity's id, so one house's
+door can take a lock while the scene and every other stamp of it keep theirs.
+
+- **Its own ink** (`sceneEntityInk`, and `sceneEntityEditedInk` once this stamp
+  has forked it): it does not behave like a hand placement and must not read as
+  one. A hand placement in the same cell wins the click and draws over it.
+- **No name row.** A name makes a hand placement a point of interest; a scene's
+  entity is the scene's.
+- **Undo** captures the override list on the stamp and each override's fork
+  (`PlacementsAspect`), the same as an entity's fork.
+- **An override that no longer fits is ignored, never obeyed** — an id the scene
+  lost, or a type it no longer places there (the scene was re-authored). The
+  stamp warns at bake and `worldmap_check` lists it; ids are never reused, so an
+  override can go stale but cannot silently land on a different entity.
+
 **Stamps draw on EVERY view, not only the scene tool's.** A building is a fact
 about the ground you need while painting the things that sit beside it — the
 same argument climbing routes and spill edges are inked everywhere — and a

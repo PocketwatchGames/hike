@@ -3,7 +3,8 @@ using Godot;
 
 // Stamps a SubsceneState into a WorldState. Two-phase API:
 //
-//   StampVoxels(ws, sub, anchor)         — voxel channels + entities
+//   StampVoxels(ws, sub, anchor)         — voxel channels
+//   StampEntities(ws, sub, anchor, ...)  — the scene's entities, spawned
 //   StampEnvOverrides(ws, sub, anchor)   — optional Wind/EnvTag overrides
 //
 // Phasing matters during WorldGen: voxels must land BEFORE the sunlight /
@@ -21,8 +22,8 @@ using Godot;
 // TerrainId is the one channel not copied verbatim — a scene's natural ground
 // INHERITS the ground it lands on. See SampleGroundTerrain.
 //
-// A SubsceneState is READ, never consumed: the world receives deep copies of
-// `sub.Entities`, so one loaded state stamps any number of times. The painter
+// A SubsceneState is READ, never consumed: entities are spawned from its
+// placements, so one loaded state stamps any number of times. The painter
 // depends on that — it caches a state per (scene, rotation) and stamps it once
 // per placement.
 public static class SubsceneStamper
@@ -69,28 +70,69 @@ public static class SubsceneStamper
                 }
             }
         }
+    }
 
+    // Spawns the scene's entities for a stamp at `worldAnchor`, each through
+    // its entry's TrySpawn at the authored spot and yaw — the same call a
+    // painter placement or an editor brush makes, so a scene's door and a
+    // hand-placed one differ in nothing but who chose the spot.
+    //
+    // `stamp` supplies the placement's overrides (SubscenePlacement
+    // .entityOverrides); null places every entity as the scene authored it.
+    // `context` is the DESTINATION's — its level sampler is what a scene mob
+    // should be levelled by, since a scene has no zone of its own — and has the
+    // per-entity facing / authored-position claims set and cleared around each
+    // spawn, so a shared context comes back as it went in. Null is allowed.
+    //
+    // Each entity rolls on its placement's own seed, so every stamp places what
+    // the author saw in the scene editor.
+    public static int StampEntities(WorldState ws, SubsceneState sub, Vector3 worldAnchor,
+        SpawnContext context, SubscenePlacement stamp = null)
+    {
+        context ??= new SpawnContext();
         Vector3 worldOffset = WorldOffset(sub, worldAnchor);
-        if (sub.Entities != null)
+        float? outerFacing = context.FacingY;
+        bool outerAuthored = context.AuthoredPosition;
+        int spawned = 0;
+        try
         {
-            // COPIES, never the source instances. A SubsceneState is a loaded
-            // document, and the painter caches one per (scene, rotation) across
-            // every placement that uses it — so moving the entities out left the
-            // first placement of a scene furnished and every later one stamping
-            // bare walls: no roof, no door, no windows, no villagers.
-            foreach (EntitySimState e in EntitySerializer.CloneList(sub.Entities))
+            foreach (SceneEntity entity in sub.Entities)
             {
-                e.WorldPosition += worldOffset;
-                // MobSimState carries a SpawnPosition that needs the same
-                // translation so spawn-anchored behaviors (return-to-spawn,
-                // burrow-from-spawn) work in the destination world.
-                if (e is MobSimState mob)
+                SpawnEntryData entry = entity.EntryFor(stamp);
+                if (entry == null)
                 {
-                    mob.SpawnPosition += worldOffset;
+                    continue;
                 }
-                ws.AddEntity(e);
+                if (entity.HasMismatchedOverride(stamp))
+                {
+                    GD.PushWarning($"SubsceneStamper: '{stamp.path}' overrides entity {entity.Id} with a "
+                        + $"{stamp.OverrideFor(entity.Id).custom.GetType().Name}, but the scene now places "
+                        + $"{SpawnEntryData.Describe(entry)} there; the override is ignored.");
+                }
+                context.FacingY = entity.RotationY;
+                context.AuthoredPosition = true;
+                Vector3 position = entity.Position + worldOffset;
+                if (entry.TrySpawn(ws, position, new Random(entity.Placement.seed), context))
+                {
+                    spawned++;
+                }
+                else
+                {
+                    // Authored spot, so every terrain gate is already skipped —
+                    // what is left (a mob's walkability, a hazard keep-out) is a
+                    // fact about the scene, and silence would leave an author
+                    // staring at an empty room.
+                    GD.PushWarning($"SubsceneStamper: {SpawnEntryData.Describe(entry)} (entity {entity.Id}) "
+                        + $"refused its spot at {position}.");
+                }
             }
         }
+        finally
+        {
+            context.FacingY = outerFacing;
+            context.AuthoredPosition = outerAuthored;
+        }
+        return spawned;
     }
 
     // A TerrainId byte is a slot in the terrain palette of the world the scene was
@@ -278,18 +320,13 @@ public static class SubsceneStamper
     // Convenience for callers who don't need the two-phase ordering — does
     // voxels + entities, then env overrides immediately. Safe at runtime
     // because the default bakes have long since finished; not safe during
-    // WorldGen.Generate (call StampVoxels then StampEnvOverrides at the
-    // right phases instead).
-    public static void StampAll(WorldState ws, SubsceneState sub, Vector3 worldAnchor)
+    // WorldGen.Generate (call the three steps at the right phases instead).
+    public static void StampAll(WorldState ws, SubsceneState sub, Vector3 worldAnchor,
+        SpawnContext context, SubscenePlacement stamp = null)
     {
         StampVoxels(ws, sub, worldAnchor);
+        StampEntities(ws, sub, worldAnchor, context, stamp);
         StampEnvOverrides(ws, sub, worldAnchor);
-    }
-
-    public static void StampAll(WorldState ws, string path, Vector3 worldAnchor)
-    {
-        SubsceneState sub = SubsceneFile.Read(path);
-        StampAll(ws, sub, worldAnchor);
     }
 
     // World voxel the subscene's local (0,0,0) lands on for a stamp at

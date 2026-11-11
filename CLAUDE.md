@@ -184,6 +184,9 @@ chases is invisible from either side alone:
 - **Load sweep**: every `.tres` under `resources/` loads, and the script the file
   names is the script the loaded object ended up with. Catches a renamed or moved
   class, a broken dependency, and a parse error.
+- **Scene pairs**: every `.hikescene` has its `.entities.tres` beside it and the
+  reverse, and each scene reads in full. The two files are one scene document,
+  and a rename or copy that moves only one is otherwise found at the next stamp.
 
 Grep the output for `FAIL`; a clean tree prints `[resource_check] ok`.
 
@@ -936,9 +939,11 @@ Every `global uniform` in a `.gdshader` MUST be seeded from C# at startup before
 
 Two parallel renderers behind one HUD widget — a global outdoor heightmap and a sparse per-slice indoor atlas — composited via an A/B crossfade so mode and slice-level changes glide. Exploration is a separate per-renderer R8 mask. See [scripts/gameplay/minimap/CLAUDE.md](scripts/gameplay/minimap/CLAUDE.md).
 
-### World Editor Undo / Redo (`scripts/editor/undo/`)
+### Scene Editor Undo / Redo (`scripts/editor/undo/`)
 
-Snapshot-on-touch: a tool opens an `EditorEdit` off `EditorHistory`, declares what it is **about to** change (`TouchVoxel` / `TouchEntityChunk` / `TouchSpawn`) before writing, then commits — the edit captures "before" at touch and "after" at commit and drops itself if nothing moved. **Any new editor tool gets undo by touching what it writes; no tool ever writes undo logic.** A whole drag is one edit (Begin on press, Commit on release). Making a new *kind* of state undoable means one new `IEditorEditAspect`, not a case in a switch. `EditorRefresh` is the shared "what the live scene must redo" batch (relight + re-mesh changed chunks, respawn changed entity buckets) — brush strokes, subscene stamps and undo/redo all go through it.
+The scene editor (`WorldEditor`) authors `.hikescene` files only. Its entities are spawn-entry placements with states as a preview — see "A `.hikescene` stores placements" in [scripts/voxels/CLAUDE.md](scripts/voxels/CLAUDE.md).
+
+Snapshot-on-touch: a tool opens an `EditorEdit` off `EditorHistory`, declares what it is **about to** change (`TouchVoxel` / `TouchScenePlacements` / `TouchSpawn`) before writing, then commits — the edit captures "before" at touch and "after" at commit and drops itself if nothing moved. **Any new editor tool gets undo by touching what it writes; no tool ever writes undo logic.** A whole drag is one edit (Begin on press, Commit on release). Making a new *kind* of state undoable means one new `IEditorEditAspect`, not a case in a switch. `EditorRefresh` is the shared "what the live scene must redo" batch (relight + re-mesh changed chunks, respawn changed entity buckets) — brush strokes, subscene stamps and undo/redo all go through it.
 
 ### Ground Stains / Decals (`scripts/client/GroundStainProjector.cs`, `shaders/ground_stain.gdshaderinc`)
 

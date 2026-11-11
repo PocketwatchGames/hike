@@ -335,7 +335,9 @@ public class WorldMapBake
                 continue;
             }
             var anchor = new Vector3(placement.anchorXZ.X, Map.SeatY(placement), placement.anchorXZ.Y);
-            SubsceneStamper.StampAll(WorldState, sub, anchor);
+            // The bake's own context, so a scene's mob takes the painted
+            // difficulty under it; the stamp's overrides ride along.
+            SubsceneStamper.StampAll(WorldState, sub, anchor, SpawnContextForBake(), placement);
             RecordStampedGround(placement);
             GD.Print($"WorldMapState: stamped {placement.path.GetFile()} at {anchor} "
                 + $"(size={sub.Size}, rot={(int)placement.rotation * 90}deg, yOffset={placement.yOffset})");

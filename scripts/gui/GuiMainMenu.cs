@@ -47,9 +47,7 @@ public partial class GuiMainMenu : Node
 	// ...) when the file already exists so a new one never clobbers an old one.
 	// The extension is also what tells the editor which kind it's opening.
 	[Export] public string newScenePath = SubsceneFile.DEFAULT_SCENE_DIR + "scene.hikescene";
-	[Export] public string newWorldPath = "user://world.hike";
 	[Export] public string newSceneLabel = "New Scene";
-	[Export] public string newWorldLabel = "New World";
 	[Export] public string newWorldMapLabel = "New World Map…";
 	[Export] public string openDocumentLabel = "Open…";
 	[Signal] public delegate void OnNewGameEventHandler(Vector3 playerPosition, WorldGenData worldGenData);
@@ -68,9 +66,7 @@ public partial class GuiMainMenu : Node
 
 	// The fixed rows of the editor and painter lists. They are actions, not
 	// files: the files are reached through the dialogs.
-	private const int EDITOR_NEW_SCENE_INDEX = 0;
-	private const int EDITOR_NEW_WORLD_INDEX = 1;
-	private const int EDITOR_OPEN_INDEX = 2;
+	private const int EDITOR_OPEN_INDEX = 1;
 	private const int PAINTER_NEW_INDEX = 0;
 	private const int PAINTER_OPEN_INDEX = 1;
 
@@ -147,7 +143,7 @@ public partial class GuiMainMenu : Node
 	public void ShowEditorOptions()
 	{
 		_mode = SelectorMode.Editor;
-		PopulateActions(newSceneLabel, newWorldLabel, openDocumentLabel);
+		PopulateActions(newSceneLabel, openDocumentLabel);
 		ShowSelector();
 	}
 
@@ -196,7 +192,7 @@ public partial class GuiMainMenu : Node
 		{
 			if (index == EDITOR_OPEN_INDEX)
 			{
-				PopupOpenDialog("*.hikescene ; Scene", "*.hike ; World");
+				PopupOpenDialog($"*.{WorldEditor.SCENE_FILE_EXTENSION} ; Scene");
 				return;
 			}
 			StartEditor();
@@ -266,8 +262,7 @@ public partial class GuiMainMenu : Node
 		EmitSignal(SignalName.OnNewGame, new Vector3(0, 24, 0), SelectedWorldGen());
 	}
 
-	// A new editor document, or — reached with no selector shown, as autostart
-	// does — whatever `world_file` names.
+	// A new scene document, at a path nothing is using yet.
 	public void StartEditor()
 	{
 		EmitSignal(SignalName.OnStartEditor, worldGenData, NewEditorDocumentPath());
@@ -331,12 +326,9 @@ public partial class GuiMainMenu : Node
 			EmitSignal(SignalName.OnStartPainter, worldGenData, path);
 			return;
 		}
-		string ext = path.GetExtension();
-		if (!ext.Equals(WorldEditor.SCENE_FILE_EXTENSION, StringComparison.OrdinalIgnoreCase)
-			&& !ext.Equals(WorldEditor.WORLD_FILE_EXTENSION, StringComparison.OrdinalIgnoreCase))
+		if (!path.GetExtension().Equals(WorldEditor.SCENE_FILE_EXTENSION, StringComparison.OrdinalIgnoreCase))
 		{
-			ShowError($"{path.GetFile()} is not a scene (.{WorldEditor.SCENE_FILE_EXTENSION}) "
-				+ $"or a world (.{WorldEditor.WORLD_FILE_EXTENSION}).");
+			ShowError($"{path.GetFile()} is not a scene (.{WorldEditor.SCENE_FILE_EXTENSION}).");
 			return;
 		}
 		EmitSignal(SignalName.OnStartEditor, worldGenData, path);
@@ -460,7 +452,7 @@ public partial class GuiMainMenu : Node
 		}
 		else if (OS.HasFeature("template"))
 		{
-			GD.PrintErr($"GuiMainMenu: no .{WorldEditor.WORLD_FILE_EXTENSION} under '{shippedWorldRoot}' in this build — "
+			GD.PrintErr($"GuiMainMenu: no .{WorldFile.FILE_EXTENSION} under '{shippedWorldRoot}' in this build — "
 				+ "add each shipped world to the export preset's non-resource include filter.");
 		}
 	}
@@ -490,7 +482,7 @@ public partial class GuiMainMenu : Node
 		}
 		foreach (string fileName in DirAccess.GetFilesAt(dir))
 		{
-			if (!fileName.GetExtension().Equals(WorldEditor.WORLD_FILE_EXTENSION, StringComparison.OrdinalIgnoreCase))
+			if (!fileName.GetExtension().Equals(WorldFile.FILE_EXTENSION, StringComparison.OrdinalIgnoreCase))
 			{
 				continue;
 			}
@@ -561,11 +553,7 @@ public partial class GuiMainMenu : Node
 	// (autostart) the existing `world_file` cvar decides.
 	private string NewEditorDocumentPath()
 	{
-		if (_mode != SelectorMode.Editor)
-		{
-			return CVars.worldFile.Value;
-		}
-		return UnusedDocumentPath(SelectedIndex() == EDITOR_NEW_WORLD_INDEX ? newWorldPath : newScenePath);
+		return UnusedDocumentPath(newScenePath);
 	}
 
 	private string UnusedDocumentPath(string template)

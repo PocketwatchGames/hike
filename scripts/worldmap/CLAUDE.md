@@ -86,7 +86,8 @@ Layers:
   it always meant.
 - **Scalars** — `.png` `Rgba8`, per column: R = mob level, G = climb route flag,
   B = cliff roughness.
-- **Placements** — `.tres` (`WorldMapPlacements`): the subscene stamps, the
+- **Placements** — `.tres` (`WorldMapPlacements`): the subscene stamps (each
+  with its own forks of its scene's entities, `entityOverrides`), the
   hand-placed entities, and the player spawn. Not a raster: a per-column byte
   cannot hold "this scene, facing that way", nor two of them overlapping, nor a
   footprint that moves as one thing.
@@ -236,7 +237,7 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | `SceneTool` | `.hikescene` stamps — place / select / move / rotate / delete; seat follows the ground or is pinned (`fixedY`: X, shift+R/F, alt+click) | `SceneIndex`, `Selected` | `CutawayGroundView` — **cuts away** (T/G), so a stamp can be placed in a passage (the stamps themselves draw on EVERY view) |
 | `MobLevelTool` | per-column danger level; with the plane lowered, the level of the PASSAGE under the cut | `Level` | terrain recoloured, one shade per level — **cuts away** (T/G) to shade passages |
 | `MobTool` | which `SpawnScatterData` supplies a column's wildlife + density; with the plane lowered, the PASSAGE's scatter; the inspector lists the set's entries at `n / km²` | `SetIndex`, `Density` | ground colour + a dot per mob spawn, the SELECTED set full weight and the rest dimmed — **cuts away** (T/G), dotting the passage scatter |
-| `EntityTool` | individual entities, their per-placement properties, and the player spawn | `PaletteIndex`, `Selected` | the ground map (the marks themselves draw on EVERY view that shows props) |
+| `EntityTool` | individual entities, their per-placement properties, and the player spawn; a STAMPED SCENE's entities are selectable too and edited for that stamp alone, never moved or deleted | `PaletteIndex`, `Selected`, `SelectedScene` | the ground map (the marks themselves draw on EVERY view that shows props; a scene's entities in `sceneEntityInk`) |
 
 A spawn brush writes only its raster; `RescatterColumns` resolves it during the
 bake. The two resolutions are not the same shape and should not be made to
@@ -429,8 +430,8 @@ stopped being the hub does not error, it bakes a different world.
   moves no existing slot and therefore re-textures nothing already baked. A terrain
   still absent from the palette bakes as slot 0 and `SlotOf` warns by name; the
   fix for that is to append it, never to add a zone for it.
-- **Subscene stamps fill no marker pools.** Worldgen pulls `MarkerSimState`s out
-  of a scene before stamping and then fills each `SubscenePlacement.variants`
+- **Subscene stamps fill no marker pools.** Worldgen pulls a scene's marker
+  placements out before stamping and then fills each `SubscenePlacement.variants`
   pool; the painter stamps them straight through, so a scene authored with a
   pool bakes with its markers still in it and nobody standing on them. Markers
   and path hints only spawn under the world editor, so they are inert in game —
@@ -449,6 +450,10 @@ stopped being the hub does not error, it bakes a different world.
   last full game load predates all of it. The per-placement property panel is
   verified only as far as `worldmap_check` reaches — the entry types reflect and
   fork correctly and the scene wiring resolves; nobody has typed into it yet.
+  Selecting a stamped scene's entity and editing it in the panel is likewise
+  unexercised by hand: the override is verified to reach the bake (one door of
+  one stamp locked, the rest and the shared entry untouched, through a rotation),
+  and `worldmap_check` lists every override.
 ## Not yet (future steps)
 
 

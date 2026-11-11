@@ -2,8 +2,8 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-// Everything in WorldMapPlacements: the subscene stamps, the hand-placed
-// entities, and the player spawn.
+// Everything in WorldMapPlacements: the subscene stamps (with their forks of
+// their scenes' entities), the hand-placed entities, and the player spawn.
 //
 // Snapshotted WHOLE rather than tiled — these are a handful of entries, and
 // every edit (add, delete, move, rotate) changes a list or one entry's fields,
@@ -120,6 +120,12 @@ public sealed class PlacementsAspect : IMapEditAspect
     {
         public readonly SubscenePlacement[] Stamps;
         public readonly Variant[][] StampValues;
+        // Per stamp, its overrides and the fields of each one's fork. The
+        // override LIST is a stamp property, captured above as a reference; these
+        // are what the panel edits inside it.
+        public readonly SubsceneEntityOverride[][] Overrides;
+        public readonly Variant[][][] OverrideValues;
+        public readonly Variant[][][] OverrideEntryValues;
 
         public readonly EntityPlacement[] Entities;
         public readonly Variant[][] EntityValues;
@@ -132,9 +138,22 @@ public sealed class PlacementsAspect : IMapEditAspect
         {
             Stamps = (SubscenePlacement[])p.placements.Clone();
             StampValues = new Variant[Stamps.Length][];
+            Overrides = new SubsceneEntityOverride[Stamps.Length][];
+            OverrideValues = new Variant[Stamps.Length][][];
+            OverrideEntryValues = new Variant[Stamps.Length][][];
             for (int i = 0; i < Stamps.Length; i++)
             {
                 StampValues[i] = Capture(Stamps[i]);
+                SubsceneEntityOverride[] list = (SubsceneEntityOverride[])Stamps[i]?.entityOverrides?.Clone()
+                    ?? System.Array.Empty<SubsceneEntityOverride>();
+                Overrides[i] = list;
+                OverrideValues[i] = new Variant[list.Length][];
+                OverrideEntryValues[i] = new Variant[list.Length][];
+                for (int k = 0; k < list.Length; k++)
+                {
+                    OverrideValues[i][k] = Capture(list[k]);
+                    OverrideEntryValues[i][k] = Capture(list[k]?.custom);
+                }
             }
 
             Entities = (EntityPlacement[])p.entities.Clone();
@@ -162,9 +181,19 @@ public sealed class PlacementsAspect : IMapEditAspect
             for (int i = 0; i < Stamps.Length; i++)
             {
                 if (!ReferenceEquals(Stamps[i], other.Stamps[i])
-                    || !SameValues(StampValues[i], other.StampValues[i]))
+                    || !SameValues(StampValues[i], other.StampValues[i])
+                    || Overrides[i].Length != other.Overrides[i].Length)
                 {
                     return false;
+                }
+                for (int k = 0; k < Overrides[i].Length; k++)
+                {
+                    if (!ReferenceEquals(Overrides[i][k], other.Overrides[i][k])
+                        || !SameValues(OverrideValues[i][k], other.OverrideValues[i][k])
+                        || !SameValues(OverrideEntryValues[i][k], other.OverrideEntryValues[i][k]))
+                    {
+                        return false;
+                    }
                 }
             }
             for (int i = 0; i < Entities.Length; i++)
@@ -184,7 +213,14 @@ public sealed class PlacementsAspect : IMapEditAspect
             ctx.Placements.placements = (SubscenePlacement[])Stamps.Clone();
             for (int i = 0; i < Stamps.Length; i++)
             {
+                // The stamp first: it carries the override list, and the values
+                // below land in the overrides that list holds again.
                 Write(Stamps[i], StampValues[i]);
+                for (int k = 0; k < Overrides[i].Length; k++)
+                {
+                    Write(Overrides[i][k], OverrideValues[i][k]);
+                    Write(Overrides[i][k]?.custom, OverrideEntryValues[i][k]);
+                }
             }
 
             ctx.Placements.entities = (EntityPlacement[])Entities.Clone();
