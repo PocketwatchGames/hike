@@ -995,6 +995,17 @@ public partial class SkyController : Node3D
     // dusk/night.
     public float CurrentPrimaryIntensity { get; private set; } = 2f;
 
+    // The active body's DirectionalLight3D energy — what voxel_clip's light()
+    // gates the direct share by. Near 0 just after sunrise and before sunset,
+    // which is why a dawn reads dim even once the sun has cleared the horizon.
+    public float CurrentDirectLightEnergy { get; private set; } = 1f;
+
+    // Area-average of the shader's per-pixel cloud_dim: cloudCover is authored
+    // as the fraction of sky covered (WeatherDerivation shapes the threshold so
+    // it is), so the mean shadow is cover × strength. Dims both the direct and
+    // the ambient share.
+    public float CurrentCloudDim { get; private set; } = 1f;
+
     // How strongly a crisp directional (sun or moon) shadow is being cast right
     // now, 0..1. 1 = a high, bright key light in clear air throwing a hard-edged
     // shadow; 0 = no directional shadow worth speaking of (body at the horizon,
@@ -1571,6 +1582,9 @@ public partial class SkyController : Node3D
             moonLight.LightEnergy = moonEnergyFactor * _palette.NightPrimaryIntensity + flashEnergy;
             moonLight.Visible = !_sunIsPrimary;
         }
+        CurrentDirectLightEnergy = _sunIsPrimary
+            ? sunEnergyFactor + flashEnergy
+            : moonEnergyFactor * _palette.NightPrimaryIntensity + flashEnergy;
 
         // Shadow softness via light_angular_distance (degrees). Penumbra
         // width scales with caster distance and is consistent across PSSM
@@ -1696,7 +1710,9 @@ public partial class SkyController : Node3D
         // intensity 1.0 cloud shadows fully disappear; at 0 the
         // authored cloudShadowStrength is unchanged.
         float flashShadowMask = 1f - Mathf.Clamp(flashIntensity, 0f, 1f);
-        RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", cloudShadowStrength * flashShadowMask);
+        float effCloudShadowStrength = cloudShadowStrength * flashShadowMask;
+        CurrentCloudDim = 1f - Mathf.Clamp(Weather?.cloudCover ?? 0f, 0f, 1f) * effCloudShadowStrength;
+        RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", effCloudShadowStrength);
         RenderingServer.GlobalShaderParameterSet("cloud_shadow_sky_cover", cloudShadowSkyCover);
         RenderingServer.GlobalShaderParameterSet("wetness_level", Sim.Current?.WorldState?.WetnessLevel ?? 0f);
         RenderingServer.GlobalShaderParameterSet("wet_spec_strength", wetSpecStrength);

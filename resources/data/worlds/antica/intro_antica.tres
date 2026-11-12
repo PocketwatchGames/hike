@@ -1,8 +1,10 @@
 [gd_resource type="Resource" script_class="StoryData" format=3 uid="uid://imcfg6krandj"]
 
-[ext_resource type="Texture2D" uid="uid://6ncu56tjyv8e" path="res://assets/textures/gui/story/intro_antica.png" id="1_fwt5l"]
+[ext_resource type="Texture2D" uid="uid://6ncu56tjyv8e" path="res://assets/textures/gui/story/intro_antica_01.png" id="1_fwt5l"]
 [ext_resource type="Script" uid="uid://b3g8lng6af6ed" path="res://scripts/data/world/StoryData.cs" id="2_ymqqq"]
-[ext_resource type="Script" uid="uid://c3yge3nwyyu43" path="res://scripts/data/world/StoryPageData.cs" id="3_page"]
+[ext_resource type="Texture2D" uid="uid://db1c1dkkhd3t" path="res://assets/textures/gui/story/intro_antica_02.png" id="3_a8q71"]
+[ext_resource type="Script" uid="uid://oo616afoolife" path="res://scripts/data/world/StoryPageData.cs" id="3_page"]
+[ext_resource type="Texture2D" uid="uid://b2n05wwno7nio" path="res://assets/textures/gui/story/intro_antica_03.png" id="4_kd3mc"]
 
 [sub_resource type="Resource" id="Resource_page01"]
 script = ExtResource("3_page")
@@ -11,12 +13,12 @@ text = &"story_intro_antica_01"
 
 [sub_resource type="Resource" id="Resource_page02"]
 script = ExtResource("3_page")
-image = ExtResource("1_fwt5l")
+image = ExtResource("3_a8q71")
 text = &"story_intro_antica_02"
 
 [sub_resource type="Resource" id="Resource_page03"]
 script = ExtResource("3_page")
-image = ExtResource("1_fwt5l")
+image = ExtResource("4_kd3mc")
 text = &"story_intro_antica_03"
 
 [resource]

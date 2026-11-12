@@ -67,20 +67,24 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
             return;
         }
         Player player = gc?.Player;
-        // Learn first, then display.
-        if (player != null && _concepts != null)
+        hud.ShowReadable(() =>
         {
-            int count = _concepts.Count;
-            for (int i = 0; i < count; i++)
+            // Learn first, then render, so a stone teaching its own tongue reads
+            // legibly; the HUD holds the announcements until it is dismissed.
+            if (player != null && _concepts != null)
             {
-                _concepts[i]?.Teach(player);
+                int count = _concepts.Count;
+                for (int i = 0; i < count; i++)
+                {
+                    _concepts[i]?.Teach(player);
+                }
             }
-        }
-        // Display scramble is gated on the inscription language only — the
-        // other concept types don't affect text legibility. A stone teaching
-        // only a recipe / region renders its inscription scrambled until
-        // some other source teaches the inscription language.
-        hud.ShowSignpost(LanguageText.Render(_text, _inscriptionLanguage, player), this);
+            // Display scramble is gated on the inscription language only — the
+            // other concept types don't affect text legibility. A stone teaching
+            // only a recipe / region renders its inscription scrambled until
+            // some other source teaches the inscription language.
+            return LanguageText.RenderBbcode(_text, _inscriptionLanguage, player);
+        }, this);
     }
 
     public static KnowledgeStone Create(Sim sim, KnowledgeStoneSimState data)

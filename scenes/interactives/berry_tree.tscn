@@ -32,7 +32,6 @@ script = ExtResource("10_action")
 displayName = &"Pick"
 icon = ExtResource("18_pickup")
 completionEvents = Array[ExtResource("3_xdtv3")]([SubResource("Resource_berry_event_pick")])
-durationSeconds = 1.5
 loopEffect = ExtResource("90_loopfx")
 locksMovement = true
 

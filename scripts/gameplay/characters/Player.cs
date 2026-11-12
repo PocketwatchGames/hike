@@ -616,6 +616,9 @@ public partial class Player : CharacterBody3D
 	// mob-perceives-player debug HUD (CVars.debugMobPerception). Written each
 	// UpdateVisibility tick alongside the composite.
 	public float visibilityLight = 1f;
+	// The raw perceived light behind visibilityLight. A mob normalizes this
+	// itself so its dark-adaptation gain lands on linear light, before the curve.
+	public float perceivedLightRaw = 1f;
 	public float visibilitySpeed = 1f;
 	public float visibilityCamouflage = 1f; // 1 - (densest foliage + Camouflage stat), clamped
 	// Dark-adaptation ("night eyes") state in [0,1]: 0 = light-adapted (bright),
@@ -844,6 +847,9 @@ public partial class Player : CharacterBody3D
 
 	Vector3 _inputMove = Vector3.Zero;
 	Vector3 _inputLook = Vector3.Zero;
+	// The Aim button, latched by ProcessInput so a modal's InputSuppressed gates
+	// it. _PhysicsProcess must read this, never Input.IsActionPressed("Aim").
+	bool _inputAimHeld;
 	// Mouse positional-aim cursor delta (world XZ, meters), accumulated across
 	// motion events and cleared each time the reticle consumes it. Distinct from
 	// _inputLook (facing): the mouse drives the ground cursor by displacement, not
@@ -2035,7 +2041,7 @@ public partial class Player : CharacterBody3D
 		{
 			_aimSlot = chargingAimSlot;
 		}
-		else if (Input.IsActionPressed("Aim")
+		else if (_inputAimHeld
 			|| (_inputLook != Vector3.Zero && InputDevice.Current == InputDevice.EDevice.Gamepad))
 		{
 			_aimSlot = EInventorySlot.WeaponRight;

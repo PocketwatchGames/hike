@@ -2,9 +2,8 @@
 
 [ext_resource type="Script" uid="uid://dav35f335cm2t" path="res://scripts/gui/StoryScreen.cs" id="1_story"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_btnhint"]
-[ext_resource type="Script" uid="uid://3i2xxzy9bsup9" path="res://scripts/gui/StoryPageView.cs" id="3_page"]
 
-[node name="StoryScreen" type="Control" unique_id=1183504189 node_paths=PackedStringArray("content", "pageA", "pageB", "continueHint")]
+[node name="StoryScreen" type="Control" unique_id=1183504189 node_paths=PackedStringArray("content", "imageA", "imageB", "textSizer", "text", "continueHint")]
 process_mode = 3
 layout_mode = 3
 anchors_preset = 15
@@ -14,8 +13,10 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_story")
 content = NodePath("Content")
-pageA = NodePath("Content/PageA")
-pageB = NodePath("Content/PageB")
+imageA = NodePath("Content/VBoxContainer/ImageStack/ImageA")
+imageB = NodePath("Content/VBoxContainer/ImageStack/ImageB")
+textSizer = NodePath("Content/VBoxContainer/TextSizer")
+text = NodePath("Content/VBoxContainer/TextSizer/Text")
 continueHint = NodePath("HintBar/ContinueHint")
 
 [node name="Backdrop" type="ColorRect" parent="." unique_id=986693197]
@@ -28,7 +29,7 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0, 0, 0, 1)
 
-[node name="Content" type="Control" parent="." unique_id=1120574258]
+[node name="Content" type="CenterContainer" parent="." unique_id=1120574258]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -37,42 +38,19 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="PageA" type="CenterContainer" parent="Content" node_paths=PackedStringArray("image", "text")]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-script = ExtResource("3_page")
-image = NodePath("VBoxContainer/Image")
-text = NodePath("VBoxContainer/Text")
-
-[node name="VBoxContainer" type="VBoxContainer" parent="Content/PageA"]
+[node name="VBoxContainer" type="VBoxContainer" parent="Content" unique_id=1427952139]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 32
 
-[node name="Image" type="TextureRect" parent="Content/PageA/VBoxContainer"]
-texture_filter = 1
+[node name="ImageStack" type="Control" parent="Content/VBoxContainer"]
 custom_minimum_size = Vector2(960, 540)
 layout_mode = 2
 size_flags_horizontal = 4
 mouse_filter = 2
-expand_mode = 1
-stretch_mode = 5
 
-[node name="Text" type="Label" parent="Content/PageA/VBoxContainer"]
-custom_minimum_size = Vector2(1100, 0)
-layout_mode = 2
-size_flags_horizontal = 4
-theme_override_colors/font_color = Color(0.92, 0.88, 0.8, 1)
-theme_override_font_sizes/font_size = 26
-horizontal_alignment = 1
-autowrap_mode = 3
-
-[node name="PageB" type="CenterContainer" parent="Content" node_paths=PackedStringArray("image", "text")]
+[node name="ImageA" type="TextureRect" parent="Content/VBoxContainer/ImageStack" unique_id=648478668]
+texture_filter = 1
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -80,32 +58,42 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-script = ExtResource("3_page")
-image = NodePath("VBoxContainer/Image")
-text = NodePath("VBoxContainer/Text")
+expand_mode = 1
+stretch_mode = 5
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Content/PageB"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 32
-
-[node name="Image" type="TextureRect" parent="Content/PageB/VBoxContainer"]
+[node name="ImageB" type="TextureRect" parent="Content/VBoxContainer/ImageStack"]
 texture_filter = 1
-custom_minimum_size = Vector2(960, 540)
-layout_mode = 2
-size_flags_horizontal = 4
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Text" type="Label" parent="Content/PageB/VBoxContainer"]
-custom_minimum_size = Vector2(1100, 0)
+[node name="TextSizer" type="Label" parent="Content/VBoxContainer"]
+custom_minimum_size = Vector2(1100, 160)
 layout_mode = 2
 size_flags_horizontal = 4
+mouse_filter = 2
+theme_override_colors/font_color = Color(0, 0, 0, 0)
+theme_override_font_sizes/font_size = 26
+autowrap_mode = 3
+
+[node name="Text" type="Label" parent="Content/VBoxContainer/TextSizer" unique_id=1818047148]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 theme_override_colors/font_color = Color(0.92, 0.88, 0.8, 1)
 theme_override_font_sizes/font_size = 26
-horizontal_alignment = 1
 autowrap_mode = 3
+visible_characters_behavior = 1
 
 [node name="HintBar" type="CenterContainer" parent="."]
 layout_mode = 1

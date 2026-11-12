@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="4_box"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_0b7b2"]
 [ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="6_discoverable"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="7_tc22o"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="7_xray"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="8_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="9_event"]
@@ -38,9 +39,13 @@ render_priority = 0
 shader = ExtResource("20_modellit")
 shader_parameter/albedo_tex = ExtResource("21_white")
 shader_parameter/form_strength = 0.55
+shader_parameter/light_normal_bias = 0.0
 shader_parameter/color_tint = Color(0.5, 0.52, 0.55, 1)
 shader_parameter/emission_tint = Color(0, 0, 0, 1)
 shader_parameter/emission_strength = 0.0
+shader_parameter/specular_strength = 0.0
+shader_parameter/specular_color = Color(1, 1, 1, 1)
+shader_parameter/specular_shininess = 32.0
 shader_parameter/vertex_ao_strength = 0.0
 shader_parameter/ao_base_y = 0.0
 shader_parameter/ao_height = 1.5
@@ -55,9 +60,13 @@ render_priority = 0
 shader = ExtResource("20_modellit")
 shader_parameter/albedo_tex = ExtResource("21_white")
 shader_parameter/form_strength = 0.0
+shader_parameter/light_normal_bias = 0.0
 shader_parameter/color_tint = Color(0, 0, 0, 1)
 shader_parameter/emission_tint = Color(0, 0, 0, 1)
 shader_parameter/emission_strength = 0.0
+shader_parameter/specular_strength = 0.0
+shader_parameter/specular_color = Color(1, 1, 1, 1)
+shader_parameter/specular_shininess = 32.0
 shader_parameter/vertex_ao_strength = 0.0
 shader_parameter/ao_base_y = 0.0
 shader_parameter/ao_height = 1.5
@@ -135,7 +144,6 @@ damageCeilingPercent = 0.7
 script = ExtResource("3_damage")
 hazardProfile = SubResource("Resource_trap_hazard")
 armorPenetration = 0.5
-statusEffects = []
 buildups = []
 modifiers = []
 
@@ -143,6 +151,8 @@ modifiers = []
 script = ExtResource("2_data")
 damageData = SubResource("Resource_trap_damage")
 resetTime = 1.0
+armedProminence = 0.5
+firedProminence = 1.0
 warningEffect = ExtResource("16_warning")
 emergeEffect = ExtResource("17_emerge")
 

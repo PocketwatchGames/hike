@@ -4,7 +4,7 @@
 
 [node name="MovingLight" type="Node3D" unique_id=1552034072]
 script = ExtResource("1_moving")
-falloff = 1.4
+falloff = 2.5
 brightness = 0.75
 flicker = true
 flickerMin = 0.8

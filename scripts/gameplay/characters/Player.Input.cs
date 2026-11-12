@@ -187,6 +187,7 @@ public partial class Player : CharacterBody3D
 		_inputMove = Vector3.Zero;
 		_inputLook = Vector3.Zero;
 		_mouseAimWorldDelta = Vector3.Zero;
+		_inputAimHeld = false;
 	}
 
 
@@ -199,6 +200,7 @@ public partial class Player : CharacterBody3D
 		move.Y += Input.GetActionStrength("MoveDown");
 		move = move.LengthSquared() > 1 ? move.Normalized() : move;
 		_inputMove = new Vector3(move.X, 0, move.Y).Rotated(Vector3.Up, cameraYaw);
+		_inputAimHeld = Input.IsActionPressed("Aim");
 
 		// Released before every early-out below, so no lock (mount, bird's-eye,
 		// hitstun) can leave a sprint latched after the button comes up.
@@ -224,7 +226,7 @@ public partial class Player : CharacterBody3D
 			look = look.LengthSquared() > 1 ? look.Normalized() : look;
 			_inputLook = new Vector3(look.X, 0, look.Y).Rotated(Vector3.Up, cameraYaw);
 		}
-		else if (!Input.IsActionPressed("Aim"))
+		else if (!_inputAimHeld)
 		{
 			_inputLook = Vector3.Zero;
 		}
@@ -500,7 +502,7 @@ public partial class Player : CharacterBody3D
 		// Aim toggle doesn't switch which weapon's release fires.
 		if (Input.IsActionJustPressed("AttackContextSensitive"))
 		{
-			EInventorySlot slot = Input.IsActionPressed("Aim")
+			EInventorySlot slot = _inputAimHeld
 				? EInventorySlot.WeaponRight
 				: EInventorySlot.WeaponLeft;
 			_contextSensitiveAttackSlot = slot;

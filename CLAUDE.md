@@ -660,7 +660,7 @@ backpack an equip slot doesn't point at, belted items included; worn gear and
 belted lanterns stay on the body) is
 left in a `DeathSack` where they fell (their last solid footing if they died in
 water or mid-air), the party rests, wakes at the last campfire, the game
-autosaves, and the camp screen opens. Unbanked
+autosaves, and play resumes — the camp screen does NOT open. Unbanked
 knowledge is kept. Walking back to the sack is the whole price.
 
 - **The sack is not dropped loot**, so `ResetSpawns` leaves it, and a save carries
@@ -691,11 +691,11 @@ Runtime configuration variables with an in-game console. Add new CVars as `publi
 
 `Loc.Get(Loc.Keys.key)` and `Loc.Format(Loc.Keys.key, args...)` with `%0`/`%1` placeholders. Language controlled by `CVars.language`; changing it reloads strings and fires `Loc.OnLanguageChanged`.
 
-**A language is a FOLDER of TSVs, not one file** — `resources/localization/<language>/`, every `.tsv` under it loaded and merged into one flat key namespace (`key\tvalue` columns, header row skipped). A key repeated across two files is reported at load and at build. Hand-authored strings sit directly in the folder (`english/ui.tsv`); `english/dialogue/<world>.tsv` is GENERATED from that world's conversation sheet and must not be hand-edited.
+**A language is a FOLDER of TSVs, not one file** — `resources/localization/<language>/`, every `.tsv` under it loaded and merged into one flat key namespace (`key\tvalue` columns, header row skipped). A key repeated across two files is reported at load and at build. Hand-authored strings sit directly in the folder (`english/hike_strings.tsv`); `english/dialogue/<world>.tsv` is GENERATED from that world's conversation sheet and must not be hand-edited.
 
 **Only the files directly in the folder generate the `Loc.Keys` enum.** Conversation text is reached solely by `StringName` from a `ConversationData`, so enumerating it would buy no typo-safety and drown the enum.
 
-**Adding strings:** add a `snake_case` key to `english/ui.tsv`, use `Loc.Get`/`Loc.Format`. Search for unlocalised strings via `.Text =` with `$"..."` or string literals.
+**Adding strings:** add a `snake_case` key to `english/hike_strings.tsv`, use `Loc.Get`/`Loc.Format`. Search for unlocalised strings via `.Text =` with `$"..."` or string literals.
 
 **In-world language spans.** Authored text that a character SPEAKS or a sign is
 written in can switch in-world tongue mid-sentence: `[lang:<id>]…[/lang]`, where
@@ -720,9 +720,19 @@ intro_dying_01	[lang:common]Sanctuary[/lang]... you must find it. My family, …
 - **Narration is `[narrate]…[/narrate]`** — a stage direction inside a spoken
   line (`[narrate]He points to the tent.[/narrate]`). It is in no language: never
   scrambled and excluded from `Comprehension`, so it doesn't change the speaker's
-  language or move an `understands` gate. The dialogue panel is a `RichTextLabel`
+  language or move an `understands` gate. The speech bubble is a `RichTextLabel`
   fed `LanguageText.RenderBbcode`, which draws it in italics; plain `Render`
   shows it unstyled, and `Strip` drops the tags (player choices).
+- **Spoken and inscribed text appear in a `SpeechBubble` over the source's
+  `hudPosition`**, never a screen-anchored box — NPC lines, and signposts and
+  knowledge stones through `Hud.ShowReadable` (a one-line, response-less run
+  of `ConversationController`). Only the player's choices stay in a box. The
+  bubble reserves its final size from the first character: a transparent copy
+  of the whole line (`sizerLabel`) is what it lays out around, so it must stay
+  VISIBLE — a hidden control contributes no minimum size. Discovery banners
+  raised while a bubble is up — or while `ShowReadable`'s render callback
+  teaches — are held until it is dismissed, so a lesson never lands on top of
+  the text that taught it.
 - **A span renders in its language's own script** where that language has a
   `glyphBase` — see "Checking That the In-World Scripts Still Render". A line
   mixing tongues therefore mixes scripts, resolved per glyph by the font's
@@ -1077,7 +1087,7 @@ Run `dotnet run --project tools/validate_uids` to scan for missing `.cs.uid` sid
 - Godot resources (materials, shaders, meshes, etc.) should not be created programmatically at runtime. Instead, create them as `.tres`/`.tscn` files in the Godot editor and wire them into scripts via `[Export]` variables.
 - Static user-defined data belongs in Godot `Resource` subclasses named `[Object]Data` (e.g., `WeaponData`). Dynamic runtime state belongs in classes named `[Object]State` (e.g., `WeaponState`). Never use "Data" to refer to dynamic/mutable properties.
 - **Never hardcode resource paths in C#.** Do not call `GD.Load<T>("res://...")` with a literal path from gameplay or worldgen code. Add an `[Export]` field of the appropriate `Data` type (typically on `WorldGenData`, `SimData`, or the nearest owning `*Data` resource) and wire the `.tres` reference in the editor. The exception is generic infrastructure that genuinely has no upstream owner (e.g. `EntitySerializer` reloading by serialized path); gameplay placement code is never that case.
-- **Avoid hardcoded user-facing strings in C# too.** Sign text, dialogue, item names, conversation prompts, etc. live on a `*Data` resource (or in `english/ui.tsv` for localized UI strings). Reach for a literal only when the string is a stable internal identifier (StringName key, action name, scene path) that is never shown to the player and never authored.
+- **Avoid hardcoded user-facing strings in C# too.** Sign text, dialogue, item names, conversation prompts, etc. live on a `*Data` resource (or in `english/hike_strings.tsv` for localized UI strings). Reach for a literal only when the string is a stable internal identifier (StringName key, action name, scene path) that is never shown to the player and never authored.
 - **Tunable values are `[Export]` properties, not `const`s.** Any number, color, or duration that an author/designer might want to adjust for feel — speeds, radii, fade times, thresholds, intensities, BPMs, dB levels — belongs on an `[Export]` field (with a `PropertyHint.Range` where helpful) so it's editable in the inspector without a recompile. Do NOT bury these in `private const`. Reserve `const` for genuine non-tunables: stable internal identifiers (audio bus names, action/StringName keys, scene paths), array capacities / buffer sizes that the code's correctness depends on, and pure mathematical constants. When extracting a subsystem into its own node class, move its tuning `const`s out as `[Export]`s on that class so each component owns its own inspector-visible tuning. See the `[Export]`-precision note below for sub-0.01 values.
 - **An unset `[Export] StringName` is NULL, not empty.** `StringName` is a class, so a field the `.tres` never assigns arrives as `null` and `name.IsEmpty` throws — the idiom is `name is null || name.IsEmpty`. It bites precisely where a blank is the intended authoring (leave `baseBlockName` unset to mean "the standard one"), and it does not surface as a validation message: it takes down whatever pass dereferenced it. One unset name in one zone resource threw inside `WorldFinish.Finish`, which `BakeBuild` catches and reports only as "Bake failed - see console", so it read as the world-map bake producing no light.
 

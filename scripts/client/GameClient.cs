@@ -171,6 +171,7 @@ public partial class GameClient : Node3D
 	// Pool that leases MobHUDs to the mobs currently showing one, instead of
 	// every loaded mob owning one. Created in StartWorld under worldHUD.
 	private MobHudManager _mobHuds;
+	private DiscoverableDebugOverlay _discoverableDebug;
 	[Export] public SubViewport sceneViewport;
 	// Scene WorldEnvironment (SceneViewport/InnerEnv). Its built-in DEPTH fog
 	// (fog_depth_begin/end, black) darkens distant ground for the normal iso
@@ -779,6 +780,7 @@ public partial class GameClient : Node3D
 		}
 		else
 		{
+			worldState.WorldClockDays = worldState.StartTimeOfDay01;
 			worldState.BeginRun((int)GD.Randi());
 			_home = new RestSpot(playerPosition, AtCampfire: true);
 		}
@@ -812,7 +814,11 @@ public partial class GameClient : Node3D
 		worldHUD?.AddChild(_mobHuds);
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;
+		_discoverableDebug = new DiscoverableDebugOverlay();
+		_discoverableDebug.Init(camera);
+		worldHUD?.AddChild(_discoverableDebug);
 		_world.onDiscoverableSpawned += OnDiscoverableSpawned;
+		_world.onDiscoverableRemoved += _discoverableDebug.Unregister;
 		// The sim reaches every member node (idle ones included) for deadlines,
 		// lantern fuel and the rest-time refresh through this read-only view.
 		_world.BindPartyNodes(_partyPlayers);
@@ -997,7 +1003,7 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	// A loaded save or a death is a wake at sunrise, so it opens the way a real one
+	// A loaded save is a wake at sunrise, so it opens the way a real one
 	// leaves the player: in camp at a campfire home (the camp screen takes the
 	// input gate), in plain play at a bed.
 	void WakeAtHome()
@@ -3116,6 +3122,7 @@ public partial class GameClient : Node3D
 
 	void OnDiscoverableSpawned(Discoverable discoverable)
 	{
+		_discoverableDebug.Register(discoverable);
 		if (discoverable.hudScene != null)
 		{
 			DiscoverableHud.Create(discoverable.hudScene, camera, discoverable, worldHUD);
@@ -3164,6 +3171,7 @@ public partial class GameClient : Node3D
 		// than let it fire on the next rest. CampScreen's own onPlayerDied handler
 		// tears down its camp state.
 		_onSleepWake = null;
+		_wakeSleepQuality = null;
 		onPlayerDied?.Invoke(player);
 
 		// Hand the heartbeat over to its death wind-down (latched live rate,
@@ -3229,11 +3237,11 @@ public partial class GameClient : Node3D
 		return CampSpot(anchor, 0, count);
 	}
 
-	// Called by DeathScreen once its fade-in has revealed home: at a campfire, open
-	// camp with the day's leader to pick, which takes the input gate from here.
+	// Called by DeathScreen once its fade-in has revealed home. A death wake is a
+	// plain respawn — it never opens the camp screen, even at a campfire home.
 	public void OnRespawnRevealed()
 	{
-		WakeAtHome();
+		InputSuppressed = false;
 	}
 
 	// True while the player is dead — read by SleepOverlay to decide whether to
@@ -3250,6 +3258,9 @@ public partial class GameClient : Node3D
 	// gate back to the caller (which stays open across the sleep) instead of
 	// releasing it. Cleared on a clean wake and on death-in-sleep.
 	Action _onSleepWake;
+	// The heal multiplier of the sleep in progress, announced as its quality on
+	// the clean wake (EndSleep); null when no overlay sleep is pending.
+	float? _wakeSleepQuality;
 
 	// Camp-screen rest entry point. The camp modal stays open (just hidden) across
 	// the sleep and keeps input gated the whole time. onWake fires when the fade-in completes so
@@ -3285,7 +3296,13 @@ public partial class GameClient : Node3D
 	{
 		RestSpot? sleepingAt = _sleepingAt;
 		_sleepingAt = null;
-		if (_world != null && _world.Sleep(hours, healFractionPerHour))
+		if (_world == null)
+		{
+			return;
+		}
+		bool rested = _world.Sleep(hours, healFractionPerHour, out float healMultiplier);
+		_wakeSleepQuality = healMultiplier;
+		if (rested)
 		{
 			// A bed sleep that reached sunrise makes the bed home, before the wake's
 			// autosave records it.
@@ -3311,6 +3328,7 @@ public partial class GameClient : Node3D
 	// still-open modal and keeps the input gate; a plain rest (tent) releases it.
 	public void EndSleep()
 	{
+		AnnounceSleepQuality();
 		Action wake = _onSleepWake;
 		_onSleepWake = null;
 		if (wake != null)
@@ -3323,6 +3341,29 @@ public partial class GameClient : Node3D
 		{
 			InputSuppressed = false;
 		}
+	}
+
+	// The wake's "Sleep Quality" event-log line, graded from the heal multiplier
+	// the sleep ran at (PlayerData.sleepQuality*At).
+	void AnnounceSleepQuality()
+	{
+		float? quality = _wakeSleepQuality;
+		_wakeSleepQuality = null;
+		PlayerData data = _player?.data;
+		if (quality is not float m || data == null)
+		{
+			return;
+		}
+		Loc.Keys grade = m >= data.sleepQualityRestorativeAt ? Loc.Keys.sleep_quality_restorative
+			: m >= data.sleepQualityGoodAt ? Loc.Keys.sleep_quality_good
+			: m >= data.sleepQualityPoorAt ? Loc.Keys.sleep_quality_poor
+			: Loc.Keys.sleep_quality_horrible;
+		Announce(new Announcement
+		{
+			type = EAnnouncementType.Notice,
+			title = Loc.Get(Loc.Keys.sleep_quality),
+			subtitle = Loc.Get(grade),
+		});
 	}
 
 	// Resolution of ReturnHomeEffect (the Ruby Rosaries, fired once the screen is

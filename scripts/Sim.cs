@@ -414,14 +414,13 @@ public partial class Sim : Node3D
         // Block light at the player (torch/campfire/lantern), normalized the same
         // way the player's perceived-light factor is, so both live on [0,1]. Cached
         // for slime vision (the concealment axis).
-        float targetLightMax = data.targetLightMax > 0f ? data.targetLightMax : 0.75f;
         float block01 = 0f;
         if (_player != null)
         {
             Vector3 p = _player.GlobalPosition + Vector3.Up * (_player.data?.lightSampleHeight ?? 1f);
             _worldState.GetBlockLightWorld(Mathf.FloorToInt(p.X), Mathf.FloorToInt(p.Y), Mathf.FloorToInt(p.Z),
                 out int r, out int g, out int b);
-            block01 = Mathf.Clamp(Mathf.Max(r, Mathf.Max(g, b)) / 255f / targetLightMax, 0f, 1f);
+            block01 = data.NormalizeLight(Mathf.Min(255, Mathf.Max(r, Mathf.Max(g, b))) / 255f);
         }
         _playerBlockLight01 = block01;
 

@@ -2,17 +2,20 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-// HUD panel that runs a ConversationData: types out a branch's lines into
-// `label`, then spawns one instance of `responseOptionScene` per visible
-// response into `responseOptionsContainer`. The two halves take turns:
-// `dialogueContainer` + the speaker's portrait while the NPC talks,
-// `responseContainer` + the party member's portrait while they choose. Picking a response fires its
-// actions, advances to its destination branch (or closes the panel if the
-// destination is empty), and starts the next branch's typewriter.
+// HUD panel that runs a ConversationData: the NPC's lines type out in a
+// SpeechBubble over the speaker's head, then one `responseOptionScene` per
+// visible response spawns into `responseOptionsContainer`, the box at the
+// bottom of the screen. The last line's bubble stays up while the player
+// chooses. Picking a response fires its actions, advances to its destination
+// branch (or closes the panel if the destination is empty), and starts the
+// next branch's typewriter.
+//
+// Inscriptions (signposts, knowledge stones) run through the same panel as a
+// one-line conversation with no responses — ShowReadable.
 //
 // State machine:
 //   Hidden    — panel offscreen, no conversation
-//   Typing    — typewriter walking branch.lines; ui_accept reveals
+//   Typing    — bubble walking the lines; ui_accept reveals
 //               then advances, ui_cancel closes (unless the
 //               conversation is not dismissable)
 //   Choosing  — response buttons visible, focus on the first one;
@@ -32,22 +35,13 @@ using System.Collections.Generic;
 [GlobalClass]
 public partial class ConversationController : Control
 {
-	// BBCode on, so narration renders in italics (LanguageText.RenderBbcode).
-	// The typewriter reveals through VisibleCharacters, which counts glyphs
-	// and never splits a tag.
-	[Export] public RichTextLabel label;
+	// Lines are BBCode (LanguageText.RenderBbcode), so narration renders in
+	// italics.
+	[Export] SpeechBubble bubble;
 	[Export] public GameClient gameClient;
 	[Export] PackedScene responseOptionScene;
 	[Export] Control responseOptionsContainer;
-	[Export] public Label nameLabel;
-	[Export] public Control nameContainer;
-	[Export] Control dialogueContainer;
 	[Export] Control responseContainer;
-	// Holds the choice buttons' row; hidden while they are shown so its empty
-	// line doesn't pad the panel.
-	[Export] Label responseLabel;
-	[Export] Control portraitContainer;
-	[Export] TextureRect portraitRect;
 
 	enum EState { Hidden, Typing, Choosing }
 	EState _state = EState.Hidden;
@@ -60,17 +54,13 @@ public partial class ConversationController : Control
 	ConversationBranch _currentBranch;
 
 	readonly List<string> _lines = new();
-	// The ConversationLine behind each entry of _lines, for its actions.
+	// The ConversationLine behind each entry of _lines, for its actions. Null
+	// for an inscription, which has none.
 	readonly List<ConversationLine> _lineData = new();
 	int _lineIndex;
 	// The speaker's running vocalization, cut off by the next one so a fast
 	// reader never stacks grunts.
 	Fx _voice;
-	// Float so the per-tick advance can roll fractional characters in
-	// without dropping a glyph per frame when speed × dt < 1.
-	float _revealedChars;
-	// Visible glyphs in the current line — its length with the BBCode removed.
-	int _lineLength;
 	Action _onClose;
 
 	// Live response buttons spawned into responseOptionsContainer; tracked
@@ -119,12 +109,7 @@ public partial class ConversationController : Control
 		// see the same controller reference an OpenShopAction would close.
 		_ctx.controller = this;
 		_ctx.conversation = conversation;
-		_onClose = onClose;
-		if (gameClient != null)
-		{
-			gameClient.InputSuppressed = true;
-		}
-		Visible = true;
+		Open(ctx.speaker, onClose);
 
 		// Fire actions AFTER the panel is wired up so an action that wants
 		// to take over the screen (OpenShopAction etc.) can call Close()
@@ -138,6 +123,39 @@ public partial class ConversationController : Control
 		StartBranch(branch);
 	}
 
+	// Types `bbcode` out over `source` (a signpost, a knowledge stone) and
+	// closes on the press after it is fully shown.
+	public void ShowReadable(string bbcode, IInteractive source, Action onClose = null)
+	{
+		if (string.IsNullOrEmpty(bbcode) || source == null)
+		{
+			return;
+		}
+		Close();
+		_conversation = null;
+		_currentBranch = null;
+		_ctx = new ConversationContext { player = gameClient?.Player, controller = this };
+		Open(source, onClose);
+		ShowSpeaker(npcSpeaking: true);
+		RefreshNameBox();
+		_lines.Add(bbcode);
+		_lineData.Add(null);
+		_lineIndex = 0;
+		_state = EState.Typing;
+		BeginLine(bbcode);
+	}
+
+	void Open(IInteractive anchor, Action onClose)
+	{
+		_onClose = onClose;
+		if (gameClient != null)
+		{
+			gameClient.InputSuppressed = true;
+		}
+		Visible = true;
+		bubble?.Open(anchor);
+	}
+
 	public void Close()
 	{
 		if (!Visible)
@@ -145,11 +163,11 @@ public partial class ConversationController : Control
 			return;
 		}
 		Visible = false;
+		bubble?.Close();
 		ClearResponseButtons();
 		_lines.Clear();
 		_lineData.Clear();
 		_lineIndex = 0;
-		_revealedChars = 0f;
 		_state = EState.Hidden;
 		_conversation = null;
 		_currentBranch = null;
@@ -181,30 +199,16 @@ public partial class ConversationController : Control
 			return;
 		}
 		BeginLine(_lines[0]);
-		FireActions(_lineData[0].startActions, _ctx);
+		FireActions(_lineData[0]?.startActions, _ctx);
 	}
 
-	// Loads a whole line into the label with nothing yet revealed.
+	// Loads a whole line into the bubble with nothing yet revealed.
 	void BeginLine(string bbcode)
 	{
-		_revealedChars = 0f;
-		_lineLength = 0;
-		if (label == null)
-		{
-			return;
-		}
-		label.Text = bbcode;
-		label.VisibleCharacters = 0;
-		_lineLength = label.GetTotalCharacterCount();
+		bubble?.Begin(bbcode);
 	}
 
-	void RevealLine(int chars)
-	{
-		if (label != null)
-		{
-			label.VisibleCharacters = chars;
-		}
-	}
+	bool IsLineFullyRevealed => bubble == null || bubble.IsFullyRevealed;
 
 	// The speaker's talk clip, from the speaker, in its voice's pitch. Plays as
 	// the conversation opens and wherever a `vocalize` action asks for it.
@@ -464,19 +468,13 @@ public partial class ConversationController : Control
 		_responseButtons.Clear();
 	}
 
+	// The speaker died or its chunk unloaded under the bubble.
 	public override void _Process(double delta)
 	{
-		if (_state != EState.Typing || label == null || _lineIndex >= _lines.Count)
+		if (Visible && bubble != null && !bubble.HasLiveAnchor)
 		{
-			return;
+			Close();
 		}
-		if (_revealedChars >= _lineLength)
-		{
-			return;
-		}
-		float speed = Mathf.Max(0f, CVars.dialogueTypingSpeed.Value);
-		_revealedChars = Mathf.Min(_lineLength, _revealedChars + speed * (float)delta);
-		RevealLine(Mathf.FloorToInt(_revealedChars));
 	}
 
 	public override void _UnhandledInput(InputEvent e)
@@ -511,13 +509,12 @@ public partial class ConversationController : Control
 			ShowResponseChooser();
 			return;
 		}
-		if (_revealedChars < _lineLength)
+		if (!IsLineFullyRevealed)
 		{
-			_revealedChars = _lineLength;
-			RevealLine(_lineLength);
+			bubble.RevealAll();
 			return;
 		}
-		FireActions(_lineData[_lineIndex].completeActions, _ctx);
+		FireActions(_lineData[_lineIndex]?.completeActions, _ctx);
 		if (!Visible)
 		{
 			return;
@@ -529,7 +526,7 @@ public partial class ConversationController : Control
 			return;
 		}
 		BeginLine(_lines[_lineIndex]);
-		FireActions(_lineData[_lineIndex].startActions, _ctx);
+		FireActions(_lineData[_lineIndex]?.startActions, _ctx);
 	}
 
 	// Walks entryBranches in order, returning the first entry whose
@@ -583,38 +580,25 @@ public partial class ConversationController : Control
 		}
 	}
 
-	// Swaps the panel between the NPC's line and the party member's choices,
-	// with the matching portrait. No texture hides the portrait.
+	// Swaps between the NPC talking (continue hint armed) and the party
+	// choosing (response box up, the last line's bubble left on screen).
 	void ShowSpeaker(bool npcSpeaking)
 	{
-		if (dialogueContainer != null)
-		{
-			dialogueContainer.Visible = npcSpeaking;
-		}
 		if (responseContainer != null)
 		{
 			responseContainer.Visible = !npcSpeaking;
 		}
-		if (responseLabel != null)
+		if (bubble != null)
 		{
-			responseLabel.Visible = false;
-		}
-		Texture2D portrait = npcSpeaking ? _ctx.speakerPortrait : _ctx.player?.Member?.portrait;
-		if (portraitRect != null)
-		{
-			portraitRect.Texture = portrait;
-		}
-		if (portraitContainer != null)
-		{
-			portraitContainer.Visible = portrait != null;
+			bubble.AwaitingContinue = npcSpeaking;
 		}
 	}
 
 	// The speaker's name once the party knows it, their description until then,
-	// and no box at all for a source that has neither.
+	// and no tab at all for a source that has neither.
 	void RefreshNameBox()
 	{
-		if (nameContainer == null || nameLabel == null)
+		if (bubble == null)
 		{
 			return;
 		}
@@ -625,13 +609,7 @@ public partial class ConversationController : Control
 			bool known = hasName && (_ctx.sim?.WorldState?.SimState?.IsNameKnown(_conversation) ?? false);
 			key = known ? _conversation.nameLocKey : _conversation.descriptionLocKey;
 		}
-		if (IsBlank(key))
-		{
-			nameContainer.Visible = false;
-			return;
-		}
-		nameLabel.Text = Loc.Get(key);
-		nameContainer.Visible = true;
+		bubble.SetSpeakerName(IsBlank(key) ? null : Loc.Get(key));
 	}
 
 	static bool IsBlank(StringName name)

@@ -6,17 +6,14 @@ public struct ConversationContext
 {
     public Sim sim;
     public Player player;
-    // The entity the player is talking to (typically a Mob). Loosely typed
-    // because there's no shared base class for talkable entities yet — the
-    // condition subclass can cast as needed.
-    public Godot.Node3D speaker;
+    // The mob the player is talking to; the speech bubble hangs over its
+    // hudPosition. Null for an inscription (ConversationController.ShowReadable).
+    public Mob speaker;
     // Resolved default language for the speaker. Branches with a null
     // `language` fall back to this — Mob populates it from
     // (MobSimState.Language ?? MobData.language). Null when the speaker has
     // no language pinned at all (universal speech, never scrambled).
     public LanguageData speakerLanguage;
-    // Shown in the conversation panel while the speaker talks. Null hides it.
-    public Godot.Texture2D speakerPortrait;
     // The speaker's voice bank; its `talk` clip plays on each line. Null = silent.
     public VoiceData speakerVoice;
     // The controller running this conversation. Actions that need to take

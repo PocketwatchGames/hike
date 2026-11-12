@@ -6,7 +6,6 @@
 [ext_resource type="PackedScene" uid="uid://bq51h8f7tlvkj" path="res://scenes/gui/status_effect_hud.tscn" id="2_ueg55"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="3_ueg55"]
 [ext_resource type="PackedScene" uid="uid://blmj70p54o01u" path="res://scenes/hud/conversation_panel.tscn" id="4_dialogue"]
-[ext_resource type="PackedScene" uid="uid://dhsgpnlsc7r30" path="res://scenes/hud/hud_signpost_panel.tscn" id="4_signpost"]
 [ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="5_gbuxp"]
 [ext_resource type="Material" uid="uid://dmnmapmatlr1a" path="res://resources/materials/minimap.tres" id="6_minimap_mat"]
 [ext_resource type="Texture2D" uid="uid://bb3gxsajwf7l6" path="res://assets/textures/gui/minimap_border.png" id="7_ggjrh"]
@@ -19,7 +18,7 @@
 [ext_resource type="Texture2D" uid="uid://c5ogqm7cj0u3a" path="res://assets/textures/map_markers/question.png" id="mm_question"]
 [ext_resource type="PackedScene" uid="uid://obntj5em5frg" path="res://scenes/gui/player_vitals.tscn" id="vitals_scene"]
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_armorSlot", "_dashHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_statusEffectContainer", "_boonContainer", "_vitals", "_statusEffectNotificationAnchor", "_questContainer", "_signpostPanel", "_dialoguePanel", "_gameplayWidgets", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_armorSlot", "_dashHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_statusEffectContainer", "_boonContainer", "_vitals", "_statusEffectNotificationAnchor", "_questContainer", "_dialoguePanel", "_gameplayWidgets", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -47,7 +46,6 @@ _vitals = NodePath("ScreenMarginContainer/UpperLeft/VBoxContainer/PlayerVitals")
 _statusEffectNotificationAnchor = NodePath("StatusEffectNotificationAnchor")
 _questContainer = NodePath("ScreenMarginContainer/UpperLeft/QuestContainer")
 _questItemScene = ExtResource("13_o8nis")
-_signpostPanel = NodePath("HudSignpostPanel")
 _dialoguePanel = NodePath("DialoguePanel")
 _gameplayWidgets = NodePath("ScreenMarginContainer")
 _regionBanner = NodePath("RegionBanner")
@@ -486,10 +484,6 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(1, 1, 1, 0)
-
-[node name="HudSignpostPanel" parent="." unique_id=170382741 instance=ExtResource("4_signpost")]
-visible = false
-layout_mode = 1
 
 [node name="DialoguePanel" parent="." unique_id=170382742 instance=ExtResource("4_dialogue")]
 visible = false

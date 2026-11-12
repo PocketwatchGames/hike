@@ -273,12 +273,31 @@ public static class ResourceCheck
         }
     }
 
+    // A species palette REPLACES the mob's base palette rather than layering on
+    // it, so an entry naming no mesh silently leaves the body at its raw texture.
+    private static void CheckPalette(MobPalette palette, string path, List<string> problems)
+    {
+        if (palette?.recolors == null)
+        {
+            return;
+        }
+        for (int i = 0; i < palette.recolors.Length; i++)
+        {
+            MobRecolorEntry entry = palette.recolors[i];
+            if (entry == null || entry.meshNames == null || entry.meshNames.Length == 0)
+            {
+                problems.Add($"{path}: palette.recolors[{i}] names no meshes — it recolors nothing");
+            }
+        }
+    }
+
     private static void CheckMeatAndTools(Resource res, string path, List<string> problems)
     {
         if (res is MobData mob && mob.meat != null && mob.meat.IsStackable)
         {
             problems.Add($"{path}: meat {mob.meat.ResourcePath} must not stack (maxStack {mob.meat.maxStack})");
         }
+        CheckPalette((res as MobData)?.palette ?? (res as SpeciesData)?.palette, path, problems);
         if (res is not ItemData item)
         {
             return;

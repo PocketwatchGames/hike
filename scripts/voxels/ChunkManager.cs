@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading.Tasks;
 using Godot;
 
 [GlobalClass]
@@ -11,14 +13,17 @@ public partial class ChunkManager : Node3D
     // able to reveal un-spawned mobs/props.
     private const int NEARBY_RADIUS = 6;
     private const int NEARBY_RADIUS_SQ = NEARBY_RADIUS * NEARBY_RADIUS;
-    // Chunks within this distSq always load uncapped, ignoring the sphere
-    // cap. Covers the 3x3x3 box around the player (corner distSq = 3) — the
-    // chunks they could step into in a single frame. Without this guarantee
-    // the player can walk off the edge of their loaded chunk into an
-    // adjacent unloaded one and fall through the world. The cost is bounded:
-    // 26 chunks max × ~14ms ChunkMesh.Create ≈ 380ms worst-case synchronous
-    // hitch when entering fully-uncovered territory, which is acceptable
-    // for an "entering new area" stutter.
+    // Hysteresis: a loaded sphere chunk is kept until it is a full chunk
+    // outside the sphere, so walking back and forth across one chunk boundary
+    // doesn't unload and rebuild the sphere's trailing face every time.
+    private const int NEARBY_KEEP_RADIUS_SQ = (NEARBY_RADIUS + 1) * (NEARBY_RADIUS + 1);
+    // Chunks within this distSq load SYNCHRONOUSLY on the main thread, ahead
+    // of the background builds. Covers the 3x3x3 box around the player (corner
+    // distSq = 3) — the chunks they could step into in a single frame. Without
+    // this guarantee the player can walk off the edge of their loaded chunk
+    // into an adjacent unloaded one and fall through the world. In normal
+    // movement these were built in the background long before; this only
+    // fires on a jump that outruns streaming (a teleport).
     private const int NEAR_LOAD_RADIUS_SQ = 3;
     private const int MAX_LOAD_DISTANCE = 10;
     // Player-centric window for the five ImageTexture3D volume maps (light, sky
@@ -28,31 +33,30 @@ public partial class ChunkManager : Node3D
     // WindowedVolumeMap. The +2 margin (one chunk each side) provides that.
     private const int LIGHT_WINDOW_DIAMETER_CHUNKS = MAX_LOAD_DISTANCE * 2 + 1 + 2;
     private const int MAX_REBUILDS_PER_FRAME = 3;
-    // Per-frame caps on chunk-mesh generation. ChunkMesh.Create costs ~14ms
-    // per chunk in MesherDC; without these caps the hitch detector was
-    // catching frames where 26+ chunks meshed synchronously (380ms spikes).
-    //   FRUSTUM: visual-only chunks past NEARBY_RADIUS. Capped at 1/frame —
-    //     anything higher pushes the frame past the 50ms hitch floor on its
-    //     own, even with no other work.
-    //   SPHERE:  collision-critical chunks within NEARBY_RADIUS. Capped at
-    //     4/frame normally. At 60fps that fills a new sphere face (~113
-    //     chunks at the boundary) in <2s, fast enough to outrun normal
-    //     movement given the 96m sphere cushion. Initial-load bypass below
-    //     handles the bigger pre-spawn fill.
-    private const int MAX_FRUSTUM_LOADS_PER_FRAME = 2;
-    private const int MAX_SPHERE_LOADS_PER_FRAME = 4;
+    // Streaming loads build on the thread pool (ChunkMesh.BuildGeometry is
+    // pure; ~50ms a chunk) and only Realize on the main thread. A synchronous
+    // build per frame — even capped at one — was a 20fps stretch after every
+    // chunk crossing. Half the cores leaves room for Godot's own workers and
+    // Jolt.
+    private static readonly int MAX_BUILDS_IN_FLIGHT = Math.Clamp(System.Environment.ProcessorCount / 2, 1, 6);
+    // Main-thread time per frame for realizing finished builds (meshes,
+    // collision, nodes, onChunkLoaded — ~1ms a chunk). At least one is
+    // realized every frame regardless.
+    private const double REALIZE_BUDGET_MS = 3.0;
+    // Load order: every on-screen chunk ahead of every off-screen one, nearest
+    // first within each. Added to an off-screen chunk's distSq; larger than
+    // any distSq the overlook cylinder can produce.
+    private const int OFF_SCREEN_PRIORITY = 1 << 20;
     private const int MAX_LOAD_DISTANCE_SQ = MAX_LOAD_DISTANCE * MAX_LOAD_DISTANCE;
     // Bird's-eye overlook panorama. While BeginOverlook() is active the frustum
     // pass extends far past MAX_LOAD_DISTANCE in the horizontal plane (the
     // zoomed-out ortho overview reveals hundreds of metres) but stays shallow
     // in Y — only surface chunks matter for a top-down backdrop, so a tall
     // column of vertical chunks would be wasted work. The extra ring loads
-    // WITHOUT collision or detail scatter (see LoadChunkInternal) and unloads
-    // as soon as the overview ends and the desired set shrinks back inside
-    // MAX_LOAD_DISTANCE. The per-frame cap is higher than the normal frustum
-    // cap because the backdrop chunks are visual-only (cheaper than a full
-    // collision+detail chunk) and the fill happens under a cinematic where a
-    // mild framerate dip is acceptable.
+    // WITHOUT collision or detail scatter (see IsVisualOnly) and unloads as
+    // soon as the overview ends and the desired set shrinks back inside
+    // MAX_LOAD_DISTANCE.
+    //
     // Default/min overlook horizontal radius (chunks). BeginOverlook widens
     // this to cover the actual zoomed-out footprint the camera reveals — the
     // overview's visible ground radius can exceed the default at high zoom, and
@@ -63,7 +67,6 @@ public partial class ChunkManager : Node3D
     private const int OVERLOOK_LOAD_DISTANCE_MIN = 24;
     private const int OVERLOOK_LOAD_DISTANCE_MAX = 48;
     private const int OVERLOOK_Y_BAND = 4;
-    private const int MAX_OVERLOOK_LOADS_PER_FRAME = 6;
     // Per-frame cap on chunk unloads. QueueFree() looks cheap synchronously
     // but each ChunkMesh holds a trimesh StaticBody3D (Jolt broadphase entry)
     // + GPU mesh resources + child entity nodes; releasing them happens in
@@ -117,37 +120,63 @@ public partial class ChunkManager : Node3D
     // contributor to gen0 GC pressure flagged by the hitch detector.
     private readonly HashSet<Vector3I> _desiredScratch = new();
     private readonly List<Vector3I> _toRemoveScratch = new();
-    // Distance-sorted load queue. Without sorting, HashSet iteration order is
-    // hash-based — random with respect to player position — so with a load
-    // cap of 1-2 per frame the chunk that actually loads is often a distant
-    // one while a closer (more visible) chunk waits. Sorting by distSq from
-    // the player guarantees the closest unloaded chunk loads first each
-    // frame, so visible empty space at the camera-near edge fills before
-    // far-away chunks the player can barely see.
-    private readonly List<Vector3I> _loadCandidatesScratch = new();
-
-    // Static comparison delegate used by _loadCandidatesScratch.Sort. Caches
-    // _sortRefCoord (the player's chunk) in a static field so the lambda
-    // doesn't allocate a closure each frame. Single-threaded, set just
-    // before each Sort call.
-    private static Vector3I _sortRefCoord;
-    private static readonly Comparison<Vector3I> _byDistSqFromRef = (a, b) =>
+    // Load queue, rebuilt each frame there is a free build slot and sorted by
+    // LoadPriority. HashSet iteration order is hash-based, so without the sort
+    // the chunk that gets a slot is effectively random.
+    private struct LoadCandidate
     {
-        Vector3I ra = a - _sortRefCoord;
-        Vector3I rb = b - _sortRefCoord;
-        int da = ra.X * ra.X + ra.Y * ra.Y + ra.Z * ra.Z;
-        int db = rb.X * rb.X + rb.Y * rb.Y + rb.Z * rb.Z;
-        return da.CompareTo(db);
-    };
+        public int Priority;
+        public Vector3I Coord;
+    }
+    private static readonly Comparison<LoadCandidate> _byPriority = (a, b) => a.Priority.CompareTo(b.Priority);
+    private readonly List<LoadCandidate> _loadCandidatesScratch = new();
 
-    // Initial-load bypass for the sphere cap. Starts true so the first
-    // UpdateLoadedChunks call (driven from Initialize before the player
-    // spawns) can load all ~900 sphere chunks synchronously — game spawn
-    // already waits via IsSpawnChunkReady, so the synchronous hitch is
-    // hidden under the loading screen. Flips false once the player's
-    // current chunk is loaded; from then on sphere loads obey the cap so
-    // a player crossing a chunk boundary mid-game doesn't trigger a
-    // multi-hundred-ms surge.
+    // A chunk whose geometry is being built on the thread pool. It stays in
+    // _building after the worker finishes, until the main thread realizes or
+    // discards it, so a backlog of unrealized results also holds back new
+    // dispatches.
+    private sealed class ChunkBuild
+    {
+        public Vector3I Coord;
+        public bool VisualOnly;
+        public Task<ChunkGeometry> Task;
+        // Written by the worker before the task completes; read only after.
+        public double BuildMs;
+        // RebuildChunkMeshes named this chunk mid-build, so the worker may have
+        // read pre-edit voxels. The result is discarded and the chunk rebuilt.
+        public bool Stale;
+        public int Priority;
+    }
+    private static readonly Comparison<ChunkBuild> _buildsByPriority = (a, b) => a.Priority.CompareTo(b.Priority);
+    private readonly Dictionary<Vector3I, ChunkBuild> _building = new();
+    private readonly List<ChunkBuild> _buildsDoneScratch = new();
+
+    // debug_chunk_stream_log state, touched only while the cvar is on (except
+    // the skip count, which RebuildDesiredSet keeps regardless — it's free).
+    // Pending is keyed by when each desired chunk was first seen unloaded.
+    private readonly Dictionary<Vector3I, ulong> _streamPendingSinceMs = new();
+    private readonly List<Vector3I> _streamScratch = new();
+    private readonly List<Vector3I> _streamStarvedScratch = new();
+    private Plane[] _streamFrustum;
+    private ulong _streamNextReportMs;
+    private int _streamLoadsSinceReport;
+    private int _streamOutOfWorldSkipped;
+    private ulong _streamFramesAtReport;
+    private int _streamMainThreadBuilds;
+    private double _streamBuildMs;
+    private double _streamRealizeMs;
+    private double _streamOnLoadedMs;
+    private double _streamMaxMainMs;
+    private const ulong STREAM_REPORT_INTERVAL_MS = 1000;
+    private const ulong STREAM_STARVED_MS = 500;
+    private const int STREAM_STARVED_LIST_MAX = 8;
+
+    // Initial load. Starts true so the first UpdateLoadedChunks call (driven
+    // from Initialize before the player spawns) loads the whole sphere before
+    // returning — FillSphere, or synchronously with debug_chunk_parallel_fill
+    // off. Game spawn waits via IsSpawnChunkReady, so the hitch is hidden under
+    // the loading screen. Flips false once the player's chunk is loaded; from
+    // then on everything past the 3x3x3 box streams in the background.
     private bool _initialLoadPending = true;
     private Vector3I _lastPlayerChunkCoord;
     // Cached "desired chunk set" gate (see ShouldRebuildDesired). The desired
@@ -623,6 +652,8 @@ public partial class ChunkManager : Node3D
 
     // Requeue the mesh of each named chunk. Coords that aren't resident are
     // skipped — they re-mesh from current voxel state when they stream in.
+    // A chunk mid-build in the background is marked stale instead: its worker
+    // may already have read the pre-edit voxels.
     public void RebuildChunkMeshes(IEnumerable<Vector3I> coords)
     {
         foreach (Vector3I coord in coords)
@@ -630,6 +661,10 @@ public partial class ChunkManager : Node3D
             if (_loadedChunks.ContainsKey(coord))
             {
                 _meshRebuildQueue.Enqueue(coord);
+            }
+            else if (_building.TryGetValue(coord, out ChunkBuild build))
+            {
+                build.Stale = true;
             }
         }
     }
@@ -642,6 +677,10 @@ public partial class ChunkManager : Node3D
         foreach (Vector3I coord in _loadedChunks.Keys)
         {
             _meshRebuildQueue.Enqueue(coord);
+        }
+        foreach (ChunkBuild build in _building.Values)
+        {
+            build.Stale = true;
         }
     }
 
@@ -678,9 +717,17 @@ public partial class ChunkManager : Node3D
     // Recompute the desired-chunk set (always-loaded sphere + frustum-visible
     // chunks out to MAX_LOAD_DISTANCE) and snapshot the inputs it was built
     // from for ShouldRebuildDesired.
+    //
+    // Only coords that have chunk data are desired. A coord outside the world
+    // can never load, so if it were desired it would stay at the front of the
+    // distance-sorted queue forever and spend a per-frame load slot every
+    // frame. The world's vertical extent is fitted tight to the terrain, so a
+    // camera looking down at a lakebed sees straight through the world floor,
+    // and those out-of-world coords starved the real chunks around them.
     private void RebuildDesiredSet(HashSet<Vector3I> desired)
     {
         desired.Clear();
+        _streamOutOfWorldSkipped = 0;
 
         // Always load a sphere of chunks around the player for collision, gameplay,
         // and entity spawning. Spherical (not cubic) so the load boundary is at the
@@ -695,7 +742,13 @@ public partial class ChunkManager : Node3D
                     {
                         continue;
                     }
-                    desired.Add(_lastPlayerChunkCoord + new Vector3I(x, y, z));
+                    Vector3I coord = _lastPlayerChunkCoord + new Vector3I(x, y, z);
+                    if (_worldData.GetChunk(coord) == null)
+                    {
+                        _streamOutOfWorldSkipped++;
+                        continue;
+                    }
+                    desired.Add(coord);
                 }
             }
         }
@@ -703,7 +756,7 @@ public partial class ChunkManager : Node3D
         // Load frustum-visible chunks up to max distance
         if (_camera != null && _camera.IsInsideTree())
         {
-            Godot.Collections.Array<Plane> frustumPlanes = _camera.GetFrustum();
+            Plane[] frustumPlanes = CameraFrustumPlanes();
             // Overlook extends the search to a wide, shallow cylinder (far in
             // XZ, thin in Y) and relies on the frustum test alone to cull;
             // normal play keeps the symmetric sphere so the load boundary is
@@ -728,16 +781,13 @@ public partial class ChunkManager : Node3D
                             continue;
                         }
 
-                        Aabb chunkAabb = new Aabb(
-                            new Vector3(
-                                coord.X * ChunkState.SIZE,
-                                coord.Y * ChunkState.SIZE,
-                                coord.Z * ChunkState.SIZE),
-                            new Vector3(ChunkState.SIZE, ChunkState.SIZE, ChunkState.SIZE)
-                        );
-
-                        if (IsAabbInFrustum(chunkAabb, frustumPlanes))
+                        if (IsChunkInFrustum(coord, frustumPlanes))
                         {
+                            if (_worldData.GetChunk(coord) == null)
+                            {
+                                _streamOutOfWorldSkipped++;
+                                continue;
+                            }
                             desired.Add(coord);
                         }
                     }
@@ -774,7 +824,7 @@ public partial class ChunkManager : Node3D
         toRemove.Clear();
         foreach (Vector3I coord in _loadedChunks.Keys)
         {
-            if (!desired.Contains(coord))
+            if (!desired.Contains(coord) && DistSqFromPlayer(coord) > NEARBY_KEEP_RADIUS_SQ)
             {
                 toRemove.Add(coord);
             }
@@ -812,11 +862,27 @@ public partial class ChunkManager : Node3D
             FillSphere(_lastPlayerChunkCoord);
         }
 
-        // Pass 1: load near-neighbor (3x3x3 box around player) chunks
-        // immediately, uncapped — these are where the player can step in one
-        // frame and missing them means walking off the world's edge. Also
-        // bucket the remaining unloaded chunks for distance-sorted loading
-        // in the next pass.
+        Plane[] frustum = _camera != null && _camera.IsInsideTree() ? CameraFrustumPlanes() : null;
+        bool streamLog = CVars.debugChunkStreamLog.Value > 0;
+        ulong nowMs = 0;
+        if (streamLog)
+        {
+            nowMs = Time.GetTicksMsec();
+            _streamFrustum = frustum;
+        }
+
+        // Pass 1: realize background builds that have finished, best priority
+        // first, within the main-thread budget.
+        using (Profiler.Sample("ChunkManager.RealizeBuilds"))
+        {
+            RealizeFinishedBuilds(desired, frustum);
+        }
+
+        // Pass 2: the 3x3x3 box around the player loads NOW, on this thread —
+        // these are where the player can step in one frame, and missing one
+        // means walking off the world's edge. Everything else becomes a
+        // background-build candidate, unless one is already in flight.
+        int freeSlots = MAX_BUILDS_IN_FLIGHT - _building.Count;
         _loadCandidatesScratch.Clear();
         foreach (Vector3I coord in desired)
         {
@@ -824,55 +890,31 @@ public partial class ChunkManager : Node3D
             {
                 continue;
             }
-            Vector3I rel = coord - _lastPlayerChunkCoord;
-            int distSq = rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z;
-            if (distSq <= NEAR_LOAD_RADIUS_SQ)
+            if (streamLog)
             {
-                LoadChunkInternal(coord);
+                _streamPendingSinceMs.TryAdd(coord, nowMs);
             }
-            else
+            int distSq = DistSqFromPlayer(coord);
+            if (distSq <= NEAR_LOAD_RADIUS_SQ || (_initialLoadPending && distSq <= NEARBY_RADIUS_SQ))
             {
-                _loadCandidatesScratch.Add(coord);
+                LoadChunkNow(coord);
+            }
+            else if (freeSlots > 0 && !_building.ContainsKey(coord))
+            {
+                _loadCandidatesScratch.Add(new LoadCandidate { Priority = LoadPriority(coord, distSq, frustum), Coord = coord });
             }
         }
 
-        // Pass 2: sort candidates by distance from player. Closest first so
-        // the most-visible chunk fills before far ones the player can barely
-        // see at the edge of MAX_LOAD_DISTANCE.
-        _sortRefCoord = _lastPlayerChunkCoord;
-        _loadCandidatesScratch.Sort(_byDistSqFromRef);
-
-        // Pass 3: load up to per-frame caps in distance order. Sphere chunks
-        // (within NEARBY_RADIUS) and frustum-extension chunks (beyond it)
-        // cap independently. The initial-load bypass lets the first call —
-        // driven from Initialize before the player spawns — fill the whole
-        // sphere in one synchronous pass; spawn waits via IsSpawnChunkReady,
-        // so that hitch is hidden under the loading screen.
-        int sphereLoaded = 0;
-        int frustumLoaded = 0;
-        foreach (Vector3I coord in _loadCandidatesScratch)
+        // Pass 3: fill the free build slots in priority order.
+        if (_loadCandidatesScratch.Count > 0)
         {
-            Vector3I rel = coord - _lastPlayerChunkCoord;
-            int distSq = rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z;
-            bool isSphereChunk = distSq <= NEARBY_RADIUS_SQ;
-            if (isSphereChunk)
+            ChunkMesh.EnsureMaterialsInitialized();
+            _loadCandidatesScratch.Sort(_byPriority);
+            int dispatch = Math.Min(freeSlots, _loadCandidatesScratch.Count);
+            for (int i = 0; i < dispatch; i++)
             {
-                if (!_initialLoadPending && sphereLoaded >= MAX_SPHERE_LOADS_PER_FRAME)
-                {
-                    continue;
-                }
-                sphereLoaded++;
+                StartBuild(_loadCandidatesScratch[i].Coord);
             }
-            else
-            {
-                int frustumCap = _overlookActive ? MAX_OVERLOOK_LOADS_PER_FRAME : MAX_FRUSTUM_LOADS_PER_FRAME;
-                if (frustumLoaded >= frustumCap)
-                {
-                    continue;
-                }
-                frustumLoaded++;
-            }
-            LoadChunkInternal(coord);
         }
 
         // Track the overlook frontier (nearest desired-but-unloaded chunk) so
@@ -880,6 +922,15 @@ public partial class ChunkManager : Node3D
         if (_overlookActive)
         {
             UpdateOverlookFrontier(desired);
+        }
+
+        if (streamLog)
+        {
+            StreamLogReport(desired, nowMs);
+        }
+        else if (_streamPendingSinceMs.Count > 0)
+        {
+            _streamPendingSinceMs.Clear();
         }
 
         // Flip the initial-load bypass off once the player's current chunk
@@ -902,16 +953,6 @@ public partial class ChunkManager : Node3D
         foreach (Vector3I coord in desired)
         {
             if (_loadedChunks.ContainsKey(coord))
-            {
-                continue;
-            }
-            // A desired coord with no chunk data is out of world bounds (the
-            // wide overlook frustum + Y band overshoot the edges) or genuinely
-            // empty — there is nothing to stream there, so it must NOT count as
-            // a pending frontier chunk. Without this, the nearest out-of-bounds
-            // air chunk collapses the frontier to a few metres and the reveal
-            // curtain blankets the whole overview in fog.
-            if (_worldData.GetChunk(coord) == null)
             {
                 continue;
             }
@@ -1006,6 +1047,8 @@ public partial class ChunkManager : Node3D
         for (int i = 0; i < coords.Count; i++)
         {
             Vector3I coord = coords[i];
+            // A background build of this chunk would be a duplicate now.
+            _building.Remove(coord);
             long realizeStart = SpawnCostProfile.Stamp();
             ChunkMesh mesh = ChunkMesh.Realize(built[i]);
             SpawnCostProfile.RecordOther("fill.Realize", realizeStart);
@@ -1019,26 +1062,304 @@ public partial class ChunkManager : Node3D
         }
     }
 
-    private void LoadChunkInternal(Vector3I coord)
+    private int DistSqFromPlayer(Vector3I coord)
+    {
+        Vector3I rel = coord - _lastPlayerChunkCoord;
+        return rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z;
+    }
+
+    // Chunks beyond the normal load distance only ever exist as bird's-eye
+    // overlook backdrop — no collision AND no detail scatter for them.
+    private bool IsVisualOnly(Vector3I coord)
+    {
+        return DistSqFromPlayer(coord) > MAX_LOAD_DISTANCE_SQ;
+    }
+
+    // Lower loads first: every on-screen chunk ahead of every off-screen one,
+    // nearest first within each. A chunk crossing queues a whole new face of
+    // the sphere, all of it off-screen, and that must not delay what the
+    // player is looking at.
+    private static int LoadPriority(Vector3I coord, int distSq, Plane[] frustum)
+    {
+        bool onScreen = frustum != null && IsChunkInFrustum(coord, frustum);
+        return onScreen ? distSq : OFF_SCREEN_PRIORITY + distSq;
+    }
+
+    private void StartBuild(Vector3I coord)
     {
         ChunkState data = _worldData.GetChunk(coord);
         if (data == null)
         {
             return;
         }
-        // Chunks beyond the normal load distance only ever exist as bird's-eye
-        // overlook backdrop — skip collision AND detail scatter for them. Within
-        // MAX_LOAD_DISTANCE this is always false, so normal play is unchanged.
-        Vector3I rel = coord - _lastPlayerChunkCoord;
-        bool visualOnly = (rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z) > MAX_LOAD_DISTANCE_SQ;
-        ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetBlockWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, _worldData.CollectClimbLipsWorld, buildCollision: !visualOnly, buildDetails: !visualOnly, outOfLightWindow: visualOnly);
+        WorldState world = _worldData;
+        var build = new ChunkBuild { Coord = coord, VisualOnly = IsVisualOnly(coord) };
+        bool visualOnly = build.VisualOnly;
+        // Workers read voxel arrays the main thread may be writing. A torn read
+        // can only produce a wrong mesh, and every edit that remeshes goes
+        // through RebuildChunkMeshes, which marks this build Stale.
+        build.Task = Task.Run(() =>
+        {
+            long t0 = Stopwatch.GetTimestamp();
+            ChunkGeometry geo = ChunkMesh.BuildGeometry(data, world.GetBlockWorld, world.GetShapeWorld, world.GetTerrainIdWorld, world.GetOverlayIdWorld, world.GetSunlightWorld, world.GetSunOpaqueWorld, world.IsInBounds, world.CollectClimbLipsWorld, buildCollision: !visualOnly, buildDetails: !visualOnly, outOfLightWindow: visualOnly);
+            build.BuildMs = TicksToMs(Stopwatch.GetTimestamp() - t0);
+            return geo;
+        });
+        _building[coord] = build;
+    }
+
+    // A finished build is dropped rather than realized when it no longer
+    // matches what is wanted: stale, no longer desired, already loaded another
+    // way (FillSphere), or built for the other side of the visual-only line.
+    // Dropping it frees its slot, and the chunk is resubmitted if still wanted.
+    // Discards don't count against the budget; at least one realize happens
+    // per frame however long it takes.
+    private void RealizeFinishedBuilds(HashSet<Vector3I> desired, Plane[] frustum)
+    {
+        List<ChunkBuild> done = _buildsDoneScratch;
+        done.Clear();
+        foreach (ChunkBuild build in _building.Values)
+        {
+            if (build.Task.IsCompleted)
+            {
+                build.Priority = LoadPriority(build.Coord, DistSqFromPlayer(build.Coord), frustum);
+                done.Add(build);
+            }
+        }
+        if (done.Count == 0)
+        {
+            return;
+        }
+        done.Sort(_buildsByPriority);
+
+        long start = Stopwatch.GetTimestamp();
+        int realized = 0;
+        foreach (ChunkBuild build in done)
+        {
+            if (realized > 0 && TicksToMs(Stopwatch.GetTimestamp() - start) >= REALIZE_BUDGET_MS)
+            {
+                break;
+            }
+            _building.Remove(build.Coord);
+            if (build.Stale
+                || !desired.Contains(build.Coord)
+                || _loadedChunks.ContainsKey(build.Coord)
+                || build.VisualOnly != IsVisualOnly(build.Coord))
+            {
+                continue;
+            }
+            if (build.Task.IsFaulted)
+            {
+                // Rebuild on this thread: a race retries cleanly, and a real
+                // bug throws here with a main-thread stack, as it did before
+                // builds moved off it.
+                GD.PushWarning($"ChunkManager: background build of chunk {build.Coord} failed, rebuilding on the main thread: {build.Task.Exception?.GetBaseException()}");
+                LoadChunkSync(build.Coord, "retry");
+            }
+            else
+            {
+                AddRealized(build.Coord, build.Task.Result, build.BuildMs, "async");
+            }
+            realized++;
+        }
+    }
+
+    // Load `coord` before returning. A build already in flight is waited on
+    // rather than started over, since it is usually most of the way there.
+    private void LoadChunkNow(Vector3I coord)
+    {
+        if (_building.Remove(coord, out ChunkBuild build)
+            && !build.Stale
+            && !build.Task.IsFaulted
+            && build.VisualOnly == IsVisualOnly(coord))
+        {
+            long t0 = Stopwatch.GetTimestamp();
+            try
+            {
+                ChunkGeometry geo = build.Task.Result;
+                AddRealized(coord, geo, TicksToMs(Stopwatch.GetTimestamp() - t0), "wait");
+                return;
+            }
+            catch (AggregateException)
+            {
+                // Falls through to a fresh build on this thread.
+            }
+        }
+        LoadChunkSync(coord, "sync");
+    }
+
+    private void LoadChunkSync(Vector3I coord, string mode)
+    {
+        ChunkState data = _worldData.GetChunk(coord);
+        if (data == null)
+        {
+            return;
+        }
+        bool visualOnly = IsVisualOnly(coord);
+        long t0 = Stopwatch.GetTimestamp();
+        ChunkGeometry geo = ChunkMesh.BuildGeometry(data, _worldData.GetBlockWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, _worldData.CollectClimbLipsWorld, buildCollision: !visualOnly, buildDetails: !visualOnly, outOfLightWindow: visualOnly);
+        AddRealized(coord, geo, TicksToMs(Stopwatch.GetTimestamp() - t0), mode);
+    }
+
+    // The main-thread half of every streaming load. `buildMs` is worker time
+    // for "async" and main-thread time otherwise; the log tells them apart.
+    private void AddRealized(Vector3I coord, ChunkGeometry geo, double buildMs, string mode)
+    {
+        long t0 = Stopwatch.GetTimestamp();
+        ChunkMesh mesh = ChunkMesh.Realize(geo);
         AddChild(mesh);
         _loadedChunks[coord] = mesh;
         if (CVars.debugChunkWaterLog.Value && mesh.HasWater)
         {
             GD.Print($"[water_log] LOAD   water chunk {coord} tod={_worldData.TimeOfDay01:F3} loaded={_loadedChunks.Count}");
         }
+        long t1 = Stopwatch.GetTimestamp();
         onChunkLoaded?.Invoke(coord);
+        long t2 = Stopwatch.GetTimestamp();
+        if (CVars.debugChunkStreamLog.Value > 0)
+        {
+            StreamLogLoad(coord, mode, buildMs, TicksToMs(t1 - t0), TicksToMs(t2 - t1));
+        }
+    }
+
+    private static double TicksToMs(long ticks)
+    {
+        return ticks * 1000.0 / Stopwatch.Frequency;
+    }
+
+    private string StreamClassOf(int distSq)
+    {
+        if (distSq <= NEAR_LOAD_RADIUS_SQ) { return "near"; }
+        if (distSq <= NEARBY_RADIUS_SQ) { return "sphere"; }
+        return "frustum";
+    }
+
+    private bool StreamOnScreen(Vector3I coord)
+    {
+        return _streamFrustum != null && IsChunkInFrustum(coord, _streamFrustum);
+    }
+
+    private void StreamLogLoad(Vector3I coord, string mode, double buildMs, double realizeMs, double onLoadedMs)
+    {
+        bool async = mode == "async";
+        double mainMs = realizeMs + onLoadedMs + (async ? 0 : buildMs);
+        _streamLoadsSinceReport++;
+        if (!async)
+        {
+            _streamMainThreadBuilds++;
+        }
+        _streamBuildMs += buildMs;
+        _streamRealizeMs += realizeMs;
+        _streamOnLoadedMs += onLoadedMs;
+        if (mainMs > _streamMaxMainMs)
+        {
+            _streamMaxMainMs = mainMs;
+        }
+        ulong waitedMs = 0;
+        if (_streamPendingSinceMs.Remove(coord, out ulong sinceMs))
+        {
+            waitedMs = Time.GetTicksMsec() - sinceMs;
+        }
+        if (CVars.debugChunkStreamLog.Value < 2)
+        {
+            return;
+        }
+        Vector3I rel = coord - _lastPlayerChunkCoord;
+        int distSq = DistSqFromPlayer(coord);
+        string screen = StreamOnScreen(coord) ? "ON-SCREEN " : "off-screen";
+        GD.Print($"[chunk_stream] LOAD {coord} rel={rel} d={Mathf.Sqrt(distSq):F1} {StreamClassOf(distSq),-7} {screen} {mode,-5} waited={waitedMs}ms " +
+            $"main={mainMs:F1}ms (build={buildMs:F1} realize={realizeMs:F1} onloaded={onLoadedMs:F1})");
+    }
+
+    // Once a second: what is still pending, how much of it is on screen, and
+    // which on-screen chunks have waited past STREAM_STARVED_MS — the "I can
+    // see a hole" list. Pending entries that left the desired set (player
+    // moved on) or were loaded by FillSphere are pruned here.
+    private void StreamLogReport(HashSet<Vector3I> desired, ulong nowMs)
+    {
+        if (nowMs < _streamNextReportMs)
+        {
+            return;
+        }
+        _streamNextReportMs = nowMs + STREAM_REPORT_INTERVAL_MS;
+
+        int pendingSphere = 0;
+        int pendingFrustum = 0;
+        int pendingOnScreen = 0;
+        ulong oldestOnScreenMs = 0;
+        _streamScratch.Clear();
+        List<Vector3I> starved = _streamStarvedScratch;
+        starved.Clear();
+        foreach (KeyValuePair<Vector3I, ulong> kv in _streamPendingSinceMs)
+        {
+            Vector3I coord = kv.Key;
+            if (_loadedChunks.ContainsKey(coord) || !desired.Contains(coord))
+            {
+                _streamScratch.Add(coord);
+                continue;
+            }
+            Vector3I rel = coord - _lastPlayerChunkCoord;
+            int distSq = rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z;
+            if (distSq <= NEARBY_RADIUS_SQ)
+            {
+                pendingSphere++;
+            }
+            else
+            {
+                pendingFrustum++;
+            }
+            if (!StreamOnScreen(coord))
+            {
+                continue;
+            }
+            pendingOnScreen++;
+            ulong ageMs = nowMs - kv.Value;
+            if (ageMs > oldestOnScreenMs)
+            {
+                oldestOnScreenMs = ageMs;
+            }
+            if (ageMs >= STREAM_STARVED_MS)
+            {
+                starved.Add(coord);
+            }
+        }
+        foreach (Vector3I coord in _streamScratch)
+        {
+            _streamPendingSinceMs.Remove(coord);
+        }
+
+        if (_streamLoadsSinceReport == 0 && pendingSphere == 0 && pendingFrustum == 0)
+        {
+            return;
+        }
+        GD.Print($"[chunk_stream] player={_lastPlayerChunkCoord} loaded={_loadedChunks.Count} desired={desired.Count} " +
+            $"loads/s={_streamLoadsSinceReport} pending sphere={pendingSphere} frustum={pendingFrustum} " +
+            $"on-screen={pendingOnScreen} oldest-on-screen={oldestOnScreenMs}ms starved={starved.Count} " +
+            $"out-of-world-skipped={_streamOutOfWorldSkipped}{(_overlookActive ? " OVERLOOK" : "")}");
+        ulong frames = Engine.GetProcessFrames();
+        int loads = Mathf.Max(1, _streamLoadsSinceReport);
+        GD.Print($"[chunk_stream]   fps={frames - _streamFramesAtReport} in-flight={_building.Count}/{MAX_BUILDS_IN_FLIGHT} " +
+            $"main-thread-builds={_streamMainThreadBuilds} per-load avg: build={_streamBuildMs / loads:F1}ms " +
+            $"realize={_streamRealizeMs / loads:F1}ms onloaded={_streamOnLoadedMs / loads:F1}ms max-main={_streamMaxMainMs:F1}ms");
+        _streamFramesAtReport = frames;
+        _streamMainThreadBuilds = 0;
+        _streamBuildMs = 0;
+        _streamRealizeMs = 0;
+        _streamOnLoadedMs = 0;
+        _streamMaxMainMs = 0;
+        _streamLoadsSinceReport = 0;
+
+        // Oldest (earliest pending-since) first.
+        starved.Sort((a, b) => _streamPendingSinceMs[a].CompareTo(_streamPendingSinceMs[b]));
+        int listed = Mathf.Min(starved.Count, STREAM_STARVED_LIST_MAX);
+        for (int i = 0; i < listed; i++)
+        {
+            Vector3I coord = starved[i];
+            Vector3I rel = coord - _lastPlayerChunkCoord;
+            int distSq = rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z;
+            GD.Print($"[chunk_stream]   STARVED {coord} rel={rel} d={Mathf.Sqrt(distSq):F1} {StreamClassOf(distSq)} waiting={nowMs - _streamPendingSinceMs[coord]}ms");
+        }
+        starved.Clear();
     }
 
     private void ProcessMeshRebuildQueue()
@@ -1069,7 +1390,30 @@ public partial class ChunkManager : Node3D
         }
     }
 
-    private static bool IsAabbInFrustum(Aabb aabb, Godot.Collections.Array<Plane> planes)
+    // Copied out of the Godot array once per scan: the desired-set scan tests
+    // thousands of chunks against six planes, and every read of the native
+    // array would marshal a Variant.
+    private Plane[] CameraFrustumPlanes()
+    {
+        Godot.Collections.Array<Plane> native = _camera.GetFrustum();
+        int count = native.Count;
+        Plane[] planes = new Plane[count];
+        for (int i = 0; i < count; i++)
+        {
+            planes[i] = native[i];
+        }
+        return planes;
+    }
+
+    private static bool IsChunkInFrustum(Vector3I coord, Plane[] planes)
+    {
+        Aabb chunkAabb = new Aabb(
+            new Vector3(coord.X * ChunkState.SIZE, coord.Y * ChunkState.SIZE, coord.Z * ChunkState.SIZE),
+            new Vector3(ChunkState.SIZE, ChunkState.SIZE, ChunkState.SIZE));
+        return IsAabbInFrustum(chunkAabb, planes);
+    }
+
+    private static bool IsAabbInFrustum(Aabb aabb, Plane[] planes)
     {
         foreach (Plane plane in planes)
         {

@@ -24,7 +24,7 @@ public enum EStat
 	ColdResist = 12,          // additive (temperature threshold shift)
 	HeatResist = 13,          // additive (temperature threshold shift)
 	WetnessDryRate = 14,      // multiplicative (drying speed; <1 slows, >1 accelerates)
-	NightVision = 15,         // multiplicative (perception darkness relief; value-1 = fraction of darkness penalty removed, e.g. 1.85 = 85%)
+	NightVision = 15,         // multiplicative (low-light gain; value-1 = relief, e.g. 1.85 = 0.85 relief = light reads ~6.7x brighter; total darkness stays dark)
 	MaxHealth = 16,           // additive (flat health bonus)
 	MaxArmor = 17,            // additive (flat armor bonus)
 	FortitudeResistance = 18, // multiplicative — scale on EVERY combat buildup (<1 = resistant); PlayerState.fortitude folds in here too

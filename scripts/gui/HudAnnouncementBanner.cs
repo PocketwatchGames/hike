@@ -5,7 +5,7 @@ using System.Collections.Generic;
 // language, an identified item). Owns its own queue: each
 // announcement fades in, holds, fades out, and only then does the next one
 // start, so a burst of discoveries reads one at a time instead of overwriting.
-// An announcement carrying progress also fills a bar during its hold.
+// An announcement carrying progress fills a bar from its old value to its new one.
 //
 // Presentational, so timing is the node's tween (wall clock) — not dragged by
 // slow-mo. Visual style lives on the scene; only the text comes from the data.
@@ -22,8 +22,12 @@ public partial class HudAnnouncementBanner : PanelContainer
 	[Export(PropertyHint.Range, "0,5,0.05")] public float fadeInSeconds = 0.4f;
 	[Export(PropertyHint.Range, "0,20,0.1")] public float holdSeconds = 2.5f;
 	[Export(PropertyHint.Range, "0,5,0.05")] public float fadeOutSeconds = 0.8f;
-	// Time the bar takes to fill to its new value; part of the hold, not added to it.
-	[Export(PropertyHint.Range, "0,5,0.05")] public float progressFillSeconds = 1.2f;
+	// A progress announcement replaces holdSeconds with these three: the bar sits
+	// at its old value, fills (its percentage label counting with it), then rests
+	// at the new value before the fade out.
+	[Export(PropertyHint.Range, "0,5,0.05")] public float progressHoldBeforeSeconds = 0.5f;
+	[Export(PropertyHint.Range, "0,5,0.05")] public float progressFillSeconds = 1.5f;
+	[Export(PropertyHint.Range, "0,5,0.05")] public float progressHoldAfterSeconds = 1.5f;
 
 	readonly Queue<Announcement> _queue = new();
 	Tween _tween;
@@ -82,11 +86,11 @@ public partial class HudAnnouncementBanner : PanelContainer
 		_tween.TweenProperty(this, "modulate:a", 1f, fadeInSeconds);
 		if (hasProgress)
 		{
-			float fill = Mathf.Min(progressFillSeconds, holdSeconds);
-			_tween.TweenProperty(progressBar, "value", (double)a.progressTo.Value, fill)
+			_tween.TweenInterval(progressHoldBeforeSeconds);
+			_tween.TweenProperty(progressBar, "value", (double)a.progressTo.Value, progressFillSeconds)
 				.SetTrans(Tween.TransitionType.Cubic)
 				.SetEase(Tween.EaseType.Out);
-			_tween.TweenInterval(holdSeconds - fill);
+			_tween.TweenInterval(progressHoldAfterSeconds);
 		}
 		else
 		{

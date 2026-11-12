@@ -474,13 +474,16 @@ public class ChunkState
     // Append this chunk's lips, in chunk-local coordinates.
     public void CollectClimbLips(List<ClimbLip> output)
     {
-        if (ClimbLips == null)
+        // One read: background chunk builds call this while the main thread
+        // may swap the array (SetClimbLips replaces it whole).
+        ushort[] lips = ClimbLips;
+        if (lips == null)
         {
             return;
         }
-        for (int i = 0; i < ClimbLips.Length; i++)
+        for (int i = 0; i < lips.Length; i++)
         {
-            int packed = ClimbLips[i];
+            int packed = lips[i];
             int index = packed >> FACE_BITS;
             output.Add(new ClimbLip(
                 new Vector3I(index / (SIZE * SIZE), (index / SIZE) % SIZE, index % SIZE),

@@ -45,6 +45,16 @@ public partial class Player
 		return 1f - (stages - Mathf.Floor(stages));
 	}
 
+	// How much of a sleep's heal the body takes, 0..1: hunger × thirst, each 1
+	// when fed / watered and falling linearly to 0 as it reaches the last phase.
+	// Read off the body, so carried water keeps thirst's factor at 1.
+	public float SleepHealMultiplier()
+	{
+		return NeedHealFactor(ENeed.Hunger) * NeedHealFactor(ENeed.Thirst);
+	}
+
+	private float NeedHealFactor(ENeed need) => Mathf.Clamp(1f - _needs[(int)need] / NeedLastPhase, 0f, 1f);
+
 	// Fill every carried water flask (a well; the body is RestoreNeed's).
 	public void RefillWaterFlasks()
 	{

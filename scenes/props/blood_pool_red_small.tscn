@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://ddddf3pjvs2y8"]
 
 [ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
 [ext_resource type="Material" path="res://resources/materials/blood_pool_01.tres" id="2_mat"]
@@ -6,13 +6,13 @@
 [sub_resource type="PlaneMesh" id="PlaneMesh_pool"]
 size = Vector2(1.2, 1.2)
 
-[node name="PropInstance" type="Node3D"]
+[node name="PropInstance" type="Node3D" unique_id=1609741021]
 script = ExtResource("1_prop")
 
-[node name="Stain" type="MeshInstance3D" parent="."]
+[node name="Stain" type="MeshInstance3D" parent="." unique_id=1330310315]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
 layers = 16
-cast_shadow = 0
 material_override = ExtResource("2_mat")
-instance_shader_parameters/tint = Color(0.55, 0.03, 0.03, 0.85)
+cast_shadow = 0
+instance_shader_parameters/tint = Color(0.4392157, 0.023529412, 0.023529412, 0.8509804)
 mesh = SubResource("PlaneMesh_pool")

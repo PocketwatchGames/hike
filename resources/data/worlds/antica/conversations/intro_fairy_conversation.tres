@@ -38,16 +38,12 @@ locKey = &"intro_fairy_greeting_03"
 [sub_resource type="Resource" id="Line_greeting_4"]
 script = ExtResource("Script_ConversationLine")
 locKey = &"intro_fairy_greeting_04"
-
-[sub_resource type="Resource" id="Line_greeting_5"]
-script = ExtResource("Script_ConversationLine")
-locKey = &"intro_fairy_greeting_05"
 completeActions = Array[Object]([SubResource("Inline_1"), SubResource("Inline_2"), ExtResource("Act_wake_up")])
 
 [sub_resource type="Resource" id="Branch_greeting"]
 script = ExtResource("Script_ConversationBranch")
 name = &"greeting"
-lines = [SubResource("Line_greeting_1"), SubResource("Line_greeting_2"), SubResource("Line_greeting_3"), SubResource("Line_greeting_4"), SubResource("Line_greeting_5")]
+lines = [SubResource("Line_greeting_1"), SubResource("Line_greeting_2"), SubResource("Line_greeting_3"), SubResource("Line_greeting_4")]
 
 [resource]
 script = ExtResource("Script_ConversationData")

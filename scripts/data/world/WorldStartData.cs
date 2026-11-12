@@ -42,6 +42,10 @@ public partial class WorldStartData : Resource
     // story, and the same character is shared across worlds.
     [Export] public StartConditionData startingCondition;
 
+    // Time of day a New Game opens at: 0 = sunrise, 0.25 = noon, 0.5 = sunset,
+    // 0.75 = midnight. A load ignores it — a save is always a sunrise wake.
+    [Export(PropertyHint.Range, "0,0.9999,0.0001")] public float startTimeOfDay = 0.0375f;
+
     // Things the player already knows about when the run begins. Each
     // entry is a TeachableConcept subclass — ItemTeachable identifies an
     // item by name, RecipeTeachable seeds a recipe into the cookbook,

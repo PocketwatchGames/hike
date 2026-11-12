@@ -216,8 +216,7 @@ public partial class WorldEditor : Node3D
     // Time-of-day the editor opens at, and what the HUD slider is seated on.
     // The sim clock never advances here (no Sim.Tick), so the world sits at
     // whatever the slider was last dragged to. Without this it would stay at
-    // whatever the world was seeded with — SimData.initialTimeOfDay, i.e.
-    // dawn, a grazing sun and a very dark scene. Just shy of noon (0.25) is
+    // whatever the world was seeded with — sunrise, a grazing sun and a very dark scene. Just shy of noon (0.25) is
     // the neutral default: high sun, but still enough of an angle to read
     // voxel face orientation off the shading.
     [Export(PropertyHint.Range, "0,1,0.01")] public float editorTimeOfDay = 0.225f;

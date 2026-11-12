@@ -349,6 +349,25 @@ public partial class SimData : Resource
     // spotted lives in `prominence` and the detected/discovered
     // thresholds instead.
     [Export] public float targetLightMax = 0.75f;
+    // Curve on that 0..1 light factor. Below 1 lifts the midtones (0.5: a
+    // quarter of targetLightMax reads as half lit); 1 is linear. Both ends stay
+    // put, so zero light is still zero.
+    [Export(PropertyHint.Range, "0.1,4,0.05")] public float targetLightPower = 0.5f;
+
+    // Raw perceived light → the 0..1 light factor every percept uses. The one
+    // place targetLightMax / targetLightPower are applied. `gain` is the
+    // viewer's light sensitivity (PlayerPerception.LightGain) and multiplies the
+    // LINEAR light before the curve — the eye amplifies light, the curve is how
+    // bright that reads.
+    public float NormalizeLight(float rawLight, float gain = 1f)
+    {
+        if (targetLightMax <= 0f)
+        {
+            return 0f;
+        }
+        float linear = Mathf.Clamp(rawLight * gain / targetLightMax, 0f, 1f);
+        return Mathf.Pow(linear, Mathf.Max(targetLightPower, 0.01f));
+    }
 
     // The player can only interact with what they can see: an interactive whose
     // light factor (as above, lifted by night vision and dark adaptation) is
@@ -362,13 +381,6 @@ public partial class SimData : Resource
     // Seconds of wall-clock time for a full day/night cycle at time_scale = 1.
     // The time_scale CVar multiplies this advancement for fast-forward testing.
     [Export] public float dayLengthSeconds = 600f;
-
-    // Normalized time the day starts at: 0 = sunrise, 0.25 = noon, 0.5 = sunset,
-    // 0.75 = midnight, 1 = the next sunrise. Applied when a fresh game is started;
-    // a small value starts the player just after dawn. Sunrise/noon/sunset/midnight
-    // positions themselves are fixed constants on WorldState (the clock's shape),
-    // not authored here.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float initialTimeOfDay = 0.0375f;
 
     // Sun's elevation above the horizon at noon. 90 = sun passes through
     // zenith; lower values produce a shallower arc (higher-latitude look).

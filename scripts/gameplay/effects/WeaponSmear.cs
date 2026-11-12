@@ -24,6 +24,9 @@ using Godot;
 //     (entry) side between exitStartTime and exitTime.
 //   - entryTime  > 0: the smear wipes on from the entry side toward the exit
 //     side over [0, entryTime], then erases over [exitStartTime, exitTime].
+// Thrust scenes carry weapon_thrust_smear instead: a few staggered arcs that
+// travel outward, only their leading edges bright, over [0, exitTime]. Their
+// shape is the material's; entryTime / exitStartTime are unused there.
 [GlobalClass]
 public partial class WeaponSmear : Fx
 {

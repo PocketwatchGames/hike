@@ -1005,17 +1005,13 @@ public partial class Minimap : Node3D
         // factor. light01 == 0 collapses the radius to 0.
         float perceived = ws.GetPerceivedLightWorld(playerPos, sunReachesPoint: true);
         float light01 = Mathf.Clamp(perceived, 0f, 1f);
-        // Night-vision gear lifts the light gate toward full brightness so the
-        // player can still chart dark slices — same darkness relief the
-        // perception system applies to sight (NightVision of 1.85 = 85% relief).
+        // Night-vision gear amplifies the light gate so the player can chart
+        // dim slices — the same gain perception applies to sight.
         Player player = _world?.player;
         if (player != null)
         {
             float nightVisionRelief = Mathf.Clamp(player.ComposeStat(EStat.NightVision) - 1f, 0f, 1f);
-            if (nightVisionRelief > 0f)
-            {
-                light01 = Mathf.Lerp(light01, 1f, nightVisionRelief);
-            }
+            light01 = PlayerPerception.AmplifyLight(light01, nightVisionRelief);
         }
         return baseRadius * light01;
     }
@@ -1072,10 +1068,7 @@ public partial class Minimap : Node3D
         if (player != null)
         {
             float nightVisionRelief = Mathf.Clamp(player.ComposeStat(EStat.NightVision) - 1f, 0f, 1f);
-            if (nightVisionRelief > 0f)
-            {
-                sun01 = Mathf.Lerp(sun01, 1f, nightVisionRelief);
-            }
+            sun01 = PlayerPerception.AmplifyLight(sun01, nightVisionRelief);
         }
         return sun01;
     }

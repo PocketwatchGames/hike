@@ -24,5 +24,4 @@ displayName = &"Search"
 icon = ExtResource("3_icon")
 interactEvents = Array[ExtResource("2_event")]([SubResource("Event_search_pose")])
 completionEvents = Array[ExtResource("2_event")]([SubResource("Event_complete")])
-durationSeconds = 2.0
 locksMovement = true

@@ -94,6 +94,11 @@ public partial class Discoverable : Node3D
     // MeshInstance3D descendants of _fadeMeshRoot, gathered once at _Ready.
     private readonly List<MeshInstance3D> _fadeMeshes = new();
 
+    // Last perception tick's breakdown, frozen at the moment of discovery
+    // (Discovered stops ticking). Read only by debug_discoverable_perception.
+    public PerceptionDebug LastDebug { get; private set; }
+    public EDiscoveryCause DiscoveryCause { get; private set; }
+
     public EPlayerPerceptionState State => _state.state;
     public float Perception => _state.perception;
     public bool IsDiscovered => _state.state == EPlayerPerceptionState.Discovered;
@@ -161,9 +166,14 @@ public partial class Discoverable : Node3D
             losRayHeight = losRayHeight,
             skipLineOfSight = skipLineOfSightCheck,
         };
-        PerceptionTickResult result = PlayerPerception.Tick(_world, GlobalPosition, in inputs, ref _state, tickDelta, out _);
+        PerceptionTickResult result = PlayerPerception.Tick(_world, GlobalPosition, in inputs, ref _state, tickDelta, out PerceptionDebug debug);
+        LastDebug = debug;
         if (result.stateChanged)
         {
+            if (IsDiscovered)
+            {
+                DiscoveryCause = EDiscoveryCause.Perceived;
+            }
             HandleStateChanged();
         }
     }
@@ -259,7 +269,16 @@ public partial class Discoverable : Node3D
     // bumped into) regardless of whether perception had built up enough.
     public void ForceDiscover()
     {
+        ForceDiscover(EDiscoveryCause.Forced);
+    }
+
+    private void ForceDiscover(EDiscoveryCause cause)
+    {
         EPlayerPerceptionState prev = _state.state;
+        if (prev != EPlayerPerceptionState.Discovered)
+        {
+            DiscoveryCause = cause;
+        }
         PlayerPerception.ForceDiscover(ref _state);
         if (_state.state != prev)
         {
@@ -278,8 +297,19 @@ public partial class Discoverable : Node3D
         }
         _visibility = 1f;
         PushFade();
-        ForceDiscover();
+        ForceDiscover(EDiscoveryCause.Restored);
     }
+}
+
+// How a Discoverable became Discovered — the debug overlay's answer to "why can
+// I see that": the player perceived it, an event forced it (a fired trap), or
+// its sim state was already marked Discovered when it spawned.
+public enum EDiscoveryCause
+{
+    None,
+    Perceived,
+    Forced,
+    Restored,
 }
 
 // A world entity whose scene carries a Discoverable. Sim.RegisterEntity binds it

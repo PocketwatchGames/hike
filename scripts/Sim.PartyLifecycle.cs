@@ -113,9 +113,11 @@ public partial class Sim
     // wakes there and is a REST (RestToSunrise); a shorter one is a nap, which
     // integrates the controlled member's effects over `hours` and heals a
     // fraction. A surviving companion wakes at the player's side (one that died
-    // stays dead). Returns true when it was a rest.
-    public bool Sleep(double hours, double healFractionPerHour)
+    // stays dead). Returns true when it was a rest; healMultiplier is the
+    // controlled member's Player.SleepHealMultiplier the heal was scaled by.
+    public bool Sleep(double hours, double healFractionPerHour, out float healMultiplier)
     {
+        healMultiplier = 1f;
         if (_worldState == null || _player == null || hours <= 0.0)
         {
             return false;
@@ -124,12 +126,14 @@ public partial class Sim
         // Settle the meters as the party lies down, so the sleep itself is
         // drained (and rested) as sleep.
         ForEachPartyNode(node => node.SettleNeeds());
+        // Read as they lie down, so the heal is what the sleep screen was opened on.
+        healMultiplier = _player.SleepHealMultiplier();
         double hoursToDawn = (_worldState.NextClockAt(WorldState.SunriseTimeOfDay01) - _worldState.WorldClockDays) * HoursPerDay;
         bool rest = hours >= hoursToDawn;
         double slept;
         if (rest)
         {
-            RestToSunrise();
+            RestToSunrise(healMultiplier);
             slept = hoursToDawn;
         }
         else
@@ -139,7 +143,7 @@ public partial class Sim
             slept = Doze(hours);
             if (!_player.IsDead)
             {
-                _player.Heal((float)(_player.MaxHealth * healFractionPerHour * hours));
+                _player.Heal((float)(_player.MaxHealth * healFractionPerHour * hours * healMultiplier));
             }
         }
         ForEachPartyNode(node => node.WakeFromSleep(slept));
@@ -148,16 +152,16 @@ public partial class Sim
     }
 
     // Sleep's dawn branch: skip to sunrise (rolling that dawn), then everything a
-    // rest resets — the controlled member wakes healed with transient effects
-    // cleared (a DoT can't chip or kill them in their sleep), the well-rested
-    // draw, summoned pets, and the world's encounters.
-    private void RestToSunrise()
+    // rest resets — the controlled member wakes healed by `healMultiplier` of
+    // their max with transient effects cleared (a DoT can't chip or kill them in
+    // their sleep), the well-rested draw, summoned pets, and the world's encounters.
+    private void RestToSunrise(float healMultiplier)
     {
         SkipToNextSunrise();
         if (_player != null && !_player.IsDead)
         {
             _player.ClearTransientStatusEffects();
-            _player.Heal(_player.MaxHealth);
+            _player.Heal(_player.MaxHealth * healMultiplier);
         }
         Party party = Party;
         party?.AdvanceRestAndPickWellRested(_worldState.DailyRandom(WELL_RESTED_SALT));
@@ -215,7 +219,7 @@ public partial class Sim
             return;
         }
         _player.TeleportTo(pos);
-        Sleep(SleepUntilDawn, 0.0);
+        Sleep(SleepUntilDawn, 0.0, out _);
     }
 
     // The death wake: the controlled member stands back up at `pos` (their spot

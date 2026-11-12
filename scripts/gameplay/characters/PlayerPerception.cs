@@ -1,9 +1,9 @@
 using Godot;
 
 // Per-target awareness state for things the player can notice (mobs, spike
-// traps, secret passages, ...). Hidden→Detected→Discovered is monotonic
-// inside the helper; callers that want to fade Discovered→Hidden (mobs do,
-// after a memory window) reset state.state externally.
+// traps, secret passages, ...). Detected falls back to Hidden as the meter
+// drains; Discovered is terminal inside the helper — callers that want to fade
+// Discovered→Hidden (mobs do, after a memory window) reset state.state externally.
 public struct PerceivedByPlayerState
 {
     public float perception;
@@ -303,6 +303,13 @@ public static class PlayerPerception
                 state.state = EPlayerPerceptionState.Detected;
             }
         }
+        // Detected is a transient "noticed something" with no memory: once the
+        // meter drains back under the threshold it is Hidden again, or the
+        // callout HUD sits on screen forever with an empty fill.
+        if (state.state == EPlayerPerceptionState.Detected && state.perception < inputs.detectedThreshold)
+        {
+            state.state = EPlayerPerceptionState.Hidden;
+        }
 
         result.stateChanged = state.state != prevState;
         return result;
@@ -313,27 +320,35 @@ public static class PlayerPerception
     // Carried lights (MovingLight) deposit into the block lightmap, so a lantern counts.
     public static float ComposeLightFactor(Sim sim, Player viewer, Vector3 pos)
     {
-        float targetLightMax = sim.SimData?.targetLightMax ?? 0.75f;
-        float lightFactor = targetLightMax > 0f ? Mathf.Clamp(sim.GetPerceivedLight(pos) / targetLightMax, 0f, 1f) : 0f;
-        // Night vision lifts the darkness-suppression term toward full
-        // brightness: relief is the fraction of the darkness penalty the
-        // player's equipment removes (e.g. a NightVision modifier of 1.85
-        // yields 0.85, so darkness only costs 15% of what it normally would).
+        // Night-vision gear and a dilated pupil each amplify the light there is
+        // (NightVision 1.85 = 0.85 relief); they stack as two gains.
         float nightVisionRelief = Mathf.Clamp(viewer.ComposeStat(EStat.NightVision) - 1f, 0f, 1f);
-        if (nightVisionRelief > 0f)
-        {
-            lightFactor = Mathf.Lerp(lightFactor, 1f, nightVisionRelief);
-        }
-        // Dark-adaptation relief: a dilated pupil partially lifts the same
-        // darkness-suppression term, scaled by eyeDilationVisionRelief so it's
-        // only a partial help (and stacks on top of equipment night vision).
         float dilationRelief = viewer.EyeDilation * (viewer.data?.eyeDilationVisionRelief ?? 0f);
-        if (dilationRelief > 0f)
-        {
-            lightFactor = Mathf.Lerp(lightFactor, 1f, dilationRelief);
-        }
-        return lightFactor;
+        float gain = LightGain(nightVisionRelief) * LightGain(dilationRelief);
+        return sim.SimData?.NormalizeLight(sim.GetPerceivedLight(pos), gain) ?? 0f;
     }
+
+    // Low-light sensitivity as a GAIN on linear light: `relief` is the fraction
+    // by which the light needed to see fully drops, so relief 0.5 is a 2x gain.
+    // Zero light stays zero whatever the gain — seeing in total darkness is not
+    // something sensitivity can give. Every darkness-relief term (dark
+    // adaptation, night vision; player and mob) goes through this, and a
+    // percept applies it via SimData.NormalizeLight, before the light curve.
+    public static float LightGain(float relief)
+    {
+        return relief <= 0f ? 1f : 1f / Mathf.Max(MinLightGainDivisor, 1f - relief);
+    }
+
+    // LightGain applied to an already-linear 0..1 value, for consumers outside
+    // the perception curve (the minimap's reveal and zoom).
+    public static float AmplifyLight(float linear01, float relief)
+    {
+        return Mathf.Clamp(linear01 * LightGain(relief), 0f, 1f);
+    }
+
+    // Caps the gain at full relief (1 - relief = 0) so a sliver of light still
+    // saturates instead of dividing by zero.
+    private const float MinLightGainDivisor = 0.01f;
 
     // Speed → continuous-noise decibel mapping shared by Player and Mob.
     // Piecewise linear: 0 at rest, sneakDecibels at sneakSpeed, runDecibels

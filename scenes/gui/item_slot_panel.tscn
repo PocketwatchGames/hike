@@ -26,7 +26,7 @@ custom_minimum_size = Vector2(80, 80)
 size_flags_horizontal = 4
 size_flags_vertical = 4
 script = ExtResource("1_a5bqt")
-_button = NodePath("TextureButton")
+_button = NodePath("MarginContainer2/TextureButton")
 _itemTexture = NodePath("ItemTexture")
 _slotBackground = NodePath("EmptyTexture")
 _stackLabel = NodePath("MarginContainer/PanelContainer/MarginContainer/Label")
@@ -75,7 +75,14 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_equipped")
 
-[node name="TextureButton" type="TextureButton" parent="." unique_id=1069392873]
+[node name="MarginContainer2" type="MarginContainer" parent="." unique_id=342902588]
+layout_mode = 2
+theme_override_constants/margin_left = -3
+theme_override_constants/margin_top = -3
+theme_override_constants/margin_right = -3
+theme_override_constants/margin_bottom = -3
+
+[node name="TextureButton" type="TextureButton" parent="MarginContainer2" unique_id=1069392873]
 layout_mode = 2
 texture_pressed = ExtResource("3_wxcd7")
 texture_hover = ExtResource("4_fb484")

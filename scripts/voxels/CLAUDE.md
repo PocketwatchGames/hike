@@ -132,20 +132,37 @@ the ledge barriers 1.8s, the water mesher 0.8s, the detail scatter 0.2s — agai
 |---|---|
 | `ChunkMesh.BuildGeometry` | PURE. No Node, no Resource, no RID, no shared mutable state. Returns a `ChunkGeometry`. Runs on a worker. |
 | `ChunkMesh.Realize` | MAIN THREAD. Meshes, collision bodies, nodes, the detail-scatter post. |
-| `ChunkMesh.Create` | both, in order — what a single-chunk caller on the main thread still uses (runtime streaming, the mesh rebuild queue). |
+| `ChunkMesh.Create` | both, in order — what the mesh rebuild queue still uses. |
 
 - **`MeshBuffer` is what makes the first half pure.** The meshers used to write
   into a `SurfaceTool`, which is a native object; now they fill plain C# lists and
   `ToArrayMesh` (main thread) hands the renderer one array per channel. Note it
   bought no measurable time on its own — the marshaling was not the bottleneck,
   the mesher's arithmetic is — it is there for the thread boundary.
-- **The parallel fill is the INITIAL fill only** (`ChunkManager.FillInParallel`,
-  `debug_chunk_parallel_fill`). It is safe there because the player does not exist yet:
-  nothing is editing voxels or touching the chunk dictionary while the workers
-  read it. Per-frame streaming loads stay synchronous, and they are 1–4 chunks.
-- **It loads the SPHERE set only**, exactly what the uncapped initial pass loaded.
-  Pulling the frustum-extension chunks forward would change what is resident at
-  spawn, not just how fast it got there.
+- **The initial fill and wakes run every build at once** (`ChunkManager.FillSphere`,
+  `debug_chunk_parallel_fill`) and block on them, behind a loading or black screen.
+  It loads the SPHERE set only; pulling the frustum-extension chunks forward would
+  change what is resident at spawn, not just how fast it got there.
+- **Runtime streaming builds on the thread pool too** (`ChunkManager.StartBuild` /
+  `RealizeFinishedBuilds`): up to `MAX_BUILDS_IN_FLIGHT` at once, realized on the
+  main thread within `REALIZE_BUDGET_MS`, on-screen chunks first, then nearest. A
+  synchronous load is ~50ms, so even one per frame was a 20fps stretch after every
+  chunk crossing. Only the 3x3x3 box round the player still loads synchronously
+  (waiting on an in-flight build if there is one), because collision must exist
+  before the player can step there.
+- **Workers read voxels the main thread may be writing.** Nothing adds or removes
+  a `WorldState` chunk during play, so the dictionary is safe; a torn voxel read
+  can only make a wrong mesh. Every edit that remeshes goes through
+  `RebuildChunkMeshes`, which marks an in-flight build `Stale` so its result is
+  discarded and rebuilt. **A new path that changes mesh-visible voxels without
+  calling it** leaves a streamed-in chunk showing pre-edit geometry. A build that
+  throws is rebuilt on the main thread, where a real bug surfaces with a stack.
+- **The mesh rebuild queue is still synchronous** (`ProcessMeshRebuildQueue`, ~50ms
+  a chunk). Only the scene editor and a few debug cvars use it; gameplay never
+  remeshes.
+- **`debug_chunk_stream_log 1|2`** reports streaming: pending and starved
+  on-screen chunks, fps, worker build vs main-thread realize cost, and (at 2) one
+  line per load.
 - **Do not call `Profiler.Sample` inside `BuildGeometry`.** Its section stack is
   main-thread state. To profile the fill, `debug_chunk_parallel_fill 0` puts the whole
   build back on the main thread through `Create`.
@@ -159,7 +176,7 @@ The target is a hand-authored world of roughly **500×500×100 chunks (~8km × 8
 
 The current disk-loading path still loads **every** chunk into memory at boot. The streaming work will replace that without changing the file format — all the seams are already in place:
 
-- **Async chunk loader** behind a worker thread, calling `IChunkSource.TryLoadChunk` for chunks the player approaches. The mesh half of this is done — `ChunkMesh.BuildGeometry` / `Realize`, see above — but only the initial fill uses it; extending it to per-frame streaming means handling voxel edits landing while a build is in flight.
+- **Async chunk loader** behind a worker thread, calling `IChunkSource.TryLoadChunk` for chunks the player approaches. The mesh half of this is done — runtime streaming already builds on the thread pool, see above; what remains is loading the chunk DATA the same way.
 - **`WorldState` becomes a bounded cache.** `_chunks` is populated/evicted by `ChunkManager` as the player moves. Cross-chunk accessors (`GetVoxelWorld`, `GetSunlightWorld`, etc.) already return defaults for missing chunks, which is the correct behavior for unloaded neighbors.
 - **`Min`/`Max` are a decision, not a given.** They still come off the `.hike` header, and the volume maps no longer need them (`LightMap` is a `WindowedVolumeMap` now). What still reads them whole-world: `WorldBoundary.Create` (the boxing walls), `MinimapTextures` (one full-extent image, sized once at construction — 500x500 chunks would be a 4000x4000 RGBA8 + two R8 masks, ~96MB), and `LightEngine.ComputeSunlight`'s column scan. For a hand-authored world with real extents, keeping them as authored bounds is cheaper than a sliding origin; drop them only if the world is meant to feel unbounded.
 - **Player-centric windowed volume maps (`WindowedVolumeMap.cs`).** The five volume textures (`LightMap`, `SkyExposureMap`, `FogMap`, `WindMap`, `WaterCurrentMap`) share a toroidal window covering the load radius rather than spanning the whole world. `ChunkManager` recenters them on chunk crossings; they are visual-only (gameplay reads the CPU `WorldState` arrays). Each is a RenderingDevice 3D texture wrapped in a `Texture3Drd` (so it still binds as a `sampler3D` global with `repeat_enable`/`filter_linear`), updated **per dirty chunk**: encode into a reusable cells³ staging texture, then `texture_copy` that block into the volume — `ImageTexture3D` has no partial update, so the old path re-uploaded the whole window (every Z-slice marshaled) on any change, which was the dominant per-frame cost while carried torches re-dirtied chunks. See `WindowedVolumeMap.cs` for the toroidal addressing, recenter, no-seam reasoning, partial-upload mechanics, and the overlook-backdrop caveat; `MovingLight.BlockLightMovingReshadeCullDistance` gates the per-frame reshade that drove that dirtying. RD ops run on the main thread against the global device — move to `RenderingServer.CallOnRenderThread` if a driver races.

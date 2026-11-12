@@ -531,6 +531,11 @@ public partial class PlayerData : Resource
 	[Export(PropertyHint.Range, "0,0.1,0.0005")] public float needCostPerStamina = 0.005f;
 	// Hours of sleep that take one stage of fatigue away.
 	[Export(PropertyHint.Range, "0.25,24,0.01")] public float sleepHoursPerFatigueStage = 8f / 3f;
+	// The wake's "Sleep Quality" line: the lowest sleep heal multiplier
+	// (Player.SleepHealMultiplier, 0..1) that reads as each grade. Below Poor is Horrible.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float sleepQualityPoorAt = 0.25f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float sleepQualityGoodAt = 0.6f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float sleepQualityRestorativeAt = 0.95f;
 	// Per need. The first phase is free. The second costs MaxStamina growing to
 	// needMiddleStaminaPenalty as it nears the third; the third keeps that and
 	// costs needLowestStaminaPenaltyPerStage of MaxStamina and

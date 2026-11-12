@@ -20,7 +20,8 @@ public partial class SleepScreen : Control
 	Player _player;
 	// Rest heal rate (fraction of max health per in-world hour) for the fire the
 	// player is camped at — supplied by CampScreen from the campfire. Used only by
-	// the 1-hour nap; the until-sunrise rest full-heals regardless.
+	// the 1-hour nap; the until-sunrise rest heals to full. Both are scaled by
+	// how fed and watered the member is (Player.SleepHealMultiplier).
 	float _healFractionPerHour;
 	// Invoked with (hours, healFractionPerHour).
 	Action<double, double> _onSleep;

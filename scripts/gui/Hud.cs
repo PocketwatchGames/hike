@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 public partial class Hud : Control
@@ -56,7 +57,6 @@ public partial class Hud : Control
 	[Export] HudAnnouncementBanner _announcementBanner;
 	[Export] Control _questContainer;
 	[Export] PackedScene _questItemScene;
-	[Export] HudSignpostPanel _signpostPanel;
 	[Export] ConversationController _dialoguePanel;
 	// The gameplay widgets (vitals, hotbar, minimap, quests, effects), hidden
 	// while a conversation is open. The dialogue panel must sit outside it.
@@ -114,6 +114,11 @@ public partial class Hud : Control
 	// banner instead, and everything else goes straight to the event log.
 	readonly Queue<Announcement> _announcementQueue = new();
 	bool _announcementInFlight;
+	// Discoveries made while a speech bubble is up (or while a readable is
+	// composing its text) wait here until it is dismissed, so the banner never
+	// lands on top of the text that taught them.
+	readonly Queue<Announcement> _heldDiscoveries = new();
+	bool _composingReadable;
 	// Persistent strip above the health bar — one StatusEffectHud entry per
 	// distinct StatusEffectData with a stack-count badge and the per-instance
 	// progress bar from the closest-to-expiry instance. Mirrors the original
@@ -222,7 +227,6 @@ public partial class Hud : Control
 		Current = this;
 		gameClient.onPlayerSpawned += OnPlayerSpawned;
 		gameClient.onAnnouncement += OnAnnouncement;
-		_signpostPanel.gameClient = gameClient;
 		if (_dialoguePanel != null)
 		{
 			_dialoguePanel.gameClient = gameClient;
@@ -243,10 +247,6 @@ public partial class Hud : Control
 		_buttonHintTurnRight.SetHint("CameraRight", string.Empty);
 		_buttonHintIndoors.SetHint("CameraDown", string.Empty);
 		_buttonHintMap.SetHint("Map", string.Empty);
-		if (_signpostPanel != null)
-		{
-			_signpostPanel.Visible = false;
-		}
 		LoadWeatherTextures();
 	}
 
@@ -271,16 +271,35 @@ public partial class Hud : Control
 		}
 	}
 
-	public bool IsSignpostOpen => _signpostPanel != null && _signpostPanel.IsOpen;
-
-	public void ShowSignpost(string text, IInteractive source)
+	// Types an inscription out in a speech bubble over `source`. `render`
+	// returns the BBCode (LanguageText.RenderBbcode) and may teach first — a
+	// stone teaching its own tongue must render legibly — so anything it
+	// teaches is announced only once the text is dismissed.
+	public void ShowReadable(Func<string> render, IInteractive source)
 	{
-		_signpostPanel?.Open(text, source);
+		_composingReadable = true;
+		string bbcode;
+		try
+		{
+			bbcode = render();
+		}
+		finally
+		{
+			_composingReadable = false;
+		}
+		_dialoguePanel?.ShowReadable(bbcode, source);
+		if (!IsConversationOpen)
+		{
+			ReleaseHeldDiscoveries();
+		}
 	}
 
-	public void CloseSignpost()
+	void ReleaseHeldDiscoveries()
 	{
-		_signpostPanel?.Close();
+		while (_heldDiscoveries.Count > 0)
+		{
+			_announcementBanner?.Enqueue(_heldDiscoveries.Dequeue());
+		}
 	}
 
 	public bool IsConversationOpen => _dialoguePanel != null && _dialoguePanel.IsOpen;
@@ -307,6 +326,10 @@ public partial class Hud : Control
 		if (hidden && _statusEffectNotificationAnchor != null)
 		{
 			_statusEffectNotificationAnchor.Visible = false;
+		}
+		if (!hidden)
+		{
+			ReleaseHeldDiscoveries();
 		}
 	}
 
@@ -393,6 +416,11 @@ public partial class Hud : Control
 		}
 		if (_announcementBanner != null && IsDiscovery(a.type))
 		{
+			if (_composingReadable || IsConversationOpen)
+			{
+				_heldDiscoveries.Enqueue(a);
+				return;
+			}
 			_announcementBanner.Enqueue(a);
 			return;
 		}

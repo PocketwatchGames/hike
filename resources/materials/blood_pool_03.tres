@@ -1,9 +1,10 @@
-[gd_resource type="ShaderMaterial" format=3]
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bmmxrvbc346fp"]
 
-[ext_resource type="Shader" path="res://shaders/ground_stain_tinted.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://c3pw1mksiwlgy" path="res://shaders/ground_stain_tinted.gdshader" id="1_shader"]
 [ext_resource type="Texture2D" uid="uid://k5c3fpagsupi" path="res://assets/textures/effects/blood_stain_03.png" id="2_stain"]
 
 [resource]
 resource_name = "blood_pool_03"
+render_priority = 0
 shader = ExtResource("1_shader")
 shader_parameter/stain_texture = ExtResource("2_stain")

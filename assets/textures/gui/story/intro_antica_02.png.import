@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://6ncu56tjyv8e"
-path="res://.godot/imported/intro_antica.png-eb1ec3b4a3f82cf6c53ec7ef67230c9f.ctex"
+uid="uid://db1c1dkkhd3t"
+path="res://.godot/imported/intro_antica_02.png-21239cc73f11452cde5845e7d0089f45.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/textures/gui/story/intro_antica.png"
-dest_files=["res://.godot/imported/intro_antica.png-eb1ec3b4a3f82cf6c53ec7ef67230c9f.ctex"]
+source_file="res://assets/textures/gui/story/intro_antica_02.png"
+dest_files=["res://.godot/imported/intro_antica_02.png-21239cc73f11452cde5845e7d0089f45.ctex"]
 
 [params]
 

@@ -33,6 +33,7 @@ public class WorldState
     public TeachableConcept[] InitialKnowledge = System.Array.Empty<TeachableConcept>();
     public StoryData IntroStory;
     public StartConditionData StartingCondition;
+    public double StartTimeOfDay01 = SunriseTimeOfDay01;
 
     // Resource path of the authored asset the fields above came from, recorded so
     // a .hike can resolve them again. A PATH rather than three serialized
@@ -79,6 +80,7 @@ public class WorldState
             : System.Array.Empty<TeachableConcept>();
         IntroStory = start.introStory;
         StartingCondition = start.startingCondition;
+        StartTimeOfDay01 = start.startTimeOfDay;
         StartContentPath = start.ResourcePath ?? "";
         WorldName = start.displayName ?? "";
     }
@@ -339,7 +341,9 @@ public class WorldState
         // Seed the scripting-variable bank from the authored registry before
         // any save data loads; harmless when no registry is authored.
         SimState.ScriptVars.Initialize(simData?.scriptVariables);
-        WorldClockDays = simData?.initialTimeOfDay ?? 0.05f;
+        // A sunrise until a run begins: a New Game seats the clock on the
+        // world's StartTimeOfDay01, a load on the save's wake.
+        WorldClockDays = SunriseTimeOfDay01;
         // Roll the first day's weather slots. Later days re-roll at each dawn
         // (Sim.RollDawn). BeginRun rolls again once the run's seed is known.
         RollDailyWeather();
@@ -1053,9 +1057,12 @@ public class WorldState
     // Perceived brightness at a point, in the same model the shaders use, so
     // gameplay decisions (stealth, mob spawn, etc.) match what the player sees.
     // Mirrors voxel_clip.gdshader / sprite_lit.gdshader:
-    //   sun = (bfs_sun / MAX_LIGHT) * sun_intensity
-    //         * (sun_ambient + (sunReachesPoint ? (1 - sun_ambient) : 0))
+    //   sun = (bfs_sun / MAX_LIGHT) * sun_intensity * (sun_ambient * cloud_dim
+    //         + (sunReachesPoint ? (1 - sun_ambient) * light_energy * cloud_dim : 0))
     //   block = max(r, g, b) / 255
+    // cloud_dim is the area average (SkyController.CurrentCloudDim), not the
+    // drifting per-pixel pattern. sun_color and the surface N·L are left out:
+    // a mob or trap is not a surface.
     //   perceived = max(sun, block)   (additive in shader, but max here matches
     //                                  how callers reason about "lit vs dark")
     // sunReachesPoint is the result of a directional-shadow raycast: true if
@@ -1076,7 +1083,9 @@ public class WorldState
         SkyController sky = SkyController.Current;
         float ambient = sky?.CurrentAmbient ?? 0.4f;
         float primaryIntensity = sky?.CurrentPrimaryIntensity ?? SimData?.dayIntensityBase ?? 2f;
-        float sunFactor = ambient + (sunReachesPoint ? (1f - ambient) : 0f);
+        float directEnergy = sky?.CurrentDirectLightEnergy ?? 1f;
+        float cloudDim = sky?.CurrentCloudDim ?? 1f;
+        float sunFactor = cloudDim * (ambient + (sunReachesPoint ? (1f - ambient) * directEnergy : 0f));
         float sun = sunMask * primaryIntensity * sunFactor;
 
         if (r > 255) { r = 255; }

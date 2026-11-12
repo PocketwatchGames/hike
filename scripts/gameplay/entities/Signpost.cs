@@ -38,7 +38,7 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
         if (hud != null)
         {
             Player player = gc?.Player;
-            hud.ShowSignpost(LanguageText.Render(_text, _language, player), this);
+            hud.ShowReadable(() => LanguageText.RenderBbcode(_text, _language, player), this);
         }
     }
 

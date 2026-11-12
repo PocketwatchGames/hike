@@ -266,18 +266,6 @@ public partial class Mob
                         }
                     }
                 }
-                else if (_simState.DiscoveryState == EPlayerPerceptionState.Detected
-                    && _simState.PlayerPerception < mobData.detectedThreshold)
-                {
-                    // Detected is a transient "noticed something" state with no
-                    // memory window. PlayerPerception.Tick only does monotonic
-                    // forward transitions, so once perception decays back below
-                    // detectedThreshold (e.g. a kunkun burrows before being fully
-                    // discovered and prominence drops to 0) we have to reset to
-                    // Hidden ourselves — otherwise the MobHUD discovery bar sits
-                    // on screen permanently with an empty fill.
-                    _simState.DiscoveryState = EPlayerPerceptionState.Hidden;
-                }
             }
 
         }
@@ -352,7 +340,7 @@ public partial class Mob
                 // too — darkness or camouflage can still lose it. Eye dilation lifts
                 // only the light term, matching the player→mob relief.
                 float dilationRelief = _simState.EyeDilation * mobData.eyeDilationVisionRelief;
-                float playerLight = Mathf.Lerp(_world.player.visibilityLight, 1f, dilationRelief);
+                float playerLight = _world.SimData?.NormalizeLight(_world.player.perceivedLightRaw, PlayerPerception.LightGain(dilationRelief)) ?? 0f;
                 // Darkness creatures (gellies) see by the ABSENCE of block light,
                 // not the normal "brighter = easier". A moonlit player reads fully
                 // (block ~0); fire/lantern light blinds them along a curve down to

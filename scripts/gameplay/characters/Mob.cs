@@ -1862,20 +1862,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             player = GameClient.Current?.Player,
             speaker = this,
             speakerLanguage = spokenLanguage,
-            speakerPortrait = ConversationPortrait(),
             speakerVoice = _voice,
         };
         GameClient.Current?.onConversation?.Invoke(conversation, ctx);
         return true;
-    }
-
-    // A villager's own look wins, then the species variant's, then the base mob's
-    // — the same species → mob fallback the bestiary uses.
-    private Texture2D ConversationPortrait()
-    {
-        return _simState?.Appearance?.portrait
-            ?? _simState?.Species?.portrait
-            ?? mobData?.bestiaryPortrait;
     }
 
     private void UpdateAnimation()
@@ -3130,8 +3120,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         MobData dilData = _simState.MobData;
         if (dilData != null)
         {
-            float targetLightMax = _world?.SimData?.targetLightMax ?? 0.75f;
-            float mobLight01 = targetLightMax > 0f ? Mathf.Clamp(_simState.AmbientLight / targetLightMax, 0f, 1f) : 0f;
+            float mobLight01 = _world?.SimData?.NormalizeLight(_simState.AmbientLight) ?? 0f;
             float dilTarget = 1f - mobLight01;
             float dilTau = dilTarget > _simState.EyeDilation ? dilData.eyeDilationDilateSeconds : dilData.eyeDilationConstrictSeconds;
             float dilK = 1f - Mathf.Exp(-(float)delta / Mathf.Max(dilTau, 0.001f));

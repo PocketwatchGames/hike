@@ -919,6 +919,14 @@ public static class CVars
     // speed-based visibility), C (1 - player camouflage).
     public static CVarBool debugMobPerception = new CVarBool("debug_mob_perception", false);
 
+    // Labels every Discoverable (traps, chests, secret doors) within the
+    // player's vision range with PLAYER-perceives-IT: state + meter + how it was
+    // discovered (perceived / forced / restored from sim state), the last tick's
+    // V/L/D/Fg/LOS breakdown (frozen at discovery), and the LIVE light chain —
+    // raw perceived light vs targetLightMax, then the eye-dilation and night-
+    // vision relief that lift it.
+    public static CVarBool debugDiscoverablePerception = new CVarBool("debug_discoverable_perception", false);
+
     // When true, MobHUD adds a "Pos x,y,z" line to the debug overlay showing
     // each mob's world-space GlobalPosition. Composes with the perception
     // debug cvars: the label appears whenever ANY of the three debug cvars is
@@ -1799,6 +1807,16 @@ public static class CVars
     // the cause is water-specific (shader/material/mesh), not streaming.
     public static CVarBool debugChunkWaterLog = new CVarBool("debug_chunk_water_log", false);
 
+    // Chunk streaming diagnostics (ChunkManager). "On screen" means inside the
+    // camera frustum — occlusion is not considered.
+    //   0 = off
+    //   1 = once a second: pending sphere/frustum counts, how many pending
+    //       chunks are on screen, and a STARVED list of on-screen chunks that
+    //       have waited longer than half a second
+    //   2 = also one line per chunk load: its class, whether it is on screen,
+    //       and how long it waited
+    public static CVarInt debugChunkStreamLog = new CVarInt("debug_chunk_stream_log", 0);
+
     // Debug visualizer for sprite_prop_reflection_multimesh.gdshader. Replaces
     // the reflection sprite's ALBEDO with diagnostic values to track down
     // why ripple shimmer / tint / etc. is or isn't producing visible output.
@@ -2522,7 +2540,7 @@ public static class CVars
     // the fade or the autosave.
     public static CVar rest = new CVar("rest", (cvar) =>
     {
-        Sim.Current?.Sleep(Sim.SleepUntilDawn, 0.0);
+        Sim.Current?.Sleep(Sim.SleepUntilDawn, 0.0, out _);
     });
 
     // Headless data-integrity check: `--headless -- "resource_check 1"` reports

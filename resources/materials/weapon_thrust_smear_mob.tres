@@ -1,0 +1,20 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" uid="uid://br6uq40te3ple" path="res://shaders/weapon_thrust_smear.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 4
+shader = ExtResource("1_shader")
+shader_parameter/tint = Color(1, 0.12, 0.08, 0.45)
+shader_parameter/arc_count = 3
+shader_parameter/arc_stagger = 0.18
+shader_parameter/arc_falloff = 0.7
+shader_parameter/travel_start = 0.0
+shader_parameter/travel_end = 1.0
+shader_parameter/travel_ease = 2.0
+shader_parameter/edge_width = 0.012
+shader_parameter/tail_length = 0.03
+shader_parameter/tail_strength = 0.35
+shader_parameter/arc_bow = 0.04
+shader_parameter/end_fade = 0.3
+shader_parameter/travel_fade = 0.4

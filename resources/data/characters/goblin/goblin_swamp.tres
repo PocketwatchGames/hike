@@ -27,7 +27,9 @@ metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 
 [sub_resource type="Resource" id="Resource_221hv"]
 script = ExtResource("7_x3016")
+meshNames = PackedStringArray("SK_GoblinBody")
 color = Color(1, 0.7166667, 0, 1)
+amount = 0.8
 metadata/_custom_type_script = "uid://c4f283lqo67wq"
 
 [sub_resource type="Resource" id="Resource_uyb2f"]

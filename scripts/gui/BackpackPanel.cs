@@ -16,7 +16,7 @@ public partial class BackpackPanel : Control
 	// The title bar over the grid, hidden while the panel has no title.
 	[Export] private Label _nameLabel;
 	[Export] private Control _nameContainer;
-	// Per-instance title, a ui.tsv key (panel_backpack, panel_stash). Unset = no
+	// Per-instance title, a hike_strings.tsv key (panel_backpack, panel_stash). Unset = no
 	// title, unless the screen names the panel itself (SetTitle — a sack).
 	[Export] private StringName _titleLocKey;
 	[Export] private PackedScene _slotScene;
