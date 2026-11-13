@@ -260,6 +260,9 @@ public partial class SimData : Resource
     [Export] public InteractiveAction talkAction;
     [Export] public InteractiveAction giveItemAction;
     [Export] public InteractiveAction tradeAction;
+    // The trade screen's lines for every ShopMoment a merchant's own sheet rows
+    // leave out — the sheet's `merchant_` character, which has only `shop:` rows.
+    [Export] public ConversationData merchantDefaults;
     // Dig a burrowed mob out of the ground with a carried Digging tool — the same
     // Dig a buried spot offers, shared by every species.
     [Export] public InteractiveAction digUpAction;

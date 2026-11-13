@@ -3,4 +3,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- The game's own list of shop moments, so the sheet is checked against the one copy. -->
+    <Compile Include="../../scripts/data/conversation/ShopMoment.cs" Link="ShopMoment.cs" />
+  </ItemGroup>
 </Project>

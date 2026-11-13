@@ -141,6 +141,7 @@
 [ext_resource type="Resource" uid="uid://cf7i1mnddepew" path="res://resources/data/status_effects/upgrades/upgrade_ranged_marked.tres" id="up_ranged_marked"]
 [ext_resource type="Resource" uid="uid://b15r2bn2hq86e" path="res://resources/data/status_effects/upgrades/upgrade_weapon_blunt.tres" id="up_weapon_blunt"]
 [ext_resource type="Resource" uid="uid://dh3b6y854xyjl" path="res://resources/data/status_effects/upgrades/upgrade_weapon_speed.tres" id="up_weapon_speed"]
+[ext_resource type="Resource" path="res://resources/data/worlds/default_world/conversations/merchant_conversation.tres" id="merchant_defaults"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -168,6 +169,7 @@ forgeRangedIcon = ExtResource("42_icon_ranged")
 forgeArmorIcon = ExtResource("43_icon_armor")
 talkAction = ExtResource("13_talk_action")
 giveItemAction = ExtResource("14_give_action")
+merchantDefaults = ExtResource("merchant_defaults")
 digUpAction = ExtResource("dig_action")
 searchAction = ExtResource("117_wilqk")
 deathSackScene = ExtResource("30_death_sack")

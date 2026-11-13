@@ -51,4 +51,41 @@ public partial class ConversationData : Resource
     // False = ui_cancel does nothing; the player can only read it through. Set
     // by the sheet's `options` column (`undismissable`).
     [Export] public bool dismissable = true;
+
+    // What this character says at each moment of the trade screen, ShopMoment
+    // -> loc key, from the sheet's `shop:<moment>` rows. A moment left out falls
+    // back to SimData.merchantDefaults (ShopLineKey).
+    [Export] public Dictionary<StringName, StringName> shopLines;
+
+    // The name once the party has learned it, the description until then; null
+    // for an anonymous source.
+    public StringName SpeakerLocKey(SimState state)
+    {
+        bool hasName = !IsBlank(nameLocKey);
+        if (hasName && state != null && state.IsNameKnown(this))
+        {
+            return nameLocKey;
+        }
+        return IsBlank(descriptionLocKey) ? null : descriptionLocKey;
+    }
+
+    // `speaker`'s own line for a ShopMoment, else the defaults'; null when
+    // neither says it.
+    public static StringName ShopLineKey(ConversationData speaker, ConversationData defaults, string moment)
+    {
+        if (speaker?.shopLines != null && speaker.shopLines.TryGetValue(moment, out StringName own) && !IsBlank(own))
+        {
+            return own;
+        }
+        if (defaults?.shopLines != null && defaults.shopLines.TryGetValue(moment, out StringName fallback) && !IsBlank(fallback))
+        {
+            return fallback;
+        }
+        return null;
+    }
+
+    static bool IsBlank(StringName name)
+    {
+        return name is null || name.IsEmpty;
+    }
 }

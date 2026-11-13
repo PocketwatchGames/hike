@@ -79,6 +79,15 @@ class SheetEntry
 	public SheetRow Row;
 }
 
+// One `shop:<moment>` row: what this character says at that moment of the
+// trade screen.
+class SheetShopLine
+{
+	public string Moment;
+	public string Key;
+	public SheetRow Row;
+}
+
 // Everything one character's rows add up to: the ConversationData to write and
 // the loc rows its text becomes.
 class SheetCharacter
@@ -88,6 +97,7 @@ class SheetCharacter
 	public List<SheetBranch> Branches = new List<SheetBranch>();
 	public List<SheetGroup> Groups = new List<SheetGroup>();
 	public List<SheetEntry> Entries = new List<SheetEntry>();
+	public List<SheetShopLine> ShopLines = new List<SheetShopLine>();
 	public List<KeyValuePair<string, string>> Strings = new List<KeyValuePair<string, string>>();
 	public SheetRow FirstRow;
 	// Loc keys of the speaker's name and description, empty when unset; the
@@ -250,6 +260,12 @@ static class ConversationSheet
 			{
 				openBranch = null;
 				AddEntry(character, row, report);
+				continue;
+			}
+			if (row.Key.StartsWith(ShopMoment.SheetPrefix, StringComparison.OrdinalIgnoreCase))
+			{
+				openBranch = null;
+				AddShopLine(character, row, report);
 				continue;
 			}
 			if (row.Key.Length == 0)
@@ -504,6 +520,38 @@ static class ConversationSheet
 		character.Entries.Add(entry);
 	}
 
+	// A shop line is one paragraph spoken in the merchant's own tongue at a fixed
+	// moment of the trade screen, so everything a branch could add is refused
+	// rather than silently dropped.
+	static void AddShopLine(SheetCharacter character, SheetRow row, Report report)
+	{
+		string moment = row.Key.Substring(ShopMoment.SheetPrefix.Length).Trim();
+		if (!ShopMoment.IsKnown(moment))
+		{
+			report.Error(row, $"unknown shop moment '{moment}' - the moments are: {string.Join(", ", ShopMoment.All)}");
+			return;
+		}
+		if (row.Text.Length == 0)
+		{
+			report.Error(row, $"'{row.Key}' has no text - a shop row is the line the merchant says");
+		}
+		if (row.Goto.Length > 0 || row.Language.Length > 0 || row.Condition.Length > 0 || row.OnStart.Length > 0 || row.OnComplete.Length > 0)
+		{
+			report.Error(row, "a shop row is only its text - it has no goto, language, condition or actions");
+		}
+		foreach (SheetShopLine existing in character.ShopLines)
+		{
+			if (existing.Moment == moment)
+			{
+				report.Error(row, $"{character.Name} already says '{moment}' at {existing.Row.Where} - a moment has one line");
+				return;
+			}
+		}
+		string key = $"{character.Name}_shop_{moment}";
+		character.ShopLines.Add(new SheetShopLine { Moment = moment, Key = key, Row = row });
+		character.Strings.Add(new KeyValuePair<string, string>(key, row.Text));
+	}
+
 	// Cross-checks the graph and fills in what the sheet leaves implicit: the
 	// fallback entry and which branch is a group's canonical introduction.
 	static void Resolve(SheetCharacter character, Report report)
@@ -574,7 +622,12 @@ static class ConversationSheet
 			// branch is the fallback and ends the walk.
 			if (character.Branches.Count == 0)
 			{
-				report.Error(character.FirstRow, $"{character.Name} has no branches");
+				// A character who only trades (the merchant defaults) has nothing
+				// to open a conversation on, and needs nothing.
+				if (character.ShopLines.Count == 0 || character.Groups.Count > 0)
+				{
+					report.Error(character.FirstRow, $"{character.Name} has no branches");
+				}
 				return;
 			}
 			SheetBranch fallback = null;

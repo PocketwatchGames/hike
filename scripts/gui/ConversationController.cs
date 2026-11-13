@@ -602,13 +602,7 @@ public partial class ConversationController : Control
 		{
 			return;
 		}
-		StringName key = null;
-		if (_conversation != null)
-		{
-			bool hasName = !IsBlank(_conversation.nameLocKey);
-			bool known = hasName && (_ctx.sim?.WorldState?.SimState?.IsNameKnown(_conversation) ?? false);
-			key = known ? _conversation.nameLocKey : _conversation.descriptionLocKey;
-		}
+		StringName key = _conversation?.SpeakerLocKey(_ctx.sim?.WorldState?.SimState);
 		bubble.SetSpeakerName(IsBlank(key) ? null : Loc.Get(key));
 	}
 

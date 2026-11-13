@@ -152,6 +152,17 @@ class TresWriter
 		{
 			body.AppendLine("dismissable = false");
 		}
+		if (character.ShopLines.Count > 0)
+		{
+			var pairs = new List<string>();
+			foreach (SheetShopLine line in character.ShopLines)
+			{
+				pairs.Add($"&\"{line.Moment}\": &\"{line.Key}\"");
+			}
+			body.AppendLine("shopLines = Dictionary[StringName, StringName]({");
+			body.AppendLine(string.Join(",\n", pairs));
+			body.AppendLine("})");
+		}
 
 		var file = new StringBuilder();
 		string uidAttribute = existingUid != null ? $" uid=\"{existingUid}\"" : "";

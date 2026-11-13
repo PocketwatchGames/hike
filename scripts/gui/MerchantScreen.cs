@@ -21,9 +21,11 @@ using System.Collections.Generic;
 [GlobalClass]
 public partial class MerchantScreen : Control
 {
-	[Export] private TextureRect _merchantPortrait;
+	// What the merchant says, typed out over the top of the screen, and the tab
+	// above it naming them.
+	[Export] private TypingText _merchantRemark;
+	[Export] private Control _merchantNameTab;
 	[Export] private Label _merchantNameLabel;
-	[Export] private Label _merchantConversationLabel;
 	// The containers hidden in gift mode.
 	[Export] private Control _merchantInventoryPanel;
 	[Export] private Control _getPanel;
@@ -186,7 +188,7 @@ public partial class MerchantScreen : Control
 		}
 		ClearPick();
 		ResetHolds();
-		UpdateMerchantInfo();
+		UpdateMerchantName();
 		if (_getPanel != null)
 		{
 			_getPanel.Visible = _trading;
@@ -195,8 +197,8 @@ public partial class MerchantScreen : Control
 		{
 			_merchantInventoryPanel.Visible = _trading;
 		}
-		SetConversation(trade ? "What have you brought me?" : "What would you like to trade?");
 		Visible = true;
+		Say(trade ? ShopMoment.GreetTrade : ShopMoment.GreetGift);
 		Refresh();
 		Callable.From(ApplyInitialFocus).CallDeferred();
 	}
@@ -409,7 +411,7 @@ public partial class MerchantScreen : Control
 		{
 			return false;
 		}
-		SetConversation("Empty that sack first.");
+		Say(ShopMoment.EmptySack);
 		return true;
 	}
 
@@ -503,19 +505,19 @@ public partial class MerchantScreen : Control
 	{
 		if (IsMemberSide(from) && to == ESide.Give)
 		{
-			SetConversation(_trading ? "Yes... and what would you like in return?" : "Mmm, let me see...");
+			Say(_trading ? ShopMoment.OfferTrade : ShopMoment.OfferGift);
 		}
 		else if (from == ESide.Give && IsMemberSide(to))
 		{
-			SetConversation("Changed your mind?");
+			Say(ShopMoment.TakeBack);
 		}
 		else if (from == ESide.Stock && to == ESide.Get)
 		{
-			SetConversation("That'll cost you.");
+			Say(ShopMoment.PickStock);
 		}
 		else if (from == ESide.Get && to == ESide.Stock)
 		{
-			SetConversation("Not what you wanted?");
+			Say(ShopMoment.ReturnStock);
 		}
 	}
 
@@ -580,34 +582,44 @@ public partial class MerchantScreen : Control
 		_drop.Arm(_hintDrop);
 	}
 
-	// ---- Merchant header -------------------------------------------------------
+	// ---- Merchant remark -------------------------------------------------------
 
-	void UpdateMerchantInfo()
+	// The conversation's name once the party knows it, its description until
+	// then; a merchant with no conversation goes by its species' name.
+	void UpdateMerchantName()
 	{
-		if (_merchant == null)
+		if (_merchantNameTab == null || _merchantNameLabel == null)
 		{
 			return;
 		}
-		MobData md = _merchant.mobData;
-		if (_merchantNameLabel != null)
+		ConversationData conversation = _merchant?.SimState?.Conversation;
+		string name;
+		if (conversation != null)
 		{
-			_merchantNameLabel.Text = md != null ? md.displayName.ToString() : string.Empty;
+			StringName key = conversation.SpeakerLocKey(_gameClient?.Sim?.WorldState?.SimState);
+			name = key != null ? Loc.Get(key) : null;
 		}
-		if (_merchantPortrait != null && md?.bestiaryPortrait != null)
+		else
 		{
-			_merchantPortrait.Texture = md.bestiaryPortrait;
+			name = _merchant?.mobData?.displayName.ToString();
 		}
+		_merchantNameLabel.Text = name ?? string.Empty;
+		_merchantNameTab.Visible = !string.IsNullOrEmpty(name);
 	}
 
-	void SetConversation(string text)
+	// Types the merchant's line for a ShopMoment: their own sheet row, else
+	// SimData.merchantDefaults'.
+	void Say(string moment)
 	{
-		if (_merchantConversationLabel == null)
+		ConversationData defaults = _gameClient?.Sim?.SimData?.merchantDefaults;
+		StringName key = ConversationData.ShopLineKey(_merchant?.SimState?.Conversation, defaults, moment);
+		if (key == null)
 		{
+			GD.PushError($"MerchantScreen: no line for shop moment '{moment}' - add a 'shop:{moment}' row to the merchant_ character of the conversation sheet.");
+			_merchantRemark?.Begin(null);
 			return;
 		}
-		_merchantConversationLabel.Text = string.IsNullOrEmpty(text)
-			? string.Empty
-			: LanguageText.Render(text, _merchant?.SpokenLanguage, _player);
+		_merchantRemark?.Begin(LanguageText.RenderBbcode(Loc.Get(key), _merchant?.SpokenLanguage, _player));
 	}
 
 	// ---- Trade / Gift button ---------------------------------------------------
@@ -638,7 +650,7 @@ public partial class MerchantScreen : Control
 	{
 		if (_give.OccupiedCount() == 0)
 		{
-			SetConversation("You haven't offered anything.");
+			Say(ShopMoment.GiftNothingOffered);
 			return;
 		}
 		if (_merchant == null)
@@ -647,13 +659,13 @@ public partial class MerchantScreen : Control
 		}
 		if (!_merchant.HasReciprocableGift(_player))
 		{
-			SetConversation("I have nothing of value to give you in return.");
+			Say(ShopMoment.GiftNothingToReturn);
 			return;
 		}
 		List<ItemState> accepted = TakeAcceptableFromGive(out bool anyLeftover, out float loyaltyGained);
 		if (accepted.Count == 0)
 		{
-			SetConversation("I cannot accept any of these.");
+			Say(ShopMoment.GiftNoneAccepted);
 			return;
 		}
 		List<LoyaltyGiftState> awarded = _merchant.AcceptGift(accepted, loyaltyGained, _player);
@@ -661,15 +673,15 @@ public partial class MerchantScreen : Control
 		FinalizeMerchantInventoryAfterCommit(accepted);
 		if (awarded.Count > 0)
 		{
-			SetConversation("Thank you so much, here's a gift for you!");
+			Say(ShopMoment.GiftRewarded);
 		}
 		else if (anyLeftover)
 		{
-			SetConversation("Some of these I can't accept, but thank you for the rest.");
+			Say(ShopMoment.GiftPartial);
 		}
 		else
 		{
-			SetConversation("Thank you, this means a lot.");
+			Say(ShopMoment.GiftThanks);
 		}
 		Refresh();
 	}
@@ -678,7 +690,7 @@ public partial class MerchantScreen : Control
 	{
 		if (_give.OccupiedCount() == 0 && _get.OccupiedCount() == 0)
 		{
-			SetConversation("Nothing to trade.");
+			Say(ShopMoment.TradeNothing);
 			return;
 		}
 		if (_merchant == null)
@@ -693,7 +705,7 @@ public partial class MerchantScreen : Control
 		}
 		if (getValue >= giveValue)
 		{
-			SetConversation("That trade isn't worth my while.");
+			Say(ShopMoment.TradeRefused);
 			return;
 		}
 		List<ItemState> accepted = TakeAcceptableFromGive(out _, out _);
@@ -715,7 +727,7 @@ public partial class MerchantScreen : Control
 		List<LoyaltyGiftState> awarded = _merchant.AcceptGift(accepted, loyaltyGained, _player);
 		ApplyAwardedGifts(awarded);
 		FinalizeMerchantInventoryAfterCommit(accepted);
-		SetConversation(awarded.Count > 0 ? "Pleasure doing business — and please, take this as well." : "Pleasure doing business.");
+		Say(awarded.Count > 0 ? ShopMoment.TradeDoneGift : ShopMoment.TradeDone);
 		Refresh();
 	}
 

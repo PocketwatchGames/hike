@@ -564,9 +564,8 @@ tents). It is written at every sunrise wake (`GameClient.AutosaveAtWake`: camp
 or bed sleep, Ruby Rosaries return-home, death wake) — there is no manual save —
 and a load reproduces that wake: it starts the world the header names
 (`WorldState.Origin`), sets the clock to the saved `WorldClockDays` (always a
-whole number — a sunrise) and spawns the party at home. A campfire home is lit
-and opens the camp screen; a bed home is a plain wake. Death wakes and the Ruby
-Rosaries go to the same home. So
+whole number — a sunrise) and spawns the party at home in plain play — a load never opens the camp
+screen. Death wakes and the Ruby Rosaries go to the same home. So
 **nothing a rest resets is saved** (health, transient effects, mobs, dropped loot,
 weather): the load re-derives it the way a real wake does.
 A rest revives every dead mob EXCEPT one whose spawn entry has
@@ -889,6 +888,14 @@ wants falls straight out of it:
   invites exactly those typos and nothing else guards them. Reachability problems
   (an orphan group, a branch nothing points at) are warnings — that is a
   half-finished edit, and it must never block a playtest.
+- **`shop:<moment>` is a reserved conversation key** — one row, text only, is
+  what the character says at that moment of the trade screen
+  (`ConversationData.shopLines`, loc key `<character>_shop_<moment>`). The
+  moments are `ShopMoment`, one list the importer compiles too, so an unknown
+  moment is an import error. A moment a merchant leaves out falls back to
+  `SimData.merchantDefaults` — the default world's `merchant_` character, which
+  has only `shop:` rows. The line is spoken in the merchant's own language like
+  any conversation line.
 - **A conversation's uid is preserved across a rewrite** — `placements.tres` and
   `NpcSpawnEntry` reference it by uid, so the importer carries the existing
   `[gd_resource uid=...]` over. A brand-new conversation is written without one

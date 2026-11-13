@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="ConversationData" format=3]
+
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="Script_ConversationData"]
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]
+[ext_resource type="Script" uid="uid://drrpmtebgfwg0" path="res://scripts/data/conversation/ConversationLine.cs" id="Script_ConversationLine"]
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
+[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
+[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
+
+[resource]
+script = ExtResource("Script_ConversationData")
+entryBranches = []
+branches = []
+responseGroups = []
+shopLines = Dictionary[StringName, StringName]({
+&"greet_trade": &"merchant_shop_greet_trade",
+&"greet_gift": &"merchant_shop_greet_gift",
+&"offer_trade": &"merchant_shop_offer_trade",
+&"offer_gift": &"merchant_shop_offer_gift",
+&"take_back": &"merchant_shop_take_back",
+&"pick_stock": &"merchant_shop_pick_stock",
+&"return_stock": &"merchant_shop_return_stock",
+&"empty_sack": &"merchant_shop_empty_sack",
+&"trade_nothing": &"merchant_shop_trade_nothing",
+&"trade_refused": &"merchant_shop_trade_refused",
+&"trade_done": &"merchant_shop_trade_done",
+&"trade_done_gift": &"merchant_shop_trade_done_gift",
+&"gift_nothing_offered": &"merchant_shop_gift_nothing_offered",
+&"gift_nothing_to_return": &"merchant_shop_gift_nothing_to_return",
+&"gift_none_accepted": &"merchant_shop_gift_none_accepted",
+&"gift_rewarded": &"merchant_shop_gift_rewarded",
+&"gift_partial": &"merchant_shop_gift_partial",
+&"gift_thanks": &"merchant_shop_gift_thanks"
+})

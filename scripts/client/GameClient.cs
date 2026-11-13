@@ -945,11 +945,7 @@ public partial class GameClient : Node3D
 		loadingScreen?.HideWithFade();
 		InputSuppressed = false;
 
-		if (save != null)
-		{
-			WakeAtHome();
-		}
-		else
+		if (save == null)
 		{
 			_world.DispatchNewGame();
 		}
@@ -1000,21 +996,6 @@ public partial class GameClient : Node3D
 		foreach (Player member in _partyPlayers)
 		{
 			member.ApplyStartCondition(condition);
-		}
-	}
-
-	// A loaded save is a wake at sunrise, so it opens the way a real one
-	// leaves the player: in camp at a campfire home (the camp screen takes the
-	// input gate), in plain play at a bed.
-	void WakeAtHome()
-	{
-		if (_home.AtCampfire && campScreen != null)
-		{
-			campScreen.Open(_player, _home.Position);
-		}
-		else
-		{
-			InputSuppressed = false;
 		}
 	}
 

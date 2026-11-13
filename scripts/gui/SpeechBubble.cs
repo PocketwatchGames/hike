@@ -2,25 +2,16 @@ using Godot;
 
 // A comic speech bubble whose tail points at an IInteractive's hudPosition
 // (above a speaker's head, a sign's plate): body, name tab, tail, and a continue hint.
-// Runs the typewriter for whatever owns it (ConversationController) — the
-// owner says what to show and when to advance; the bubble reveals, sizes and
-// places itself.
+// The owner (ConversationController) says what to show and when to advance;
+// the body (a TypingText) types and sizes the line, the bubble places it.
 //
 // The root is a full-screen, input-ignoring Control, so its local space IS
 // the space GameClient.ProjectToScreen returns; body, tab and hint are
 // positioned in it by hand every frame.
-//
-// Size is reserved up front: `sizerLabel` holds the whole line, drawn
-// transparent, and is what the body lays out around; `textLabel` sits in the
-// same PanelContainer cell and reveals through VisibleCharacters. The sizer
-// must stay VISIBLE (a hidden control contributes no minimum size) — its
-// transparency is authored as modulate alpha in the scene.
 [GlobalClass]
 public partial class SpeechBubble : Control
 {
-	[Export] PanelContainer body;
-	[Export] RichTextLabel sizerLabel;
-	[Export] RichTextLabel textLabel;
+	[Export] TypingText body;
 	[Export] Control nameTab;
 	[Export] Label nameLabel;
 	// The framed continue hint (a ButtonHint inside its own backing panel).
@@ -29,11 +20,6 @@ public partial class SpeechBubble : Control
 	// tail joins it.
 	[Export] Control tail;
 
-	// Widest the text runs before it wraps; shorter lines shrink the bubble.
-	[Export(PropertyHint.Range, "100,1600,1")] public float maxTextWidth = 560f;
-	// Narrowest the text area gets, so a one-word line still has room for the
-	// tail and the continue hint along its bottom edge.
-	[Export(PropertyHint.Range, "0,1600,1")] public float minTextWidth = 200f;
 	// Screen pixels kept clear at every window edge.
 	[Export(PropertyHint.Range, "0,200,1")] public float screenMargin = 24f;
 	// Vertical distance from the anchor's projected point to the body's edge.
@@ -47,9 +33,6 @@ public partial class SpeechBubble : Control
 	[Export(PropertyHint.Range, "0,200,1")] public float continueHintInset = 16f;
 
 	IInteractive _anchor;
-	float _revealedChars;
-	int _lineLength;
-	bool _hasText;
 	bool _flipped;
 	Vector2 _tailTip;
 
@@ -57,7 +40,7 @@ public partial class SpeechBubble : Control
 	// turns it off while the player is choosing a response.
 	public bool AwaitingContinue { get; set; }
 
-	public bool IsFullyRevealed => _revealedChars >= _lineLength;
+	public bool IsFullyRevealed => body == null || body.IsFullyRevealed;
 
 	// False once the anchor's node has been freed — the speaker died or its
 	// chunk unloaded. The owner closes on it.
@@ -83,7 +66,7 @@ public partial class SpeechBubble : Control
 	{
 		Visible = false;
 		_anchor = null;
-		_hasText = false;
+		body?.Begin(null);
 		AwaitingContinue = false;
 	}
 
@@ -98,71 +81,30 @@ public partial class SpeechBubble : Control
 		nameLabel.Text = has ? name : string.Empty;
 	}
 
-	// Loads a whole BBCode line with nothing revealed yet, and sizes the body
-	// for all of it. An empty line hides the bubble's body until the next one.
+	// Loads a whole BBCode line with nothing revealed yet; an empty line hides
+	// the bubble until the next one.
 	public void Begin(string bbcode)
 	{
-		_revealedChars = 0f;
-		_lineLength = 0;
-		_hasText = !string.IsNullOrEmpty(bbcode);
-		if (sizerLabel == null || textLabel == null || body == null)
-		{
-			return;
-		}
-		string text = bbcode ?? string.Empty;
-		// Visible before measuring: a hidden container does not hear its
-		// children's minimum size change and would keep the last line's size.
-		body.Visible = _hasText;
-		sizerLabel.Text = text;
-		textLabel.Text = text;
-		textLabel.VisibleCharacters = 0;
-		_lineLength = textLabel.GetTotalCharacterCount();
-		FitSizer();
+		body?.Begin(bbcode);
 		UpdateLayout();
 	}
 
 	public void RevealAll()
 	{
-		_revealedChars = _lineLength;
-		if (textLabel != null)
-		{
-			textLabel.VisibleCharacters = -1;
-		}
-	}
-
-	// Measures the line at the max width, then narrows to its widest wrapped
-	// row. Done by setting the sizer's Size directly so the label shapes now,
-	// rather than after the container's deferred sort — the bubble is right
-	// on its first drawn frame. +1 keeps float rounding from re-wrapping it.
-	void FitSizer()
-	{
-		sizerLabel.CustomMinimumSize = Vector2.Zero;
-		sizerLabel.Size = new Vector2(maxTextWidth, sizerLabel.Size.Y);
-		float width = Mathf.Clamp(Mathf.Ceil(sizerLabel.GetContentWidth()) + 1f, Mathf.Min(minTextWidth, maxTextWidth), maxTextWidth);
-		sizerLabel.Size = new Vector2(width, sizerLabel.Size.Y);
-		float height = sizerLabel.GetContentHeight();
-		sizerLabel.CustomMinimumSize = new Vector2(width, height);
+		body?.RevealAll();
 	}
 
 	public override void _Process(double delta)
 	{
-		if (!Visible)
+		if (Visible)
 		{
-			return;
+			UpdateLayout();
 		}
-		// Presentational, so wall clock — matches the old panel's typewriter.
-		if (_revealedChars < _lineLength && textLabel != null)
-		{
-			float speed = Mathf.Max(0f, CVars.dialogueTypingSpeed.Value);
-			_revealedChars = Mathf.Min(_lineLength, _revealedChars + speed * (float)delta);
-			textLabel.VisibleCharacters = _revealedChars >= _lineLength ? -1 : Mathf.FloorToInt(_revealedChars);
-		}
-		UpdateLayout();
 	}
 
 	void UpdateLayout()
 	{
-		bool show = _hasText && HasLiveAnchor && body != null;
+		bool show = body != null && body.HasText && HasLiveAnchor;
 		if (body != null)
 		{
 			body.Visible = show;

@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://iyvo5se8mw3k9" path="res://scripts/gui/SpeechBubble.cs" id="3_bubble"]
 [ext_resource type="FontVariation" uid="uid://ccayfwl2qvnu8" path="res://resources/gui/ui_font.tres" id="4_uifont"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="5_btnhint"]
+[ext_resource type="Script" uid="uid://6q30x9rawallt" path="res://scripts/gui/TypingText.cs" id="6_typing"]
 
 [sub_resource type="FontVariation" id="FontVariation_narration"]
 base_font = ExtResource("4_uifont")
@@ -84,7 +85,7 @@ responseOptionScene = ExtResource("2_wydpk")
 responseOptionsContainer = NodePath("ResponseContainer/TextContainer2/VBoxContainer")
 responseContainer = NodePath("ResponseContainer")
 
-[node name="SpeechBubble" type="Control" parent="." node_paths=PackedStringArray("body", "sizerLabel", "textLabel", "nameTab", "nameLabel", "continueHint", "tail")]
+[node name="SpeechBubble" type="Control" parent="." node_paths=PackedStringArray("body", "nameTab", "nameLabel", "continueHint", "tail")]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -94,17 +95,18 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("3_bubble")
 body = NodePath("Body")
-sizerLabel = NodePath("Body/SizerLabel")
-textLabel = NodePath("Body/TextLabel")
 nameTab = NodePath("NameTab")
 nameLabel = NodePath("NameTab/NameLabel")
 continueHint = NodePath("ContinueHint")
 tail = NodePath("Tail")
 
-[node name="Body" type="PanelContainer" parent="SpeechBubble"]
+[node name="Body" type="PanelContainer" parent="SpeechBubble" node_paths=PackedStringArray("sizerLabel", "textLabel")]
 layout_mode = 0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_bubble")
+script = ExtResource("6_typing")
+sizerLabel = NodePath("SizerLabel")
+textLabel = NodePath("TextLabel")
 
 [node name="SizerLabel" type="RichTextLabel" parent="SpeechBubble/Body"]
 modulate = Color(1, 1, 1, 0)
