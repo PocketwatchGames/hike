@@ -17,6 +17,10 @@ public partial class DeathScreen : Control
 	[Export] public Control promptRoot;
 	[Export] public Label titleLabel;
 	[Export] public ButtonHint respawnHint;
+	// On the Master bus, so the World3D/Ambience2D duck below never silences them.
+	[Export] public AudioStreamPlayer deathSound;
+	[Export] public AudioStreamPlayer respawnPressSound;
+	[Export] public AudioStreamPlayer respawnRevealSound;
 	[Export(PropertyHint.Range, "0.1,5,0.05")] public float fadeOutSeconds = 1.0f;
 	[Export(PropertyHint.Range, "0.1,5,0.05")] public float fadeInSeconds = 1.0f;
 	// Duck (dB) on the World3D + Ambience2D buses at full fade. -80 dB
@@ -75,6 +79,7 @@ public partial class DeathScreen : Control
 		{
 			promptRoot.Visible = false;
 		}
+		deathSound?.Play();
 	}
 
 	// A quit to menu mid-death never reaches FinishFadeIn.
@@ -117,6 +122,7 @@ public partial class DeathScreen : Control
 				if (!(_gameClient?.WorldSettling ?? false))
 				{
 					_state = EState.FadingIn;
+					respawnRevealSound?.Play();
 				}
 				break;
 			}
@@ -153,6 +159,7 @@ public partial class DeathScreen : Control
 		{
 			return;
 		}
+		respawnPressSound?.Play();
 		// The whole wake happens synchronously here; Settling then holds black
 		// until the world around the campfire has spawned, so the first frame of
 		// the fade-in already shows it complete. Input stays suppressed by

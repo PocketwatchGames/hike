@@ -109,6 +109,19 @@ public class PropPaintTool : IWorldMapTool
         });
     }
 
+    // Floods the columns painted with the list under the press (or the
+    // unpainted ground there) - the way to fill the inside of a ring.
+    public WorldMapFill Fill(WorldMapState ctx, WorldMapView view, bool erase)
+    {
+        var value = new Color(erase ? 0f : Mathf.Clamp(ListIndex + 1, 1, 255) / 255f, 0f, 0f, 1f);
+        Image layer = ctx.BlockingProps;
+        return new WorldMapFill
+        {
+            KeyAt = (px, pz) => ctx.PaintedPropIndexAt(px, pz),
+            Write = (px, pz) => layer.SetPixel(px, pz, value),
+        };
+    }
+
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
 

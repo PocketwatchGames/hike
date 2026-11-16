@@ -2,8 +2,11 @@
 
 [ext_resource type="Script" uid="uid://2siq1in6pzz5k" path="res://scripts/gui/DeathScreen.cs" id="1_dthscr"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_btnhint"]
+[ext_resource type="AudioStream" uid="uid://cl4e2ytpnnt4s" path="res://assets/audio/source/player/sfx_death_screen.wav" id="3_death_sfx"]
+[ext_resource type="AudioStream" uid="uid://b45dhdofa2ug3" path="res://assets/audio/source/ui/sfx_ui_respawn_confirm.wav" id="4_press_sfx"]
+[ext_resource type="AudioStream" uid="uid://bf1udgdfkexna" path="res://assets/audio/source/player/sfx_respawn_reveal.wav" id="5_reveal_sfx"]
 
-[node name="DeathScreen" type="Control" node_paths=PackedStringArray("overlay", "promptRoot", "titleLabel", "respawnHint")]
+[node name="DeathScreen" type="Control" node_paths=PackedStringArray("overlay", "promptRoot", "titleLabel", "respawnHint", "deathSound", "respawnPressSound", "respawnRevealSound")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -17,6 +20,9 @@ overlay = NodePath("Overlay")
 promptRoot = NodePath("Prompt")
 titleLabel = NodePath("Prompt/CenterContainer/VBoxContainer/Title")
 respawnHint = NodePath("Prompt/CenterContainer/VBoxContainer/RespawnHint")
+deathSound = NodePath("DeathSound")
+respawnPressSound = NodePath("RespawnPressSound")
+respawnRevealSound = NodePath("RespawnRevealSound")
 
 [node name="Overlay" type="ColorRect" parent="."]
 layout_mode = 1
@@ -54,6 +60,7 @@ alignment = 1
 
 [node name="Title" type="Label" parent="Prompt/CenterContainer/VBoxContainer"]
 layout_mode = 2
+theme_type_variation = &"DisplayLabel"
 size_flags_horizontal = 4
 theme_override_colors/font_color = Color(0.85, 0.1, 0.1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
@@ -65,3 +72,15 @@ horizontal_alignment = 1
 [node name="RespawnHint" parent="Prompt/CenterContainer/VBoxContainer" instance=ExtResource("2_btnhint")]
 layout_mode = 2
 size_flags_horizontal = 4
+
+[node name="DeathSound" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("3_death_sfx")
+volume_db = -4.0
+
+[node name="RespawnPressSound" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("4_press_sfx")
+volume_db = -6.0
+
+[node name="RespawnRevealSound" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("5_reveal_sfx")
+volume_db = -4.0

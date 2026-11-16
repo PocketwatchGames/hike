@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 // In-game world-map painting program — the first step in the authoring chain.
@@ -120,20 +121,13 @@ public partial class WorldMapPainter : Node3D
     private IWorldMapTool[] _tools;
     private int _toolIndex;
 
-    // Background bake. The task owns its OWN WorldMapState, loaded from the files
-    // Save just wrote, so it can never read the layer images the brush is still
-    // painting into. Progress fields are written by the task and read on the main
-    // thread in _Process.
-    private System.Threading.Tasks.Task _bakeTask;
-    private volatile float _bakeRatio;
-    private volatile string _bakePhase = "";
-    private volatile int _bakeResult;   // 0 running, 1 ok, 2 failed
-    private System.Diagnostics.Stopwatch _bakeClock;
+    // The bake runs in its own process (WorldMapBakeProcess); the painter only
+    // reads its status file. Watching starts on a save, or on finding a bake
+    // already running when the painter opens, and ends once a result is shown.
+    private bool _watchingBake;
+    private double _bakePollSeconds;
     private double _bakeHoldSeconds;
-    // How long the bake worker will wait for the main thread to run the
-    // occluder stamp before giving up (only reachable if the main loop is
-    // shutting down mid-bake).
-    private const double BakeStampTimeoutSeconds = 60d;
+    private const double BakePollIntervalSeconds = 0.25d;
 
     private Image _display;
     private ImageTexture _displayTex;
@@ -150,7 +144,7 @@ public partial class WorldMapPainter : Node3D
 
     // Bindings that mean the same thing whichever tool is active.
     private const string GLOBAL_HINT =
-        "Tab tool  |  Q/E param  |  R/F level  |  T/G or Alt+Wheel cutaway  |  Alt+RMB aim it  |  X mode  |  Wheel brush  |  Ctrl+Wheel zoom  |  MMB pan  |  W water  |  Ctrl+Z undo  |  Ctrl+S save  |  Esc menu";
+        "Tab tool  |  Q/E param  |  R/F level  |  T/G or Alt+Wheel cutaway  |  Alt+RMB aim it  |  X mode  |  Hold B+Click fill  |  Wheel brush  |  Ctrl+Wheel zoom  |  MMB pan  |  W water  |  Ctrl+Z undo  |  Ctrl+S save  |  Esc menu";
 
     // The document this painter is editing, for the console commands that act on
     // "whatever is open".
@@ -372,7 +366,7 @@ public partial class WorldMapPainter : Node3D
             PushDisplay();
             // The property panel is pushed from UpdateHud, and a CLICK reaches
             // neither — so without this the panel keeps showing the entry it was
-            // last built for (the previous signpost's text, or nothing at all for
+            // last built for (the previous entity's fields, or nothing at all for
             // the first selection of a session) until a tool or option change
             // happens to refresh it. Here rather than per frame because a rebuild
             // destroys the widget being typed into.
@@ -666,9 +660,9 @@ public partial class WorldMapPainter : Node3D
         pauseMenu.SetOpen(!pauseMenu.Visible);
     }
 
-    // Write the document on the main thread — that part is fast and must not be
-    // racy — then bake in the background off a private state loaded from what was
-    // just written. Painting stays live while it runs.
+    // Write the document, then hand the bake to a separate process that reads
+    // what was just written. A save while a bake is running kills it and starts
+    // again from the newer document; the process outlives the painter.
     private void SaveAndBake()
     {
         // Ctrl+S while a property row still holds focus: the value has to reach
@@ -676,114 +670,73 @@ public partial class WorldMapPainter : Node3D
         // that was there before it was typed.
         hud.entityInspector?.FlushPendingEdit();
         _ctx.Save();
-        if (_bakeTask != null && !_bakeTask.IsCompleted)
-        {
-            hud.SetStatus("Saved layers (bake already running)");
-            return;
-        }
-        hud.SetStatus("Saved layers");
 
-        // Re-read the prop lists and their scenes before the snapshot resolves
-        // them, so a bake always fills from the collision as it is on disk NOW.
-        // The live state is refreshed too and the map redrawn from it: the
-        // preview and the bake have to agree, and they would not if the bake
-        // measured a trunk the dots were still drawn for.
+        // Re-read the prop lists and their scenes so the preview matches what
+        // the bake (which loads them fresh) will fill from: the two have to
+        // agree, and they would not if the bake measured a trunk the dots were
+        // still drawn for.
         _ctx.RefreshPropAssets();
         RebuildFull();
         PushDisplay();
 
-        WorldMapState snapshot;
-        try
+        if (!WorldMapBakeProcess.Restart(data))
         {
-            snapshot = new WorldMapState(data);
-        }
-        catch (System.Exception e)
-        {
-            GD.PrintErr($"WorldMapPainter: could not snapshot for bake: {e}");
+            hud.SetStatus("Saved layers (bake could not start - see console)");
             return;
         }
-
-        _bakeRatio = 0f;
-        _bakePhase = "Starting";
-        _bakeResult = 0;
-        _bakeClock = System.Diagnostics.Stopwatch.StartNew();
+        hud.SetStatus("Saved layers");
+        _watchingBake = true;
         _bakeHoldSeconds = 0d;
-        _bakeTask = System.Threading.Tasks.Task.Run(() =>
-        {
-            _bakeResult = RunBake(snapshot, BakeProgress) ? 1 : 2;
-        });
+        _bakePollSeconds = 0d;
+        hud.SetBakeProgress(true, 0f, "Baking: Starting (0%)");
     }
 
-    // The whole bake, on ONE worker task, with only the occluder stamp hopping
-    // to the main thread. It has to be one task: the bake must survive the
-    // painter being closed while it runs — it touches no nodes and always did —
-    // and driving the hand-off from _Process instead meant leaving the painter
-    // silently abandoned the bake after the build, with nothing written and no
-    // error. That is exactly what a Ctrl+S followed by "go look at the level"
-    // does, so it looked like the bake had simply not baked any light.
-    //
-    // A deferred Callable is what makes that work: it runs on the main thread on
-    // the next frame no matter which scene is up, so the stamp is still main-
-    // thread even once the painter is gone.
-    private static bool RunBake(WorldMapState snapshot, System.Action<float, string> progress)
-    {
-        var bake = new WorldMapBake(snapshot);
-        if (!bake.BakeBuild(progress))
-        {
-            return false;
-        }
-        var stamped = new System.Threading.Tasks.TaskCompletionSource<bool>();
-        Callable.From(() =>
-        {
-            try { stamped.TrySetResult(bake.BakeStampOccluders()); }
-            catch (System.Exception e) { GD.PrintErr($"WorldMapPainter: occluder stamp failed: {e}"); stamped.TrySetResult(false); }
-        }).CallDeferred();
-        // Bounded so a bake can never wedge a worker forever if the main loop is
-        // going away underneath it (quitting mid-bake).
-        if (!stamped.Task.Wait(System.TimeSpan.FromSeconds(BakeStampTimeoutSeconds)))
-        {
-            GD.PrintErr("WorldMapPainter: timed out waiting for the main thread to stamp sun occluders; bake abandoned.");
-            return false;
-        }
-        return stamped.Task.Result && bake.BakeRelightAndWrite(progress);
-    }
-
-    // Written from the bake worker, read by the tick below — plain volatile
-    // fields, which is the whole contract between the two.
-    private void BakeProgress(float r, string phase)
-    {
-        _bakeRatio = r;
-        _bakePhase = phase;
-    }
-
-    // Bake readout. Kept out of the paint path deliberately: the task only writes
-    // plain fields, and the only thread touching Godot nodes is this one.
+    // Bake readout, polled off the bake process's status file.
     private void TickBakeProgress(double delta)
     {
-        if (_bakeTask == null)
+        if (_bakeHoldSeconds > 0d)
+        {
+            _bakeHoldSeconds -= delta;
+            if (_bakeHoldSeconds <= 0d)
+            {
+                hud.SetBakeProgress(false, 0f, "");
+            }
+            return;
+        }
+        _bakePollSeconds -= delta;
+        if (_bakePollSeconds > 0d)
         {
             return;
         }
-        if (!_bakeTask.IsCompleted)
+        _bakePollSeconds = BakePollIntervalSeconds;
+
+        string hike = data.OutputWorldPath;
+        if (string.IsNullOrEmpty(hike))
         {
-            hud.SetBakeProgress(true, _bakeRatio, $"Baking: {_bakePhase} ({_bakeRatio * 100f:0}%)");
             return;
         }
-        if (_bakeHoldSeconds <= 0d)
+        WorldMapBakeProcess.Status? read = WorldMapBakeProcess.Read(hike);
+        if (read == null)
         {
-            long ms = _bakeClock != null ? _bakeClock.ElapsedMilliseconds : 0;
-            hud.SetBakeProgress(true, 1f, _bakeResult == 1
-                ? $"Baked .hike in {ms / 1000f:0.0}s"
-                : "Bake failed - see console");
-            _bakeHoldSeconds = bakeResultHoldSeconds;
             return;
         }
-        _bakeHoldSeconds -= delta;
-        if (_bakeHoldSeconds <= 0d)
+        WorldMapBakeProcess.Status s = read.Value;
+        if (s.State == WorldMapBakeProcess.EState.Running)
         {
-            hud.SetBakeProgress(false, 0f, "");
-            _bakeTask = null;
+            // Also how a bake started before the painter was reopened is picked up.
+            _watchingBake = true;
+            hud.SetBakeProgress(true, s.Ratio, $"Baking: {s.Phase} ({s.Ratio * 100f:0}%)");
+            return;
         }
+        if (!_watchingBake)
+        {
+            return;
+        }
+        _watchingBake = false;
+        hud.SetBakeProgress(true, 1f, s.State == WorldMapBakeProcess.EState.Succeeded
+            ? $"Baked .hike in {s.ElapsedMs / 1000f:0.0}s"
+            : $"Bake failed - see {System.IO.Path.GetFileName(WorldMapBakeProcess.LogPath(hike))}");
+        _bakeHoldSeconds = bakeResultHoldSeconds;
     }
 
     // (Re)build the display image at the current scale. Called on open and on
@@ -896,6 +849,13 @@ public partial class WorldMapPainter : Node3D
         // filter gives the keys back for the same reason.
         hud.entityInspector?.FlushPendingEdit();
         hud.ReleaseOptionFilter();
+        // B held: the whole press is a fill, and ends here like the cutaway aim
+        // below — a drag after it must not turn into a brush stroke.
+        if ((mods & EStrokeMods.Fill) != 0)
+        {
+            FloodFill(texel, (mods & EStrokeMods.Secondary) != 0);
+            return false;
+        }
         // alt+RMB aims the CUTAWAY at the floor under it, with headroom to stand
         // in — the one gesture that moves the plane without hunting for T/G.
         // Only where a cutaway is on screen: elsewhere it would silently consume
@@ -930,6 +890,82 @@ public partial class WorldMapPainter : Node3D
             UpdateHud();   // the picked value is the tool's parameter now
         }
         return true;
+    }
+
+    // Bucket fill from a column: the 4-connected cells whose key matches the
+    // seed's, written by the active tool as one undo step. A tool with no fill
+    // (or an op without one) makes the press do nothing rather than fall back to
+    // a brush stamp the author did not ask for.
+    private void FloodFill(Vector2I texel, bool erase)
+    {
+        WorldMapFill fill = ActiveTool.Fill(_ctx, _view, erase);
+        if (fill == null)
+        {
+            GD.Print($"WorldMapPainter: {ActiveTool.Name} has no fill"
+                + (erase ? " for RMB" : "") + " at its current settings");
+            return;
+        }
+        int cell = Mathf.Max(1, fill.CellSize);
+        int w = (data.ImageWidth + cell - 1) / cell;
+        int h = (data.ImageHeight + cell - 1) / cell;
+        int seedX = Mathf.Clamp(texel.X / cell, 0, w - 1);
+        int seedZ = Mathf.Clamp(texel.Y / cell, 0, h - 1);
+        long seedKey = fill.KeyAt(seedX * cell, seedZ * cell);
+
+        // Gather first, write after — see WorldMapFill.
+        var visited = new bool[w * h];
+        var region = new List<int>();
+        var open = new Stack<int>();
+        int seed = seedZ * w + seedX;
+        visited[seed] = true;
+        open.Push(seed);
+        int minX = seedX, minZ = seedZ, maxX = seedX, maxZ = seedZ;
+        while (open.Count > 0)
+        {
+            int i = open.Pop();
+            region.Add(i);
+            int cx = i % w;
+            int cz = i / w;
+            minX = Mathf.Min(minX, cx);
+            maxX = Mathf.Max(maxX, cx);
+            minZ = Mathf.Min(minZ, cz);
+            maxZ = Mathf.Max(maxZ, cz);
+            for (int d = 0; d < 4; d++)
+            {
+                int nx = cx + (d == 0 ? 1 : d == 1 ? -1 : 0);
+                int nz = cz + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                if (nx < 0 || nz < 0 || nx >= w || nz >= h)
+                {
+                    continue;
+                }
+                int n = nz * w + nx;
+                if (visited[n])
+                {
+                    continue;
+                }
+                visited[n] = true;
+                if (fill.KeyAt(nx * cell, nz * cell) == seedKey)
+                {
+                    open.Push(n);
+                }
+            }
+        }
+
+        Rect2I bounds = new Rect2I(minX * cell, minZ * cell,
+            (maxX - minX + 1) * cell, (maxZ - minZ + 1) * cell)
+            .Intersection(new Rect2I(0, 0, data.ImageWidth, data.ImageHeight));
+        _history.Begin($"{ActiveTool.Name} fill").TouchRect(_ctx, bounds);
+        foreach (int i in region)
+        {
+            fill.Write(i % w * cell, i / w * cell);
+        }
+        _history.Commit();
+        _ctx.InvalidateHeights(bounds);
+        RebuildDisplay(ExpandToChunks(bounds.Grow(EntityMarkReach)));
+        PushDisplay();
+        UpdateHud();
+        GD.Print($"WorldMapPainter: {ActiveTool.Name} fill, {region.Count} "
+            + (cell > 1 ? "chunks" : "columns"));
     }
 
     private void OnCanvasPaint(Vector2I texel, bool erase)

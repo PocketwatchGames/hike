@@ -48,7 +48,6 @@ radius = 2.5
 script = ExtResource("1_knowledgestone")
 _hudNode = NodePath("HUDNode")
 _actions = Array[ExtResource("3_action")]([SubResource("Resource_ks_action_read")])
-_text = "Worn glyphs spiral around the stone, just barely legible."
 _ambientLoopEffect = ExtResource("11_ambloop")
 
 [node name="BaseModel" type="Node3D" parent="." unique_id=587131948]

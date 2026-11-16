@@ -72,6 +72,27 @@ public class HabitatTool : IWorldMapTool
         });
     }
 
+    // Floods whole chunks of the habitat under the press; RMB fills with none.
+    public WorldMapFill Fill(WorldMapState ctx, WorldMapView view, bool erase)
+    {
+        if (!erase && ctx.HabitatCount == 0)
+        {
+            return null;
+        }
+        int slot = Mathf.Clamp(HabitatIndex, 0, Mathf.Max(0, ctx.HabitatCount - 1));
+        var value = new Color((erase ? 0 : slot + 1) / 255f, 0f, 0f, 1f);
+        return new WorldMapFill
+        {
+            CellSize = ChunkState.SIZE,
+            KeyAt = (px, pz) => ctx.HabitatIndexAt(ctx.Data.ColumnTexelToChunkTexel(px, pz)),
+            Write = (px, pz) =>
+            {
+                Vector2I ct = ctx.Data.ColumnTexelToChunkTexel(px, pz);
+                ctx.Habitat.SetPixel(ct.X, ct.Y, value);
+            },
+        };
+    }
+
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
 

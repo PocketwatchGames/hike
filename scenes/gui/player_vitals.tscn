@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://obntj5em5frg"]
 
-[ext_resource type="Script" uid="uid://yov97d0fals0p" path="res://scripts/gui/PlayerVitalsHud.cs" id="1_vitals"]
+[ext_resource type="Script" uid="uid://big2n1hvvekg4" path="res://scripts/gui/PlayerVitalsHud.cs" id="1_vitals"]
 [ext_resource type="PackedScene" uid="uid://cfdavtb761i5m" path="res://scenes/gui/stamina_bar.tscn" id="6_552pg"]
 [ext_resource type="Texture2D" uid="uid://i4ohpttlppmb" path="res://assets/textures/gui/hud_text_parried.png" id="7_okx5l"]
 [ext_resource type="Texture2D" uid="uid://7qpyogokbssb" path="res://assets/textures/gui/needs/need_disc.png" id="need_disc"]
@@ -130,10 +130,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 20
 text = "0/0"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -166,10 +165,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 20
 text = "0/0"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -194,10 +192,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 20
 text = "0/0"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -233,10 +230,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 20
 text = "0/0"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -253,10 +249,9 @@ size_flags_horizontal = 0
 [node name="StaminaValue" type="Label" parent="StaminaMarginContainer" unique_id=565732500]
 visible = false
 layout_mode = 2
-mouse_filter = 2
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 20
 text = "0/0"
 horizontal_alignment = 1
 vertical_alignment = 1

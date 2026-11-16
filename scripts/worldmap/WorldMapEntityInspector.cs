@@ -77,7 +77,7 @@ public partial class WorldMapEntityInspector : PanelContainer
     // The placement the LIVE WIDGETS edit, which is not always the one being
     // shown: a row can fire its commit while the panel is already switching to
     // another entity (releasing focus destroys the widget). Reading and writing
-    // through this instead of through _shown is what stops one signpost's text
+    // through this instead of through _shown is what stops one placement's text
     // landing on the next one selected.
     private IEntryEditTarget _rowsOwner;
     private readonly List<System.Action> _refreshers = new();
@@ -725,7 +725,7 @@ public partial class WorldMapEntityInspector : PanelContainer
     }
 
     // Text applies as it is TYPED, not on Enter or on leaving the field. The
-    // multiline rows are the reason it cannot be Enter: a signpost's text is
+    // multiline rows are the reason it cannot be Enter: a multiline field is
     // several lines, so Enter is a newline there and never a commit — which left
     // clicking away as the only way to save one, and clicking away is exactly
     // what an author does without thinking about it.

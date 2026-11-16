@@ -15,3 +15,4 @@ branches = []
 responseGroups = []
 nameLocKey = null
 descriptionLocKey = null
+shopLines = null

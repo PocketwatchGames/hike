@@ -1823,7 +1823,7 @@ public static class ItemEventHandlers
 		actor.ApplyMotion(ev.motionForwardSpeed, ev.motionDuration, action.context.MotionDurationMultiplier, ev.motionFreezeGravity, ev.motionDirection);
 	}
 
-	// Grants ev.languageComponents of ev.language to the learner — for
+	// Teaches ev.languageLesson of ev.language to the learner — for
 	// sources whose language is uniform across all uses (consumables, mob
 	// dialogue). Non-Player actors don't have a
 	// learned-language set — they no-op. Per-instance teaching
@@ -1836,7 +1836,7 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		player.LearnLanguageComponents(ev.language, ev.languageComponents);
+		player.LearnLanguageLesson(ev.language, ev.languageLesson, ev.languagePercent);
 	}
 
 	// Generalized teach event — dispatches a TeachableConcept against the

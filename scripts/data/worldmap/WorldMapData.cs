@@ -261,7 +261,7 @@ public partial class WorldMapData : Resource
     // game or editor — so a caller that assumes success will report a world it
     // never wrote. outputPath redirects this one bake (a test bake that must not
     // overwrite the real world); empty writes the document's own .hike.
-    public bool BakeToWorldFile(string outputPath = "")
+    public bool BakeToWorldFile(string outputPath = "", System.Action<float, string> progress = null)
     {
         if (string.IsNullOrEmpty(outputPath))
         {
@@ -272,16 +272,16 @@ public partial class WorldMapData : Resource
             GD.PrintErr($"WorldMapData: {NoWorldMessage()}");
             return false;
         }
-        // WorldMapState.Bake, not BuildWorld + Write: the sun flood and the
-        // canopy stamp between them are part of a bake now, because nothing
-        // relights a world on load. Straight-line here — this caller is already
-        // the main thread and has no UI to keep alive.
+        // WorldMapBake.Bake, not BuildWorld + Write: the sun flood and the
+        // canopy stamp between them are part of a bake, because nothing relights
+        // a world on load. It must run on the main thread (the canopy stamp
+        // instantiates scenes).
         var state = new WorldMapState(this);
         // Every bake fills from the collision as it is on disk NOW, whichever
         // path reached it. Free in a fresh process; the point is that the rule
         // has no exception to remember.
         state.RefreshPropAssets();
-        return new WorldMapBake(state, outputPath).Bake();
+        return new WorldMapBake(state, outputPath).Bake(progress);
     }
 
     // ---- Layer load / create / save -------------------------------------

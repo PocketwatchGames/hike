@@ -58,6 +58,8 @@ public partial class Hud : Control
 	[Export] Control _questContainer;
 	[Export] PackedScene _questItemScene;
 	[Export] ConversationController _dialoguePanel;
+	// The member's remarks on hunger / thirst / fatigue. Outside _gameplayWidgets.
+	[Export] NeedRemarks _needRemarks;
 	// The gameplay widgets (vitals, hotbar, minimap, quests, effects), hidden
 	// while a conversation is open. The dialogue panel must sit outside it.
 	[Export] Control _gameplayWidgets;
@@ -108,12 +110,17 @@ public partial class Hud : Control
 	readonly Dictionary<QuestState, QuestItem> _questWidgets = new();
 	QuestLog _questLog;
 	// FIFO of pending region banners. Chained region crossings can fire in a
-	// row; we serialize them so each gets its full visible window. The
-	// in-flight flag gates DispatchNext so the banner's onDone callback is the
-	// only thing that advances the queue. Discoveries queue on the announcement
+	// row; we serialize them so each gets its full visible window, dispatched
+	// from _Process by TickRegionBanner. Discoveries queue on the announcement
 	// banner instead, and everything else goes straight to the event log.
-	readonly Queue<Announcement> _announcementQueue = new();
-	bool _announcementInFlight;
+	readonly List<Announcement> _announcementQueue = new();
+	Announcement _announcementInFlight;
+	// A region banner waits until no other UI (loading, story card, screens,
+	// conversations, pause, console, bird's-eye) has been up for this long, so
+	// one never lands the instant a load or a screen clears.
+	[Export(PropertyHint.Range, "0,10,0.1")] float _regionBannerSettleSeconds = 1.5f;
+	// Seconds since some other UI was last up; reset to 0 while one is.
+	float _regionBannerClearSeconds;
 	// Discoveries made while a speech bubble is up (or while a readable is
 	// composing its text) wait here until it is dismissed, so the banner never
 	// lands on top of the text that taught them.
@@ -407,11 +414,7 @@ public partial class Hud : Control
 		// line in the event log.
 		if (a.type == EAnnouncementType.Region)
 		{
-			_announcementQueue.Enqueue(a);
-			if (!_announcementInFlight)
-			{
-				DispatchNext();
-			}
+			_announcementQueue.Add(a);
 			return;
 		}
 		if (_announcementBanner != null && IsDiscovery(a.type))
@@ -451,32 +454,63 @@ public partial class Hud : Control
 		return $"[b]{title}[/b] {subtitle}";
 	}
 
-	void DispatchNext()
+	bool IsOtherUiUp()
 	{
-		if (_announcementQueue.Count == 0)
-		{
-			_announcementInFlight = false;
-			return;
-		}
-		Announcement next = _announcementQueue.Dequeue();
-		_announcementInFlight = true;
-		if (_regionBanner != null)
-		{
-			_regionBanner.Show(next.region, OnAnnouncementSurfaceDone);
-		}
-		else
-		{
-			OnAnnouncementSurfaceDone();
-		}
+		return gameClient == null
+			|| gameClient.InputSuppressed
+			|| gameClient.paused
+			|| IsConversationOpen
+			|| ConsoleUI.IsOpen
+			|| (_player != null && _player.IsBirdsEye);
 	}
 
-	void OnAnnouncementSurfaceDone()
+	// The world script's gate (WorldScriptData.regionBannersAfterVariable). Held
+	// counts as UI up, so the settle delay runs from the moment it opens.
+	bool AreRegionBannersHeld()
 	{
-		// Defer the next dispatch — the banner that just finished is in the
-		// middle of its tween-complete callback chain, and starting the next
-		// presentation synchronously would re-enter Show on the same node
-		// before its current state has settled.
-		Callable.From(DispatchNext).CallDeferred();
+		WorldState ws = gameClient?.Sim?.WorldState;
+		StringName gate = ws?.ScriptData?.regionBannersAfterVariable;
+		if (gate is null || gate.IsEmpty)
+		{
+			return false;
+		}
+		return !(ws.SimState?.ScriptVars?.GetBool(gate) ?? false);
+	}
+
+	// Wall clock: the settle delay is presentational.
+	void TickRegionBanner(float delta)
+	{
+		if (IsOtherUiUp() || AreRegionBannersHeld())
+		{
+			_regionBannerClearSeconds = 0f;
+			if (_announcementInFlight != null)
+			{
+				// Pulled, not dropped: it replays once the UI has cleared.
+				_announcementQueue.Insert(0, _announcementInFlight);
+				_announcementInFlight = null;
+				_regionBanner?.Cancel();
+			}
+			return;
+		}
+		_regionBannerClearSeconds += delta;
+		if (_announcementInFlight != null || _announcementQueue.Count == 0
+			|| _regionBannerClearSeconds < _regionBannerSettleSeconds)
+		{
+			return;
+		}
+		Announcement next = _announcementQueue[0];
+		_announcementQueue.RemoveAt(0);
+		if (_regionBanner == null)
+		{
+			return;
+		}
+		_announcementInFlight = next;
+		_regionBanner.Show(next.region, OnRegionBannerDone);
+	}
+
+	void OnRegionBannerDone()
+	{
+		_announcementInFlight = null;
 	}
 
 	// Rebind the HUD to a different party member when control switches (camp
@@ -495,6 +529,7 @@ public partial class Hud : Control
 	{
 		_player = player;
 		_vitals?.Bind(player);
+		_needRemarks?.Bind(player);
 		_inventory = player.Inventory;
 		_inventory.onChanged += RefreshHotbar;
 		RefreshHotbar();
@@ -682,11 +717,14 @@ public partial class Hud : Control
 		using var _prof = Profiler.Sample("Hud.Process");
 
 		UpdateLightningFlash((float)delta);
+		TickRegionBanner((float)delta);
 
 		if (_player == null)
 		{
 			return;
 		}
+
+		_needRemarks?.Tick((float)delta, IsOtherUiUp(), gameClient.InCombat);
 
 		ulong now = gameClient.Sim?.GameTimeMs ?? 0;
 		TickWeaponSlot(_weaponLeftSlot, _weaponLeftHint, EInventorySlot.WeaponLeft, now);

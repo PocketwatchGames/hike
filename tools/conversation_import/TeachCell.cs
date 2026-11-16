@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 
 // One thing an NPC teaches, parsed out of a sheet's action cell:
-// `teach:<kind> <name> [components]`.
+// `teach:<kind> <name> [lesson percent%]`.
 //
 //   teach:language vyeshal                     the whole tongue
-//   teach:language vyeshal grammar,vocabulary1  just those pieces
+//   teach:language vyeshal 3 10%               lesson 3, worth 10% of it
 //   teach:recipe health_potion                 how to craft an item
 //   teach:meal stew_goblin_health              how to cook a cookpot meal
 //   teach:region swamp
@@ -15,7 +15,7 @@ using System.Collections.Generic;
 // The kind is part of the cell because the teachables are genuinely different
 // things drawn from different folders - `teach:swamp` would not say whether
 // that is a region, and a basename shared by two kinds would be ambiguous. It
-// also decides which extra words are legal: only a language takes components.
+// also decides which extra words are legal: only a language takes a lesson.
 //
 // The importer emits the TeachAction and its TeachableConcept itself, so a
 // one-concept lesson needs no authored .tres - that was the whole content of
@@ -34,28 +34,15 @@ class TeachRef
 	// [ext_resource] id prefix for Target, so the generated file reads
 	// Lang_vyeshal rather than Teach_vyeshal.
 	public string Prefix;
-	// Language only: the ELanguageComponents bitset, or -1 to leave the property
-	// off the sub-resource entirely and take the export's default (All).
-	public int Components = -1;
+	// Language only: the lesson number and its percent, or -1 to leave both
+	// off the sub-resource and take the export's default (the whole tongue).
+	public int Lesson = -1;
+	public float Percent = -1f;
 }
 
 static class TeachCell
 {
 	const string Prefix = "teach:";
-
-	// ELanguageComponents bits. Restated rather than read off the enum - the
-	// importer is a plain console app with no Godot assembly to reflect over -
-	// so a bit APPENDED to that enum has to be appended here too.
-	static readonly (string Name, int Bit)[] Components =
-	{
-		("grammar", 1 << 0),
-		("numbers", 1 << 1),
-		("vocabulary1", 1 << 2),
-		("vocabulary2", 1 << 3),
-		("vocabulary3", 1 << 4),
-		("vocabulary4", 1 << 5),
-		("vocabulary5", 1 << 6),
-	};
 
 	// True when the cell token is the inline teach form rather than the name of
 	// an authored .tres. The separator is the colon, so an authored action may
@@ -142,48 +129,37 @@ static class TeachCell
 
 		if (parts.Length > 2 && kind != "language")
 		{
-			report.Error(row, $"'{token}' has more than a kind and a name - only a language takes components, and ';'-separates several lessons");
+			report.Error(row, $"'{token}' has more than a kind and a name - only a language takes a lesson, and ';'-separates several things taught");
 			return null;
 		}
-		if (parts.Length > 3)
+		if (parts.Length == 3 || parts.Length > 4)
 		{
-			report.Error(row, $"'{token}' has more than a kind, a name and a component list - ','-separate the components");
+			report.Error(row, $"'{token}' - a partial lesson is 'teach:language {name} <lesson> <percent>%', e.g. 'teach:language {name} 3 10%'; leave both off to teach the whole tongue");
 			return null;
 		}
-		if (parts.Length == 3 && !ParseComponents(parts[2], token, row, report, out reference.Components))
+		if (parts.Length == 4 && !ParseLesson(parts[2], parts[3], token, row, report, out reference.Lesson, out reference.Percent))
 		{
 			return null;
 		}
 		return reference;
 	}
 
-	// A ','-separated subset of the language pieces. Omitted entirely means the
-	// whole tongue, which is what an author writing one lesson usually means.
-	static bool ParseComponents(string list, string token, SheetRow row, Report report, out int bits)
+	// A lesson number (0 or more) and how much of the language it teaches.
+	// Two sources with one number are one lesson, so each partial source wants
+	// its own; the number is the only thing that stops one teaching twice.
+	static bool ParseLesson(string lessonText, string percentText, string token, SheetRow row, Report report, out int lesson, out float percent)
 	{
-		bits = 0;
-		foreach (string piece in list.Split(',', StringSplitOptions.RemoveEmptyEntries))
+		percent = -1f;
+		if (!int.TryParse(lessonText, out lesson) || lesson < 0)
 		{
-			string want = piece.Trim().ToLowerInvariant();
-			int bit = 0;
-			foreach ((string Name, int Bit) component in Components)
-			{
-				if (component.Name == want)
-				{
-					bit = component.Bit;
-					break;
-				}
-			}
-			if (bit == 0)
-			{
-				report.Error(row, $"'{token}' teaches a '{want}', which is not a piece of a language - say one or more of {ComponentList()}");
-				return false;
-			}
-			bits |= bit;
+			report.Error(row, $"'{token}' names lesson '{lessonText}' - a lesson is a whole number from 0");
+			return false;
 		}
-		if (bits == 0)
+		string amount = percentText.EndsWith("%") ? percentText[..^1] : percentText;
+		if (!float.TryParse(amount, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out percent)
+			|| percent <= 0f || percent > 100f)
 		{
-			report.Error(row, $"'{token}' names no components - leave the list off to teach the whole tongue");
+			report.Error(row, $"'{token}' teaches '{percentText}' - say how much of the language, from 1% to 100%");
 			return false;
 		}
 		return true;
@@ -192,15 +168,5 @@ static class TeachCell
 	static string KindList()
 	{
 		return "language, recipe, meal, region, item, bestiary";
-	}
-
-	static string ComponentList()
-	{
-		var names = new List<string>();
-		foreach ((string Name, int Bit) component in Components)
-		{
-			names.Add(component.Name);
-		}
-		return string.Join(", ", names);
 	}
 }

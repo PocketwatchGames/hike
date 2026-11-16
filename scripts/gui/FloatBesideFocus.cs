@@ -6,7 +6,9 @@ using Godot;
 // list) rather than the focused slot keeps the target still while the player
 // moves within one, so it only moves when focus crosses into another. It goes to
 // the preferred side when it fits there, else the other, top-aligned with the
-// container and clamped fully on screen. For an info panel that describes the
+// container and clamped fully on screen. Outward is the exception: it stays on
+// its side pinned to the screen edge, overlapping its own container a little,
+// rather than flip over whatever sits toward the middle. For an info panel that describes the
 // highlighted thing.
 //
 // The target is taken out of container layout (TopLevel), but TopLevel does not
@@ -23,7 +25,8 @@ public partial class FloatBesideFocus : Node
 		Left,
 		// Away from the screen's center: left of a container on the left half,
 		// right of one on the right half, so it covers the screen's edge rather
-		// than whatever sits between the panels.
+		// than whatever sits between the panels. Pinned to the edge when the
+		// margin is a little short (see _maxEdgeOverlap).
 		Outward,
 	}
 
@@ -33,6 +36,9 @@ public partial class FloatBesideFocus : Node
 	[Export(PropertyHint.Range, "0,100,1")] private float _gap = 12f;
 	// Pixels the target keeps from the screen edges.
 	[Export(PropertyHint.Range, "0,100,1")] private float _screenMargin = 10f;
+	// Outward only: how far, in pixels, the target may be pushed back over its own
+	// container by the screen edge before it gives up and flips inward instead.
+	[Export(PropertyHint.Range, "0,500,1")] private float _maxEdgeOverlap = 160f;
 
 	// The focus owner last seen and the container it resolved to.
 	Control _focus;
@@ -105,7 +111,19 @@ public partial class FloatBesideFocus : Node
 			ESide.Outward => anchor.GetCenter().X >= screen.GetCenter().X,
 			_ => true,
 		};
-		bool goRight = preferRight ? fitsRight || !fitsLeft : fitsRight && !fitsLeft;
+		bool goRight;
+		if (_preferredSide == ESide.Outward)
+		{
+			// Short by this much on the outward side, so pinning there covers that
+			// much of the container.
+			float overlap = preferRight ? right + size.X - screen.End.X : screen.Position.X - left;
+			bool fitsInward = preferRight ? fitsLeft : fitsRight;
+			goRight = overlap <= _maxEdgeOverlap || !fitsInward ? preferRight : !preferRight;
+		}
+		else
+		{
+			goRight = preferRight ? fitsRight || !fitsLeft : fitsRight && !fitsLeft;
+		}
 		float x = Mathf.Clamp(goRight ? right : left, screen.Position.X, Mathf.Max(screen.Position.X, screen.End.X - size.X));
 		float y = Mathf.Clamp(anchor.Position.Y, screen.Position.Y, Mathf.Max(screen.Position.Y, screen.End.Y - size.Y));
 		_target.GlobalPosition = new Vector2(x, y);

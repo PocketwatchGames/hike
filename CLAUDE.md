@@ -470,14 +470,20 @@ Three rules, each of which was a real bug:
   conflicting texts happened. (Forks the painter itself makes are the exception —
   see the next rule.)
 - **A per-placement property lives on the PLACEMENT, and the shared entry carries
-  NOTHING of it — not even a default.** A signpost's text is the case: worldgen
-  embeds a per-POI copy in the containing `PoiPlacement`, the painter forks the
-  entry into the placement on first edit (`EntityPlacement.EditableEntry`,
-  copy-on-write), and `signpost.tres` itself holds only the scene. A "generic
-  default" was tried and is the wrong shape twice over: whatever it says gets
-  stamped at every placement nobody edited, and the language it is written in is
-  a proper noun parked in reusable vocabulary. Language travels WITH the text,
-  because an inscription is written in something and the two are one decision.
+  NOTHING of it — not even a default.** A signpost's inscription is the case:
+  worldgen embeds a per-POI copy in the containing `PoiPlacement`, the painter
+  forks the entry into the placement when one is picked
+  (`EntityPlacement.EditableEntry`, copy-on-write), and `signpost.tres` itself
+  holds only the scene. A "generic default" was tried and is the wrong shape
+  twice over: whatever it says gets stamped at every placement nobody edited,
+  and the language it is written in is a proper noun parked in reusable
+  vocabulary. **The words themselves are a FILE the placement picks**
+  (`InscriptionData`: text + language, one decision — an inscription is written
+  in something), never text typed into the fork: a world's own words live in
+  `worlds/<world>/inscriptions/`, ones the generator or several worlds use in
+  `worlds/shared/inscriptions/`, and a `.hike` stores the reference, so fixing a
+  sign's wording needs no rebake. Knowledge stones pick one the same way and
+  teach the tongue it is written in.
   An entry that cannot function without the placement's value refuses loudly
   (`SignpostSpawnEntry` errors and does not place) rather than drawing a blank.
 
@@ -714,8 +720,8 @@ intro_dying_01	[lang:common]Sanctuary[/lang]... you must find it. My family, …
   can't read a Muddish word quoted inside a Vyeshal line.
 - A span's Grammar shuffle stays inside that span, so a recognized word holds its
   place and the fragments around it jumble on their own — the anchor is the point.
-- **Spans do not nest**, and the tags work in a `.tres` `Text` field (signpost,
-  knowledge stone) exactly as they do in the tsv.
+- **Spans do not nest**, and the tags work in an `InscriptionData`'s `text`
+  (signposts, knowledge stones) exactly as they do in the tsv.
 - **Narration is `[narrate]…[/narrate]`** — a stage direction inside a spoken
   line (`[narrate]He points to the tent.[/narrate]`). It is in no language: never
   scrambled and excluded from `Comprehension`, so it doesn't change the speaker's
@@ -732,6 +738,22 @@ intro_dying_01	[lang:common]Sanctuary[/lang]... you must find it. My family, …
   raised while a bubble is up — or while `ShowReadable`'s render callback
   teaches — are held until it is dismissed, so a lesson never lands on top of
   the text that taught it.
+- **A language is learned in LESSONS, and the amount is on the SOURCE.** A
+  stone, scroll, `ItemEvent`, loyalty gift or `teach:language` cell names a
+  `lesson` number and a `percent` of the language it teaches (a stone 40, a
+  book 10). The party keeps, per language, each lesson it holds at the most any
+  source taught for it (`Knowledge.LearnedLessons`), so a source read twice, two
+  copies of one, or a lesson held both banked and in the field counts once —
+  the number is the identity, so each partial source wants a number of its own.
+  The amount LEARNED is the sum, linear and capped at 100%
+  (`Player.ComputeLanguageLearned` — the banner's "Vyeshal Learned 0% → 40%"
+  and the `understands` gates' number). Only the RENDERING goes through the
+  language's own curves (`vocabularyCurve`, `grammarCurve`, `numbersCurve`)
+  into a `LanguageCoverage`, which `TextScrambler` compares a stable hash
+  against: per WORD (vocabulary), per word POSITION (grammar — the loose ones
+  lose punctuation and are rotated so none lands home) and per NUMBER. So
+  nothing un-reveals as more is learned. Lesson 0 at 100% is the default, "the
+  whole tongue".
 - **A span renders in its language's own script** where that language has a
   `glyphBase` — see "Checking That the In-World Scripts Still Render". A line
   mixing tongues therefore mixes scripts, resolved per glyph by the font's
@@ -828,11 +850,11 @@ wants falls straight out of it:
   `+=<int>`).
 - **A language gate is written inline too**: `understands>=60%` /
   `understands<100%` in a condition cell, or `understands:<id>>=60%` to name a
-  language other than the speaker's. It scores the language AS A WHOLE
-  (`TextScrambler.ComputeUnderstanding`: each vocabulary tier is 20%, and missing
-  grammar takes off `SimData.languageGrammarWeight`), not the line about to be
-  spoken, so one threshold reads the same for every speaker of that tongue. Only
-  `>=` and `<` exist — the gate and its negation.
+  language other than the speaker's. It reads how much of the language AS A
+  WHOLE is learned (`Player.ComputeLanguageLearned`: the linear share of its
+  lesson weight held — the number the learn banner shows), not the line about
+  to be spoken, so one threshold reads the same for every speaker of that
+  tongue. Only `>=` and `<` exist — the gate and its negation.
 - **A gift is written inline too**: `spawn_loot:<item> [count]` in an action cell,
   spelled exactly like the console's `spawn_loot` verb and resolving the item the same
   way — the basename of a `.tres` under `resources/data/items/`, or under the
@@ -844,15 +866,15 @@ wants falls straight out of it:
   level (a Fragile bomb), or several items that are one named concept reused
   across NPCs. A plain one-item handover is not that, and should not cost three
   nested resources to say.
-- **A lesson is written inline too**: `teach:<kind> <name> [components]` in an
+- **A lesson is written inline too**: `teach:<kind> <name> [lesson percent%]` in an
   action cell, where `<kind>` is one of `language`, `recipe` (an item crafted
   at a bench), `meal` (a cookpot meal), `region`, `item` (reveals its real name)
   or `bestiary`. The kind picks the namespace, so
   a name can never be ambiguous and the cell says what it means; the name is the
   `.tres` basename, except a language, which is its `LanguageData.id` — the same
   spelling the `language` column and `[lang:]` markup use. Only a language takes
-  the third word, a `,`-separated subset of `grammar,numbers,vocabulary1..5`;
-  leave it off to teach the whole tongue. The importer emits the `TeachAction`
+  a lesson number and how much it teaches (`teach:language vyeshal 3 10%`);
+  leave both off to teach the whole tongue. The importer emits the `TeachAction`
   and its `TeachableConcept`, one per token. **An authored action `.tres` is
   still right** when the lesson is a named concept reused across NPCs, grants
   several things at once, or teaches one of the

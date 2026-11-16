@@ -17,7 +17,6 @@
 [ext_resource type="Script" uid="uid://finpjl8sxswp" path="res://scripts/data/worldgen/PoiPlacement.cs" id="53_poiplace"]
 [ext_resource type="Script" uid="uid://b267bryh6h5wt" path="res://scripts/data/worldgen/RoadConnection.cs" id="54_road"]
 [ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="55_signscene"]
-[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="56_lang"]
 [ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/voxels/surfaces/surface_dirt_overlay.tres" id="57_dirt"]
 [ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/voxels/surfaces/surface_cobblestone.tres" id="58_cobble"]
 [ext_resource type="Resource" uid="uid://xko125hcxayg" path="res://resources/data/world_authoring/spawn_entries/forge.tres" id="62_forge"]
@@ -32,6 +31,10 @@
 [ext_resource type="Resource" uid="uid://bd5oe1r000pok" path="res://resources/data/worlds/shared/spawn_lists/village_house03.tres" id="76_house03npcs"]
 [ext_resource type="Resource" uid="uid://bkcu75nwykw5p" path="res://resources/data/worlds/shared/spawn_lists/village_house04.tres" id="77_house04npcs"]
 [ext_resource type="Resource" uid="uid://85nfqgpg2o16" path="res://resources/data/world_gen/plateau_terrain.tres" id="90_terrain"]
+[ext_resource type="Resource" uid="uid://c8d80q0b0kau1" path="res://resources/data/worlds/shared/inscriptions/road_swampland.tres" id="insc_0"]
+[ext_resource type="Resource" uid="uid://dmfpxjicqx0ks" path="res://resources/data/worlds/shared/inscriptions/road_village_ahead.tres" id="insc_1"]
+[ext_resource type="Resource" uid="uid://c51hn476rnyey" path="res://resources/data/worlds/shared/inscriptions/road_mudflats.tres" id="insc_2"]
+[ext_resource type="Resource" uid="uid://dyk1s7lub16du" path="res://resources/data/worlds/shared/inscriptions/road_highlands.tres" id="insc_3"]
 [ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/world_finish_data.tres" id="w_finish"]
 [ext_resource type="Resource" uid="uid://5dcnrhj5w66s" path="res://resources/data/worlds/swamp_world/world_start_swamp.tres" id="w_start"]
@@ -39,8 +42,7 @@
 [sub_resource type="Resource" id="Sign_swamp"]
 script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
-text = "Swampland. Stay on the high ground after dusk."
-language = ExtResource("56_lang")
+inscription = ExtResource("insc_0")
 disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
@@ -63,8 +65,7 @@ metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
 [sub_resource type="Resource" id="Sign_village"]
 script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
-text = "Village ahead. Trade, rest, and ask after the road."
-language = ExtResource("56_lang")
+inscription = ExtResource("insc_1")
 disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
@@ -87,8 +88,7 @@ metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
 [sub_resource type="Resource" id="Sign_mud"]
 script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
-text = "Mudflats. Test each step — the mire swallows the careless."
-language = ExtResource("56_lang")
+inscription = ExtResource("insc_2")
 disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
@@ -111,8 +111,7 @@ metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
 [sub_resource type="Resource" id="Sign_highlands"]
 script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
-text = "The highlands. Drier ground and a long view."
-language = ExtResource("56_lang")
+inscription = ExtResource("insc_3")
 disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 

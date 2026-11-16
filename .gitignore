@@ -29,6 +29,9 @@ asset_src/models/characters/*/anims/
 # A painted world's baked output (worlds/<world>/<world>.hike, ~230 MB) is a
 # cache of its map/ document; re-bake it rather than commit it.
 /resources/data/worlds/*/*.hike
+# ...and the bake process's status file, log and in-flight write
+# (WorldMapBakeProcess).
+/resources/data/worlds/*/*.hike.*
 
 # LibreOffice/Excel lock files left beside an open .tsv sheet
 .~lock.*#

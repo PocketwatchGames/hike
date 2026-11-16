@@ -15,7 +15,7 @@ public enum EWaterState
 // gear without a spawned node. It belongs on PlayerState, with the node
 // presenting it. Blocked mainly by Inventory's owner-node events.
 [GlobalClass]
-public partial class Player : CharacterBody3D
+public partial class Player : CharacterBody3D, IHudAnchored
 {
 	[Export] public PlayerData data;
 	// The movement capsule, read for its crown height by the step-up headroom ray.
@@ -47,6 +47,7 @@ public partial class Player : CharacterBody3D
 	// above the player for HUD elements that float over the character — e.g.
 	// the transient status-effect notification. Mirrors Mob.HudAnchor.
 	[Export] public Node3D hudAnchor;
+	public Vector3 hudPosition => hudAnchor != null ? hudAnchor.GlobalPosition : GlobalPosition;
 	[Export] private HurtBox _hurtBox;
 	// Per-gender base model packages, keyed by (int)EGender. Each value is a
 	// PlayerModelPackage scene (model + ModelAnimator + HeldItemVisual +
@@ -662,43 +663,91 @@ public partial class Player : CharacterBody3D
 	Knowledge ActiveKnowledge => _world?.WorldState?.SimState?.Party?.Active?.Knowledge;
 	Knowledge PartyKnowledge => _world?.WorldState?.SimState?.Party?.Knowledge;
 
-	// Returns the components the player has learned for `language`, combining the
-	// permanent party pool with the active member's provisional field store. Null
-	// language is treated as universally readable — All. An unseen language
-	// returns None.
-	//
-	// SimData.commonTongue is All unconditionally: everyone is born speaking it,
-	// so it is never entered in a Knowledge store and no world has to remember to
-	// grant it. That also keeps it out of the learned-languages UI, where "you
-	// know the language you have always known" is noise.
-	public ELanguageComponents GetLearnedComponents(LanguageData language)
+	// The percent `lesson` of `language` taught the player, 0 when not held —
+	// the permanent party pool and the active member's provisional field store
+	// together, the larger of the two.
+	public float GetLessonPercent(LanguageData language, int lesson)
 	{
-		if (language == null || language == _world?.SimData?.commonTongue) { return ELanguageComponents.All; }
-		ELanguageComponents combined = ELanguageComponents.None;
-		if (PartyKnowledge != null && PartyKnowledge.LearnedLanguages.TryGetValue(language, out var banked)) { combined |= banked; }
-		if (ActiveKnowledge != null && ActiveKnowledge.LearnedLanguages.TryGetValue(language, out var indiv)) { combined |= indiv; }
-		return combined;
+		float percent = 0f;
+		if (language == null)
+		{
+			return percent;
+		}
+		if (PartyKnowledge != null && PartyKnowledge.LearnedLessons.TryGetValue(language, out var banked)
+			&& banked.TryGetValue(lesson, out float b))
+		{
+			percent = b;
+		}
+		if (ActiveKnowledge != null && ActiveKnowledge.LearnedLessons.TryGetValue(language, out var field)
+			&& field.TryGetValue(lesson, out float f))
+		{
+			percent = Mathf.Max(percent, f);
+		}
+		return percent;
 	}
-	public bool HasLearnedLanguage(LanguageData language) => GetLearnedComponents(language) == ELanguageComponents.All;
-	// OR `components` into the active member's learned-set for `language`. Returns
-	// true only when this call newly added at least one component bit *relative to
-	// combined (party + individual) knowledge*. Fires onLanguageLearned with the bits
-	// that were NEWLY added so listeners can describe exactly what was gained
-	// ("Vyeshal Grammar" rather than the player's full known set). Banked into the
-	// party pool when the player camps.
-	public Action<LanguageData, ELanguageComponents> onLanguageLearned;
-	public bool LearnLanguageComponents(LanguageData language, ELanguageComponents components)
+
+	// How much of `language` the player has learned, in [0, 1]: every held
+	// lesson's percent summed (each lesson once, at the most any source taught
+	// for it), capped at 100%. Linear — the curves shape what that reads as,
+	// not this number. Null and the common tongue are fully learned.
+	//
+	// SimData.commonTongue is fully known unconditionally: everyone is born
+	// speaking it, so it is never entered in a Knowledge store and no world has
+	// to remember to grant it. That also keeps it out of the learned-languages
+	// UI, where "you know the language you have always known" is noise.
+	public float ComputeLanguageLearned(LanguageData language)
 	{
-		if (language == null || components == ELanguageComponents.None) { return false; }
+		if (language == null || language == _world?.SimData?.commonTongue)
+		{
+			return 1f;
+		}
+		float total = 0f;
+		Dictionary<int, float> banked = null;
+		if (PartyKnowledge != null && PartyKnowledge.LearnedLessons.TryGetValue(language, out banked))
+		{
+			foreach (KeyValuePair<int, float> lesson in banked)
+			{
+				total += GetLessonPercent(language, lesson.Key);
+			}
+		}
+		if (ActiveKnowledge != null && ActiveKnowledge.LearnedLessons.TryGetValue(language, out var field))
+		{
+			foreach (KeyValuePair<int, float> lesson in field)
+			{
+				if (banked == null || !banked.ContainsKey(lesson.Key))
+				{
+					total += lesson.Value;
+				}
+			}
+		}
+		return Mathf.Clamp(total / LanguageData.FULL_PERCENT, 0f, 1f);
+	}
+
+	// How much of each aspect of `language` the player reads.
+	public LanguageCoverage GetLanguageCoverage(LanguageData language)
+	{
+		if (language == null || language == _world?.SimData?.commonTongue)
+		{
+			return LanguageCoverage.Full;
+		}
+		return language.ComputeCoverage(ComputeLanguageLearned(language));
+	}
+
+	// Records `lesson` of `language` at `percent` in the active member's store,
+	// banked into the party pool when the player camps. Returns true only when
+	// this teaches something new — a lesson already held at that percent or
+	// more teaches nothing. Fires onLanguageLearned with the amount learned
+	// BEFORE, so a listener can show the change.
+	public Action<LanguageData, float> onLanguageLearned;
+	public bool LearnLanguageLesson(LanguageData language, int lesson, float percent)
+	{
+		if (language == null || percent <= 0f) { return false; }
 		Knowledge store = ActiveKnowledge;
 		if (store == null) { return false; }
-		ELanguageComponents existing = GetLearnedComponents(language);
-		ELanguageComponents combined = existing | components;
-		if (combined == existing) { return false; }
-		ELanguageComponents added = combined & ~existing;
-		store.LearnedLanguages.TryGetValue(language, out var storeExisting);
-		store.LearnedLanguages[language] = storeExisting | components;
-		onLanguageLearned?.Invoke(language, added);
+		if (GetLessonPercent(language, lesson) >= percent) { return false; }
+		float before = ComputeLanguageLearned(language);
+		store.RecordLesson(language, lesson, percent);
+		onLanguageLearned?.Invoke(language, before);
 		return true;
 	}
 	public ActionRunner Runner => _runner;

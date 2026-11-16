@@ -139,7 +139,7 @@ public static class LanguageText
         {
             return defaultLanguage == null
                 ? 1f
-                : TextScrambler.ComputeComprehension(raw, defaultLanguage, player.GetLearnedComponents(defaultLanguage), grammarWeight);
+                : TextScrambler.ComputeComprehension(raw, defaultLanguage, player.GetLanguageCoverage(defaultLanguage), grammarWeight);
         }
 
         List<Span> spans = new List<Span>();
@@ -153,10 +153,8 @@ public static class LanguageText
                 continue;
             }
             LanguageData lang = spans[i].Language;
-            ELanguageComponents learned = lang == null
-                ? ELanguageComponents.All
-                : player.GetLearnedComponents(lang);
-            float score = TextScrambler.ComputeComprehension(spans[i].Text, lang, learned, grammarWeight, out int weight);
+            LanguageCoverage coverage = player.GetLanguageCoverage(lang);
+            float score = TextScrambler.ComputeComprehension(spans[i].Text, lang, coverage, grammarWeight, out int weight);
             weighted += score * weight;
             totalWeight += weight;
         }
@@ -341,7 +339,6 @@ public static class LanguageText
         {
             return text;
         }
-        ELanguageComponents missing = ELanguageComponents.All & ~player.GetLearnedComponents(language);
-        return missing == ELanguageComponents.None ? text : TextScrambler.Scramble(text, language, missing);
+        return TextScrambler.Scramble(text, language, player.GetLanguageCoverage(language));
     }
 }

@@ -1417,60 +1417,35 @@ public partial class GameClient : Node3D
 		return string.IsNullOrEmpty(name) ? species.mob?.displayName.ToString() ?? string.Empty : name;
 	}
 
-	void OnPlayerLanguageLearned(LanguageData language, ELanguageComponents addedComponents)
+	void OnPlayerLanguageLearned(LanguageData language, float before)
 	{
 		if (language == null) { return; }
+		// "Muddish Learned 0% → 40%" — the linear amount learned, the same number
+		// the conversation `understands` gates read; the bar fills across it.
 		string langName = language.displayName.ToString();
-		string subtitle = FormatLanguageSubtitle(langName, addedComponents);
-		// The bar shows the same score the conversation `understands` gates read.
 		float? from = null;
 		float? to = null;
-		SimData simData = _world?.SimData;
-		if (simData != null && _player != null)
+		string title = Loc.Format(Loc.Keys.language_learned, langName);
+		if (_player != null)
 		{
-			ELanguageComponents now = _player.GetLearnedComponents(language);
-			float before = TextScrambler.ComputeUnderstanding(now & ~addedComponents, simData.languageGrammarWeight);
-			float after = TextScrambler.ComputeUnderstanding(now, simData.languageGrammarWeight);
-			// Nothing to 100% in one lesson is a whole thing learned, not progress.
+			float after = _player.ComputeLanguageLearned(language);
+			// Nothing to 100% in one go is a whole thing learned, not progress.
 			if (before > 0f || after < 1f)
 			{
 				from = before;
 				to = after;
+				title = Loc.Format(Loc.Keys.language_learned_progress, langName,
+					Mathf.RoundToInt(before * 100f), Mathf.RoundToInt(after * 100f));
 			}
 		}
 		Announce(new Announcement
 		{
 			type = EAnnouncementType.LanguageLearned,
-			title = Loc.Get(Loc.Keys.language_learned),
-			subtitle = subtitle,
+			title = title,
 			progressFrom = from,
 			progressTo = to,
 		});
 		CelebrateDiscovery();
-	}
-
-	// Single-bit grants describe the specific component ("Vyeshal Grammar");
-	// All-bit and multi-bit grants collapse to the language name to avoid
-	// long compound strings in a 3-second banner. Vocabulary slots use a
-	// numeric suffix so the player can tell partial vocabulary unlocks apart.
-	static string FormatLanguageSubtitle(string langName, ELanguageComponents added)
-	{
-		if (added == ELanguageComponents.All || added == ELanguageComponents.None)
-		{
-			return langName;
-		}
-		string component = added switch
-		{
-			ELanguageComponents.Grammar => Loc.Get(Loc.Keys.language_component_grammar),
-			ELanguageComponents.Numbers => Loc.Get(Loc.Keys.language_component_numbers),
-			ELanguageComponents.Vocabulary1 => Loc.Format(Loc.Keys.language_component_vocabulary, 1),
-			ELanguageComponents.Vocabulary2 => Loc.Format(Loc.Keys.language_component_vocabulary, 2),
-			ELanguageComponents.Vocabulary3 => Loc.Format(Loc.Keys.language_component_vocabulary, 3),
-			ELanguageComponents.Vocabulary4 => Loc.Format(Loc.Keys.language_component_vocabulary, 4),
-			ELanguageComponents.Vocabulary5 => Loc.Format(Loc.Keys.language_component_vocabulary, 5),
-			_ => null,
-		};
-		return component != null ? Loc.Format(Loc.Keys.language_learned_component, langName, component) : langName;
 	}
 
 	[ExportGroup("Detail Sprite Reaction")]

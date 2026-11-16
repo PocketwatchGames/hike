@@ -14,6 +14,11 @@ public partial class TypingText : PanelContainer
 {
 	[Export] RichTextLabel sizerLabel;
 	[Export] RichTextLabel textLabel;
+	// Played once per frame that reveals a non-whitespace character. Leave
+	// unset for a silent panel.
+	[Export] AudioStreamPlayer typeTick;
+	// Each tick's pitch is 1 ± this, so a long line doesn't drone.
+	[Export(PropertyHint.Range, "0,0.5,0.01")] public float tickPitchJitter = 0.08f;
 
 	// Widest the text runs before it wraps; shorter lines shrink the panel.
 	[Export(PropertyHint.Range, "100,1600,1")] public float maxTextWidth = 560f;
@@ -22,6 +27,8 @@ public partial class TypingText : PanelContainer
 
 	float _revealedChars;
 	int _lineLength;
+	// The line with its BBCode stripped, indexed like VisibleCharacters.
+	string _parsedText = string.Empty;
 
 	public bool HasText { get; private set; }
 
@@ -46,7 +53,22 @@ public partial class TypingText : PanelContainer
 		textLabel.Text = text;
 		textLabel.VisibleCharacters = 0;
 		_lineLength = textLabel.GetTotalCharacterCount();
+		_parsedText = textLabel.GetParsedText();
 		FitSizer();
+	}
+
+	// Restyles both labels together — the sizer must measure in the face the
+	// text is drawn in. Empty is the plain RichTextLabel style.
+	public void SetTextVariation(StringName variation)
+	{
+		if (sizerLabel != null)
+		{
+			sizerLabel.ThemeTypeVariation = variation;
+		}
+		if (textLabel != null)
+		{
+			textLabel.ThemeTypeVariation = variation;
+		}
 	}
 
 	public void RevealAll()
@@ -80,7 +102,38 @@ public partial class TypingText : PanelContainer
 		}
 		// Presentational, so wall clock.
 		float speed = Mathf.Max(0f, CVars.dialogueTypingSpeed.Value);
+		int before = Mathf.FloorToInt(_revealedChars);
 		_revealedChars = Mathf.Min(_lineLength, _revealedChars + speed * (float)delta);
-		textLabel.VisibleCharacters = _revealedChars >= _lineLength ? -1 : Mathf.FloorToInt(_revealedChars);
+		int after = Mathf.FloorToInt(_revealedChars);
+		textLabel.VisibleCharacters = _revealedChars >= _lineLength ? -1 : after;
+		if (RevealsPrintable(before, after))
+		{
+			PlayTick();
+		}
+	}
+
+	// Spaces and line breaks type silently, which gives the ticks the rhythm
+	// of the words.
+	bool RevealsPrintable(int from, int to)
+	{
+		int end = Mathf.Min(to, _parsedText.Length);
+		for (int i = from; i < end; i++)
+		{
+			if (!char.IsWhiteSpace(_parsedText[i]))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void PlayTick()
+	{
+		if (typeTick == null)
+		{
+			return;
+		}
+		typeTick.PitchScale = 1f + (float)GD.RandRange(-tickPitchJitter, tickPitchJitter);
+		typeTick.Play();
 	}
 }

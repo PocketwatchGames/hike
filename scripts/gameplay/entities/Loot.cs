@@ -1001,9 +1001,10 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 			_simState.PickedUp = true;
 			_simState.OnRemovedFromWorld();
 		}
-		if (_pickupEffectScene != null)
+		PackedScene pickupFx = (_simState?.Item?.data ?? _simState?.Data)?.pickupFx ?? _pickupEffectScene;
+		if (pickupFx != null)
 		{
-			Fx.Create(_pickupEffectScene, GetParent(), Position);
+			Fx.Create(pickupFx, GetParent(), Position);
 		}
 		_collisionShape.Disabled = true;
 		_world?.RemoveEntity(this);

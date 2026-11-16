@@ -42,6 +42,11 @@ public partial class WorldScriptData : Resource
 
     public virtual void OnMobKilled(WorldScriptApi api, SpeciesData species, bool damagedByPlayer) { }
 
+    // A Bool script variable that holds every region banner until it is true —
+    // an intro that must finish before the world names itself. Regions are
+    // still discovered meanwhile; only the announcement waits. Unset = never held.
+    [Export] public StringName regionBannersAfterVariable;
+
     // Quest added at nightfall (Sim.OnNightfall) and cleared by the party
     // resting — "Return to Camp". A ReturnToCampQuestData. Null disables it.
     [Export] public QuestData returnToCampQuest;

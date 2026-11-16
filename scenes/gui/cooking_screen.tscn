@@ -107,6 +107,7 @@ layout_mode = 0
 [node name="FloatBesideFocus" type="Node" parent="ItemInfoPanel" node_paths=PackedStringArray("_target")]
 script = ExtResource("float_beside_focus")
 _target = NodePath("..")
+_preferredSide = 2
 
 [node name="MealInfoPanel" parent="." unique_id=781707881 instance=ExtResource("8_meal")]
 visible = false

@@ -137,6 +137,49 @@ public class MobTool : IWorldMapTool
         });
     }
 
+    // Floods the columns carrying the set under the press (or none), at the
+    // tool's Density. Under the cutaway a passage and the surface beside it are
+    // separate regions, as the danger fill keeps them.
+    public WorldMapFill Fill(WorldMapState ctx, WorldMapView view, bool erase)
+    {
+        bool cut = view.IsCutAway;
+        int clip = view.CutawayY;
+        if (cut && !erase && SetIndex >= WorldMapState.MaxPassageSets)
+        {
+            GD.PrintErr($"Mobs: a passage can hold scatter slots 0..{WorldMapState.MaxPassageSets - 1}; "
+                + $"slot {SetIndex} does not fit the tunnel mask");
+            return null;
+        }
+        var surface = erase
+            ? new Color(0f, 0f, 0f, 1f)
+            : new Color(Mathf.Clamp(SetIndex + 1, 1, 255) / 255f, Density, 0f, 1f);
+        return new WorldMapFill
+        {
+            KeyAt = (px, pz) =>
+            {
+                if (cut && ctx.CutawayPassage(px, pz, clip, out int floor, out _))
+                {
+                    return (1L << 32) + ctx.PassageScatterSlotAt(px, pz, floor + 1) + 1;
+                }
+                return ctx.MobSetAt(px, pz, out _) != null
+                    ? Mathf.RoundToInt(ctx.Mobs.GetPixel(px, pz).R * 255f)
+                    : 0;
+            },
+            Write = (px, pz) =>
+            {
+                if (cut && ctx.CutawayPassage(px, pz, clip, out int floor, out int top))
+                {
+                    for (int wy = floor + 1; wy <= top; wy++)
+                    {
+                        ctx.SetPassageScatter(px, pz, wy, erase ? -1 : SetIndex, erase ? 0f : Density);
+                    }
+                    return;
+                }
+                ctx.Mobs.SetPixel(px, pz, surface);
+            },
+        };
+    }
+
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
     public void Cycle(WorldMapState ctx, int dir)

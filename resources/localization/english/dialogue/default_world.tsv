@@ -18,13 +18,17 @@ wanderer_join_01	Ha — I thought you’d never ask. Aye, I’m with you. I’ll
 wanderer_farewell_01	And to you. I’ll be here a while yet.
 wanderer_topics_join	Walk them with me, then. Join my party.
 wanderer_topics_farewell	Safe travels.
-merchant_shop_greet_trade	What have you brought me?
-merchant_shop_greet_gift	What would you like to trade?
+merchant_shop_greet_trade	What would you like to trade?
+merchant_shop_greet_gift	What have you brought me?
 merchant_shop_offer_trade	Yes... and what would you like in return?
-merchant_shop_offer_gift	Mmm, let me see...
+merchant_shop_offer_gift	Oh, how generous of you.
+merchant_shop_offer_partial	Some of these I can't take.
+merchant_shop_offer_unwanted	I've no use for any of that.
 merchant_shop_take_back	Changed your mind?
 merchant_shop_pick_stock	That'll cost you.
-merchant_shop_return_stock	Not what you wanted?
+merchant_shop_deal_bad	That's not a good deal.
+merchant_shop_deal_fair	That seems fair.
+merchant_shop_deal_generous	Yes, that's very generous!
 merchant_shop_empty_sack	Empty that sack first.
 merchant_shop_trade_nothing	Nothing to trade.
 merchant_shop_trade_refused	That trade isn't worth my while.

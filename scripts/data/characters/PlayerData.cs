@@ -547,6 +547,9 @@ public partial class PlayerData : Resource
 	// A death wake caps every need at this many stages, so the sleep to sunrise
 	// that follows cannot carry it back to a death.
 	[Export(PropertyHint.Range, "0,2,0.05")] public float needStagesAfterRespawn = 1f;
+	// What the member says as each need worsens (NeedRemarks); several per need,
+	// in any order.
+	[Export] public Godot.Collections.Array<NeedRemarkData> needRemarks = new();
 
 	[ExportGroup("Dash")]
 	// The motion itself (speed / duration / freeze-gravity) is authored on

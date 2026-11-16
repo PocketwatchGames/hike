@@ -125,6 +125,36 @@ public class PaveTool : IWorldMapTool
         });
     }
 
+    // Floods the floor the map shows: same floor height, same paving there,
+    // same ground kit - so a fill stops at a terrace step, a wall, the edge of
+    // a road or a change of ground, which are the edges the map draws.
+    // Columns with nothing pavable are flooded through but written nothing,
+    // exactly as a brush stroke over them would be.
+    public WorldMapFill Fill(WorldMapState ctx, WorldMapView view, bool erase)
+    {
+        int clip = view.CutawayY;
+        return new WorldMapFill
+        {
+            KeyAt = (px, pz) =>
+            {
+                int floor = ctx.CutawayFloor(px, pz, clip, out _);
+                int paved = ctx.PavedYAt(px, pz) == floor ? ctx.PavingIndexAt(px, pz) : -1;
+                return ((long)floor << 32) | ((long)(paved + 1) << 16) | (long)(ctx.GroundIndexAt(px, pz) + 1);
+            },
+            Write = (px, pz) =>
+            {
+                if (erase)
+                {
+                    ctx.SetPavingAt(px, pz, -1);
+                }
+                else if (ctx.TryPavingLevel(px, pz, clip, out int level))
+                {
+                    ctx.SetPavingAt(px, pz, BlockIndex, level);
+                }
+            },
+        };
+    }
+
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
     public void Cycle(WorldMapState ctx, int dir)

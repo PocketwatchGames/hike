@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b3g8lng6af6ed" path="res://scripts/data/world/StoryData.cs" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://gpgvhtiob16j" path="res://assets/textures/gui/story/intro_placeholder.png" id="2_image"]
-[ext_resource type="Script" uid="uid://oo616afoolife" path="res://scripts/data/world/StoryPageData.cs" id="3_page"]
+[ext_resource type="Script" uid="uid://c3yge3nwyyu43" path="res://scripts/data/world/StoryPageData.cs" id="3_page"]
 
 [sub_resource type="Resource" id="Resource_page01"]
 script = ExtResource("3_page")

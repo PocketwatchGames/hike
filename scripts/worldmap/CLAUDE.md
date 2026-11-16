@@ -162,10 +162,11 @@ redesign. Same argument for stamp plans: `Plan`'s per-voxel colours come from
 `BlockData.minimapColor` — the subscene and the block catalog, not the painter's
 palette — so plans stay on the model and only the compositing is `WorldMapInk`'s.
 
-The bake's whole external surface is four entry points (`Bake`, and the
-`BakeBuild` / `BakeStampOccluders` / `BakeRelightAndWrite` split a worker thread
-drives); `BuildWorld`, `StampColumns` and `RescatterColumns` have no callers
-outside it. Members the bake reaches on the model are `internal` rather than
+The bake's whole external surface is `Bake`, run on the main thread of its
+OWN process: the painter's Ctrl+S launches a headless `worldmap_bake`
+(`WorldMapBakeProcess`) that outlives the window, and a re-save kills and
+restarts it — see [docs/state-and-bake.md](docs/state-and-bake.md).
+`BuildWorld`, `StampColumns` and `RescatterColumns` have no callers outside it. Members the bake reaches on the model are `internal` rather than
 public: they are the bake's seam, not part of the map's surface.
 
 **Two of the model's parts are caches, not queries, and each is its own type**
@@ -306,6 +307,21 @@ Read and write through the accessors (`PassageLevelAt`, `PassageScatterAt`,
   floors as total / with a scatter / spawnable / previewing a spawn. A big gap
   between "with a scatter" and "spawnable" is floors the gate refuses — flooded,
   crawlways, paved, under a stamp.
+
+**Bucket fill is the HOST's, the region rule is the tool's.** Holding **B** at the
+press (`WorldMapCanvas.FillKey` → `EStrokeMods.Fill`) makes it a fill. With LMB it
+paints, and with RMB it erases. The press ends there and never becomes a stroke.
+A tool answers `IWorldMapTool.Fill` with a `WorldMapFill`: `KeyAt` (4-connected
+cells with the seed's key are one region), `Write` (one cell) and `CellSize`
+(`ChunkState.SIZE` for the per-chunk region/zone/habitat layers). The painter
+floods, snapshots the bounds as one undo step and repaints, so a tool cannot get
+connectivity or undo wrong. **The flood is gathered in full before anything is
+written**, because `Write` changes the keys it compares. Tools with a fill:
+region, zone, habitat, blocking, paving (key = floor Y + paving there + ground
+kit), danger and mobs (where a passage under the cut is a different region from
+the surface beside it), and elevation in Flatten / FlattenSoft only (key = the
+snapped height that shift-constrain compares). Any other tool, or op, returns null
+and the press does nothing.
 
 `WorldMapBrush` (`Resource`) is the shared, layer-agnostic stamp engine
 (falloff/flow/noise + `Stamp(center, radius, w, h, apply)` callback); each tool

@@ -11,14 +11,21 @@ public static class ShopMoment
 	// Opening the screen to trade / to give gifts.
 	public const string GreetTrade = "greet_trade";
 	public const string GreetGift = "greet_gift";
-	// The party moved an item onto the offer side.
+	// The merchant's appraisal of the counter as it stands, said whenever it
+	// changes. Only an offer: everything acceptable (said as a trade's opening
+	// or as a gift) / some of it unwanted / none of it wanted.
 	public const string OfferTrade = "offer_trade";
 	public const string OfferGift = "offer_gift";
-	// The party took an offered item back.
-	public const string TakeBack = "take_back";
-	// The party picked an item out of the merchant's stock, or put one back.
+	public const string OfferPartial = "offer_partial";
+	public const string OfferUnwanted = "offer_unwanted";
+	// Only a request from the stock, nothing offered for it.
 	public const string PickStock = "pick_stock";
-	public const string ReturnStock = "return_stock";
+	// Both: a deal the merchant loses on / a fair one / a generous one.
+	public const string DealBad = "deal_bad";
+	public const string DealFair = "deal_fair";
+	public const string DealGenerous = "deal_generous";
+	// Both piles emptied again.
+	public const string TakeBack = "take_back";
 	// Leaving with items still on the offer side and no room for them.
 	public const string EmptySack = "empty_sack";
 	// Trade pressed with nothing on either side / a deal the merchant loses on.
@@ -39,7 +46,8 @@ public static class ShopMoment
 
 	public static readonly string[] All =
 	{
-		GreetTrade, GreetGift, OfferTrade, OfferGift, TakeBack, PickStock, ReturnStock, EmptySack,
+		GreetTrade, GreetGift, OfferTrade, OfferGift, OfferPartial, OfferUnwanted, PickStock,
+		DealBad, DealFair, DealGenerous, TakeBack, EmptySack,
 		TradeNothing, TradeRefused, TradeDone, TradeDoneGift,
 		GiftNothingOffered, GiftNothingToReturn, GiftNoneAccepted, GiftRewarded, GiftPartial, GiftThanks,
 	};

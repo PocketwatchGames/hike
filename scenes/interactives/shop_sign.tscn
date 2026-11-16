@@ -33,7 +33,6 @@ size = Vector3(3.4, 3, 2.2)
 script = ExtResource("1_sign")
 _hudNode = NodePath("HUDNode")
 _actions = Array[ExtResource("3_action")]([SubResource("Resource_shopsign_action")])
-_text = "A painted shop board hangs above the door."
 
 [node name="SignModel" type="Node3D" parent="." unique_id=708892906]
 script = ExtResource("6_autocoll")

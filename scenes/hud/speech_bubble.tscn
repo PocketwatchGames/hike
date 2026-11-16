@@ -1,0 +1,133 @@
+[gd_scene format=3 uid="uid://37ckvhv0e306"]
+
+[ext_resource type="Script" uid="uid://iyvo5se8mw3k9" path="res://scripts/gui/SpeechBubble.cs" id="3_bubble"]
+[ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="5_btnhint"]
+[ext_resource type="Script" uid="uid://6q30x9rawallt" path="res://scripts/gui/TypingText.cs" id="6_typing"]
+[ext_resource type="AudioStream" uid="uid://b5qptponk8lfi" path="res://assets/audio/source/ui/sfx_ui_dialogue_tick_01.wav" id="7_tick"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bubble"]
+content_margin_left = 24.0
+content_margin_top = 20.0
+content_margin_right = 24.0
+content_margin_bottom = 22.0
+bg_color = Color(0.05, 0.05, 0.08, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.85, 0.78, 0.55, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+anti_aliasing_size = 1.5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_nametab"]
+content_margin_left = 14.0
+content_margin_top = 2.0
+content_margin_right = 14.0
+content_margin_bottom = 2.0
+bg_color = Color(0.85, 0.78, 0.55, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hint"]
+content_margin_left = 10.0
+content_margin_top = 2.0
+content_margin_right = 10.0
+content_margin_bottom = 2.0
+bg_color = Color(0.05, 0.05, 0.08, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.78, 0.55, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[node name="SpeechBubble" type="Control" node_paths=PackedStringArray("body", "nameTab", "nameLabel", "continueHint", "tail")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_bubble")
+body = NodePath("Body")
+nameTab = NodePath("NameTab")
+nameLabel = NodePath("NameTab/NameLabel")
+continueHint = NodePath("ContinueHint")
+tail = NodePath("Tail")
+inscriptionTextVariation = &"InscriptionText"
+
+[node name="Body" type="PanelContainer" parent="." node_paths=PackedStringArray("sizerLabel", "textLabel", "typeTick")]
+layout_mode = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bubble")
+script = ExtResource("6_typing")
+sizerLabel = NodePath("SizerLabel")
+textLabel = NodePath("TextLabel")
+typeTick = NodePath("TypeTick")
+
+[node name="TypeTick" type="AudioStreamPlayer" parent="Body"]
+stream = ExtResource("7_tick")
+volume_db = -14.0
+max_polyphony = 3
+
+[node name="SizerLabel" type="RichTextLabel" parent="Body"]
+modulate = Color(1, 1, 1, 0)
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/normal_font_size = 32
+theme_override_font_sizes/italics_font_size = 32
+bbcode_enabled = true
+scroll_active = false
+autowrap_mode = 3
+
+[node name="TextLabel" type="RichTextLabel" parent="Body"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/normal_font_size = 32
+theme_override_font_sizes/italics_font_size = 32
+bbcode_enabled = true
+scroll_active = false
+autowrap_mode = 3
+visible_characters_behavior = 1
+
+[node name="Tail" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="NameTab" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_nametab")
+
+[node name="NameLabel" type="Label" parent="NameTab"]
+layout_mode = 2
+theme_type_variation = &"DisplayLabel"
+theme_override_colors/font_color = Color(0.05, 0.05, 0.08, 1)
+theme_override_font_sizes/font_size = 28
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ContinueHint" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hint")
+
+[node name="ButtonHint" parent="ContinueHint" instance=ExtResource("5_btnhint")]
+layout_mode = 2
+InputAction = "ui_accept"

@@ -8,9 +8,12 @@ public partial class WorldScriptAntica : WorldScriptData
     // the start.
     private const string IntroFairy = "intro_fairy";
 
+    // How long the party lies there before the fairy speaks.
+    [Export(PropertyHint.Range, "0,10,0.1")] public float introConversationDelaySeconds = 1.5f;
+
     // The party wakes to the fairy talking to them.
     public override void OnNewGame(WorldScriptApi api)
     {
-        api.StartConversation(IntroFairy);
+        api.After(introConversationDelaySeconds, a => a.StartConversation(IntroFairy));
     }
 }

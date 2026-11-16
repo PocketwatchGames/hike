@@ -10,7 +10,8 @@
 [sub_resource type="Resource" id="Resource_concept_vocab2"]
 script = ExtResource("2_language_teachable")
 language = ExtResource("3_vyeshal")
-components = 8
+lesson = 2
+percent = 20.0
 
 [resource]
 script = ExtResource("1_scroll")

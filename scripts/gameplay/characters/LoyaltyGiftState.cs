@@ -6,6 +6,7 @@ public class LoyaltyGiftState
     // Null = no item portion (a language-only gift).
     public ItemState item;
     public LanguageData language;
-    public ELanguageComponents languageComponents;
+    public int languageLesson;
+    public float languagePercent;
     public float requiredLoyalty;
 }

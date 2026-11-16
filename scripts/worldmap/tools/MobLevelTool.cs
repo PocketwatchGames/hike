@@ -111,6 +111,37 @@ public class MobLevelTool : IWorldMapTool
         });
     }
 
+    // Floods the area SHOWING the level under the press, rounded to a whole
+    // level so a painted gradient floods its band. Under the cutaway a passage
+    // and the surface beside it are separate regions even at the same level,
+    // and a passage is written the way the brush writes it: the whole run.
+    public WorldMapFill Fill(WorldMapState ctx, WorldMapView view, bool erase)
+    {
+        bool cut = view.IsCutAway;
+        int clip = view.CutawayY;
+        return new WorldMapFill
+        {
+            KeyAt = (px, pz) =>
+            {
+                bool passage = cut && ctx.CutawayPassage(px, pz, clip, out _, out _);
+                long level = Mathf.RoundToInt(cut ? ctx.MobLevelUnderCut(px, pz, clip) : ctx.MobLevelAt(px, pz));
+                return passage ? (1L << 32) + level : level;
+            },
+            Write = (px, pz) =>
+            {
+                if (cut && ctx.CutawayPassage(px, pz, clip, out int floor, out int top))
+                {
+                    for (int wy = floor + 1; wy <= top; wy++)
+                    {
+                        ctx.SetPassageLevel(px, pz, wy, erase ? -1 : Level);
+                    }
+                    return;
+                }
+                ctx.SetMobLevelAt(px, pz, erase ? 0f : Level);
+            },
+        };
+    }
+
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
     public void Cycle(WorldMapState ctx, int dir)

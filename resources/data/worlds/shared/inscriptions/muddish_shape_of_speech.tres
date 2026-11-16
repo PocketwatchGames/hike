@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="InscriptionData" format=3 uid="uid://bcdobs3r6gxaa"]
+
+[ext_resource type="Script" uid="uid://gn1amk0ppskip" path="res://scripts/data/InscriptionData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://1td133j0mecv" path="res://resources/data/worlds/shared/languages/muddish.tres" id="2_language"]
+
+[resource]
+script = ExtResource("1_script")
+text = "The shape of Muddish speech — how its words are ordered and strung. The hermit keeps to it still."
+language = ExtResource("2_language")

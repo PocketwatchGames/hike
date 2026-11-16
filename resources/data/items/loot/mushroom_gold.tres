@@ -1,16 +1,19 @@
 [gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://b8q3p5krx0tww"]
 
 [ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_item_data"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="1_n43f1"]
 [ext_resource type="Texture2D" uid="uid://c56xlitxf10lu" path="res://assets/textures/items/MushroomGold.png" id="1_x4kx3"]
-[ext_resource type="Resource" uid="uid://45twv92ziyfu6" path="res://resources/data/items/loot/mushroom.tres" id="2_parent"]
+[ext_resource type="Resource" uid="uid://c3ytrvm8kkbkt" path="res://resources/data/items/loot/mushroom.tres" id="2_parent"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="4_w3q6p"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="6_s4koo"]
 
 [resource]
 script = ExtResource("1_item_data")
-categoryOverride = 6
 satiation = 0.05
 displayName = &"Gold Mushroom"
 maxStack = 99
+spoilDays = 3
 value = 1
 inventorySprite = ExtResource("1_x4kx3")
+categoryOverride = 6
 parent = ExtResource("2_parent")
-spoilDays = 3

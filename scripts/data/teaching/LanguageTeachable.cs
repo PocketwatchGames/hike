@@ -1,9 +1,7 @@
 using Godot;
 
-// Teaches one or more component bits of a single language. The bridge from
-// the polymorphic TeachableConcept system to the existing
-// Player.LearnLanguageComponents flow — pre-existing knowledge stones and
-// language scrolls land here so they reuse TextScrambler unchanged.
+// Teaches one lesson of a single language through Player.LearnLanguageLesson —
+// `percent` of it, under the number `lesson` (see LanguageData).
 // [Tool]: in the item closure (ItemEvent → ItemData) — see
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
@@ -11,10 +9,12 @@ using Godot;
 public partial class LanguageTeachable : TeachableConcept
 {
     [Export] public LanguageData language;
-    // Bitset of pieces this concept grants. Default All keeps single-shot
-    // "learn the whole tongue" scrolls / stones authoring-cheap; partial
-    // grants set a subset (Grammar / Numbers / Vocabulary*).
-    [Export, CompactFlags] public ELanguageComponents components = ELanguageComponents.All;
+    // Which lesson this is. Two sources with the same number are the same
+    // lesson, so only the first one read teaches anything.
+    [Export] public int lesson;
+    // How much of the language it teaches. The default, the whole tongue,
+    // keeps a "learn the language" source authoring-cheap.
+    [Export(PropertyHint.Range, "0,100,1")] public float percent = LanguageData.FULL_PERCENT;
 
     public override string GetDisplayName()
     {
@@ -27,7 +27,7 @@ public partial class LanguageTeachable : TeachableConcept
         {
             return false;
         }
-        return player.LearnLanguageComponents(language, components);
+        return player.LearnLanguageLesson(language, lesson, percent);
     }
 
     public override bool IsKnown(Player player)
@@ -36,7 +36,6 @@ public partial class LanguageTeachable : TeachableConcept
         {
             return false;
         }
-        // Known only once every component bit this concept grants is already learned.
-        return (player.GetLearnedComponents(language) & components) == components;
+        return player.GetLessonPercent(language, lesson) >= percent;
     }
 }

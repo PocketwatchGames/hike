@@ -398,9 +398,10 @@ class TresWriter
 		_inlineSubResources.AppendLine($"[sub_resource type=\"Resource\" id=\"{conceptId}\"]");
 		_inlineSubResources.AppendLine($"script = ExtResource(\"{ScriptId(lesson.Teachable)}\")");
 		_inlineSubResources.AppendLine($"{lesson.Property} = ExtResource(\"{ExternalId(lesson.Target, lesson.Prefix)}\")");
-		if (lesson.Components >= 0)
+		if (lesson.Lesson >= 0)
 		{
-			_inlineSubResources.AppendLine($"components = {lesson.Components}");
+			_inlineSubResources.AppendLine($"lesson = {lesson.Lesson}");
+			_inlineSubResources.AppendLine($"percent = {lesson.Percent.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
 		}
 		_inlineSubResources.AppendLine();
 

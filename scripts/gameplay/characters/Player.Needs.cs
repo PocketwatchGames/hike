@@ -31,6 +31,9 @@ public partial class Player
 	// WorldClockDays the values were last settled to.
 	private double _needsSettledClock;
 
+	// Stages of deprivation, unbounded.
+	public float GetNeedStages(ENeed need) => _needs[(int)need];
+
 	// 0 = free, 1 = the stamina phase, NeedLastPhase = the max-health phase.
 	public int GetNeedPhase(ENeed need) => Mathf.Min(Mathf.FloorToInt(_needs[(int)need]), NeedLastPhase);
 

@@ -3157,8 +3157,8 @@ public sealed class WorldGen
     // One-off per-region landmark fixtures. For each RegionGenData.Fixtures
     // entry, roll a single valid column inside that region's quadrant footprint
     // and place the entry once (signpost, knowledge stone, ...). Replaces the
-    // former per-quadrant signpost pass; the per-region text / language /
-    // language-component now live on the authored entries.
+    // former per-quadrant signpost pass; what each fixture says (its
+    // InscriptionData) lives on the authored entries.
     private void PlaceRegionFixtures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
     {
         RegionGenData[] regions = genData.regions ?? System.Array.Empty<RegionGenData>();

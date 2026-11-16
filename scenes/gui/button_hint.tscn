@@ -27,7 +27,7 @@ size_flags_horizontal = 4
 size_flags_vertical = 4
 alignment = 1
 script = ExtResource("1_2gwlu")
-_buttonText = NodePath("HBoxContainer/Button/ButtonText")
+_buttonText = NodePath("HBoxContainer/Button/MarginContainer/ButtonText")
 _label = NodePath("HBoxContainer/Label")
 _labelText = NodePath("HBoxContainer/Label/MarginContainer/LabelText")
 _progressBar = NodePath("HBoxContainer/Button/ProgressBar")
@@ -44,7 +44,7 @@ alignment = 1
 custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 
-[node name="Glow" type="Panel" parent="HBoxContainer/Button"]
+[node name="Glow" type="Panel" parent="HBoxContainer/Button" unique_id=637539463]
 visible = false
 show_behind_parent = true
 layout_mode = 2
@@ -58,7 +58,12 @@ size_flags_vertical = 1
 max_value = 1.0
 show_percentage = false
 
-[node name="ButtonText" type="Label" parent="HBoxContainer/Button" unique_id=1890989147]
+[node name="MarginContainer" type="MarginContainer" parent="HBoxContainer/Button" unique_id=2068611090]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_right = 5
+
+[node name="ButtonText" type="Label" parent="HBoxContainer/Button/MarginContainer" unique_id=1890989147]
 layout_mode = 2
 text = "A"
 horizontal_alignment = 1

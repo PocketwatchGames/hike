@@ -118,6 +118,12 @@
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/npcs/appearances/merchant_leather.tres" id="M_A_merchant_leather"]
 [ext_resource type="Script" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="NpcScript"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/party/talia.tres" id="R_wanderer_talia"]
+[ext_resource type="Resource" uid="uid://dcvll5w7432nh" path="res://resources/data/worlds/test_world/inscriptions/welcome_to_whittlebone.tres" id="insc_0"]
+[ext_resource type="Resource" uid="uid://b2vvw44rbeseu" path="res://resources/data/worlds/test_world/inscriptions/fire_swamp_whittlebone.tres" id="insc_1"]
+[ext_resource type="Resource" uid="uid://bwssscodlhcj1" path="res://resources/data/worlds/test_world/inscriptions/the_road_goes_on.tres" id="insc_2"]
+[ext_resource type="Resource" uid="uid://ctfu0cd8rbgjy" path="res://resources/data/worlds/test_world/inscriptions/northern_forest_riverton.tres" id="insc_3"]
+[ext_resource type="Resource" uid="uid://2xp5uowjmq8o" path="res://resources/data/worlds/shared/inscriptions/vyeshal_difficult_to_read.tres" id="insc_4"]
+[ext_resource type="Resource" uid="uid://dmf6sp5603tyr" path="res://resources/data/worlds/test_world/inscriptions/library.tres" id="insc_5"]
 
 [sub_resource type="Resource" id="Resource_v1avn"]
 script = ExtResource("2_4i2sm")
@@ -713,8 +719,7 @@ facing = 6
 [sub_resource type="Resource" id="Resource_osda5"]
 script = ExtResource("11_mw5ge")
 scene = ExtResource("10_m2c7i")
-text = "Welcome to Whittlebone"
-language = ExtResource("9_errfs")
+inscription = ExtResource("insc_0")
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_ktogt"]
@@ -727,9 +732,7 @@ facing = 7
 [sub_resource type="Resource" id="Resource_i07lw"]
 script = ExtResource("11_mw5ge")
 scene = ExtResource("10_m2c7i")
-text = "W: The Fire Swamp
-E: Whittlebone"
-language = ExtResource("9_errfs")
+inscription = ExtResource("insc_1")
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_4v30q"]
@@ -742,8 +745,7 @@ facing = 6
 [sub_resource type="Resource" id="Resource_signpost_road"]
 script = ExtResource("11_mw5ge")
 scene = ExtResource("10_m2c7i")
-text = "The road goes on."
-language = ExtResource("9_errfs")
+inscription = ExtResource("insc_2")
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_rik87"]
@@ -756,9 +758,7 @@ facing = 6
 [sub_resource type="Resource" id="Resource_4j70r"]
 script = ExtResource("11_mw5ge")
 scene = ExtResource("10_m2c7i")
-text = "NW: The Great Northern Forest
-SE: Riverton"
-language = ExtResource("9_errfs")
+inscription = ExtResource("insc_3")
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_gokyh"]
@@ -771,9 +771,9 @@ facing = 6
 [sub_resource type="Resource" id="Resource_vai1a"]
 script = ExtResource("14_w1yuy")
 scene = ExtResource("13_hatgq")
-language = ExtResource("9_errfs")
-text = "Vyeshal is difficult to read. But study, my friend, and you will learn it."
-components = 120
+inscription = ExtResource("insc_4")
+lesson = 9
+percent = 40.0
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_ql8yq"]
@@ -786,9 +786,9 @@ facing = 6
 [sub_resource type="Resource" id="Resource_vm386_stone"]
 script = ExtResource("14_w1yuy")
 scene = ExtResource("13_hatgq")
-language = ExtResource("9_errfs")
-text = "Vyeshal is difficult to read. But study, my friend, and you will learn it."
-components = 1
+inscription = ExtResource("insc_4")
+lesson = 4
+percent = 20.0
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_vm386"]
@@ -801,9 +801,9 @@ facing = 6
 [sub_resource type="Resource" id="Resource_anunb"]
 script = ExtResource("14_w1yuy")
 scene = ExtResource("13_hatgq")
-language = ExtResource("9_errfs")
-text = "Vyeshal is difficult to read. But study, my friend, and you will learn it."
-components = 1
+inscription = ExtResource("insc_4")
+lesson = 4
+percent = 20.0
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_jj52j"]
@@ -816,9 +816,9 @@ facing = 6
 [sub_resource type="Resource" id="Resource_in76e"]
 script = ExtResource("14_w1yuy")
 scene = ExtResource("13_hatgq")
-language = ExtResource("9_errfs")
-text = "Vyeshal is difficult to read. But study, my friend, and you will learn it."
-components = 2
+inscription = ExtResource("insc_4")
+lesson = 5
+percent = 20.0
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_1i773"]
@@ -910,8 +910,7 @@ facing = 2
 [sub_resource type="Resource" id="Resource_7c7kn"]
 script = ExtResource("11_mw5ge")
 scene = ExtResource("39_4bnws")
-text = "Library"
-language = ExtResource("9_errfs")
+inscription = ExtResource("insc_5")
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_l8e3m"]

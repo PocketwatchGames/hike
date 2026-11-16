@@ -2,12 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-// Renders text the player can only partially read by applying one
-// scrambling transform per missing language component. Mobs and signposts
-// call this at display time with the components the player has NOT yet
-// learned; the underlying string data stays intact. Same input + same
-// language + same missing-set always produces the same gibberish so
-// re-reading the same line looks identical.
+// Renders text the player can only partially read, given how much of each
+// aspect of the language they have (LanguageCoverage). Called at display time;
+// the underlying string data stays intact. Same input + same language + same
+// coverage always produces the same gibberish, so re-reading the same line
+// looks identical.
 //
 // Unreadable text is rewritten into the language's OWN script when it has a
 // LanguageData.glyphBase — see ApplyLetterCipher. Nothing downstream knows:
@@ -21,34 +20,28 @@ public static class TextScrambler
     public const int GlyphLetterCount = 26;
     public const int GlyphNumeralCount = 10;
 
-    // Applies the transforms named by `missing` to `text`. Per component:
-    //   Vocabulary1-5 — each word with letters is bucketed into one of
-    //                   three vocabulary slots by a stable hash of its
-    //                   letters. The bucket's Vocabulary_N flag, when
-    //                   missing, runs that word's letters through the
-    //                   per-language substitution cipher; learning the
-    //                   flag reveals those words in their original glyphs.
-    //                   Roughly a third of any text resolves per learned
-    //                   vocabulary component.
-    //   Numbers       — replaces every digit anywhere in the text with the
-    //                   language's own numeral glyph (or a stable letter, for
-    //                   a language with no script of its own).
-    //   Grammar       — strips every non-letter/digit character from the
-    //                   text (standalone punctuation tokens like " — "
-    //                   drop out entirely; punctuation inside words such
-    //                   as "don't" or "1,000" collapses to "dont"/"1000"),
-    //                   lowercases the surviving letters (capital-
-    //                   ization is part of the structural layer Grammar
-    //                   gates), and then permutes the remaining word
-    //                   tokens as one block. Without Grammar the player
-    //                   has no notion of sentence boundaries, so the
-    //                   shuffle ignores them. Whitespace runs between
-    //                   the surviving word tokens stay in place so line
-    //                   breaks survive.
-    // Null language, empty text, or missing == None returns `text` unchanged.
-    public static string Scramble(string text, LanguageData language, ELanguageComponents missing)
+    // Renders `text` as a player with `coverage` of `language` reads it. Each
+    // aspect is decided by a stable hash compared against its coverage, so
+    // the same line reads the same way every time and anything revealed stays
+    // revealed as coverage grows:
+    //   Vocabulary — per WORD (case-insensitive, letters only, so "Hello," and
+    //                "hello" are one word). An unknown word's letters run
+    //                through the per-language substitution cipher.
+    //   Numbers    — per NUMBER (its digit string). An unknown number's digits
+    //                become the language's own numeral glyphs (or a stable
+    //                letter, for a language with no script). Independent of the
+    //                word: "12 stones" can read as a known word and an
+    //                unreadable number.
+    //   Grammar    — per word POSITION. A position under the coverage holds its
+    //                word, punctuation and capitals. The rest lose punctuation
+    //                and case (standalone punctuation tokens drop out), and
+    //                their words are rotated among the loose positions so none
+    //                lands back where it started. Whitespace runs stay in place
+    //                so line breaks survive.
+    // Null language, empty text, or full coverage returns `text` unchanged.
+    public static string Scramble(string text, LanguageData language, LanguageCoverage coverage)
     {
-        if (language == null || missing == ELanguageComponents.None || string.IsNullOrEmpty(text))
+        if (language == null || coverage.IsFull || string.IsNullOrEmpty(text))
         {
             return text;
         }
@@ -59,81 +52,105 @@ public static class TextScrambler
         int[] digitPerm = BuildPermutation(seed ^ 0x55AA55AA, GlyphNumeralCount);
         int glyphBase = language.glyphBase;
 
-        bool doNumbers = (missing & ELanguageComponents.Numbers) != 0;
-        bool doGrammar = (missing & ELanguageComponents.Grammar) != 0;
-        ELanguageComponents missingVocab = missing & (ELanguageComponents.Vocabulary1
-            | ELanguageComponents.Vocabulary2 | ELanguageComponents.Vocabulary3
-            | ELanguageComponents.Vocabulary4 | ELanguageComponents.Vocabulary5);
-
         List<string> tokens = new List<string>();
         List<string> separators = new List<string>();
         Tokenize(text, tokens, separators);
 
-        // Strip punctuation FIRST when Grammar is missing — vocab cipher
-        // and digit substitution then run on the cleaned word tokens.
-        if (doGrammar)
-        {
-            StripPunctuation(tokens, separators);
-        }
+        // Grammar first: it decides which tokens survive at all, and the
+        // per-word and per-number tests below read the cleaned tokens.
+        List<bool> held = HoldPositions(tokens, seed, coverage.grammar);
+        StripLoose(tokens, separators, held);
 
         for (int i = 0; i < tokens.Count; i++)
         {
             string tok = tokens[i];
-            bool hasLetter = HasLetter(tok);
-            if (doNumbers)
+            if (HasDigit(tok) && !IsNumberKnown(tok, seed, coverage.numbers))
             {
                 tok = SubstituteDigits(tok, digitPerm, glyphBase);
             }
-            // Vocabulary cipher: applied only when this word's bucket is
-            // among the player's missing components. Each bucket's reveal
-            // is fully word-local — different buckets share one alphabet
-            // permutation per language so the resulting gibberish reads as
-            // a single consistent script.
-            if (hasLetter && missingVocab != ELanguageComponents.None
-                && (missingVocab & VocabularyBucketFor(tok)) != 0)
+            // The cipher reads letters only, so a word hashed before the digit
+            // substitution above is still the same word.
+            if (HasLetter(tokens[i]) && !IsWordKnown(tokens[i], seed, coverage.vocabulary))
             {
                 tok = ApplyLetterCipher(tok, letterPerm, glyphBase);
             }
             tokens[i] = tok;
         }
 
-        if (doGrammar && tokens.Count > 1)
-        {
-            ShuffleAll(tokens, seed ^ unchecked((int)0xDEADBEEF));
-        }
-
+        RotateLoose(tokens, held, seed ^ unchecked((int)0xDEADBEEF));
         return Reassemble(tokens, separators);
     }
 
-    // Returns the single Vocabulary_N flag the word falls into. Computed
-    // from a case-insensitive, punctuation-stripped hash of the letters
-    // only so "Hello,", "hello", and "HELLO!" all share a bucket — the
-    // vocabulary mechanic treats them as the same word.
-    const int VOCABULARY_BUCKETS = 5;
+    // Salts keep the three per-aspect hashes independent of one another, so
+    // knowing a word says nothing about whether its position holds.
+    const uint WORD_SALT = 0x9E3779B9u;
+    const uint NUMBER_SALT = 0x85EBCA6Bu;
+    const uint POSITION_SALT = 0xC2B2AE35u;
 
-    static ELanguageComponents VocabularyBucketFor(string token)
+    static bool IsWordKnown(string token, int seed, float coverage)
     {
-        int h = 0;
+        if (coverage >= 1f)
+        {
+            return true;
+        }
+        uint h = (uint)seed ^ WORD_SALT;
         for (int i = 0; i < token.Length; i++)
         {
             char c = token[i];
             if (!char.IsLetter(c)) { continue; }
-            h = unchecked(h * 31 + char.ToLowerInvariant(c));
+            h = unchecked(h * 31u + char.ToLowerInvariant(c));
         }
-        // One bucket per Vocabulary_N, so each covers ~a third of any text. The
-        // count here and the number of Vocabulary_N flags must move together —
-        // mapping two buckets onto one flag made Vocabulary2 worth twice
-        // Vocabulary1 and left every `components = 16` in the data teaching a bit
-        // nothing tested.
-        int bucket = (h & 0x7FFFFFFF) % VOCABULARY_BUCKETS;
-        return bucket switch
+        return Unit(h) < coverage;
+    }
+
+    static bool IsNumberKnown(string token, int seed, float coverage)
+    {
+        if (coverage >= 1f)
         {
-            0 => ELanguageComponents.Vocabulary1,
-            1 => ELanguageComponents.Vocabulary2,
-            2 => ELanguageComponents.Vocabulary3,
-            3 => ELanguageComponents.Vocabulary4,
-            _ => ELanguageComponents.Vocabulary5,
-        };
+            return true;
+        }
+        uint h = (uint)seed ^ NUMBER_SALT;
+        for (int i = 0; i < token.Length; i++)
+        {
+            char c = token[i];
+            if (c < '0' || c > '9') { continue; }
+            h = unchecked(h * 31u + c);
+        }
+        return Unit(h) < coverage;
+    }
+
+    static bool IsPositionHeld(int index, int seed, float coverage)
+    {
+        if (coverage >= 1f)
+        {
+            return true;
+        }
+        uint h = unchecked((uint)seed ^ POSITION_SALT ^ ((uint)index * 0x27D4EB2Fu));
+        return Unit(h) < coverage;
+    }
+
+    // Avalanche (murmur3 finalizer) then the top 24 bits as [0, 1). The raw
+    // polynomial hashes above are far from uniform in their high bits.
+    static float Unit(uint h)
+    {
+        h ^= h >> 16;
+        h = unchecked(h * 0x7FEB352Du);
+        h ^= h >> 15;
+        h = unchecked(h * 0x846CA68Bu);
+        h ^= h >> 16;
+        return (h >> 8) / 16777216f;
+    }
+
+    // Which ORIGINAL token positions hold their word, decided before anything
+    // is dropped so a position's fate doesn't depend on its neighbours.
+    static List<bool> HoldPositions(List<string> tokens, int seed, float grammar)
+    {
+        List<bool> held = new List<bool>(tokens.Count);
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            held.Add(IsPositionHeld(i, seed, grammar));
+        }
+        return held;
     }
 
     // Walk the string splitting into alternating whitespace runs and
@@ -183,60 +200,26 @@ public static class TextScrambler
         return sb.ToString();
     }
 
-    // Player's comprehension of `text` in `language` as a value in [0, 1],
-    // averaging two axes Scramble uses:
-    //   translatedPct — fraction of tokens whose letters AND digits all
-    //                   resolve under the player's learned components (the
-    //                   token's vocab bucket is learned + Numbers learned if
-    //                   the token contains digits).
-    //   orderPct      — 1 if Grammar is learned (or only one word token
-    //                   survives the punctuation strip); otherwise the
-    //                   fraction of word tokens that happen to land at
-    //                   their original index after the same single
-    //                   Fisher-Yates shuffle Scramble would apply. The
-    //                   denominator and the replayed shuffle both run
-    //                   over the post-strip word list so they match
-    //                   exactly what the player sees.
-    // Used as the soft gate on ConversationResponse visibility (see
-    // ConversationVisibility) — a response with a stable per-key RNG roll
-    // below this value renders, others stay hidden until the player learns
-    // enough to push comprehension past their threshold.
-    //
-    // `grammarWeight` controls how much the orderPct axis contributes:
+    // Player's comprehension of `text` in `language` as a value in [0, 1]:
+    //   translatedPct — share of word tokens whose word AND number (if any)
+    //                   are known.
+    //   orderPct      — share of word tokens sitting at their original
+    //                   position: the held ones, plus a lone loose word, which
+    //                   has nowhere else to go.
     // final = translatedPct × ((1 - grammarWeight) + orderPct × grammarWeight).
-    // Lives on SimData.LanguageGrammarWeight so designers can retune
-    // without touching code.
-    // How much of a language as a whole `learned` understands, in [0, 1] — what
-    // ComputeComprehension tends to over a long text rather than for any one
-    // line: each Vocabulary_N is one of five equal buckets, and missing Grammar
-    // leaves the order axis at ~0 (a shuffled sentence keeps almost no word in
-    // place). Numbers are ignored; digits are too rare in prose to move it.
-    public static float ComputeUnderstanding(ELanguageComponents learned, float grammarWeight)
+    // Both run over the same token list Scramble shows, after loose
+    // punctuation drops out. Drives the soft gate on ConversationResponse
+    // visibility (see ConversationVisibility).
+    public static float ComputeComprehension(string text, LanguageData language, LanguageCoverage coverage, float grammarWeight)
     {
-        int vocab = 0;
-        for (int bit = (int)ELanguageComponents.Vocabulary1; bit <= (int)ELanguageComponents.Vocabulary5; bit <<= 1)
-        {
-            if ((learned & (ELanguageComponents)bit) != 0)
-            {
-                vocab++;
-            }
-        }
-        float translatedPct = vocab / (float)VOCABULARY_BUCKETS;
-        bool grammarKnown = (learned & ELanguageComponents.Grammar) != 0;
-        return translatedPct * (grammarKnown ? 1f : 1f - grammarWeight);
-    }
-
-    public static float ComputeComprehension(string text, LanguageData language, ELanguageComponents learned, float grammarWeight)
-    {
-        return ComputeComprehension(text, language, learned, grammarWeight, out _);
+        return ComputeComprehension(text, language, coverage, grammarWeight, out _);
     }
 
     // As above, additionally reporting the number of word tokens the score
-    // was averaged over — post punctuation-strip when Grammar is missing, so
-    // it matches the denominator actually used. LanguageText weights each
-    // span of a multi-language line by this, so a one-word span in a second
-    // tongue counts for one word and not for half the line.
-    public static float ComputeComprehension(string text, LanguageData language, ELanguageComponents learned, float grammarWeight, out int weight)
+    // was averaged over. LanguageText weights each span of a multi-language
+    // line by this, so a one-word span in a second tongue counts for one word
+    // and not for half the line.
+    public static float ComputeComprehension(string text, LanguageData language, LanguageCoverage coverage, float grammarWeight, out int weight)
     {
         weight = 0;
         if (string.IsNullOrEmpty(text))
@@ -248,93 +231,39 @@ public static class TextScrambler
         List<string> separators = new List<string>();
         Tokenize(text, tokens, separators);
         weight = tokens.Count;
-        if (language == null || tokens.Count == 0)
-        {
-            return 1f;
-        }
-        if ((learned & ELanguageComponents.All) == ELanguageComponents.All)
+        if (language == null || tokens.Count == 0 || coverage.IsFull)
         {
             return 1f;
         }
 
-        ELanguageComponents missing = ELanguageComponents.All & ~learned;
-        ELanguageComponents missingVocab = missing & (ELanguageComponents.Vocabulary1
-            | ELanguageComponents.Vocabulary2 
-            | ELanguageComponents.Vocabulary3 
-            | ELanguageComponents.Vocabulary4 
-            | ELanguageComponents.Vocabulary5);
-        bool numbersKnown = (missing & ELanguageComponents.Numbers) == 0;
-        bool grammarKnown = (missing & ELanguageComponents.Grammar) == 0;
-
-        // Mirror Scramble's strip pass so translatedPct's denominator and
-        // the shuffle replay below reflect what the player actually sees.
-        // (Internal punctuation inside words doesn't need to be removed
-        // here — VocabularyBucketFor and HasDigit ignore it anyway.)
-        if (!grammarKnown)
+        int seed = StableSeed(language.displayName.ToString());
+        List<bool> held = HoldPositions(tokens, seed, coverage.grammar);
+        StripLoose(tokens, separators, held);
+        weight = tokens.Count;
+        if (tokens.Count == 0)
         {
-            for (int i = tokens.Count - 1; i >= 0; i--)
-            {
-                if (IsPunctuationOnly(tokens[i]))
-                {
-                    tokens.RemoveAt(i);
-                }
-            }
-            weight = tokens.Count;
-            if (tokens.Count == 0)
-            {
-                return 1f;
-            }
+            return 1f;
         }
 
         int translated = 0;
+        int heldCount = 0;
         for (int i = 0; i < tokens.Count; i++)
         {
             string tok = tokens[i];
-            bool hasLetter = HasLetter(tok);
-            bool hasDigit = HasDigit(tok);
-            bool letterOK = !hasLetter || (missingVocab & VocabularyBucketFor(tok)) == 0;
-            bool digitOK = !hasDigit || numbersKnown;
+            bool letterOK = !HasLetter(tok) || IsWordKnown(tok, seed, coverage.vocabulary);
+            bool digitOK = !HasDigit(tok) || IsNumberKnown(tok, seed, coverage.numbers);
             if (letterOK && digitOK)
             {
                 translated++;
             }
+            if (held[i])
+            {
+                heldCount++;
+            }
         }
+        int inPlace = tokens.Count - heldCount == 1 ? heldCount + 1 : heldCount;
         float translatedPct = (float)translated / tokens.Count;
-
-        float orderPct;
-        if (grammarKnown || tokens.Count <= 1)
-        {
-            orderPct = 1f;
-        }
-        else
-        {
-            // Replay the same single Fisher-Yates Scramble runs over the
-            // post-strip word tokens. Counting fixed points gives the
-            // exact fraction of words that would land at their original
-            // index.
-            int shuffleSeed = StableSeed(language.displayName.ToString()) ^ unchecked((int)0xDEADBEEF);
-            int[] perm = new int[tokens.Count];
-            for (int i = 0; i < perm.Length; i++)
-            {
-                perm[i] = i;
-            }
-            Random rng = new Random(shuffleSeed);
-            for (int i = tokens.Count - 1; i > 0; i--)
-            {
-                int j = rng.Next(i + 1);
-                (perm[i], perm[j]) = (perm[j], perm[i]);
-            }
-            int fixedPoints = 0;
-            for (int i = 0; i < perm.Length; i++)
-            {
-                if (perm[i] == i)
-                {
-                    fixedPoints++;
-                }
-            }
-            orderPct = (float)fixedPoints / tokens.Count;
-        }
-
+        float orderPct = (float)inPlace / tokens.Count;
         return translatedPct * ((1f - grammarWeight) + orderPct * grammarWeight);
     }
 
@@ -366,8 +295,8 @@ public static class TextScrambler
     }
 
     // Digits become the language's own numeral glyphs when it has a script,
-    // else a stable letter substitution. Deliberately independent of the
-    // word's vocabulary bucket: a known word holding an unknown quantity
+    // else a stable letter substitution. Deliberately independent of whether the
+    // word is known: a known word holding an unknown quantity
     // ("12 stones") should read as the word plus an unreadable number.
     static string SubstituteDigits(string token, int[] digitPerm, int glyphBase)
     {
@@ -405,7 +334,7 @@ public static class TextScrambler
 
     // With a glyphBase the token is rewritten into that language's script and
     // the result is unicameral — 'A' and 'a' are one glyph, since capitalization
-    // is part of the structural layer Grammar gates and no invented script here
+    // is part of the structure grammar teaches and no invented script here
     // has a second case. Without one the cipher stays in Latin and keeps case.
     //
     // ASCII a-z maps through `perm` and so stays a bijection: a given letter is
@@ -474,36 +403,56 @@ public static class TextScrambler
         }
     }
 
-    // Fisher-Yates over the entire token list — when Grammar is missing
-    // there are no sentence boundaries (terminator tokens like "." were
-    // either folded into words and stripped, or were standalone and
-    // dropped by StripPunctuation), so the whole text shuffles as one
-    // block.
-    static void ShuffleAll(List<string> tokens, int seed)
+    // Sattolo's algorithm over the loose positions only: one cycle through
+    // all of them, so no loose word lands back where it started — "not in the
+    // right order" is then always true, which is what ComputeComprehension
+    // counts. A single loose position has nowhere to go and stays.
+    static void RotateLoose(List<string> tokens, List<bool> held, int seed)
     {
-        Random rng = new Random(seed);
-        for (int i = tokens.Count - 1; i > 0; i--)
+        List<int> loose = new List<int>();
+        for (int i = 0; i < tokens.Count; i++)
         {
-            int j = rng.Next(i + 1);
-            (tokens[i], tokens[j]) = (tokens[j], tokens[i]);
+            if (!held[i])
+            {
+                loose.Add(i);
+            }
+        }
+        if (loose.Count < 2)
+        {
+            return;
+        }
+        string[] words = new string[loose.Count];
+        for (int i = 0; i < words.Length; i++)
+        {
+            words[i] = tokens[loose[i]];
+        }
+        Random rng = new Random(seed);
+        for (int i = words.Length - 1; i > 0; i--)
+        {
+            int j = rng.Next(i);
+            (words[i], words[j]) = (words[j], words[i]);
+        }
+        for (int i = 0; i < words.Length; i++)
+        {
+            tokens[loose[i]] = words[i];
         }
     }
 
-    // Removes every token whose characters are all non-letter/non-digit
-    // (standalone "—", "...", or a " , " typed with surrounding spaces),
-    // strips any remaining non-letter/digit chars from word tokens, and
-    // lowercases ASCII A-Z ("don't" → "dont", "Hello," → "hello",
-    // "1,000" → "1000"). Separators around a dropped token are merged
-    // so reassembly stays aligned (separators.Count == tokens.Count + 1)
-    // and line breaks survive. Only called when Grammar is missing —
-    // without that component the player has no notion of structural
-    // markers (punctuation, capitalization, sentence boundaries), so
-    // they don't see them.
-    static void StripPunctuation(List<string> tokens, List<string> separators)
+    // A loose token loses its punctuation and case — those belong to the
+    // structure grammar teaches ("don't" → "dont", "Hello," → "hello",
+    // "1,000" → "1000"); one that was nothing but punctuation ("—", "...")
+    // drops out, its separators merged so reassembly stays aligned
+    // (separators.Count == tokens.Count + 1) and line breaks survive. Held
+    // tokens are left exactly as authored. `held` is kept parallel to `tokens`.
+    static void StripLoose(List<string> tokens, List<string> separators, List<bool> held)
     {
         StringBuilder sb = new StringBuilder();
         for (int i = tokens.Count - 1; i >= 0; i--)
         {
+            if (held[i])
+            {
+                continue;
+            }
             string tok = tokens[i];
             sb.Clear();
             for (int j = 0; j < tok.Length; j++)
@@ -522,27 +471,13 @@ public static class TextScrambler
                 separators[i + 1] = separators[i] + separators[i + 1];
                 tokens.RemoveAt(i);
                 separators.RemoveAt(i);
+                held.RemoveAt(i);
             }
             else
             {
                 tokens[i] = sb.ToString();
             }
         }
-    }
-
-    // A whitespace-bounded token with no letters and no digits — the
-    // standalone-punctuation case ComputeComprehension drops to mirror
-    // Scramble's StripPunctuation pass.
-    static bool IsPunctuationOnly(string token)
-    {
-        for (int i = 0; i < token.Length; i++)
-        {
-            if (char.IsLetterOrDigit(token[i]))
-            {
-                return false;
-            }
-        }
-        return true;
     }
 
     static int[] BuildPermutation(int seed, int size)

@@ -22,6 +22,7 @@ layout_mode = 2
 
 [node name="Label" type="Label" parent="VBoxContainer/PanelContainer" unique_id=552168849]
 layout_mode = 2
+theme_type_variation = &"DisplayLabel"
 text = "Pack"
 horizontal_alignment = 1
 vertical_alignment = 1

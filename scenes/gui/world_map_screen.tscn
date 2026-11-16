@@ -38,22 +38,6 @@ shader_parameter/mask_radius = 0.7071
 shader_parameter/mask_softness = 0.0
 shader_parameter/min_reveal = 0.0
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_wmap"]
-content_margin_left = 16.0
-content_margin_top = 12.0
-content_margin_right = 16.0
-content_margin_bottom = 12.0
-bg_color = Color(0.05, 0.05, 0.08, 0.95)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.85, 0.78, 0.55, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
-
 [node name="WorldMapScreen" type="Control" unique_id=590275791 node_paths=PackedStringArray("mapView", "overviewViewport", "overviewSurface", "overviewRect", "detailViewport", "detailSurface", "detailRect", "regionLabels", "mapSelectorButton", "mapList", "selectMapButtonHint")]
 layout_mode = 3
 anchors_preset = 15
@@ -118,7 +102,7 @@ anchor_top = 0.1
 anchor_right = 0.9
 anchor_bottom = 0.9
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_wmap")
+theme_type_variation = &"ParchmentLargePanel"
 
 [node name="MarginContainer" type="MarginContainer" parent="Panel" unique_id=1836099372]
 layout_mode = 2
@@ -135,6 +119,7 @@ theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="Panel/MarginContainer/VBoxContainer" unique_id=964114756]
 layout_mode = 2
+theme_type_variation = &"ParchmentTitle"
 theme_override_font_sizes/font_size = 32
 text = "World Map"
 horizontal_alignment = 1
@@ -189,6 +174,7 @@ layout_mode = 2
 
 [node name="MapButton" type="Button" parent="Panel/MarginContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=1902027556]
 layout_mode = 2
+theme_type_variation = &"ParchmentFrameButton"
 
 [node name="ButtonHint" parent="Panel/MarginContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=959365210 instance=ExtResource("5_mr766")]
 layout_mode = 2

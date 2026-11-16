@@ -650,11 +650,20 @@ style, because it is the part that varies per spot; a spot with nothing buried i
 refused at bake, and `worldmap_check` counts them.
 
 **A knowledge stone is the same shape.** `knowledge_stone` carries only its
-scene; the placement picks the `language`, the `components` it teaches and the
-inscription `text`, and the hover names it by what it teaches
-(`knowledge_stone: vyeshal Vocabulary2`). A stone with no language teaches
-nothing and is refused at bake, as a signpost with no text is — the language is
-a proper noun, so the shared entry carries no default for it.
+scene; the placement picks its `inscription` (an `InscriptionData` file: text +
+language) and the `lesson` and `percent` it teaches — of the tongue the
+inscription is written in — and the hover names it by what it teaches
+(`knowledge_stone: vyeshal lesson 2 (40%)`). A stone whose inscription is in no
+language teaches nothing and is refused at bake, as a signpost with no
+inscription is — the language is a proper noun, so the shared entry carries no
+default for it.
+
+**Signs and stones PICK their words; nobody types them in the panel.** An
+inscription is its own `.tres` (`worlds/<world>/inscriptions/` or
+`worlds/shared/inscriptions/`), offered by the same world-scoped resource
+picker as a conversation, so one inscription can stand at several placements
+and a typo is fixed in one file without a rebake. The hover names a signpost by
+its inscription file (`signpost: ilunas_way`).
 
 **A chest's loot is a list on the placement**: `chest` (and `poison_chest`, the
 same scene with a `trap` set — a trap is per placement too, picked from the
@@ -673,7 +682,7 @@ non-stackable one (`ItemCountRange.AppendStates`, the chest's own rule). A drop
 with no item is refused at bake, and `worldmap_check` counts them.
 
 **A placed entity's properties ARE its entry's**, edited in the panel top-right
-(`WorldMapEntityInspector`) — the text on a signpost, the conditions on a chest,
+(`WorldMapEntityInspector`) — the inscription on a signpost, the conditions on a chest,
 the descriptor on a mob. There is no parallel set of per-placement overrides,
 because a `SpawnEntryData` subclass already exports exactly the fields its entity
 type needs; the panel REFLECTS them, so an entry type written tomorrow is
@@ -719,19 +728,19 @@ the bit so nothing depends on menu order, and both a zero member (`None`) and an
 MULTI-BIT alias (`All`) are skipped — neither is independently togglable, and an
 alias item toggles several primaries at once with an ambiguous checked state of
 its own. That last rule is what the checkbox version was missing: the knowledge
-stone's `ELanguageComponents` has `All = Grammar | Numbers | Vocabulary1 |
-Vocabulary2 | Vocabulary3 | Vocabulary4 | Vocabulary5`, and it drew as a checkbox that flipped four bits.
+stone's old component enum had an `All` alias over every component, and it drew
+as a checkbox that flipped four bits.
 
 **It must not be FLAT**, which is a `MenuButton`'s default: flat, it draws as
 bare text beside the property name, identical to a read-only value, and the
-knowledge stone's `components` was taken for one — settable all along, and
+knowledge stone's `components` (since replaced by a lesson number) was taken for one — settable all along, and
 nobody could tell. It is framed and carries the `OptionButton` theme's arrow, so
 it reads as the same kind of control as the enum and resource rows around it.
 
 **The panel is pushed on selection CHANGE, not per frame.** It rides `UpdateHud`,
 and a click on the map reaches neither on its own — so a selection made by
 clicking left the panel showing the entry it was last built for (the previous
-signpost's text, or nothing at all for the first selection of a session) until a
+entry's text, or nothing at all for the first selection of a session) until a
 tool or option change happened to refresh it. Per frame is not the answer: a
 rebuild destroys the widget being typed into.
 
@@ -757,7 +766,7 @@ panel title, the hover readout, the palette-match highlight and
 fields for undo.
 
 **Text applies as it is TYPED**, and the multiline rows are why it cannot be on
-Enter: a signpost's text is several lines, so Enter is a NEWLINE there and never a
+Enter: a multiline field holds several lines, so Enter is a NEWLINE there and never a
 commit. Committing on Enter-or-focus-exit therefore left clicking away as the
 only way to save one — and nothing in the painter takes focus away (the map
 canvas is `FOCUS_NONE`, so clicking the map leaves the box focused), so typing and
@@ -775,7 +784,7 @@ Ctrl+S and whenever the panel switches entities, because the rows that are NOT
 text (a `SpinBox` being typed into) still apply on focus-exit. Two rules keep
 that safe: rows read and write through the placement they were BUILT for
 (`_rowsOwner`), not through the one currently shown, or a write fired while the
-panel is already switching lands one signpost's text on the next one selected;
+panel is already switching lands one placement's text on the next one selected;
 and a write whose value has not moved is dropped, since focus-exit fires for a
 box merely clicked into and forking the palette entry for that would silently
 stop the placement tracking the palette.

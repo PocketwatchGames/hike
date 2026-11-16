@@ -32,7 +32,6 @@ size = Vector3(2, 3, 2)
 script = ExtResource("1_sign")
 _hudNode = NodePath("HUDNode")
 _actions = Array[ExtResource("3_action")]([SubResource("Resource_sign_action")])
-_text = "A wooden sign. The lettering is faded but readable."
 
 [node name="SignModel" type="Node3D" parent="." unique_id=990798961]
 script = ExtResource("6_autocoll")

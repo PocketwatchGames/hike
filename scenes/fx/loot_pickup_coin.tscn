@@ -31,7 +31,7 @@ shader_parameter/emission = Color(0, 0, 0, 0)
 material = SubResource("ShaderMaterial_lootpickup")
 size = Vector2(0.1, 0.1)
 
-[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_lootpickup"]
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_coin"]
 playback_mode = 1
 random_pitch = 1.1
 random_volume_offset_db = 2.0
@@ -42,7 +42,7 @@ stream_2/stream = ExtResource("2_p03")
 stream_3/stream = ExtResource("2_p04")
 stream_4/stream = ExtResource("2_p05")
 
-[node name="LootPickup" type="Node3D" unique_id=965233316]
+[node name="LootPickupCoin" type="Node3D" unique_id=965233316]
 script = ExtResource("1_oneshot")
 
 [node name="Sparkle" type="GPUParticles3D" parent="." unique_id=1255367264]
@@ -56,7 +56,7 @@ process_material = SubResource("ParticleProcessMaterial_lootpickup")
 draw_pass_1 = SubResource("QuadMesh_lootpickup")
 
 [node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=1852157817]
-stream = SubResource("AudioStreamRandomizer_lootpickup")
+stream = SubResource("AudioStreamRandomizer_coin")
 volume_db = 3.0
 unit_size = 6.0
 max_distance = 40.0

@@ -36,13 +36,14 @@ public class Knowledge
     // Per-species bestiary discovery — the set of species this store has charted.
     // Unioned across party+individual on read and on merge.
     public readonly HashSet<SpeciesData> DiscoveredSpecies = new();
-    // Per-language learned component bitset; a missing key = fully unknown.
-    public readonly Dictionary<LanguageData, ELanguageComponents> LearnedLanguages = new();
+    // Per language: lesson number -> the percent it taught (see LanguageData).
+    // A missing key = nothing learned.
+    public readonly Dictionary<LanguageData, Dictionary<int, float>> LearnedLessons = new();
     // Characters introduced by name, keyed by their conversation - it is the one
     // resource per authored character (see ConversationData.nameLocKey).
     public readonly HashSet<ConversationData> KnownNames = new();
 
-    // Fold `other` into this store: union the sets, OR language component bits.
+    // Fold `other` into this store: union the sets, and per lesson keep the larger percent.
     // Used to bank a member's field knowledge into the permanent
     // party pool. Returns the categories that gained something new here, so the
     // campfire bank can announce exactly what was committed.
@@ -69,16 +70,19 @@ public class Knowledge
         int namesBefore = KnownNames.Count;
         KnownNames.UnionWith(other.KnownNames);
         if (KnownNames.Count > namesBefore) { changed |= EKnowledgeCategory.Name; }
-        foreach (KeyValuePair<LanguageData, ELanguageComponents> kv in other.LearnedLanguages)
+        foreach (KeyValuePair<LanguageData, Dictionary<int, float>> kv in other.LearnedLessons)
         {
             if (kv.Key == null)
             {
                 continue;
             }
-            LearnedLanguages.TryGetValue(kv.Key, out ELanguageComponents existing);
-            ELanguageComponents merged = existing | kv.Value;
-            if (merged != existing) { changed |= EKnowledgeCategory.Language; }
-            LearnedLanguages[kv.Key] = merged;
+            foreach (KeyValuePair<int, float> lesson in kv.Value)
+            {
+                if (RecordLesson(kv.Key, lesson.Key, lesson.Value))
+                {
+                    changed |= EKnowledgeCategory.Language;
+                }
+            }
         }
 
         return changed;
@@ -91,11 +95,16 @@ public class Knowledge
         WriteSet(w, DiscoveredRecipes);
         WriteSet(w, DiscoveredSpecies);
         WriteSet(w, KnownNames);
-        w.Write(LearnedLanguages.Count);
-        foreach (KeyValuePair<LanguageData, ELanguageComponents> kv in LearnedLanguages)
+        w.Write(LearnedLessons.Count);
+        foreach (KeyValuePair<LanguageData, Dictionary<int, float>> kv in LearnedLessons)
         {
             EntitySerializer.WriteRef(w, kv.Key);
-            w.Write((int)kv.Value);
+            w.Write(kv.Value.Count);
+            foreach (KeyValuePair<int, float> lesson in kv.Value)
+            {
+                w.Write(lesson.Key);
+                w.Write(lesson.Value);
+            }
         }
     }
 
@@ -110,12 +119,34 @@ public class Knowledge
         for (int i = 0; i < languages; i++)
         {
             LanguageData language = EntitySerializer.ReadRef<LanguageData>(r);
-            var components = (ELanguageComponents)r.ReadInt32();
-            if (language != null)
+            int lessons = r.ReadInt32();
+            for (int j = 0; j < lessons; j++)
             {
-                LearnedLanguages[language] = components;
+                int lesson = r.ReadInt32();
+                float percent = r.ReadSingle();
+                if (language != null)
+                {
+                    RecordLesson(language, lesson, percent);
+                }
             }
         }
+    }
+
+    // Keeps the larger percent if the lesson is already held. True when that
+    // changed anything.
+    public bool RecordLesson(LanguageData language, int lesson, float percent)
+    {
+        if (!LearnedLessons.TryGetValue(language, out Dictionary<int, float> lessons))
+        {
+            lessons = new Dictionary<int, float>();
+            LearnedLessons[language] = lessons;
+        }
+        if (lessons.TryGetValue(lesson, out float existing) && existing >= percent)
+        {
+            return false;
+        }
+        lessons[lesson] = percent;
+        return true;
     }
 
     private static void WriteSet<T>(BinaryWriter w, HashSet<T> set) where T : Resource
@@ -146,6 +177,6 @@ public class Knowledge
         DiscoveredRecipes.Clear();
         DiscoveredSpecies.Clear();
         KnownNames.Clear();
-        LearnedLanguages.Clear();
+        LearnedLessons.Clear();
     }
 }

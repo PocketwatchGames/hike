@@ -469,7 +469,8 @@ public static class EntitySerializer
                     LoyaltyGiftState gift = mob.LoyaltyGifts[i];
                     WriteItemState(w, gift?.item);
                     WriteResource(w, gift?.language);
-                    w.Write((int)(gift?.languageComponents ?? ELanguageComponents.None));
+                    w.Write(gift?.languageLesson ?? 0);
+                    w.Write(gift?.languagePercent ?? 0f);
                     w.Write(gift?.requiredLoyalty ?? 0f);
                 }
                 int giftCountsCount = mob.GiftCounts?.Count ?? 0;
@@ -624,39 +625,34 @@ public static class EntitySerializer
                 w.Write((byte)Tag.Signpost);
                 WriteVec3(w, signpost.WorldPosition);
                 WriteScene(w, signpost.Scene);
-                WriteResource(w, signpost.Language);
-                w.Write(signpost.Text ?? string.Empty);
+                WriteResource(w, signpost.Inscription);
                 break;
 
             case KnowledgeStoneSimState stone:
                 w.Write((byte)Tag.KnowledgeStone);
                 WriteVec3(w, stone.WorldPosition);
                 WriteScene(w, stone.Scene);
-                // Wire shape: inscription language + a flat language-component
-                // bitset that the loader synthesizes back into a single
-                // LanguageTeachable concept. The full polymorphic concept
-                // array isn't persisted here — authored stones with non-
-                // language concepts (recipes / regions) lean on the scene's
-                // _concepts override path and don't ride this slot. When the
-                // editor lands and needs to author arbitrary concepts on
-                // placed stones, extend the wire format with a typed concept
-                // list and bump the format version.
-                LanguageData wireLanguage = stone.InscriptionLanguage;
-                ELanguageComponents wireComponents = ELanguageComponents.None;
+                // Wire shape: the inscription + one lesson and its percent,
+                // which the loader synthesizes back into a single
+                // LanguageTeachable concept in the inscription's language. The
+                // full polymorphic concept array isn't persisted here — authored
+                // stones with non-language concepts (recipes / regions) lean on
+                // the scene's _concepts override path and don't ride this slot.
+                LanguageTeachable wireLesson = null;
                 if (stone.Concepts != null)
                 {
-                    for (int i = 0; i < stone.Concepts.Count; i++)
+                    int conceptCount = stone.Concepts.Count;
+                    for (int i = 0; i < conceptCount && wireLesson == null; i++)
                     {
                         if (stone.Concepts[i] is LanguageTeachable lt && lt.language != null)
                         {
-                            wireLanguage ??= lt.language;
-                            if (lt.language == wireLanguage) { wireComponents |= lt.components; }
+                            wireLesson = lt;
                         }
                     }
                 }
-                WriteResource(w, wireLanguage);
-                w.Write((int)wireComponents);
-                w.Write(stone.Text ?? string.Empty);
+                WriteResource(w, stone.Inscription);
+                w.Write(wireLesson?.lesson ?? 0);
+                w.Write(wireLesson?.percent ?? 0f);
                 break;
 
             case FireTrapSimState fire:
@@ -959,7 +955,8 @@ public static class EntitySerializer
                     {
                         item = ReadItemState(r),
                         language = ReadResource<LanguageData>(r),
-                        languageComponents = (ELanguageComponents)r.ReadInt32(),
+                        languageLesson = r.ReadInt32(),
+                        languagePercent = r.ReadSingle(),
                         requiredLoyalty = r.ReadSingle(),
                     });
                 }
@@ -1150,30 +1147,27 @@ public static class EntitySerializer
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
-                var languageData = ReadResource<LanguageData>(r);
-                string text = r.ReadString();
-                return new SignpostSimState(pos, scene, text, languageData);
+                var inscription = ReadResource<InscriptionData>(r);
+                return new SignpostSimState(pos, scene, inscription);
             }
             case Tag.KnowledgeStone:
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
-                var languageData = ReadResource<LanguageData>(r);
-                var components = (ELanguageComponents)r.ReadInt32();
-                string text = r.ReadString();
+                var inscription = ReadResource<InscriptionData>(r);
+                int lesson = r.ReadInt32();
+                float percent = r.ReadSingle();
+                LanguageData languageData = inscription?.language;
                 // Reconstruct the SimState concept override list from the
-                // wire's language + components bitset — old .hike files
-                // taught one language component bundle per stone, and that's
-                // still the shape this Tag.KnowledgeStone wire encodes. A
-                // None components value means "no override" — leave Concepts
-                // null so KnowledgeStone.Create falls back to the scene's
-                // authored _concepts array.
+                // inscription's language + the wire's lesson. A zero percent means "no override"
+                // — leave Concepts null so KnowledgeStone.Create falls back to
+                // the scene's authored _concepts array.
                 Godot.Collections.Array<TeachableConcept> concepts = null;
-                if (languageData != null && components != ELanguageComponents.None)
+                if (languageData != null && percent > 0f)
                 {
-                    concepts = new() { new LanguageTeachable { language = languageData, components = components } };
+                    concepts = new() { new LanguageTeachable { language = languageData, lesson = lesson, percent = percent } };
                 }
-                return new KnowledgeStoneSimState(pos, scene, text, languageData, concepts);
+                return new KnowledgeStoneSimState(pos, scene, inscription, concepts);
             }
             case Tag.FireTrap:
             {

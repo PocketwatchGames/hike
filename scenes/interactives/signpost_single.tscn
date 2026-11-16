@@ -1,0 +1,58 @@
+[gd_scene format=3 uid="uid://bua6ug8jo6mgk"]
+
+[ext_resource type="Script" uid="uid://bsgnpst1laq4m" path="res://scripts/gameplay/entities/Signpost.cs" id="1_sign"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_ibox"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Texture2D" uid="uid://cekrs1qg2sois" path="res://assets/textures/interactions/look.png" id="5_look"]
+[ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="6_autocoll"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="7_meshhl"]
+[ext_resource type="PackedScene" uid="uid://xyf46qektbj5" path="res://assets/models/signpost/signpost_single.fbx" id="8_signfbx"]
+[ext_resource type="Script" uid="uid://dsaesfmav28u8" path="res://scripts/gameplay/minimap/MinimapFoliageStamp.cs" id="9_minimap"]
+
+[sub_resource type="Resource" id="Resource_single_event"]
+script = ExtResource("4_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_single_action"]
+script = ExtResource("3_action")
+displayName = &"Read"
+icon = ExtResource("5_look")
+completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_single_event")])
+durationSeconds = 0.5
+locksMovement = true
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_single_interact"]
+size = Vector3(1.8, 2.6, 1.8)
+
+[node name="SignpostSingle" type="Node3D" node_paths=PackedStringArray("_hudNode")]
+script = ExtResource("1_sign")
+_hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("3_action")]([SubResource("Resource_single_action")])
+
+[node name="SignModel" type="Node3D" parent="."]
+script = ExtResource("6_autocoll")
+
+[node name="signpost_single" parent="SignModel" instance=ExtResource("8_signfbx")]
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("2_ibox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+shape = SubResource("BoxShape3D_single_interact")
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("7_meshhl")
+_collectFrom = NodePath("../SignModel")
+
+[node name="MinimapStamp" type="Node3D" parent="."]
+script = ExtResource("9_minimap")
+MinimapFoliageId = 5
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4, 0)

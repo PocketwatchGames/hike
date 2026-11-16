@@ -1,11 +1,14 @@
-[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://45twv92ziyfu6"]
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://c3ytrvm8kkbkt"]
 
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="1_6oc07"]
 [ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_loot_data"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="2_n464q"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="4_c11n3"]
 
 [resource]
 script = ExtResource("1_loot_data")
-categoryOverride = 6
 satiation = 0.05
 displayName = &"Mushroom"
 maxStack = 99
 spoilDays = 3
+categoryOverride = 6

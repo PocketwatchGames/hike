@@ -42,6 +42,9 @@ public partial class ConversationController : Control
 	[Export] PackedScene responseOptionScene;
 	[Export] Control responseOptionsContainer;
 	[Export] Control responseContainer;
+	// The player's press that finishes the typing line, moves to the next
+	// one, or picks a response.
+	[Export] AudioStreamPlayer advanceSound;
 
 	enum EState { Hidden, Typing, Choosing }
 	EState _state = EState.Hidden;
@@ -109,7 +112,7 @@ public partial class ConversationController : Control
 		// see the same controller reference an OpenShopAction would close.
 		_ctx.controller = this;
 		_ctx.conversation = conversation;
-		Open(ctx.speaker, onClose);
+		Open(ctx.speaker, onClose, inscribed: false);
 
 		// Fire actions AFTER the panel is wired up so an action that wants
 		// to take over the screen (OpenShopAction etc.) can call Close()
@@ -135,7 +138,7 @@ public partial class ConversationController : Control
 		_conversation = null;
 		_currentBranch = null;
 		_ctx = new ConversationContext { player = gameClient?.Player, controller = this };
-		Open(source, onClose);
+		Open(source, onClose, inscribed: true);
 		ShowSpeaker(npcSpeaking: true);
 		RefreshNameBox();
 		_lines.Add(bbcode);
@@ -145,7 +148,7 @@ public partial class ConversationController : Control
 		BeginLine(bbcode);
 	}
 
-	void Open(IInteractive anchor, Action onClose)
+	void Open(IInteractive anchor, Action onClose, bool inscribed)
 	{
 		_onClose = onClose;
 		if (gameClient != null)
@@ -153,7 +156,7 @@ public partial class ConversationController : Control
 			gameClient.InputSuppressed = true;
 		}
 		Visible = true;
-		bubble?.Open(anchor);
+		bubble?.Open(anchor, inscribed);
 	}
 
 	public void Close()
@@ -436,6 +439,7 @@ public partial class ConversationController : Control
 		{
 			return;
 		}
+		advanceSound?.Play();
 		// Fire actions FIRST so an action can close / redirect before the
 		// destination lookup runs.
 		FireActions(response.completeActions, _ctx);
@@ -503,6 +507,7 @@ public partial class ConversationController : Control
 			return;
 		}
 		GetViewport().SetInputAsHandled();
+		advanceSound?.Play();
 
 		if (_lineIndex >= _lines.Count)
 		{

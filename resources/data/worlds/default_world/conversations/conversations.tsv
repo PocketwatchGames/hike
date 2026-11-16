@@ -14,13 +14,17 @@ wanderer_	Tobin	A wanderer resting by the fire			greeting	topics					Well met, t
 					farewell						And to you. I’ll be here a while yet.
 				x	topics	join					Walk them with me, then. Join my party.
 				x	topics	farewell					Safe travels.
-merchant_					shop:greet_trade						What have you brought me?
-					shop:greet_gift						What would you like to trade?
+merchant_					shop:greet_trade						What would you like to trade?
+					shop:greet_gift						What have you brought me?
 					shop:offer_trade						Yes... and what would you like in return?
-					shop:offer_gift						Mmm, let me see...
+					shop:offer_gift						Oh, how generous of you.
+					shop:offer_partial						Some of these I can't take.
+					shop:offer_unwanted						I've no use for any of that.
 					shop:take_back						Changed your mind?
 					shop:pick_stock						That'll cost you.
-					shop:return_stock						Not what you wanted?
+					shop:deal_bad						That's not a good deal.
+					shop:deal_fair						That seems fair.
+					shop:deal_generous						Yes, that's very generous!
 					shop:empty_sack						Empty that sack first.
 					shop:trade_nothing						Nothing to trade.
 					shop:trade_refused						That trade isn't worth my while.

@@ -65,10 +65,16 @@
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/well.tres" id="64_p408l"]
 [ext_resource type="Script" path="res://scripts/data/SubscenePlacement.cs" id="64_upae5"]
 [ext_resource type="Resource" path="res://resources/data/characters/elites/elite_poison.tres" id="65_g6wiu"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/shop_sign.tscn" id="65_upae5"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/shop_sign.tres" id="66_mxty6"]
 [ext_resource type="Script" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="66_wdkrc"]
 [ext_resource type="Resource" path="res://resources/data/characters/goblin/goblin_swamp.tres" id="67_upae5"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/mobs/goblin/goblin_swamp_elite.tres" id="68_mxty6"]
 [ext_resource type="Script" path="res://scripts/data/SubsceneEntityOverride.cs" id="69_g6wiu"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/portcullis.tscn" id="75_odsir"]
+[ext_resource type="Resource" path="res://resources/data/worlds/antica/inscriptions/ilunas_way.tres" id="insc_0"]
+[ext_resource type="Resource" path="res://resources/data/worlds/antica/inscriptions/vyeshal_stone_lesson_8.tres" id="insc_1"]
+[ext_resource type="Resource" path="res://resources/data/worlds/antica/inscriptions/ilunas_rest.tres" id="insc_2"]
 [ext_resource type="Script" path="res://scripts/data/items/ItemDescriptor.cs" id="itemdesc_mig"]
 
 [sub_resource type="Resource" id="Resource_7s08i"]
@@ -94,7 +100,7 @@ source = ExtResource("9_tf1ad")
 
 [sub_resource type="Resource" id="Resource_uauec"]
 script = ExtResource("7_1qx4t")
-anchorXZ = Vector2i(86, 198)
+anchorXZ = Vector2i(86, 200)
 source = ExtResource("9_tf1ad")
 
 [sub_resource type="Resource" id="Resource_ki3pu"]
@@ -167,7 +173,8 @@ custom = SubResource("Resource_y7d5i")
 
 [sub_resource type="Resource" id="Resource_1l3hx"]
 script = ExtResource("7_1qx4t")
-anchorXZ = Vector2i(39, 191)
+anchorXZ = Vector2i(35, 189)
+facing = 2
 source = ExtResource("32_esoxi")
 
 [sub_resource type="Resource" id="Resource_esoxi"]
@@ -229,7 +236,7 @@ disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_hoevj"]
 script = ExtResource("7_1qx4t")
-anchorXZ = Vector2i(33, 191)
+anchorXZ = Vector2i(33, 193)
 facing = 6
 source = ExtResource("32_cim0t")
 custom = SubResource("Resource_7yhs3")
@@ -332,8 +339,7 @@ source = ExtResource("9_tf1ad")
 [sub_resource type="Resource" id="Resource_rb5st"]
 script = ExtResource("54_p408l")
 scene = ExtResource("53_4vgdq")
-text = "Iluna's Way"
-language = ExtResource("19_esoxi")
+inscription = ExtResource("insc_0")
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_og6bv"]
@@ -350,8 +356,9 @@ source = ExtResource("56_0ywsg")
 [sub_resource type="Resource" id="Resource_4ye3p"]
 script = ExtResource("53_p408l")
 scene = ExtResource("52_4vgdq")
-language = ExtResource("19_esoxi")
-components = 124
+inscription = ExtResource("insc_1")
+lesson = 8
+percent = 60.0
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_ou7c5"]
@@ -518,6 +525,31 @@ script = ExtResource("7_1qx4t")
 anchorXZ = Vector2i(78, 178)
 source = ExtResource("9_tf1ad")
 
+[sub_resource type="Resource" id="Resource_7lvgo"]
+script = ExtResource("54_p408l")
+scene = ExtResource("65_upae5")
+inscription = ExtResource("insc_2")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_tyokh"]
+script = ExtResource("7_1qx4t")
+anchorXZ = Vector2i(64, 174)
+facing = 2
+source = ExtResource("66_mxty6")
+custom = SubResource("Resource_7lvgo")
+
+[sub_resource type="Resource" id="Resource_70gfp"]
+script = ExtResource("7_1qx4t")
+anchorXZ = Vector2i(60, 169)
+facing = 2
+source = ExtResource("63_wdkrc")
+
+[sub_resource type="Resource" id="Resource_i2fbn"]
+script = ExtResource("7_1qx4t")
+anchorXZ = Vector2i(60, 176)
+facing = 2
+source = ExtResource("63_wdkrc")
+
 [sub_resource type="Resource" id="Resource_kkc0b"]
 script = ExtResource("64_upae5")
 path = "res://resources/data/world_authoring/subscenes/small_broken_house.hikescene"
@@ -541,13 +573,24 @@ script = ExtResource("69_g6wiu")
 entityId = 2
 custom = SubResource("Resource_5uspq")
 
+[sub_resource type="Resource" id="Resource_vuk2g"]
+script = ExtResource("37_y7d5i")
+scene = ExtResource("75_odsir")
+lockData = ExtResource("35_bto32")
+disabledVariable = &""
+
+[sub_resource type="Resource" id="Resource_p1fgo"]
+script = ExtResource("69_g6wiu")
+entityId = 6
+custom = SubResource("Resource_vuk2g")
+
 [sub_resource type="Resource" id="Resource_pdibh"]
 script = ExtResource("64_upae5")
 path = "res://resources/data/world_authoring/subscenes/bridge_entrance.hikescene"
 anchorXZ = Vector2i(63, 161)
 yOffset = 4
 fixedY = 2
-entityOverrides = [SubResource("Resource_jgumg")]
+entityOverrides = [SubResource("Resource_jgumg"), SubResource("Resource_p1fgo")]
 
 [sub_resource type="Resource" id="Resource_37k6u"]
 script = ExtResource("64_upae5")
@@ -589,6 +632,6 @@ fixedY = 2
 [resource]
 script = ExtResource("1_ghrgx")
 placements = [SubResource("Resource_kkc0b"), SubResource("Resource_s82tm"), SubResource("Resource_pdibh"), SubResource("Resource_37k6u"), SubResource("Resource_3nkm1"), SubResource("Resource_fcimt"), SubResource("Resource_xim08"), SubResource("Resource_r2i2v"), SubResource("Resource_72rig")]
-entities = [SubResource("Resource_6skfk"), SubResource("Resource_biew4"), SubResource("Resource_uauec"), SubResource("Resource_ki3pu"), SubResource("Resource_tnxmk"), SubResource("Resource_tf1ad"), SubResource("Resource_1qx4t"), SubResource("Resource_q6pm2"), SubResource("Resource_0sbeh"), SubResource("Resource_1l3hx"), SubResource("Resource_bto32"), SubResource("Resource_hoevj"), SubResource("Resource_tfvip"), SubResource("Resource_upae5"), SubResource("Resource_mxty6"), SubResource("Resource_len05"), SubResource("Resource_87wr4"), SubResource("Resource_odsir"), SubResource("Resource_kq0fb"), SubResource("Resource_53cks"), SubResource("Resource_wcwq6"), SubResource("Resource_1wcul"), SubResource("Resource_k8rsf"), SubResource("Resource_bodnb"), SubResource("Resource_n5m4u"), SubResource("Resource_0vt3u"), SubResource("Resource_ohxtm"), SubResource("Resource_b0eil"), SubResource("Resource_og6bv"), SubResource("Resource_grigp"), SubResource("Resource_ou7c5"), SubResource("Resource_35503"), SubResource("Resource_a3q8t"), SubResource("Resource_61vef"), SubResource("Resource_0wuby"), SubResource("Resource_eaidk"), SubResource("Resource_bnkyu"), SubResource("Resource_y6bqp"), SubResource("Resource_0lonx"), SubResource("Resource_yd32f"), SubResource("Resource_54585"), SubResource("Resource_w3fjj"), SubResource("Resource_cvfvb"), SubResource("Resource_88djj"), SubResource("Resource_ud8eg"), SubResource("Resource_nfewt"), SubResource("Resource_4vgdq"), SubResource("Resource_p408l"), SubResource("Resource_6qgqu"), SubResource("Resource_wwrru"), SubResource("Resource_wdkrc")]
+entities = [SubResource("Resource_6skfk"), SubResource("Resource_biew4"), SubResource("Resource_uauec"), SubResource("Resource_ki3pu"), SubResource("Resource_tnxmk"), SubResource("Resource_tf1ad"), SubResource("Resource_1qx4t"), SubResource("Resource_q6pm2"), SubResource("Resource_0sbeh"), SubResource("Resource_1l3hx"), SubResource("Resource_bto32"), SubResource("Resource_hoevj"), SubResource("Resource_tfvip"), SubResource("Resource_upae5"), SubResource("Resource_mxty6"), SubResource("Resource_len05"), SubResource("Resource_87wr4"), SubResource("Resource_odsir"), SubResource("Resource_kq0fb"), SubResource("Resource_53cks"), SubResource("Resource_wcwq6"), SubResource("Resource_1wcul"), SubResource("Resource_k8rsf"), SubResource("Resource_bodnb"), SubResource("Resource_n5m4u"), SubResource("Resource_0vt3u"), SubResource("Resource_ohxtm"), SubResource("Resource_b0eil"), SubResource("Resource_og6bv"), SubResource("Resource_grigp"), SubResource("Resource_ou7c5"), SubResource("Resource_35503"), SubResource("Resource_a3q8t"), SubResource("Resource_61vef"), SubResource("Resource_0wuby"), SubResource("Resource_eaidk"), SubResource("Resource_bnkyu"), SubResource("Resource_y6bqp"), SubResource("Resource_0lonx"), SubResource("Resource_yd32f"), SubResource("Resource_54585"), SubResource("Resource_w3fjj"), SubResource("Resource_cvfvb"), SubResource("Resource_88djj"), SubResource("Resource_ud8eg"), SubResource("Resource_nfewt"), SubResource("Resource_4vgdq"), SubResource("Resource_p408l"), SubResource("Resource_6qgqu"), SubResource("Resource_wwrru"), SubResource("Resource_wdkrc"), SubResource("Resource_tyokh"), SubResource("Resource_70gfp"), SubResource("Resource_i2fbn")]
 hasSpawn = true
 spawnXZ = Vector2i(60, 216)

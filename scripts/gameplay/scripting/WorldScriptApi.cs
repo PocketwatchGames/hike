@@ -32,6 +32,12 @@ public class WorldScriptApi
 
     public void AddInt(StringName id, long delta) => Vars?.AddInt(id, delta);
 
+    // Runs `then` once, this many seconds of sim time from now (it pauses with
+    // the game). Lost if the run ends first — a save is a sunrise wake — so a
+    // delay must not carry anything that has to survive one; that is a script
+    // variable.
+    public void After(double seconds, System.Action<WorldScriptApi> then) => _sim.ScheduleScriptDelay(seconds, then);
+
     // Every door an author gave this name (a painter placement's name), opened
     // or closed whether or not it is streamed in. False, with an error, when no
     // door has the name — a script aimed at a typo'd or renamed door.

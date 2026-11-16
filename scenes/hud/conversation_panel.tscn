@@ -2,14 +2,8 @@
 
 [ext_resource type="Script" uid="uid://dlogctrlhike1" path="res://scripts/gui/ConversationController.cs" id="1_gaewx"]
 [ext_resource type="PackedScene" uid="uid://d3ls687rbrjqa" path="res://scenes/hud/conversation_choice_button.tscn" id="2_wydpk"]
-[ext_resource type="Script" uid="uid://iyvo5se8mw3k9" path="res://scripts/gui/SpeechBubble.cs" id="3_bubble"]
-[ext_resource type="FontVariation" uid="uid://ccayfwl2qvnu8" path="res://resources/gui/ui_font.tres" id="4_uifont"]
-[ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="5_btnhint"]
-[ext_resource type="Script" uid="uid://6q30x9rawallt" path="res://scripts/gui/TypingText.cs" id="6_typing"]
-
-[sub_resource type="FontVariation" id="FontVariation_narration"]
-base_font = ExtResource("4_uifont")
-variation_transform = Transform2D(1, 0.2, 0, 1, 0, 0)
+[ext_resource type="PackedScene" uid="uid://37ckvhv0e306" path="res://scenes/hud/speech_bubble.tscn" id="3_bubble"]
+[ext_resource type="AudioStream" uid="uid://bdriag8o6xeqe" path="res://assets/audio/source/ui/sfx_ui_dialogue_advance_01.wav" id="8_advance"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dialogue"]
 content_margin_left = 20.0
@@ -27,51 +21,7 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bubble"]
-content_margin_left = 24.0
-content_margin_top = 20.0
-content_margin_right = 24.0
-content_margin_bottom = 22.0
-bg_color = Color(0.05, 0.05, 0.08, 1)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.85, 0.78, 0.55, 1)
-corner_radius_top_left = 18
-corner_radius_top_right = 18
-corner_radius_bottom_right = 18
-corner_radius_bottom_left = 18
-anti_aliasing_size = 1.5
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_nametab"]
-content_margin_left = 14.0
-content_margin_top = 2.0
-content_margin_right = 14.0
-content_margin_bottom = 2.0
-bg_color = Color(0.85, 0.78, 0.55, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hint"]
-content_margin_left = 10.0
-content_margin_top = 2.0
-content_margin_right = 10.0
-content_margin_bottom = 2.0
-bg_color = Color(0.05, 0.05, 0.08, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.85, 0.78, 0.55, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
-
-[node name="ConversationPanel" type="Control" node_paths=PackedStringArray("bubble", "responseOptionsContainer", "responseContainer")]
+[node name="ConversationPanel" type="Control" node_paths=PackedStringArray("bubble", "responseOptionsContainer", "responseContainer", "advanceSound")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -84,83 +34,10 @@ bubble = NodePath("SpeechBubble")
 responseOptionScene = ExtResource("2_wydpk")
 responseOptionsContainer = NodePath("ResponseContainer/TextContainer2/VBoxContainer")
 responseContainer = NodePath("ResponseContainer")
+advanceSound = NodePath("AdvanceSound")
 
-[node name="SpeechBubble" type="Control" parent="." node_paths=PackedStringArray("body", "nameTab", "nameLabel", "continueHint", "tail")]
+[node name="SpeechBubble" parent="." instance=ExtResource("3_bubble")]
 layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-script = ExtResource("3_bubble")
-body = NodePath("Body")
-nameTab = NodePath("NameTab")
-nameLabel = NodePath("NameTab/NameLabel")
-continueHint = NodePath("ContinueHint")
-tail = NodePath("Tail")
-
-[node name="Body" type="PanelContainer" parent="SpeechBubble" node_paths=PackedStringArray("sizerLabel", "textLabel")]
-layout_mode = 0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_bubble")
-script = ExtResource("6_typing")
-sizerLabel = NodePath("SizerLabel")
-textLabel = NodePath("TextLabel")
-
-[node name="SizerLabel" type="RichTextLabel" parent="SpeechBubble/Body"]
-modulate = Color(1, 1, 1, 0)
-layout_mode = 2
-mouse_filter = 2
-theme_override_fonts/italics_font = SubResource("FontVariation_narration")
-theme_override_font_sizes/normal_font_size = 32
-theme_override_font_sizes/italics_font_size = 32
-bbcode_enabled = true
-scroll_active = false
-autowrap_mode = 3
-
-[node name="TextLabel" type="RichTextLabel" parent="SpeechBubble/Body"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_fonts/italics_font = SubResource("FontVariation_narration")
-theme_override_font_sizes/normal_font_size = 32
-theme_override_font_sizes/italics_font_size = 32
-bbcode_enabled = true
-scroll_active = false
-autowrap_mode = 3
-visible_characters_behavior = 1
-
-[node name="Tail" type="Control" parent="SpeechBubble"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="NameTab" type="PanelContainer" parent="SpeechBubble"]
-visible = false
-layout_mode = 0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_nametab")
-
-[node name="NameLabel" type="Label" parent="SpeechBubble/NameTab"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.05, 0.05, 0.08, 1)
-theme_override_font_sizes/font_size = 28
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="ContinueHint" type="PanelContainer" parent="SpeechBubble"]
-visible = false
-layout_mode = 0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_hint")
-
-[node name="ButtonHint" parent="SpeechBubble/ContinueHint" instance=ExtResource("5_btnhint")]
-layout_mode = 2
-InputAction = "ui_accept"
 
 [node name="ResponseContainer" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -192,3 +69,7 @@ layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 8
 alignment = 2
+
+[node name="AdvanceSound" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("8_advance")
+volume_db = -8.0

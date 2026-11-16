@@ -20,7 +20,6 @@
 [ext_resource type="Script" uid="uid://finpjl8sxswp" path="res://scripts/data/worldgen/PoiPlacement.cs" id="53_poiplace"]
 [ext_resource type="Script" uid="uid://b267bryh6h5wt" path="res://scripts/data/worldgen/RoadConnection.cs" id="54_road"]
 [ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="55_signscene"]
-[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="56_lang"]
 [ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/voxels/surfaces/surface_dirt_overlay.tres" id="57_dirt"]
 [ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/voxels/surfaces/surface_cobblestone.tres" id="58_cobble"]
 [ext_resource type="Resource" uid="uid://xko125hcxayg" path="res://resources/data/world_authoring/spawn_entries/forge.tres" id="62_forge"]
@@ -34,6 +33,11 @@
 [ext_resource type="Resource" uid="uid://drjqxsedic4nq" path="res://resources/data/world_gen/cellular_terrain.tres" id="80_cellular"]
 [ext_resource type="Resource" uid="uid://dd70pnlby8te8" path="res://resources/data/voxels/surfaces/surface_road.tres" id="81_surface_road"]
 [ext_resource type="Resource" uid="uid://dtl1e2kgvlr3j" path="res://resources/data/world_authoring/terrain/terrain_palette.tres" id="83_kit_palette"]
+[ext_resource type="Resource" uid="uid://c36iw20e2iba6" path="res://resources/data/worlds/shared/inscriptions/road_crossroads.tres" id="insc_0"]
+[ext_resource type="Resource" uid="uid://xgq3sdnyqtdu" path="res://resources/data/worlds/shared/inscriptions/road_mountains.tres" id="insc_1"]
+[ext_resource type="Resource" uid="uid://dib3g6dmvyemc" path="res://resources/data/worlds/shared/inscriptions/road_desert.tres" id="insc_2"]
+[ext_resource type="Resource" uid="uid://c8d80q0b0kau1" path="res://resources/data/worlds/shared/inscriptions/road_swampland.tres" id="insc_3"]
+[ext_resource type="Resource" uid="uid://dowj6uwbtjal" path="res://resources/data/worlds/shared/inscriptions/road_forest_path.tres" id="insc_4"]
 [ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/world_finish_data.tres" id="w_finish"]
 [ext_resource type="Resource" uid="uid://bv7ljwtx6gmhi" path="res://resources/data/worlds/default_world/world_start_default.tres" id="w_start"]
@@ -56,8 +60,7 @@ metadata/_custom_type_script = "uid://xc26xciarem5d"
 [sub_resource type="Resource" id="Sign_crossroads"]
 script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
-text = "Crossroads. North to the peaks, west to the wood, east to the dunes, south to the mire."
-language = ExtResource("56_lang")
+inscription = ExtResource("insc_0")
 disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
@@ -80,8 +83,7 @@ metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
 [sub_resource type="Resource" id="Sign_mountain"]
 script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
-text = "The mountains rise sharp and cold ahead. Bring rope."
-language = ExtResource("56_lang")
+inscription = ExtResource("insc_1")
 disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
@@ -104,8 +106,7 @@ metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
 [sub_resource type="Resource" id="Sign_desert"]
 script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
-text = "Desert. Water is scarce — fill skins before crossing."
-language = ExtResource("56_lang")
+inscription = ExtResource("insc_2")
 disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
@@ -128,8 +129,7 @@ metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
 [sub_resource type="Resource" id="Sign_swamp"]
 script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
-text = "Swampland. Stay on the high ground after dusk."
-language = ExtResource("56_lang")
+inscription = ExtResource("insc_3")
 disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 
@@ -152,8 +152,7 @@ metadata/_custom_type_script = "uid://l0p9hpd0ikf60"
 [sub_resource type="Resource" id="Sign_forest"]
 script = ExtResource("52_sign")
 scene = ExtResource("55_signscene")
-text = "Forest path. Mind the roots, mind the wolves."
-language = ExtResource("56_lang")
+inscription = ExtResource("insc_4")
 disabledVariable = null
 metadata/_custom_type_script = "uid://db5ulwxm6oe8v"
 

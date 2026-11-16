@@ -8,7 +8,8 @@
 [sub_resource type="Resource" id="Teachable_vyeshal"]
 script = ExtResource("2_teachable")
 language = ExtResource("4_vyeshal")
-components = 29
+lesson = 7
+percent = 80.0
 
 [resource]
 script = ExtResource("1_teach")

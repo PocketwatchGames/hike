@@ -311,7 +311,11 @@ public static class WorldFile
     //      habitat) after regions; chunk payload gained a 1-byte HabitatIndex
     //      (1-based, 0 = none) after RegionIndex. Fairy chance and the loot
     //      breakables/creatures give up moved off ZoneData onto HabitatData.
-    public const uint VERSION = 86;
+    // v87: a knowledge stone's and a loyalty gift's language int (component
+    //      flags) is a lesson number plus a float percent (LanguageData).
+    // v88: a signpost's and a knowledge stone's language + text are one
+    //      InscriptionData reference.
+    public const uint VERSION = 88;
 
     public struct IndexEntry
     {
@@ -425,89 +429,96 @@ public static class WorldFile
             EntitySerializer.EndSharedWrite();
         }
 
-        using FileStream fs = File.Create(osPath);
-        using var w = new BinaryWriter(fs, Encoding.UTF8, leaveOpen: false);
+        // Written beside the target and renamed over it, so a bake killed mid-
+        // write (the painter restarts its bake process on every save) or a
+        // failed write never leaves a truncated world where the last good one was.
+        string tmpPath = osPath + ".tmp";
+        using (FileStream fs = File.Create(tmpPath))
+        using (var w = new BinaryWriter(fs, Encoding.UTF8, leaveOpen: false))
+        {
 
-        // --- Header ---
-        w.Write(MAGIC);
-        w.Write(VERSION);
-        WriteVec3I(w, worldState.Min);
-        WriteVec3I(w, worldState.Max);
-        w.Write(worldState.Spawn.X);
-        w.Write(worldState.Spawn.Y);
-        w.Write(worldState.Spawn.Z);
-        w.Write(worldState.SimData != null ? worldState.SimData.ResourcePath : "");
-        // v48: what a run in this world starts with (quests, party, knowledge).
-        // A path to the resource that AUTHORS them, not the values: knowledge is
-        // authored as embedded sub-resources, which have no path of their own.
-        w.Write(worldState.StartContentPath ?? "");
-        w.Write(Guid.NewGuid().ToString("N"));
-        TerrainPalette palette = worldState.Terrains ?? TerrainPalette.Empty;
-        string[] terrainSlots = palette.SlotNames();
-        w.Write((uint)terrainSlots.Length);
-        for (int i = 0; i < terrainSlots.Length; i++)
-        {
-            w.Write(terrainSlots[i]);
-        }
-        string[] detailSlots = palette.DetailSlotNames();
-        w.Write((uint)detailSlots.Length);
-        for (int i = 0; i < detailSlots.Length; i++)
-        {
-            w.Write(detailSlots[i]);
-        }
-        ZoneState[] zones = worldState.Zones ?? [];
-        w.Write((uint)zones.Length);
-        for (int i = 0; i < zones.Length; i++)
-        {
-            w.Write(zones[i].Data != null ? zones[i].Data.ResourcePath : "");
-            w.Write(zones[i].WindDirection.X);
-            w.Write(zones[i].WindDirection.Y);
-            w.Write(zones[i].WindDirection.Z);
-            w.Write(zones[i].Elevation);
-        }
-        RegionState[] regions = worldState.Regions ?? [];
-        w.Write((uint)regions.Length);
-        for (int i = 0; i < regions.Length; i++)
-        {
-            w.Write(regions[i].Data != null ? regions[i].Data.ResourcePath : "");
-        }
-        HabitatData[] habitats = worldState.Habitats ?? [];
-        w.Write((uint)habitats.Length);
-        for (int i = 0; i < habitats.Length; i++)
-        {
-            w.Write(habitats[i] != null ? habitats[i].ResourcePath : "");
-        }
-        WriteNamedPositions(w, worldState.PointsOfInterest);
-        WriteNamedPositions(w, worldState.TreasureSpots);
-        // One resource-path table for every entity list in the file — chunk
-        // lists and the persistent list alike. Must precede both.
-        EntitySerializer.WriteTable(w, pathTable);
-        // Persistent (non-chunked) globals — the companion. Written before
-        // chunkCount so the index's fixed-size accounting (payloadStart below)
-        // stays correct; fs.Position after this naturally includes these bytes.
-        w.Write(persistentBlob);
-        w.Write((uint)coords.Count);
+            // --- Header ---
+            w.Write(MAGIC);
+            w.Write(VERSION);
+            WriteVec3I(w, worldState.Min);
+            WriteVec3I(w, worldState.Max);
+            w.Write(worldState.Spawn.X);
+            w.Write(worldState.Spawn.Y);
+            w.Write(worldState.Spawn.Z);
+            w.Write(worldState.SimData != null ? worldState.SimData.ResourcePath : "");
+            // v48: what a run in this world starts with (quests, party, knowledge).
+            // A path to the resource that AUTHORS them, not the values: knowledge is
+            // authored as embedded sub-resources, which have no path of their own.
+            w.Write(worldState.StartContentPath ?? "");
+            w.Write(Guid.NewGuid().ToString("N"));
+            TerrainPalette palette = worldState.Terrains ?? TerrainPalette.Empty;
+            string[] terrainSlots = palette.SlotNames();
+            w.Write((uint)terrainSlots.Length);
+            for (int i = 0; i < terrainSlots.Length; i++)
+            {
+                w.Write(terrainSlots[i]);
+            }
+            string[] detailSlots = palette.DetailSlotNames();
+            w.Write((uint)detailSlots.Length);
+            for (int i = 0; i < detailSlots.Length; i++)
+            {
+                w.Write(detailSlots[i]);
+            }
+            ZoneState[] zones = worldState.Zones ?? [];
+            w.Write((uint)zones.Length);
+            for (int i = 0; i < zones.Length; i++)
+            {
+                w.Write(zones[i].Data != null ? zones[i].Data.ResourcePath : "");
+                w.Write(zones[i].WindDirection.X);
+                w.Write(zones[i].WindDirection.Y);
+                w.Write(zones[i].WindDirection.Z);
+                w.Write(zones[i].Elevation);
+            }
+            RegionState[] regions = worldState.Regions ?? [];
+            w.Write((uint)regions.Length);
+            for (int i = 0; i < regions.Length; i++)
+            {
+                w.Write(regions[i].Data != null ? regions[i].Data.ResourcePath : "");
+            }
+            HabitatData[] habitats = worldState.Habitats ?? [];
+            w.Write((uint)habitats.Length);
+            for (int i = 0; i < habitats.Length; i++)
+            {
+                w.Write(habitats[i] != null ? habitats[i].ResourcePath : "");
+            }
+            WriteNamedPositions(w, worldState.PointsOfInterest);
+            WriteNamedPositions(w, worldState.TreasureSpots);
+            // One resource-path table for every entity list in the file — chunk
+            // lists and the persistent list alike. Must precede both.
+            EntitySerializer.WriteTable(w, pathTable);
+            // Persistent (non-chunked) globals — the companion. Written before
+            // chunkCount so the index's fixed-size accounting (payloadStart below)
+            // stays correct; fs.Position after this naturally includes these bytes.
+            w.Write(persistentBlob);
+            w.Write((uint)coords.Count);
 
-        // --- Index ---
-        // Index entries are fixed size (12 + 8 + 4 = 24 bytes), so the payload
-        // start offset is deterministic from the header.
-        const int INDEX_ENTRY_SIZE = 12 + 8 + 4;
-        long headerEnd = fs.Position;
-        long payloadStart = headerEnd + (long)coords.Count * INDEX_ENTRY_SIZE;
-        ulong runningOffset = (ulong)payloadStart;
-        for (int i = 0; i < coords.Count; i++)
-        {
-            WriteVec3I(w, coords[i]);
-            w.Write(runningOffset);
-            w.Write((uint)blobs[i].Length);
-            runningOffset += (ulong)blobs[i].Length;
-        }
+            // --- Index ---
+            // Index entries are fixed size (12 + 8 + 4 = 24 bytes), so the payload
+            // start offset is deterministic from the header.
+            const int INDEX_ENTRY_SIZE = 12 + 8 + 4;
+            long headerEnd = fs.Position;
+            long payloadStart = headerEnd + (long)coords.Count * INDEX_ENTRY_SIZE;
+            ulong runningOffset = (ulong)payloadStart;
+            for (int i = 0; i < coords.Count; i++)
+            {
+                WriteVec3I(w, coords[i]);
+                w.Write(runningOffset);
+                w.Write((uint)blobs[i].Length);
+                runningOffset += (ulong)blobs[i].Length;
+            }
 
-        // --- Payload ---
-        for (int i = 0; i < blobs.Count; i++)
-        {
-            w.Write(blobs[i]);
+            // --- Payload ---
+            for (int i = 0; i < blobs.Count; i++)
+            {
+                w.Write(blobs[i]);
+            }
         }
+        File.Move(tmpPath, osPath, overwrite: true);
     }
 
     public static Header ReadHeader(BinaryReader r)

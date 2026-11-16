@@ -3,11 +3,11 @@ using Godot;
 // Reward authored against a loyalty threshold. When a mob's Loyalty crosses
 // requiredLoyalty (via Mob.ReceiveGift), the gift is handed back to the
 // player and consumed from the mob's remaining-gift list. A gift can be
-// either an item stack or a language-component grant (or both) — author
+// either an item stack or a language-lesson grant (or both) — author
 // whichever fields apply and leave the rest at their defaults.
 //
-// Language-component gifts are skipped at evaluation time when the player
-// already knows every component the gift would grant — see Mob.IsGiftRedundant.
+// Language gifts are skipped at evaluation time when the player already holds
+// the lesson the gift would teach — see Mob.IsGiftRedundant.
 // Item gifts are never auto-skipped, and the "Gift Received: <item>" HUD
 // announcement is item-driven; a language-only gift fires the existing
 // LanguageLearned announcement instead.
@@ -19,12 +19,13 @@ public partial class LoyaltyGift : Resource
     [Export] public ItemDescriptor item;
     [Export] public int count = 1;
 
-    // Optional language teaching. When `language` is non-null and
-    // `languageComponents` has at least one bit set, Mob.GiveLoyaltyGift
-    // routes through Player.LearnLanguageComponents — the existing
-    // LanguageLearned announcement covers the player-facing notice.
+    // Optional language teaching: `languagePercent` of `language` under lesson
+    // number `languageLesson` (see LanguageData), through
+    // Player.LearnLanguageLesson — the LanguageLearned announcement covers the
+    // player-facing notice. A zero percent teaches nothing.
     [Export] public LanguageData language;
-    [Export(PropertyHint.Flags)] public ELanguageComponents languageComponents = ELanguageComponents.None;
+    [Export] public int languageLesson;
+    [Export(PropertyHint.Range, "0,100,1")] public float languagePercent;
 
     // Loyalty value the mob must reach before this gift unlocks. Multiple
     // gifts can share a threshold; Mob.ReceiveGift hands out every gift the
@@ -40,7 +41,8 @@ public partial class LoyaltyGift : Resource
         {
             item = state,
             language = language,
-            languageComponents = languageComponents,
+            languageLesson = languageLesson,
+            languagePercent = languagePercent,
             requiredLoyalty = requiredLoyalty,
         };
     }

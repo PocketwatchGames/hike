@@ -24,6 +24,12 @@ public partial class StoryScreen : Control
 	[Export] public Label textSizer;
 	[Export] public Label text;
 	[Export] public ButtonHint continueHint;
+	// Played once per frame that reveals a non-whitespace character.
+	[Export] public AudioStreamPlayer typeTick;
+	// Each tick's pitch is 1 ± this, so a long page doesn't drone.
+	[Export(PropertyHint.Range, "0,0.5,0.01")] public float tickPitchJitter = 0.08f;
+	// A press that finishes the typing page or moves to the next one.
+	[Export] public AudioStreamPlayer advanceSound;
 	// The box shrinks to a short page's width, centred, and wraps past this.
 	[Export(PropertyHint.Range, "100,1920,1")] public float maxTextWidth = 1100f;
 	// Reserved even for a one-line page, so the picture doesn't move between pages.
@@ -53,6 +59,7 @@ public partial class StoryScreen : Control
 	int _pageIndex;
 	float _revealedChars;
 	int _textLength;
+	string _lineText = string.Empty;
 	// The picture on screen, and the one fading in over it (null when idle).
 	TextureRect _frontImage;
 	TextureRect _incomingImage;
@@ -116,7 +123,12 @@ public partial class StoryScreen : Control
 			{
 				// The player's reading speed, shared with conversations; <= 0 is instant.
 				float speed = CVars.dialogueTypingSpeed.Value;
+				int before = Mathf.FloorToInt(_revealedChars);
 				_revealedChars = speed > 0f ? _revealedChars + speed * (float)delta : _textLength;
+				if (RevealsPrintable(before, Mathf.FloorToInt(_revealedChars)))
+				{
+					PlayTick();
+				}
 				RevealText();
 				break;
 			}
@@ -166,6 +178,7 @@ public partial class StoryScreen : Control
 		text.Text = line;
 		text.VisibleCharacters = 0;
 		_textLength = text.GetTotalCharacterCount();
+		_lineText = line;
 		SetAlpha(text, 1f);
 	}
 
@@ -265,6 +278,7 @@ public partial class StoryScreen : Control
 	{
 		if (_state == EState.Typing)
 		{
+			advanceSound?.Play();
 			_revealedChars = _textLength;
 			RevealText();
 			return;
@@ -273,6 +287,7 @@ public partial class StoryScreen : Control
 		{
 			return;
 		}
+		advanceSound?.Play();
 		SetHintVisible(false);
 		_fade = 0f;
 
@@ -288,6 +303,31 @@ public partial class StoryScreen : Control
 		Action onContinue = _onContinue;
 		_onContinue = null;
 		onContinue?.Invoke();
+	}
+
+	// Spaces and line breaks type silently, which gives the ticks the rhythm
+	// of the words. A Label's VisibleCharacters indexes its plain text.
+	bool RevealsPrintable(int from, int to)
+	{
+		int end = Mathf.Min(to, _lineText.Length);
+		for (int i = from; i < end; i++)
+		{
+			if (!char.IsWhiteSpace(_lineText[i]))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void PlayTick()
+	{
+		if (typeTick == null)
+		{
+			return;
+		}
+		typeTick.PitchScale = 1f + (float)GD.RandRange(-tickPitchJitter, tickPitchJitter);
+		typeTick.Play();
 	}
 
 	static void SetImage(TextureRect rect, Texture2D texture, float alpha)

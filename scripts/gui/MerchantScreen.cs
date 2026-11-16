@@ -9,15 +9,11 @@ using System.Collections.Generic;
 // The member's inventory and the Give pile are the player's side; the stock and
 // the Get pile are the merchant's. Nothing crosses between the two until a
 // commit, and every move goes through ItemTransfer, as on the stash screen.
-//   A  — pick up the stack under the cursor; with one picked up, put it down
-//        here, on the same owner's side. Hold on a stack to pick up only some.
-//   X  — equip / unequip, on the member's own items only.
-//   Y  — use, on the member's own items only.
-//   LT — send the stack across the trade: inventory <-> Give, stock <-> Get.
-//        Hold on a stack to send only some of it.
-//   RT — drop one of the player's stacks at the member's feet.
-//        Hold on a stack to drop only some of it.
-//   B  — put the pick-up back; with nothing picked up, close the screen.
+// Trading is all this screen does — no equipping, using or dropping.
+//   A  — send the stack across the trade: inventory <-> Give (offer / take
+//        back), stock <-> Get (request / return). Hold to send only some.
+//        On the Trade / Gift button, press it.
+//   B  — close the screen.
 [GlobalClass]
 public partial class MerchantScreen : Control
 {
@@ -36,23 +32,18 @@ public partial class MerchantScreen : Control
 	[Export] private BackpackPanel _getGrid;
 	[Export] private ItemCountPanel _countPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
-	[Export] private ButtonHint _hintSelect;
-	[Export] private ButtonHint _hintEquip;
-	[Export] private ButtonHint _hintUse;
 	[Export] private ButtonHint _hintSend;
-	[Export] private ButtonHint _hintDrop;
 	[Export(PropertyHint.Range, "1,24,1")] private int _giveSlots = 3;
 	[Export(PropertyHint.Range, "1,24,1")] private int _getSlots = 3;
 	// The stock grid grows past this to fit a merchant with more stacks.
 	[Export(PropertyHint.Range, "1,48,1")] private int _stockMinSlots = 9;
-	// How long Select, Send or Drop must be held on a stack to choose how many.
+	// How long A must be held on a stack to choose how many to send.
 	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _holdSeconds = 0.5f;
+	// A trade the merchant values at this many times what they hand over is
+	// remarked on as generous rather than merely fair.
+	[Export(PropertyHint.Range, "1,5,0.05")] private float _generousDealRatio = 1.5f;
 
-	const string SelectAction = "ui_select";
-	const string EquipAction = "MenuSecondary";
-	const string UseAction = "MenuTertiary";
-	const string SendAction = "MenuQuaternary";
-	const string DropAction = "MenuQuinary";
+	const string SendAction = "ui_select";
 
 	enum ESide
 	{
@@ -88,6 +79,8 @@ public partial class MerchantScreen : Control
 	Player _player;
 	Mob _merchant;
 	bool _trading;
+	// The moment the remark last spoke, so an unchanged appraisal isn't retyped.
+	string _lastMoment;
 
 	// Staged piles. Give holds stacks detached from the member's inventory, Get
 	// stacks detached from the stock; both go back where they came from on close.
@@ -100,17 +93,12 @@ public partial class MerchantScreen : Control
 	readonly Dictionary<ItemData, MobInventoryItem> _stockSourceByData = new();
 
 	Slot _focused = Slot.None;
-	// The picked-up stack and how many of its units are moving.
-	Slot _picked = Slot.None;
-	int _pickedCount;
 
 	// A held on a slot: where, for how long, and whether the hold already fired
 	// (so its release isn't also a tap). A is the slot button's own press.
-	Slot _selectPressed = Slot.None;
-	float _selectHeld;
-	bool _selectHoldFired;
-	readonly PolledHold _send = new(SendAction);
-	readonly PolledHold _drop = new(DropAction);
+	Slot _sendPressed = Slot.None;
+	float _sendHeld;
+	bool _sendHoldFired;
 
 	bool PickerOpen => _countPanel != null && _countPanel.IsOpen;
 
@@ -123,9 +111,8 @@ public partial class MerchantScreen : Control
 		if (_inventoryPanel != null)
 		{
 			_inventoryPanel.onGridSlotFocused += (grid, index, _) => OnSlotFocused(new Slot(ESide.Carried, index, grid));
-			_inventoryPanel.onGridSlotButtonDown += (grid, index, _) => OnSelectDown(new Slot(ESide.Carried, index, grid));
-			_inventoryPanel.onGridSlotButtonUp += (grid, index, _) => OnSelectUp(new Slot(ESide.Carried, index, grid));
-			_inventoryPanel.onTabChanged += ApplySlotStates;
+			_inventoryPanel.onGridSlotButtonDown += (grid, index, _) => OnSendDown(new Slot(ESide.Carried, index, grid));
+			_inventoryPanel.onGridSlotButtonUp += (grid, index, _) => OnSendUp(new Slot(ESide.Carried, index, grid));
 			_inventoryPanel.onTabsFocused += () => OnSlotFocused(Slot.None);
 		}
 		if (_tradeButton != null)
@@ -158,8 +145,8 @@ public partial class MerchantScreen : Control
 			return;
 		}
 		panel.onSlotFocused += (index, _) => OnSlotFocused(new Slot(side, index));
-		panel.onSlotButtonDown += (index, _) => OnSelectDown(new Slot(side, index));
-		panel.onSlotButtonUp += (index, _) => OnSelectUp(new Slot(side, index));
+		panel.onSlotButtonDown += (index, _) => OnSendDown(new Slot(side, index));
+		panel.onSlotButtonUp += (index, _) => OnSendUp(new Slot(side, index));
 	}
 
 	public void Open(Player player, Mob merchant, bool trade = true, Action onClose = null)
@@ -186,8 +173,7 @@ public partial class MerchantScreen : Control
 		{
 			_player.Inventory.onChanged += Refresh;
 		}
-		ClearPick();
-		ResetHolds();
+		ResetHold();
 		UpdateMerchantName();
 		if (_getPanel != null)
 		{
@@ -230,7 +216,7 @@ public partial class MerchantScreen : Control
 		}
 		Input.MouseMode = Input.MouseModeEnum.Captured;
 		_focused = Slot.None;
-		ClearPick();
+		ResetHold();
 		_give = null;
 		_get = null;
 		_stock = null;
@@ -272,15 +258,6 @@ public partial class MerchantScreen : Control
 		return Grid(slot)?.At(slot.index);
 	}
 
-	static bool IsMemberSide(ESide side) => side == ESide.Carried;
-	static bool IsPlayerSide(ESide side) => IsMemberSide(side) || side == ESide.Give;
-	static bool IsMerchantSide(ESide side) => side is ESide.Stock or ESide.Get;
-
-	static bool SameOwner(ESide a, ESide b)
-	{
-		return (IsPlayerSide(a) && IsPlayerSide(b)) || (IsMerchantSide(a) && IsMerchantSide(b));
-	}
-
 	// Where Send moves a stack: across the trade, within its owner's side.
 	IItemGrid SendTarget(ESide side, ItemState item)
 	{
@@ -299,8 +276,6 @@ public partial class MerchantScreen : Control
 	void OnSlotFocused(Slot slot)
 	{
 		_focused = slot;
-		_send.Reset(_hintSend);
-		_drop.Reset(_hintDrop);
 		_itemInfoPanel?.SetItem(ItemAt(slot));
 		UpdateHints();
 	}
@@ -317,90 +292,57 @@ public partial class MerchantScreen : Control
 		_tradeButton?.GrabFocus();
 	}
 
-	// ---- A: pick up / put down -------------------------------------------------
+	// ---- A: send across the trade ----------------------------------------------
 
-	void OnSelectDown(Slot slot)
+	void OnSendDown(Slot slot)
 	{
-		_selectPressed = slot;
-		_selectHeld = 0f;
-		_selectHoldFired = false;
+		_sendPressed = slot;
+		_sendHeld = 0f;
+		_sendHoldFired = false;
 	}
 
-	void OnSelectUp(Slot slot)
+	void OnSendUp(Slot slot)
 	{
-		Slot pressed = _selectPressed;
-		bool fired = _selectHoldFired;
-		_selectPressed = Slot.None;
-		_selectHoldFired = false;
-		_hintSelect?.SetProgress(0f);
-		// Dragging off the pressed slot before letting go reads as a cancel.
-		if (fired || PickerOpen || !pressed.Is(slot))
-		{
-			return;
-		}
-		Select(slot);
-	}
-
-	void TickSelectHold(float dt)
-	{
-		if (_selectPressed.IsNone || _selectHoldFired)
-		{
-			return;
-		}
-		_selectHeld += dt;
-		_hintSelect?.SetProgress(Mathf.Clamp(_selectHeld / _holdSeconds, 0f, 1f));
-		if (_selectHeld < _holdSeconds)
-		{
-			return;
-		}
-		_selectHoldFired = true;
-		_hintSelect?.SetProgress(0f);
-		Slot slot = _selectPressed;
+		Slot pressed = _sendPressed;
+		bool fired = _sendHoldFired;
+		_sendPressed = Slot.None;
+		_sendHoldFired = false;
+		_hintSend?.SetProgress(0f);
 		ItemState item = ItemAt(slot);
-		// A hold only means something on a stack that isn't already picked up.
-		if (!_picked.IsNone || item == null || item.stackCount <= 1)
+		// Dragging off the pressed slot before letting go reads as a cancel.
+		if (fired || PickerOpen || !pressed.Is(slot) || item == null)
 		{
-			Select(slot);
 			return;
 		}
-		_countPanel?.Open(item.stackCount, count => Pick(slot, count), prompt: Loc.Get(Loc.Keys.stash_pick_how_many));
+		Send(slot, item.stackCount);
 	}
 
-	// A tap: pick up the whole stack, or put the picked-up one down here.
-	void Select(Slot slot)
+	void TickSendHold(float dt)
 	{
-		if (_picked.IsNone)
-		{
-			ItemState item = ItemAt(slot);
-			if (item != null)
-			{
-				Pick(slot, item.stackCount);
-			}
-			return;
-		}
-		Slot from = _picked;
-		int count = _pickedCount;
-		if (!from.Is(slot) && !SameOwner(from.side, slot.side))
+		if (_sendPressed.IsNone || _sendHoldFired)
 		{
 			return;
 		}
-		ClearPick();
-		if (!from.Is(slot) && MoveTo(from, count, slot))
+		ItemState item = ItemAt(_sendPressed);
+		if (item == null)
 		{
-			OnMovedAcross(from.side, slot.side);
+			return;
 		}
-		Refresh();
-	}
-
-	bool MoveTo(Slot from, int count, Slot to)
-	{
-		// Into the give pile, or swapped out into it from the slot it lands on.
-		ItemState intoGive = to.side == ESide.Give ? ItemAt(from) : from.side == ESide.Give ? ItemAt(to) : null;
-		if (RefuseFilledSack(intoGive))
+		_sendHeld += dt;
+		_hintSend?.SetProgress(Mathf.Clamp(_sendHeld / _holdSeconds, 0f, 1f));
+		if (_sendHeld < _holdSeconds)
 		{
-			return false;
+			return;
 		}
-		return ItemTransfer.MoveTo(Grid(from), from.index, count, Grid(to), to.index);
+		_sendHoldFired = true;
+		_hintSend?.SetProgress(0f);
+		Slot slot = _sendPressed;
+		if (item.stackCount <= 1)
+		{
+			Send(slot, item.stackCount);
+			return;
+		}
+		_countPanel?.Open(item.stackCount, count => Send(slot, count), prompt: Loc.Get(Loc.Keys.stash_send_how_many));
 	}
 
 	// A sack goes over the counter empty, or not at all — its contents would be
@@ -413,58 +355,6 @@ public partial class MerchantScreen : Control
 		}
 		Say(ShopMoment.EmptySack);
 		return true;
-	}
-
-	void Pick(Slot slot, int count)
-	{
-		if (count <= 0 || ItemAt(slot) == null)
-		{
-			return;
-		}
-		_picked = slot;
-		_pickedCount = count;
-		ApplySlotStates();
-		UpdateHints();
-	}
-
-	void ClearPick()
-	{
-		_picked = Slot.None;
-		_pickedCount = 0;
-		ApplySlotStates();
-		UpdateHints();
-	}
-
-	// ---- Send across the trade / drop -----------------------------------------
-
-	void TickPolledHolds(float dt)
-	{
-		ItemState item = _picked.IsNone ? ItemAt(_focused) : null;
-		Slot slot = _focused;
-
-		PolledHold.EResult send = _send.Tick(item != null, dt, _holdSeconds, _hintSend);
-		if (send == PolledHold.EResult.Tap || (send == PolledHold.EResult.Hold && item.stackCount <= 1))
-		{
-			Send(slot, item.stackCount);
-			return;
-		}
-		if (send == PolledHold.EResult.Hold)
-		{
-			_countPanel?.Open(item.stackCount, count => Send(slot, count), prompt: Loc.Get(Loc.Keys.stash_send_how_many));
-			return;
-		}
-
-		ItemState droppable = IsPlayerSide(slot.side) ? item : null;
-		PolledHold.EResult drop = _drop.Tick(droppable != null, dt, _holdSeconds, _hintDrop);
-		if (drop == PolledHold.EResult.Tap || (drop == PolledHold.EResult.Hold && droppable.stackCount <= 1))
-		{
-			Drop(slot, droppable.stackCount);
-			return;
-		}
-		if (drop == PolledHold.EResult.Hold)
-		{
-			_countPanel?.Open(droppable.stackCount, count => Drop(slot, count), prompt: Loc.Get(Loc.Keys.item_drop_how_many));
-		}
 	}
 
 	void Send(Slot slot, int count)
@@ -480,45 +370,69 @@ public partial class MerchantScreen : Control
 		}
 		if (sent)
 		{
-			OnMovedAcross(slot.side, slot.side switch
+			RemarkOnOffer();
+		}
+		Refresh();
+	}
+
+	// The merchant appraises the deal as it now stands on the counter, not the
+	// move that got it there. A line already being said is not restarted.
+	void RemarkOnOffer()
+	{
+		string moment = AppraiseOffer();
+		if (moment != null && moment != _lastMoment)
+		{
+			Say(moment);
+		}
+	}
+
+	string AppraiseOffer()
+	{
+		if (_merchant == null || _give == null)
+		{
+			return null;
+		}
+		int giving = _give.OccupiedCount();
+		int getting = _get?.OccupiedCount() ?? 0;
+		if (giving == 0 && getting == 0)
+		{
+			return ShopMoment.TakeBack;
+		}
+		if (getting > 0)
+		{
+			if (giving == 0)
 			{
-				ESide.Give => ESide.Carried,
-				ESide.Stock => ESide.Get,
-				ESide.Get => ESide.Stock,
-				_ => ESide.Give,
-			});
+				return ShopMoment.PickStock;
+			}
+			// The same comparison CommitTrade refuses on.
+			float giveValue = _merchant.CalculatePersonalValue(Occupied(_give));
+			float getValue = 0f;
+			foreach (ItemState s in Occupied(_get))
+			{
+				getValue += _merchant.PerUnitValue(s.data) * s.stackCount;
+			}
+			if (getValue >= giveValue)
+			{
+				return ShopMoment.DealBad;
+			}
+			return giveValue >= getValue * _generousDealRatio ? ShopMoment.DealGenerous : ShopMoment.DealFair;
 		}
-		Refresh();
-	}
-
-	void Drop(Slot slot, int count)
-	{
-		if (count > 0)
+		int offered = 0;
+		int acceptable = 0;
+		foreach (ItemState s in Occupied(_give))
 		{
-			_player?.DropAtFeet(Grid(slot)?.Take(slot.index, count));
+			offered += s.stackCount;
+			acceptable += _merchant.AcceptableUnits(s.data, s.stackCount);
 		}
-		Refresh();
-	}
-
-	// The merchant remarks on a stack crossing between a side and its pile.
-	void OnMovedAcross(ESide from, ESide to)
-	{
-		if (IsMemberSide(from) && to == ESide.Give)
+		if (acceptable == 0)
 		{
-			Say(_trading ? ShopMoment.OfferTrade : ShopMoment.OfferGift);
+			return ShopMoment.OfferUnwanted;
 		}
-		else if (from == ESide.Give && IsMemberSide(to))
+		if (acceptable < offered)
 		{
-			Say(ShopMoment.TakeBack);
+			return ShopMoment.OfferPartial;
 		}
-		else if (from == ESide.Stock && to == ESide.Get)
-		{
-			Say(ShopMoment.PickStock);
-		}
-		else if (from == ESide.Get && to == ESide.Stock)
-		{
-			Say(ShopMoment.ReturnStock);
-		}
+		return _trading ? ShopMoment.OfferTrade : ShopMoment.OfferGift;
 	}
 
 	// ---- Input / tick ----------------------------------------------------------
@@ -529,8 +443,7 @@ public partial class MerchantScreen : Control
 		{
 			return;
 		}
-		TickSelectHold((float)delta);
-		TickPolledHolds((float)delta);
+		TickSendHold((float)delta);
 	}
 
 	public override void _UnhandledInput(InputEvent e)
@@ -539,47 +452,19 @@ public partial class MerchantScreen : Control
 		{
 			return;
 		}
-		if (e.IsActionPressed("ui_cancel"))
+		if (e.IsActionPressed("ui_cancel") && !PickerOpen)
 		{
-			if (PickerOpen)
-			{
-				return;
-			}
-			if (!_picked.IsNone)
-			{
-				ClearPick();
-			}
-			else
-			{
-				Close();
-			}
-			GetViewport().SetInputAsHandled();
-			return;
-		}
-		if (PickerOpen)
-		{
-			return;
-		}
-		if (e.IsActionPressed(EquipAction) && EquipVerb() != null)
-		{
-			InventoryScreen.ToggleEquip(_player, ItemAt(_focused));
-			GetViewport().SetInputAsHandled();
-		}
-		else if (e.IsActionPressed(UseAction) && UseVerb() != null)
-		{
-			InventoryScreen.Use(_player, ItemAt(_focused));
+			Close();
 			GetViewport().SetInputAsHandled();
 		}
 	}
 
-	void ResetHolds()
+	void ResetHold()
 	{
-		_selectPressed = Slot.None;
-		_selectHeld = 0f;
-		_selectHoldFired = false;
-		_hintSelect?.SetProgress(0f);
-		_send.Arm(_hintSend);
-		_drop.Arm(_hintDrop);
+		_sendPressed = Slot.None;
+		_sendHeld = 0f;
+		_sendHoldFired = false;
+		_hintSend?.SetProgress(0f);
 	}
 
 	// ---- Merchant remark -------------------------------------------------------
@@ -611,6 +496,7 @@ public partial class MerchantScreen : Control
 	// SimData.merchantDefaults'.
 	void Say(string moment)
 	{
+		_lastMoment = moment;
 		ConversationData defaults = _gameClient?.Sim?.SimData?.merchantDefaults;
 		StringName key = ConversationData.ShopLineKey(_merchant?.SimState?.Conversation, defaults, moment);
 		if (key == null)
@@ -635,7 +521,6 @@ public partial class MerchantScreen : Control
 		{
 			return;
 		}
-		ClearPick();
 		if (IsGiftCommit())
 		{
 			CommitGift();
@@ -790,14 +675,13 @@ public partial class MerchantScreen : Control
 			}
 			if (gift.item != null)
 			{
-				// The gift's own state is handed over — it leaves the mob here.
+				// Ejected like a chest's contents, not handed into the backpack: the
+				// world pickup is where a scroll or potion does its real work.
 				ItemState state = gift.item;
 				ItemData given = state.data;
-				int initial = state.stackCount;
-				int added = _player.Inventory?.TryAdd(state) ?? 0;
-				if (added < initial)
+				if (_merchant != null)
 				{
-					DropAtMerchant(state);
+					_player.Sim?.EjectLoot(new List<ItemState> { state }, _merchant.GlobalPosition + Vector3.Up);
 				}
 				gc?.Announce(new Announcement
 				{
@@ -807,9 +691,9 @@ public partial class MerchantScreen : Control
 					icon = given.inventorySprite,
 				});
 			}
-			if (gift.language != null && gift.languageComponents != ELanguageComponents.None)
+			if (gift.language != null && gift.languagePercent > 0f)
 			{
-				_player.LearnLanguageComponents(gift.language, gift.languageComponents);
+				_player.LearnLanguageLesson(gift.language, gift.languageLesson, gift.languagePercent);
 			}
 		}
 	}
@@ -974,14 +858,6 @@ public partial class MerchantScreen : Control
 		_giveGrid?.Refresh(_give?.Slots);
 		_getGrid?.Refresh(_get?.Slots);
 		_inventoryPanel?.Paint(_player?.Inventory);
-		// A picked stack can vanish under the cursor (spoiled, spent elsewhere).
-		ItemState picked = ItemAt(_picked);
-		if (!_picked.IsNone && (picked == null || picked.stackCount < _pickedCount))
-		{
-			_picked = Slot.None;
-			_pickedCount = 0;
-		}
-		ApplySlotStates();
 		_itemInfoPanel?.SetItem(ItemAt(_focused));
 		if (_tradeButton != null)
 		{
@@ -990,61 +866,20 @@ public partial class MerchantScreen : Control
 		UpdateHints();
 	}
 
-	// The picked-up slot dims — the overlay the plain repaint doesn't know.
-	void ApplySlotStates()
-	{
-		ApplySlotStates(_stockGrid, ESide.Stock, null);
-		ApplySlotStates(_giveGrid, ESide.Give, null);
-		ApplySlotStates(_getGrid, ESide.Get, null);
-		if (_inventoryPanel != null)
-		{
-			ApplySlotStates(_inventoryPanel.GridPanel, ESide.Carried, _inventoryPanel.ShownGrid);
-		}
-	}
-
-	void ApplySlotStates(BackpackPanel panel, ESide side, IItemGrid grid)
-	{
-		if (panel == null)
-		{
-			return;
-		}
-		int i = 0;
-		foreach (ItemSlotPanel slot in panel.EnumerateSlots())
-		{
-			slot.SetDimmed(_picked.Is(new Slot(side, i, grid)));
-			i++;
-		}
-	}
-
 	void UpdateHints()
 	{
+		string label;
 		if (_focused.IsNone)
 		{
 			// On the Trade / Gift button, A presses it.
 			bool onButton = _tradeButton != null && _tradeButton.HasFocus();
-			ShowHint(_hintSelect, SelectAction, onButton && _picked.IsNone ? _tradeButton.Text : null);
-			ShowHint(_hintEquip, EquipAction, null);
-			ShowHint(_hintUse, UseAction, null);
-			ShowHint(_hintSend, SendAction, null);
-			ShowHint(_hintDrop, DropAction, null);
-			return;
+			label = onButton ? _tradeButton.Text : null;
 		}
-		ItemState focused = ItemAt(_focused);
-		if (!_picked.IsNone)
+		else
 		{
-			bool canPlace = _picked.Is(_focused) || SameOwner(_picked.side, _focused.side);
-			ShowHint(_hintSelect, SelectAction, canPlace ? Loc.Get(Loc.Keys.stash_place) : null);
-			ShowHint(_hintEquip, EquipAction, null);
-			ShowHint(_hintUse, UseAction, null);
-			ShowHint(_hintSend, SendAction, null);
-			ShowHint(_hintDrop, DropAction, null);
-			return;
+			label = ItemAt(_focused) != null ? SendVerb(_focused.side) : null;
 		}
-		ShowHint(_hintSelect, SelectAction, focused != null ? Loc.Get(Loc.Keys.stash_select) : null);
-		ShowHint(_hintEquip, EquipAction, EquipVerb());
-		ShowHint(_hintUse, UseAction, UseVerb());
-		ShowHint(_hintSend, SendAction, focused != null ? SendVerb(_focused.side) : null);
-		ShowHint(_hintDrop, DropAction, focused != null && IsPlayerSide(_focused.side) ? Loc.Get(Loc.Keys.stash_drop) : null);
+		ShowHint(_hintSend, SendAction, label);
 	}
 
 	static string SendVerb(ESide side)
@@ -1057,14 +892,6 @@ public partial class MerchantScreen : Control
 			_ => Loc.Get(Loc.Keys.merchant_offer),
 		};
 	}
-
-	// Equip and Use act only on the member's own items, and not while something
-	// is picked up.
-	bool OnMemberItem => _picked.IsNone && IsMemberSide(_focused.side);
-
-	string EquipVerb() => OnMemberItem ? InventoryScreen.EquipVerb(_player, ItemAt(_focused)) : null;
-
-	string UseVerb() => OnMemberItem ? InventoryScreen.UseVerb(_player, ItemAt(_focused)) : null;
 
 	// A null label hides the hint.
 	static void ShowHint(ButtonHint hint, string action, string label)

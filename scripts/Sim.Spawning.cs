@@ -22,13 +22,13 @@ public partial class Sim
     // permanent mods already composed onto its `statusEffects` controller (mob
     // loot that drops a modded item; see Mob.EjectLoot). The state IS the carried
     // item, so pickup deposits it as-is rather than synthesizing a fresh one.
-    public Loot SpawnLoot(Vector3 position, Vector3 impulse, ItemState item)
+    public Loot SpawnLoot(Vector3 position, Vector3 impulse, ItemState item, bool announce = true)
     {
         if (item?.data == null)
         {
             return null;
         }
-        var simState = new LootSimState(position, item.data) { Item = item };
+        var simState = new LootSimState(position, item.data) { Item = item, PlaySpawnEffects = announce };
         return FinishSpawnLoot(simState, position, impulse);
     }
 
@@ -155,8 +155,9 @@ public partial class Sim
     // Eject items that already exist (a chest's contents), handing each state
     // over rather than re-creating it, so its per-instance state comes along. A
     // small stack scatters as single pieces split off it. The caller gives the
-    // states up: they are the loot now.
-    public void EjectLoot(IReadOnlyList<ItemState> items, Vector3 origin)
+    // states up: they are the loot now. `announce` false skips each pile's spawn
+    // puff + chime, for a source that plays its own cue (searching a body).
+    public void EjectLoot(IReadOnlyList<ItemState> items, Vector3 origin, bool announce = true)
     {
         if (items == null)
         {
@@ -175,10 +176,10 @@ public partial class Sim
             {
                 for (int k = 1; k < count; k++)
                 {
-                    SpawnLoot(origin, BuildEjectImpulse(), stack.SplitOff(1));
+                    SpawnLoot(origin, BuildEjectImpulse(), stack.SplitOff(1), announce);
                 }
             }
-            SpawnLoot(origin, BuildEjectImpulse(), stack);
+            SpawnLoot(origin, BuildEjectImpulse(), stack, announce);
         }
     }
 
@@ -190,18 +191,18 @@ public partial class Sim
         }
     }
 
-    public void EjectLoot(ItemData item, int count, Vector3 origin)
+    public void EjectLoot(ItemData item, int count, Vector3 origin, bool announce = true)
     {
         if (item != null)
         {
-            EjectLoot(item.CreateState, count, origin);
+            EjectLoot(item.CreateState, count, origin, announce);
         }
     }
 
     // A small stack (SimData.lootEjectSplitMaxCount) scatters as single pickups,
     // each a fresh state from `createState` so every piece carries the
     // descriptor's mods.
-    private void EjectLoot(Func<ItemState> createState, int count, Vector3 origin)
+    private void EjectLoot(Func<ItemState> createState, int count, Vector3 origin, bool announce = true)
     {
         if (count <= 0)
         {
@@ -211,14 +212,14 @@ public partial class Sim
         {
             for (int i = 0; i < count; i++)
             {
-                SpawnLoot(origin, BuildEjectImpulse(), createState());
+                SpawnLoot(origin, BuildEjectImpulse(), createState(), announce);
             }
         }
         else
         {
             ItemState stack = createState();
             stack.SetCount(count);
-            SpawnLoot(origin, BuildEjectImpulse(), stack);
+            SpawnLoot(origin, BuildEjectImpulse(), stack, announce);
         }
     }
 

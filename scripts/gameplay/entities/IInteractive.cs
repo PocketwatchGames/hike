@@ -1,9 +1,8 @@
 using Godot;
 using Godot.Collections;
 
-public interface IInteractive
+public interface IInteractive : IHudAnchored
 {
-    Vector3 hudPosition { get; }
     bool CanInteract();
     bool CanActorInteract(Player player);
 

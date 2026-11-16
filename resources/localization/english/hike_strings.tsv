@@ -11,11 +11,8 @@ sleep_quality_horrible	Horrible
 sleep_quality_poor	Poor
 sleep_quality_good	Good
 sleep_quality_restorative	Restorative
-language_learned	Language Learned
-language_learned_component	%0 %1
-language_component_grammar	Grammar
-language_component_numbers	Numbers
-language_component_vocabulary	Vocabulary %0
+language_learned	%0 Learned
+language_learned_progress	%0 Learned %1% → %2%
 not_enough_health_to_revive	Not Enough Health
 inventory_full	Inventory Full
 picked_up	Picked up
@@ -41,11 +38,12 @@ controls_back	Back
 controls_unbound	—
 controls_dash	Dash
 controls_interact	Interact / Climb / Let Go
-controls_lantern_heal	Lantern / Heal
 controls_sneak_block_parry	Sneak / Block / Parry
 controls_ranged	Ranged Attack
 controls_melee	Melee Attack
 controls_spell	Cast Spell
+controls_select_spell	Select Spell
+controls_toggle_ceiling	Toggle Ceiling
 controls_rotate_camera	Rotate Camera
 controls_map	Map
 profile_new_game	New Game
@@ -113,3 +111,12 @@ cookpot_eat	Eat %0
 cookpot_eat_nothing	Nothing to eat
 cookpot_ate	Ate %0
 meal_fills	Fills you up
+need_remark_hunger_1	I'm hungry.
+need_remark_hunger_2	I'm so hungry.
+need_remark_hunger_3	I'm starving.
+need_remark_thirst_1	I'm thirsty.
+need_remark_thirst_2	I'm so thirsty.
+need_remark_thirst_3	I need water, badly.
+need_remark_fatigue_1	I could use some sleep.
+need_remark_fatigue_2	I'm so tired.
+need_remark_fatigue_3	I'm exhausted.

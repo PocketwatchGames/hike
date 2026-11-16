@@ -55,6 +55,17 @@ public partial class HudRegionBanner : Control
 		_tween.TweenCallback(Callable.From(OnTweenComplete));
 	}
 
+	// Hide at once without firing onDone — the caller owns re-queuing.
+	public void Cancel()
+	{
+		_tween?.Kill();
+		_tween = null;
+		_onDone = null;
+		sound?.Stop();
+		Modulate = new Color(Modulate.R, Modulate.G, Modulate.B, 0f);
+		Visible = false;
+	}
+
 	void OnTweenComplete()
 	{
 		Visible = false;

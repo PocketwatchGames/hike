@@ -314,6 +314,24 @@ public class ElevationTool : IWorldMapTool
         });
     }
 
+    // Flatten only: floods the terrace under the press - the same snapped-height
+    // equality shift+drag constrains to - and sets it to the target. The other
+    // ops have no fill, and neither has RMB, since flatten's RMB is Lower.
+    public WorldMapFill Fill(WorldMapState ctx, WorldMapView view, bool erase)
+    {
+        if (erase || (Op != EBrushOp.Flatten && Op != EBrushOp.FlattenSoft))
+        {
+            return null;
+        }
+        var value = new Color(Mathf.Clamp(TargetVoxels, ctx.Data.minElevationVoxels, ctx.Data.maxElevationVoxels),
+            0f, 0f, 1f);
+        return new WorldMapFill
+        {
+            KeyAt = (px, pz) => ctx.SnapVoxels(ctx.ElevationVoxels(px, pz)),
+            Write = (px, pz) => ctx.Elevation.SetPixel(px, pz, value),
+        };
+    }
+
     // Paints how weathered a cliff is.
     //
     // A LAYER, not an edit. This writes a strength per column and the erosion is

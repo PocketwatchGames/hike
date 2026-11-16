@@ -1,13 +1,11 @@
 [gd_resource type="FontVariation" format=3 uid="uid://ccayfwl2qvnu8"]
 
-[ext_resource type="FontFile" uid="uid://dmlxqf6agcojt" path="res://assets/fonts/alien_glyphs.ttf" id="1_glyphs"]
-
-[sub_resource type="SystemFont" id="SystemFont_base"]
-font_names = PackedStringArray("Sans-Serif")
+[ext_resource type="FontFile" uid="uid://c4p7g7piq61n8" path="res://assets/fonts/alegreya_sans/AlegreyaSans-Regular.ttf" id="1_face"]
+[ext_resource type="FontFile" uid="uid://dmlxqf6agcojt" path="res://assets/fonts/alien_glyphs.ttf" id="2_glyphs"]
 
 [resource]
-fallbacks = Array[Font]([ExtResource("1_glyphs")])
-base_font = SubResource("SystemFont_base")
+fallbacks = Array[Font]([ExtResource("2_glyphs")])
+base_font = ExtResource("1_face")
 opentype_features = {
 1667329140: 0
 }

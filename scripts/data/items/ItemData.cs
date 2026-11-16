@@ -94,6 +94,10 @@ public partial class ItemData : Resource
 	// inventorySprite is still used in the backpack.
 	[Export] public PackedScene worldModel;
 
+	// Fx played when the pickup is collected (coins jingle). Null = the Loot
+	// scene's default, a pluck.
+	[Export] public PackedScene pickupFx;
+
 	// Hidden and non-interactive outside an authored time-of-day window, emerging
 	// from the ground during it (night-only forage). Null = always present.
 	[Export] public TimedEmergenceData timedEmergence;

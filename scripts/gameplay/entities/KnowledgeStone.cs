@@ -2,9 +2,8 @@ using Godot;
 
 // A stone inscribed in some language. Reading it grants every concept on
 // `_concepts` AND shows the inscription via the same HUD panel as Signpost —
-// the text flips from scrambled to legible the moment the player has all
-// `_inscriptionLanguage` components. Subsequent reads silently re-show the
-// legible text.
+// the text reads as legible as the player's coverage of the inscription's
+// language says.
 //
 // The concepts and the inscription language are decoupled: the inscription
 // field drives the scramble while the concepts drive the grant, so a stone
@@ -23,11 +22,6 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
     // The default action only needs an OpenInteractive event — Complete()
     // handles the learning + fx in code, before showing the inscription.
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
-    // Inscription shown on Read. Scrambles through TextScrambler keyed on
-    // `_inscriptionLanguage` until learned, then shows raw.
-    [Export(PropertyHint.MultilineText)] private string _text = "";
-    // Language the inscription is written in (drives the TextScrambler gating).
-    [Export] private LanguageData _inscriptionLanguage;
     // Concepts granted on read, each concept's Teach() called in order.
     [Export] private Godot.Collections.Array<TeachableConcept> _concepts = new();
     // Looping holy ambience (sound + rising particle column) spawned as a child
@@ -37,6 +31,8 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
     private KnowledgeStoneSimState _simState;
+    // Set from the sim state; the scene carries no words of its own.
+    private InscriptionData _inscription;
 
     public void OnSpawned(Sim sim)
     {
@@ -83,7 +79,8 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
             // other concept types don't affect text legibility. A stone teaching
             // only a recipe / region renders its inscription scrambled until
             // some other source teaches the inscription language.
-            return LanguageText.RenderBbcode(_text, _inscriptionLanguage, player);
+            return _inscription == null ? string.Empty
+                : LanguageText.RenderBbcode(_inscription.text, _inscription.language, player);
         }, this);
     }
 
@@ -92,14 +89,7 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
         var instance = data.Scene.Instantiate<KnowledgeStone>();
         data.SeatTransform(instance);
         instance._simState = data;
-        if (!string.IsNullOrEmpty(data.Text))
-        {
-            instance._text = data.Text;
-        }
-        if (data.InscriptionLanguage != null)
-        {
-            instance._inscriptionLanguage = data.InscriptionLanguage;
-        }
+        instance._inscription = data.Inscription;
         // SimState concept overrides REPLACE the scene's authored set —
         // worldgen / world-file placements drive the full teach list. The
         // scene's authored _concepts stays in place when the SimState

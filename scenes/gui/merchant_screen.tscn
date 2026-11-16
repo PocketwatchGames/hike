@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="6_32vq5"]
 [ext_resource type="Script" uid="uid://dxbje8s6mp5rh" path="res://scripts/gui/FloatBesideFocus.cs" id="float_beside_focus"]
 [ext_resource type="Script" uid="uid://6q30x9rawallt" path="res://scripts/gui/TypingText.cs" id="7_typing"]
+[ext_resource type="AudioStream" uid="uid://b5qptponk8lfi" path="res://assets/audio/source/ui/sfx_ui_dialogue_tick_01.wav" id="8_tick"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_remark"]
 content_margin_left = 20.0
@@ -34,7 +35,7 @@ bg_color = Color(0.85, 0.78, 0.55, 1)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
 
-[node name="MerchantScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_merchantRemark", "_merchantNameTab", "_merchantNameLabel", "_merchantInventoryPanel", "_getPanel", "_tradeButton", "_inventoryPanel", "_stockGrid", "_giveGrid", "_getGrid", "_countPanel", "_itemInfoPanel", "_hintSelect", "_hintEquip", "_hintUse", "_hintSend", "_hintDrop")]
+[node name="MerchantScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_merchantRemark", "_merchantNameTab", "_merchantNameLabel", "_merchantInventoryPanel", "_getPanel", "_tradeButton", "_inventoryPanel", "_stockGrid", "_giveGrid", "_getGrid", "_countPanel", "_itemInfoPanel", "_hintSend")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -54,11 +55,7 @@ _giveGrid = NodePath("MarginContainer/HBoxContainer/Center/GivePanel/MarginConta
 _getGrid = NodePath("MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer/BackpackPanel")
 _countPanel = NodePath("MarginContainer/MarginContainer2/ItemCountPanel")
 _itemInfoPanel = NodePath("ItemInfoPanel")
-_hintSelect = NodePath("MarginContainer/ButtonHints/ButtonHintA")
-_hintEquip = NodePath("MarginContainer/ButtonHints/ButtonHintEquip")
-_hintUse = NodePath("MarginContainer/ButtonHints/ButtonHintUse")
 _hintSend = NodePath("MarginContainer/ButtonHints/ButtonHintSend")
-_hintDrop = NodePath("MarginContainer/ButtonHints/ButtonHintDrop")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1234338051]
 layout_mode = 1
@@ -123,6 +120,7 @@ _columns = 3
 
 [node name="Button" type="Button" parent="MarginContainer/HBoxContainer/Center" unique_id=268450485]
 layout_mode = 2
+theme_type_variation = &"DisplayButton"
 text = "TRADE"
 
 [node name="GetPanel" type="PanelContainer" parent="MarginContainer/HBoxContainer/Center" unique_id=680285465]
@@ -155,29 +153,9 @@ size_flags_vertical = 8
 theme_override_constants/separation = 30
 alignment = 1
 
-[node name="ButtonHintA" parent="MarginContainer/ButtonHints" unique_id=959365210 instance=ExtResource("5_fvgyx")]
-layout_mode = 2
-ActionName = "Equip"
-
-[node name="ButtonHintEquip" parent="MarginContainer/ButtonHints" unique_id=86032678 instance=ExtResource("5_fvgyx")]
-layout_mode = 2
-ActionName = "Equip"
-InputAction = "MenuSecondary"
-
-[node name="ButtonHintUse" parent="MarginContainer/ButtonHints" unique_id=1997220129 instance=ExtResource("5_fvgyx")]
-layout_mode = 2
-ActionName = "Use"
-InputAction = "MenuTertiary"
-
-[node name="ButtonHintSend" parent="MarginContainer/ButtonHints" unique_id=961259748 instance=ExtResource("5_fvgyx")]
+[node name="ButtonHintSend" parent="MarginContainer/ButtonHints" unique_id=959365210 instance=ExtResource("5_fvgyx")]
 layout_mode = 2
 ActionName = "Offer"
-InputAction = "MenuQuaternary"
-
-[node name="ButtonHintDrop" parent="MarginContainer/ButtonHints" unique_id=199762041 instance=ExtResource("5_fvgyx")]
-layout_mode = 2
-ActionName = "Drop"
-InputAction = "MenuQuinary"
 
 [node name="MarginContainer2" type="MarginContainer" parent="MarginContainer" unique_id=112741701]
 layout_mode = 2
@@ -210,10 +188,11 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_nametab")
 
 [node name="NameLabel" type="Label" parent="RemarkStrip/Column/NameTab"]
 layout_mode = 2
+theme_type_variation = &"DisplayLabel"
 theme_override_colors/font_color = Color(0.05, 0.05, 0.08, 1)
 theme_override_font_sizes/font_size = 28
 
-[node name="Remark" type="PanelContainer" parent="RemarkStrip/Column" node_paths=PackedStringArray("sizerLabel", "textLabel")]
+[node name="Remark" type="PanelContainer" parent="RemarkStrip/Column" node_paths=PackedStringArray("sizerLabel", "textLabel", "typeTick")]
 visible = false
 layout_mode = 2
 mouse_filter = 2
@@ -221,7 +200,13 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_remark")
 script = ExtResource("7_typing")
 sizerLabel = NodePath("SizerLabel")
 textLabel = NodePath("TextLabel")
+typeTick = NodePath("TypeTick")
 maxTextWidth = 800.0
+
+[node name="TypeTick" type="AudioStreamPlayer" parent="RemarkStrip/Column/Remark"]
+stream = ExtResource("8_tick")
+volume_db = -14.0
+max_polyphony = 3
 
 [node name="SizerLabel" type="RichTextLabel" parent="RemarkStrip/Column/Remark"]
 modulate = Color(1, 1, 1, 0)

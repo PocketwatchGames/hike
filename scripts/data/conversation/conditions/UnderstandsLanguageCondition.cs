@@ -1,8 +1,9 @@
 using Godot;
 
-// Conversation predicate on how much of a language the PLAYER understands, as
-// TextScrambler.ComputeUnderstanding scores it: a share of the whole tongue, not
-// of any one line, so a threshold reads the same for every speaker of it.
+// Conversation predicate on how much of a language the PLAYER has learned —
+// the linear share of its lesson weight (Player.ComputeLanguageLearned), the
+// number the learn banner shows. A share of the whole tongue, not of any one
+// line, so a threshold reads the same for every speaker of it.
 //
 // Authored inline in a conversation sheet's condition cell -
 // `understands>=60%`, `understands:vyeshal<100%` - rather than as a .tres per
@@ -22,9 +23,6 @@ public partial class UnderstandsLanguageCondition : ConversationCondition
     // "we can't talk yet" side of the same gate.
     [Export] public bool below;
 
-    // Matches ConversationController's fallback when there is no SimData.
-    private const float DEFAULT_GRAMMAR_WEIGHT = 0.2f;
-
     public override bool Evaluate(ConversationContext ctx)
     {
         Player player = ctx.player;
@@ -35,8 +33,7 @@ public partial class UnderstandsLanguageCondition : ConversationCondition
         // A speaker with no language pinned at all speaks the common tongue —
         // universally understood.
         LanguageData target = language ?? ctx.speakerLanguage;
-        float grammarWeight = ctx.sim?.SimData?.languageGrammarWeight ?? DEFAULT_GRAMMAR_WEIGHT;
-        float understood = TextScrambler.ComputeUnderstanding(player.GetLearnedComponents(target), grammarWeight);
+        float understood = player.ComputeLanguageLearned(target);
         return below ? understood < threshold : understood >= threshold;
     }
 }

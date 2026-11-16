@@ -506,6 +506,7 @@ size_flags_horizontal = 4
 size_flags_vertical = 4
 
 [node name="AnnouncementContainer" type="PanelContainer" parent="AnnouncementCanvas/MarginContainer/Banner" unique_id=1343869195 node_paths=PackedStringArray("label", "sound", "progressBar")]
+theme_type_variation = &"ParchmentPanel"
 layout_mode = 2
 size_flags_vertical = 0
 script = ExtResource("19_announce")
@@ -526,6 +527,7 @@ theme_override_constants/separation = 12
 
 [node name="AnnouncementLabel" type="Label" parent="AnnouncementCanvas/MarginContainer/Banner/AnnouncementContainer/MarginContainer/VBox" unique_id=1191209949]
 layout_mode = 2
+theme_type_variation = &"ParchmentTitle"
 theme_override_font_sizes/font_size = 48
 text = "Vyeshal Learned!"
 horizontal_alignment = 1

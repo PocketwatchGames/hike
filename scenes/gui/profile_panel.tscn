@@ -5,6 +5,7 @@
 [node name="ProfilePanel" type="PanelContainer" unique_id=591619912 node_paths=PackedStringArray("_selectButton", "_nameLabel", "_deleteButton")]
 clip_contents = true
 custom_minimum_size = Vector2(500, 0)
+theme_type_variation = &"BarePanel"
 script = ExtResource("1_3fixl")
 _selectButton = NodePath("SelectButton")
 _nameLabel = NodePath("MarginContainer/VBoxContainer2/VBoxContainer/NameLabel")
@@ -12,6 +13,7 @@ _deleteButton = NodePath("MarginContainer/VBoxContainer2/HBoxContainer/DeleteBut
 
 [node name="SelectButton" type="Button" parent="." unique_id=2106987863]
 layout_mode = 2
+theme_type_variation = &"ParchmentButton"
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=297935947]
 clip_contents = true
@@ -33,6 +35,7 @@ mouse_filter = 2
 [node name="NameLabel" type="Label" parent="MarginContainer/VBoxContainer2/VBoxContainer" unique_id=1373310275]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_type_variation = &"ParchmentTitle"
 theme_override_font_sizes/font_size = 32
 text = "New Game"
 horizontal_alignment = 1
@@ -45,4 +48,5 @@ alignment = 2
 
 [node name="DeleteButton" type="Button" parent="MarginContainer/VBoxContainer2/HBoxContainer" unique_id=1447075497]
 layout_mode = 2
+theme_type_variation = &"ParchmentFrameButton"
 text = "Delete"

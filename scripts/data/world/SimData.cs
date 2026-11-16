@@ -290,7 +290,7 @@ public partial class SimData : Resource
     // ConversationBranch / ConversationResponse language slot, tested by
     // UnderstandsLanguageCondition, resolved by the reserved [lang:common] span.
     //
-    // Player.GetLearnedComponents answers All for it unconditionally — knowing it
+    // Player.GetLanguageCoverage answers Full for it unconditionally — knowing it
     // is a fact about the world, not a per-world authoring step, so no world can
     // forget to grant it and render every common line as gibberish. Keep it in
     // `languages` as well; that list is what resolves the span token.

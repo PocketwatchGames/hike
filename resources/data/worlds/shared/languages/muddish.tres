@@ -1,9 +1,24 @@
-[gd_resource type="Resource" script_class="LanguageData" format=3 uid="uid://irm377w14z4uf"]
+[gd_resource type="Resource" script_class="LanguageData" format=3 uid="uid://1td133j0mecv"]
 
-[ext_resource type="Script" uid="uid://3q6eknviv60r7" path="res://scripts/data/LanguageData.cs" id="1_lang"]
+[ext_resource type="Script" uid="uid://bpcbgagqxrvhu" path="res://scripts/data/LanguageData.cs" id="1_lang"]
+
+[sub_resource type="Curve" id="Curve_grammar"]
+_data = [Vector2(0, 0), 0.0, 0.0, 1, 1, Vector2(0.25, 0), 0.0, 2.0, 1, 1, Vector2(0.5, 0.5), 2.0, 1.2, 1, 1, Vector2(0.75, 0.8), 1.2, 0.8, 1, 1, Vector2(1, 1), 0.8, 0.8, 1, 1]
+point_count = 5
+
+[sub_resource type="Curve" id="Curve_numbers"]
+_data = [Vector2(0, 0), 0.0, 0.0, 1, 1, Vector2(0.25, 0), 0.0, 0.0, 1, 1, Vector2(0.5, 0), 0.0, 1.2, 1, 1, Vector2(0.75, 0.3), 1.2, 2.8, 1, 1, Vector2(1, 1), 2.8, 2.8, 1, 1]
+point_count = 5
+
+[sub_resource type="Curve" id="Curve_vocabulary"]
+_data = [Vector2(0, 0), 2.0, 2.0, 1, 1, Vector2(0.25, 0.5), 2.0, 1.4, 1, 1, Vector2(0.5, 0.85), 1.4, 0.4, 1, 1, Vector2(0.75, 0.95), 0.4, 0.2, 1, 1, Vector2(1, 1), 0.2, 0.2, 1, 1]
+point_count = 5
 
 [resource]
 script = ExtResource("1_lang")
 id = &"muddish"
 displayName = &"Muddish"
 glyphBase = 57600
+vocabularyCurve = SubResource("Curve_vocabulary")
+grammarCurve = SubResource("Curve_grammar")
+numbersCurve = SubResource("Curve_numbers")

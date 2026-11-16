@@ -72,6 +72,11 @@ public partial class WorldMapCanvas : Control
     // bigger than the control; clamped so it can never be dragged off-screen.
     private Vector2 _pan;
     private bool _panning;
+    // Held while pressing, turns the press into a bucket fill. Read as a held
+    // key at the press rather than as a key event, so it is a modifier like
+    // shift and needs no state of its own.
+    public const Key FillKey = Key.B;
+
     private bool _painting;
     private bool _erase;
     // An alt stroke holds its first stamp until the cursor leaves the metre it
@@ -142,7 +147,8 @@ public partial class WorldMapCanvas : Control
                         | (mb.ShiftPressed ? EStrokeMods.Constrain : EStrokeMods.None)
                         | (mb.CtrlPressed ? EStrokeMods.ConstrainAbove : EStrokeMods.None)
                         | (mb.ButtonIndex == MouseButton.Right
-                            ? EStrokeMods.Secondary : EStrokeMods.None);
+                            ? EStrokeMods.Secondary : EStrokeMods.None)
+                        | (Input.IsKeyPressed(FillKey) ? EStrokeMods.Fill : EStrokeMods.None);
                     _painting = true;
                     _erase = mb.ButtonIndex == MouseButton.Right;
                     _holdingPick = pick;

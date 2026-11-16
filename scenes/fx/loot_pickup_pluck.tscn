@@ -1,0 +1,57 @@
+[gd_scene format=3 uid="uid://c8whwfj5rpq2m"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://dxbdi1sm6akns" path="res://assets/audio/source/interactives/sfx_loot_pickup_pluck_pop_01.wav" id="2_pop01"]
+[ext_resource type="AudioStream" uid="uid://o00vneo1o7wg" path="res://assets/audio/source/interactives/sfx_loot_pickup_pluck_pop_02.wav" id="2_pop02"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_lootpickup"]
+emission_shape = 1
+emission_sphere_radius = 0.15
+direction = Vector3(0, 1, 0)
+spread = 35.0
+initial_velocity_min = 1.5
+initial_velocity_max = 3.5
+gravity = Vector3(0, -2, 0)
+damping_min = 0.5
+damping_max = 1.5
+scale_min = 0.6
+scale_max = 1.4
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_lootpickup"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(1, 0.92, 0.45, 0.9)
+shader_parameter/emission = Color(0, 0, 0, 0)
+
+[sub_resource type="QuadMesh" id="QuadMesh_lootpickup"]
+material = SubResource("ShaderMaterial_lootpickup")
+size = Vector2(0.1, 0.1)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_pop"]
+playback_mode = 1
+random_pitch = 1.15
+random_volume_offset_db = 2.0
+streams_count = 2
+stream_0/stream = ExtResource("2_pop01")
+stream_1/stream = ExtResource("2_pop02")
+
+[node name="LootPickupPluck" type="Node3D" unique_id=965233316]
+script = ExtResource("1_oneshot")
+
+[node name="Sparkle" type="GPUParticles3D" parent="." unique_id=1255367264]
+emitting = false
+amount = 14
+lifetime = 0.7
+one_shot = true
+explosiveness = 1.0
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_lootpickup")
+draw_pass_1 = SubResource("QuadMesh_lootpickup")
+
+[node name="Pop" type="AudioStreamPlayer3D" parent="." unique_id=1852157819]
+stream = SubResource("AudioStreamRandomizer_pop")
+volume_db = 0.0
+unit_size = 6.0
+max_distance = 40.0
+bus = &"World3D"

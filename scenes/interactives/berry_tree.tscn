@@ -22,10 +22,12 @@
 [ext_resource type="Script" uid="uid://beau1g7i4mvxh" path="res://scripts/gameplay/entities/Destructible.cs" id="21_destructible"]
 [ext_resource type="PackedScene" path="res://scenes/fx/foliage_destroy.tscn" id="22_destroyfx"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="90_loopfx"]
+[ext_resource type="PackedScene" uid="uid://vsuq8qu36fpk" path="res://scenes/fx/berry_pick_rustle.tscn" id="91_pickfx"]
 
 [sub_resource type="Resource" id="Resource_berry_event_pick"]
 script = ExtResource("3_xdtv3")
 type = 256
+fx = ExtResource("91_pickfx")
 
 [sub_resource type="Resource" id="Resource_berry_action_pick"]
 script = ExtResource("10_action")

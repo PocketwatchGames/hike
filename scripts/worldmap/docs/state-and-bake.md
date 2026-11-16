@@ -33,19 +33,34 @@ relights a `.hike` on load any more — `Main` trusts the file's sunlight (see
 `LightEngine.LIGHT_VERSION`), so a bake that skipped the flood would write a world
 that loads black. The flood cannot simply go inside `BuildWorld`, because it has
 to see the tree canopy and `FoliageStamper` instantiates each tree scene, which
-the bake thread must not do. So `Bake` is:
+a worker thread must not do. So `Bake` is three private steps, run straight
+through on the MAIN thread:
 
-| Step | Thread | Is |
-|---|---|---|
-| `BakeBuild` | worker | the painted document to voxels — `BuildWorld` |
-| `BakeStampOccluders` | **main** | rasterize canopies / roofs / entity voxels (ms) |
-| `BakeRelightAndWrite` | worker | `LightEngine.Relight`, then `WorldFile.Write` |
+| Step | Is |
+|---|---|
+| `BakeBuild` | the painted document to voxels — `BuildWorld` |
+| `BakeStampOccluders` | rasterize canopies / roofs / entity voxels (ms) |
+| `BakeRelightAndWrite` | `LightEngine.Relight`, then `WorldFile.Write` |
 
-`WorldMapPainter.SaveAndBake` drives those three and hops threads between them;
-`Bake()` runs all three straight through for a caller that is already the main
-thread (`WorldMapData.BakeToWorldFile`). It is the same closing move `Main` makes
-after `WorldGen.Generate`, for the same reason. `LightEngine.Relight`'s optional
-progress callback feeds the panel through the lighting step.
+It is the same closing move `Main` makes after `WorldGen.Generate`, for the same
+reason. `LightEngine.Relight`'s optional progress callback feeds the panel
+through the lighting step.
+
+**The painter's bake is a separate PROCESS** (`WorldMapBakeProcess`): Ctrl+S
+saves, then launches a headless Godot running `worldmap_bake <doc>` + `quit`,
+whose main thread has nothing else to do. So a bake survives closing the
+painter and the game window, and a re-save KILLS the running bake and starts
+over from the newer document — only the last save of a burst finishes. The two
+talk through `<world>.hike.bake` beside the output (pid + start time, state,
+progress), written by the child and polled by the painter, which is how a
+reopened painter picks up a bake still running. The child's console goes to
+`<world>.hike.bake.log`. A kill is safe at any point because `WorldFile.Write`
+writes `.hike.tmp` and renames it over the world; nothing reaches the `.hike`
+until then. The pid is only trusted together with the process start time, so a
+stale status file can never get an unrelated process killed.
+
+Do not move the bake back into the game process: it could not outlive the
+window there, and a save mid-bake could only be dropped, not restarted.
 
 **Sky exposure is the exception, and it is not lighting.** `WorldFinish.Finish`
 runs `ComputeSkyExposure` even here, because `Interiorness` floods from it and

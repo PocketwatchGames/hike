@@ -1,0 +1,200 @@
+[gd_resource type="Theme" format=3 uid="uid://x1rrcpsmbh6i"]
+
+[ext_resource type="FontVariation" uid="uid://ccayfwl2qvnu8" path="res://resources/gui/ui_font.tres" id="1_ui"]
+[ext_resource type="FontVariation" uid="uid://dpmggkg2kklc" path="res://resources/gui/ui_font_italic.tres" id="2_ui_italic"]
+[ext_resource type="FontVariation" uid="uid://cfrln15rwcuwh" path="res://resources/gui/ui_font_bold.tres" id="3_ui_bold"]
+[ext_resource type="FontVariation" uid="uid://cbi8ulk7fo30h" path="res://resources/gui/ui_font_bold_italic.tres" id="4_ui_bold_italic"]
+[ext_resource type="FontVariation" uid="uid://7y3ysa1tjp3o" path="res://resources/gui/display_font.tres" id="5_display"]
+[ext_resource type="FontVariation" uid="uid://b2q0qxr8fmlqh" path="res://resources/gui/ink_font.tres" id="6_ink"]
+[ext_resource type="FontVariation" uid="uid://j8goo1fhj10f" path="res://resources/gui/ink_font_italic.tres" id="7_ink_italic"]
+[ext_resource type="Texture2D" uid="uid://cixkhrgeeqb2d" path="res://assets/textures/gui/parchment_horizontal.png" id="8_parchment"]
+[ext_resource type="Script" uid="uid://d2saxx464n8vt" path="res://scripts/gui/PixelSliceStyleBox.cs" id="9_pixelslice"]
+[ext_resource type="Texture2D" uid="uid://ce2avw0l7w8b8" path="res://assets/textures/gui/parchment_button_frame.png" id="10_frame"]
+[ext_resource type="Texture2D" uid="uid://j7r3abx3q5nk" path="res://assets/textures/gui/parchment_large_square.png" id="11_parchment_large"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_bare_panel"]
+
+[sub_resource type="StyleBox" id="PixelSliceStyleBox_parchment_disabled"]
+resource_local_to_scene = false
+resource_name = ""
+content_margin_left = 36.0
+content_margin_top = 14.0
+content_margin_right = 36.0
+content_margin_bottom = 14.0
+script = ExtResource("9_pixelslice")
+texture = ExtResource("8_parchment")
+modulate = Color(1, 1, 1, 0.5)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_parchment_focus"]
+
+[sub_resource type="StyleBox" id="PixelSliceStyleBox_parchment_hover"]
+resource_local_to_scene = false
+resource_name = ""
+content_margin_left = 36.0
+content_margin_top = 14.0
+content_margin_right = 36.0
+content_margin_bottom = 14.0
+script = ExtResource("9_pixelslice")
+texture = ExtResource("8_parchment")
+modulate = Color(1.15, 1.12, 1.05, 1)
+
+[sub_resource type="StyleBox" id="PixelSliceStyleBox_parchment_pressed"]
+resource_local_to_scene = false
+resource_name = ""
+content_margin_left = 36.0
+content_margin_top = 16.0
+content_margin_right = 36.0
+content_margin_bottom = 12.0
+script = ExtResource("9_pixelslice")
+texture = ExtResource("8_parchment")
+modulate = Color(0.8, 0.76, 0.7, 1)
+
+[sub_resource type="StyleBox" id="PixelSliceStyleBox_parchment_normal"]
+resource_local_to_scene = false
+resource_name = ""
+content_margin_left = 36.0
+content_margin_top = 14.0
+content_margin_right = 36.0
+content_margin_bottom = 14.0
+script = ExtResource("9_pixelslice")
+texture = ExtResource("8_parchment")
+
+[sub_resource type="StyleBox" id="PixelSliceStyleBox_frame_disabled"]
+resource_local_to_scene = false
+resource_name = ""
+content_margin_left = 28.0
+content_margin_top = 12.0
+content_margin_right = 28.0
+content_margin_bottom = 16.0
+script = ExtResource("9_pixelslice")
+texture = ExtResource("10_frame")
+sliceBottom = 5
+overlap = Vector2i(10, 4)
+modulate = Color(1, 1, 1, 0.3)
+alphaThreshold = false
+
+[sub_resource type="StyleBox" id="PixelSliceStyleBox_frame_hover"]
+resource_local_to_scene = false
+resource_name = ""
+content_margin_left = 28.0
+content_margin_top = 12.0
+content_margin_right = 28.0
+content_margin_bottom = 16.0
+script = ExtResource("9_pixelslice")
+texture = ExtResource("10_frame")
+sliceBottom = 5
+overlap = Vector2i(10, 4)
+alphaThreshold = false
+
+[sub_resource type="StyleBox" id="PixelSliceStyleBox_frame_pressed"]
+resource_local_to_scene = false
+resource_name = ""
+content_margin_left = 28.0
+content_margin_top = 14.0
+content_margin_right = 28.0
+content_margin_bottom = 14.0
+script = ExtResource("9_pixelslice")
+texture = ExtResource("10_frame")
+sliceBottom = 5
+overlap = Vector2i(10, 4)
+alphaThreshold = false
+
+[sub_resource type="StyleBox" id="PixelSliceStyleBox_frame_normal"]
+resource_local_to_scene = false
+resource_name = ""
+content_margin_left = 28.0
+content_margin_top = 12.0
+content_margin_right = 28.0
+content_margin_bottom = 16.0
+script = ExtResource("9_pixelslice")
+texture = ExtResource("10_frame")
+sliceBottom = 5
+overlap = Vector2i(10, 4)
+modulate = Color(1, 1, 1, 0.75)
+alphaThreshold = false
+
+[sub_resource type="StyleBox" id="PixelSliceStyleBox_parchment_large_panel"]
+resource_local_to_scene = false
+resource_name = ""
+content_margin_left = 28.0
+content_margin_top = 24.0
+content_margin_right = 28.0
+content_margin_bottom = 24.0
+script = ExtResource("9_pixelslice")
+texture = ExtResource("11_parchment_large")
+sliceLeft = 12
+sliceTop = 12
+sliceRight = 12
+sliceBottom = 12
+overlap = Vector2i(24, 24)
+
+[sub_resource type="StyleBox" id="PixelSliceStyleBox_parchment_panel"]
+resource_local_to_scene = false
+resource_name = ""
+content_margin_left = 20.0
+content_margin_top = 16.0
+content_margin_right = 20.0
+content_margin_bottom = 16.0
+script = ExtResource("9_pixelslice")
+texture = ExtResource("8_parchment")
+
+[resource]
+default_font = ExtResource("1_ui")
+BarePanel/base_type = &"PanelContainer"
+BarePanel/styles/panel = SubResource("StyleBoxEmpty_bare_panel")
+DisplayButton/base_type = &"Button"
+DisplayButton/fonts/font = ExtResource("5_display")
+DisplayLabel/base_type = &"Label"
+DisplayLabel/fonts/font = ExtResource("5_display")
+InkLabel/base_type = &"Label"
+InkLabel/fonts/font = ExtResource("6_ink")
+InkText/base_type = &"RichTextLabel"
+InkText/fonts/bold_font = ExtResource("6_ink")
+InkText/fonts/bold_italics_font = ExtResource("7_ink_italic")
+InkText/fonts/italics_font = ExtResource("7_ink_italic")
+InkText/fonts/normal_font = ExtResource("6_ink")
+InscriptionText/base_type = &"RichTextLabel"
+InscriptionText/fonts/bold_font = ExtResource("5_display")
+InscriptionText/fonts/bold_italics_font = ExtResource("5_display")
+InscriptionText/fonts/italics_font = ExtResource("5_display")
+InscriptionText/fonts/normal_font = ExtResource("5_display")
+ParchmentButton/base_type = &"Button"
+ParchmentButton/colors/font_color = Color(0.22, 0.15, 0.09, 1)
+ParchmentButton/colors/font_disabled_color = Color(0.22, 0.15, 0.09, 0.5)
+ParchmentButton/colors/font_focus_color = Color(0.22, 0.15, 0.09, 1)
+ParchmentButton/colors/font_hover_color = Color(0.1, 0.06, 0.03, 1)
+ParchmentButton/colors/font_hover_pressed_color = Color(0.1, 0.06, 0.03, 1)
+ParchmentButton/colors/font_pressed_color = Color(0.1, 0.06, 0.03, 1)
+ParchmentButton/fonts/font = ExtResource("5_display")
+ParchmentButton/styles/disabled = SubResource("PixelSliceStyleBox_parchment_disabled")
+ParchmentButton/styles/focus = SubResource("StyleBoxEmpty_parchment_focus")
+ParchmentButton/styles/hover = SubResource("PixelSliceStyleBox_parchment_hover")
+ParchmentButton/styles/hover_pressed = SubResource("PixelSliceStyleBox_parchment_pressed")
+ParchmentButton/styles/normal = SubResource("PixelSliceStyleBox_parchment_normal")
+ParchmentButton/styles/pressed = SubResource("PixelSliceStyleBox_parchment_pressed")
+ParchmentFrameButton/base_type = &"Button"
+ParchmentFrameButton/colors/font_color = Color(0.22, 0.15, 0.09, 1)
+ParchmentFrameButton/colors/font_disabled_color = Color(0.22, 0.15, 0.09, 0.4)
+ParchmentFrameButton/colors/font_focus_color = Color(0.22, 0.15, 0.09, 1)
+ParchmentFrameButton/colors/font_hover_color = Color(0.08, 0.05, 0.02, 1)
+ParchmentFrameButton/colors/font_hover_pressed_color = Color(0.08, 0.05, 0.02, 1)
+ParchmentFrameButton/colors/font_pressed_color = Color(0.08, 0.05, 0.02, 1)
+ParchmentFrameButton/fonts/font = ExtResource("5_display")
+ParchmentFrameButton/styles/disabled = SubResource("PixelSliceStyleBox_frame_disabled")
+ParchmentFrameButton/styles/focus = SubResource("StyleBoxEmpty_parchment_focus")
+ParchmentFrameButton/styles/hover = SubResource("PixelSliceStyleBox_frame_hover")
+ParchmentFrameButton/styles/hover_pressed = SubResource("PixelSliceStyleBox_frame_pressed")
+ParchmentFrameButton/styles/normal = SubResource("PixelSliceStyleBox_frame_normal")
+ParchmentFrameButton/styles/pressed = SubResource("PixelSliceStyleBox_frame_pressed")
+ParchmentLabel/base_type = &"Label"
+ParchmentLabel/colors/font_color = Color(0.22, 0.15, 0.09, 1)
+ParchmentLargePanel/base_type = &"PanelContainer"
+ParchmentLargePanel/styles/panel = SubResource("PixelSliceStyleBox_parchment_large_panel")
+ParchmentPanel/base_type = &"PanelContainer"
+ParchmentPanel/styles/panel = SubResource("PixelSliceStyleBox_parchment_panel")
+ParchmentTitle/base_type = &"Label"
+ParchmentTitle/colors/font_color = Color(0.22, 0.15, 0.09, 1)
+ParchmentTitle/fonts/font = ExtResource("5_display")
+RichTextLabel/fonts/bold_font = ExtResource("3_ui_bold")
+RichTextLabel/fonts/bold_italics_font = ExtResource("4_ui_bold_italic")
+RichTextLabel/fonts/italics_font = ExtResource("2_ui_italic")

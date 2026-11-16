@@ -7,10 +7,12 @@
 [ext_resource type="Texture2D" uid="uid://bbp21smdd4f0b" path="res://assets/textures/interactions/pickup.png" id="3_icon"]
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="5_qslhc"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_nx526"]
+[ext_resource type="PackedScene" uid="uid://svdikxb5o0fp" path="res://scenes/fx/search_body_roll.tscn" id="7_bodyroll"]
 
 [sub_resource type="Resource" id="Event_complete"]
 script = ExtResource("2_event")
 type = 256
+fx = ExtResource("7_bodyroll")
 
 [sub_resource type="Resource" id="Event_search_pose"]
 script = ExtResource("2_event")

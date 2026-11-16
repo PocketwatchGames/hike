@@ -16,6 +16,7 @@ menuPanel = NodePath("PanelContainer")
 controlsScreen = NodePath("ControlsScreen")
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=555062874]
+theme_type_variation = &"ParchmentLargePanel"
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -43,6 +44,7 @@ layout_mode = 2
 size_flags_vertical = 8
 
 [node name="Label" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=377405553]
+theme_type_variation = &"ParchmentTitle"
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_vertical = 1
@@ -52,16 +54,19 @@ horizontal_alignment = 1
 
 [node name="ResumeButton" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=982488480]
 layout_mode = 2
+theme_type_variation = &"ParchmentFrameButton"
 theme_override_font_sizes/font_size = 32
 text = "Resume"
 
 [node name="ControlsButton" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer"]
 layout_mode = 2
+theme_type_variation = &"ParchmentFrameButton"
 theme_override_font_sizes/font_size = 32
 text = "Controls"
 
 [node name="QuitButton" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=2142242905]
 layout_mode = 2
+theme_type_variation = &"ParchmentFrameButton"
 theme_override_font_sizes/font_size = 32
 text = "Quit to Menu"
 
@@ -71,6 +76,7 @@ size_flags_horizontal = 8
 theme_override_constants/margin_top = 10
 
 [node name="VersionLabel" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer/MarginContainer" unique_id=954580598]
+theme_type_variation = &"ParchmentLabel"
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "v 10543503948"

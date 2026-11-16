@@ -349,6 +349,7 @@ public partial class Sim : Node3D
     public void Tick(double delta)
     {
         _worldState.GameTimeMs += (ulong)(delta * 1000.0);
+        TickScriptDelays();
 
         // Advance the in-world clock. time_scale fast-forwards it without
         // disturbing GameTimeMs (which drives cooldowns and AI timers that should

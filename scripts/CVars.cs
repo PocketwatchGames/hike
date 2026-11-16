@@ -135,10 +135,12 @@ public static class CVars
 
     // Bake a world-map document to a .hike with no painter and no window:
     //   worldmap_bake res://.../default_world_map.tres [res://out.hike]
-    // Runs the same three steps Ctrl+S does (build, occluder stamp, relight +
-    // write), straight through on this thread. The optional second argument
-    // redirects this one bake away from the document's own .hike, so a
-    // test bake cannot overwrite the real world. Minutes on a large document.
+    // This IS the painter's Ctrl+S bake — the painter launches it as its own
+    // process (WorldMapBakeProcess) — so it reports progress and its result to
+    // the status file beside the output, which the painter polls. The optional
+    // second argument redirects this one bake away from the document's own
+    // .hike, so a test bake cannot overwrite the real world. Does not quit on
+    // its own: append `quit`.
     public static CVarString worldMapBake = new CVarString("worldmap_bake", "", (cvar) =>
     {
         string arg = ((CVarString)cvar).Value;
@@ -161,7 +163,13 @@ public static class CVars
         // .hike open), so printing the elapsed time unconditionally announces a
         // world that was never written — and the blob left on disk is the stale
         // one from whenever the last bake succeeded.
-        bool ok = data.BakeToWorldFile(output);
+        if (string.IsNullOrEmpty(output))
+        {
+            Godot.GD.PrintErr($"worldmap_bake: {data.NoWorldMessage()}");
+            return;
+        }
+        bool ok = data.BakeToWorldFile(output, WorldMapBakeProcess.Reporter(output, sw));
+        WorldMapBakeProcess.Finish(output, ok, sw.ElapsedMilliseconds);
         if (!ok)
         {
             Godot.GD.PrintErr($"worldmap_bake: FAILED after {sw.ElapsedMilliseconds}ms, "

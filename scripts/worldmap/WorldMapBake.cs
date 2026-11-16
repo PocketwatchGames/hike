@@ -832,19 +832,18 @@ public class WorldMapBake
         return Map.ZoneCount > 0 ? Mathf.Clamp(idx, 0, Map.ZoneCount - 1) : 0;
     }
 
-    // — see LightEngine.LIGHT_VERSION), and it has to see the tree canopy, which
-    // only FoliageStamper knows and which needs the main thread
-    // (PackedScene.Instantiate). Build and relight are the long passes and want
-    // a worker thread. So a caller that is NOT the main thread drives the three
-    // in order and hops threads for the stamp — see WorldMapPainter.SaveAndBake.
-    // This wrapper is for a main-thread caller, where the split does not matter.
+    // The whole bake. MAIN THREAD: the relight has to see the tree canopy
+    // (see LightEngine.LIGHT_VERSION), which only FoliageStamper knows, and it
+    // instantiates scenes. The painter does not call this — it launches
+    // worldmap_bake as its own process (WorldMapBakeProcess), whose main thread
+    // has nothing else to do.
     public bool Bake(System.Action<float, string> progress = null)
     {
         return BakeBuild(progress) && BakeStampOccluders() && BakeRelightAndWrite(progress);
     }
 
     // Step 1 — the painted document to voxels. The long one.
-    public bool BakeBuild(System.Action<float, string> progress = null)
+    private bool BakeBuild(System.Action<float, string> progress)
     {
         if (string.IsNullOrEmpty(OutputPath))
         {
@@ -866,9 +865,9 @@ public class WorldMapBake
         }
     }
 
-    // Step 2 — MAIN THREAD ONLY. Rasterize the sun occluders (tree canopies,
-    // roofs, entity voxels) so the relight below sees them. Milliseconds.
-    public bool BakeStampOccluders()
+    // Step 2 — Rasterize the sun occluders (tree canopies, roofs, entity
+    // voxels) so the relight below sees them. Milliseconds.
+    private bool BakeStampOccluders()
     {
         try
         {
@@ -887,7 +886,7 @@ public class WorldMapBake
     }
 
     // Step 3 — the sun flood and the file write.
-    public bool BakeRelightAndWrite(System.Action<float, string> progress = null)
+    private bool BakeRelightAndWrite(System.Action<float, string> progress)
     {
         try
         {

@@ -281,17 +281,13 @@ public class CactusSimState : EntitySimState
 
 public class SignpostSimState : EntitySimState
 {
-    // Text shown in the HUD panel when the player interacts. Stored on the
-    // sim state so each placed signpost in a world file can carry its own
-    // message — the .tscn is shared.
-    public string Text;
-    public LanguageData Language;
+    // What this signpost says; the .tscn is shared.
+    public InscriptionData Inscription;
 
-    public SignpostSimState(Vector3 worldPosition, PackedScene scene, string text, LanguageData language)
+    public SignpostSimState(Vector3 worldPosition, PackedScene scene, InscriptionData inscription)
         : base(worldPosition, scene)
     {
-        Text = text ?? string.Empty;
-        Language = language;
+        Inscription = inscription;
     }
 
     public override Node3D CreateEntity(Sim sim)
@@ -302,26 +298,18 @@ public class SignpostSimState : EntitySimState
 
 public class KnowledgeStoneSimState : EntitySimState
 {
-    // Inscription shown to the player when read. Stored per-instance so a
-    // single .tscn can carry many different stones across the world file.
-    public string Text;
-    // Language the inscription is written in (drives the scramble gating on
-    // display). Decoupled from what the stone teaches — see KnowledgeStone
-    // for the split rationale.
-    public LanguageData InscriptionLanguage;
+    // What this stone says (and the tongue it is written in, which drives the
+    // scramble on display); the .tscn is shared.
+    public InscriptionData Inscription;
     // Concepts this specific stone grants on read. Empty/null falls back to
     // whatever the scene authored on its `_concepts` field. Polymorphic
     // resource refs — LanguageTeachable, RecipeTeachable, RegionTeachable.
-    // EntitySerializer's legacy KnowledgeStone wire format (Language +
-    // Components int) is converted into a single-entry LanguageTeachable
-    // here on read so old .hike files keep working.
     public Godot.Collections.Array<TeachableConcept> Concepts;
 
-    public KnowledgeStoneSimState(Vector3 worldPosition, PackedScene scene, string text, LanguageData inscriptionLanguage, Godot.Collections.Array<TeachableConcept> concepts)
+    public KnowledgeStoneSimState(Vector3 worldPosition, PackedScene scene, InscriptionData inscription, Godot.Collections.Array<TeachableConcept> concepts)
         : base(worldPosition, scene)
     {
-        Text = text ?? string.Empty;
-        InscriptionLanguage = inscriptionLanguage;
+        Inscription = inscription;
         Concepts = concepts;
     }
 

@@ -1526,7 +1526,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return;
         }
-        _world.EjectLoot(_simState.Loot, GlobalPosition + Vector3.Up);
+        // The search action's own body-roll fx is the cue; a chime per pile
+        // would bury it.
+        _world.EjectLoot(_simState.Loot, GlobalPosition + Vector3.Up, announce: false);
         _simState.Loot = null;
     }
 
@@ -1728,17 +1730,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         return total;
     }
 
-    // True if the gift would teach only language components the player
-    // already has. Item-bearing gifts are never redundant — even a known-
+    // True if the gift would teach only a language lesson the player
+    // already holds. Item-bearing gifts are never redundant — even a known-
     // language gift still carries a real item payload.
     private bool IsGiftRedundant(LoyaltyGiftState gift, Player player)
     {
         if (gift == null) { return true; }
         if (gift.item != null) { return false; }
-        if (gift.language == null || gift.languageComponents == ELanguageComponents.None) { return true; }
+        if (gift.language == null || gift.languagePercent <= 0f) { return true; }
         if (player == null) { return false; }
-        ELanguageComponents known = player.GetLearnedComponents(gift.language);
-        return (gift.languageComponents & ~known) == ELanguageComponents.None;
+        return player.GetLessonPercent(gift.language, gift.languageLesson) >= gift.languagePercent;
     }
 
     // Any non-redundant gift left in the mob's reserve. Drives the "nothing
@@ -1764,7 +1765,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // new total now crosses (skipping redundant language gifts the player
     // already covers). Returns the list of unlocked gifts in authored
     // order so MerchantScreen can hand them back; player-side application
-    // (inventory add, language learn, HUD announcement) is the caller's job.
+    // (item dropped at the merchant's feet, language learn, HUD announcement)
+    // is the caller's job.
     public List<LoyaltyGiftState> AcceptGift(IList<ItemState> items, float loyaltyGained, Player player)
     {
         List<LoyaltyGiftState> awarded = new();

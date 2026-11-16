@@ -98,18 +98,19 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity, IBreakableE
         }
         _interactiveState.StartRegrow(_world.WorldClockDays, Mathf.Max(1, _regrowDays));
         ApplyRipeState(false);
-        EjectBerries();
+        // The pick action's rustle fx is the cue; a chime per berry would bury it.
+        EjectBerries(announce: false);
     }
 
     // Pop this bush's fruit onto the ground. Shared by picking (which leaves the
     // bush standing to regrow) and by being smashed (which doesn't).
-    private void EjectBerries()
+    private void EjectBerries(bool announce = true)
     {
         if (_interactiveState == null || _world == null)
         {
             return;
         }
-        _world.EjectLoot(_berryItem, _interactiveState.BerryCount, GlobalPosition + Vector3.Up);
+        _world.EjectLoot(_berryItem, _interactiveState.BerryCount, GlobalPosition + Vector3.Up, announce);
     }
 
     // Show/hide the fruit. The hurtbox is NOT gated on ripeness — a picked bush

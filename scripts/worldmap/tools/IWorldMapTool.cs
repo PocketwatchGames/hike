@@ -23,6 +23,34 @@ public enum EStrokeMods
     // reaches BeginStroke the same way and the press has to be able to tell:
     // alt+LMB aims the tool and alt+RMB aims the cutaway.
     Secondary = 8,
+    // B held: the press is a bucket fill (IWorldMapTool.Fill). The host runs it
+    // and the press never becomes a stroke, so a tool never sees this flag.
+    Fill = 16,
+}
+
+// One bucket fill, as a tool describes it. The HOST runs the flood, so every
+// tool gets the same connectivity, the same undo bracket and the same repaint;
+// a tool only says what counts as "the same region" and how to write one cell.
+//
+// The flood is gathered in full BEFORE anything is written: Write changes the
+// very keys the flood compares, so writing as it spread would let a fill leak
+// through what it had just painted (or stop at it).
+public sealed class WorldMapFill
+{
+    // Columns per side of a fill cell. A per-CHUNK layer floods whole chunks,
+    // since every column of one shares its value — flooding them column by
+    // column is 256x the work for the same answer.
+    public int CellSize = 1;
+
+    // What the cell at column (px, pz) is, as far as this fill is concerned.
+    // 4-connected cells with the seed's key are filled. Encode whatever the
+    // view distinguishes there — a passage and the surface beside it at the
+    // same level are different regions.
+    public System.Func<int, int, long> KeyAt;
+
+    // Write one cell, given its first column. Must stay inside that cell: the
+    // undo snapshot is the flood's bounds and nothing outside it.
+    public System.Action<int, int> Write;
 }
 
 // A painting tool. Each tool owns its parameters (radius, op, active elevation,
@@ -107,6 +135,11 @@ public interface IWorldMapTool
     // well outside the cursor. Null means "the brush", which is every tool that
     // paints a layer under its own ring.
     Rect2I? LastPaintRect { get; }
+
+    // The bucket fill for a press at the current settings (B+click; RMB is the
+    // erase fill), or null where the tool — or its current op — has none.
+    // Paints at FULL weight: a fill has no falloff to ease by.
+    WorldMapFill Fill(WorldMapState ctx, WorldMapView view, bool erase) => null;
 
     // Cycle the primary parameter (e.g. brush op, region index, carve height).
     void Cycle(WorldMapState ctx, int dir);

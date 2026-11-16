@@ -8,18 +8,11 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
     // containing an OpenInteractive event so Complete() fires on press.
     // durationSeconds is typically 0 — signposts pop their text instantly.
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
-    // Fallback text for signposts placed directly in a scene (test rigs,
-    // prefab variants). The SimState's Text overrides this when the signpost
-    // is spawned by the world loader.
-    [Export(PropertyHint.MultilineText)] private string _text = "";
-    // Language the signpost text is written in. The reader can decipher it
-    // only if Player.LearnedLanguages contains this resource. Null = legible
-    // to everyone (player's own language).
-    [Export] private LanguageData _language;
-
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
     private SignpostSimState _interactiveState;
+    // Set from the sim state; the scene carries no words of its own.
+    private InscriptionData _inscription;
 
     public void OnSpawned(Sim sim) { }
 
@@ -35,10 +28,10 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
     {
         GameClient gc = GameClient.Current;
         Hud hud = gc?.hud;
-        if (hud != null)
+        if (hud != null && _inscription != null)
         {
             Player player = gc?.Player;
-            hud.ShowReadable(() => LanguageText.RenderBbcode(_text, _language, player), this);
+            hud.ShowReadable(() => LanguageText.RenderBbcode(_inscription.text, _inscription.language, player), this);
         }
     }
 
@@ -47,14 +40,7 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
         var instance = data.Scene.Instantiate<Signpost>();
         data.SeatTransform(instance);
         instance._interactiveState = data;
-        if (!string.IsNullOrEmpty(data.Text))
-        {
-            instance._text = data.Text;
-        }
-        if (data.Language != null)
-        {
-            instance._language = data.Language;
-        }
+        instance._inscription = data.Inscription;
         sim.AddChild(instance);
         return instance;
     }

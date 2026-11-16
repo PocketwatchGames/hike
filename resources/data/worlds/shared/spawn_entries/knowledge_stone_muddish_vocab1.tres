@@ -1,12 +1,13 @@
-[gd_resource type="Resource" script_class="KnowledgeStoneSpawnEntry" format=3]
+[gd_resource type="Resource" script_class="KnowledgeStoneSpawnEntry" format=3 uid="uid://blk0jtjo2qwsu"]
 
-[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="script"]
+[ext_resource type="Resource" uid="uid://dopb0ypc3plw2" path="res://resources/data/worlds/shared/inscriptions/muddish_runs_slow.tres" id="insc_0"]
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="r1"]
-[ext_resource type="Resource" uid="uid://irm377w14z4uf" path="res://resources/data/worlds/shared/languages/muddish.tres" id="r2"]
+[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="script"]
 
 [resource]
 script = ExtResource("script")
 scene = ExtResource("r1")
-language = ExtResource("r2")
-text = "Muddish runs slow and deep, as the marsh does. Sit a while. Read. The first words will come to you."
-components = 4
+inscription = ExtResource("insc_0")
+lesson = 1
+percent = 34.0
+disabledVariable = null

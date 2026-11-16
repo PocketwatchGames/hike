@@ -1,0 +1,11 @@
+[gd_resource type="FontVariation" format=3 uid="uid://cfrln15rwcuwh"]
+
+[ext_resource type="FontFile" uid="uid://dqofa4bpv6yp2" path="res://assets/fonts/alegreya_sans/AlegreyaSans-Medium.ttf" id="1_face"]
+[ext_resource type="FontFile" uid="uid://dmlxqf6agcojt" path="res://assets/fonts/alien_glyphs.ttf" id="2_glyphs"]
+
+[resource]
+fallbacks = Array[Font]([ExtResource("2_glyphs")])
+base_font = ExtResource("1_face")
+opentype_features = {
+1667329140: 0
+}

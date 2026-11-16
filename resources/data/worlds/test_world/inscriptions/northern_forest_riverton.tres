@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="InscriptionData" format=3 uid="uid://ctfu0cd8rbgjy"]
+
+[ext_resource type="Script" uid="uid://gn1amk0ppskip" path="res://scripts/data/InscriptionData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="2_language"]
+
+[resource]
+script = ExtResource("1_script")
+text = "NW: The Great Northern Forest
+SE: Riverton"
+language = ExtResource("2_language")

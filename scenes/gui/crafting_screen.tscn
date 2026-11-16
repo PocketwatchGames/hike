@@ -384,6 +384,7 @@ theme_override_constants/margin_right = 10
 
 [node name="Label" type="Label" parent="MarginContainer2/HBoxContainer/CraftingTab/MarginContainer" unique_id=306500658]
 layout_mode = 2
+theme_type_variation = &"DisplayLabel"
 text = "Crafting"
 
 [node name="RepairTab" type="PanelContainer" parent="MarginContainer2/HBoxContainer" unique_id=470122349]
@@ -396,6 +397,7 @@ theme_override_constants/margin_right = 10
 
 [node name="Label" type="Label" parent="MarginContainer2/HBoxContainer/RepairTab/MarginContainer" unique_id=1902371910]
 layout_mode = 2
+theme_type_variation = &"DisplayLabel"
 text = "Repair"
 
 [node name="TabRight" parent="MarginContainer2/HBoxContainer" unique_id=1712372403 instance=ExtResource("2_hint")]
@@ -408,3 +410,4 @@ layout_mode = 0
 [node name="FloatBesideFocus" type="Node" parent="ItemInfoPanel" unique_id=1839356690 node_paths=PackedStringArray("_target")]
 script = ExtResource("float_beside_focus")
 _target = NodePath("..")
+_preferredSide = 2

@@ -46,9 +46,9 @@ surface = ExtResource("surf_2")
 [sub_resource type="Resource" id="Resource_04t8j"]
 script = ExtResource("s_layer")
 surface = ExtResource("surf_3")
-color = "textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_basecolor.jpg"
-normal = "textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_normal.jpg"
-height = "textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_height.png"
+color = "textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_basecolor.png"
+normal = "textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_normal.png"
+height = "textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_height.png"
 metadata/_custom_type_script = "uid://cxtdv6d8mndtk"
 
 [sub_resource type="Resource" id="layer_4"]

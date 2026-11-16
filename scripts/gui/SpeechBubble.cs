@@ -1,8 +1,8 @@
 using Godot;
 
-// A comic speech bubble whose tail points at an IInteractive's hudPosition
+// A comic speech bubble whose tail points at an IHudAnchored's hudPosition
 // (above a speaker's head, a sign's plate): body, name tab, tail, and a continue hint.
-// The owner (ConversationController) says what to show and when to advance;
+// The owner (ConversationController, NeedRemarks) says what to show and when to advance;
 // the body (a TypingText) types and sizes the line, the bubble places it.
 //
 // The root is a full-screen, input-ignoring Control, so its local space IS
@@ -31,8 +31,11 @@ public partial class SpeechBubble : Control
 	// Hint sits inside the body's bottom-right corner by this much, straddling
 	// the bottom border vertically.
 	[Export(PropertyHint.Range, "0,200,1")] public float continueHintInset = 16f;
+	// Theme type variation for the body text of an inscription (signpost,
+	// knowledge stone); spoken lines use the plain RichTextLabel style.
+	[Export] public StringName inscriptionTextVariation;
 
-	IInteractive _anchor;
+	IHudAnchored _anchor;
 	bool _flipped;
 	Vector2 _tailTip;
 
@@ -56,9 +59,11 @@ public partial class SpeechBubble : Control
 		}
 	}
 
-	public void Open(IInteractive anchor)
+	// `inscribed`: the text is carved or written on `anchor`, not spoken by it.
+	public void Open(IHudAnchored anchor, bool inscribed)
 	{
 		_anchor = anchor;
+		body?.SetTextVariation(inscribed ? inscriptionTextVariation : null);
 		Visible = true;
 	}
 

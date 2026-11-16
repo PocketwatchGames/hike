@@ -1,42 +1,43 @@
 [gd_resource type="Resource" script_class="SubsceneEntities" format=3]
 
-[ext_resource type="Script" uid="uid://x2lwcbq1u8tta" path="res://scripts/data/SceneEntityPlacement.cs" id="1_5kub3"]
+[ext_resource type="Script" path="res://scripts/data/SceneEntityPlacement.cs" id="1_5kub3"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/torch.tres" id="2_fnjxe"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/door_double.tres" id="3_hvnhl"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/portcullis.tres" id="4_5kub3"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/street_lamp.tres" id="4_r77rc"]
-[ext_resource type="Script" uid="uid://gdg3bigklxmsu" path="res://scripts/data/SubsceneEntities.cs" id="5_0ku7f"]
+[ext_resource type="Script" path="res://scripts/data/SubsceneEntities.cs" id="5_0ku7f"]
 
-[sub_resource type="Resource" id="Resource_vxeut"]
+[sub_resource type="Resource" id="Resource_5kub3"]
 script = ExtResource("1_5kub3")
 id = 1
 position = Vector3(1.5, 11, 6)
 source = ExtResource("2_fnjxe")
 
-[sub_resource type="Resource" id="Resource_8dtfb"]
-script = ExtResource("1_5kub3")
-id = 2
-position = Vector3(4, 9, 5.5)
-source = ExtResource("3_hvnhl")
-
-[sub_resource type="Resource" id="Resource_312b4"]
+[sub_resource type="Resource" id="Resource_fnjxe"]
 script = ExtResource("1_5kub3")
 id = 3
 position = Vector3(6.5, 11, 6)
 source = ExtResource("2_fnjxe")
 
-[sub_resource type="Resource" id="Resource_t5y7u"]
+[sub_resource type="Resource" id="Resource_hvnhl"]
 script = ExtResource("1_5kub3")
 id = 4
 position = Vector3(0.5, 9.5, 2)
 source = ExtResource("4_r77rc")
 
-[sub_resource type="Resource" id="Resource_t775p"]
+[sub_resource type="Resource" id="Resource_r77rc"]
 script = ExtResource("1_5kub3")
 id = 5
 position = Vector3(7.5, 9.5, 2)
 source = ExtResource("4_r77rc")
 
+[sub_resource type="Resource" id="Resource_0ku7f"]
+script = ExtResource("1_5kub3")
+id = 6
+position = Vector3(4, 9, 5.5)
+seed = -1737662927
+source = ExtResource("4_5kub3")
+
 [resource]
 script = ExtResource("5_0ku7f")
-placements = [SubResource("Resource_vxeut"), SubResource("Resource_8dtfb"), SubResource("Resource_312b4"), SubResource("Resource_t5y7u"), SubResource("Resource_t775p")]
-nextId = 6
+placements = [SubResource("Resource_5kub3"), SubResource("Resource_fnjxe"), SubResource("Resource_hvnhl"), SubResource("Resource_r77rc"), SubResource("Resource_0ku7f")]
+nextId = 7

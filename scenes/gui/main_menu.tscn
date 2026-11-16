@@ -3,11 +3,11 @@
 [ext_resource type="Script" uid="uid://d1bww0pr5ary6" path="res://scripts/gui/GuiMainMenu.cs" id="1_l6cm7"]
 [ext_resource type="Resource" uid="uid://carn5t06puf34" path="res://resources/data/world_gen/default_world_gen.tres" id="3_worldgen"]
 [ext_resource type="Resource" uid="uid://bhodwg1042kim" path="res://resources/data/world_gen/world_gen_swamp.tres" id="5_swampgen"]
-[ext_resource type="PackedScene" uid="uid://w8ucvtu1v5688" path="res://scenes/gui/controls_screen.tscn" id="6_controls"]
+[ext_resource type="PackedScene" uid="uid://dwsyxkar25thf" path="res://scenes/gui/controls_screen.tscn" id="6_controls"]
 [ext_resource type="PackedScene" uid="uid://d0l5s8iba3nv8" path="res://scenes/gui/profile_screen.tscn" id="7_profiles"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/editor/new_world_map.tres" id="8_newmap"]
 
-[node name="MainMenu" type="Control" unique_id=316901958 node_paths=PackedStringArray("versionLabel", "buttonPanel", "fileSelector", "controlsScreen", "worldList", "profileScreen", "openDialog", "newDialog", "errorDialog")]
+[node name="MainMenu" type="Control" unique_id=316901958 node_paths=PackedStringArray("versionLabel", "buttonPanel", "fileSelector", "controlsScreen", "profileScreen", "worldList", "openDialog", "newDialog", "errorDialog")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -39,6 +39,7 @@ theme_override_constants/margin_top = 100
 
 [node name="Title" type="Label" parent="MarginContainer" unique_id=637082008]
 layout_mode = 2
+theme_type_variation = &"DisplayLabel"
 theme_override_font_sizes/font_size = 72
 text = "HIKE"
 horizontal_alignment = 1
@@ -57,7 +58,7 @@ offset_bottom = 20.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="PanelContainer" type="PanelContainer" parent="HBoxContainer" unique_id=1148292927]
+[node name="PanelContainer" type="MarginContainer" parent="HBoxContainer" unique_id=662801915]
 layout_mode = 2
 
 [node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer/PanelContainer" unique_id=1018716819]
@@ -65,21 +66,25 @@ layout_mode = 2
 
 [node name="PlayButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer" unique_id=210051487]
 layout_mode = 2
+theme_type_variation = &"ParchmentButton"
 theme_override_font_sizes/font_size = 32
 text = "Play"
 
 [node name="WorldEditorButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer" unique_id=386196368]
 layout_mode = 2
+theme_type_variation = &"ParchmentButton"
 theme_override_font_sizes/font_size = 32
 text = "World Editor"
 
 [node name="WorldMapPainterButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer" unique_id=583950794]
 layout_mode = 2
+theme_type_variation = &"ParchmentButton"
 theme_override_font_sizes/font_size = 32
 text = "World Map Painter"
 
-[node name="ControlsButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer"]
+[node name="ControlsButton" type="Button" parent="HBoxContainer/PanelContainer/VBoxContainer" unique_id=1112579681]
 layout_mode = 2
+theme_type_variation = &"ParchmentButton"
 theme_override_font_sizes/font_size = 32
 text = "Controls"
 
@@ -99,6 +104,7 @@ theme_override_constants/margin_bottom = 20
 
 [node name="Panel" type="PanelContainer" parent="VersionContainer" unique_id=957430057]
 layout_mode = 2
+theme_type_variation = &"ParchmentPanel"
 
 [node name="MarginContainer" type="MarginContainer" parent="VersionContainer/Panel" unique_id=1767628404]
 layout_mode = 2
@@ -109,11 +115,13 @@ theme_override_constants/margin_bottom = 5
 
 [node name="Label" type="Label" parent="VersionContainer/Panel/MarginContainer" unique_id=169825316]
 layout_mode = 2
+theme_type_variation = &"ParchmentLabel"
 text = "v0.00.001"
 
 [node name="File Selector" type="PanelContainer" parent="." unique_id=907387346]
 visible = false
 layout_mode = 1
+theme_type_variation = &"ParchmentLargePanel"
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -139,37 +147,39 @@ alignment = 2
 
 [node name="BackButton" type="Button" parent="File Selector/VBoxContainer/HBoxContainer" unique_id=1347109895]
 layout_mode = 2
+theme_type_variation = &"ParchmentFrameButton"
 theme_override_font_sizes/font_size = 24
 text = "Back"
 
 [node name="ContinueButton" type="Button" parent="File Selector/VBoxContainer/HBoxContainer" unique_id=1540251623]
 layout_mode = 2
+theme_type_variation = &"ParchmentFrameButton"
 theme_override_font_sizes/font_size = 24
 text = "Continue"
 
-[node name="ControlsScreen" parent="." instance=ExtResource("6_controls")]
+[node name="ControlsScreen" parent="." unique_id=1444851353 instance=ExtResource("6_controls")]
+layout_mode = 1
+
+[node name="ProfileScreen" parent="." unique_id=779755966 instance=ExtResource("7_profiles")]
 visible = false
 layout_mode = 1
 
-[node name="ProfileScreen" parent="." instance=ExtResource("7_profiles")]
-visible = false
-layout_mode = 1
-
-[node name="OpenDialog" type="FileDialog" parent="."]
-title = "Open"
+[node name="OpenDialog" type="FileDialog" parent="." unique_id=1088453598]
+title = "Open a File"
 size = Vector2i(900, 600)
 ok_button_text = "Open"
 file_mode = 0
 access = 2
 
-[node name="NewDialog" type="FileDialog" parent="."]
+[node name="NewDialog" type="FileDialog" parent="." unique_id=587698613]
 title = "New World Map"
 size = Vector2i(900, 600)
 ok_button_text = "Create"
 access = 2
 
-[node name="ErrorDialog" type="AcceptDialog" parent="."]
+[node name="ErrorDialog" type="AcceptDialog" parent="." unique_id=459261176]
 title = "Can't do that"
+
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/PlayButton" to="." method="ShowProfiles"]
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/WorldEditorButton" to="." method="ShowEditorOptions"]
 [connection signal="pressed" from="HBoxContainer/PanelContainer/VBoxContainer/WorldMapPainterButton" to="." method="ShowPainterOptions"]

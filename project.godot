@@ -39,7 +39,7 @@ enabled=PackedStringArray("res://addons/voxel_atlas_stitcher/plugin.cfg", "res:/
 
 [gui]
 
-theme/custom_font="res://resources/gui/ui_font.tres"
+theme/custom="res://resources/gui/ui_theme.tres"
 
 [input]
 
