@@ -58,8 +58,8 @@ public partial class Hud : Control
 	[Export] Control _questContainer;
 	[Export] PackedScene _questItemScene;
 	[Export] ConversationController _dialoguePanel;
-	// The member's remarks on hunger / thirst / fatigue. Outside _gameplayWidgets.
-	[Export] NeedRemarks _needRemarks;
+	// Where every speech bubble is spawned. Outside _gameplayWidgets.
+	[Export] SpeechBubbles _speechBubbles;
 	// The gameplay widgets (vitals, hotbar, minimap, quests, effects), hidden
 	// while a conversation is open. The dialogue panel must sit outside it.
 	[Export] Control _gameplayWidgets;
@@ -126,6 +126,25 @@ public partial class Hud : Control
 	// lands on top of the text that taught them.
 	readonly Queue<Announcement> _heldDiscoveries = new();
 	bool _composingReadable;
+	// The controlled member remarking on hunger, thirst and fatigue
+	// (PlayerData.needRemarks): when a need rises past a remark's threshold the
+	// line types out in a bubble over their head and dismisses itself. Remarks
+	// wait while the party is in combat or other UI is up, and one whose need
+	// has since been eased below its threshold is dropped. Levels are seeded
+	// silently on bind, so a spawn, load or party switch never remarks on a
+	// need that was already past its threshold.
+	const int NeedCount = 3;
+	// Seconds combat and other UI must have been clear before a remark starts.
+	[Export(PropertyHint.Range, "0,10,0.1")] float _needRemarkSettleSeconds = 1.5f;
+	// The member's remarks per need, ascending by atStages.
+	readonly List<NeedRemarkData>[] _remarksByNeed = { new(), new(), new() };
+	// Per need, how many of its remarks the value is currently past.
+	readonly int[] _remarkLevels = new int[NeedCount];
+	// At most one per need — the most severe crossed — oldest first.
+	readonly List<NeedRemarkData> _pendingRemarks = new();
+	NeedRemarkData _showingRemark;
+	SpeechBubble _remarkBubble;
+	float _remarkClearSeconds;
 	// Persistent strip above the health bar — one StatusEffectHud entry per
 	// distinct StatusEffectData with a stack-count badge and the per-instance
 	// progress bar from the closest-to-expiry instance. Mirrors the original
@@ -514,6 +533,136 @@ public partial class Hud : Control
 		_announcementInFlight = null;
 	}
 
+	void BindNeedRemarks(Player player)
+	{
+		StopRemark();
+		_pendingRemarks.Clear();
+		foreach (List<NeedRemarkData> list in _remarksByNeed)
+		{
+			list.Clear();
+		}
+		Godot.Collections.Array<NeedRemarkData> remarks = player?.data?.needRemarks;
+		if (remarks != null)
+		{
+			foreach (NeedRemarkData remark in remarks)
+			{
+				if (remark != null && (int)remark.need >= 0 && (int)remark.need < NeedCount)
+				{
+					_remarksByNeed[(int)remark.need].Add(remark);
+				}
+			}
+		}
+		for (int i = 0; i < NeedCount; i++)
+		{
+			_remarksByNeed[i].Sort((a, b) => a.atStages.CompareTo(b.atStages));
+			_remarkLevels[i] = player != null ? RemarkLevelOf(player, (ENeed)i) : 0;
+		}
+	}
+
+	// Wall clock: the bubble is presentational. Other UI pulls a showing remark
+	// back into the queue; combat only holds new ones back.
+	void TickNeedRemarks(float delta)
+	{
+		if (!IsInstanceValid(_player))
+		{
+			return;
+		}
+		UpdateRemarkLevels();
+
+		if (IsOtherUiUp() || _player.IsDead)
+		{
+			_remarkClearSeconds = 0f;
+			if (_showingRemark != null)
+			{
+				_pendingRemarks.Insert(0, _showingRemark);
+				StopRemark();
+			}
+			return;
+		}
+		if (_showingRemark != null)
+		{
+			if (!SpeechBubble.IsShowing(_remarkBubble))
+			{
+				_showingRemark = null;
+				_remarkBubble = null;
+			}
+			return;
+		}
+		if (gameClient.InCombat)
+		{
+			_remarkClearSeconds = 0f;
+			return;
+		}
+		_remarkClearSeconds += delta;
+		if (_pendingRemarks.Count > 0 && _remarkClearSeconds >= _needRemarkSettleSeconds)
+		{
+			NeedRemarkData next = _pendingRemarks[0];
+			_pendingRemarks.RemoveAt(0);
+			ShowRemark(next);
+		}
+	}
+
+	void UpdateRemarkLevels()
+	{
+		for (int i = 0; i < NeedCount; i++)
+		{
+			ENeed need = (ENeed)i;
+			int level = RemarkLevelOf(_player, need);
+			if (level == _remarkLevels[i])
+			{
+				continue;
+			}
+			if (level > _remarkLevels[i])
+			{
+				_pendingRemarks.RemoveAll(r => r.need == need);
+				_pendingRemarks.Add(_remarksByNeed[i][level - 1]);
+			}
+			else
+			{
+				float stages = _player.GetNeedStages(need);
+				_pendingRemarks.RemoveAll(r => r.need == need && r.atStages > stages);
+			}
+			_remarkLevels[i] = level;
+		}
+	}
+
+	int RemarkLevelOf(Player player, ENeed need)
+	{
+		float stages = player.GetNeedStages(need);
+		List<NeedRemarkData> list = _remarksByNeed[(int)need];
+		int level = 0;
+		while (level < list.Count && stages >= list[level].atStages)
+		{
+			level++;
+		}
+		return level;
+	}
+
+	void ShowRemark(NeedRemarkData remark)
+	{
+		if (_speechBubbles == null || remark.textLocKey is null || remark.textLocKey.IsEmpty)
+		{
+			return;
+		}
+		_remarkBubble = _speechBubbles.Spawn(_player, inscribed: false);
+		if (_remarkBubble == null)
+		{
+			return;
+		}
+		_showingRemark = remark;
+		_remarkBubble.BeginAutoDismiss(Loc.Get(remark.textLocKey));
+	}
+
+	void StopRemark()
+	{
+		_showingRemark = null;
+		if (SpeechBubble.IsShowing(_remarkBubble))
+		{
+			_remarkBubble.Close();
+		}
+		_remarkBubble = null;
+	}
+
 	// Rebind the HUD to a different party member when control switches (camp
 	// Select-Character). Drops the old member's inventory subscriptions first so
 	// they don't leak, then binds the new member exactly as a fresh spawn would.
@@ -530,7 +679,7 @@ public partial class Hud : Control
 	{
 		_player = player;
 		_vitals?.Bind(player);
-		_needRemarks?.Bind(player);
+		BindNeedRemarks(player);
 		_inventory = player.Inventory;
 		_inventory.onChanged += RefreshHotbar;
 		RefreshHotbar();
@@ -725,7 +874,7 @@ public partial class Hud : Control
 			return;
 		}
 
-		_needRemarks?.Tick((float)delta, IsOtherUiUp(), gameClient.InCombat);
+		TickNeedRemarks((float)delta);
 
 		ulong now = gameClient.Sim?.GameTimeMs ?? 0;
 		TickWeaponSlot(_weaponLeftSlot, _weaponLeftHint, EInventorySlot.WeaponLeft, now);

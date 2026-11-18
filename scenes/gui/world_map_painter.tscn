@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://3uruphfvraak" path="res://scripts/worldmap/WorldMapHud.cs" id="4_hud"]
 [ext_resource type="Resource" uid="uid://e8dg4qt8u74x" path="res://resources/data/worlds/test_world/map/default_world_map.tres" id="5_data"]
 [ext_resource type="Resource" uid="uid://8kjoldme104f" path="res://resources/data/world_authoring/editor/world_map_brush.tres" id="6_brush"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/editor/world_map_ink.tres" id="9_ink"]
+[ext_resource type="Resource" uid="uid://dwklsll71edwh" path="res://resources/data/world_authoring/editor/world_map_ink.tres" id="9_ink"]
 [ext_resource type="Script" uid="uid://cost64s6twxhj" path="res://scripts/worldmap/WorldMapEntityInspector.cs" id="7_inspector"]
 [ext_resource type="Script" uid="uid://clafslhkcdtd1" path="res://scripts/worldmap/WorldMapPauseMenu.cs" id="8_pause"]
 

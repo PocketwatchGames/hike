@@ -371,6 +371,8 @@ SelectItem8={
 3d_physics/layer_16="LedgeBarrierFall2"
 3d_physics/layer_17="LedgeBarrierFall4"
 3d_physics/layer_18="Climbable"
+3d_physics/layer_19="SeeThrough"
+3d_physics/layer_20="WaterWall"
 
 [physics]
 

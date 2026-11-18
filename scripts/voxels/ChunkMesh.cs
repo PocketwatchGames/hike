@@ -670,12 +670,33 @@ public partial class ChunkMesh : Node3D
     // CHUNK-LOCAL, like the terrain mesh — this node's Position is already the
     // chunk origin, so applying it again would place the barriers a whole chunk
     // away from the ground they guard.
-    private void RealizeLedgeBarriers(Vector3[][] perClass)
+    //
+    // The water walls (WaterWallMesher) ride along: same felt-only kind of
+    // collision, same debug visual, but ONE-sided — backface collision off is
+    // what lets a body leave the water through a wall that stops one entering.
+    private void RealizeLedgeBarriers(Vector3[][] perClass, Vector3[] waterWalls)
     {
         LedgeBarrierClasses.Entry[] classes = LedgeBarrierClasses.All;
         int totalFaces = 0;
         var visualTris = new List<Vector3>();
-        for (int c = 0; c < classes.Length && c < perClass.Length; c++)
+        if (waterWalls != null && waterWalls.Length > 0)
+        {
+            var shape = new ConcavePolygonShape3D();
+            shape.BackfaceCollision = false;
+            shape.Data = waterWalls;
+
+            var body = new StaticBody3D();
+            body.CollisionLayer = (uint)ECollisionLayer.WaterWall;
+            body.CollisionMask = 0;
+            var col = new CollisionShape3D();
+            col.Shape = shape;
+            body.AddChild(col);
+            AddChild(body);
+
+            WaterWallFaces += waterWalls.Length / 6;
+            visualTris.AddRange(waterWalls);
+        }
+        for (int c = 0; perClass != null && c < classes.Length && c < perClass.Length; c++)
         {
             Vector3[] verts = perClass[c];
             if (verts == null || verts.Length == 0)
@@ -697,15 +718,17 @@ public partial class ChunkMesh : Node3D
             totalFaces += verts.Length / 6;
             visualTris.AddRange(verts);
         }
+        if (visualTris.Count > 0)
+        {
+            // One merged visual across the classes. They nest — a deeper class's
+            // contour is a subset of a shallower one's — so drawing them separately
+            // would just stack translucency at every edge all of them guard.
+            BuildLedgeBarrierVisual(visualTris.ToArray());
+        }
         if (totalFaces == 0)
         {
             return;
         }
-
-        // One merged visual across the classes. They nest — a deeper class's
-        // contour is a subset of a shallower one's — so drawing them separately
-        // would just stack translucency at every edge all of them guard.
-        BuildLedgeBarrierVisual(visualTris.ToArray());
 
         LedgeBarrierChunks++;
         LedgeBarrierFaces += totalFaces;
@@ -724,6 +747,7 @@ public partial class ChunkMesh : Node3D
     // all, and to size their cost. Read with `debug_ledge_barrier_stats`.
     public static int LedgeBarrierChunks;
     public static int LedgeBarrierFaces;
+    public static int WaterWallFaces;
 
     // Visible stand-in for the barriers, off unless `debug_ledge_barrier` is on.
     // Invisible collision that silently lands in the wrong place looks exactly
@@ -873,6 +897,10 @@ public partial class ChunkMesh : Node3D
                     chunkWorldX, chunkWorldY, chunkWorldZ, classes[c].MaxFallVoxels);
                 geo.LedgeBarrierTris[c] = tris?.ToArray();
             }
+            if (hasAnyWaterFace)
+            {
+                geo.WaterWallTris = WaterWallMesher.Build(getVoxel, chunkWorldX, chunkWorldY, chunkWorldZ)?.ToArray();
+            }
         }
 
         return geo;
@@ -995,9 +1023,9 @@ public partial class ChunkMesh : Node3D
             }
         }
 
-        if (geo.LedgeBarrierTris != null)
+        if (geo.LedgeBarrierTris != null || geo.WaterWallTris != null)
         {
-            RealizeLedgeBarriers(geo.LedgeBarrierTris);
+            RealizeLedgeBarriers(geo.LedgeBarrierTris, geo.WaterWallTris);
         }
 
 

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://jqmwdcmyi4tc" path="res://scripts/data/items/ShieldData.cs" id="1_shield"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="2_damage"]
-[ext_resource type="PackedScene" uid="uid://c1ft044d7watw" path="res://scenes/fx/parry.tscn" id="5_parryfx"]
+[ext_resource type="PackedScene" uid="uid://wdg6yfpm1wnmq" path="res://scenes/fx/parry.tscn" id="5_parryfx"]
 [ext_resource type="PackedScene" uid="uid://ce444jxc8syqg" path="res://scenes/items/knife_held.tscn" id="6_held"]
 [ext_resource type="Texture2D" uid="uid://e1r7kjk5qyau" path="res://assets/textures/items/weapons/Knife.png" id="7_icon"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="8_v2bmq"]

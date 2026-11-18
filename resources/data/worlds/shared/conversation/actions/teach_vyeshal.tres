@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="TeachAction" format=3]
 
 [ext_resource type="Script" uid="uid://9tbw61ms9yw6e" path="res://scripts/data/conversation/actions/TeachAction.cs" id="1_teach"]
-[ext_resource type="Script" uid="uid://5rhnpp2tplumf" path="res://scripts/data/teaching/LanguageTeachable.cs" id="2_teachable"]
+[ext_resource type="Script" uid="uid://dpmklcm2q6qb2" path="res://scripts/data/teaching/LanguageTeachable.cs" id="2_teachable"]
 [ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="3_concept"]
 [ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="4_vyeshal"]
 

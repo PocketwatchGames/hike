@@ -1,14 +1,14 @@
 [gd_resource type="Resource" script_class="PropListData" format=3 uid="uid://xrc501wa8vq0"]
 
-[ext_resource type="Script" uid="uid://c0mfvq6fqt4gq" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
-[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_big3.tscn" id="1_p2urg"]
-[ext_resource type="Script" uid="uid://qeki35ub243l" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
-[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_1.tscn" id="3_kdllo"]
-[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_2.tscn" id="4_3f22n"]
-[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_3.tscn" id="5_8rmlt"]
-[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_4.tscn" id="6_46xqt"]
-[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_5.tscn" id="7_5h534"]
-[ext_resource type="PackedScene" path="res://scenes/props/rock_granite_6.tscn" id="8_qb83p"]
+[ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
+[ext_resource type="PackedScene" uid="uid://badqjwadv3q0j" path="res://scenes/props/rock_granite_big3.tscn" id="1_p2urg"]
+[ext_resource type="Script" uid="uid://mcl599wl0ordv" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
+[ext_resource type="PackedScene" uid="uid://dck6y1lgn4of8" path="res://scenes/props/rock_granite_1.tscn" id="3_kdllo"]
+[ext_resource type="PackedScene" uid="uid://71b5s8b7mp0r" path="res://scenes/props/rock_granite_2.tscn" id="4_3f22n"]
+[ext_resource type="PackedScene" uid="uid://m2mirqy7hhxu" path="res://scenes/props/rock_granite_3.tscn" id="5_8rmlt"]
+[ext_resource type="PackedScene" uid="uid://dglo4u0873n4i" path="res://scenes/props/rock_granite_4.tscn" id="6_46xqt"]
+[ext_resource type="PackedScene" uid="uid://ds5g4m0i2wtx3" path="res://scenes/props/rock_granite_5.tscn" id="7_5h534"]
+[ext_resource type="PackedScene" uid="uid://tjoo3qpbcwu4" path="res://scenes/props/rock_granite_6.tscn" id="8_qb83p"]
 
 [sub_resource type="Resource" id="e_0"]
 script = ExtResource("2_row")

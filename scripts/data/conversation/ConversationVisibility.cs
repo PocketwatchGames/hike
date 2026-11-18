@@ -4,9 +4,8 @@ using Godot;
 // shown to the player by combining the authored ConversationCondition hard
 // gate with a stable, comprehension-driven probabilistic gate.
 //
-// A response carrying its own ConversationResponse.language is exempt from the
-// branch half of that min (see Compute) — it is not spoken in the NPC's tongue,
-// so nothing about their line gates it.
+// A response spoken in a tongue other than the NPC's is exempt from the branch
+// half of that min (see Compute) — nothing about their line gates it.
 //
 // The probabilistic side takes the MIN of two LanguageText.Comprehension
 // scores: how well the player understood the NPC's BRANCH text leading up
@@ -96,11 +95,13 @@ public static class ConversationVisibility
         }
     }
 
-    // Compute visibility + diagnostics for a response. `branchComprehension`
+    // Compute visibility + diagnostics for a response. `branchLanguage` is the
+    // tongue the NPC's line being answered is in; `playerLanguage` the player's
+    // running one (null = following the NPC). `branchComprehension`
     // is the pre-computed branch score from ComputeBranchComprehension;
     // pass 1f to skip the branch factor entirely. `grammarWeight` comes
     // from SimData.LanguageGrammarWeight.
-    public static ResponseVisibilityResult Compute(ConversationResponse response, ConversationContext ctx, LanguageData branchLanguage, float branchComprehension, float grammarWeight, float visibilityFloor)
+    public static ResponseVisibilityResult Compute(ConversationResponse response, ConversationContext ctx, LanguageData branchLanguage, LanguageData playerLanguage, float branchComprehension, float grammarWeight, float visibilityFloor)
     {
         if (response == null)
         {
@@ -124,7 +125,7 @@ public static class ConversationVisibility
         {
             return new(true, true, 1f, 0f);
         }
-        LanguageData lang = response.ResolveLanguage(branchLanguage ?? ctx.speakerLanguage);
+        LanguageData lang = response.ResolveLanguage(playerLanguage, branchLanguage);
 
         string text = Loc.Get(key);
         float responseComprehension = LanguageText.Comprehension(text, lang, ctx.player, grammarWeight);
@@ -133,13 +134,14 @@ public static class ConversationVisibility
         // gating responses behind whichever side the player understands
         // least.
         //
-        // A response with its OWN language drops the branch factor: it isn't an
-        // answer in the speaker's tongue, so "how much of their line did you
+        // A response in a tongue other than the NPC's drops the branch factor:
+        // it isn't an answer in kind, so "how much of their line did you
         // follow" has no bearing on whether you can utter it. That's what makes
         // a common-tongue "Do you speak the common tongue?" survive a greeting
-        // you understood none of. Its own score still applies, so the player
-        // must actually speak whatever it's written in.
-        float combined = response.language != null
+        // you understood none of — and every reply after it, while the player
+        // keeps to the common tongue. Its own score still applies, so the
+        // player must actually speak whatever it's in.
+        float combined = lang != branchLanguage
             ? responseComprehension
             : Mathf.Min(branchComprehension, responseComprehension);
 

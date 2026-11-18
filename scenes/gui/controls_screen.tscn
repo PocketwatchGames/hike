@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://02xr220jbn7v7" path="res://scripts/gui/ControlsScreen.cs" id="1_ctrlscreen"]
 [ext_resource type="PackedScene" uid="uid://tanibdnfq7b5u" path="res://scenes/gui/controls_row.tscn" id="2_ctrlrow"]
-[ext_resource type="Resource" uid="uid://l4awfosuo1lie" path="res://resources/data/gui/controls.tres" id="3_controls"]
+[ext_resource type="Resource" uid="uid://i2bni130fx73" path="res://resources/data/gui/controls.tres" id="3_controls"]
 
 [node name="ControlsScreen" type="Control" node_paths=PackedStringArray("_titleLabel", "_headerRow", "_rowContainer", "_backButton")]
 visible = false

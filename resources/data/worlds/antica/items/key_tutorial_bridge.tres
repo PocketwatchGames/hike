@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="KeyData" format=3 uid="uid://dn4uxhowt1jby"]
 
-[ext_resource type="Script" uid="uid://dee34jtktty14" path="res://scripts/data/items/KeyData.cs" id="1_key"]
-[ext_resource type="Script" uid="uid://chtweckx2sbi3" path="res://scripts/data/locks/LockData.cs" id="2_lock_script"]
+[ext_resource type="Script" uid="uid://9bn2ty6ldgy38" path="res://scripts/data/items/KeyData.cs" id="1_key"]
+[ext_resource type="Script" uid="uid://4jozipzp07ftg" path="res://scripts/data/locks/LockData.cs" id="2_lock_script"]
 [ext_resource type="Resource" path="res://resources/data/worlds/antica/items/lock_tutorial_bridge.tres" id="3_2rola"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="4_2rola"]
 [ext_resource type="Texture2D" uid="uid://bw8ebj857q14u" path="res://assets/textures/items/Key.png" id="4_inv"]

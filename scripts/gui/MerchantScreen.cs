@@ -602,7 +602,8 @@ public partial class MerchantScreen : Control
 				continue;
 			}
 			int initial = received.stackCount;
-			int added = _player?.Inventory?.TryAdd(received) ?? 0;
+			// Acquire, as a pickup does: gear whose equip slot is empty goes on.
+			int added = _player?.Inventory?.Acquire(received) ?? 0;
 			if (added < initial)
 			{
 				DropAtMerchant(received);

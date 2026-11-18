@@ -14,7 +14,7 @@
 [ext_resource type="Resource" path="res://resources/data/runes/rune_01.tres" id="rune_01"]
 [ext_resource type="Resource" path="res://resources/data/runes/rune_05.tres" id="rune_05"]
 [ext_resource type="Resource" path="res://resources/data/runes/rune_07.tres" id="rune_07"]
-[ext_resource type="Script" uid="uid://xjo84nfo22ei" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
+[ext_resource type="Script" uid="uid://esxkt6kn9aw5a" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
 
 [sub_resource type="Resource" id="Desc_loot_oil"]
 script = ExtResource("6_desc")

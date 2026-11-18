@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="SubsceneEntities" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/SceneEntityPlacement.cs" id="1_5kub3"]
+[ext_resource type="Script" uid="uid://x2lwcbq1u8tta" path="res://scripts/data/SceneEntityPlacement.cs" id="1_5kub3"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/torch.tres" id="2_fnjxe"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/portcullis.tres" id="4_5kub3"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/street_lamp.tres" id="4_r77rc"]
-[ext_resource type="Script" path="res://scripts/data/SubsceneEntities.cs" id="5_0ku7f"]
+[ext_resource type="Script" uid="uid://gdg3bigklxmsu" path="res://scripts/data/SubsceneEntities.cs" id="5_0ku7f"]
 
 [sub_resource type="Resource" id="Resource_5kub3"]
 script = ExtResource("1_5kub3")

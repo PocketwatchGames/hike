@@ -15,7 +15,7 @@
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/nature/stump_2.tres" id="e_stump_2"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="key_chance"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="key_desc"]
-[ext_resource type="Resource" uid="uid://d0i3ve58egun7" path="res://resources/data/items/keys/key.tres" id="key_item"]
+[ext_resource type="Resource" uid="uid://tg5k8mt8nadpa" path="res://resources/data/items/keys/key.tres" id="key_item"]
 [ext_resource type="Script" uid="uid://prsprptvme87" path="res://scripts/data/spawn/SpawnListRow.cs" id="listrow"]
 
 [sub_resource type="Resource" id="Row_goblin_swamp"]

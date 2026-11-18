@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://ce444jxc8syqg"]
 
-[ext_resource type="Script" uid="uid://b7hwld3lamxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_hw"]
+[ext_resource type="Script" uid="uid://b7hwld3k9mxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_hw"]
 [ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="model_lit_shader"]
 
 [sub_resource type="ShaderMaterial" id="Mat_grip"]

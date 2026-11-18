@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="PropListData" format=3 uid="uid://bh17llh3mktyf"]
 
-[ext_resource type="Script" uid="uid://c0mfvq6fqt4gq" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
-[ext_resource type="Script" uid="uid://qeki35ub243l" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
+[ext_resource type="Script" uid="uid://42hi05l6o88q3" path="res://scripts/data/worldmap/PropListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://mcl599wl0ordv" path="res://scripts/data/worldmap/PropListEntry.cs" id="2_row"]
 [ext_resource type="PackedScene" uid="uid://dahcrnl7vm3km" path="res://scenes/props/rock4.tscn" id="12_rx8im"]
 [ext_resource type="PackedScene" uid="uid://beodxq0b470rt" path="res://scenes/props/rock5.tscn" id="13_tq8oo"]
 [ext_resource type="PackedScene" uid="uid://b6ep4v48e1gt" path="res://scenes/props/rock6.tscn" id="14_bxjrd"]

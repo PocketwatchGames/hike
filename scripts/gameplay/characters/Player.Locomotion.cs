@@ -466,10 +466,11 @@ public partial class Player : CharacterBody3D
 		Vector3 landing = candidate.landing;
 		// "Does the body fit here" is a question ABOUT the world, and a ledge
 		// barrier is not part of the world — it is felt and never seen (see
-		// ECollisionLayer.LedgeBarrier). Left masked in, the very barrier
-		// standing at the lip refuses the traversal meant to get past it.
+		// ECollisionLayer.FeltOnly). Left masked in, the very barrier
+		// standing at the lip refuses the traversal meant to get past it — a
+		// water wall included, since mantling up a fall is the way past one.
 		uint saved = CollisionMask;
-		CollisionMask = saved & ~(uint)ECollisionLayer.LedgeBarrier;
+		CollisionMask = saved & ~(uint)ECollisionLayer.FeltOnly;
 		try
 		{
 			for (float lift = 0f; lift <= LandingClearMaxLift; lift += LandingClearStep)

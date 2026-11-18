@@ -4138,6 +4138,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         (ECollisionLayer.Player, "Player"),
         (ECollisionLayer.WorldBounds, "Bounds"),
         (ECollisionLayer.LedgeBarrier, "Ledge"),
+        (ECollisionLayer.WaterWall, "WaterWall"),
     };
 
     // Whether the LedgeBarrier bit for this mob's class is currently in its mask.

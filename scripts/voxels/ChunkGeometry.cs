@@ -31,6 +31,10 @@ public sealed class ChunkGeometry
     // chunk). Already the plain vertex soup ConcavePolygonShape3D wants.
     public Vector3[][] LedgeBarrierTris;
 
+    // One-sided water-wall triangles (WaterWallMesher), CHUNK-LOCAL; null when
+    // the chunk has no water face open to the air.
+    public Vector3[] WaterWallTris;
+
     // Detail-sprite instances this chunk contributes, keyed by entry. Posted to
     // the world-wide scatter manager during Realize — that manager owns
     // MultiMeshes, so the post itself is main-thread.

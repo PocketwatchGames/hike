@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="BerryTreeSpawnEntry" format=3 uid="uid://dboc87xemackm"]
 
-[ext_resource type="PackedScene" path="res://scenes/interactives/berry_bush_yellow.tscn" id="r1"]
+[ext_resource type="PackedScene" uid="uid://ls5kuhspg18g" path="res://scenes/interactives/berry_bush_yellow.tscn" id="r1"]
 [ext_resource type="Script" uid="uid://cqwdm8tvtwueu" path="res://scripts/data/spawn/BerryTreeSpawnEntry.cs" id="script"]
 
 [resource]

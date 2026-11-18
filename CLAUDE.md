@@ -799,7 +799,7 @@ wants falls straight out of it:
 |---|---|---|
 | conversation key | `ConversationBranch.name` | the `ConversationResponseGroup` this choice sits in |
 | goto | `branch.exitGroup` — blank ends the conversation | `response.destination` — blank ends it |
-| language | `branch.language` — blank = the speaker's | `response.language` — blank = the branch's |
+| language | `branch.language` — blank = whatever the NPC last spoke (the speaker's own to start) | `response.language` — blank = whatever the player last spoke; until they pick a languaged choice, the NPC's current tongue |
 | condition | *(none — a branch has no condition slot)* | `response.condition` |
 | on start | `line.startActions` — as THIS paragraph starts typing | `response.startActions` — as the choice is offered |
 | on complete | `line.completeActions` — as the player advances past THIS paragraph | `response.completeActions` — as the choice is picked |

@@ -5,7 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://dkt7yn4dv0rla" path="res://scenes/characters/goblin.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
 [ext_resource type="Resource" uid="uid://b8mn7drn5sq2k" path="res://resources/data/status_effects/status_minion_drain.tres" id="5_drain"]
-[ext_resource type="Resource" uid="uid://srangjfcynway" path="res://resources/data/blood/red_blood.tres" id="blood_1"]
+[ext_resource type="Resource" uid="uid://dbm53bqcpue8w" path="res://resources/data/blood/red_blood.tres" id="blood_1"]
 
 [sub_resource type="Resource" id="Resource_anim_dead"]
 script = ExtResource("4_animdata")

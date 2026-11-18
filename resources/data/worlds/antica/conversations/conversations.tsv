@@ -1,13 +1,22 @@
 character	name	description	options	player	conversation key	goto	language	condition	on start	on complete	text
 intro_fairy		Glowing Figure	undismissable		greeting						It moves! It has soggy eyes though. So soggy.
 											You! Soggy! Your friends ran off. The bear ate one. His guts are sogging up ahead.
-											The other one took your stuff. He went towards the festering man.
+											The other one took your stuff. She went towards the festering man.
 										start_quest:find_festering_man; behavior:Escape; wake_up; npcvar:spoken=true	The festering man knows. Find him.
-festering_man		The Festering Man			greeting	language	vyeshal				Another! The sea spat you out too, huh?
+festering_man		The Festering Man			greeting	language	vyeshal	npcvar:return=false			Another! The sea spat you out too, huh?
+					greeting_return	mates	vyeshal	npcvar:return=true			Ah, the sodden one returns.
 				x	language	gestures	common	understands:vyeshal<50%			Your language is foreign to me. Do you speak the common tongue?
-				x	language	convo	common	understands:vyeshal>=50%			Aye. My flesh was unwelcome even in her hungry gullet, thanks be.
+				x	language	convo	vyeshal	understands:vyeshal>=50%			Aye. My flesh was unwelcome even in her hungry gullet, thanks be.
 					gestures						[narrate]He shakes his head and points to the library upstairs.[/narrate]
-					convo		vyeshal				I知 afraid my cookpot is also empty. But if you find 3 cuts of goblin flesh you値l feed us both! [narrate]He holds up 3 fingers[/narrate]
-											And sleep if you wish.
-											And I am always willing to trade if you have brought anything of value.
-										open_shop	Welcome to my most unpleasant home.
+					convo	mates				npcvar:return=true	I知 afraid my cookpot is also empty. But if you find 3 cuts of goblin flesh you値l feed us both! [narrate]He holds up 3 fingers[/narrate]
+				x	mates	impatient					One of my mates came this way. Have you seen her?
+					impatient						Ah yes, she was impatient to leave my little island. Looking for the bridge key, hee hee!
+						topics					I buried it long ago though. Your friend gave me her shiny hammer for a spade and a clue!
+				x	topics	where					Where did she go?
+				x	topics	clue					A clue about the bridge key?
+				x	topics	hammer					Trade?
+				x	topics	cookpot					What did you say about the cookpot?
+					where	topics					Last I saw of her she was walking the beach to the west. She may have sought shelter from the rain in the caves alone the shore.
+					clue	topics					A little scribble on a scrap. She値l need the shovel to dig it up.
+					hammer					open_shop	Yes yes! Do you have something to trade too?
+					cookpot	topics					Find 3 cuts of goblin flesh you値l feed us both! [narrate]He holds up 3 fingers[/narrate]

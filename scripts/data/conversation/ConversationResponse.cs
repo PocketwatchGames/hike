@@ -11,18 +11,21 @@ public partial class ConversationResponse : Resource
     // prompt rather than echoing a player line).
     [Export] public StringName textLocKey;
 
-    // Tongue the player speaks this line in. Null = the language of the branch
-    // being answered (the NPC's), which is the default and the interesting one:
-    // the player is attempting THEIR tongue, so a reply the player can't yet form
-    // renders scrambled and the comprehension gate can hide it — you can only say
-    // what you can say.
+    // Tongue the player speaks this line in. Null = the player's running
+    // language in this conversation: the NPC's current tongue, until the player
+    // picks a response with a language of its own — from then on the player
+    // keeps THAT one (ConversationController tracks it). Following the NPC is
+    // the interesting default: the player is attempting THEIR tongue, so a reply
+    // the player can't yet form is hidden by the comprehension gate — you can
+    // only say what you can say.
     //
     // Set it to SimData.commonTongue for the line that has to land BEFORE a
     // shared language exists ("Do you speak the common tongue?"), and for
-    // out-of-language actions ("[Leave]", "[Attack]"). Any explicit language also
-    // drops the branch comprehension cap (see ConversationVisibility): you are
-    // not answering in kind, so how much of their line you followed has no
-    // bearing on whether you can utter this one.
+    // out-of-language actions ("[Leave]", "[Attack]"). Picking it switches the
+    // player's tongue for the rest of the conversation. A response in a tongue
+    // other than the NPC's drops the branch comprehension cap (see
+    // ConversationVisibility): you are not answering in kind, so how much of
+    // their line you followed has no bearing on whether you can utter this one.
     //
     // A line that switches tongue MID-SENTENCE uses a [lang:<id>] span in
     // english.tsv instead; this field is the line's default, exactly as
@@ -46,12 +49,13 @@ public partial class ConversationResponse : Resource
     // the conversation (e.g. OpenShop) will suppress the unread destination.
     [Export] public Array<ConversationAction> completeActions;
 
-    // Tongue this line is spoken in, given the language of the branch it
-    // answers. The one implementation of the fallback — the display render and
-    // the visibility gate both resolve through here, so a response can never be
-    // scored in one language and drawn in another.
-    public LanguageData ResolveLanguage(LanguageData branchLanguage)
+    // Tongue this line is spoken in, given the player's running language
+    // (null = still following the NPC) and the NPC's. The one implementation of
+    // the fallback — the controller and the visibility gate both resolve
+    // through here, so a response can never be scored in one language and
+    // pinned as another.
+    public LanguageData ResolveLanguage(LanguageData playerLanguage, LanguageData npcLanguage)
     {
-        return language ?? branchLanguage;
+        return language ?? playerLanguage ?? npcLanguage;
     }
 }

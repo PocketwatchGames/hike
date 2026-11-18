@@ -2,7 +2,7 @@ using Godot;
 
 // A line the controlled member says aloud once `need` rises past `atStages`
 // (Player.Needs' unbounded deprivation, 1 = the stamina phase, 2 = the
-// max-health phase). Shown by NeedRemarks in a bubble that dismisses itself.
+// max-health phase). Shown by Hud in a bubble that dismisses itself.
 [GlobalClass]
 public partial class NeedRemarkData : Resource
 {

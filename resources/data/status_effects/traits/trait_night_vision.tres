@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_mod"]
-[ext_resource type="Script" uid="uid://ouzgtnkbomf4q" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
+[ext_resource type="Script" uid="uid://dart2hsjy0sug" path="res://scripts/data/combat/Modifier.cs" id="modifier_1"]
 
 [sub_resource type="Resource" id="mod_nightvision"]
 script = ExtResource("2_mod")

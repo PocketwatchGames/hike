@@ -1,14 +1,14 @@
 [gd_resource type="Resource" script_class="SubsceneEntities" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/SceneEntityPlacement.cs" id="1_3ndge"]
+[ext_resource type="Script" uid="uid://x2lwcbq1u8tta" path="res://scripts/data/SceneEntityPlacement.cs" id="1_3ndge"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/door.tres" id="2_n5j5n"]
-[ext_resource type="Script" path="res://scripts/data/spawn/RoofSpawnEntry.cs" id="3_kw6qe"]
-[ext_resource type="Resource" path="res://resources/data/roofs/roof_wood_shakes.tres" id="4_smurq"]
+[ext_resource type="Script" uid="uid://41lo9qn3msvo8" path="res://scripts/data/spawn/RoofSpawnEntry.cs" id="3_kw6qe"]
+[ext_resource type="Resource" uid="uid://bun2d7ceigicv" path="res://resources/data/roofs/roof_wood_shakes.tres" id="4_smurq"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/table_long.tres" id="4_tvbuh"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/chair.tres" id="5_ltqms"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/other/windowframe_timber.tres" id="5_tvbuh"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/lights/candle_cluster.tres" id="6_0yu4r"]
-[ext_resource type="Script" path="res://scripts/data/SubsceneEntities.cs" id="6_ltqms"]
+[ext_resource type="Script" uid="uid://gdg3bigklxmsu" path="res://scripts/data/SubsceneEntities.cs" id="6_ltqms"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/lights/candelabra_floor.tres" id="7_7p2ks"]
 
 [sub_resource type="Resource" id="Resource_tvbuh"]

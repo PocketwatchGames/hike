@@ -914,7 +914,9 @@ public partial class Player : CharacterBody3D, IHudAnchored
 		// must never slow or deflect the player. The reaction (mob lurches
 		// out of the way) is applied in PushTouchedMobs via an overlap
 		// query against MobSpatialHash, not through MoveAndSlide contacts.
-		CollisionMask = (uint)ECollisionLayer.Blocking;
+		// Water walls are always felt, swimming or not: they exist to stop a
+		// body crossing into a higher pool from the air side and floating up it.
+		CollisionMask = (uint)(ECollisionLayer.Blocking | ECollisionLayer.WaterWall);
 
 		interactArea.AreaEntered += OnInteractAreaEntered;
 		interactArea.AreaExited += OnInteractAreaExited;
@@ -2473,6 +2475,10 @@ public partial class Player : CharacterBody3D, IHudAnchored
 			Velocity = velocityBeforeMove;
 			MoveAndSlide();
 		}
+		else if (lifted && swimming)
+		{
+			KeepSwimLiftOnlyIfEarned(posBeforeStep, velocityBeforeMove, stepUpLift);
+		}
 
 		if (CVars.debugSlopes.Value)
 		{
@@ -2812,6 +2818,46 @@ public partial class Player : CharacterBody3D, IHudAnchored
 		return data.stepHeight + horizDelta.Length() * Mathf.Tan(FloorMaxAngle);
 	}
 
+	// A swimmer's lift has no step-down to undo it, so a lift that clears
+	// nothing — pressing into a cliff face or a water wall — leaves the body
+	// hoisted to its waterline, and buoyancy then drags it back: a visible pop on
+	// every push. Keep the lift only when it got further along the intended
+	// direction than the same tick taken unlifted.
+	//
+	// Measured against the unlifted re-run rather than a fixed fraction of the
+	// intended motion, because sliding along a wall makes the same partial
+	// progress lifted or not, and that must not count as the lift earning it.
+	private void KeepSwimLiftOnlyIfEarned(Vector3 posBeforeStep, Vector3 velocityBeforeMove, float lift)
+	{
+		Vector3 dir = new(velocityBeforeMove.X, 0f, velocityBeforeMove.Z);
+		if (dir.LengthSquared() < 0.0001f)
+		{
+			return;
+		}
+		dir = dir.Normalized();
+		float liftedProgress = (GlobalPosition - posBeforeStep).Dot(dir);
+
+		GlobalPosition = posBeforeStep;
+		Velocity = velocityBeforeMove;
+		MoveAndSlide();
+		float unliftedProgress = (GlobalPosition - posBeforeStep).Dot(dir);
+		if (liftedProgress > unliftedProgress + SwimLiftMinGain)
+		{
+			// The lift was a real step (the shallows' bed): take it again.
+			// Re-run rather than restore, so the slide collisions read later
+			// this tick are the lifted move's.
+			GlobalPosition = posBeforeStep;
+			Velocity = velocityBeforeMove;
+			using var redo = MoveAndCollide(Vector3.Up * lift);
+			MoveAndSlide();
+		}
+	}
+
+	// How much further a lifted swim move must get than an unlifted one for the
+	// lift to count, in metres. Above float noise from two slides along the
+	// same wall, far below a real step's gain.
+	private const float SwimLiftMinGain = 0.005f;
+
 	// A prop the step-up lift must not put the player on. The lift is blind
 	// geometry that hoists the body onto anything shorter than stepHeight, so a
 	// prop opts in (PorousBody.steppable) and everything else is refused.
@@ -2953,7 +2999,7 @@ public partial class Player : CharacterBody3D, IHudAnchored
 		}
 		Vector3 n = hit.GetNormal();
 		Vector3 pos = hit.GetPosition();
-		uint bit = (uint)ECollisionLayer.LedgeBarrier;
+		uint bit = (uint)ECollisionLayer.FeltOnly;
 		uint saved = CollisionMask;
 		CollisionMask = saved & ~bit;
 		bool withoutBarriers = TestMove(GlobalTransform, motion);

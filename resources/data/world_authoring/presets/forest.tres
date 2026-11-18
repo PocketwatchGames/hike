@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://0ss3utn513x2b" path="res://scripts/data/worldmap/PaintPresetData.cs" id="1_p"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/terrain_kits/forest.tres" id="2_ground"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_scatters/forest.tres" id="5_mobs"]
+[ext_resource type="Resource" uid="uid://cpb1q5xptjpf6" path="res://resources/data/world_authoring/spawn_scatters/forest.tres" id="5_mobs"]
 
 [resource]
 script = ExtResource("1_p")

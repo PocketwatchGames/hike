@@ -843,7 +843,7 @@ public static class CVars
     public static CVar debugLedgeBarrierStats = new CVar("debug_ledge_barrier_stats", (cvar) =>
     {
         Godot.GD.Print($"[ledge_barrier] chunks={ChunkMesh.LedgeBarrierChunks} "
-            + $"faces={ChunkMesh.LedgeBarrierFaces}");
+            + $"faces={ChunkMesh.LedgeBarrierFaces} waterWallFaces={ChunkMesh.WaterWallFaces}");
         // Generation and COLLISION are separate failures that look identical
         // from the player's side: barriers can exist in the right place and
         // still do nothing if the body is not masking their layer this tick.

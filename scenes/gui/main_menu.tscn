@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://d1bww0pr5ary6" path="res://scripts/gui/GuiMainMenu.cs" id="1_l6cm7"]
 [ext_resource type="Resource" uid="uid://carn5t06puf34" path="res://resources/data/world_gen/default_world_gen.tres" id="3_worldgen"]
 [ext_resource type="Resource" uid="uid://bhodwg1042kim" path="res://resources/data/world_gen/world_gen_swamp.tres" id="5_swampgen"]
-[ext_resource type="PackedScene" uid="uid://dwsyxkar25thf" path="res://scenes/gui/controls_screen.tscn" id="6_controls"]
+[ext_resource type="PackedScene" uid="uid://w8ucvtu1v5688" path="res://scenes/gui/controls_screen.tscn" id="6_controls"]
 [ext_resource type="PackedScene" uid="uid://d0l5s8iba3nv8" path="res://scenes/gui/profile_screen.tscn" id="7_profiles"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/editor/new_world_map.tres" id="8_newmap"]
 

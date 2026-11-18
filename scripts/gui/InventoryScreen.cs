@@ -38,10 +38,11 @@ public partial class InventoryScreen : Control
 	// How long Drop must be held to ask how many instead of dropping the stack.
 	[Export(PropertyHint.Range, "0.1,3,0.05")] private float _dropHoldSeconds = 0.6f;
 
-	// A's glyph follows the primary-verb convention of the other inventory-style
-	// screens; the press itself arrives as the slot button's own activation.
-	const string SelectAction = "ui_select";
-	const string EquipAction = "MenuSecondary";
+	// A equips: its glyph follows the primary-verb convention of the other
+	// inventory-style screens, and the press itself arrives as the slot button's
+	// own activation (so a click equips too). X picks up / puts down a move.
+	const string EquipAction = "ui_select";
+	const string MoveAction = "MenuSecondary";
 	const string UseAction = "MenuTertiary";
 	const string DropAction = "MenuQuinary";
 
@@ -80,8 +81,8 @@ public partial class InventoryScreen : Control
 
 	GameClient _gameClient;
 	Player _player;
-	ButtonHint _hintSelect;
 	ButtonHint _hintEquip;
+	ButtonHint _hintMove;
 	ButtonHint _hintUse;
 	ButtonHint _hintDrop;
 
@@ -95,10 +96,11 @@ public partial class InventoryScreen : Control
 		_gameClient = gameClient;
 	}
 
-	public void BindActionHints(ButtonHint select, ButtonHint equip, ButtonHint use, ButtonHint drop)
+	// In bar order: the primary (A) hint, then the secondary (X).
+	public void BindActionHints(ButtonHint primary, ButtonHint secondary, ButtonHint use, ButtonHint drop)
 	{
-		_hintSelect = select;
-		_hintEquip = equip;
+		_hintEquip = primary;
+		_hintMove = secondary;
 		_hintUse = use;
 		_hintDrop = drop;
 		UpdateHints();
@@ -224,12 +226,23 @@ public partial class InventoryScreen : Control
 		UpdateHints();
 	}
 
-	// A on a slot (or a click): pick up the item there, or put the picked-up one
-	// down here.
+	// A on a slot (or a click): equip / unequip the item there, or, mid-move, put
+	// the picked-up one down here.
 	void OnSlotActivated(Slot slot)
 	{
+		if (_selected.IsNone)
+		{
+			ToggleEquip(_player, ItemAt(slot));
+			return;
+		}
+		MoveOrPlace(slot);
+	}
+
+	// X on a slot: pick up the item there, or put the picked-up one down here.
+	void MoveOrPlace(Slot slot)
+	{
 		Inventory inv = Inv;
-		if (inv == null)
+		if (inv == null || slot.IsNone)
 		{
 			return;
 		}
@@ -294,9 +307,9 @@ public partial class InventoryScreen : Control
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (_selected.IsNone && e.IsActionPressed(EquipAction))
+		if (e.IsActionPressed(MoveAction))
 		{
-			ToggleEquip(_player, ItemAt(_focused));
+			MoveOrPlace(_focused);
 			GetViewport().SetInputAsHandled();
 		}
 		else if (_selected.IsNone && e.IsActionPressed(UseAction))
@@ -377,14 +390,14 @@ public partial class InventoryScreen : Control
 		ItemState focused = ItemAt(_focused);
 		if (!_selected.IsNone)
 		{
-			ShowHint(_hintSelect, SelectAction, "Move");
 			ShowHint(_hintEquip, EquipAction, null);
+			ShowHint(_hintMove, MoveAction, "Move");
 			ShowHint(_hintUse, UseAction, null);
 			ShowHint(_hintDrop, DropAction, null);
 			return;
 		}
-		ShowHint(_hintSelect, SelectAction, focused != null ? "Select" : null);
 		ShowHint(_hintEquip, EquipAction, EquipVerb(_player, focused));
+		ShowHint(_hintMove, MoveAction, focused != null ? "Move" : null);
 		ShowHint(_hintUse, UseAction, UseVerb(_player, focused));
 		ShowHint(_hintDrop, DropAction, focused != null ? "Drop" : null);
 	}

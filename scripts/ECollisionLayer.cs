@@ -93,6 +93,15 @@ public enum ECollisionLayer
     // query (smell and sound too) passes it untouched; inside Blocking (bodies)
     // and Impact (shots, swings and the aim queries that predict them).
     SeeThrough = 262144,
+    // One-sided walls on every water face that borders open air
+    // (WaterWallMesher), facing out of the water. Felt-only, like the ledge
+    // barriers and for the same reasons, but not fall-classed: crossing one
+    // from the air side floats any swimming body up the fall, whatever drop it
+    // tolerates.
+    WaterWall = 524288,
+    // Every felt-only wall, for the queries that must ignore them all ("does the
+    // body fit here" is a question about the world, and these are not part of it).
+    FeltOnly = LedgeBarrier | WaterWall,
     // Convenience combo: "solid to the world" — terrain/walls plus porous
     // props. World raycasts (vision, arrows, aim, pathing, rain, lightning) mask
     // this so props still block them; the few queries that should see / smell /

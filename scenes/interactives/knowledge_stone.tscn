@@ -15,11 +15,11 @@
 [ext_resource type="PackedScene" uid="uid://bjficgdci3xwn" path="res://assets/models/statue/SM_Stone_Statue_Base_A.fbx" id="10_statuebase"]
 [ext_resource type="PackedScene" uid="uid://bpk7jh8tfg3fh" path="res://scenes/fx/knowledge_stone_ambient_loop.tscn" id="11_ambloop"]
 [ext_resource type="PackedScene" uid="uid://due3oqhb0clen" path="res://scenes/fx/knowledge_stone_use.tscn" id="12_use"]
-[ext_resource type="Script" uid="uid://desad1mdwnbo3" path="res://scripts/gameplay/entities/MapMarker.cs" id="13_mapmarker"]
+[ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="13_mapmarker"]
 [ext_resource type="Texture2D" uid="uid://cc5oqi7tf0ylw" path="res://assets/textures/map_markers/knowledge_stone.png" id="14_mapicon"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="20_ltl8d"]
 [ext_resource type="PackedScene" uid="uid://bwh4veu2kt72u" path="res://scenes/fx/read_loop.tscn" id="90_loopfx"]
-[ext_resource type="Script" uid="uid://b2fkvr3ckw30e" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 
 [sub_resource type="Resource" id="Resource_ks_event_open"]
 script = ExtResource("4_event")

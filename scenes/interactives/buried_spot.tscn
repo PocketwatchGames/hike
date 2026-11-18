@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cdf8q1q68bseo" path="res://scripts/gameplay/entities/BuriedSpot.cs" id="1_spot"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_ibox"]
-[ext_resource type="Resource" path="res://resources/data/actions/dig_action.tres" id="3_dig"]
+[ext_resource type="Resource" uid="uid://h088yml6nsmb" path="res://resources/data/actions/dig_action.tres" id="3_dig"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="4_action"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_dig"]

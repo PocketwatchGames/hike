@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 
 // HUD panel that runs a ConversationData: the NPC's lines type out in a
-// SpeechBubble over the speaker's head, then one `responseOptionScene` per
+// SpeechBubble spawned over the speaker's head, then one `responseOptionScene` per
 // visible response spawns into `responseOptionsContainer`, the box at the
 // bottom of the screen. The last line's bubble stays up while the player
 // chooses. Picking a response fires its actions, advances to its destination
@@ -35,9 +35,9 @@ using System.Collections.Generic;
 [GlobalClass]
 public partial class ConversationController : Control
 {
-	// Lines are BBCode (LanguageText.RenderBbcode), so narration renders in
-	// italics.
-	[Export] SpeechBubble bubble;
+	// Where the conversation's bubble is spawned. Lines are BBCode
+	// (LanguageText.RenderBbcode), so narration renders in italics.
+	[Export] SpeechBubbles bubbles;
 	[Export] public GameClient gameClient;
 	[Export] PackedScene responseOptionScene;
 	[Export] Control responseOptionsContainer;
@@ -55,12 +55,21 @@ public partial class ConversationController : Control
 	ConversationData _conversation;
 	ConversationContext _ctx;
 	ConversationBranch _currentBranch;
+	// Each side's tongue carries over until that side switches it. The NPC's
+	// starts at the speaker's default and changes on a branch with a language;
+	// the player's is null (follow the NPC) until they pick a response with a
+	// language, and then stays.
+	LanguageData _npcLanguage;
+	LanguageData _playerLanguage;
 
 	readonly List<string> _lines = new();
 	// The ConversationLine behind each entry of _lines, for its actions. Null
 	// for an inscription, which has none.
 	readonly List<ConversationLine> _lineData = new();
 	int _lineIndex;
+	// This conversation's bubble; it closes itself if the speaker dies or
+	// unloads, which ends the conversation.
+	SpeechBubble _bubble;
 	// The speaker's running vocalization, cut off by the next one so a fast
 	// reader never stacks grunts.
 	Fx _voice;
@@ -112,6 +121,8 @@ public partial class ConversationController : Control
 		// see the same controller reference an OpenShopAction would close.
 		_ctx.controller = this;
 		_ctx.conversation = conversation;
+		_npcLanguage = ctx.speakerLanguage;
+		_playerLanguage = null;
 		Open(ctx.speaker, onClose, inscribed: false);
 
 		// Fire actions AFTER the panel is wired up so an action that wants
@@ -156,7 +167,11 @@ public partial class ConversationController : Control
 			gameClient.InputSuppressed = true;
 		}
 		Visible = true;
-		bubble?.Open(anchor, inscribed);
+		if (SpeechBubble.IsShowing(_bubble))
+		{
+			_bubble.Close();
+		}
+		_bubble = bubbles?.Spawn(anchor, inscribed);
 	}
 
 	public void Close()
@@ -166,7 +181,11 @@ public partial class ConversationController : Control
 			return;
 		}
 		Visible = false;
-		bubble?.Close();
+		if (SpeechBubble.IsShowing(_bubble))
+		{
+			_bubble.Close();
+		}
+		_bubble = null;
 		ClearResponseButtons();
 		_lines.Clear();
 		_lineData.Clear();
@@ -189,6 +208,7 @@ public partial class ConversationController : Control
 	void StartBranch(ConversationBranch branch)
 	{
 		_currentBranch = branch;
+		_npcLanguage = branch.language ?? _npcLanguage;
 		ClearResponseButtons();
 		ShowSpeaker(npcSpeaking: true);
 		RefreshNameBox();
@@ -208,10 +228,10 @@ public partial class ConversationController : Control
 	// Loads a whole line into the bubble with nothing yet revealed.
 	void BeginLine(string bbcode)
 	{
-		bubble?.Begin(bbcode);
+		_bubble?.Begin(bbcode);
 	}
 
-	bool IsLineFullyRevealed => bubble == null || bubble.IsFullyRevealed;
+	bool IsLineFullyRevealed => _bubble == null || _bubble.IsFullyRevealed;
 
 	// The speaker's talk clip, from the speaker, in its voice's pitch. Plays as
 	// the conversation opens and wherever a `vocalize` action asks for it.
@@ -266,7 +286,7 @@ public partial class ConversationController : Control
 		// current branch. Keeps the visible set stable when looping back
 		// through a follow-up branch with shorter / different text.
 		ConversationBranch primary = FindPrimaryEntryBranch(_conversation, exitGroup);
-		LanguageData lang = primary?.language ?? _ctx.speakerLanguage;
+		LanguageData primaryLang = primary?.language ?? _npcLanguage;
 		// Look up the language tuning once. Falls back to a sensible default
 		// if SimData is unavailable (e.g. very early bootstrap or tests).
 		float grammarWeight = _ctx.sim?.SimData?.languageGrammarWeight ?? 0.2f;
@@ -274,7 +294,7 @@ public partial class ConversationController : Control
 		// Pre-compute the branch score once; Compute mins it with each
 		// response's own score so the bottleneck axis caps visibility.
 		float branchComp = primary != null
-			? ConversationVisibility.ComputeBranchComprehension(primary, lang, _ctx.player, grammarWeight)
+			? ConversationVisibility.ComputeBranchComprehension(primary, primaryLang, _ctx.player, grammarWeight)
 			: 1f;
 		bool debug = CVars.debugConversation.Value;
 		var offered = new List<ConversationResponse>();
@@ -286,7 +306,7 @@ public partial class ConversationController : Control
 				continue;
 			}
 			ConversationVisibility.ResponseVisibilityResult vis =
-				ConversationVisibility.Compute(r, _ctx, lang, branchComp, grammarWeight, visibilityFloor);
+				ConversationVisibility.Compute(r, _ctx, _npcLanguage, _playerLanguage, branchComp, grammarWeight, visibilityFloor);
 			// Condition-gated responses stay hidden even in debug — the
 			// debug toggle is for the language-comprehension gate only.
 			if (!vis.ConditionPassed)
@@ -440,6 +460,7 @@ public partial class ConversationController : Control
 			return;
 		}
 		advanceSound?.Play();
+		_playerLanguage = response.language ?? _playerLanguage;
 		// Fire actions FIRST so an action can close / redirect before the
 		// destination lookup runs.
 		FireActions(response.completeActions, _ctx);
@@ -472,10 +493,10 @@ public partial class ConversationController : Control
 		_responseButtons.Clear();
 	}
 
-	// The speaker died or its chunk unloaded under the bubble.
+	// The bubble closed itself: the speaker died or its chunk unloaded.
 	public override void _Process(double delta)
 	{
-		if (Visible && bubble != null && !bubble.HasLiveAnchor)
+		if (Visible && !SpeechBubble.IsShowing(_bubble))
 		{
 			Close();
 		}
@@ -516,7 +537,7 @@ public partial class ConversationController : Control
 		}
 		if (!IsLineFullyRevealed)
 		{
-			bubble.RevealAll();
+			_bubble.RevealAll();
 			return;
 		}
 		FireActions(_lineData[_lineIndex]?.completeActions, _ctx);
@@ -593,9 +614,9 @@ public partial class ConversationController : Control
 		{
 			responseContainer.Visible = !npcSpeaking;
 		}
-		if (bubble != null)
+		if (_bubble != null)
 		{
-			bubble.AwaitingContinue = npcSpeaking;
+			_bubble.AwaitingContinue = npcSpeaking;
 		}
 	}
 
@@ -603,12 +624,12 @@ public partial class ConversationController : Control
 	// and no tab at all for a source that has neither.
 	void RefreshNameBox()
 	{
-		if (bubble == null)
+		if (_bubble == null)
 		{
 			return;
 		}
 		StringName key = _conversation?.SpeakerLocKey(_ctx.sim?.WorldState?.SimState);
-		bubble.SetSpeakerName(IsBlank(key) ? null : Loc.Get(key));
+		_bubble.SetSpeakerName(IsBlank(key) ? null : Loc.Get(key));
 	}
 
 	static bool IsBlank(StringName name)
@@ -641,7 +662,7 @@ public partial class ConversationController : Control
 		{
 			return;
 		}
-		LanguageData lang = branch.language ?? ctx.speakerLanguage;
+		LanguageData lang = _npcLanguage;
 		int count = branch.lines.Count;
 		for (int i = 0; i < count; i++)
 		{

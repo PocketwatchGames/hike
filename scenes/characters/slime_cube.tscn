@@ -15,7 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/fx/water_movement_loop.tscn" id="15_watloop"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="16_grassloop"]
 [ext_resource type="PackedScene" uid="uid://bgs5uoj10t5nx" path="res://assets/models/characters/gelly_cube/gelly_cube.fbx" id="20_slimefbx"]
-[ext_resource type="Material" uid="uid://fd16lq91jqxzi" path="res://resources/materials/slime_cube_lit.tres" id="22_slimemat"]
+[ext_resource type="Material" uid="uid://binb0pdryj28q" path="res://resources/materials/slime_cube_lit.tres" id="22_slimemat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="30_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 [ext_resource type="PackedScene" uid="uid://dseuhbe357xj7" path="res://scenes/fx/footstep_snow.tscn" id="99_fstsnow"]

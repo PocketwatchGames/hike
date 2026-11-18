@@ -19,10 +19,11 @@ public partial class ConversationBranch : Resource
     // Language the NPC speaks for this branch's lines. The controller pipes
     // each resolved line through TextScrambler against the listening
     // player's learned components, so untaught portions render as gibberish.
-    // Null = fall back to ConversationContext.speakerLanguage (the speaker's
-    // default, normally MobSimState.Language ?? MobData.language). Set this
-    // explicitly when a branch should override the speaker's default — e.g.
-    // a wizard greets in Common then chants a spell in Elvish.
+    // Null = whatever the NPC last spoke in this conversation, starting from
+    // ConversationContext.speakerLanguage (the speaker's default, normally
+    // MobSimState.Language ?? MobData.language). Set this when the NPC switches
+    // tongue — e.g. a wizard greets in Common, then chants in Elvish — and the
+    // NPC keeps that tongue until another branch switches it again.
     [Export] public LanguageData language;
 
     // The NPC's spoken paragraphs, typed in order; ui_accept reveals then

@@ -2,7 +2,6 @@
 
 [ext_resource type="Script" uid="uid://dlogctrlhike1" path="res://scripts/gui/ConversationController.cs" id="1_gaewx"]
 [ext_resource type="PackedScene" uid="uid://d3ls687rbrjqa" path="res://scenes/hud/conversation_choice_button.tscn" id="2_wydpk"]
-[ext_resource type="PackedScene" uid="uid://37ckvhv0e306" path="res://scenes/hud/speech_bubble.tscn" id="3_bubble"]
 [ext_resource type="AudioStream" uid="uid://bdriag8o6xeqe" path="res://assets/audio/source/ui/sfx_ui_dialogue_advance_01.wav" id="8_advance"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dialogue"]
@@ -21,7 +20,7 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[node name="ConversationPanel" type="Control" node_paths=PackedStringArray("bubble", "responseOptionsContainer", "responseContainer", "advanceSound")]
+[node name="ConversationPanel" type="Control" node_paths=PackedStringArray("responseOptionsContainer", "responseContainer", "advanceSound")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -30,14 +29,10 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("1_gaewx")
-bubble = NodePath("SpeechBubble")
 responseOptionScene = ExtResource("2_wydpk")
 responseOptionsContainer = NodePath("ResponseContainer/TextContainer2/VBoxContainer")
 responseContainer = NodePath("ResponseContainer")
 advanceSound = NodePath("AdvanceSound")
-
-[node name="SpeechBubble" parent="." instance=ExtResource("3_bubble")]
-layout_mode = 1
 
 [node name="ResponseContainer" type="MarginContainer" parent="."]
 layout_mode = 1

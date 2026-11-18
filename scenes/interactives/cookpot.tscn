@@ -12,7 +12,7 @@
 [ext_resource type="Texture2D" uid="uid://ghht8t77y7kx" path="res://assets/textures/interactions/light.png" id="8_light"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="9_meshhl"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="10_xray"]
-[ext_resource type="Script" uid="uid://b2fkvr3ckw30e" path="res://scripts/gameplay/entities/PorousBody.cs" id="11_porous"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="11_porous"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="12_light"]
 [ext_resource type="PackedScene" uid="uid://duau51nseh2gv" path="res://assets/models/cauldron/SM_Prop_Cauldron_01.fbx" id="13_cauldronfbx"]
 [ext_resource type="PackedScene" uid="uid://drs27nnlht6ve" path="res://assets/models/campfire/SM_Prop_Camp_Fireplace_01.fbx" id="14_logs"]

@@ -2,9 +2,9 @@
 
 [ext_resource type="Script" uid="uid://be02xpyngh9c8" path="res://scripts/data/worldmap/TerrainKitData.cs" id="1_g"]
 [ext_resource type="Resource" uid="uid://bfhjbpklk11v1" path="res://resources/data/world_authoring/terrain/forest.tres" id="k_0"]
-[ext_resource type="Resource" uid="uid://abg3737i7zmdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="k_1"]
+[ext_resource type="Resource" uid="uid://bg3737i70mdv" path="res://resources/data/world_authoring/terrain/cave_limestone.tres" id="k_1"]
 [ext_resource type="Resource" uid="uid://59tpcikz3kin5" path="res://resources/data/world_authoring/terrain/underwater.tres" id="k_2"]
-[ext_resource type="Resource" uid="uid://plfdm4z98g767" path="res://resources/data/world_authoring/terrain/shore_stony.tres" id="k_3"]
+[ext_resource type="Resource" uid="uid://dy6quyajjulww" path="res://resources/data/world_authoring/terrain/shore_stony.tres" id="k_3"]
 
 [resource]
 script = ExtResource("1_g")

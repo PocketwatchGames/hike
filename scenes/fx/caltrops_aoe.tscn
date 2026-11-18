@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="3_continuous"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="4_buildup"]
-[ext_resource type="Resource" path="res://resources/data/status_effects/status_caltrops.tres" id="5_caltrops"]
+[ext_resource type="Resource" uid="uid://c5vc6ebuauftr" path="res://resources/data/status_effects/status_caltrops.tres" id="5_caltrops"]
 [ext_resource type="Script" uid="uid://bowccahwa232w" path="res://scripts/gameplay/effects/GroundDecal.cs" id="6_decal"]
 [ext_resource type="Material" path="res://resources/materials/decal_caltrops.tres" id="7_decal_mat"]
 

@@ -41,8 +41,8 @@
 [ext_resource type="PackedScene" uid="uid://y3odoq6n86nt2" path="res://scenes/fx/parry_window_end.tscn" id="63_parrywinend"]
 [ext_resource type="PackedScene" uid="uid://dseuhbe357xj7" path="res://scenes/fx/footstep_snow.tscn" id="99_fstsnow"]
 [ext_resource type="PackedScene" uid="uid://dja6erumnnuia" path="res://scenes/fx/skating_snow.tscn" id="98_skatesnow"]
-[ext_resource type="PackedScene" uid="uid://1joab52n2ubzv" path="res://scenes/fx/durability_warning.tscn" id="100_durwarn"]
-[ext_resource type="PackedScene" uid="uid://v2jlv0oj0pjk9" path="res://scenes/fx/durability_broken.tscn" id="101_durbroken"]
+[ext_resource type="PackedScene" uid="uid://dc71rtj5om2hb" path="res://scenes/fx/durability_warning.tscn" id="100_durwarn"]
+[ext_resource type="PackedScene" uid="uid://cqh8xp3a6o5sg" path="res://scenes/fx/durability_broken.tscn" id="101_durbroken"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25

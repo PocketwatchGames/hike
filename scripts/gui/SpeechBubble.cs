@@ -2,8 +2,12 @@ using Godot;
 
 // A comic speech bubble whose tail points at an IHudAnchored's hudPosition
 // (above a speaker's head, a sign's plate): body, name tab, tail, and a continue hint.
-// The owner (ConversationController, NeedRemarks) says what to show and when to advance;
-// the body (a TypingText) types and sizes the line, the bubble places it.
+// Spawned by SpeechBubbles; the owner (ConversationController, Hud's need
+// remarks) says what to show and when to advance. The body (a TypingText)
+// types and sizes the line, the bubble places it.
+//
+// A bubble is single-use: Close frees it, and it closes itself when its anchor
+// dies or an auto-dismissing line has faded. Owners test it with IsShowing.
 //
 // The root is a full-screen, input-ignoring Control, so its local space IS
 // the space GameClient.ProjectToScreen returns; body, tab and hint are
@@ -34,10 +38,18 @@ public partial class SpeechBubble : Control
 	// Theme type variation for the body text of an inscription (signpost,
 	// knowledge stone); spoken lines use the plain RichTextLabel style.
 	[Export] public StringName inscriptionTextVariation;
+	// An auto-dismissing line (BeginAutoDismiss) stays up this many seconds
+	// once fully typed, then fades over fadeSeconds and closes.
+	[Export(PropertyHint.Range, "0,10,0.1")] public float holdSeconds = 2.5f;
+	[Export(PropertyHint.Range, "0,3,0.05")] public float fadeSeconds = 0.4f;
 
 	IHudAnchored _anchor;
+	bool _open;
 	bool _flipped;
 	Vector2 _tailTip;
+	bool _autoDismiss;
+	float _holdLeft;
+	float _fadeLeft;
 
 	// While true, the hint shows once the line is fully revealed. The owner
 	// turns it off while the player is choosing a response.
@@ -45,9 +57,13 @@ public partial class SpeechBubble : Control
 
 	public bool IsFullyRevealed => body == null || body.IsFullyRevealed;
 
-	// False once the anchor's node has been freed — the speaker died or its
-	// chunk unloaded. The owner closes on it.
-	public bool HasLiveAnchor => _anchor != null && (_anchor is not GodotObject obj || IsInstanceValid(obj));
+	bool HasLiveAnchor => _anchor != null && (_anchor is not GodotObject obj || IsInstanceValid(obj));
+
+	// False once `bubble` has closed, for any reason, or was never spawned.
+	public static bool IsShowing(SpeechBubble bubble)
+	{
+		return bubble != null && IsInstanceValid(bubble) && bubble._open;
+	}
 
 	public override void _Ready()
 	{
@@ -60,19 +76,25 @@ public partial class SpeechBubble : Control
 	}
 
 	// `inscribed`: the text is carved or written on `anchor`, not spoken by it.
+	// Called by SpeechBubbles.Spawn.
 	public void Open(IHudAnchored anchor, bool inscribed)
 	{
 		_anchor = anchor;
+		_open = true;
 		body?.SetTextVariation(inscribed ? inscriptionTextVariation : null);
 		Visible = true;
 	}
 
 	public void Close()
 	{
-		Visible = false;
+		if (!_open)
+		{
+			return;
+		}
+		_open = false;
 		_anchor = null;
-		body?.Begin(null);
-		AwaitingContinue = false;
+		Visible = false;
+		QueueFree();
 	}
 
 	// The tab shows `name`; null or empty hides it.
@@ -90,8 +112,20 @@ public partial class SpeechBubble : Control
 	// the bubble until the next one.
 	public void Begin(string bbcode)
 	{
+		_autoDismiss = false;
+		Modulate = Colors.White;
 		body?.Begin(bbcode);
 		UpdateLayout();
+	}
+
+	// Types `bbcode` out, holds, fades and closes on its own — no press.
+	public void BeginAutoDismiss(string bbcode)
+	{
+		AwaitingContinue = false;
+		Begin(bbcode);
+		_autoDismiss = true;
+		_holdLeft = holdSeconds;
+		_fadeLeft = fadeSeconds;
 	}
 
 	public void RevealAll()
@@ -101,10 +135,42 @@ public partial class SpeechBubble : Control
 
 	public override void _Process(double delta)
 	{
-		if (Visible)
+		if (!_open)
 		{
-			UpdateLayout();
+			return;
 		}
+		if (!HasLiveAnchor)
+		{
+			Close();
+			return;
+		}
+		if (_autoDismiss && !TickAutoDismiss((float)delta))
+		{
+			return;
+		}
+		UpdateLayout();
+	}
+
+	// Wall clock: the fade is presentational. False once it has closed.
+	bool TickAutoDismiss(float delta)
+	{
+		if (!IsFullyRevealed)
+		{
+			return true;
+		}
+		if (_holdLeft > 0f)
+		{
+			_holdLeft -= delta;
+			return true;
+		}
+		_fadeLeft -= delta;
+		if (_fadeLeft <= 0f)
+		{
+			Close();
+			return false;
+		}
+		Modulate = new Color(1f, 1f, 1f, fadeSeconds > 0f ? _fadeLeft / fadeSeconds : 0f);
+		return true;
 	}
 
 	void UpdateLayout()

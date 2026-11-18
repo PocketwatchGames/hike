@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
-[ext_resource type="Material" path="res://resources/materials/blood_pool_03.tres" id="2_mat"]
+[ext_resource type="Material" uid="uid://bmmxrvbc346fp" path="res://resources/materials/blood_pool_03.tres" id="2_mat"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_pool"]
 size = Vector2(2.6, 2.6)

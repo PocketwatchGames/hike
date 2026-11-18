@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="PaintPresetData" load_steps=4 format=3]
 
 [ext_resource type="Script" uid="uid://0ss3utn513x2b" path="res://scripts/data/worldmap/PaintPresetData.cs" id="1_p"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/terrain_kits/hub.tres" id="2_ground"]
-[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_scatters/hub.tres" id="5_mobs"]
+[ext_resource type="Resource" uid="uid://d006c776h1k22" path="res://resources/data/world_authoring/terrain_kits/hub.tres" id="2_ground"]
+[ext_resource type="Resource" uid="uid://cxeyyhx8ioubo" path="res://resources/data/world_authoring/spawn_scatters/hub.tres" id="5_mobs"]
 
 [resource]
 script = ExtResource("1_p")

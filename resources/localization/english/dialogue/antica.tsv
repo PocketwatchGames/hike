@@ -2,14 +2,23 @@ key	value
 intro_fairy_description	Glowing Figure
 intro_fairy_greeting_01	It moves! It has soggy eyes though. So soggy.
 intro_fairy_greeting_02	You! Soggy! Your friends ran off. The bear ate one. His guts are sogging up ahead.
-intro_fairy_greeting_03	The other one took your stuff. He went towards the festering man.
+intro_fairy_greeting_03	The other one took your stuff. She went towards the festering man.
 intro_fairy_greeting_04	The festering man knows. Find him.
 festering_man_description	The Festering Man
 festering_man_greeting_01	Another! The sea spat you out too, huh?
+festering_man_greeting_return_01	Ah, the sodden one returns.
 festering_man_language_gestures	Your language is foreign to me. Do you speak the common tongue?
 festering_man_language_convo	Aye. My flesh was unwelcome even in her hungry gullet, thanks be.
 festering_man_gestures_01	[narrate]He shakes his head and points to the library upstairs.[/narrate]
 festering_man_convo_01	I’m afraid my cookpot is also empty. But if you find 3 cuts of goblin flesh you’ll feed us both! [narrate]He holds up 3 fingers[/narrate]
-festering_man_convo_02	And sleep if you wish.
-festering_man_convo_03	And I am always willing to trade if you have brought anything of value.
-festering_man_convo_04	Welcome to my most unpleasant home.
+festering_man_mates_impatient	One of my mates came this way. Have you seen her?
+festering_man_impatient_01	Ah yes, she was impatient to leave my little island. Looking for the bridge key, hee hee!
+festering_man_impatient_02	I buried it long ago though. Your friend gave me her shiny hammer for a spade and a clue!
+festering_man_topics_where	Where did she go?
+festering_man_topics_clue	A clue about the bridge key?
+festering_man_topics_hammer	Trade?
+festering_man_topics_cookpot	What did you say about the cookpot?
+festering_man_where_01	Last I saw of her she was walking the beach to the west. She may have sought shelter from the rain in the caves alone the shore.
+festering_man_clue_01	A little scribble on a scrap. She’ll need the shovel to dig it up.
+festering_man_hammer_01	Yes yes! Do you have something to trade too?
+festering_man_cookpot_01	Find 3 cuts of goblin flesh you’ll feed us both! [narrate]He holds up 3 fingers[/narrate]

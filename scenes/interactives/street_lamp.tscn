@@ -17,7 +17,7 @@
 [ext_resource type="PackedScene" uid="uid://cnuxb20c86651" path="res://assets/models/street_lamp/SM_Prop_Lantern_01.fbx" id="11_lantern"]
 [ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="12_modellit"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="13_meshhl"]
-[ext_resource type="Script" uid="uid://b2fkvr3ckw30e" path="res://scripts/gameplay/entities/PorousBody.cs" id="14_porous"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="14_porous"]
 [ext_resource type="Script" uid="uid://x7gbvfcn55bl" path="res://scripts/gameplay/entities/ClipAnchor.cs" id="15_clipanchor"]
 
 [sub_resource type="Resource" id="Resource_lamp_event_toggle"]
