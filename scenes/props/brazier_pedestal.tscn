@@ -1,0 +1,31 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="2_light"]
+[ext_resource type="PackedScene" uid="uid://pwij2dkw6l3c" path="res://assets/models/brazier/SM_PROP_brazier_02.fbx" id="3_model"]
+[ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="4_autocoll"]
+[ext_resource type="PackedScene" uid="uid://cetqhlokr0mrc" path="res://scenes/fx/campfire_loop.tscn" id="5_flame"]
+
+[node name="PropInstance" type="Node3D" node_paths=PackedStringArray("_light")]
+script = ExtResource("1_prop")
+_light = NodePath("StationaryLight")
+
+[node name="Model" type="Node3D" parent="."]
+script = ExtResource("4_autocoll")
+
+[node name="SM_PROP_brazier_02" parent="Model" instance=ExtResource("3_model")]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0.0, 0)
+
+[node name="Flame1" parent="." instance=ExtResource("5_flame")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.000, 0.700, 0.000)
+
+[node name="StationaryLight" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.000, 0.950, 0.000)
+script = ExtResource("2_light")
+_lightColor = Color(1, 0.62, 0.3, 1)
+_distance = 8.0
+_falloff = 1.5
+_brightness = 0.8
+_flicker = true
+_flickerMin = 0.8
+_flickerHz = 7.0

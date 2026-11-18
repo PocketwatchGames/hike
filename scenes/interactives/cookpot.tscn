@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://6eu1tw8hanif"]
 
-[ext_resource type="Script" path="res://scripts/gameplay/entities/Cookpot.cs" id="1_cookpot"]
+[ext_resource type="Script" uid="uid://r5botv8wy2iv" path="res://scripts/gameplay/entities/Cookpot.cs" id="1_cookpot"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_ibox"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_xvi33"]
 [ext_resource type="Texture2D" uid="uid://bplefhrwcau14" path="res://assets/textures/interactions/cook.png" id="7_cook"]
 [ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="7_o1jpb"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_lhux5"]
 [ext_resource type="Texture2D" uid="uid://ghht8t77y7kx" path="res://assets/textures/interactions/light.png" id="8_light"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="9_meshhl"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="10_xray"]
@@ -39,15 +40,15 @@ displayName = &"Light"
 icon = ExtResource("8_light")
 completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_cookpot_event")])
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
-size = Vector3(2.5, 2.5, 2.5)
-
 [sub_resource type="CylinderMesh" id="CylinderMesh_contents"]
 top_radius = 0.6
 bottom_radius = 0.6
 height = 0.04
 radial_segments = 24
 rings = 1
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(2.5, 2.5, 2.5)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
 size = Vector3(1.1, 1.25, 1.3)
@@ -76,15 +77,19 @@ transform = Transform3D(200, 0, 0, 0, 150, 0, 0, 0, 200, 0, 0.3, 0)
 [node name="SM_Prop_Cauldron_01" parent="Model/Pot" unique_id=1084616944 instance=ExtResource("13_cauldronfbx")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.0018201021, 0)
 
-[node name="Contents" type="MeshInstance3D" parent="Model"]
-visible = false
+[node name="Contents" type="MeshInstance3D" parent="Model" unique_id=1011561431]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.39, 0)
+visible = false
 cast_shadow = 0
 mesh = SubResource("CylinderMesh_contents")
 surface_material_override/0 = ExtResource("19_contents")
 
 [node name="StationaryLight" type="Node3D" parent="." unique_id=1555365032]
 script = ExtResource("12_light")
+_lightColor = Color(1, 0.5833334, 0, 1)
+_distance = 8.0
+_falloff = 1.5
+_brightness = 1.5
 _flicker = true
 _flickerMin = 0.8
 _flickerHz = 6.0

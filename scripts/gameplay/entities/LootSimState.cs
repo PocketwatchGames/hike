@@ -35,6 +35,10 @@ public class LootSimState : EntitySimState
     // indistinguishable from the loot having just appeared.
     public bool PlaySpawnEffects = true;
 
+    // A pickup lying in the world bobs to read as one; something growing out of
+    // the ground (forage) sits still.
+    public virtual bool BobsAtRest => true;
+
     public LootSimState(Vector3 worldPosition, ItemData data)
         : base(worldPosition, scene: null)
     {

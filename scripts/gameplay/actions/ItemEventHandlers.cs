@@ -46,6 +46,13 @@ public static class ItemEventHandlers
 		{
 			DebugDrawSweep(nearCenter, nearRadius, farCenter, farRadius, halfHeight, MeleeDebugColor);
 		}
+		// The swing parts the grass once, on its first tick, whether or not it
+		// lands — a whiff through a meadow should still show.
+		if (windowStart)
+		{
+			Vector3 sweepMid = actor.ActorWorldPosition + forward * (shapeRange * 0.5f);
+			Sim.Current?.TrampleField?.KickMelee(sweepMid, shapeRange * 0.5f + farRadius, forward);
+		}
 
 		HitInfo hit = ResolveHit(ev, action, actor);
 		if (hit.healthDamage <= 0f && hit.buildups == null)
@@ -1982,6 +1989,7 @@ public static class ItemEventHandlers
 		{
 			// Composed weapon level doubles outgoing damage per level (2^level).
 			hit.healthDamage *= weapon2.DamageMultiplier;
+			hit.runes = weapon2.runes;
 			// Per-swing repeat-combo multiplier (a final-swing haymaker, etc.).
 			// Resolved at activation into action.repeatIndex; null / 1 for
 			// non-repeat swings leaves the damage unchanged.

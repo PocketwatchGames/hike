@@ -3,9 +3,10 @@
 // on it, so every path that hands the player an item gets the same behaviour.
 public interface IApplyOnPickup
 {
-	// Apply this item's payload to `player`. True when the pickup was spent and
-	// should leave the world; false leaves it in place.
-	bool ApplyOnPickup(Player player);
+	// Apply this item's payload to `player`. `item` is the instance picked up,
+	// for a payload carried per instance (a rune bone's species and rune). True
+	// when the pickup was spent and should leave the world; false leaves it.
+	bool ApplyOnPickup(Player player, ItemState item);
 
 	// Flies to the player without an interact (Loot's magnet). A scroll is a
 	// deliberate pickup; something that takes no space at all need not be.

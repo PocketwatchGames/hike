@@ -103,6 +103,19 @@ public static class WorldMapCheck
         sb.AppendLine($"[worldmap_check] entities: {entities.Length} placed — "
             + (spread.Length == 0 ? "none" : spread.ToString()));
 
+        // A buried spot the bake would refuse (nothing buried, a rune bone with
+        // no species or a rune its sequence lacks) is otherwise only an error
+        // line in the bake's log and a hole in the world.
+        foreach (EntityPlacement placement in entities)
+        {
+            string refusal = (placement?.Entry as BuriedSpotSpawnEntry)?.Refusal();
+            if (refusal != null)
+            {
+                sb.AppendLine($"[worldmap_check] ERROR: {SpawnEntryData.PaletteName(placement.source)} "
+                    + $"at {placement.anchorXZ} will not be placed — {refusal}");
+            }
+        }
+
         ReportEntityLinks(sb, entities);
         ReportNames(sb, entities, ctx.Data.World);
         ReportScatterSets(sb, ctx);
@@ -588,6 +601,8 @@ public static class WorldMapCheck
     {
         int entities = 0;
         int overrides = 0;
+        int uncutShown = 0;
+        int neverShown = 0;
         foreach (SubscenePlacement stamp in ctx.Placements.placements)
         {
             SubsceneState sub = ctx.SubsceneFor(stamp);
@@ -596,6 +611,24 @@ public static class WorldMapCheck
                 continue;
             }
             entities += sub.Entities.Count;
+            // The painter draws an entity only on the slice its floor is on. With
+            // the plane at the entity's own floor it must draw, or no plane ever
+            // shows it and it cannot be selected — which is what a wrong
+            // SceneEntityFloor convention would do to every scene entity at once.
+            foreach (SceneEntity entity in sub.Entities)
+            {
+                int floor = ctx.SceneEntityFloor(stamp, sub, entity);
+                if (ctx.IsSceneEntityShown(stamp, sub, entity, int.MaxValue))
+                {
+                    uncutShown++;
+                }
+                if (!ctx.IsSceneEntityShown(stamp, sub, entity, floor))
+                {
+                    neverShown++;
+                    sb.AppendLine($"[worldmap_check] WARNING: scene entity never drawn: {stamp.path.GetFile()} "
+                        + $"at {stamp.anchorXZ}, entity {entity.Id} ({entity.Placement.Label()}) on floor Y={floor}");
+                }
+            }
             foreach (SubsceneEntityOverride o in stamp.entityOverrides ?? System.Array.Empty<SubsceneEntityOverride>())
             {
                 if (o?.custom == null)
@@ -623,6 +656,21 @@ public static class WorldMapCheck
             }
         }
         sb.AppendLine($"[worldmap_check] scene entities: {entities} across the stamps, {overrides} overridden per stamp");
+        sb.AppendLine($"[worldmap_check] scene entities by slice: {uncutShown} on the uncut map, "
+            + $"{entities - uncutShown} under a roof or floor, {neverShown} drawn on no slice (must be 0)");
+        int handShown = 0;
+        int handAbsolute = 0;
+        foreach (EntityPlacement placement in ctx.Placements.entities)
+        {
+            if (placement == null)
+            {
+                continue;
+            }
+            handAbsolute += placement.floorY == EntityPlacement.OnTheGround ? 0 : 1;
+            handShown += ctx.IsEntityShown(placement, int.MaxValue) ? 1 : 0;
+        }
+        sb.AppendLine($"[worldmap_check] hand placements: {ctx.Placements.entities.Length}, "
+            + $"{handAbsolute} on a recorded floor, {handShown} on the uncut map");
     }
 
     private static void ReportScatterSets(System.Text.StringBuilder sb, WorldMapState ctx)

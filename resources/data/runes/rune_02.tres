@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="RuneData" format=3]
+
+[ext_resource type="Script" uid="uid://esxkt6kn9aw5a" path="res://scripts/data/characters/RuneData.cs" id="1_rune"]
+[ext_resource type="Texture2D" uid="uid://hlsfjeynive3" path="res://assets/textures/runes/rune_02.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_rune")
+icon = ExtResource("2_icon")

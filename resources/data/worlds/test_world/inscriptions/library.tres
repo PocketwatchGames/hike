@@ -5,5 +5,5 @@
 
 [resource]
 script = ExtResource("1_script")
-text = "Library"
+textKey = &"inscription_library"
 language = ExtResource("2_language")

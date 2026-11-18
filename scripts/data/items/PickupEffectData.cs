@@ -18,7 +18,7 @@ public partial class PickupEffectData : ItemData, IApplyOnPickup
 
 	public bool Magnetized => true;
 
-	public bool ApplyOnPickup(Player player)
+	public bool ApplyOnPickup(Player player, ItemState item)
 	{
 		if (player != null && effects != null)
 		{

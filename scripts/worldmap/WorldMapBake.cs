@@ -360,7 +360,8 @@ public class WorldMapBake
     // air over it. For a plaza or a road that is the floor you walk on. For a
     // ROOFED building it is the roof, which is the honest answer to a top-down
     // question — an entity meant to stand inside one is placed against the
-    // cutaway plane and carries its own floorY, so it never asks this.
+    // cutaway plane (WorldMapState.PlacementFloor, which sees stamps) and
+    // carries its own floorY, so it never asks this.
     private void RecordStampedGround(SubscenePlacement placement)
     {
         _stampedGround ??= FilledStampedGround();

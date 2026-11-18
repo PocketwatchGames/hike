@@ -1,6 +1,5 @@
 using Godot;
 using System;
-using System.Text;
 
 // Read-only list of what each control does on keyboard/mouse and on gamepad.
 // Both the main menu and the pause menu instance this same scene and call Open
@@ -8,8 +7,9 @@ using System.Text;
 //
 // Both device columns are always shown — this is the screen you open to find
 // out what the OTHER device does, so following InputDevice.Current the way
-// ButtonHint does would hide half of it. What each row says is authored
-// (ControlBindingData); the glyphs are resolved from the live InputMap.
+// ButtonHint does would hide half of it. The rows are the game's one
+// ControlSetData — the same set [input:] tokens in authored text name — and
+// it composes the glyphs from the live InputMap.
 [GlobalClass]
 public partial class ControlsScreen : Control
 {
@@ -20,11 +20,7 @@ public partial class ControlsScreen : Control
 	// The authored rows are added here, under the header.
 	[Export] Container _rowContainer;
 	[Export] Button _backButton;
-	[Export] ControlBindingData[] bindings = Array.Empty<ControlBindingData>();
-	// Between two alternative glyphs ("Z / C") and between the parts of a chord
-	// ("LMB+RMB").
-	[Export] string alternativeSeparator = " / ";
-	[Export] string chordSeparator = "+";
+	[Export] ControlSetData controls;
 
 	Action _onClose;
 
@@ -95,7 +91,7 @@ public partial class ControlsScreen : Control
 			Loc.Get(Loc.Keys.controls_keyboard),
 			Loc.Get(Loc.Keys.controls_gamepad));
 
-		if (_rowContainer == null || rowScene == null)
+		if (_rowContainer == null || rowScene == null || controls?.bindings == null)
 		{
 			return;
 		}
@@ -106,7 +102,7 @@ public partial class ControlsScreen : Control
 			_rowContainer.RemoveChild(child);
 			child.QueueFree();
 		}
-		foreach (ControlBindingData binding in bindings)
+		foreach (ControlBindingData binding in controls.bindings)
 		{
 			if (binding == null)
 			{
@@ -116,39 +112,13 @@ public partial class ControlsScreen : Control
 			_rowContainer.AddChild(row);
 			row.Fill(
 				Loc.Get(binding.labelKey),
-				Glyphs(binding.keyboardActions, binding.keyboardJoin, InputDevice.EDevice.KeyboardMouse),
-				Glyphs(binding.gamepadActions, binding.gamepadJoin, InputDevice.EDevice.Gamepad));
+				Glyphs(binding, InputDevice.EDevice.KeyboardMouse),
+				Glyphs(binding, InputDevice.EDevice.Gamepad));
 		}
 	}
 
-	string Glyphs(string[] actions, EBindingJoin join, InputDevice.EDevice device)
+	string Glyphs(ControlBindingData binding, InputDevice.EDevice device)
 	{
-		string unbound = Loc.Get(Loc.Keys.controls_unbound);
-		if (actions == null || actions.Length == 0)
-		{
-			return unbound;
-		}
-		string separator = join == EBindingJoin.Chord ? chordSeparator : alternativeSeparator;
-		var text = new StringBuilder();
-		foreach (string action in actions)
-		{
-			if (!InputGlyph.TryResolve(action, device, out string glyph))
-			{
-				// A chord needs every part: with one half unbound on this device
-				// the input can't be performed at all, so the cell reads unbound
-				// rather than naming the half that does exist.
-				if (join == EBindingJoin.Chord)
-				{
-					return unbound;
-				}
-				continue;
-			}
-			if (text.Length > 0)
-			{
-				text.Append(separator);
-			}
-			text.Append(glyph);
-		}
-		return text.Length > 0 ? text.ToString() : unbound;
+		return controls.TryCompose(binding, device, out string glyphs) ? glyphs : Loc.Get(Loc.Keys.controls_unbound);
 	}
 }

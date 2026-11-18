@@ -5,5 +5,5 @@
 
 [resource]
 script = ExtResource("1_script")
-text = "Desert. Water is scarce — fill skins before crossing."
+textKey = &"inscription_road_desert"
 language = ExtResource("2_language")

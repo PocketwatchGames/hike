@@ -86,7 +86,7 @@ public partial class Sim
     }
 
     // Every member's node, or the controlled one alone before the party is bound.
-    private void ForEachPartyNode(System.Action<Player> action)
+    public void ForEachPartyNode(System.Action<Player> action)
     {
         if (_partyNodes == null)
         {

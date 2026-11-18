@@ -147,6 +147,9 @@ public struct HitInfo
 	// Backstab clear — the flag reflects an applied result, not mere geometry.
 	// OnDizzy has no HUD-text counterpart so isn't recorded.
 	public EDamageTriggerFlags triggers;
+	// The striking weapon's runes. Resolved by the RECEIVER (Mob.ApplyResistance)
+	// because only it knows its species — a shot is fired before its target is.
+	public RuneInscription runes;
 	// Copy-on-first-write guard for `buildups` — the first AddBuildups fold
 	// clones the authored list before appending so the template is never mutated.
 	private bool _buildupsOwned;

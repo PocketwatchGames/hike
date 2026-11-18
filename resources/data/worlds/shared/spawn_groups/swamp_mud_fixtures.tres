@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="2_group"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="2_nujeh"]
-[ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_grammar.tres" id="11_stone"]
+[ext_resource type="Resource" uid="uid://ddlfair6coo5y" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_grammar.tres" id="11_stone"]
 [ext_resource type="Script" uid="uid://bhy5xnkiybhbv" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
 
 [sub_resource type="Resource" id="Row_Stone_mud"]

@@ -532,10 +532,6 @@ public class ActionRunner
 		if (!AnyTierCouldFire(profile, context, targetComboIndex))
 		{
 			ItemEventHandlers.SpawnOnActor(_actor, profile.rejectEffect);
-			if (AnyTierBlockedOnlyByAmmo(profile, context, targetComboIndex))
-			{
-				GameClient.Current?.onHudText?.Invoke(_actor.ActorWorldPosition, Loc.Get(Loc.Keys.combat_no_ammo), EHudTextType.Info);
-			}
 			return false;
 		}
 
@@ -1174,31 +1170,6 @@ public class ActionRunner
 			if (!_actor.HasStamina(action.staminaCost)) { continue; }
 			if (!_actor.HasBlood(action.bloodCost)) { continue; }
 			if (action.useAmmo && !HasRounds(context)) { continue; }
-			if (!CanAffordOil(action)) { continue; }
-			return true;
-		}
-		return false;
-	}
-
-	// True when the only thing refusing the press is an empty quiver: some tier
-	// in this combo step passes every other gate but needs a round. Keeps the
-	// "No ammo" cue off presses refused for another reason (swimming, stamina).
-	// A mob never runs out (HasRounds), so this only fires for the player.
-	private bool AnyTierBlockedOnlyByAmmo(ItemActionProfile profile, in ActionContext context, int comboIndex)
-	{
-		if (HasRounds(context))
-		{
-			return false;
-		}
-		int count = profile.chargedActions.Count;
-		for (int i = 0; i < count; i++)
-		{
-			ItemAction action = profile.chargedActions[i];
-			if (action == null || !action.useAmmo) { continue; }
-			if (action.comboIndex != comboIndex) { continue; }
-			if (!RequirementsMet(action, context)) { continue; }
-			if (!_actor.HasStamina(action.staminaCost)) { continue; }
-			if (!_actor.HasBlood(action.bloodCost)) { continue; }
 			if (!CanAffordOil(action)) { continue; }
 			return true;
 		}

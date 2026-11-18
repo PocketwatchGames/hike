@@ -20,7 +20,7 @@ using Godot;
 //
 // Material handling: the sprite Texture lives as an export on this resource
 // — NOT as a shader parameter on a per-entry material .tres. Reason:
-// detail_sprite.gdshader uses globals (light_map, player_pos, etc.) that
+// detail_sprite.gdshader uses globals (light_map, trample_field, etc.) that
 // only exist at runtime, so the editor can't compile the shader and the
 // material inspector can't surface its parameters; an authored .tres would
 // silently lose its `shader_parameter/sprite_texture` line on resave. At

@@ -1,0 +1,54 @@
+[gd_scene format=3 uid="uid://b743b5fwe8bs7"]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="2_light"]
+[ext_resource type="PackedScene" uid="uid://caysvmdmbexqo" path="res://assets/models/glow_flowers/SM_ENV_flower_ancient_04.fbx" id="3_model"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="90_hurtbox"]
+[ext_resource type="Script" uid="uid://q5olzmjwd53qn" path="res://scripts/gameplay/trees/FoliageRustle.cs" id="91_rustle"]
+[ext_resource type="Resource" path="res://resources/data/foliage/flower_rustle.tres" id="92_rustledata"]
+[ext_resource type="Script" uid="uid://7dp79rr0fq68b" path="res://scripts/gameplay/entities/BrushArea.cs" id="93_brush"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_rustle"]
+height = 0.68
+radius = 0.35
+
+[node name="PropInstance" type="Node3D" unique_id=387282027 node_paths=PackedStringArray("_light")]
+script = ExtResource("1_prop")
+_light = NodePath("StationaryLight")
+
+[node name="Model" type="Node3D" parent="." unique_id=1823397006]
+
+[node name="SM_ENV_flower_ancient_04" parent="Model" unique_id=1879863631 instance=ExtResource("3_model")]
+transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0)
+
+[node name="StationaryLight" type="Node3D" parent="." unique_id=878692216]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.525, 0)
+script = ExtResource("2_light")
+_lightColor = Color(0.85, 0.92, 1, 1)
+_distance = 5.0
+_falloff = 1.0
+_brightness = 0.65
+
+[node name="HurtBox" type="Area3D" parent="."]
+collision_layer = 4096
+collision_mask = 0
+monitoring = false
+script = ExtResource("90_hurtbox")
+
+[node name="HurtBoxShape" type="CollisionShape3D" parent="HurtBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.34, 0)
+shape = SubResource("CylinderShape3D_rustle")
+
+[node name="BrushArea" type="Area3D" parent="."]
+script = ExtResource("93_brush")
+
+[node name="BrushAreaShape" type="CollisionShape3D" parent="BrushArea"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.34, 0)
+shape = SubResource("CylinderShape3D_rustle")
+
+[node name="Rustle" type="Node3D" parent="." node_paths=PackedStringArray("_brushArea", "_hurtBox", "_meshes")]
+script = ExtResource("91_rustle")
+_data = ExtResource("92_rustledata")
+_brushArea = NodePath("../BrushArea")
+_hurtBox = NodePath("../HurtBox")
+_meshes = [NodePath("../Model/SM_ENV_flower_ancient_04/SM_ENV_flower_ancient_04/SM_ENV_flower_ancient_04_LOD0")]

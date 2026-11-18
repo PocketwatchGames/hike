@@ -8,16 +8,15 @@
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/languages/common.tres" id="Lang_common"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="Script_ItemDescriptor"]
-[ext_resource type="Resource" uid="uid://nclu5e0owob5" path="res://resources/data/items/scrolls/scroll_vyeshal_vocab_1_2.tres" id="Item_scroll_vyeshal_vocab_1_2"]
+[ext_resource type="Resource" uid="uid://cmoq2v2n5epos" path="res://resources/data/worlds/test_world/items/map_city_center.tres" id="Item_map_city_center"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="Script_ItemCount"]
 [ext_resource type="Script" uid="uid://bruxndva544k7" path="res://scripts/data/conversation/actions/DropLootAction.cs" id="Script_DropLootAction"]
 [ext_resource type="Script" uid="uid://cs8svar0acta4" path="res://scripts/data/scripting/actions/SetScriptVarAction.cs" id="Script_SetScriptVarAction"]
-[ext_resource type="Resource" uid="uid://cmoq2v2n5epos" path="res://resources/data/worlds/test_world/items/map_city_center.tres" id="Item_map_city_center"]
 [ext_resource type="Script" uid="uid://bt3svar0cond7" path="res://scripts/data/scripting/conditions/ScriptVarCondition.cs" id="Script_ScriptVarCondition"]
 
 [sub_resource type="Resource" id="Inline_1"]
 script = ExtResource("Script_ItemDescriptor")
-item = ExtResource("Item_scroll_vyeshal_vocab_1_2")
+item = ExtResource("Item_map_city_center")
 
 [sub_resource type="Resource" id="Inline_2"]
 script = ExtResource("Script_ItemCount")
@@ -29,59 +28,23 @@ loot = Array[ExtResource("Script_ItemCount")]([SubResource("Inline_2")])
 
 [sub_resource type="Resource" id="Inline_4"]
 script = ExtResource("Script_SetScriptVarAction")
-variable = &"intro_librarian_learn"
-op = 0
-operand = 1
-
-[sub_resource type="Resource" id="Inline_5"]
-script = ExtResource("Script_ItemDescriptor")
-item = ExtResource("Item_map_city_center")
-
-[sub_resource type="Resource" id="Inline_6"]
-script = ExtResource("Script_ItemCount")
-descriptor = SubResource("Inline_5")
-
-[sub_resource type="Resource" id="Inline_7"]
-script = ExtResource("Script_DropLootAction")
-loot = Array[ExtResource("Script_ItemCount")]([SubResource("Inline_6")])
-
-[sub_resource type="Resource" id="Inline_8"]
-script = ExtResource("Script_SetScriptVarAction")
 variable = &"intro_librarian_map"
 op = 0
 operand = 1
 
-[sub_resource type="Resource" id="Inline_9"]
+[sub_resource type="Resource" id="Inline_5"]
 script = ExtResource("Script_ScriptVarCondition")
 variable = &"intro_librarian_learn"
 op = 1
 operand = 0
 
-[sub_resource type="Resource" id="Inline_10"]
+[sub_resource type="Resource" id="Inline_6"]
 script = ExtResource("Script_ScriptVarCondition")
 variable = &"intro_librarian_learn"
 op = 1
 operand = 0
 
-[sub_resource type="Resource" id="Inline_11"]
-script = ExtResource("Script_ItemDescriptor")
-item = ExtResource("Item_scroll_vyeshal_vocab_1_2")
-
-[sub_resource type="Resource" id="Inline_12"]
-script = ExtResource("Script_ItemCount")
-descriptor = SubResource("Inline_11")
-
-[sub_resource type="Resource" id="Inline_13"]
-script = ExtResource("Script_DropLootAction")
-loot = Array[ExtResource("Script_ItemCount")]([SubResource("Inline_12")])
-
-[sub_resource type="Resource" id="Inline_14"]
-script = ExtResource("Script_SetScriptVarAction")
-variable = &"intro_librarian_learn"
-op = 0
-operand = 1
-
-[sub_resource type="Resource" id="Inline_15"]
+[sub_resource type="Resource" id="Inline_7"]
 script = ExtResource("Script_ScriptVarCondition")
 variable = &"intro_librarian_map"
 op = 1
@@ -129,7 +92,6 @@ isPrimaryGroupEntry = true
 [sub_resource type="Resource" id="Line_vyeshal_1"]
 script = ExtResource("Script_ConversationLine")
 locKey = &"intro_librarian_vyeshal_01"
-completeActions = Array[Object]([SubResource("Inline_3"), SubResource("Inline_4")])
 
 [sub_resource type="Resource" id="Branch_vyeshal"]
 script = ExtResource("Script_ConversationBranch")
@@ -201,7 +163,7 @@ exitGroup = &"topics"
 [sub_resource type="Resource" id="Line_treasure_1"]
 script = ExtResource("Script_ConversationLine")
 locKey = &"intro_librarian_treasure_01"
-completeActions = Array[Object]([SubResource("Inline_7"), SubResource("Inline_8")])
+completeActions = Array[Object]([SubResource("Inline_3"), SubResource("Inline_4")])
 
 [sub_resource type="Resource" id="Branch_treasure"]
 script = ExtResource("Script_ConversationBranch")
@@ -224,7 +186,7 @@ responses = [SubResource("Resp_language_1")]
 script = ExtResource("Script_ConversationResponse")
 textLocKey = &"intro_librarian_whittlebone_vyeshal"
 language = ExtResource("Lang_common")
-condition = SubResource("Inline_9")
+condition = SubResource("Inline_5")
 destination = &"vyeshal"
 
 [sub_resource type="Resource" id="Resp_whittlebone_2"]
@@ -242,9 +204,8 @@ responses = [SubResource("Resp_whittlebone_1"), SubResource("Resp_whittlebone_2"
 script = ExtResource("Script_ConversationResponse")
 textLocKey = &"intro_librarian_topics_vyeshal"
 language = ExtResource("Lang_common")
-condition = SubResource("Inline_10")
+condition = SubResource("Inline_6")
 destination = &"vyeshal"
-completeActions = Array[Object]([SubResource("Inline_13"), SubResource("Inline_14")])
 
 [sub_resource type="Resource" id="Resp_topics_2"]
 script = ExtResource("Script_ConversationResponse")
@@ -284,7 +245,7 @@ responses = [SubResource("Resp_topics_1"), SubResource("Resp_topics_2"), SubReso
 [sub_resource type="Resource" id="Resp_city_1"]
 script = ExtResource("Script_ConversationResponse")
 textLocKey = &"intro_librarian_city_treasure"
-condition = SubResource("Inline_15")
+condition = SubResource("Inline_7")
 destination = &"treasure"
 
 [sub_resource type="Resource" id="Group_city"]

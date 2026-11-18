@@ -151,11 +151,15 @@ public class EntityTool : IWorldMapTool
 
     // The same proximity test the press grabs with, so what the cursor grows and
     // the HUD names is exactly what a click would pick up.
-    public EntityPlacement EntityUnder(WorldMapState ctx, Vector2I texel)
-        => ctx.EntityAt(texel.X, texel.Y, GrabRadius);
+    public EntityPlacement EntityUnder(WorldMapState ctx, WorldMapView view, Vector2I texel)
+        => ctx.EntityAt(texel.X, texel.Y, GrabRadius, Clip(view));
 
-    public SceneEntityTarget SceneEntityUnder(WorldMapState ctx, Vector2I texel)
-        => EntityUnder(ctx, texel) == null ? ctx.SceneEntityAt(texel.X, texel.Y) : null;
+    public SceneEntityTarget SceneEntityUnder(WorldMapState ctx, WorldMapView view, Vector2I texel)
+        => EntityUnder(ctx, view, texel) == null ? ctx.SceneEntityAt(texel.X, texel.Y, Clip(view)) : null;
+
+    // The plane this tool's map is cut at — the one the marks are drawn against,
+    // so a click grabs only what is on screen.
+    private int Clip(WorldMapView view) => view.ClipFor(View.CutsAway);
 
     public string LevelText(WorldMapState ctx, WorldMapView view)
     {
@@ -179,9 +183,10 @@ public class EntityTool : IWorldMapTool
     // ground would drop an entity for the erase that follows to delete again.
     public void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods)
     {
-        _pressHit = ctx.EntityAt(texel.X, texel.Y, GrabRadius);
-        _pressScene = _pressHit == null ? ctx.SceneEntityAt(texel.X, texel.Y) : null;
-        _pressWasSpawn = _pressHit == null && _pressScene == null && ctx.IsSpawnNear(texel.X, texel.Y, GrabRadius);
+        int clip = Clip(view);
+        _pressHit = ctx.EntityAt(texel.X, texel.Y, GrabRadius, clip);
+        _pressScene = _pressHit == null ? ctx.SceneEntityAt(texel.X, texel.Y, clip) : null;
+        _pressWasSpawn = _pressHit == null && _pressScene == null && ctx.IsSpawnNear(texel.X, texel.Y, GrabRadius, clip);
         _strokeActed = false;
         _dirty = null;
         // Shift: this drag aims what it grabbed instead of sliding it.

@@ -27,6 +27,18 @@ public partial class PorousBody : StaticBody3D
     // a prop can have a steppable base and a blocking top.
     [Export] public bool steppable;
 
+    // Raised each physics tick a walker slides against this collider:
+    // (horizontal push direction away from the walker, closing speed m/s,
+    // world contact point). Listeners are scene components like FoliageRustle.
+    public event System.Action<Vector3, float, Vector3> Brushed;
+
+    public bool HasBrushListeners => Brushed != null;
+
+    public void Brush(Vector3 pushDir, float speed, Vector3 point)
+    {
+        Brushed?.Invoke(pushDir, speed, point);
+    }
+
     public override void _Ready()
     {
         CollisionLayer = (uint)ECollisionLayer.Porous;

@@ -1367,6 +1367,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             hit.healthDamage *= levelResist;
         }
+        // The striking weapon's runes against this mob's species — an offense
+        // bonus, but only the receiver knows its species.
+        if (hit.runes != null && _world?.SimData != null)
+        {
+            float affinity = hit.runes.AffinityFor(_simState?.Species);
+            if (affinity > 0f)
+            {
+                hit.healthDamage *= 1f + affinity * _world.SimData.runeDamageBonus;
+            }
+        }
         if (hit.tags == EHitTag.None)
         {
             return;
@@ -2980,6 +2990,31 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // gates internally, so this is cheap on settled frames; the crown carries
         // its own meshes). xray suppressed while burrowed, matching the body.
         _crown?.SetDiscoveryVisuals(_visibility, _silhouette, burrowed ? 0f : 1f);
+
+        PressTrample();
+    }
+
+    // Parts the grass under the body — only while the player sees the LIVE body.
+    // A hidden mob must not give itself away, and a remembered silhouette is
+    // pinned where it was last seen while the body walks on elsewhere.
+    private void PressTrample()
+    {
+        float seen = _visibility * (1f - _silhouette);
+        if (seen <= 0f || _meshPinned || !alive || IsAirborne || burrowed || _swimming)
+        {
+            return;
+        }
+        TrampleField field = _world?.TrampleField;
+        if (field == null)
+        {
+            return;
+        }
+        Vector3 velocity = LinearVelocity;
+        if (velocity.Y <= -mobData.fallEnterSpeed)
+        {
+            return;
+        }
+        field.QueuePress(GlobalPosition, velocity, mobData.groundShadowRadius, seen);
     }
 
     override public void _PhysicsProcess(double delta)
@@ -5325,6 +5360,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Tick is already alive-gated, but loop fx instances would otherwise
         // persist on the corpse until QueueFree.
         _statusEffects.Clear();
+        // The anim loop (run/idle footsteps) is otherwise only re-picked once the
+        // Die one-shot finishes — UpdateAnimations returns early while it plays.
+        UpdateAnimLoop(null);
         SpawnWorldEffect(_deathFx);
         SpawnVoice(_voice?.death);
         EjectLoot();

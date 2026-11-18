@@ -13,10 +13,12 @@
 [ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="19_mapmarker"]
 [ext_resource type="Texture2D" uid="uid://cci6ftqwqo18g" path="res://assets/textures/map_markers/well.png" id="20_mapicon"]
 [ext_resource type="PackedScene" uid="uid://duxcw6ihs2wxo" path="res://scenes/fx/well_crank_loop.tscn" id="90_loopfx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/drink_gulp.tscn" id="91_gulpfx"]
 
 [sub_resource type="Resource" id="Resource_well_event_drink"]
 script = ExtResource("2_event")
 type = 256
+fx = ExtResource("91_gulpfx")
 
 [sub_resource type="Resource" id="Resource_well_action_drink"]
 script = ExtResource("3_action")

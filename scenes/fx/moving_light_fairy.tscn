@@ -5,8 +5,8 @@
 [node name="MovingLight" type="Node3D" unique_id=260811424]
 script = ExtResource("1_moving")
 distance = 4.0
-falloff = 2.0
-brightness = 0.3
+falloff = 1.5
+brightness = 0.65
 lightColor = Color(1, 0, 1, 1)
 flickerMin = 0.8
 flickerHz = 5.0

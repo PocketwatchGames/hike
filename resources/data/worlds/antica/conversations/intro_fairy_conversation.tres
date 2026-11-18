@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ConversationData" format=3]
+[gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://c7mvdath2u872"]
 
 [ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="Script_ConversationData"]
 [ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]
@@ -9,7 +9,7 @@
 [ext_resource type="Script" uid="uid://hs2aa8y8pqsyk" path="res://scripts/data/conversation/actions/StartQuestAction.cs" id="Script_StartQuestAction"]
 [ext_resource type="Resource" uid="uid://jqpw6pijk3a92" path="res://resources/data/worlds/antica/quests/find_festering_man.tres" id="Quest_find_festering_man"]
 [ext_resource type="Script" uid="uid://mrnerfan3gnb9" path="res://scripts/data/conversation/actions/SetSpeakerBehaviorAction.cs" id="Script_SetSpeakerBehaviorAction"]
-[ext_resource type="Resource" uid="uid://ey6lcqevxhr8" path="res://resources/data/dialogue_scripts/actions/wake_up.tres" id="Act_wake_up"]
+[ext_resource type="Resource" uid="uid://djg1u6n4ky451" path="res://resources/data/dialogue_scripts/actions/wake_up.tres" id="Act_wake_up"]
 [ext_resource type="Script" uid="uid://cs8svar0acta4" path="res://scripts/data/scripting/actions/SetScriptVarAction.cs" id="Script_SetScriptVarAction"]
 
 [sub_resource type="Resource" id="Inline_1"]

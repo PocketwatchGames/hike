@@ -4,9 +4,14 @@
 [ext_resource type="Resource" uid="uid://brga68cnbkmdg" path="res://resources/data/characters/lurker/lurker.tres" id="2_mob"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_weapon"]
 [ext_resource type="Resource" uid="uid://b4p8s201wnfjt" path="res://resources/data/characters/lurker/lurker_bite.tres" id="4_bite"]
+[ext_resource type="Script" uid="uid://esxkt6kn9aw5a" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_01.tres" id="rune_01"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_04.tres" id="rune_04"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_07.tres" id="rune_07"]
 
 [resource]
 script = ExtResource("1_species")
+runes = Array[ExtResource("rune_script")]([ExtResource("rune_04"), ExtResource("rune_01"), ExtResource("rune_07")])
 mob = ExtResource("2_mob")
 displayName = &"Swamp Lurker"
 weapons = Array[ExtResource("3_weapon")]([ExtResource("4_bite")])

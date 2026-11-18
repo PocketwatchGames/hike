@@ -11,6 +11,9 @@
 [ext_resource type="Resource" uid="uid://cjaq6ua6gwvlq" path="res://resources/data/characters/spider/spider_web_spitter.tres" id="7_web"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="8_ywp0a"]
 [ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="oil_droplet"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_02.tres" id="rune_02"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_03.tres" id="rune_03"]
+[ext_resource type="Script" uid="uid://xjo84nfo22ei" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
 
 [sub_resource type="Resource" id="Desc_loot_oil"]
 script = ExtResource("1_descitem")
@@ -30,5 +33,6 @@ mob = ExtResource("2_mob")
 displayName = &"Forest Spider"
 weapons = Array[ExtResource("5_wd")]([ExtResource("6_bite"), ExtResource("7_web")])
 loot = Array[ExtResource("1_wvr67")]([SubResource("Resource_loot_oil")])
+runes = Array[ExtResource("rune_script")]([ExtResource("rune_03"), ExtResource("rune_02"), ExtResource("rune_03")])
 abilities = 4
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

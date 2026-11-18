@@ -61,6 +61,12 @@ uniform float sway_amplitude = 0.04;
 uniform float wind_bend_strength = 1.0;
 uniform float canopy_height = 4.0;
 
+// Brush response — same meaning as tree_cards_lit's, pushed by FoliageRustle
+// so details move with the canopy they sit on.
+uniform vec3 rustle_lean = vec3(0.0);
+uniform float rustle_flutter = 0.0;
+uniform float rustle_flutter_hz = 6.0;
+
 // -- Global uniforms shared with model_lit / sprite_lit / tree_cards_lit ----
 
 global uniform sampler3D light_map : filter_linear, repeat_enable;
@@ -143,6 +149,8 @@ void vertex() {
 	world_origin += wind_dir * (wind_amplitude * wind_bend_strength * height01 * height01);
 	float phase = INSTANCE_CUSTOM.x;
 	world_origin.x += sin(wind_phase + phase * TAU) * sway_amplitude;
+	world_origin += rustle_lean * height01;
+	world_origin.x += sin(TIME * rustle_flutter_hz * TAU + phase * 41.0) * rustle_flutter;
 
 	// Upright yaw billboard — face the camera around world Y, stay vertical.
 	vec3 world_up = vec3(0.0, 1.0, 0.0);

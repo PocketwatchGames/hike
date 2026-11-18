@@ -5,5 +5,5 @@
 
 [resource]
 script = ExtResource("1_script")
-text = "Forest path. Mind the roots, mind the wolves."
+textKey = &"inscription_road_forest_path"
 language = ExtResource("2_language")

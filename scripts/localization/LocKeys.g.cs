@@ -25,7 +25,7 @@ public static partial class Loc
 		combat_blocked,
 		combat_parried,
 		combat_misfire,
-		combat_no_ammo,
+		combat_out_of_ammo,
 		item_broken,
 		quest_kunkun_hunt,
 		quest_return_to_camp,
@@ -43,6 +43,7 @@ public static partial class Loc
 		controls_dash,
 		controls_interact,
 		controls_sneak_block_parry,
+		controls_aim,
 		controls_ranged,
 		controls_melee,
 		controls_spell,
@@ -123,6 +124,8 @@ public static partial class Loc
 		need_remark_thirst_3,
 		need_remark_fatigue_1,
 		need_remark_fatigue_2,
-		need_remark_fatigue_3
+		need_remark_fatigue_3,
+		rune_bone_etched,
+		runes_recorded
 	}
 }

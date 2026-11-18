@@ -8,7 +8,8 @@ using Godot;
 // The concepts and the inscription language are decoupled: the inscription
 // field drives the scramble while the concepts drive the grant, so a stone
 // written in a known language can teach something else (a recipe, a map
-// region).
+// region). A stone teaching nothing at all is just read — a tutorial stone,
+// whose map marker is dim from the start because it has nothing to teach.
 //
 // Learning happens INSIDE Complete() rather than via a LearnConcept event so
 // the "learn first, then display" ordering is unambiguous even on a
@@ -80,7 +81,7 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
             // only a recipe / region renders its inscription scrambled until
             // some other source teaches the inscription language.
             return _inscription == null ? string.Empty
-                : LanguageText.RenderBbcode(_inscription.text, _inscription.language, player);
+                : LanguageText.RenderBbcode(_inscription.LookUpText(), _inscription.language, player);
         }, this);
     }
 

@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="InscriptionData" format=3 uid="uid://cugwv5ygddheu"]
+
+[ext_resource type="Script" uid="uid://csme1i3g5loqx" path="res://scripts/data/InscriptionData.cs" id="2_y4ylo"]
+
+[resource]
+script = ExtResource("2_y4ylo")
+textKey = &"inscription_tutorial_camera"

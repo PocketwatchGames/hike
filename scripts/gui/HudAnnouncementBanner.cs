@@ -18,6 +18,10 @@ public partial class HudAnnouncementBanner : PanelContainer
 	// Shown only for an announcement carrying progress (language understanding).
 	// Its range is 0..1.
 	[Export] public ProgressBar progressBar;
+	// Shown only for an announcement carrying a revealIcon (a rune learned). It
+	// fades in after the banner is up, over revealFadeSeconds.
+	[Export] public TextureRect revealIcon;
+	[Export(PropertyHint.Range, "0,5,0.05")] public float revealFadeSeconds = 1.2f;
 
 	[Export(PropertyHint.Range, "0,5,0.05")] public float fadeInSeconds = 0.4f;
 	[Export(PropertyHint.Range, "0,20,0.1")] public float holdSeconds = 2.5f;
@@ -78,6 +82,13 @@ public partial class HudAnnouncementBanner : PanelContainer
 				progressBar.Value = a.progressFrom ?? a.progressTo.Value;
 			}
 		}
+		bool hasReveal = revealIcon != null && a.revealIcon != null;
+		if (revealIcon != null)
+		{
+			revealIcon.Visible = hasReveal;
+			revealIcon.Texture = a.revealIcon;
+			revealIcon.Modulate = new Color(1f, 1f, 1f, 0f);
+		}
 		Visible = true;
 		PlaySound(a.sound);
 
@@ -91,6 +102,11 @@ public partial class HudAnnouncementBanner : PanelContainer
 				.SetTrans(Tween.TransitionType.Cubic)
 				.SetEase(Tween.EaseType.Out);
 			_tween.TweenInterval(progressHoldAfterSeconds);
+		}
+		else if (hasReveal)
+		{
+			_tween.TweenProperty(revealIcon, "modulate:a", 1f, revealFadeSeconds);
+			_tween.TweenInterval(holdSeconds);
 		}
 		else
 		{

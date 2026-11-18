@@ -596,10 +596,21 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity, ISyncsSimSt
 		{
 			_interactArea.Monitoring = true;
 		}
-		// Loot that flew in (chest emission, player drop) bobs to read as
-		// freshly arrived; loot that was already in the world at spawn (world
-		// gen, LootSpawnEntry) sits idle so the chunk doesn't pulse.
-		_animationPlayer?.Play(_initialImpulse != Vector3.Zero ? "Bob" : "Idle");
+		if (_animationPlayer == null)
+		{
+			return;
+		}
+		if (_simState == null || _simState.BobsAtRest)
+		{
+			// Random phase so a patch of placed or streamed-in piles doesn't
+			// bob in unison.
+			_animationPlayer.Play("Bob");
+			_animationPlayer.Seek(GD.Randf() * _animationPlayer.CurrentAnimationLength, update: true);
+		}
+		else
+		{
+			_animationPlayer.Play("Idle");
+		}
 	}
 
 	// --- Timed emergence (ItemData.timedEmergence) -------------------------

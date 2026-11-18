@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="RuneBoneData" format=3]
+
+[ext_resource type="Script" uid="uid://i9d3uxs6vxutc" path="res://scripts/data/items/RuneBoneData.cs" id="1_bone"]
+[ext_resource type="Texture2D" uid="uid://b3245rbx36fb1" path="res://assets/textures/items/AncientBone.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_bone")
+displayName = &"Ancient Bone"
+description = "Old bone, bleached and brittle, scratched with something deliberate."
+value = 1
+inventorySprite = ExtResource("2_icon")

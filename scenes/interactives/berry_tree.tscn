@@ -23,6 +23,9 @@
 [ext_resource type="PackedScene" path="res://scenes/fx/foliage_destroy.tscn" id="22_destroyfx"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="90_loopfx"]
 [ext_resource type="PackedScene" uid="uid://vsuq8qu36fpk" path="res://scenes/fx/berry_pick_rustle.tscn" id="91_pickfx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/berry_pluck.tscn" id="92_pluckfx"]
+[ext_resource type="Script" uid="uid://q5olzmjwd53qn" path="res://scripts/gameplay/trees/FoliageRustle.cs" id="90_rustle"]
+[ext_resource type="Resource" uid="uid://d7hmy3a8yvy01" path="res://resources/data/foliage/bush_rustle.tres" id="91_rustledata"]
 
 [sub_resource type="Resource" id="Resource_berry_event_pick"]
 script = ExtResource("3_xdtv3")
@@ -107,6 +110,7 @@ _destructible = NodePath("Destructible")
 _hudNode = NodePath("HUDNode")
 _actions = Array[ExtResource("10_action")]([SubResource("Resource_berry_action_pick")])
 _berryItem = ExtResource("6_5ksji")
+_smashPluckEffect = ExtResource("92_pluckfx")
 
 [node name="Intact" type="Node3D" parent="." unique_id=199856440]
 
@@ -208,3 +212,9 @@ cardSizeMin = 0.4
 cardSizeMax = 0.6
 rollJitter = 0.25
 droopAmount = 0.97
+
+[node name="Rustle" type="Node3D" parent="." node_paths=PackedStringArray("_body", "_foliage")]
+script = ExtResource("90_rustle")
+_data = ExtResource("91_rustledata")
+_body = NodePath("../Body")
+_foliage = [NodePath("../Foliage"), NodePath("../Intact/Foliage2")]

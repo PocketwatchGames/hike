@@ -12,20 +12,10 @@
 [ext_resource type="Material" path="res://assets/models/bones/bone_lit.tres" id="9_bone_mat"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="dr_range"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="dr_desc"]
-[ext_resource type="Resource" path="res://resources/data/items/loot/ancient_bone.tres" id="dr_ancient_bone"]
 [ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="dr_oil_droplet"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_hurt"]
 size = Vector3(1.1000, 0.6064, 1.1000)
-
-[sub_resource type="Resource" id="DropDesc_ancient_bone"]
-script = ExtResource("dr_desc")
-item = ExtResource("dr_ancient_bone")
-
-[sub_resource type="Resource" id="Drop_ancient_bone"]
-script = ExtResource("dr_range")
-item = SubResource("DropDesc_ancient_bone")
-countRange = 1
 
 [sub_resource type="Resource" id="DropDesc_oil_droplet"]
 script = ExtResource("dr_desc")
@@ -64,7 +54,6 @@ transform = Transform3D(-0.0000, 0.5819, 1.7033, 1.8000, 0.0000, 0.0000, -0.0000
 [node name="Bone3" parent="Intact/Model" instance=ExtResource("b_bone_broken")]
 transform = Transform3D(0.0000, -0.9725, -1.5146, 1.8000, 0.0000, 0.0000, 0.0000, -1.5146, 0.9725, -0.4994, -0.9167, -0.2637)
 
-
 [node name="HurtBox" type="Area3D" parent="Intact"]
 collision_layer = 32
 collision_mask = 0
@@ -101,7 +90,7 @@ transform = Transform3D(-0.0000, 0.3201, -0.9368, 0.9900, 0.0000, 0.0000, 0.0000
 [node name="Destructible" type="Node3D" parent="." node_paths=PackedStringArray("_hurtBox", "_intact", "_rubble")]
 transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0.375, 0)
 script = ExtResource("5_destructible")
-_drops = [SubResource("Drop_ancient_bone"), SubResource("Drop_oil_droplet")]
+_drops = [SubResource("Drop_oil_droplet")]
 _hurtBox = NodePath("../Intact/HurtBox")
 _fillWithHabitatLoot = true
 _intact = NodePath("../Intact")

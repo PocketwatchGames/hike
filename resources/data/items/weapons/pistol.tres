@@ -23,6 +23,7 @@
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="22_17x6i"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="29_hubgs"]
+[ext_resource type="PackedScene" path="res://scenes/fx/gun_misfire.tscn" id="dryfire"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/gunpowder.tres" id="repair_gunpowder"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/lead.tres" id="repair_lead"]
@@ -167,6 +168,7 @@ item = ExtResource("salvage_steel")
 [resource]
 script = ExtResource("2_weapon")
 ammoType = 2
+dryFireEffect = ExtResource("dryfire")
 rightHandSlot = true
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"charged": SubResource("Resource_charged_damage"),

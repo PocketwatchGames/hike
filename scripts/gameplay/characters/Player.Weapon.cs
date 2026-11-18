@@ -277,9 +277,12 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 		}
 		// A weapon out of rounds blocks the press even if some tier on its
 		// profile doesn't flag useAmmo — the bow shouldn't dry-fire just because
-		// you walked over to its melee-bash tier.
+		// you walked over to its melee-bash tier. Every press path funnels through
+		// here, so this is the one place the empty-weapon cue fires.
 		if (_inventory != null && _inventory.RoundsFor(weapon) <= 0)
 		{
+			ItemEventHandlers.SpawnOnActor(this, weapon.data.dryFireEffect);
+			GameClient.Current?.onHudText?.Invoke(ActorWorldPosition, Loc.Get(Loc.Keys.combat_out_of_ammo), EHudTextType.Info);
 			return;
 		}
 

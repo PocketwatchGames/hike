@@ -5,6 +5,5 @@
 
 [resource]
 script = ExtResource("1_script")
-text = "NW: The Great Northern Forest
-SE: Riverton"
+textKey = &"inscription_northern_forest_riverton"
 language = ExtResource("2_language")

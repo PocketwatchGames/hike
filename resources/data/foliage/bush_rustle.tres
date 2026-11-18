@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="FoliageRustleData" format=3 uid="uid://d7hmy3a8yvy01"]
+
+[ext_resource type="Script" uid="uid://63809evohrzpu" path="res://scripts/gameplay/trees/FoliageRustleData.cs" id="1_data"]
+[ext_resource type="PackedScene" uid="uid://vsuq8qu36fpk" path="res://scenes/fx/berry_pick_rustle.tscn" id="2_cue"]
+
+[resource]
+script = ExtResource("1_data")
+cueFx = ExtResource("2_cue")

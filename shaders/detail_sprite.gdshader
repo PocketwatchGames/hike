@@ -187,14 +187,15 @@ global uniform float wind_amplitude;
 // by TIME — the phase integrates the current frequency; past cycles stay put.
 global uniform float wind_phase;
 
-// player_pos is the player's world-space foot position. Sprites within
-// player_radius push their tops away radially in the XZ plane; falloff is
-// smoothstep so the boundary is soft.
-global uniform vec3 player_pos;
-global uniform float player_radius;
-global uniform float player_strength;
+// Where the party has walked and what has been struck: a horizontal lean
+// (RG, 128 = none) per cell of a player-centred window, sprung by TrampleField.
+// Stored toroidally, so it is sampled with repeat at world.xz / size and masked
+// to the window. trample_window = (min x, min z, size m, max lean m); w = 0
+// until TrampleField is live, which zeroes the lean.
+global uniform sampler2D trample_field : repeat_enable, filter_linear;
+global uniform vec4 trample_window;
 
-// Per-entry scalar that multiplies BOTH wind sway and player push. 1.0 = full
+// Per-entry scalar that multiplies BOTH wind sway and the trample lean. 1.0 = full
 // motion (grass, flowers); 0.0 = locked rigid (cave pebbles, bones, anything
 // that shouldn't bend). Stamped into the material by DetailEntry.GetMaterial
 // from the [Export] WindStrength field on the entry resource.
@@ -331,15 +332,17 @@ void vertex() {
 
 	vec3 wind_offset = wind_dir * (sway * wind_amplitude * bend * wind_strength);
 
-	// Player push: radial in XZ, falloff to 0 at player_radius.
-	vec3 to_sprite = world_origin - player_pos;
-	to_sprite.y = 0.0;
-	float dist = length(to_sprite);
+	// Trample: the lean under the sprite's root, faded out over the window's
+	// last metre so nothing pops at its edge. Read at the root, not per vertex,
+	// so the whole blade bends as one.
 	vec3 push_offset = vec3(0.0);
-	if (player_radius > 0.0 && dist < player_radius && dist > 1e-4) {
-		vec3 push_dir = to_sprite / dist;
-		float falloff = 1.0 - smoothstep(0.0, player_radius, dist);
-		push_offset = push_dir * (falloff * player_strength * bend * wind_strength);
+	if (trample_window.w > 0.0) {
+		vec2 rel = world_origin.xz - trample_window.xy;
+		vec2 edge = min(rel, vec2(trample_window.z) - rel);
+		float inside = clamp(min(edge.x, edge.y), 0.0, 1.0);
+		vec2 enc = textureLod(trample_field, world_origin.xz / trample_window.z, 0.0).rg;
+		vec2 lean = (enc * 255.0 - 128.0) / 127.0 * trample_window.w;
+		push_offset = vec3(lean.x, 0.0, lean.y) * (inside * bend * wind_strength);
 	}
 
 	vertex_world += wind_offset + push_offset;

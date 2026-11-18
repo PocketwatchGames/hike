@@ -1,0 +1,62 @@
+[gd_scene format=3 uid="uid://n01b10ho1vpv"]
+
+[ext_resource type="Script" uid="uid://c4jo1tbqt38rt" path="res://scripts/gameplay/entities/Chest.cs" id="1_chest"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_ibox"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Texture2D" uid="uid://cekrs1qg2sois" path="res://assets/textures/interactions/look.png" id="5_icon"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="6_meshhl"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="7_porous"]
+[ext_resource type="PackedScene" uid="uid://cbym0f2knv4fw" path="res://assets/models/furniture/SM_Prop_Bookcase_01.fbx" id="8_model"]
+
+[sub_resource type="Resource" id="Resource_search_event"]
+script = ExtResource("4_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_search_action"]
+script = ExtResource("3_action")
+displayName = &"Search"
+icon = ExtResource("5_icon")
+completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_search_event")])
+durationSeconds = 1.5
+locksMovement = true
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_body"]
+size = Vector3(1.194, 1.4891, 0.9067)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(2.2, 1.6, 2.2)
+
+[node name="Bookcase" type="Node3D" node_paths=PackedStringArray("_hudNode")]
+script = ExtResource("1_chest")
+_actions = Array[ExtResource("3_action")]([SubResource("Resource_search_action")])
+_hudNode = NodePath("HUDNode")
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Model" parent="Visual" instance=ExtResource("8_model")]
+
+[node name="Body" type="StaticBody3D" parent="."]
+script = ExtResource("7_porous")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7445, 0)
+shape = SubResource("BoxShape3D_body")
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("2_ibox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("6_meshhl")
+_collectFrom = NodePath("../Visual")
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0)

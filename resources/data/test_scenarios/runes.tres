@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "runes"
+description = "Two Forest Goblins. Fight one to chart it, then open the bestiary: its row shows a blank square per rune of its sequence. Rune bones carry a species and rune set per placement, so bury one with the painter's buried_rune_bone entry to see a square fill in."
+commands = "spawn_mob goblin_forest 2"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

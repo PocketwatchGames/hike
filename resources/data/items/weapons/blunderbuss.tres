@@ -95,6 +95,7 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 [resource]
 script = ExtResource("2_weapon")
 ammoType = 3
+dryFireEffect = ExtResource("8_misfire")
 rightHandSlot = true
 wetMisfireChance = 0.33
 misfireEffect = ExtResource("8_misfire")

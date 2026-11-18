@@ -11,6 +11,9 @@
 [ext_resource type="Resource" uid="uid://cawj7ubcd0vfu" path="res://resources/data/characters/drake/drake_fire.tres" id="9_fire"]
 [ext_resource type="Resource" uid="uid://cv47ms5ub1g4b" path="res://resources/data/characters/drake/drake_bite.tres" id="10_bite"]
 [ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="oil_droplet"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_03.tres" id="rune_03"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_05.tres" id="rune_05"]
+[ext_resource type="Script" uid="uid://xjo84nfo22ei" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
 
 [sub_resource type="Resource" id="Desc_loot_oil"]
 script = ExtResource("6_desc")
@@ -30,4 +33,5 @@ mob = ExtResource("2_mob")
 displayName = &"Desert Drake"
 weapons = Array[ExtResource("8_wd")]([ExtResource("9_fire"), ExtResource("10_bite")])
 loot = Array[ExtResource("5_lootcount")]([SubResource("Resource_loot_oil")])
+runes = Array[ExtResource("rune_script")]([ExtResource("rune_03"), ExtResource("rune_03"), ExtResource("rune_05")])
 abilities = 5

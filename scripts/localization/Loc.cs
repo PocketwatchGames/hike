@@ -6,6 +6,7 @@ public static partial class Loc
 {
 	private const string DEFAULT_LANGUAGE = "english";
 	private const string LOCALIZATION_PATH = "res://resources/localization/";
+	private const string WORLDS_PATH = "res://resources/data/worlds/";
 
 	private static Dictionary<string, string> _strings = new Dictionary<string, string>();
 	private static bool _subscribedToCVar;
@@ -40,6 +41,7 @@ public static partial class Loc
 
 		List<string> files = new List<string>();
 		CollectTsvFiles(dir, files);
+		CollectWorldFiles(language, files);
 		// Sorted so a duplicate key resolves the same way every run.
 		files.Sort(StringComparer.Ordinal);
 		for (int i = 0; i < files.Count; i++)
@@ -69,6 +71,26 @@ public static partial class Loc
 		foreach (string sub in da.GetDirectories())
 		{
 			CollectTsvFiles(dir + "/" + sub, files);
+		}
+	}
+
+	// Each world folder's own strings — worlds/<world>/localization/<language>.tsv,
+	// worlds/shared included. Every world's are loaded whichever one is running:
+	// the namespace is flat, and a key is only ever reached from that world's data.
+	static void CollectWorldFiles(string language, List<string> files)
+	{
+		using var da = DirAccess.Open(WORLDS_PATH);
+		if (da == null)
+		{
+			return;
+		}
+		foreach (string world in da.GetDirectories())
+		{
+			string path = $"{WORLDS_PATH}{world}/localization/{language}.tsv";
+			if (FileAccess.FileExists(path))
+			{
+				files.Add(path);
+			}
 		}
 	}
 
@@ -102,7 +124,8 @@ public static partial class Loc
 			}
 
 			string key = line.Substring(0, wsIndex);
-			string value = line.Substring(wsIndex).TrimStart();
+			// A tsv row is one line, so a line break is written as a literal "\n".
+			string value = line.Substring(wsIndex).TrimStart().Replace("\\n", "\n");
 			if (_strings.ContainsKey(key))
 			{
 				GD.PushError($"Duplicate localization key '{key}' in {path} - keys are one flat namespace across every .tsv in the language folder.");

@@ -18,6 +18,10 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity, IBreakableE
     // In-world days a picked bush takes to bear fruit again. Species-tied, so it
     // lives on the scene alongside _berryItem.
     [Export(PropertyHint.Range, "1,60,1,or_greater")] private int _regrowDays = 3;
+    // Played when a smash knocks fruit loose, after the Destructible's rustle,
+    // in place of the generic loot-spawn chime.
+    [Export] private PackedScene _smashPluckEffect;
+    [Export(PropertyHint.Range, "0,1,0.01")] private float _smashPluckDelaySeconds = 0.15f;
     public Vector3 hudPosition => _hudNode.GlobalPosition;
     public Destructible Destructible => _destructible;
 
@@ -60,8 +64,29 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity, IBreakableE
     {
         if (IsRipe)
         {
-            EjectBerries();
+            EjectBerries(announce: false);
+            PlaySmashPluck();
         }
+    }
+
+    // Presentational, so a wall-clock timer. Parented to the Sim rather than
+    // the bush so it survives the bush leaving the tree.
+    private void PlaySmashPluck()
+    {
+        if (_smashPluckEffect == null || _world == null)
+        {
+            return;
+        }
+        Sim sim = _world;
+        PackedScene effect = _smashPluckEffect;
+        Vector3 local = sim.ToLocal(GlobalPosition + Vector3.Up);
+        sim.GetTree().CreateTimer(_smashPluckDelaySeconds).Timeout += () =>
+        {
+            if (GodotObject.IsInstanceValid(sim))
+            {
+                Fx.Create(effect, sim, local);
+            }
+        };
     }
 
     public void OnSpawned(Sim sim) { }

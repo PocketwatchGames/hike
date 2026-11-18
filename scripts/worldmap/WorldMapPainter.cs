@@ -273,9 +273,9 @@ public partial class WorldMapPainter : Node3D
     // look like it sampled the wrong thing — which is exactly how it read.
     private void ReportHover(Vector2I t)
     {
-        SetHoverEntity(ActiveTool.EntityUnder(_ctx, t), ActiveTool.SceneEntityUnder(_ctx, t));
+        SetHoverEntity(ActiveTool.EntityUnder(_ctx, _view, t), ActiveTool.SceneEntityUnder(_ctx, _view, t));
         int clip = ActiveTool.View.CutsAway ? _view.CutawayY : int.MaxValue;
-        int shown = _ctx.CutawayFloor(t.X, t.Y, clip, out _);
+        int shown = _ctx.PlacementFloor(t.X, t.Y, clip);
         // Solid rock at the plane has no floor to report; fall back to the ground
         // above it rather than leaving the readout blank.
         if (shown < data.WorldMinY)
@@ -865,7 +865,7 @@ public partial class WorldMapPainter : Node3D
             == (EStrokeMods.Pick | EStrokeMods.Secondary)
             && ActiveTool.View.CutsAway)
         {
-            int floor = _ctx.CutawayFloor(texel.X, texel.Y, _view.CutawayY, out _);
+            int floor = _ctx.PlacementFloor(texel.X, texel.Y, _view.CutawayY);
             if (floor >= data.WorldMinY)
             {
                 SetCutaway(floor + cutawayHeadroom);
@@ -992,7 +992,7 @@ public partial class WorldMapPainter : Node3D
         RefreshEntityHighlight();
         // What the cursor is over may be what this stroke just placed or just
         // deleted, and neither moves the mouse.
-        SetHoverEntity(ActiveTool.EntityUnder(_ctx, texel), ActiveTool.SceneEntityUnder(_ctx, texel));
+        SetHoverEntity(ActiveTool.EntityUnder(_ctx, _view, texel), ActiveTool.SceneEntityUnder(_ctx, _view, texel));
         PushDisplay();
     }
 
@@ -1172,17 +1172,17 @@ public partial class WorldMapPainter : Node3D
         // somewhere and needing to find it is why you are looking.
         if (showsProps)
         {
-            DrawEntityMarks(x0, z0, x1, z1);
+            DrawEntityMarks(x0, z0, x1, z1, clipY);
         }
         else
         {
-            DrawEntityGhosts(x0, z0, x1, z1);
+            DrawEntityGhosts(x0, z0, x1, z1, clipY);
         }
     }
 
     // The entities on a view that does not show props: a faint white dot each,
     // no highlight and no facing line — where things stand, not what they are.
-    private void DrawEntityGhosts(int x0, int z0, int x1, int z1)
+    private void DrawEntityGhosts(int x0, int z0, int x1, int z1, int clipY)
     {
         foreach (EntityPlacement placement in _ctx.Placements.entities)
         {
@@ -1191,7 +1191,8 @@ public partial class WorldMapPainter : Node3D
                 continue;
             }
             Vector2I at = _ctx.TexelXZ(placement.anchorXZ);
-            if (at.X >= x0 && at.X < x1 && at.Y >= z0 && at.Y < z1)
+            if (at.X >= x0 && at.X < x1 && at.Y >= z0 && at.Y < z1
+                && _ctx.IsEntityShown(placement, clipY))
             {
                 DrawSpawnDot(at.X, at.Y, ink.entityGhostInk, ink.propDotFraction);
             }
@@ -1202,7 +1203,11 @@ public partial class WorldMapPainter : Node3D
     // metre each, so this costs the number of entities rather than the number of
     // cells. Asking EntityAt per texel would walk the whole list ~295k times a
     // rebuild, which is the shape that made stamps the slowest thing on the map.
-    private void DrawEntityMarks(int x0, int z0, int x1, int z1)
+    //
+    // Only the marks on the slice the map shows (IsEntityShown): nothing above
+    // the cut, nothing under the floor that is visible. Every one is a cell, so
+    // a building's storeys would otherwise draw on top of one another.
+    private void DrawEntityMarks(int x0, int z0, int x1, int z1, int clipY)
     {
         // Only the entity tool answers with a selection or an entry, so the marks
         // stay plain while another tool is active.
@@ -1210,7 +1215,10 @@ public partial class WorldMapPainter : Node3D
         SpawnEntryData match = ActiveTool.SelectedEntry(_ctx);
         int grow = Mathf.Max(0, ink.entityMarkHighlightRadius);
         int reach = EntityMarkReach;
-        DrawSceneEntityMarks(x0, z0, x1, z1, grow, reach);
+        DrawSceneEntityMarks(x0, z0, x1, z1, grow, reach, clipY);
+        // The visibility test walks a column, so it is asked once per mark and
+        // the line pass reads the answer back.
+        var shown = new List<EntityPlacement>();
         foreach (EntityPlacement placement in _ctx.Placements.entities)
         {
             if (placement == null)
@@ -1231,10 +1239,12 @@ public partial class WorldMapPainter : Node3D
             // happens to draw at, since a facing line reaches past the growth
             // and a mark anchored outside the rect can still ink into it.
             if (at.X + reach < x0 || at.X - reach >= x1
-                || at.Y + reach < z0 || at.Y - reach >= z1)
+                || at.Y + reach < z0 || at.Y - reach >= z1
+                || !_ctx.IsEntityShown(placement, clipY))
             {
                 continue;
             }
+            shown.Add(placement);
             Color mark = isSelected ? ink.entitySelectedInk
                 : isMatch ? ink.entityMatchInk
                 : ink.entityInk;
@@ -1248,21 +1258,12 @@ public partial class WorldMapPainter : Node3D
         }
         // Lines in a second pass, so a neighbour's grown mark drawn later in the
         // list cannot paint over one.
-        foreach (EntityPlacement placement in _ctx.Placements.entities)
+        foreach (EntityPlacement placement in shown)
         {
-            if (placement == null)
-            {
-                continue;
-            }
             bool isSelected = placement == selected;
             bool isMatch = !isSelected && placement.IsFrom(match);
             int r = isSelected || isMatch || placement == _hoverEntity ? grow : 0;
             Vector2I at = _ctx.TexelXZ(placement.anchorXZ);
-            if (at.X + reach < x0 || at.X - reach >= x1
-                || at.Y + reach < z0 || at.Y - reach >= z1)
-            {
-                continue;
-            }
             Color mark = isSelected ? ink.entitySelectedInk
                 : isMatch ? ink.entityMatchInk
                 : ink.entityInk;
@@ -1271,7 +1272,7 @@ public partial class WorldMapPainter : Node3D
         if (_ctx.Placements.hasSpawn)
         {
             Vector2I at = _ctx.TexelXZ(_ctx.Placements.spawnXZ);
-            if (at.X >= x0 && at.X < x1 && at.Y >= z0 && at.Y < z1)
+            if (at.X >= x0 && at.X < x1 && at.Y >= z0 && at.Y < z1 && _ctx.IsSpawnShown(clipY))
             {
                 FillCell(at.X, at.Y, ink.spawnInk);
             }
@@ -1283,7 +1284,7 @@ public partial class WorldMapPainter : Node3D
     // read as hand placements. One edited for its stamp takes the edited ink.
     // Walked per stamp rather than per texel, like the hand placements, and
     // rejected at the mark's reach for the same partial-rebuild reason.
-    private void DrawSceneEntityMarks(int x0, int z0, int x1, int z1, int grow, int reach)
+    private void DrawSceneEntityMarks(int x0, int z0, int x1, int z1, int grow, int reach, int clipY)
     {
         SceneEntityTarget selected = ActiveTool.SelectedSceneEntity;
         // Twice — marks, then lines — so a neighbour's grown mark cannot paint
@@ -1301,7 +1302,8 @@ public partial class WorldMapPainter : Node3D
                 {
                     Vector2I at = _ctx.SceneEntityTexel(stamp, sub, entity);
                     if (at.X + reach < x0 || at.X - reach >= x1
-                        || at.Y + reach < z0 || at.Y - reach >= z1)
+                        || at.Y + reach < z0 || at.Y - reach >= z1
+                        || !_ctx.IsSceneEntityShown(stamp, sub, entity, clipY))
                     {
                         continue;
                     }

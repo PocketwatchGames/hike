@@ -27,6 +27,7 @@
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/lead.tres" id="repair_lead"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
+[ext_resource type="PackedScene" path="res://scenes/fx/gun_misfire.tscn" id="dryfire"]
 
 [sub_resource type="Resource" id="Resource_event_scatter"]
 script = ExtResource("3_event")
@@ -154,6 +155,7 @@ item = ExtResource("repair_lead")
 [resource]
 script = ExtResource("2_weapon")
 ammoType = 2
+dryFireEffect = ExtResource("dryfire")
 rightHandSlot = true
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"charged": SubResource("Resource_charged_damage"),

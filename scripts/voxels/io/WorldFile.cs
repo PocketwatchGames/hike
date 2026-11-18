@@ -315,7 +315,10 @@ public static class WorldFile
     //      flags) is a lesson number plus a float percent (LanguageData).
     // v88: a signpost's and a knowledge stone's language + text are one
     //      InscriptionData reference.
-    public const uint VERSION = 88;
+    // v89: a weapon's and an armor piece's item state carries its rune
+    //      inscription (RuneInscription) after gear durability; a rune bone's
+    //      carries its species and rune position (RuneBoneState).
+    public const uint VERSION = 89;
 
     public struct IndexEntry
     {

@@ -5,5 +5,5 @@
 
 [resource]
 script = ExtResource("1_script")
-text = "More of the old tongue, carved where the ground climbs clear of the mire. Speak it, and the swamp answers back."
+textKey = &"inscription_muddish_old_tongue"
 language = ExtResource("2_language")

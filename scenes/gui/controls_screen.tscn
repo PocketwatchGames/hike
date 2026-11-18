@@ -2,68 +2,7 @@
 
 [ext_resource type="Script" uid="uid://02xr220jbn7v7" path="res://scripts/gui/ControlsScreen.cs" id="1_ctrlscreen"]
 [ext_resource type="PackedScene" uid="uid://tanibdnfq7b5u" path="res://scenes/gui/controls_row.tscn" id="2_ctrlrow"]
-[ext_resource type="Script" uid="uid://fs0j02sye7bsj" path="res://scripts/data/gui/ControlBindingData.cs" id="3_binding"]
-
-[sub_resource type="Resource" id="Resource_bind_dash"]
-script = ExtResource("3_binding")
-labelKey = &"controls_dash"
-keyboardActions = PackedStringArray("Dash")
-gamepadActions = PackedStringArray("Dash")
-
-[sub_resource type="Resource" id="Resource_bind_interact"]
-script = ExtResource("3_binding")
-labelKey = &"controls_interact"
-keyboardActions = PackedStringArray("Interact")
-gamepadActions = PackedStringArray("Interact")
-
-[sub_resource type="Resource" id="Resource_bind_sneak"]
-script = ExtResource("3_binding")
-labelKey = &"controls_sneak_block_parry"
-keyboardActions = PackedStringArray("Sneak")
-gamepadActions = PackedStringArray("Sneak")
-
-[sub_resource type="Resource" id="Resource_bind_ranged"]
-script = ExtResource("3_binding")
-labelKey = &"controls_ranged"
-keyboardActions = PackedStringArray("AttackContextSensitive", "Aim")
-gamepadActions = PackedStringArray("AttackRanged")
-keyboardJoin = 1
-
-[sub_resource type="Resource" id="Resource_bind_melee"]
-script = ExtResource("3_binding")
-labelKey = &"controls_melee"
-keyboardActions = PackedStringArray("AttackContextSensitive")
-gamepadActions = PackedStringArray("AttackMelee")
-
-[sub_resource type="Resource" id="Resource_bind_spell"]
-script = ExtResource("3_binding")
-labelKey = &"controls_spell"
-keyboardActions = PackedStringArray("UseItem")
-gamepadActions = PackedStringArray("UseItem")
-
-[sub_resource type="Resource" id="Resource_bind_select_spell"]
-script = ExtResource("3_binding")
-labelKey = &"controls_select_spell"
-keyboardActions = PackedStringArray("SelectItem1", "SelectItem2", "SelectItem3", "SelectItem4")
-gamepadActions = PackedStringArray("ConsumableCycleLeft", "ConsumableCycleRight")
-
-[sub_resource type="Resource" id="Resource_bind_ceiling"]
-script = ExtResource("3_binding")
-labelKey = &"controls_toggle_ceiling"
-keyboardActions = PackedStringArray("CameraDown")
-gamepadActions = PackedStringArray("CameraDown")
-
-[sub_resource type="Resource" id="Resource_bind_camera"]
-script = ExtResource("3_binding")
-labelKey = &"controls_rotate_camera"
-keyboardActions = PackedStringArray("CameraLeft", "CameraRight")
-gamepadActions = PackedStringArray("CameraLeft", "CameraRight")
-
-[sub_resource type="Resource" id="Resource_bind_map"]
-script = ExtResource("3_binding")
-labelKey = &"controls_map"
-keyboardActions = PackedStringArray("Map")
-gamepadActions = PackedStringArray("Map")
+[ext_resource type="Resource" uid="uid://l4awfosuo1lie" path="res://resources/data/gui/controls.tres" id="3_controls"]
 
 [node name="ControlsScreen" type="Control" node_paths=PackedStringArray("_titleLabel", "_headerRow", "_rowContainer", "_backButton")]
 visible = false
@@ -79,7 +18,7 @@ _titleLabel = NodePath("PanelContainer/MarginContainer/VBoxContainer/Title")
 _headerRow = NodePath("PanelContainer/MarginContainer/VBoxContainer/HeaderRow")
 _rowContainer = NodePath("PanelContainer/MarginContainer/VBoxContainer/RowContainer")
 _backButton = NodePath("PanelContainer/MarginContainer/VBoxContainer/BackButton")
-bindings = [SubResource("Resource_bind_dash"), SubResource("Resource_bind_interact"), SubResource("Resource_bind_sneak"), SubResource("Resource_bind_ranged"), SubResource("Resource_bind_melee"), SubResource("Resource_bind_spell"), SubResource("Resource_bind_select_spell"), SubResource("Resource_bind_camera"), SubResource("Resource_bind_ceiling"), SubResource("Resource_bind_map")]
+controls = ExtResource("3_controls")
 
 [node name="PanelContainer" type="PanelContainer" parent="."]
 theme_type_variation = &"ParchmentLargePanel"

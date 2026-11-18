@@ -156,6 +156,8 @@ public partial class Sim : Node3D
     public Minimap Minimap => _minimap;
     private HeatField _heatField;
     public HeatField HeatField => _heatField;
+    private TrampleField _trampleField;
+    public TrampleField TrampleField => _trampleField;
     private GameCamera _camera;
     public GameCamera Camera => _camera;
     private Player _player;
@@ -318,6 +320,9 @@ public partial class Sim : Node3D
 
         _heatField = gc?.heatField;
         _heatField?.Initialize(this);
+
+        _trampleField = gc?.trampleField;
+        _trampleField?.Initialize(this);
 
         BoundaryRids = WorldBoundary.Create(this, _worldState);
     }

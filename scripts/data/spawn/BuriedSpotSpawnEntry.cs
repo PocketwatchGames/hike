@@ -72,16 +72,31 @@ public partial class BuriedSpotSpawnEntry : SpawnEntryData
         return payload != null ? PaletteName(payload) : null;
     }
 
+    // Why this spot cannot be placed, or null. Fixed on the placement, in the
+    // painter's property panel.
+    public virtual string Refusal()
+    {
+        return item?.item == null && payload == null
+            ? "nothing is buried — pick an item or a payload (on the placement, in the painter's property panel)."
+            : null;
+    }
+
+    // The items sprayed out of the hole when it is dug.
+    protected virtual void AppendContents(System.Collections.Generic.List<ItemState> into)
+    {
+        ItemCountRange.AppendStates(item, Math.Max(1, count), into);
+    }
+
     protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null || style == null)
         {
             return;
         }
-        if (item?.item == null && payload == null)
+        string refusal = Refusal();
+        if (refusal != null)
         {
-            GD.PushError($"BuriedSpotSpawnEntry at {position}: nothing is buried — pick an item or a "
-                + "payload (on the placement, in the painter's property panel). Not placed.");
+            GD.PushError($"{GetType().Name} at {position}: {refusal} Not placed.");
             return;
         }
         var state = new BuriedSpotSimState(position, scene, style)
@@ -89,7 +104,7 @@ public partial class BuriedSpotSpawnEntry : SpawnEntryData
             Payload = payload,
             RotationY = FacingY(context),
         };
-        ItemCountRange.AppendStates(item, Math.Max(1, count), state.Contents);
+        AppendContents(state.Contents);
         string name = context?.AuthoredName;
         if (!string.IsNullOrEmpty(name))
         {

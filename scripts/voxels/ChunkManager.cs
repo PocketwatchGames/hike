@@ -341,11 +341,11 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("overlook_reveal_radius", RenderingServer.GlobalShaderParameterType.Float, 1e20f);
         ShaderGlobals.Register("overlook_reveal_softness", RenderingServer.GlobalShaderParameterType.Float, 24f);
 
-        // Detail-sprite player-push globals (player_pos / player_radius /
-        // player_strength) and wind globals live in project.godot's
-        // [shader_globals]. They exist from editor startup, so the
-        // detail_sprite shader compiles in editor preview and GameClient can
-        // write per-frame updates without registering anything here.
+        // Detail-sprite wind globals live in project.godot's [shader_globals].
+        // They exist from editor startup, so the detail_sprite shader compiles
+        // in editor preview and SkyController can write per-frame updates
+        // without registering anything here. The trample globals are
+        // registered by TrampleField.
 
         // Fog is rendered by a screen-space raymarching shader (see
         // shaders/fog_volumetric.gdshader), not by Godot's built-in FogVolume

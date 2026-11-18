@@ -1244,17 +1244,13 @@ wind_phase={
 "type": "float",
 "value": 0.0
 }
-player_pos={
-"type": "vec3",
-"value": Vector3(0, 0, 0)
+trample_field={
+"type": "sampler2D",
+"value": "res://assets/textures/trample_field_placeholder.tres"
 }
-player_radius={
-"type": "float",
-"value": 0
-}
-player_strength={
-"type": "float",
-"value": 0
+trample_window={
+"type": "vec4",
+"value": Vector4(0, 0, 1, 0)
 }
 heat_field={
 "type": "sampler2D",

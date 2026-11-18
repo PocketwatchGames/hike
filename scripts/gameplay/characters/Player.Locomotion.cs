@@ -263,11 +263,14 @@ public partial class Player : CharacterBody3D
 			Mathf.FloorToInt(ahead.Z)));
 
 		// In water there is no walking alternative, so any reachable bank counts
-		// — no minimum rise. And there is nothing to climb DOWN to from a swim.
+		// — no minimum rise. And there is nothing to climb DOWN to from a swim,
+		// nor UP onto more water: a swimmer hauls out onto land, never up a
+		// cascade into the pool above.
 		MantleProbe.Settings settings = new(
 			data.mantleReach,
 			swimming ? 0f : data.mantleMinRise,
 			data.mantleMaxRise,
+			allowAscendOntoWater: !swimming,
 			allowDescend: !swimming,
 			preferDescend: !rockAhead);
 		if (!MantleProbe.TryFind(_walkField, GlobalPosition, facing, refY, settings, out candidate)
@@ -2282,6 +2285,31 @@ public partial class Player : CharacterBody3D
 			_debugLastLoggedWallAngle = angleDeg;
 			_debugLastWallLogMs = nowMs;
 			GD.Print($"[slope] wall hit angle={angleDeg:F1}° normal=({n.X:F2},{n.Y:F2},{n.Z:F2}) at ({pos.X:F2},{pos.Y:F2},{pos.Z:F2})");
+		}
+	}
+
+	// Tells every listening PorousBody this slide touched that it was brushed
+	// (bushes rustle). Closing speed is the pre-slide velocity INTO the contact,
+	// since MoveAndSlide has already projected that component away.
+	private void BrushTouchedPorousBodies(Vector3 velocityBeforeMove)
+	{
+		int count = GetSlideCollisionCount();
+		for (int i = 0; i < count; i++)
+		{
+			using KinematicCollision3D c = GetSlideCollision(i);
+			if (c.GetCollider() is not PorousBody body || !body.HasBrushListeners)
+			{
+				continue;
+			}
+			Vector3 into = -c.GetNormal();
+			into.Y = 0f;
+			if (into.LengthSquared() < 1e-6f)
+			{
+				continue;
+			}
+			into = into.Normalized();
+			float speed = Mathf.Max(0f, velocityBeforeMove.Dot(into));
+			body.Brush(into, speed, c.GetPosition());
 		}
 	}
 

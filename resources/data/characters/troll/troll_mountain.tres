@@ -8,6 +8,9 @@
 [ext_resource type="Resource" uid="uid://bx6gkmxut0cev" path="res://resources/data/characters/troll/troll_battle_cry.tres" id="10_cry"]
 [ext_resource type="Resource" uid="uid://bgfwv18aek0s2" path="res://resources/data/characters/troll/troll_claw.tres" id="11_claw"]
 [ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="oil_droplet"]
+[ext_resource type="Script" uid="uid://esxkt6kn9aw5a" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_02.tres" id="rune_02"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_06.tres" id="rune_06"]
 
 [sub_resource type="Resource" id="Desc_loot_oil"]
 script = ExtResource("7_desc")
@@ -23,6 +26,7 @@ metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 
 [resource]
 script = ExtResource("1_sub")
+runes = Array[ExtResource("rune_script")]([ExtResource("rune_06"), ExtResource("rune_06"), ExtResource("rune_02")])
 mob = ExtResource("2_mob")
 displayName = &"Mountain Troll"
 weapons = Array[ExtResource("9_wd")]([ExtResource("10_cry"), ExtResource("11_claw")])

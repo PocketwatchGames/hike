@@ -1,0 +1,26 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://dhoodxpis6g6u"]
+
+[ext_resource type="Shader" uid="uid://bobhxms1lee6" path="res://shaders/model_lit_foliage_glow.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://br3lueo8npe5a" path="res://assets/models/glow_flowers/T_ENV_plants_ancient_01_BC.png" id="2_albedo"]
+[ext_resource type="Texture2D" uid="uid://bx8r2fcs0w7we" path="res://assets/models/glow_flowers/T_ENV_plants_ancient_01_E.png" id="3_emission"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_albedo")
+shader_parameter/form_strength = 0.35
+shader_parameter/light_normal_bias = 0.0
+shader_parameter/color_tint = Color(1, 1, 1, 1)
+shader_parameter/emission_tint = Color(1, 1, 1, 1)
+shader_parameter/emission_strength = 0.6
+shader_parameter/emission_tex = ExtResource("3_emission")
+shader_parameter/specular_strength = 0.0
+shader_parameter/specular_color = Color(1, 1, 1, 1)
+shader_parameter/specular_shininess = 32.0
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.3
+shader_parameter/sway_strength = 0.150000007125
+shader_parameter/sway_reference_height = 1.0
+shader_parameter/sway_variation = 1.0

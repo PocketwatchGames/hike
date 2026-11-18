@@ -12,6 +12,10 @@
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="11_wd"]
 [ext_resource type="Resource" uid="uid://tnrdlqgbiugo" path="res://resources/data/characters/goblin/goblin_claw.tres" id="13_claw"]
 [ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="oil_droplet"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_03.tres" id="rune_03"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_05.tres" id="rune_05"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_06.tres" id="rune_06"]
+[ext_resource type="Script" uid="uid://xjo84nfo22ei" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
 
 [sub_resource type="Resource" id="Desc_loot_oil"]
 script = ExtResource("9_desc")
@@ -44,5 +48,6 @@ displayName = &"Swamp Goblin"
 palette = SubResource("Resource_uyb2f")
 weapons = Array[ExtResource("11_wd")]([ExtResource("13_claw")])
 loot = Array[ExtResource("8_lootcount")]([SubResource("Resource_loot_oil")])
+runes = Array[ExtResource("rune_script")]([ExtResource("rune_05"), ExtResource("rune_03"), ExtResource("rune_06")])
 abilities = 4
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

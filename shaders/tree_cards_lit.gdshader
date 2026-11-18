@@ -150,6 +150,14 @@ uniform float sway_amplitude = 0.12;
 uniform float wind_bend_strength = 1.0;
 uniform float canopy_height = 4.0;
 
+// Brush response, driven per-material by FoliageRustle while something is
+// pushing through the plant; zero (no effect) otherwise. rustle_lean is the
+// world-space displacement (m) at the canopy top; rustle_flutter is a per-card
+// shiver amplitude (m) along each card's own right axis at rustle_flutter_hz.
+uniform vec3 rustle_lean = vec3(0.0);
+uniform float rustle_flutter = 0.0;
+uniform float rustle_flutter_hz = 6.0;
+
 // -- Global uniforms shared with model_lit / sprite_lit / voxel_clip -------
 
 global uniform sampler3D light_map : filter_linear, repeat_enable;
@@ -296,6 +304,12 @@ void vertex() {
 	float height01 = clamp((world_pos.y - tree_origin.y) / max(canopy_height, 1e-3), 0.0, 1.0);
 	float bend_weight = tip_mask * height01 * height01;
 	world_pos += wind_dir * (wind_amplitude * wind_bend_strength * bend_weight);
+
+	// Brush response: the whole card shifts with the lean (tip a little more,
+	// so it reads as bending), and shivers about its own axis.
+	world_pos += rustle_lean * (height01 * mix(0.6, 1.0, tip_mask));
+	world_pos += normalize(MODEL_MATRIX[0].xyz)
+		* (sin(TIME * rustle_flutter_hz * TAU + phase * 41.0) * rustle_flutter * tip_mask);
 
 	// World_pos is no longer just MODEL_MATRIX * VERTEX, so set POSITION
 	// explicitly to keep the bent vertex in sync with what fragment() reads.

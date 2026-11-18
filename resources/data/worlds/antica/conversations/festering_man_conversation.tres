@@ -42,18 +42,10 @@ isPrimaryGroupEntry = true
 script = ExtResource("Script_ConversationLine")
 locKey = &"festering_man_gestures_01"
 
-[sub_resource type="Resource" id="Line_gestures_2"]
-script = ExtResource("Script_ConversationLine")
-locKey = &"festering_man_gestures_02"
-
-[sub_resource type="Resource" id="Line_gestures_3"]
-script = ExtResource("Script_ConversationLine")
-locKey = &"festering_man_gestures_03"
-
 [sub_resource type="Resource" id="Branch_gestures"]
 script = ExtResource("Script_ConversationBranch")
 name = &"gestures"
-lines = [SubResource("Line_gestures_1"), SubResource("Line_gestures_2"), SubResource("Line_gestures_3")]
+lines = [SubResource("Line_gestures_1")]
 
 [sub_resource type="Resource" id="Line_convo_1"]
 script = ExtResource("Script_ConversationLine")

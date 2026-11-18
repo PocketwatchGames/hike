@@ -15,6 +15,10 @@
 [ext_resource type="Resource" uid="uid://tnrdlqgbiugo" path="res://resources/data/characters/goblin/goblin_claw.tres" id="14_claw"]
 [ext_resource type="Resource" uid="uid://mjuk30au128b" path="res://resources/data/characters/ability_tells/ability_tell_venom.tres" id="15_tell"]
 [ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="oil_droplet"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_01.tres" id="rune_01"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_03.tres" id="rune_03"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_06.tres" id="rune_06"]
+[ext_resource type="Script" uid="uid://xjo84nfo22ei" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
 
 [sub_resource type="Resource" id="Desc_loot_oil"]
 script = ExtResource("10_desc")
@@ -60,5 +64,6 @@ displayName = &"Forest Goblin"
 statusEffects = Array[ExtResource("5_q4wxy")]([SubResource("Resource_venom_effect")])
 weapons = Array[ExtResource("12_wd")]([ExtResource("13_cry"), ExtResource("14_claw")])
 loot = Array[ExtResource("9_lootcount")]([SubResource("Resource_loot_oil")])
+runes = Array[ExtResource("rune_script")]([ExtResource("rune_01"), ExtResource("rune_06"), ExtResource("rune_03")])
 abilities = 5
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

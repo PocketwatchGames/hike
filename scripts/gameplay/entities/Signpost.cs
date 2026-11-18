@@ -31,7 +31,7 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
         if (hud != null && _inscription != null)
         {
             Player player = gc?.Player;
-            hud.ShowReadable(() => LanguageText.RenderBbcode(_inscription.text, _inscription.language, player), this);
+            hud.ShowReadable(() => LanguageText.RenderBbcode(_inscription.LookUpText(), _inscription.language, player), this);
         }
     }
 

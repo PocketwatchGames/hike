@@ -21,6 +21,7 @@
 [ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="21_white"]
 [ext_resource type="Script" uid="uid://jmrwopt7ktlx7" path="res://scripts/data/combat/HazardProfileData.cs" id="22_hazard"]
 [ext_resource type="PackedScene" uid="uid://ne4chrsrlwoi" path="res://scenes/fx/tinker_loop.tscn" id="90_loopfx"]
+[ext_resource type="Texture2D" uid="uid://brbf2gqq6jpmf" path="res://assets/textures/interactions/disarm.png" id="91_disarm_icon"]
 
 [sub_resource type="Resource" id="Resource_trap_event_disarm"]
 script = ExtResource("9_event")
@@ -29,6 +30,7 @@ type = 256
 [sub_resource type="Resource" id="Resource_trap_action_disarm"]
 script = ExtResource("8_action")
 displayName = &"disarm"
+icon = ExtResource("91_disarm_icon")
 completionEvents = Array[ExtResource("9_event")]([SubResource("Resource_trap_event_disarm")])
 durationSeconds = 2.0
 loopEffect = ExtResource("90_loopfx")

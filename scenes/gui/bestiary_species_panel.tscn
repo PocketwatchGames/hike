@@ -2,13 +2,16 @@
 
 [ext_resource type="Script" uid="uid://8dmpvo4tvoh7" path="res://scripts/gui/BestiarySpeciesPanel.cs" id="1_7kyvj"]
 [ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="2_stat0"]
+[ext_resource type="PackedScene" path="res://scenes/gui/rune_slot.tscn" id="3_rune"]
 
-[node name="PanelContainer" type="PanelContainer" unique_id=319000195 node_paths=PackedStringArray("_mobNameLabel", "_mobPortrait", "_statPanelContainer")]
+[node name="PanelContainer" type="PanelContainer" unique_id=319000195 node_paths=PackedStringArray("_mobNameLabel", "_mobPortrait", "_statPanelContainer", "_runeContainer")]
 script = ExtResource("1_7kyvj")
 _mobNameLabel = NodePath("VBoxContainer/HFlowContainer/NameLabel")
 _mobPortrait = NodePath("VBoxContainer/HFlowContainer/Portrait")
 _statPanelScene = ExtResource("2_stat0")
 _statPanelContainer = NodePath("VBoxContainer/StatsContainer")
+_runeSlotScene = ExtResource("3_rune")
+_runeContainer = NodePath("VBoxContainer/RunesContainer")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1947093206]
 layout_mode = 2
@@ -29,3 +32,7 @@ text = "spider"
 
 [node name="StatsContainer" type="HFlowContainer" parent="VBoxContainer" unique_id=1882107833]
 layout_mode = 2
+
+[node name="RunesContainer" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6

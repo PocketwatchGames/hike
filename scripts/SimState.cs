@@ -559,6 +559,34 @@ public class SimState
         }
     }
 
+    // ---- Runes -------------------------------------------------------------
+
+    public bool IsRuneKnown(SpeciesData species, int position)
+    {
+        if (species == null)
+        {
+            return false;
+        }
+        int bit = 1 << position;
+        return ((Banked != null && Banked.KnownRunes.TryGetValue(species, out int banked) ? banked : 0) & bit) != 0
+            || ((Active != null && Active.KnownRunes.TryGetValue(species, out int active) ? active : 0) & bit) != 0;
+    }
+
+    // Record `position` of `species`' sequence as known by the active member.
+    // True when it was new.
+    public bool LearnRune(SpeciesData species, int position)
+    {
+        Knowledge store = Active;
+        if (species == null || store == null || position < 0
+            || position >= species.RunesFlat.Length || IsRuneKnown(species, position))
+        {
+            return false;
+        }
+        store.KnownRunes.TryGetValue(species, out int mask);
+        store.KnownRunes[species] = mask | (1 << position);
+        return true;
+    }
+
     // ---- Item display names ------------------------------------------------
 
     // Single read-side for item names — returns the placeholder while the

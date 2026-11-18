@@ -141,11 +141,26 @@ that floor and sliding it out of the mouth puts it back on the ground.
 
 The entity map itself switches: **lowering the plane turns it from the ground
 layer into the cutaway**, because underground there is no ground TYPE to show —
-the question becomes which floor is down there to stand something on. Entity
-MARKERS stay visible whatever the plane is doing — and on every other map that
-shows props, since the painter composites them. They are single texels and the
-thing you need most from them is where they are; hiding them the way stamps hide
-would make an entity you are looking for impossible to find.
+the question becomes which floor is down there to stand something on.
+
+**The floor an entity is placed on counts STAMPS** (`PlacementFloor`), which
+`CutawayFloor` cannot see — it is the terrain plus the edit layer only. Without
+it everything dropped inside a building recorded the terrain under it, came out
+`OnTheGround`, and the bake seated it on the roof. Only what a stamp writes
+counts: its solid voxels, and its openings and water as empty; plain scene air
+is never stamped, so the ground under it shows through. A column no stamp covers
+is exactly `CutawayFloor`. alt+RMB and the hover readout ask the same query.
+
+**An entity mark draws only on the slice its floor is on** (`IsFloorShown`): not
+above the cut, and not under the floor the map shows there. Hand placements, a
+stamp's own entities and the player spawn alike, on every map that draws marks,
+and the hit tests follow the same rule — so a building's storeys do not stack
+their marks on one texel, and a click grabs the chest on the floor you are
+looking at rather than the bed under it. On an uncut map that floor is the top
+of the column, so an entity in a passage or under a roof is hidden until the
+plane comes down to it. `worldmap_check` reports scene entities `drawn on no
+slice (must be 0)` — a scene entity's floor is the voxel under the one it
+OCCUPIES (`SceneEntityFloor`), and a wrong convention there hides every one.
 
 **It starts parked at the top of the world, i.e. NOT CUT**, and `IsCutAway` says
 so. A cutting view is then EXACTLY an uncut one until the plane is lowered, which

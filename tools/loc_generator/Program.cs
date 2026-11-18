@@ -25,12 +25,26 @@ class Program
 
 		// Files directly in the language folder are hand-authored and generate
 		// the typed Keys enum. Subfolders (dialogue/, written by
-		// tools/conversation_import) are loaded at runtime and span-checked
-		// here, but stay out of the enum: nothing in code can name a
-		// conversation line, they are only ever reached by StringName from a
-		// ConversationData.
+		// tools/conversation_import) and the world folders' files are loaded at
+		// runtime and span-checked here, but stay out of the enum: nothing in
+		// code names them, they are only ever reached by StringName from data.
 		var enumFiles = new List<string>(Directory.GetFiles(inputDir, "*.tsv", SearchOption.TopDirectoryOnly));
 		var allFiles = new List<string>(Directory.GetFiles(inputDir, "*.tsv", SearchOption.AllDirectories));
+		// Each world folder's own strings (worlds/<world>/localization/<language>.tsv),
+		// loaded at runtime beside these and reached only from that world's data.
+		string worldsDir = Path.GetFullPath(Path.Combine(inputDir, "..", "..", "data", "worlds"));
+		if (Directory.Exists(worldsDir))
+		{
+			string language = Path.GetFileName(Path.GetFullPath(inputDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+			foreach (string world in Directory.GetDirectories(worldsDir))
+			{
+				string worldFile = Path.Combine(world, "localization", language + ".tsv");
+				if (File.Exists(worldFile))
+				{
+					allFiles.Add(worldFile);
+				}
+			}
+		}
 		enumFiles.Sort(StringComparer.Ordinal);
 		allFiles.Sort(StringComparer.Ordinal);
 
@@ -63,10 +77,11 @@ class Program
 				}
 				if (wsIndex >= 0)
 				{
-					ValidateLanguageSpans(key, line.Substring(wsIndex + 1), KnownLanguageIds(inputDir), ref markupWarnings);
+					ValidateLanguageSpans(key, line.Substring(wsIndex + 1), KnownLanguageIds(inputDir), KnownControlIds(inputDir), ref markupWarnings);
 				}
 			}
 		}
+		ValidateInscriptionKeys(inputDir, seen, ref markupWarnings);
 		if (markupWarnings > 0)
 		{
 			// Warn, never fail: half-authored strings must not block a build or
@@ -125,6 +140,8 @@ class Program
 	const string TagClose = "[/lang]";
 	const string NarrateOpen = "[narrate]";
 	const string NarrateClose = "[/narrate]";
+	// Mirrors LanguageText's [input:<control id>] token.
+	const string InputOpen = "[input:";
 	// Mirrors LanguageText.CommonId - the reserved span id meaning "no
 	// language", so it is never registered as a LanguageData.
 	const string CommonId = "common";
@@ -171,11 +188,89 @@ class Program
 		return _knownLanguageIds;
 	}
 
+	static HashSet<string> _knownControlIds;
+
+	// Every ControlBindingData.id in a ControlSetData under resources/ — what an
+	// [input:<id>] token may name. Whether a control is bound on each device is
+	// NOT checked here: InputBindings writes bindings in code at startup, so only
+	// the running game knows (an unbound one logs an error where it renders).
+	static HashSet<string> KnownControlIds(string inputDir)
+	{
+		if (_knownControlIds != null)
+		{
+			return _knownControlIds;
+		}
+		_knownControlIds = new HashSet<string>(StringComparer.Ordinal);
+		string resourcesDir = Path.GetFullPath(Path.Combine(inputDir, "..", ".."));
+		if (!Directory.Exists(resourcesDir))
+		{
+			return _knownControlIds;
+		}
+		foreach (string path in Directory.EnumerateFiles(resourcesDir, "*.tres", SearchOption.AllDirectories))
+		{
+			string text;
+			try
+			{
+				text = File.ReadAllText(path);
+			}
+			catch (IOException)
+			{
+				continue;
+			}
+			if (!text.Contains("script_class=\"ControlSetData\""))
+			{
+				continue;
+			}
+			foreach (Match match in Regex.Matches(text, "^id = &\"([^\"]+)\"", RegexOptions.Multiline))
+			{
+				_knownControlIds.Add(match.Groups[1].Value);
+			}
+		}
+		return _knownControlIds;
+	}
+
+	// Every InscriptionData under resources/ must name a key some .tsv defines —
+	// otherwise the sign reads "MISSING:<key>" the first time anyone walks up to it.
+	static void ValidateInscriptionKeys(string inputDir, HashSet<string> keys, ref int warnings)
+	{
+		string resourcesDir = Path.GetFullPath(Path.Combine(inputDir, "..", ".."));
+		if (!Directory.Exists(resourcesDir))
+		{
+			return;
+		}
+		foreach (string path in Directory.EnumerateFiles(resourcesDir, "*.tres", SearchOption.AllDirectories))
+		{
+			string text;
+			try
+			{
+				text = File.ReadAllText(path);
+			}
+			catch (IOException)
+			{
+				continue;
+			}
+			if (!text.Contains("script_class=\"InscriptionData\""))
+			{
+				continue;
+			}
+			Match match = Regex.Match(text, "^textKey = &\"([^\"]*)\"", RegexOptions.Multiline);
+			string name = Path.GetFileName(path);
+			if (!match.Success || match.Groups[1].Value.Length == 0)
+			{
+				Warn(name, "inscription has no textKey", ref warnings);
+			}
+			else if (!keys.Contains(match.Groups[1].Value))
+			{
+				Warn(name, $"textKey '{match.Groups[1].Value}' is in no .tsv", ref warnings);
+			}
+		}
+	}
+
 	// Balance / nesting / unknown-id check for the inline language spans
 	// LanguageText parses at display time. Catching it here means an author
 	// hears about a typo on the next build instead of the next time that
 	// particular line happens to be shown in game.
-	static void ValidateLanguageSpans(string key, string value, HashSet<string> knownIds, ref int warnings)
+	static void ValidateLanguageSpans(string key, string value, HashSet<string> knownIds, HashSet<string> knownControls, ref int warnings)
 	{
 		// The closing tag the span we are inside expects; null outside a span.
 		string openClose = null;
@@ -198,6 +293,22 @@ class Program
 				}
 				openClose = null;
 				i += close.Length;
+				continue;
+			}
+			if (StartsAt(value, i, InputOpen))
+			{
+				int end = value.IndexOf(']', i + InputOpen.Length);
+				if (end < 0)
+				{
+					Warn(key, $"unterminated '{InputOpen}' tag", ref warnings);
+					return;
+				}
+				string body = value.Substring(i + InputOpen.Length, end - i - InputOpen.Length);
+				if (!knownControls.Contains(body))
+				{
+					Warn(key, $"[input:{body}]: no control has that id - add a row to the ControlSetData (resources/data/gui/controls.tres)", ref warnings);
+				}
+				i = end + 1;
 				continue;
 			}
 			if (StartsAt(value, i, NarrateOpen))

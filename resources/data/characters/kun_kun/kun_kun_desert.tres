@@ -2,9 +2,14 @@
 
 [ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="1_sub"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun/kun_kun.tres" id="2_mob"]
+[ext_resource type="Script" uid="uid://esxkt6kn9aw5a" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_01.tres" id="rune_01"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_02.tres" id="rune_02"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_07.tres" id="rune_07"]
 
 [resource]
 script = ExtResource("1_sub")
+runes = Array[ExtResource("rune_script")]([ExtResource("rune_07"), ExtResource("rune_01"), ExtResource("rune_02")])
 mob = ExtResource("2_mob")
 displayName = &"Desert Kun-Kun"
 abilities = 6

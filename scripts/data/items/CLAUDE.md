@@ -254,3 +254,30 @@ dog, villagers). A corpse itself offers nothing.
 - **Butchering is the meat's salvage** — its `salvage` list is the hide, bone,
   sinew, feather or silk the body yields. The meat is used up, so the player
   chooses between cooking a piece and cutting it up.
+
+## Runes (`RuneData`, `SpeciesData.runes`, `RuneInscription`, `RuneBoneData`)
+
+**Seven runes (`SimData.runes`); each species has a secret sequence of 3–5 of
+them** (`SpeciesData.runes`, repeats allowed, no two species alike —
+`resource_check` enforces all three). A weapon or armor piece carries a
+`RuneInscription` on its state, saved with the item. The rune station that
+writes one is not built yet.
+
+- **Matching is Mastermind**: right rune in the right slot scores 1, a rune the
+  sequence holds elsewhere 0.5, each sequence position claimed once; divided by
+  the sequence length → 0..1 affinity.
+- **Both bonuses are resolved by the RECEIVER**, since a shot leaves before its
+  target is known: `HitInfo.runes` carries the weapon's inscription
+  (`ResolveHit`, `Projectile` direct hits — not follow-up blasts) and
+  `Mob.ApplyResistance` scales damage by `1 + affinity × runeDamageBonus`.
+  `Player.ComposeRuneResistance` reads the attacker's species off `hit.source`
+  and turns away `mean(helmet, armor affinity) × runeResistanceBonus` of ALL
+  damage; a broken piece counts 0.
+- **Runes are learned from rune bones**, buried treasure — never rolled loot.
+  One item (`items/loot/rune_bone.tres`); WHICH rune is per bone
+  (`RuneBoneState`: species + position), set on the painter placement of the
+  `buried_rune_bone` entry (`RuneBoneSpawnEntry`). Read and spent on pickup, it
+  teaches that position (`SimState.LearnRune`). A pickup gets the instance
+  (`IApplyOnPickup.ApplyOnPickup(player, item)`) for exactly this.
+  Known positions are `Knowledge.KnownRunes`, provisional until camp like the
+  bestiary, and show on its rows (`RuneSlot`; blank = unknown).

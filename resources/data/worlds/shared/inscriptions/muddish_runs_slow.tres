@@ -5,5 +5,5 @@
 
 [resource]
 script = ExtResource("1_script")
-text = "Muddish runs slow and deep, as the marsh does. Sit a while. Read. The first words will come to you."
+textKey = &"inscription_muddish_runs_slow"
 language = ExtResource("2_language")

@@ -17,7 +17,7 @@
 [ext_resource type="Resource" uid="uid://2pu5xrui7a5a" path="res://resources/data/items/scrolls/treasure_map_swamp.tres" id="96_map"]
 [ext_resource type="Resource" uid="uid://4efn43odde5i" path="res://resources/data/worlds/shared/spawn_entries/treasure_spot_song_3.tres" id="97_spot"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/campfire.tres" id="e_campfire"]
-[ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab1.tres" id="e_knowledge_stone"]
+[ext_resource type="Resource" uid="uid://blk0jtjo2qwsu" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab1.tres" id="e_knowledge_stone"]
 [ext_resource type="Resource" uid="uid://wwydvupgfm6a" path="res://resources/data/world_gen/foliage_gen/marsh.tres" id="F_foliage"]
 [ext_resource type="Script" uid="uid://bhy5xnkiybhbv" path="res://scripts/data/spawn/SpawnGroupRow.cs" id="grouprow"]
 [ext_resource type="Resource" uid="uid://dfuecl3djtox" path="res://resources/data/habitats/swamp.tres" id="habitat"]

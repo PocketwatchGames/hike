@@ -482,6 +482,7 @@ public partial class Projectile : Node3D
 						// scale rides `potency` (bigger DoT ticks, not more stacks); the
 						// buildup meter fill stays level-independent.
 						hit.healthDamage *= _damageMultiplier;
+						hit.runes = _impact.sourceWeapon?.runes;
 						hit.potency = _potency;
 						// Weapon-mod on-hit effects (Burning applied immediately,
 						// Poison buildup) the shot carries, on top of the

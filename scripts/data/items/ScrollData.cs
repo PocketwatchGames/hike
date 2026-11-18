@@ -25,7 +25,7 @@ public partial class ScrollData : ItemData, IApplyOnPickup, IInstantUseItem
 
 	public bool Magnetized => false;
 
-	public bool ApplyOnPickup(Player player) => Read(player);
+	public bool ApplyOnPickup(Player player, ItemState item) => Read(player);
 
 	public bool CanUseInstantly => true;
 

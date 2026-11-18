@@ -614,6 +614,14 @@ public partial class ModelAnimator : Node
         return player != null && name != default && player.HasAnimation(name);
     }
 
+    // A looping clip never raises AnimationFinished, so nothing waiting on
+    // Finished can ever be released by it.
+    public bool IsLooping(StringName name)
+    {
+        Animation anim = HasAnimation(name) ? player.GetAnimation(name) : null;
+        return anim != null && anim.LoopMode != Animation.LoopModeEnum.None;
+    }
+
     // `restart` forces a re-fire of the SAME clip to replay from the start
     // (one-shot attacks, hitstun, jump): mashing the knife's light attack maps
     // to the same `stab1` slot every press and must interrupt itself. The

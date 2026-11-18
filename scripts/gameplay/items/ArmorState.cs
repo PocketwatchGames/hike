@@ -17,4 +17,27 @@ public class ArmorState : GearState
 	{
 		_data = d;
 	}
+
+	// Runes inscribed at the rune station: resistance to all damage from a species whose
+	// sequence they match, while the piece is unbroken (see RuneInscription,
+	// Player.ComposeRuneResistance).
+	public readonly RuneInscription runes = new();
+
+	public override void WriteSubclassState(System.IO.BinaryWriter w)
+	{
+		base.WriteSubclassState(w);
+		runes.Write(w);
+	}
+
+	public override void ReadSubclassState(System.IO.BinaryReader r)
+	{
+		base.ReadSubclassState(r);
+		runes.Read(r);
+	}
+
+	protected override void CopySubclassStateTo(ItemState dest)
+	{
+		base.CopySubclassStateTo(dest);
+		runes.CopyTo(((ArmorState)dest).runes);
+	}
 }

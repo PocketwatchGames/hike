@@ -118,4 +118,26 @@ public class WeaponState : GearState
 			}
 		}
 	}
+
+	// Runes inscribed at the rune station: bonus damage against a species whose
+	// sequence they match (see RuneInscription, Mob.ApplyResistance).
+	public readonly RuneInscription runes = new();
+
+	public override void WriteSubclassState(System.IO.BinaryWriter w)
+	{
+		base.WriteSubclassState(w);
+		runes.Write(w);
+	}
+
+	public override void ReadSubclassState(System.IO.BinaryReader r)
+	{
+		base.ReadSubclassState(r);
+		runes.Read(r);
+	}
+
+	protected override void CopySubclassStateTo(ItemState dest)
+	{
+		base.CopySubclassStateTo(dest);
+		runes.CopyTo(((WeaponState)dest).runes);
+	}
 }

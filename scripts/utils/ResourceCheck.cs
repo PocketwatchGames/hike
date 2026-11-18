@@ -201,6 +201,7 @@ public static class ResourceCheck
         // FATAL, which kills the process depending only on GC timing.
         var keepAlive = new List<Resource>(paths.Count);
         var standardAmmo = new Dictionary<EAmmoType, string>();
+        var runeOwners = new RuneOwners();
         int loaded = 0;
         foreach (string path in paths)
         {
@@ -225,6 +226,7 @@ public static class ResourceCheck
             CheckTimeOfDayCurves(res, path, problems);
             CheckMeatAndTools(res, path, problems);
             CheckAmmo(res, path, standardAmmo, problems);
+            CollectRuneOwners(res, path, runeOwners);
 
             string declared = DeclaredScriptClass(path);
             if (string.IsNullOrEmpty(declared))
@@ -239,8 +241,109 @@ public static class ResourceCheck
             }
         }
 
+        CheckRunes(runeOwners, problems);
         GC.KeepAlive(keepAlive);
         return loaded;
+    }
+
+    // --- runes -----------------------------------------------------------
+
+    private sealed class RuneOwners
+    {
+        public readonly List<(SimData data, string path)> sims = new();
+        public readonly List<(SpeciesData data, string path)> species = new();
+        public readonly List<(RuneBoneSpawnEntry data, string path)> bones = new();
+    }
+
+    private static void CollectRuneOwners(Resource res, string path, RuneOwners owners)
+    {
+        switch (res)
+        {
+            case SimData sim: owners.sims.Add((sim, path)); break;
+            case SpeciesData species: owners.species.Add((species, path)); break;
+            case RuneBoneSpawnEntry bone: owners.bones.Add((bone, path)); break;
+        }
+    }
+
+    // A sequence is 3..5 registered runes (repeats allowed) and no two species
+    // share one — an inscription matching both would be no secret at all. A rune
+    // bone entry must bury a bone, and a species it names must have the rune.
+    private static void CheckRunes(RuneOwners owners, List<string> problems)
+    {
+        var registered = new HashSet<RuneData>();
+        foreach ((SimData sim, string path) in owners.sims)
+        {
+            var seen = new HashSet<RuneData>();
+            foreach (RuneData rune in sim.runes)
+            {
+                if (rune == null)
+                {
+                    problems.Add($"{path}: runes has an empty entry");
+                }
+                else if (!seen.Add(rune))
+                {
+                    problems.Add($"{path}: runes lists {rune.ResourcePath} twice");
+                }
+            }
+            registered.UnionWith(seen);
+        }
+
+        var sequences = new Dictionary<string, string>();
+        foreach ((SpeciesData species, string path) in owners.species)
+        {
+            RuneData[] sequence = species.RunesFlat;
+            if (sequence.Length == 0)
+            {
+                continue;
+            }
+            if (sequence.Length < SpeciesData.MinRuneSequence || sequence.Length > SpeciesData.MaxRuneSequence)
+            {
+                problems.Add($"{path}: rune sequence is {sequence.Length} long — must be "
+                    + $"{SpeciesData.MinRuneSequence}..{SpeciesData.MaxRuneSequence}");
+            }
+            var key = new System.Text.StringBuilder();
+            bool complete = true;
+            foreach (RuneData rune in sequence)
+            {
+                if (rune == null)
+                {
+                    problems.Add($"{path}: rune sequence has an empty entry");
+                    complete = false;
+                    continue;
+                }
+                if (!registered.Contains(rune))
+                {
+                    problems.Add($"{path}: rune {rune.ResourcePath} is not registered on SimData.runes");
+                }
+                key.Append(rune.ResourcePath).Append('|');
+            }
+            if (!complete)
+            {
+                continue;
+            }
+            if (sequences.TryGetValue(key.ToString(), out string other))
+            {
+                problems.Add($"{path}: rune sequence is identical to {other}'s — each species' must be its own");
+            }
+            else
+            {
+                sequences[key.ToString()] = path;
+            }
+        }
+
+        foreach ((RuneBoneSpawnEntry entry, string path) in owners.bones)
+        {
+            if (entry.bone == null)
+            {
+                problems.Add($"{path}: buries no bone item");
+            }
+            if (entry.boneSpecies != null
+                && (entry.runeNumber < 1 || entry.runeNumber > entry.boneSpecies.RunesFlat.Length))
+            {
+                problems.Add($"{path}: rune {entry.runeNumber} is outside "
+                    + $"{entry.boneSpecies.ResourcePath}'s sequence of {entry.boneSpecies.RunesFlat.Length}");
+            }
+        }
     }
 
     private static void CheckAmmo(Resource res, string path, Dictionary<EAmmoType, string> standardAmmo, List<string> problems)

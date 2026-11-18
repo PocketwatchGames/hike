@@ -35,8 +35,19 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
+		bool isHitstun = anim == EAnimation.Hitstun;
+		// A looping clip (casting, using) never reports Finished, so latching it
+		// holds it until some other one-shot happens to replace it — the player
+		// kept casting at a walk after an action ended on the tick its PlayAnim
+		// fired. Those clips are HELD poses, and the loop pick already shows them
+		// for exactly as long as their action runs (chargeAnimOverride /
+		// interactAnimOverride). Hitstun is the exception: _hitstunTime releases it.
+		if (!isHitstun && _animator.IsLooping(name))
+		{
+			return;
+		}
 		_oneShotClip = name;
-		_oneShotIsHitstun = anim == EAnimation.Hitstun;
+		_oneShotIsHitstun = isHitstun;
 		_oneShotOverridesCharge = overridesCharge;
 		// restart: a re-fired one-shot (mashing an attack that maps to the same
 		// clip) must replay from the start rather than no-op on the in-flight clip.
@@ -155,11 +166,9 @@ public partial class Player : CharacterBody3D
 
 		// An in-flight interactive action (Dig) that authors a held pose drives
 		// that clip as a sustained LOOP through the pick below — same as a
-		// consumable's charge pose. The clip is looping (it fills the whole dig
-		// duration), so firing it as a one-shot via its PlayAnim event traps the
-		// latch forever (a looping clip never reports Finished). Clear the stale
-		// latch here so the loop pick owns it and it stops the instant the action
-		// ends and _curInteractive clears.
+		// consumable's charge pose, and stops the instant the action ends and
+		// _curInteractive clears. A looping pose never latches (PlayOneShot);
+		// this clears any non-looping one-shot still in flight so the pose shows.
 		EAnimation? interactAnimOverride = null;
 		if (_curInteractive != null && _runner != null && _runner.IsBusy
 			&& _runner.Current.interactiveAction != null)

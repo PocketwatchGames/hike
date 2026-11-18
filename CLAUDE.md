@@ -478,12 +478,16 @@ Three rules, each of which was a real bug:
   twice over: whatever it says gets stamped at every placement nobody edited,
   and the language it is written in is a proper noun parked in reusable
   vocabulary. **The words themselves are a FILE the placement picks**
-  (`InscriptionData`: text + language, one decision — an inscription is written
-  in something), never text typed into the fork: a world's own words live in
-  `worlds/<world>/inscriptions/`, ones the generator or several worlds use in
-  `worlds/shared/inscriptions/`, and a `.hike` stores the reference, so fixing a
-  sign's wording needs no rebake. Knowledge stones pick one the same way and
-  teach the tongue it is written in.
+  (`InscriptionData`: a loc key + language, one decision — an inscription is
+  written in something), never text typed into the fork: a world's own
+  inscriptions live in `worlds/<world>/inscriptions/`, ones the generator or
+  several worlds use in `worlds/shared/inscriptions/`, and a `.hike` stores the
+  reference. The TEXT is a localized string keyed `inscription_<file basename>`
+  in the owning world folder's strings file (see Localization), so
+  fixing a sign's wording needs no rebake and the build warns about an
+  inscription whose key no `.tsv` defines. Knowledge stones pick one the same way and
+  teach the tongue it is written in — or, written in no language, teach nothing
+  and are simply read (tutorial stones).
   An entry that cannot function without the placement's value refuses loudly
   (`SignpostSpawnEntry` errors and does not place) rather than drawing a blank.
 
@@ -696,7 +700,7 @@ Runtime configuration variables with an in-game console. Add new CVars as `publi
 
 `Loc.Get(Loc.Keys.key)` and `Loc.Format(Loc.Keys.key, args...)` with `%0`/`%1` placeholders. Language controlled by `CVars.language`; changing it reloads strings and fires `Loc.OnLanguageChanged`.
 
-**A language is a FOLDER of TSVs, not one file** — `resources/localization/<language>/`, every `.tsv` under it loaded and merged into one flat key namespace (`key\tvalue` columns, header row skipped). A key repeated across two files is reported at load and at build. Hand-authored strings sit directly in the folder (`english/hike_strings.tsv`); `english/dialogue/<world>.tsv` is GENERATED from that world's conversation sheet and must not be hand-edited.
+**Strings live in ONE central file plus ONE per world folder — never a file per game function.** The central file is `resources/localization/<language>/hike_strings.tsv` (UI and anything code names; it alone generates the `Loc.Keys` enum). Each world folder, `worlds/shared/` included, keeps its own content strings in `worlds/<world>/localization/<language>.tsv` (sign and stone text today). `english/dialogue/<world>.tsv` is GENERATED from that world's conversation sheet and must not be hand-edited. All of them load into one flat key namespace (`key\tvalue` columns, header row skipped), every world's whichever is running; a key repeated across two files is reported at load and at build. A row is one line, so a line break in a value is a literal `\n`.
 
 **Only the files directly in the folder generate the `Loc.Keys` enum.** Conversation text is reached solely by `StringName` from a `ConversationData`, so enumerating it would buy no typo-safety and drown the enum.
 
@@ -728,6 +732,20 @@ intro_dying_01	[lang:common]Sanctuary[/lang]... you must find it. My family, …
   language or move an `understands` gate. The speech bubble is a `RichTextLabel`
   fed `LanguageText.RenderBbcode`, which draws it in italics; plain `Render`
   shows it unstyled, and `Strip` drops the tags (player choices).
+- **A control is `[input:<id>]`**, never a button name typed into the text
+  ("Use [input:sneak] to sneak"). The id is a row of the game's ONE
+  `ControlSetData` (`resources/data/gui/controls.tres`) — the same rows the
+  controls screen lists, composed by the same `ControlSetData.TryCompose`, so a
+  line and that screen cannot disagree. It is replaced at display time with what
+  performs the control on the device in use NOW (`InputDevice.Current`):
+  "LMB+RMB" on keyboard, "RT" on a pad. Which action does it on which device is
+  the row's business, never the text's. Glyphs come from the live InputMap, so
+  `InputBindings`' code-owned bindings show with nothing in `project.godot`. A
+  token, not a span: it may sit inside a language or narration span, is never
+  scrambled or scored, and draws bold. The build warns about an id no row has;
+  whether a row is BOUND on each device only the running game knows, and it
+  logs an error where it renders. Resolved when the line is rendered, so a
+  bubble already on screen keeps the glyph of the device it opened on.
 - **Spoken and inscribed text appear in a `SpeechBubble` over the source's
   `hudPosition`**, never a screen-anchored box — NPC lines, and signposts and
   knowledge stones through `Hud.ShowReadable` (a one-line, response-less run
@@ -934,6 +952,10 @@ A single per-actor `ActionRunner` drives all timeline-based player and mob actio
 ### Item Composition & Weapon Status-Effect Mods (`scripts/data/items/`)
 
 Items are customized by **composition, not new `ItemData`** — a spawn source holds an `ItemDescriptor` (`ItemData` + `StatusEffectDescriptor` mods) composed onto the runtime `ItemState`, so **prefer a new mod over a new item variant.** Attacking mobs wield real `WeaponData` weapons (on `SpeciesData.weapons`) through the identical damage + weapon-mod path. See [scripts/data/items/CLAUDE.md](scripts/data/items/CLAUDE.md).
+
+### Runes (`RuneData`, `RuneInscription`, `RuneBoneData`)
+
+Each species has a secret 3–5 rune sequence; a weapon's or armor's inscription matching it adds damage against / resistance to that species, resolved receiver-side. Learned from buried rune bones, each naming a species and rune on its painter placement. See [scripts/data/items/CLAUDE.md](scripts/data/items/CLAUDE.md).
 
 ### Stats, Hit Tags & Resistance (`scripts/data/combat/`)
 

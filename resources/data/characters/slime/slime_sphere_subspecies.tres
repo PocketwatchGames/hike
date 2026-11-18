@@ -5,9 +5,13 @@
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_wd"]
 [ext_resource type="Resource" uid="uid://ctankqu4joex0" path="res://resources/data/characters/slime/slime_sphere_slam.tres" id="4_slam"]
 [ext_resource type="Resource" uid="uid://d2bdls7tsxyuj" path="res://resources/data/characters/slime/slime_spit.tres" id="5_spit"]
+[ext_resource type="Script" uid="uid://esxkt6kn9aw5a" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_02.tres" id="rune_02"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_04.tres" id="rune_04"]
 
 [resource]
 script = ExtResource("1_sub")
+runes = Array[ExtResource("rune_script")]([ExtResource("rune_02"), ExtResource("rune_04"), ExtResource("rune_04")])
 mob = ExtResource("2_mob")
 displayName = &"Slime Sphere"
 weapons = Array[ExtResource("3_wd")]([ExtResource("4_slam"), ExtResource("5_spit")])

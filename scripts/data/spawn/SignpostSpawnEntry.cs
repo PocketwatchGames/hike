@@ -34,7 +34,7 @@ public partial class SignpostSpawnEntry : SpawnEntryData
         {
             return;
         }
-        if (inscription == null || string.IsNullOrEmpty(inscription.text))
+        if (inscription == null || !inscription.HasText())
         {
             GD.PushError($"SignpostSpawnEntry at {position}: no inscription — what a signpost says is "
                 + "picked on the PLACEMENT (in the painter's property panel, or on the copy embedded "

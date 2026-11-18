@@ -215,7 +215,7 @@ public partial class BestiaryScreen : Control
 		{
 			BestiarySpeciesPanel panel = _mobSpeciesScene.Instantiate<BestiarySpeciesPanel>();
 			_mobSpeciesContainer.AddChild(panel);
-			panel.Populate(species);
+			panel.Populate(species, worldSim);
 		}
 	}
 

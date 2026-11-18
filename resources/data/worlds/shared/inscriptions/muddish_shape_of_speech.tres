@@ -5,5 +5,5 @@
 
 [resource]
 script = ExtResource("1_script")
-text = "The shape of Muddish speech — how its words are ordered and strung. The hermit keeps to it still."
+textKey = &"inscription_muddish_shape_of_speech"
 language = ExtResource("2_language")

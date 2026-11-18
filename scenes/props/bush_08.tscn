@@ -9,6 +9,8 @@
 [ext_resource type="QuadMesh" path="res://assets/models/trees/card_quad.tres" id="7_vqptb"]
 [ext_resource type="Script" uid="uid://ws08cueclt1v" path="res://scripts/gameplay/trees/FoliageMultiMesh.cs" id="8_kh21r"]
 [ext_resource type="Script" uid="uid://dalig6n7oy2sv" path="res://scripts/gameplay/trees/FoliageCluster.cs" id="9_ffji2"]
+[ext_resource type="Script" uid="uid://q5olzmjwd53qn" path="res://scripts/gameplay/trees/FoliageRustle.cs" id="90_rustle"]
+[ext_resource type="Resource" uid="uid://d7hmy3a8yvy01" path="res://resources/data/foliage/bush_rustle.tres" id="91_rustledata"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_71h6o"]
 height = 2.5
@@ -88,3 +90,9 @@ cardSizeMax = 1.0
 angleJitter = 0.27
 rollJitter = 0.27
 droopAmount = 0.97
+
+[node name="Rustle" type="Node3D" parent="." node_paths=PackedStringArray("_body", "_foliage")]
+script = ExtResource("90_rustle")
+_data = ExtResource("91_rustledata")
+_body = NodePath("../Body")
+_foliage = [NodePath("../Foliage")]

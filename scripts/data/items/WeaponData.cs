@@ -22,6 +22,10 @@ public partial class WeaponData : GearData
 
 	public bool NeedsAmmo => ammoType != EAmmoType.None;
 
+	// Played when the wielder presses to fire with no rounds left (a gun's
+	// click), alongside the "Out of Ammo" HUD text. Null = text only.
+	[Export] public PackedScene dryFireEffect;
+
 	// Ability tell: the shared accent color this weapon stamps onto its wielder
 	// at spawn, so any mob carrying it reads as "does this" regardless of region
 	// (a torch goblin and a fire drake both reference the fire tell). Null = this

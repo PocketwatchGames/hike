@@ -257,6 +257,7 @@ public partial class GameClient : Node3D
 	// them rather than creating them.
 	[Export] public Minimap minimap;
 	[Export] public HeatField heatField;
+	[Export] public TrampleField trampleField;
 
 	[ExportGroup("Foliage Player Fade")]
 	// Cutaway tube radius around the camera→player capsule axis. The
@@ -1174,6 +1175,10 @@ public partial class GameClient : Node3D
 		{
 			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Language Recorded" });
 		}
+		if (banked.HasFlag(EKnowledgeCategory.Rune))
+		{
+			Announce(new Announcement { type = EAnnouncementType.Notice, title = Loc.Get(Loc.Keys.runes_recorded) });
+		}
 		if (banked.HasFlag(EKnowledgeCategory.Name))
 		{
 			Announce(new Announcement { type = EAnnouncementType.Notice, title = "Acquaintance Recorded" });
@@ -1337,6 +1342,14 @@ public partial class GameClient : Node3D
 		SwitchControlTo((active + 1) % _partyPlayers.Count);
 	}
 
+	// A discovery raised outside SimState's events (a rune bone read on pickup):
+	// the banner plus the discovery fx, exactly as those handlers do.
+	public void AnnounceDiscovery(Announcement a)
+	{
+		Announce(a);
+		CelebrateDiscovery();
+	}
+
 	// Raised by the same handlers that raise a discovery banner — gated by the
 	// same SuppressAnnouncements, so starting knowledge stays silent.
 	void CelebrateDiscovery()
@@ -1447,13 +1460,6 @@ public partial class GameClient : Node3D
 		});
 		CelebrateDiscovery();
 	}
-
-	[ExportGroup("Detail Sprite Reaction")]
-	// Push radius and bend strength for the detail-sprite shader's player
-	// reaction. ~0.6m matches the player's foot footprint; 0.25m bend reads
-	// as grass parting around the player's legs without snapping flat.
-	[Export(PropertyHint.Range, "0,4,0.05")] public float detailPlayerRadius = 0.6f;
-	[Export(PropertyHint.Range, "0,1,0.01")] public float detailPlayerStrength = 0.25f;
 
 	[ExportGroup("Eye Adaptation")]
 	// Rendering half of dark-adaptation. The 0..1 STATE is owned by the player sim
@@ -1876,13 +1882,6 @@ public partial class GameClient : Node3D
 		{
 			_mousePosition = Vector2.Zero;
 		}
-
-		// Per-frame push to the detail_sprite shader so grass bends around
-		// the player. Single global, sub-byte cost; written every frame so
-		// stale values don't persist when the player teleports.
-		RenderingServer.GlobalShaderParameterSet("player_pos", _player.GlobalPosition);
-		RenderingServer.GlobalShaderParameterSet("player_radius", detailPlayerRadius);
-		RenderingServer.GlobalShaderParameterSet("player_strength", detailPlayerStrength);
 
 		// Eye adaptation: the player sim owns the dilation STATE; we read it and
 		// drive the lit-shader tone curve. Globals are declared in project.godot,

@@ -15,10 +15,13 @@ public partial class BestiarySpeciesPanel : PanelContainer
 	[Export] TextureRect _mobPortrait;
 	[Export] PackedScene _statPanelScene;
 	[Export] Control _statPanelContainer;
+	// One RuneSlot per position of the species' rune sequence.
+	[Export] PackedScene _runeSlotScene;
+	[Export] Control _runeContainer;
 
 	// Bind this row to one discovered species. The base type (Species.mob)
-	// supplies the page portrait fallback.
-	public void Populate(SpeciesData species)
+	// supplies the page portrait fallback; `sim` says which runes are known.
+	public void Populate(SpeciesData species, SimState sim)
 	{
 		if (species == null)
 		{
@@ -41,6 +44,33 @@ public partial class BestiarySpeciesPanel : PanelContainer
 		}
 
 		RebuildStats(species);
+		RebuildRunes(species, sim);
+	}
+
+	// Known positions show their rune, unknown ones a blank square. A species
+	// with no sequence shows no row at all.
+	void RebuildRunes(SpeciesData species, SimState sim)
+	{
+		if (_runeContainer == null)
+		{
+			return;
+		}
+		foreach (Node child in _runeContainer.GetChildren())
+		{
+			child.QueueFree();
+		}
+		RuneData[] sequence = species.RunesFlat;
+		_runeContainer.Visible = sequence.Length > 0 && _runeSlotScene != null;
+		if (!_runeContainer.Visible)
+		{
+			return;
+		}
+		for (int i = 0; i < sequence.Length; i++)
+		{
+			RuneSlot slot = _runeSlotScene.Instantiate<RuneSlot>();
+			_runeContainer.AddChild(slot);
+			slot.SetRune(sim != null && sim.IsRuneKnown(species, i) ? sequence[i] : null);
+		}
 	}
 
 	// Stat deltas distinguishing this variant: its raw modifiers, then each

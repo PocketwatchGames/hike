@@ -13,6 +13,63 @@
 [ext_resource type="Resource" uid="uid://dbm53bqcpue8w" path="res://resources/data/blood/red_blood.tres" id="blood_1"]
 [ext_resource type="Script" uid="uid://b324fje5al755" path="res://scripts/data/characters/NeedRemarkData.cs" id="need_remark_script"]
 
+[sub_resource type="Resource" id="need_remark_hunger_1"]
+script = ExtResource("need_remark_script")
+textLocKey = &"need_remark_hunger_1"
+metadata/_custom_type_script = "uid://b324fje5al755"
+
+[sub_resource type="Resource" id="need_remark_hunger_2"]
+script = ExtResource("need_remark_script")
+atStages = 2.0
+textLocKey = &"need_remark_hunger_2"
+metadata/_custom_type_script = "uid://b324fje5al755"
+
+[sub_resource type="Resource" id="need_remark_hunger_3"]
+script = ExtResource("need_remark_script")
+atStages = 2.5
+textLocKey = &"need_remark_hunger_3"
+metadata/_custom_type_script = "uid://b324fje5al755"
+
+[sub_resource type="Resource" id="need_remark_thirst_1"]
+script = ExtResource("need_remark_script")
+need = 1
+textLocKey = &"need_remark_thirst_1"
+metadata/_custom_type_script = "uid://b324fje5al755"
+
+[sub_resource type="Resource" id="need_remark_thirst_2"]
+script = ExtResource("need_remark_script")
+need = 1
+atStages = 2.0
+textLocKey = &"need_remark_thirst_2"
+metadata/_custom_type_script = "uid://b324fje5al755"
+
+[sub_resource type="Resource" id="need_remark_thirst_3"]
+script = ExtResource("need_remark_script")
+need = 1
+atStages = 2.5
+textLocKey = &"need_remark_thirst_3"
+metadata/_custom_type_script = "uid://b324fje5al755"
+
+[sub_resource type="Resource" id="need_remark_fatigue_1"]
+script = ExtResource("need_remark_script")
+need = 2
+textLocKey = &"need_remark_fatigue_1"
+metadata/_custom_type_script = "uid://b324fje5al755"
+
+[sub_resource type="Resource" id="need_remark_fatigue_2"]
+script = ExtResource("need_remark_script")
+need = 2
+atStages = 2.0
+textLocKey = &"need_remark_fatigue_2"
+metadata/_custom_type_script = "uid://b324fje5al755"
+
+[sub_resource type="Resource" id="need_remark_fatigue_3"]
+script = ExtResource("need_remark_script")
+need = 2
+atStages = 2.5
+textLocKey = &"need_remark_fatigue_3"
+metadata/_custom_type_script = "uid://b324fje5al755"
+
 [sub_resource type="Resource" id="unarmored_outfit"]
 script = ExtResource("10_outfit_script")
 bodyMeshNamesFemale = PackedStringArray("F_Archer_Top", "F_Archer_Bottom")
@@ -21,66 +78,6 @@ primaryColor = Color(0.949, 0.937, 0.902, 1)
 secondaryColor = Color(0.851, 0.824, 0.765, 1)
 tertiaryColor = Color(1, 1, 1, 1)
 metadata/_custom_type_script = "uid://6h7yge1txki2"
-
-[sub_resource type="Resource" id="need_remark_hunger_1"]
-script = ExtResource("need_remark_script")
-atStages = 1.0
-textLocKey = &"need_remark_hunger_1"
-metadata/_custom_type_script = "uid://b324fje5al755"
-
-[sub_resource type="Resource" id="need_remark_hunger_2"]
-script = ExtResource("need_remark_script")
-atStages = 1.5
-textLocKey = &"need_remark_hunger_2"
-metadata/_custom_type_script = "uid://b324fje5al755"
-
-[sub_resource type="Resource" id="need_remark_hunger_3"]
-script = ExtResource("need_remark_script")
-atStages = 2.0
-textLocKey = &"need_remark_hunger_3"
-metadata/_custom_type_script = "uid://b324fje5al755"
-
-[sub_resource type="Resource" id="need_remark_thirst_1"]
-script = ExtResource("need_remark_script")
-need = 1
-atStages = 1.0
-textLocKey = &"need_remark_thirst_1"
-metadata/_custom_type_script = "uid://b324fje5al755"
-
-[sub_resource type="Resource" id="need_remark_thirst_2"]
-script = ExtResource("need_remark_script")
-need = 1
-atStages = 1.5
-textLocKey = &"need_remark_thirst_2"
-metadata/_custom_type_script = "uid://b324fje5al755"
-
-[sub_resource type="Resource" id="need_remark_thirst_3"]
-script = ExtResource("need_remark_script")
-need = 1
-atStages = 2.0
-textLocKey = &"need_remark_thirst_3"
-metadata/_custom_type_script = "uid://b324fje5al755"
-
-[sub_resource type="Resource" id="need_remark_fatigue_1"]
-script = ExtResource("need_remark_script")
-need = 2
-atStages = 1.0
-textLocKey = &"need_remark_fatigue_1"
-metadata/_custom_type_script = "uid://b324fje5al755"
-
-[sub_resource type="Resource" id="need_remark_fatigue_2"]
-script = ExtResource("need_remark_script")
-need = 2
-atStages = 1.5
-textLocKey = &"need_remark_fatigue_2"
-metadata/_custom_type_script = "uid://b324fje5al755"
-
-[sub_resource type="Resource" id="need_remark_fatigue_3"]
-script = ExtResource("need_remark_script")
-need = 2
-atStages = 2.0
-textLocKey = &"need_remark_fatigue_3"
-metadata/_custom_type_script = "uid://b324fje5al755"
 
 [resource]
 script = ExtResource("1_mknwc")

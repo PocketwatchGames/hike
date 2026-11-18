@@ -90,6 +90,18 @@ public partial class SimData : Resource
     // Null disables the trophy drop. See Mob.EjectLoot.
     [Export] public ItemData eliteLoot;
 
+    // The seven secret runes, in the order the rune station offers them. Every
+    // rune a species' sequence names must be one of these (resource_check).
+    [Export] public Array<RuneData> runes = new();
+
+    // A weapon whose runes fully match a species deals 1 + this × its damage to
+    // it; partial matches scale linearly (see RuneInscription).
+    [Export(PropertyHint.Range, "0,4,0.05")] public float runeDamageBonus = 1f;
+
+    // Fraction of ALL damage from a species that a fully matching, unbroken
+    // helmet + armor set turns away (Player.ComposeRuneResistance).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float runeResistanceBonus = 0.5f;
+
     // Daily "well rested" buff. Each sunrise one idle party member is drawn (see
     // Party.AdvanceRestAndPickWellRested) and wears this until the next — a small
     // all-round boost (stamina / damage / fortitude / health). Authored once here

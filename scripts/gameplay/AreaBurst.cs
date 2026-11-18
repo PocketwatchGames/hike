@@ -32,6 +32,7 @@ public static class AreaBurst
 		{
 			Fx.Create(burst.fx, host, center);
 		}
+		Sim.Current?.TrampleField?.KickBurst(center, burst.radius);
 		ApplyDamage(host.GetWorld3D(), burst, center, source, attackerTeam, exclude, damageMultiplier, potency);
 	}
 

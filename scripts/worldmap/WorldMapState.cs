@@ -1321,7 +1321,9 @@ public class WorldMapState
     // selection is a proximity test. Nearest rather than topmost: with marks a
     // couple of metres apart, last-in-the-list grabbed the neighbour of the one
     // you clicked squarely on. A tie goes to the later one, matching draw order.
-    public EntityPlacement EntityAt(int px, int pz, int radius)
+    // Only what a map cut at `clipY` draws (IsEntityShown), so a chest upstairs
+    // and the bed under it are each grabbed on their own floor.
+    public EntityPlacement EntityAt(int px, int pz, int radius, int clipY)
     {
         Vector2I world = WorldXZ(new Vector2I(px, pz));
         EntityPlacement[] list = Placements.entities;
@@ -1339,7 +1341,7 @@ public class WorldMapState
                 continue;
             }
             int dist = d.LengthSquared();
-            if (dist < bestDist)
+            if (dist < bestDist && IsEntityShown(list[i], clipY))
             {
                 best = list[i];
                 bestDist = dist;
@@ -1375,8 +1377,9 @@ public class WorldMapState
     // The stamped scene entity standing in a texel, or null. The entity's own
     // cell only, like EntityAt at radius 0; the later stamp wins a tie, matching
     // draw order. Not gated on the footprint: a scene's entities are a list
-    // translated by its anchor, and one may stand outside the voxel box.
-    public SceneEntityTarget SceneEntityAt(int px, int pz)
+    // translated by its anchor, and one may stand outside the voxel box. Gated on
+    // the slice like EntityAt.
+    public SceneEntityTarget SceneEntityAt(int px, int pz, int clipY)
     {
         var at = new Vector2I(px, pz);
         SubscenePlacement[] stamps = Placements.placements;
@@ -1389,7 +1392,8 @@ public class WorldMapState
             }
             for (int k = sub.Entities.Count - 1; k >= 0; k--)
             {
-                if (SceneEntityTexel(stamps[i], sub, sub.Entities[k]) == at)
+                if (SceneEntityTexel(stamps[i], sub, sub.Entities[k]) == at
+                    && IsSceneEntityShown(stamps[i], sub, sub.Entities[k], clipY))
                 {
                     return SceneTarget(stamps[i], sub.Entities[k].Id);
                 }
@@ -1405,14 +1409,14 @@ public class WorldMapState
         return Placements.hasSpawn && Placements.spawnXZ == WorldXZ(new Vector2I(px, pz));
     }
 
-    public bool IsSpawnNear(int px, int pz, int radius)
+    public bool IsSpawnNear(int px, int pz, int radius, int clipY)
     {
         if (!Placements.hasSpawn)
         {
             return false;
         }
         Vector2I d = Placements.spawnXZ - WorldXZ(new Vector2I(px, pz));
-        return Mathf.Abs(d.X) <= radius && Mathf.Abs(d.Y) <= radius;
+        return Mathf.Abs(d.X) <= radius && Mathf.Abs(d.Y) <= radius && IsSpawnShown(clipY);
     }
 
     public void SetSpawn(Vector2I worldXZ)
@@ -1433,10 +1437,139 @@ public class WorldMapState
     // and re-seating would put the entity on the roof.
     public int FloorForEntity(int px, int pz, int clipY)
     {
-        int floor = CutawayFloor(px, pz, clipY, out _);
-        return floor < Data.WorldMinY || floor == SurfaceBelow(px, pz, int.MaxValue)
+        int floor = PlacementFloor(px, pz, clipY);
+        return floor < Data.WorldMinY || floor == PlacementFloor(px, pz, int.MaxValue)
             ? EntityPlacement.OnTheGround
             : floor;
+    }
+
+    // The floor something PLACED at a column stands on under the plane: the
+    // highest solid voxel at or below `clipY` with air over it, counting the
+    // stamps as well as the terrain and the edit layer. CutawayFloor cannot see a
+    // stamp, so without this everything dropped inside a building recorded the
+    // terrain under it, came out OnTheGround, and the bake seated it on the roof.
+    // A column no stamp covers is exactly CutawayFloor, so the passages keep the
+    // answer the map draws for them.
+    //
+    // Only what a stamp WRITES counts: its solid voxels, and its openings and
+    // water as empty. Plain scene air is never stamped (SubsceneStamper), so the
+    // ground under it shows through.
+    public int PlacementFloor(int px, int pz, int clipY)
+    {
+        List<(SubsceneState Sub, int Lx, int Lz, int BaseY)> stamps = StampsOverColumn(px, pz, out int stampTop);
+        if (stamps == null)
+        {
+            return CutawayFloor(px, pz, clipY, out _);
+        }
+        int upper = Mathf.Max(stampTop, Mathf.Max(TerrainHeight(px, pz), Edits.Top(ClampX(px), ClampZ(pz))));
+        int wy = Mathf.Min(clipY, Mathf.Min(upper, Data.WorldMaxY));
+        bool above = ComposedSolidAt(stamps, px, pz, wy + 1);
+        for (; wy >= Data.WorldMinY; wy--)
+        {
+            bool solid = ComposedSolidAt(stamps, px, pz, wy);
+            if (solid && !above)
+            {
+                return wy;
+            }
+            above = solid;
+        }
+        return Data.WorldMinY - 1;
+    }
+
+    // The stamps covering a texel, the LAST placed first: where two overlap the
+    // bake writes the later one over the earlier. Null where none does, which is
+    // nearly every column. `top` is the highest world Y any of them reaches.
+    private List<(SubsceneState Sub, int Lx, int Lz, int BaseY)> StampsOverColumn(int px, int pz, out int top)
+    {
+        top = Data.WorldMinY - 1;
+        List<(SubsceneState, int, int, int)> hits = null;
+        SubscenePlacement[] list = Placements.placements;
+        for (int i = list.Length - 1; i >= 0; i--)
+        {
+            SubsceneState sub = SubsceneFor(list[i]);
+            if (sub == null)
+            {
+                continue;
+            }
+            Rect2I fp = FootprintOf(list[i]);
+            int lx = px - fp.Position.X;
+            int lz = pz - fp.Position.Y;
+            if (lx < 0 || lz < 0 || lx >= fp.Size.X || lz >= fp.Size.Y)
+            {
+                continue;
+            }
+            int baseY = StampBaseY(list[i]);
+            hits ??= new List<(SubsceneState, int, int, int)>();
+            hits.Add((sub, lx, lz, baseY));
+            top = Mathf.Max(top, baseY + sub.Size.Y - 1);
+        }
+        return hits;
+    }
+
+    private bool ComposedSolidAt(List<(SubsceneState Sub, int Lx, int Lz, int BaseY)> stamps, int px, int pz, int wy)
+    {
+        foreach ((SubsceneState sub, int lx, int lz, int baseY) in stamps)
+        {
+            int ly = wy - baseY;
+            if (ly < 0 || ly >= sub.Size.Y || !sub.PresenceMask[lx, ly, lz])
+            {
+                continue;
+            }
+            byte id = sub.Voxels[lx, ly, lz];
+            if (id == Blocks.AirId)
+            {
+                continue;
+            }
+            return BlockCatalog.Active?.GetById(id)?.solid ?? false;
+        }
+        return SolidAt(px, pz, wy);
+    }
+
+    // The floor a hand placement stands on as the bake will seat it: its own
+    // recorded Y, or for one OnTheGround the top of the column, stamps included.
+    public int EntityFloor(EntityPlacement placement)
+    {
+        Vector2I at = TexelXZ(placement.anchorXZ);
+        return placement.floorY == EntityPlacement.OnTheGround
+            ? PlacementFloor(at.X, at.Y, int.MaxValue)
+            : placement.floorY;
+    }
+
+    // The floor a stamped scene's entity stands on: the voxel under the one the
+    // stamp spawns it in (SubsceneStamper.StampEntities) — the same relation a
+    // hand placement's floorY has to its spot. Taken from the voxel it OCCUPIES,
+    // not rounded: a lamp hung half a metre under a bridge deck is under the
+    // deck. The nudge keeps a position authored on a top face, give or take a
+    // hair, in the voxel above that face.
+    public int SceneEntityFloor(SubscenePlacement stamp, SubsceneState sub, SceneEntity entity)
+        => Mathf.FloorToInt(SeatY(stamp) - sub.Anchor.Y + entity.Position.Y + SceneEntityFaceTolerance) - 1;
+
+    private const float SceneEntityFaceTolerance = 0.05f;
+
+    // Whether a thing standing on `floor` at a column is on the slice a map cut
+    // at `clipY` shows: not above the cut, and not under the floor that is
+    // visible there. int.MaxValue is the uncut map, where that floor is the top of
+    // the column — so an entity in a passage or under a roof is hidden until the
+    // plane comes down to it.
+    public bool IsFloorShown(int px, int pz, int floor, int clipY)
+        => floor <= clipY && floor >= PlacementFloor(px, pz, clipY);
+
+    public bool IsEntityShown(EntityPlacement placement, int clipY)
+    {
+        Vector2I at = TexelXZ(placement.anchorXZ);
+        return IsFloorShown(at.X, at.Y, EntityFloor(placement), clipY);
+    }
+
+    public bool IsSceneEntityShown(SubscenePlacement stamp, SubsceneState sub, SceneEntity entity, int clipY)
+    {
+        Vector2I at = SceneEntityTexel(stamp, sub, entity);
+        return IsFloorShown(at.X, at.Y, SceneEntityFloor(stamp, sub, entity), clipY);
+    }
+
+    public bool IsSpawnShown(int clipY)
+    {
+        Vector2I at = TexelXZ(Placements.spawnXZ);
+        return IsFloorShown(at.X, at.Y, PlacementFloor(at.X, at.Y, int.MaxValue), clipY);
     }
 
     public void AddEntity(EntityPlacement placement)

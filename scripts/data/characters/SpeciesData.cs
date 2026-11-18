@@ -91,6 +91,17 @@ public partial class SpeciesData : Resource
         }
     }
 
+    // This species' secret rune sequence, 3 to 5 long, unique across species
+    // (resource_check enforces both). Runes may repeat. Empty = a species no
+    // inscription answers to. Learned one position at a time from a RuneBoneData.
+    [Export] public Godot.Collections.Array<RuneData> runes = new();
+    public const int MinRuneSequence = 3;
+    // Also bounds the per-species known-position bitmask (Knowledge.KnownRunes).
+    public const int MaxRuneSequence = 5;
+    // Managed read-mirror of `runes` — read on every inscribed hit.
+    private RuneData[] _runesFlat;
+    public RuneData[] RunesFlat => _runesFlat ??= runes == null ? System.Array.Empty<RuneData>() : System.Linq.Enumerable.ToArray(runes);
+
     // What this species can do. A brain node requiring an ability it lacks is
     // dropped at spawn, so species sharing one brain differ here rather than
     // forking it (a basic goblin without Dodge). See EMobAbility.

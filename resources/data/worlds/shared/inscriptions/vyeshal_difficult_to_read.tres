@@ -5,5 +5,5 @@
 
 [resource]
 script = ExtResource("1_script")
-text = "Vyeshal is difficult to read. But study, my friend, and you will learn it."
+textKey = &"inscription_vyeshal_difficult_to_read"
 language = ExtResource("2_language")

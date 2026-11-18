@@ -148,6 +148,13 @@ uniform vec2 uv_scale = vec2(1.0);
 uniform vec3 emission_tint : source_color = vec3(0.0);
 uniform float emission_strength = 0.0;
 
+#ifdef MODEL_EMISSION_MAP
+// The glow comes from its own mask instead of the albedo, so only the texels
+// the art marks (a flower's petals) glow while the leaves on the same atlas
+// stay dark. The mask carries the glow COLOUR, so tint is normally white.
+uniform sampler2D emission_tex : source_color, filter_nearest, hint_default_black;
+#endif
+
 // Optional specular glint for wet / glossy / metal surfaces (slimes, an iron
 // pot). Default strength 0 is inert. Blinn-Phong from every light that shades
 // the model: the sun/moon DirectionalLight in light(), and the two fills in
@@ -397,6 +404,39 @@ instance uniform float broken_rim_darken : hint_range(0.0, 1.0) = 0.55;
 instance uniform float broken_rim_width : hint_range(0.001, 0.5) = 0.09;
 #endif
 
+#ifdef MODEL_FOLIAGE_SWAY
+// Plant meshes sway with the wind like detail_sprite's grass (same globals,
+// same two-octave sway). Being walked through or struck is FoliageRustle's
+// per-plant spring (rustle_* below), not the trample field the grass reads.
+// Bend grows with the square of height above the instance origin, so the mesh
+// pivot must sit at the plant's base.
+global uniform vec3 wind_dir;
+global uniform float wind_amplitude;
+global uniform float wind_phase;
+// Multiplies the wind sway; 0 = rigid.
+uniform float sway_strength : hint_range(0.0, 2.0) = 1.0;
+// World height (m) at which the bend weight reaches 1 — grass's 1 m blade.
+uniform float sway_reference_height = 1.0;
+// Per-plant spread of tempo, amplitude and lean direction; 0 = identical
+// motion apart from phase.
+uniform float sway_variation : hint_range(0.0, 1.0) = 1.0;
+// Driven by FoliageRustle when the plant is struck: a world-space lean (m at
+// sway_reference_height) and a sideways shiver. Per instance, because every
+// plant of a kind shares one material.
+instance uniform vec3 rustle_lean = vec3(0.0);
+instance uniform float rustle_flutter = 0.0;
+instance uniform float rustle_flutter_hz = 7.0;
+
+// sin-free hash: the fract(sin(dot)) idiom loses precision at world-scale
+// coordinates and correlates neighbours.
+vec4 foliage_sway_hash(vec2 p)
+{
+	vec4 p4 = fract(vec4(p.xyxy) * vec4(0.1031, 0.1030, 0.0973, 0.1099));
+	p4 += dot(p4, p4.wzxy + 33.33);
+	return fract((p4.xxyz + p4.yzzw) * p4.zywx);
+}
+#endif
+
 varying vec3 world_pos;
 // fragment() -> light(): how much of the sun/moon may glint here — the light
 // map's sky mask, faded by the silhouette. light() runs for the DirectionalLight
@@ -423,6 +463,41 @@ varying vec3 world_binormal;
 #endif
 
 void vertex() {
+#ifdef MODEL_FOLIAGE_SWAY
+	{
+		vec3 origin = MODEL_MATRIX[3].xyz;
+		vec3 rest_world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+		float h = max(rest_world.y - origin.y, 0.0) / max(sway_reference_height, 1e-3);
+		float bend = h * h * sway_strength;
+
+		// Phase alone isn't enough: two plants at the same tempo whose phases land
+		// close stay in lockstep forever. Tempo, amplitude and lean direction are
+		// all per-plant, so any momentary match drifts apart.
+		vec4 rnd = foliage_sway_hash(origin.xz);
+		float v = sway_variation;
+		float phase = rnd.x * 6.2831853;
+		float tempo = mix(1.0, mix(0.7, 1.35, rnd.y), v);
+		float amp = mix(1.0, mix(0.65, 1.3, rnd.z), v);
+		float yaw = (rnd.w - 0.5) * 0.9 * v;
+		float t = wind_phase * tempo;
+		float sway = sin(t + phase) * 0.6
+			+ sin(t * 1.73 + phase * 2.1) * 0.25
+			+ sin(t * 0.41 + phase * 3.7) * 0.15;
+		float cy = cos(yaw);
+		float sy = sin(yaw);
+		vec3 dir = vec3(wind_dir.x * cy - wind_dir.z * sy, wind_dir.y, wind_dir.x * sy + wind_dir.z * cy);
+		vec3 offset = dir * (sway * amp * wind_amplitude * bend);
+
+		float rustle_bend = h * h;
+		offset += rustle_lean * rustle_bend;
+		offset += normalize(MODEL_MATRIX[0].xyz) * (sin(TIME * rustle_flutter_hz * 6.2831853 + phase * 41.0) * rustle_flutter * rustle_bend);
+
+		// Back to object space (uniform scale: inverse = transpose / scale²), so
+		// normals, shadows and the built-in fog all see the displaced vertex.
+		float scale_sq = max(dot(MODEL_MATRIX[0].xyz, MODEL_MATRIX[0].xyz), 1e-8);
+		VERTEX += (transpose(mat3(MODEL_MATRIX)) * offset) / scale_sq;
+	}
+#endif
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	clip_anchor = MODEL_MATRIX[3].xyz + vec3(0.0, clip_anchor_offset, 0.0);
 	object_y = VERTEX.y;
@@ -508,6 +583,13 @@ void fragment() {
 	// The normal the form term shades against. Plain geometry unless a detail
 	// map perturbs it below.
 	vec3 shading_normal = normalize(world_normal);
+#ifdef MODEL_TWO_SIDED
+	// cull_disabled cards: the back face must shade as its own side, or every
+	// leaf seen from behind lights as if it faced away from the sun.
+	if (!FRONT_FACING) {
+		shading_normal = -shading_normal;
+	}
+#endif
 #ifdef MODEL_SURFACE_DETAIL
 	vec3 detail = texture(detail_tex, UV * detail_scale).rgb;
 	base *= mix(vec3(1.0), detail * 2.0, detail_strength);
@@ -709,7 +791,11 @@ void fragment() {
 	// carries the texture's detail instead of a flat wash. After the lighting
 	// composite and before the silhouette blend, so a silhouetted mesh still
 	// collapses to its flat tint rather than glowing through.
+#ifdef MODEL_EMISSION_MAP
+	out_emission += texture(emission_tex, UV).rgb * emission_tint * emission_strength;
+#else
 	out_emission += base * emission_tint * emission_strength;
+#endif
 
 	// Silhouette blend toward a flat tint, post-lighting (matches sprite_lit):
 	// ALBEDO fades to zero (so light() stops adding sun) while EMISSION fades to

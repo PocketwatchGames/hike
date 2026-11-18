@@ -61,6 +61,14 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
     private const float GoldenAngleRad = 2.39996323f;
     private const float MaxAngleJitterDeg = 90f;
 
+    private static readonly StringName RustleLeanParam = "rustle_lean";
+    private static readonly StringName RustleFlutterParam = "rustle_flutter";
+    private static readonly StringName RustleFlutterHzParam = "rustle_flutter_hz";
+
+    // Every material this bake drew with (cards, shadow twin, details), so a
+    // rustle reaches all of them without walking the child nodes per frame.
+    private readonly List<ShaderMaterial> _bakedMaterials = new List<ShaderMaterial>();
+
     public override void _Ready()
     {
         // When parented to a TreeTrunk, the trunk owns the rebuild order: it
@@ -95,6 +103,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
 
     private void Bake(List<FoliageCluster> clusters)
     {
+        _bakedMaterials.Clear();
         ClearShadowCaster();
         if (cardMesh == null)
         {
@@ -198,6 +207,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
         float canopyHeight = Mathf.Max(canopyTopWorldY - treeOrigin.Y, 0.5f);
         if (MaterialOverride is ShaderMaterial mat)
         {
+            _bakedMaterials.Add(mat);
             mat.SetShaderParameter("tree_origin", treeOrigin);
             mat.SetShaderParameter("canopy_height", canopyHeight);
             RebuildShadowCaster(mm, mat);
@@ -251,6 +261,7 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
 
         ShaderMaterial shadowMat = (ShaderMaterial)cardMaterial.Duplicate();
         shadowMat.SetShaderParameter("shadow_caster_pass", true);
+        _bakedMaterials.Add(shadowMat);
 
         MultiMeshInstance3D proxy = new MultiMeshInstance3D
         {
@@ -416,11 +427,16 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
                 clusterIdx++;
             }
 
+            ShaderMaterial detailMat = BuildDetailMaterial(detail, treeOrigin, canopyHeight);
+            if (detailMat != null)
+            {
+                _bakedMaterials.Add(detailMat);
+            }
             MultiMeshInstance3D mmi = new MultiMeshInstance3D
             {
                 Name = $"Detail{typeIdx}",
                 Multimesh = mm,
-                MaterialOverride = BuildDetailMaterial(detail, treeOrigin, canopyHeight),
+                MaterialOverride = detailMat,
                 // Details never cast: they're a handful of flowers/buds sitting
                 // ON a canopy that already casts an opaque silhouette, and their
                 // camera-facing billboard + view-space depth_bias both point the
@@ -503,6 +519,19 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
         mat.SetShaderParameter("sway_amplitude", swayAmplitude);
         mat.SetShaderParameter("wind_bend_strength", windBendStrength);
         return mat;
+    }
+
+    // Brush response (see FoliageRustle): world-space lean at the canopy top
+    // and per-card flutter amplitude, both in meters. Zero is at rest.
+    public void SetRustle(Vector3 lean, float flutter, float flutterHz)
+    {
+        for (int i = 0; i < _bakedMaterials.Count; i++)
+        {
+            ShaderMaterial mat = _bakedMaterials[i];
+            mat.SetShaderParameter(RustleLeanParam, lean);
+            mat.SetShaderParameter(RustleFlutterParam, flutter);
+            mat.SetShaderParameter(RustleFlutterHzParam, flutterHz);
+        }
     }
 
     private Vector3 FindTreeOrigin()

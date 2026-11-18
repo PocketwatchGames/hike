@@ -14,6 +14,7 @@ public enum EKnowledgeCategory
     Language = 1 << 2,
     Item = 1 << 3,      // identified items
     Name = 1 << 5,      // characters whose name the party has learned
+    Rune = 1 << 6,      // positions of a species' rune sequence
 }
 
 // A store of "learned" knowledge — identified items, discovered recipes, bestiary
@@ -42,6 +43,8 @@ public class Knowledge
     // Characters introduced by name, keyed by their conversation - it is the one
     // resource per authored character (see ConversationData.nameLocKey).
     public readonly HashSet<ConversationData> KnownNames = new();
+    // Per species: a bit per known position of its rune sequence (SpeciesData.runes).
+    public readonly Dictionary<SpeciesData, int> KnownRunes = new();
 
     // Fold `other` into this store: union the sets, and per lesson keep the larger percent.
     // Used to bank a member's field knowledge into the permanent
@@ -66,6 +69,16 @@ public class Knowledge
         int speciesBefore = DiscoveredSpecies.Count;
         DiscoveredSpecies.UnionWith(other.DiscoveredSpecies);
         if (DiscoveredSpecies.Count > speciesBefore) { changed |= EKnowledgeCategory.Bestiary; }
+
+        foreach (KeyValuePair<SpeciesData, int> kv in other.KnownRunes)
+        {
+            KnownRunes.TryGetValue(kv.Key, out int mine);
+            if ((mine | kv.Value) != mine)
+            {
+                KnownRunes[kv.Key] = mine | kv.Value;
+                changed |= EKnowledgeCategory.Rune;
+            }
+        }
 
         int namesBefore = KnownNames.Count;
         KnownNames.UnionWith(other.KnownNames);
@@ -95,6 +108,12 @@ public class Knowledge
         WriteSet(w, DiscoveredRecipes);
         WriteSet(w, DiscoveredSpecies);
         WriteSet(w, KnownNames);
+        w.Write(KnownRunes.Count);
+        foreach (KeyValuePair<SpeciesData, int> kv in KnownRunes)
+        {
+            EntitySerializer.WriteRef(w, kv.Key);
+            w.Write(kv.Value);
+        }
         w.Write(LearnedLessons.Count);
         foreach (KeyValuePair<LanguageData, Dictionary<int, float>> kv in LearnedLessons)
         {
@@ -115,6 +134,17 @@ public class Knowledge
         ReadSet(r, DiscoveredRecipes);
         ReadSet(r, DiscoveredSpecies);
         ReadSet(r, KnownNames);
+        int runeSpecies = r.ReadInt32();
+        for (int i = 0; i < runeSpecies; i++)
+        {
+            SpeciesData species = EntitySerializer.ReadRef<SpeciesData>(r);
+            int mask = r.ReadInt32();
+            if (species != null)
+            {
+                KnownRunes.TryGetValue(species, out int mine);
+                KnownRunes[species] = mine | mask;
+            }
+        }
         int languages = r.ReadInt32();
         for (int i = 0; i < languages; i++)
         {
@@ -177,6 +207,7 @@ public class Knowledge
         DiscoveredRecipes.Clear();
         DiscoveredSpecies.Clear();
         KnownNames.Clear();
+        KnownRunes.Clear();
         LearnedLessons.Clear();
     }
 }

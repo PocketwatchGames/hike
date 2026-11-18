@@ -9,7 +9,7 @@
 [ext_resource type="Resource" uid="uid://csjvdcg5sawpo" path="res://resources/data/world_authoring/terrain/swamp_highlands.tres" id="6_4w8xh"]
 [ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="8_4e6x3"]
 [ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="10_grp"]
-[ext_resource type="Resource" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab2.tres" id="12_stone"]
+[ext_resource type="Resource" uid="uid://byfl1t01fe5rq" path="res://resources/data/worlds/shared/spawn_entries/knowledge_stone_muddish_vocab2.tres" id="12_stone"]
 [ext_resource type="Resource" uid="uid://xbjl27pt7p61" path="res://resources/data/world_authoring/zones/swamp_highlands.tres" id="14_cpg00"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="90_countrange"]
 [ext_resource type="Resource" uid="uid://8dvmhkjhd6ma" path="res://resources/data/items/scrolls/treasure_map_swamp_highlands.tres" id="96_map"]

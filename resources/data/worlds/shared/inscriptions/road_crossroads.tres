@@ -5,5 +5,5 @@
 
 [resource]
 script = ExtResource("1_script")
-text = "Crossroads. North to the peaks, west to the wood, east to the dunes, south to the mire."
+textKey = &"inscription_road_crossroads"
 language = ExtResource("2_language")

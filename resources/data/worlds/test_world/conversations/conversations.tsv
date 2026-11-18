@@ -13,8 +13,8 @@ intro_librarian_	Ulga	Crone			greeting	language					Ah, come in, come in!
 				x	whittlebone	vyeshal	common	npcvar:learn=false			Vyeshal?
 				x	whittlebone	about	common				Can you tell me about this place?
 					about	topics	common				Our seaside hamlet is sinking… into the mud to the west, or the mist to the south. We haven’t many seasons left. The inn, the watchfolk, all left for higher ground. Even the Seer has decamped.
-					vyeshal	whittlebone	common			spawn_loot:scroll_vyeshal_vocab_1_2;npcvar:learn=true	It’s a dying language. But it is all that my people know. Read this. It is not hard to learn.
-				x	topics	vyeshal	common	npcvar:learn=false		spawn_loot:scroll_vyeshal_vocab_1_2;npcvar:learn=true	What is Vyeshal?
+					vyeshal	whittlebone	common				It’s a dying language. But it is all that my people know. Read this. It is not hard to learn.
+				x	topics	vyeshal	common	npcvar:learn=false			What is Vyeshal?
 				x	topics	inn	common				The inn?
 				x	topics	seer	common				Who is this Seer?
 				x	topics	watchfolk	common				Tell me about the watchfolk.

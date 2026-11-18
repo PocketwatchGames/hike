@@ -11,13 +11,15 @@
 [ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="7_autocoll"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="8_meshhl"]
 [ext_resource type="PackedScene" uid="uid://b5j7jn0ipqi5g" path="res://assets/models/statue/SM_Stone_Statue_Big_A.fbx" id="9_statuebig"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="9_uptey"]
 [ext_resource type="PackedScene" uid="uid://bjficgdci3xwn" path="res://assets/models/statue/SM_Stone_Statue_Base_A.fbx" id="10_statuebase"]
-[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 [ext_resource type="PackedScene" uid="uid://bpk7jh8tfg3fh" path="res://scenes/fx/knowledge_stone_ambient_loop.tscn" id="11_ambloop"]
 [ext_resource type="PackedScene" uid="uid://due3oqhb0clen" path="res://scenes/fx/knowledge_stone_use.tscn" id="12_use"]
-[ext_resource type="Script" uid="uid://9b173hyegabq7" path="res://scripts/gameplay/entities/MapMarker.cs" id="13_mapmarker"]
+[ext_resource type="Script" uid="uid://desad1mdwnbo3" path="res://scripts/gameplay/entities/MapMarker.cs" id="13_mapmarker"]
 [ext_resource type="Texture2D" uid="uid://cc5oqi7tf0ylw" path="res://assets/textures/map_markers/knowledge_stone.png" id="14_mapicon"]
+[ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="20_ltl8d"]
 [ext_resource type="PackedScene" uid="uid://bwh4veu2kt72u" path="res://scenes/fx/read_loop.tscn" id="90_loopfx"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw30e" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 
 [sub_resource type="Resource" id="Resource_ks_event_open"]
 script = ExtResource("4_event")
@@ -62,9 +64,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
 script = ExtResource("7_autocoll")
 
 [node name="SM_Stone_Statue_Big_A" parent="StatueModel" unique_id=1887680722 instance=ExtResource("9_statuebig")]
-transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0)
+transform = Transform3D(-2.1855694e-08, 0, -0.5, 0, 0.5, 0, 0.5, 0, -2.1855694e-08, 0, 0, 0)
 
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=391963226]
+collision_layer = 2048
 script = ExtResource("porous_body")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=1011289550]
@@ -93,10 +96,18 @@ _collectFrom = NodePath("../StatueModel")
 [node name="HUDNode" type="Node3D" parent="." unique_id=1996100106]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 
-[node name="MapMarker" type="Node3D" parent="."]
+[node name="MapMarker" type="Node3D" parent="." unique_id=1959938196]
 script = ExtResource("13_mapmarker")
-displayName = &"Knowledge Stone"
 icon = ExtResource("14_mapicon")
+displayName = &"Knowledge Stone"
 hasActiveState = true
 iconModulate = Color(0.3, 0.3, 0.3, 0.5)
-activeModulate = Color(1, 1, 1, 1)
+
+[node name="StationaryLight" type="Node3D" parent="." unique_id=1238179400]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.8248053, 0)
+script = ExtResource("20_ltl8d")
+_lightColor = Color(0.120000005, 0.78, 1, 1)
+_distance = 12.0
+_falloff = 2.0
+_brightness = 2.0
+metadata/_custom_type_script = "uid://bp5xvgntv4511"

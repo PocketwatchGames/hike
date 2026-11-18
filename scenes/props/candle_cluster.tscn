@@ -1,0 +1,35 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="2_light"]
+[ext_resource type="PackedScene" uid="uid://lk8uq1vddoap" path="res://assets/models/candles/Candles_01.fbx" id="3_model"]
+[ext_resource type="PackedScene" path="res://scenes/fx/candle_flame_loop.tscn" id="5_flame"]
+
+[node name="PropInstance" type="Node3D" node_paths=PackedStringArray("_light")]
+script = ExtResource("1_prop")
+_light = NodePath("StationaryLight")
+
+[node name="Model" type="Node3D" parent="."]
+
+[node name="Candles_01" parent="Model" instance=ExtResource("3_model")]
+transform = Transform3D(100, 0, 0, 0, 100, 0, 0, 0, 100, 0, 0.0, 0)
+
+[node name="Flame1" parent="." instance=ExtResource("5_flame")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.007, 0.262, -0.040)
+
+[node name="Flame2" parent="." instance=ExtResource("5_flame")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.055, 0.160, -0.035)
+
+[node name="Flame3" parent="." instance=ExtResource("5_flame")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.010, 0.105, 0.050)
+
+[node name="StationaryLight" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.000, 0.300, 0.000)
+script = ExtResource("2_light")
+_lightColor = Color(1, 0.72, 0.42, 1)
+_distance = 5.0
+_falloff = 1.5
+_brightness = 0.45
+_flicker = true
+_flickerMin = 0.8
+_flickerHz = 7.0

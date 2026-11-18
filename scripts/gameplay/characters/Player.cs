@@ -1859,7 +1859,7 @@ public partial class Player : CharacterBody3D, IHudAnchored
 		}
 		if (item.data is IApplyOnPickup onPickup)
 		{
-			return onPickup.ApplyOnPickup(this);
+			return onPickup.ApplyOnPickup(this, item);
 		}
 		// Partial adds refuse the whole take — the leftover units have nowhere
 		// to go, and the caller (loot) would remove the pile regardless.
@@ -2480,6 +2480,7 @@ public partial class Player : CharacterBody3D, IHudAnchored
 		}
 
 		PushTouchedMobs();
+		BrushTouchedPorousBodies(velocityBeforeMove);
 		if (_dashTimeRemaining > 0f)
 		{
 			HandleDashWallCollisions();

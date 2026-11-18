@@ -8,6 +8,10 @@
 [ext_resource type="Resource" uid="uid://bx6gkmxut0cev" path="res://resources/data/characters/troll/troll_battle_cry.tres" id="12_cry"]
 [ext_resource type="Resource" uid="uid://bgfwv18aek0s2" path="res://resources/data/characters/troll/troll_claw.tres" id="13_claw"]
 [ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="oil_droplet"]
+[ext_resource type="Script" uid="uid://esxkt6kn9aw5a" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_03.tres" id="rune_03"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_05.tres" id="rune_05"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_07.tres" id="rune_07"]
 
 [sub_resource type="Resource" id="Desc_loot_oil"]
 script = ExtResource("9_desc")
@@ -23,6 +27,7 @@ metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 
 [resource]
 script = ExtResource("1_sub")
+runes = Array[ExtResource("rune_script")]([ExtResource("rune_03"), ExtResource("rune_07"), ExtResource("rune_05")])
 mob = ExtResource("2_mob")
 displayName = &"Swamp Troll"
 weapons = Array[ExtResource("11_wd")]([ExtResource("12_cry"), ExtResource("13_claw")])

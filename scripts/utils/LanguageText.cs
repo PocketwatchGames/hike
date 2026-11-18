@@ -32,6 +32,18 @@ using Godot;
 //
 //   [narrate]He points to the tent.[/narrate] Vash'eth tolun mira.
 //
+// A control is [input:<id>] — a ControlBindingData.id from the game's
+// ControlSetData, the same rows the controls screen lists — replaced at display
+// time by what performs it on the device the player is using right now
+// (InputDevice.Current): "LMB+RMB" on keyboard, "RT" on a pad. The per-device
+// actions live on the control, so a line names WHAT to do and never which
+// action implements it where. It is a single token, not a span — it may sit
+// inside a language or narration span, which carries on after it — and like
+// narration it is in no language: never scrambled, left out of the
+// comprehension score. RenderBbcode draws it bold.
+//
+//   [input:camera] turns the view.
+//
 // Every display path goes through Render rather than calling TextScrambler
 // directly, because the markup has to be stripped even when nothing is
 // scrambled — a fluent player, an unlanguaged sign, or no player at all.
@@ -41,6 +53,7 @@ public static class LanguageText
     const string TagClose = "[/lang]";
     const string NarrateOpen = "[narrate]";
     const string NarrateClose = "[/narrate]";
+    const string InputOpen = "[input:";
     // Reserved span id: resolves to SimData.commonTongue, which every player
     // knows in full, so nothing in it scrambles.
     const string CommonId = "common";
@@ -53,12 +66,15 @@ public static class LanguageText
         public readonly LanguageData Language;
         // Narration carries no language (Language is null).
         public readonly bool Narration;
+        // A resolved [input:] glyph; no language either.
+        public readonly bool Input;
 
-        public Span(string text, LanguageData language, bool narration)
+        public Span(string text, LanguageData language, bool narration, bool input = false)
         {
             Text = text;
             Language = language;
             Narration = narration;
+            Input = input;
         }
     }
 
@@ -109,7 +125,11 @@ public static class LanguageText
         for (int i = 0; i < spans.Count; i++)
         {
             string text = EscapeBbcode(ScrambleFor(spans[i].Text, spans[i].Language, player));
-            if (spans[i].Narration)
+            if (spans[i].Input)
+            {
+                sb.Append("[b]").Append(text).Append("[/b]");
+            }
+            else if (spans[i].Narration)
             {
                 sb.Append("[i]").Append(text).Append("[/i]");
             }
@@ -148,7 +168,7 @@ public static class LanguageText
         int totalWeight = 0;
         for (int i = 0; i < spans.Count; i++)
         {
-            if (spans[i].Narration)
+            if (spans[i].Narration || spans[i].Input)
             {
                 continue;
             }
@@ -161,8 +181,8 @@ public static class LanguageText
         return totalWeight > 0 ? weighted / totalWeight : 1f;
     }
 
-    // `raw` with every span tag removed and nothing else changed — the line
-    // as it reads to someone fluent in everything.
+    // `raw` with every span tag removed and every [input:] token resolved — the
+    // line as it reads to someone fluent in everything.
     public static string Strip(string raw)
     {
         if (string.IsNullOrEmpty(raw) || raw.IndexOf('[') < 0)
@@ -175,6 +195,16 @@ public static class LanguageText
         {
             if (raw[i] == '[')
             {
+                if (Matches(raw, i, InputOpen))
+                {
+                    int end = raw.IndexOf(']', i + InputOpen.Length);
+                    if (end >= 0)
+                    {
+                        sb.Append(ResolveInput(raw.Substring(i + InputOpen.Length, end - i - InputOpen.Length), raw));
+                        i = end + 1;
+                        continue;
+                    }
+                }
                 int skip = TagLengthAt(raw, i);
                 if (skip > 0)
                 {
@@ -269,6 +299,23 @@ public static class LanguageText
                 spanStart = i;
                 continue;
             }
+            if (Matches(raw, i, InputOpen))
+            {
+                int end = raw.IndexOf(']', i + InputOpen.Length);
+                if (end < 0)
+                {
+                    GD.PushError($"LanguageText: unterminated '{InputOpen}' tag in \"{raw}\".");
+                    break;
+                }
+                // A token, not a span: the run around it keeps its language and
+                // resumes after it.
+                AddSpan(spans, raw, spanStart, i, current, open == ESpanKind.Narration);
+                string body = raw.Substring(i + InputOpen.Length, end - i - InputOpen.Length);
+                spans.Add(new Span(ResolveInput(body, raw), null, false, true));
+                i = end + 1;
+                spanStart = i;
+                continue;
+            }
             if (Matches(raw, i, TagOpen))
             {
                 int end = raw.IndexOf(']', i + TagOpen.Length);
@@ -328,6 +375,29 @@ public static class LanguageText
             return defaultLanguage;
         }
         return found;
+    }
+
+    // What performs the control named `id` on the device in use now. A missing
+    // control or one unbound on this device shows the controls screen's
+    // "unbound" text, so the line stays readable while the author hears about it.
+    static string ResolveInput(string id, string raw)
+    {
+        ControlSetData controls = ControlSetData.Current;
+        InputDevice.EDevice device = InputDevice.Current;
+        ControlBindingData binding = controls?.Find(id);
+        if (binding == null)
+        {
+            GD.PushError($"LanguageText: [input:{id}] names no control in the ControlSetData in \"{raw}\".");
+        }
+        else if (controls.TryCompose(binding, device, out string glyphs))
+        {
+            return glyphs;
+        }
+        else
+        {
+            GD.PushError($"LanguageText: [input:{id}] has nothing bound on {device} in \"{raw}\".");
+        }
+        return Loc.Get(Loc.Keys.controls_unbound);
     }
 
     // One span's display form. No language, no player, or full fluency all

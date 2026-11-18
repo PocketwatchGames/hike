@@ -434,7 +434,8 @@ public partial class Hud : Control
 	{
 		return type == EAnnouncementType.Recipe
 			|| type == EAnnouncementType.LanguageLearned
-			|| type == EAnnouncementType.ItemIdentified;
+			|| type == EAnnouncementType.ItemIdentified
+			|| type == EAnnouncementType.RuneLearned;
 	}
 
 	// Compose a one-line event-log entry from an announcement's title/subtitle.

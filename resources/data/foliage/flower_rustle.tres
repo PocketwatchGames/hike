@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="FoliageRustleData" format=3]
+
+[ext_resource type="Script" uid="uid://63809evohrzpu" path="res://scripts/gameplay/trees/FoliageRustleData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+maxLean = 0.25
+stiffness = 90.0
+damping = 3.5
+flutterAmplitude = 0.02
+flutterHz = 9.0
+flutterDecaySeconds = 0.4
+hitKick = 3.0

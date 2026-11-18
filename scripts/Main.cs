@@ -18,6 +18,8 @@ public partial class Main : Node
 	// exists. Main drives the early progress; GameClient takes over once the
 	// game scene is instantiated.
 	[Export] public PackedScene loadingScreenScene;
+	// Every control the game describes — what [input:<id>] in authored text names.
+	[Export] public ControlSetData controls;
 
 	// Default worldgen run parameters. Fixed so a fresh boot deterministically
 	// reproduces the same world.
@@ -63,6 +65,7 @@ public partial class Main : Node
 		}
 		AudioVolume.ApplyAll();
 		InputBindings.Apply();
+		ControlSetData.Current = controls;
 		Loc.Init(CVars.language.Value);
 		AddChild(new ConsoleUI());
 		AddChild(new DiagnosticsOverlay());

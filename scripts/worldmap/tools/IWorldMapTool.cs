@@ -193,8 +193,9 @@ public interface IWorldMapTool
     // The hand-placed entity under this column, or null. The tool owns the hit
     // test — an entity is a point, so it is a proximity check with the tool's own
     // grab radius — which is what lets the painter grow and name whatever the
-    // cursor is over without knowing how one is grabbed.
-    EntityPlacement EntityUnder(WorldMapState ctx, Vector2I texel) => null;
+    // cursor is over without knowing how one is grabbed. Takes the view because
+    // only an entity on the slice the map shows can be under the cursor.
+    EntityPlacement EntityUnder(WorldMapState ctx, WorldMapView view, Vector2I texel) => null;
 
     // The entity of a STAMPED SCENE this tool has selected, or null — the same
     // panel edits it, forking its entry for that stamp alone. Only the entity
@@ -203,7 +204,7 @@ public interface IWorldMapTool
 
     // The stamped scene's entity under this column, or null, by the same rule
     // EntityUnder follows. A hand placement in the same cell wins.
-    SceneEntityTarget SceneEntityUnder(WorldMapState ctx, Vector2I texel) => null;
+    SceneEntityTarget SceneEntityUnder(WorldMapState ctx, WorldMapView view, Vector2I texel) => null;
 }
 
 // Which spawn layers a view previews as dots. A SET, not a choice: every view

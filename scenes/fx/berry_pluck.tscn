@@ -1,0 +1,24 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://dxbdi1sm6akns" path="res://assets/audio/source/interactives/sfx_loot_pickup_pluck_pop_01.wav" id="2_pop01"]
+[ext_resource type="AudioStream" uid="uid://o00vneo1o7wg" path="res://assets/audio/source/interactives/sfx_loot_pickup_pluck_pop_02.wav" id="3_pop02"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_pop"]
+playback_mode = 1
+random_pitch = 1.15
+random_volume_offset_db = 2.0
+streams_count = 2
+stream_0/stream = ExtResource("2_pop01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("3_pop02")
+stream_1/weight = 1.0
+
+[node name="BerryPluck" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Pop" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_pop")
+unit_size = 4.0
+max_distance = 18.0
+bus = &"World3D"

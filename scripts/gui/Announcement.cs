@@ -26,6 +26,8 @@ public enum EAnnouncementType
 	ItemPickedUp,
 	// An interaction spent an item (a key on a chest). Title is the whole line.
 	ItemUsed,
+	// A rune bone was read. Discovery banner; revealIcon is the rune learned.
+	RuneLearned,
 }
 
 // Carrier for a queued HUD announcement. Built by whoever discovers the
@@ -48,6 +50,10 @@ public class Announcement
 
 	// Optional inline icon shown next to the title on the panel.
 	public Texture2D icon;
+
+	// A picture the discovery banner fades in under the text once the banner
+	// itself is up — the thing revealed (a rune), not an inline label icon.
+	public Texture2D revealIcon;
 
 	// Optional one-shot sound played when the panel/banner fades in.
 	// When null, the surface falls back to its scene-baked default

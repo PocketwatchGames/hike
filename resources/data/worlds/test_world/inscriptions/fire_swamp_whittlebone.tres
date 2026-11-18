@@ -5,6 +5,5 @@
 
 [resource]
 script = ExtResource("1_script")
-text = "W: The Fire Swamp
-E: Whittlebone"
+textKey = &"inscription_fire_swamp_whittlebone"
 language = ExtResource("2_language")

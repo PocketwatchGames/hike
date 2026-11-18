@@ -23,6 +23,10 @@ public static class MantleProbe
         // Tallest ledge a mantle can take, up or down. Above this the player
         // needs a marked climbable surface, which is a separate affordance.
         public readonly float maxRise;
+        // Whether an UPWARD mantle may land on a water surface. Off when
+        // swimming: a swimmer hauls out onto land, never up a cascade into the
+        // pool above.
+        public readonly bool allowAscendOntoWater;
         // Whether a drop of the same size is also a candidate. Off when
         // swimming: climbing DOWN out of water is not a thing.
         public readonly bool allowDescend;
@@ -32,12 +36,13 @@ public static class MantleProbe
         // traversals go opposite ways.
         public readonly bool preferDescend;
 
-        public Settings(float reach, float minRise, float maxRise, bool allowDescend,
-            bool preferDescend = false)
+        public Settings(float reach, float minRise, float maxRise, bool allowAscendOntoWater,
+            bool allowDescend, bool preferDescend = false)
         {
             this.reach = reach;
             this.minRise = minRise;
             this.maxRise = maxRise;
+            this.allowAscendOntoWater = allowAscendOntoWater;
             this.allowDescend = allowDescend;
             this.preferDescend = preferDescend;
         }
@@ -94,11 +99,8 @@ public static class MantleProbe
         // carries.
         bool descendFirst = settings.preferDescend && settings.allowDescend;
 
-        if (!descendFirst && field.TryGetSurfaceInBand(wx, wz,
-            refY + settings.minRise + BandEpsilon, refY + settings.maxRise, refY,
-            out float upY, out bool upWater))
+        if (!descendFirst && TryFindUp(field, wx, wz, refY, BandEpsilon, settings, out candidate))
         {
-            candidate = new Candidate(new Vector3(wx + 0.5f, upY, wz + 0.5f), upY - refY, upWater);
             return true;
         }
 
@@ -112,15 +114,29 @@ public static class MantleProbe
 
         // Only reachable when descent was preferred and found nothing — fall
         // back to the wall rather than refusing a traversal that exists.
-        if (descendFirst && field.TryGetSurfaceInBand(wx, wz,
-            refY + settings.minRise + BandEpsilon, refY + settings.maxRise, refY,
-            out float upFallback, out bool upFallbackWater))
+        if (descendFirst && TryFindUp(field, wx, wz, refY, BandEpsilon, settings, out candidate))
         {
-            candidate = new Candidate(new Vector3(wx + 0.5f, upFallback, wz + 0.5f),
-                upFallback - refY, upFallbackWater);
             return true;
         }
 
         return false;
+    }
+
+    private static bool TryFindUp(PlayerWalkField field, int wx, int wz, float refY,
+        float bandEpsilon, in Settings settings, out Candidate candidate)
+    {
+        candidate = default;
+        if (!field.TryGetSurfaceInBand(wx, wz,
+            refY + settings.minRise + bandEpsilon, refY + settings.maxRise, refY,
+            out float upY, out bool upWater))
+        {
+            return false;
+        }
+        if (upWater && !settings.allowAscendOntoWater)
+        {
+            return false;
+        }
+        candidate = new Candidate(new Vector3(wx + 0.5f, upY, wz + 0.5f), upY - refY, upWater);
+        return true;
     }
 }

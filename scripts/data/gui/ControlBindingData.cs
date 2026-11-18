@@ -1,7 +1,8 @@
 using Godot;
 
-// One row of the controls help screen: what a control does, and the InputMap
-// actions that name it on each device.
+// One control the game describes to the player — a row of the controls help
+// screen, and what [input:<id>] in authored text names (see ControlSetData):
+// what it does, and the InputMap actions that perform it on each device.
 //
 // The glyphs themselves are NOT authored here — they are resolved from the live
 // InputMap, so the bindings InputBindings rewrites over project.godot at startup
@@ -13,6 +14,8 @@ using Godot;
 [GlobalClass]
 public partial class ControlBindingData : Resource
 {
+	// What authored text calls this control: [input:<id>].
+	[Export] public StringName id;
 	// Localization key for the label column ("Interact / Dash").
 	[Export] public StringName labelKey = "";
 	// Actions naming this control per device. Empty — or an action carrying no

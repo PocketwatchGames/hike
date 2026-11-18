@@ -1,0 +1,41 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="2_fade_grad"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="3_particle_lit"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_candleflame"]
+emission_shape = 1
+emission_sphere_radius = 0.008
+direction = Vector3(0, 1, 0)
+spread = 5.0
+initial_velocity_min = 0.08
+initial_velocity_max = 0.16
+gravity = Vector3(0, 0.3, 0)
+damping_min = 0.4
+damping_max = 0.8
+scale_min = 0.6
+color = Color(1, 0.8, 0.38, 1)
+color_ramp = ExtResource("2_fade_grad")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_candleflame"]
+render_priority = 0
+shader = ExtResource("3_particle_lit")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(1, 0.72, 0.28, 0.9)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_candleflame"]
+material = SubResource("ShaderMaterial_candleflame")
+size = Vector2(0.035, 0.035)
+
+[node name="CandleFlameLoop" type="Node3D"]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Flame" type="GPUParticles3D" parent="."]
+amount = 6
+lifetime = 0.4
+randomness = 0.3
+process_material = SubResource("ParticleProcessMaterial_candleflame")
+draw_pass_1 = SubResource("QuadMesh_candleflame")

@@ -11,6 +11,10 @@
 [ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="10_cry"]
 [ext_resource type="Resource" uid="uid://c0tanvr887mia" path="res://resources/data/characters/goblin/goblin_torch.tres" id="11_torch"]
 [ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="oil_droplet"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_03.tres" id="rune_03"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_04.tres" id="rune_04"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_05.tres" id="rune_05"]
+[ext_resource type="Script" uid="uid://xjo84nfo22ei" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
 
 [sub_resource type="Resource" id="Desc_loot_oil"]
 script = ExtResource("7_desc")
@@ -30,5 +34,6 @@ mob = ExtResource("2_mob")
 displayName = &"Mountain Torchbearer"
 weapons = Array[ExtResource("9_wd")]([ExtResource("10_cry"), ExtResource("11_torch")])
 loot = Array[ExtResource("6_lootcount")]([SubResource("Resource_loot_oil")])
+runes = Array[ExtResource("rune_script")]([ExtResource("rune_04"), ExtResource("rune_03"), ExtResource("rune_05")])
 abilities = 5
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

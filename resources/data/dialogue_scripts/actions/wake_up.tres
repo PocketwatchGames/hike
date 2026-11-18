@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="ApplyItemEffectsAction" format=3 uid="uid://ey6lcqevxhr8"]
+[gd_resource type="Resource" script_class="ApplyItemEffectsAction" format=3 uid="uid://djg1u6n4ky451"]
 
-[ext_resource type="Script" uid="uid://zewwmaq26ivn5" path="res://scripts/data/conversation/actions/ApplyItemEffectsAction.cs" id="1_action"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="1_13i5h"]
+[ext_resource type="Script" uid="uid://b7ho2w8ksbm4k" path="res://scripts/data/conversation/actions/ApplyItemEffectsAction.cs" id="1_action"]
 [ext_resource type="Script" uid="uid://ka8317ruesjt" path="res://scripts/data/effects/RemoveStatusEffectsEffect.cs" id="2_remove"]
 [ext_resource type="Resource" uid="uid://ftxqx1hhi5j3" path="res://resources/data/status_effects/status_unconscious.tres" id="3_unconscious"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="4_effect"]
@@ -12,4 +13,4 @@ metadata/_custom_type_script = "uid://ka8317ruesjt"
 
 [resource]
 script = ExtResource("1_action")
-effects = [SubResource("Resource_remove")]
+effects = Array[ExtResource("1_13i5h")]([SubResource("Resource_remove")])

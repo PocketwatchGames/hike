@@ -88,6 +88,14 @@ public partial class Player : CharacterBody3D
 		{
 			hit.healthDamage *= levelResist;
 		}
+		if (hit.source is Mob attacker && GodotObject.IsInstanceValid(attacker))
+		{
+			float runeResist = ComposeRuneResistance(attacker.SimState?.Species);
+			if (runeResist > 0f)
+			{
+				hit.healthDamage *= 1f - runeResist;
+			}
+		}
 		if (hit.tags == EHitTag.None)
 		{
 			return;
@@ -110,6 +118,28 @@ public partial class Player : CharacterBody3D
 			hit.ApplyKnockbackResistance(ComposeTagMul(EHitTag.Knockback));
 		}
 	}
+
+	// Fraction of ALL damage from `species` the worn armor's runes turn away: the
+	// mean affinity over the armor slots, a broken or empty slot counting 0, so
+	// only a fully inscribed set reaches SimData.runeResistanceBonus.
+	public float ComposeRuneResistance(SpeciesData species)
+	{
+		if (species == null || _inventory == null || _world?.SimData == null)
+		{
+			return 0f;
+		}
+		float sum = 0f;
+		foreach (EInventorySlot slot in RuneArmorSlots)
+		{
+			if (_inventory.GetEquipped(slot) is ArmorState armor && !armor.IsBroken)
+			{
+				sum += armor.runes.AffinityFor(species);
+			}
+		}
+		return sum / RuneArmorSlots.Length * _world.SimData.runeResistanceBonus;
+	}
+
+	private static readonly EInventorySlot[] RuneArmorSlots = { EInventorySlot.Helmet, EInventorySlot.Armor };
 
 	// Break the combo chain on every weapon the player wields, so getting hit
 	// resets it regardless of which slot is mid-combo (or if unarmed).

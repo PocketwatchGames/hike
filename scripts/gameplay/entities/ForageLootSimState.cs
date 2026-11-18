@@ -17,6 +17,8 @@ public class ForageLootSimState : LootSimState
         _owner = owner;
     }
 
+    public override bool BobsAtRest => false;
+
     public override void OnRemovedFromWorld()
     {
         if (_owner == null)

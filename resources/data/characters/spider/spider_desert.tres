@@ -11,6 +11,10 @@
 [ext_resource type="Resource" uid="uid://b4qht5mjwfjne" path="res://resources/data/characters/spider/spider_venom.tres" id="7_venom"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="8_in2a2"]
 [ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="oil_droplet"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_01.tres" id="rune_01"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_04.tres" id="rune_04"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_07.tres" id="rune_07"]
+[ext_resource type="Script" uid="uid://xjo84nfo22ei" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
 
 [sub_resource type="Resource" id="Desc_loot_oil"]
 script = ExtResource("1_descitem")
@@ -30,5 +34,6 @@ mob = ExtResource("2_mob")
 displayName = &"Desert Spider"
 weapons = Array[ExtResource("5_wd")]([ExtResource("6_bite"), ExtResource("7_venom")])
 loot = Array[ExtResource("1_rqujo")]([SubResource("Resource_loot_oil")])
+runes = Array[ExtResource("rune_script")]([ExtResource("rune_01"), ExtResource("rune_04"), ExtResource("rune_07")])
 abilities = 4
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

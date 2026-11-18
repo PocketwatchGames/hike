@@ -1,14 +1,12 @@
 character	name	description	options	player	conversation key	goto	language	condition	on start	on complete	text
-intro_fairy		Glowing Figure	undismissable		greeting						It moves! Soggy thing. So soggy.
-											I tell you your friends ran off. The bear ate one. But the other left.
-											He took your stuff. He went towards the festering man.
+intro_fairy		Glowing Figure	undismissable		greeting						It moves! It has soggy eyes though. So soggy.
+											You! Soggy! Your friends ran off. The bear ate one. His guts are sogging up ahead.
+											The other one took your stuff. He went towards the festering man.
 										start_quest:find_festering_man; behavior:Escape; wake_up; npcvar:spoken=true	The festering man knows. Find him.
 festering_man		The Festering Man			greeting	language	vyeshal				Another! The sea spat you out too, huh?
 				x	language	gestures	common	understands:vyeshal<50%			Your language is foreign to me. Do you speak the common tongue?
 				x	language	convo	common	understands:vyeshal>=50%			Aye. My flesh was unwelcome even in her hungry gullet, thanks be.
-					gestures						[narrate]He shakes his head and points down the hill at a monument along the shore.[/narrate]
-											[narrate]Next, he holds up three fingers, points to the goblins in the forest, and then points to his cookpot.[/narrate]
-											[narrate]Finally, he points to the tent and bows his head.[/narrate]
+					gestures						[narrate]He shakes his head and points to the library upstairs.[/narrate]
 					convo		vyeshal				I’m afraid my cookpot is also empty. But if you find 3 cuts of goblin flesh you’ll feed us both! [narrate]He holds up 3 fingers[/narrate]
 											And sleep if you wish.
 											And I am always willing to trade if you have brought anything of value.
