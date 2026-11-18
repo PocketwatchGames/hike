@@ -363,7 +363,7 @@ disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_og6bv"]
 script = ExtResource("7_1qx4t")
-anchorXZ = Vector2i(75, 194)
+anchorXZ = Vector2i(72, 194)
 source = ExtResource("55_6qgqu")
 custom = SubResource("Resource_rb5st")
 
@@ -776,7 +776,7 @@ disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_v71hq"]
 script = ExtResource("7_1qx4t")
-anchorXZ = Vector2i(32, 192)
+anchorXZ = Vector2i(34, 192)
 facing = 2
 source = ExtResource("79_b0eil")
 custom = SubResource("Resource_ugndq")
@@ -797,7 +797,7 @@ disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_86h5t"]
 script = ExtResource("7_1qx4t")
-anchorXZ = Vector2i(32, 195)
+anchorXZ = Vector2i(34, 194)
 facing = 2
 source = ExtResource("84_wa2ke")
 custom = SubResource("Resource_lqinr")
@@ -818,8 +818,7 @@ disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_kicyx"]
 script = ExtResource("7_1qx4t")
-anchorXZ = Vector2i(32, 198)
-facing = 2
+anchorXZ = Vector2i(37, 191)
 source = ExtResource("79_b0eil")
 custom = SubResource("Resource_28tcl")
 
