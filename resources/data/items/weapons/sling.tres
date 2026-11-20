@@ -144,6 +144,7 @@ item = ExtResource("mat_cordage")
 
 [resource]
 script = ExtResource("2_weapon")
+typeTags = 2
 rightHandSlot = true
 delivery = 2
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({

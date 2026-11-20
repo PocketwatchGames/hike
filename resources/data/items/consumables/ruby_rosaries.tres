@@ -48,6 +48,7 @@ script = ExtResource("3_returnhome")
 
 [resource]
 script = ExtResource("1_consumable")
+typeTags = 16
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_return_home")])
 actionProfile = SubResource("Profile_pray")
 displayName = &"Ruby Rosaries"

@@ -80,6 +80,7 @@ inputs = Array[ExtResource("18_id3o5")]([SubResource("Resource_reagent_meat"), S
 
 [resource]
 script = ExtResource("1_spell")
+typeTags = 48
 actionProfile = SubResource("Resource_profile")
 displayName = &"Shockwave"
 unidentifiedDisplayName = &"Unknown Potion"

@@ -13,6 +13,7 @@ recipe = ExtResource("3_spell")
 
 [resource]
 script = ExtResource("1_scroll")
+typeTags = 16
 concept = SubResource("Concept")
 unidentifiedDisplayName = &"Unknown Spell"
 description = "A crackling incantation, scrawled in a hurried hand."

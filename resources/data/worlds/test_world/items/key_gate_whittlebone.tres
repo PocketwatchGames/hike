@@ -7,6 +7,7 @@
 
 [resource]
 script = ExtResource("1_key")
+typeTags = 256
 opens = Array[ExtResource("2_lock_script")]([ExtResource("3_gate_lock")])
 displayName = &"Whittlebone Gate Key"
 description = "An iron key to the gate of Whittlebone."

@@ -26,6 +26,7 @@ modifiers = []
 
 [resource]
 script = ExtResource("1_shield")
+typeTags = 8
 guardRechargeTime = 0.0
 parryTimeMs = 250
 parryCounter = SubResource("Resource_counter")

@@ -5,6 +5,7 @@
 
 [resource]
 script = ExtResource("1_loot_data")
+typeTags = 512
 removeTimeMs = 0
 displayName = &"Crown"
 maxStack = 99

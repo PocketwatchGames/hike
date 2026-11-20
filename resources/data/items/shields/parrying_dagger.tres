@@ -31,6 +31,7 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
 script = ExtResource("1_shield")
+typeTags = 8
 guardArmor = 30.0
 guardRechargeTime = 0.4
 blockDecibels = 0.3

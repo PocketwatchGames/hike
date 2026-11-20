@@ -47,6 +47,7 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
 script = ExtResource("2_armor")
+typeTags = 8
 maxArmor = 1500.0
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_pen"), SubResource("m_fire"), SubResource("m_burning")])
 outfit = SubResource("outfit")

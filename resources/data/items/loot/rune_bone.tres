@@ -5,6 +5,7 @@
 
 [resource]
 script = ExtResource("1_bone")
+typeTags = 16
 displayName = &"Ancient Bone"
 description = "Old bone, bleached and brittle, scratched with something deliberate."
 value = 1

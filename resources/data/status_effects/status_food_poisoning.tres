@@ -3,7 +3,7 @@
 [ext_resource type="Texture2D" uid="uid://c0bxf8os6dn5x" path="res://assets/textures/status_effects/skull.png" id="1_5gph6"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_264vf"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_flu34"]
-[ext_resource type="PackedScene" uid="uid://lmkekahx6yuej" path="res://scenes/fx/food_poisoning_groan.tscn" id="groan_fx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/food_poisoning_groan.tscn" id="groan_fx"]
 
 [sub_resource type="Resource" id="Resource_3l2yc"]
 script = ExtResource("2_264vf")
@@ -19,7 +19,7 @@ description = "-200 Health until sunrise."
 tags = 8192
 durationType = 2
 maxStack = 1
+startFx = ExtResource("groan_fx")
 removesOnApply = []
 modifiers = [SubResource("Resource_3l2yc")]
 conditionalModifiers = []
-startFx = ExtResource("groan_fx")

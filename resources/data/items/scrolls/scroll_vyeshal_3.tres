@@ -14,6 +14,7 @@ percent = 25.0
 
 [resource]
 script = ExtResource("1_scroll")
+typeTags = 256
 concept = SubResource("Resource_concept_numbers")
 description = "A scroll tabulating the Vyeshal numerals."
 inventorySprite = ExtResource("4_xhdps")

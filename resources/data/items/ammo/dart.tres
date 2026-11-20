@@ -8,6 +8,7 @@
 
 [resource]
 script = ExtResource("1_ammo")
+typeTags = 2
 ammoType = 4
 isStandard = true
 breakChance = 0.25

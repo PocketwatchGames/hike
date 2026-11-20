@@ -13,6 +13,7 @@ mapName = "Map of the Old City"
 
 [resource]
 script = ExtResource("1_scroll")
+typeTags = 256
 concept = SubResource("Concept")
 unidentifiedDisplayName = &"Weathered Map"
 description = "One of the librarian's old maps, drawn before Whittlebone's city center sank into the mud. Something is marked there with an X."

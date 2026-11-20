@@ -60,6 +60,7 @@ inputs = Array[ExtResource("11_input")]([SubResource("Resource_reagent_gold"), S
 
 [resource]
 script = ExtResource("1_consumable")
+typeTags = 32
 actionProfile = SubResource("Resource_profile")
 displayName = &"Smelling Salts"
 unidentifiedDisplayName = &"Unknown Potion"

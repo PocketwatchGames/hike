@@ -5,6 +5,7 @@
 
 [resource]
 script = ExtResource("1_sack")
+typeTags = 256
 capacity = 8
 accepts = Array[int]([6])
 displayName = &"Ingredient Sack"

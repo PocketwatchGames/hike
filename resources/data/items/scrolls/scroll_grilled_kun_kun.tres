@@ -13,6 +13,7 @@ meal = ExtResource("3_recipe")
 
 [resource]
 script = ExtResource("1_scroll")
+typeTags = 256
 concept = SubResource("Resource_concept_kun_kun")
 description = "A weathered cooking note. The handwriting promises good meat."
 inventorySprite = ExtResource("4_3fjb6")

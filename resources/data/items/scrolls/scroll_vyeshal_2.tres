@@ -14,6 +14,7 @@ percent = 25.0
 
 [resource]
 script = ExtResource("1_scroll")
+typeTags = 256
 concept = SubResource("Resource_concept_grammar")
 description = "A scroll inscribed with the rules of Vyeshal sentence structure."
 inventorySprite = ExtResource("4_w35o1")

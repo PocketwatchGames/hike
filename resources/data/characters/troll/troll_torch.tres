@@ -75,6 +75,7 @@ modifiers = []
 
 [resource]
 script = ExtResource("1_weapon")
+typeTags = 2
 abilityTell = ExtResource("14_tell")
 damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 &"primary": SubResource("Resource_damage_primary")

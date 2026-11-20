@@ -47,6 +47,7 @@ chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_cr
 
 [resource]
 script = ExtResource("1_weapon")
+typeTags = 2
 actionProfile = SubResource("Resource_profile")
 priority = 1
 maxAttackRange = 5.0

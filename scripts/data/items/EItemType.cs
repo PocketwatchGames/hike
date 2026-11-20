@@ -20,4 +20,6 @@ public enum EItemType
     Ingredient = 1 << 6,
     Gross = 1 << 7,
     Common = 1 << 8,
+    // Coin and coin-like trade goods (silver, crowns, beads).
+    Currency = 1 << 9,
 }

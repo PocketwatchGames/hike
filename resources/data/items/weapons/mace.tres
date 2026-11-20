@@ -216,6 +216,7 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
 script = ExtResource("2_weapon")
+typeTags = 2
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"charged": SubResource("Resource_charged_damage"),
 &"primary": SubResource("Resource_damage")

@@ -6,6 +6,7 @@
 
 [resource]
 script = ExtResource("1_loot_data")
+typeTags = 68
 useEffect = ExtResource("eat_gulp_fx")
 categoryOverride = 6
 satiation = 0.05

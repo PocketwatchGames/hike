@@ -19,6 +19,7 @@ metadata/_custom_type_script = "uid://65nod8j9othuq"
 
 [resource]
 script = ExtResource("1_tool")
+typeTags = 256
 maxDurability = 40
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_iron")])
 displayName = &"Shovel"

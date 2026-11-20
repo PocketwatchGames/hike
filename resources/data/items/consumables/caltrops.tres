@@ -56,6 +56,7 @@ inputs = Array[ExtResource("7_input")]([SubResource("Resource_reagent_legs"), Su
 
 [resource]
 script = ExtResource("1_spell")
+typeTags = 2
 actionProfile = SubResource("Resource_profile")
 displayName = &"Caltrops"
 unidentifiedDisplayName = &"Unknown Potion"

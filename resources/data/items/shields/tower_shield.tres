@@ -48,6 +48,7 @@ item = ExtResource("repair_leather")
 
 [resource]
 script = ExtResource("1_shield")
+typeTags = 8
 guardArmor = 350.0
 guardRechargeDelay = 2.0
 blockDecibels = 1.0

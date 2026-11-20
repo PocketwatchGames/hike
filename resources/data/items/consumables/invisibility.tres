@@ -59,6 +59,7 @@ inputs = Array[ExtResource("15_bwxhw")]([SubResource("Resource_reagent_purple"),
 
 [resource]
 script = ExtResource("1_spell")
+typeTags = 48
 actionProfile = SubResource("Resource_profile")
 displayName = &"Invisibility"
 unidentifiedDisplayName = &"Unknown Potion"

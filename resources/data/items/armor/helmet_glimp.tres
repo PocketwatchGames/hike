@@ -35,6 +35,7 @@ item = ExtResource("repair_beads")
 
 [resource]
 script = ExtResource("1_armor")
+typeTags = 8
 maxArmor = 360.0
 armorSlot = 1
 modifiers = Array[ExtResource("modifier_1")]([SubResource("m_nightvision")])

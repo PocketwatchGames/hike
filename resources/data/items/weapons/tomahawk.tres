@@ -139,6 +139,7 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
 script = ExtResource("2_weapon")
+typeTags = 2
 thrown = true
 rightHandSlot = true
 delivery = 4

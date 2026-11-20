@@ -8,6 +8,7 @@
 
 [resource]
 script = ExtResource("1_loot_data")
+typeTags = 64
 useEffect = ExtResource("eat_gulp_fx")
 satiation = 0.05
 displayName = &"Mushroom"

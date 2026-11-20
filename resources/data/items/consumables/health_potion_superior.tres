@@ -62,6 +62,7 @@ inputs = Array[ExtResource("11_input")]([SubResource("Input_mushroom_gold"), Sub
 
 [resource]
 script = ExtResource("1_consumable")
+typeTags = 32
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_heal")])
 actionProfile = SubResource("Profile_drink")
 displayName = &"Superior Health Potion"

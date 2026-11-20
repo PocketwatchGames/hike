@@ -12,6 +12,7 @@
 
 [resource]
 script = ExtResource("1_torch")
+typeTags = 256
 activeSprite = ExtResource("7_sprite_lit")
 lightEffect = ExtResource("3_light")
 extinguishEffect = ExtResource("4_snuff")

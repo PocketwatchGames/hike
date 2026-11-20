@@ -150,6 +150,7 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 
 [resource]
 script = ExtResource("2_weapon")
+typeTags = 2
 ammoType = 1
 rightHandSlot = true
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({

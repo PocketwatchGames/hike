@@ -5,6 +5,7 @@
 
 [resource]
 script = ExtResource("1_flask")
+typeTags = 256
 displayName = &"Water Flask"
 description = "Carries water to drink from on the road, keeping thirst at bay. Refill it at a well."
 value = 6

@@ -12,6 +12,7 @@ statusEffect = ExtResource("4_muddy")
 
 [resource]
 script = ExtResource("1_potion")
+typeTags = 384
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_muddy")])
 displayName = &"Mud"
 description = "A handful of cold marsh muck. Smear it on to mask your scent."

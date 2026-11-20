@@ -6,6 +6,7 @@
 
 [resource]
 script = ExtResource("1_potion")
+typeTags = 208
 displayName = &"Fairy Corpse"
 unidentifiedDisplayName = &"Glimmering Remains"
 description = "It still faintly glows."

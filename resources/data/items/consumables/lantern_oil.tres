@@ -12,6 +12,7 @@ script = ExtResource("3_oil")
 
 [resource]
 script = ExtResource("1_potion")
+typeTags = 256
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_refill_oil")])
 displayName = &"Lantern Oil"
 unidentifiedDisplayName = &"Unknown Flask"

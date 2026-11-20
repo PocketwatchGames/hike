@@ -32,6 +32,7 @@ chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_tier_tog
 
 [resource]
 script = ExtResource("1_lantern")
+typeTags = 256
 actionProfile = SubResource("Resource_profile")
 activeSprite = ExtResource("8_sprite_lit")
 lightEffect = ExtResource("11_light")

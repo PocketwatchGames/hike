@@ -15,6 +15,7 @@ metadata/_custom_type_script = "uid://bf8kas4isp4rx"
 
 [resource]
 script = ExtResource("1_ammo")
+typeTags = 2
 ammoType = 1
 breakChance = 1.0
 stuckModel = ExtResource("5_model")

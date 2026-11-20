@@ -1,16 +1,20 @@
 [gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://dq2wv8k7rmn3c"]
 
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="1_1bn8f"]
 [ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_loot_data"]
 [ext_resource type="Texture2D" uid="uid://b7t5y1ycugmot" path="res://assets/textures/items/Carrot.png" id="2_icon"]
-[ext_resource type="PackedScene" uid="uid://oehooqhrh5zt3" path="res://scenes/fx/eat_gulp.tscn" id="eat_gulp_fx"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="3_84u0f"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="5_dr02m"]
+[ext_resource type="PackedScene" path="res://scenes/fx/eat_gulp.tscn" id="eat_gulp_fx"]
 
 [resource]
 script = ExtResource("1_loot_data")
 useEffect = ExtResource("eat_gulp_fx")
-categoryOverride = 6
 satiation = 0.05
 displayName = &"Carrot"
 maxStack = 99
 spoilDays = 3
 value = 2
 inventorySprite = ExtResource("2_icon")
+typeTags = 324
+categoryOverride = 6

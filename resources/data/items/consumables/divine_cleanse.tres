@@ -61,6 +61,7 @@ inputs = Array[ExtResource("10_input")]([SubResource("Resource_reagent_blue"), S
 
 [resource]
 script = ExtResource("1_consumable")
+typeTags = 48
 actionProfile = SubResource("Resource_profile")
 displayName = &"Divine Cleanse"
 unidentifiedDisplayName = &"Unknown Potion"

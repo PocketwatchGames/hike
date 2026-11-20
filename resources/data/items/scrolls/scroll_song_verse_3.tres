@@ -13,6 +13,7 @@ conceptName = "the Third Verse of the Song of the Gods"
 
 [resource]
 script = ExtResource("1_scroll")
+typeTags = 16
 concept = SubResource("Resource_concept_verse3")
 description = "The third verse of the Song of the Gods, said to have been sung at the making of the world."
 inventorySprite = ExtResource("4_sprite")

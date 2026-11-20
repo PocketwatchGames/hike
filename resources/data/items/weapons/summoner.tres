@@ -52,6 +52,7 @@ queueWindowSeconds = 0.0
 
 [resource]
 script = ExtResource("2_weapon")
+typeTags = 2
 rightHandSlot = true
 actionProfile = SubResource("Resource_profile")
 displayName = &"Summoner"

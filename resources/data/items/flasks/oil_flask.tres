@@ -5,6 +5,7 @@
 
 [resource]
 script = ExtResource("1_flask")
+typeTags = 256
 liquid = 1
 capacity = 50.0
 displayName = &"Oil Flask"

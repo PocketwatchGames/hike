@@ -13,6 +13,7 @@ mapName = "Treasure Map"
 
 [resource]
 script = ExtResource("1_scroll")
+typeTags = 256
 concept = SubResource("Concept")
 unidentifiedDisplayName = &"Weathered Map"
 description = "An old map marked with an X. It charts where a treasure lies buried — go and dig it up."

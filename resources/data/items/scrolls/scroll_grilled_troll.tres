@@ -11,6 +11,7 @@ meal = ExtResource("3_recipe")
 
 [resource]
 script = ExtResource("1_scroll")
+typeTags = 256
 concept = SubResource("Concept")
 unidentifiedDisplayName = &"Unknown Recipe"
 description = "A weathered cooking note."

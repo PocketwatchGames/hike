@@ -28,6 +28,7 @@ item = ExtResource("repair_fiber")
 
 [resource]
 script = ExtResource("1_armor")
+typeTags = 8
 maxArmor = 720.0
 armorSlot = 1
 modifiers = Array[Object]([])

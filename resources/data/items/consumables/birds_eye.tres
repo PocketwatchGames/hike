@@ -46,6 +46,7 @@ requireFullCharge = true
 
 [resource]
 script = ExtResource("1_spell")
+typeTags = 48
 actionProfile = SubResource("Resource_profile")
 displayName = &"Bird\'s Eye"
 unidentifiedDisplayName = &"Unknown Potion"
