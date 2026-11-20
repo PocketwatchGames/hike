@@ -9,7 +9,7 @@ using System.Text;
 // looks identical.
 //
 // Unreadable text is rewritten into the language's OWN script when it has a
-// LanguageData.glyphBase — see CipherLetter. Nothing downstream knows: the
+// LanguageData.glyphBase — see DisplayChar. Nothing downstream knows: the
 // codepoints land in a private-use block that the UI font reaches through its
 // `fallbacks`, so a half-understood line renders Latin and alien glyphs side by
 // side in one plain Label.
@@ -24,6 +24,7 @@ public static class TextScrambler
     // numeral glyphs, matching asset_src/fonts/build_alien_glyphs.py.
     public const int GlyphLetterCount = 26;
     public const int GlyphNumeralCount = 10;
+    public const int GlyphCount = GlyphLetterCount + GlyphNumeralCount;
 
     // Renders `text` as a player with `coverage` of `language` reads it. Each
     // aspect is decided by a stable hash compared against its coverage, so
@@ -43,6 +44,10 @@ public static class TextScrambler
     //                their words are rotated among the loose positions so none
     //                lands back where it started. Whitespace runs stay in place
     //                so line breaks survive.
+    //   Glyphs     — per GLYPH of the language's script (letters and numerals).
+    //                A character reads as itself only when its word (or number)
+    //                AND its glyph are known; otherwise it is drawn as its glyph.
+    //                A language with no script ignores this aspect.
     // Null language, empty text, or full coverage returns `text` unchanged.
     public static string Scramble(string text, LanguageData language, LanguageCoverage coverage)
     {
@@ -55,8 +60,10 @@ public static class TextScrambler
     }
 
     // Player's comprehension of `text` in `language` as a value in [0, 1]:
-    //   translatedPct — share of word tokens whose word AND number (if any)
-    //                   are known.
+    //   translatedPct — mean over word tokens of the share of their letters
+    //                   and digits that read as themselves: word (or number)
+    //                   known AND, in a script, that character's glyph known.
+    //                   Without a script a token is all or nothing.
     //   orderPct      — share of word tokens sitting at their original
     //                   position: the held ones, plus a lone loose word, which
     //                   has nowhere else to go.
@@ -89,7 +96,7 @@ public static class TextScrambler
 
         ScrambleState state = plan.StateAt(coverage);
         int shown = 0;
-        int translated = 0;
+        float translated = 0f;
         int heldCount = 0;
         for (int k = 0; k < plan.Count; k++)
         {
@@ -98,12 +105,7 @@ public static class TextScrambler
                 continue;
             }
             shown++;
-            bool letterOK = !plan.HasLetter(k) || state.wordKnown[k];
-            bool digitOK = !plan.HasDigit(k) || state.numberKnown[k];
-            if (letterOK && digitOK)
-            {
-                translated++;
-            }
+            translated += plan.ReadableShare(k, state);
             if (state.held[k])
             {
                 heldCount++;
@@ -115,7 +117,7 @@ public static class TextScrambler
             return 1f;
         }
         int inPlace = shown - heldCount == 1 ? heldCount + 1 : heldCount;
-        float translatedPct = (float)translated / shown;
+        float translatedPct = translated / shown;
         float orderPct = (float)inPlace / shown;
         return translatedPct * ((1f - grammarWeight) + orderPct * grammarWeight);
     }
@@ -125,6 +127,7 @@ public static class TextScrambler
     const uint WORD_SALT = 0x9E3779B9u;
     const uint NUMBER_SALT = 0x85EBCA6Bu;
     const uint POSITION_SALT = 0xC2B2AE35u;
+    const uint GLYPH_SALT = 0x27D4EB2Fu;
     const int DIGIT_PERM_SALT = 0x55AA55AA;
     const int ROTATE_SALT = unchecked((int)0xDEADBEEF);
 
@@ -155,6 +158,11 @@ public static class TextScrambler
     static float PositionUnit(int index, int seed)
     {
         return Unit(unchecked((uint)seed ^ POSITION_SALT ^ ((uint)index * 0x27D4EB2Fu)));
+    }
+
+    static float GlyphUnit(int slot, int seed)
+    {
+        return Unit(unchecked((uint)seed ^ GLYPH_SALT ^ ((uint)slot * 0x165667B1u)));
     }
 
     // Whether a hashed aspect is known at `coverage`; full coverage knows all.
@@ -321,6 +329,8 @@ public static class TextScrambler
         readonly float[] _positionUnit;
         readonly bool[] _hasLetter;
         readonly bool[] _hasDigit;
+        // Per glyph slot of the script, indexed like the glyphBase block.
+        readonly float[] _glyphUnit = new float[GlyphCount];
         readonly int[] _letterPerm;
         readonly int[] _digitPerm;
         readonly int _glyphBase;
@@ -348,6 +358,10 @@ public static class TextScrambler
             _digitPerm = BuildPermutation(seed ^ DIGIT_PERM_SALT, GlyphNumeralCount);
             _glyphBase = language?.glyphBase ?? 0;
             _rotateSeed = seed ^ ROTATE_SALT;
+            for (int s = 0; s < GlyphCount; s++)
+            {
+                _glyphUnit[s] = GlyphUnit(s, seed);
+            }
             for (int k = 0; k < Count; k++)
             {
                 string tok = _original[k];
@@ -382,6 +396,10 @@ public static class TextScrambler
                 state.wordKnown[k] = Known(_wordUnit[k], coverage.vocabulary);
                 state.numberKnown[k] = Known(_numberUnit[k], coverage.numbers);
                 state.dropped[k] = !state.held[k] && _loose[k].Length == 0;
+            }
+            for (int s = 0; s < GlyphCount; s++)
+            {
+                state.glyphKnown[s] = Known(_glyphUnit[s], coverage.glyphs);
             }
             RotateLoose(state);
             return state;
@@ -427,87 +445,128 @@ public static class TextScrambler
             }
         }
 
-        // Token k as displayed: its base text with unknown digits and letters
-        // substituted. Digits are substituted independently of the word: a known
-        // word holding an unknown quantity ("12 stones") reads as the word plus
-        // an unreadable number.
-        public string TokenText(int k, bool held, bool wordKnown, bool numberKnown)
+        // Token k as displayed: its base text with each letter and digit drawn
+        // as DisplayChar says. Digits are decided independently of the word: a
+        // known word holding an unknown quantity ("12 stones") reads as the word
+        // plus an unreadable number.
+        public string TokenText(int k, bool held, bool wordKnown, bool numberKnown, bool[] glyphKnown)
         {
             string text = BaseText(k, held);
-            bool cipherDigits = _hasDigit[k] && !numberKnown;
-            bool cipherLetters = _hasLetter[k] && !wordKnown;
-            if (!cipherDigits && !cipherLetters)
-            {
-                return text;
-            }
             StringBuilder sb = new StringBuilder(text.Length);
             foreach (char c in text)
             {
-                sb.Append(DisplayChar(k, c, wordKnown, numberKnown));
+                sb.Append(DisplayChar(k, c, wordKnown, numberKnown, glyphKnown, out _));
             }
             return sb.ToString();
         }
 
-        // One character of token k as displayed. Without a script, an unknown
-        // digit becomes a Latin letter — which the word's cipher then rewrites
-        // again when the word is unknown too. Kept: it is what every line has
-        // always read as.
-        public string DisplayChar(int k, char c, bool wordKnown, bool numberKnown)
+        // Share of token k's letters and digits that read as themselves in
+        // `state`; 1 for a token with neither.
+        public float ReadableShare(int k, ScrambleState state)
         {
-            bool cipherLetters = _hasLetter[k] && !wordKnown;
-            if (c >= '0' && c <= '9')
+            string text = BaseText(k, state.held[k]);
+            int total = 0;
+            int readable = 0;
+            foreach (char c in text)
             {
-                if (!_hasDigit[k] || numberKnown)
+                if (!char.IsLetterOrDigit(c))
+                {
+                    continue;
+                }
+                total++;
+                bool isDigit = c >= '0' && c <= '9';
+                // Decided by the rule, not by comparing DisplayChar's output: a
+                // cipher can map a letter onto itself.
+                bool known = isDigit ? state.numberKnown[k] : state.wordKnown[k];
+                int slot = isDigit ? GlyphLetterCount + _digitPerm[c - '0'] : LetterSlot(c);
+                if (known && (_glyphBase == 0 || state.glyphKnown[slot]))
+                {
+                    readable++;
+                }
+            }
+            return total == 0 ? 1f : (float)readable / total;
+        }
+
+        // One character of token k as displayed; `glyphKnown` (per glyph slot,
+        // null = none) is which of the script's glyphs the reader knows. `glyph`
+        // is the script slot drawn, or -1 when the result is not a glyph.
+        //
+        // With a script, a letter or digit is ALWAYS its glyph — the same glyph
+        // for the same character, known word or not, which is what lets a player
+        // learn the alphabet by eye — and reads as itself only when both its word
+        // (or number) AND its glyph are known. So an unknown word stays wholly in
+        // the script, and a known word comes through letter by letter as its
+        // glyphs are learned.
+        //
+        // Without a script, an unknown word's letters run through a Latin cipher
+        // and an unknown digit becomes a stable letter — which the word's cipher
+        // rewrites again when the word is unknown too.
+        public string DisplayChar(int k, char c, bool wordKnown, bool numberKnown, bool[] glyphKnown, out int glyph)
+        {
+            glyph = -1;
+            bool isDigit = c >= '0' && c <= '9';
+            if (!isDigit && !char.IsLetter(c))
+            {
+                return c.ToString();
+            }
+            if (_glyphBase > 0)
+            {
+                int slot = isDigit ? GlyphLetterCount + _digitPerm[c - '0'] : LetterSlot(c);
+                bool known = isDigit ? numberKnown : wordKnown;
+                if (known && glyphKnown != null && glyphKnown[slot])
                 {
                     return c.ToString();
                 }
-                string digit = CipherDigit(c);
-                return cipherLetters && _glyphBase == 0 ? CipherLetter(digit[0]) : digit;
+                glyph = slot;
+                return GlyphString(_glyphBase + slot);
             }
-            return cipherLetters ? CipherLetter(c) : c.ToString();
+            if (isDigit)
+            {
+                if (numberKnown)
+                {
+                    return c.ToString();
+                }
+                char latin = (char)('a' + _digitPerm[c - '0']);
+                return wordKnown ? latin.ToString() : LatinCipher(latin);
+            }
+            return wordKnown ? c.ToString() : LatinCipher(c);
         }
 
-        // One letter through the language's cipher. With a glyphBase it becomes
-        // that language's script and the result is unicameral — 'A' and 'a' are
-        // one glyph, since capitalization is part of the structure grammar
-        // teaches and no invented script here has a second case. Without one the
-        // cipher stays in Latin and keeps case.
+        // A letter's glyph slot. The script is unicameral — 'A' and 'a' are one
+        // glyph, since capitalization is part of the structure grammar teaches
+        // and no invented script here has a second case.
         //
-        // ASCII a-z maps through the permutation and so stays a bijection: a
-        // given letter is always the same glyph, which is what lets a player
-        // learn the alphabet by eye. Any other script's letters (accented Latin,
-        // CJK) have no 26-letter alphabet to permute, so they hash into the same
-        // block instead — not a bijection, but nothing decodes this text, and the
-        // alternative is leaving them legible in a word the player cannot read.
-        // Anything that is not a letter passes through.
-        public string CipherLetter(char c)
+        // ASCII a-z maps through the permutation and so stays a bijection. Any
+        // other script's letters (accented Latin, CJK) have no 26-letter alphabet
+        // to permute, so they hash into the same block instead — not a bijection,
+        // but nothing decodes this text, and the alternative is leaving them
+        // legible in a word the player cannot read.
+        int LetterSlot(char c)
         {
             if (c >= 'A' && c <= 'Z')
             {
-                return Ciphered(_letterPerm[c - 'A'], (char)('A' + _letterPerm[c - 'A']));
+                return _letterPerm[c - 'A'];
             }
             if (c >= 'a' && c <= 'z')
             {
-                return Ciphered(_letterPerm[c - 'a'], (char)('a' + _letterPerm[c - 'a']));
+                return _letterPerm[c - 'a'];
             }
-            if (_glyphBase > 0 && char.IsLetter(c))
+            return _letterPerm[HashToSlot(c)];
+        }
+
+        // One letter through the Latin cipher of a language with no script;
+        // keeps case. Non-ASCII letters pass through.
+        string LatinCipher(char c)
+        {
+            if (c >= 'A' && c <= 'Z')
             {
-                return GlyphString(_glyphBase + _letterPerm[HashToSlot(c)]);
+                return ((char)('A' + _letterPerm[c - 'A'])).ToString();
+            }
+            if (c >= 'a' && c <= 'z')
+            {
+                return ((char)('a' + _letterPerm[c - 'a'])).ToString();
             }
             return c.ToString();
-        }
-
-        // One digit as the language's numeral glyph when it has a script, else
-        // a stable letter.
-        public string CipherDigit(char c)
-        {
-            int slot = _digitPerm[c - '0'];
-            return _glyphBase > 0 ? GlyphString(_glyphBase + GlyphLetterCount + slot) : ((char)('a' + slot)).ToString();
-        }
-
-        string Ciphered(int slot, char latin)
-        {
-            return _glyphBase > 0 ? GlyphString(_glyphBase + slot) : latin.ToString();
         }
 
         // The line as `state` reads it.
@@ -520,7 +579,7 @@ public static class TextScrambler
                 int k = state.occupant[i];
                 if (k >= 0)
                 {
-                    sb.Append(TokenText(k, state.held[k], state.wordKnown[k], state.numberKnown[k]));
+                    sb.Append(TokenText(k, state.held[k], state.wordKnown[k], state.numberKnown[k], state.glyphKnown));
                 }
                 sb.Append(_separators[i + 1]);
             }
@@ -530,7 +589,7 @@ public static class TextScrambler
 
     // A plan at one coverage. Per TOKEN: whether its position holds, whether
     // its word and number are known, whether it drops out. Per SLOT: which token
-    // sits there (-1 = empty).
+    // sits there (-1 = empty). Per GLYPH of the script: whether it reads as Latin.
     public sealed class ScrambleState
     {
         public readonly bool[] held;
@@ -538,6 +597,7 @@ public static class TextScrambler
         public readonly bool[] numberKnown;
         public readonly bool[] dropped;
         public readonly int[] occupant;
+        public readonly bool[] glyphKnown = new bool[GlyphCount];
 
         public ScrambleState(int count)
         {

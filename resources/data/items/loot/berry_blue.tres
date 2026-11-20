@@ -1,16 +1,19 @@
-[gd_resource type="Resource" script_class="ConsumableData" format=3]
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://b0s3d5hnlxf8c"]
 
 [ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_loot_data"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="1_o8qvp"]
 [ext_resource type="Texture2D" uid="uid://bptqj1l2sfaks" path="res://assets/textures/items/BerriesBlue.png" id="2_icon"]
-[ext_resource type="PackedScene" uid="uid://oehooqhrh5zt3" path="res://scenes/fx/eat_gulp.tscn" id="eat_gulp_fx"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="3_u8rmy"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="5_7vca3"]
+[ext_resource type="PackedScene" path="res://scenes/fx/eat_gulp.tscn" id="eat_gulp_fx"]
 
 [resource]
 script = ExtResource("1_loot_data")
-typeTags = 68
 useEffect = ExtResource("eat_gulp_fx")
-categoryOverride = 6
 satiation = 0.05
 displayName = &"Blue Berry"
 maxStack = 99
 value = 1
 inventorySprite = ExtResource("2_icon")
+typeTags = 68
+categoryOverride = 6

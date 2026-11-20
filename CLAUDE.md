@@ -801,6 +801,15 @@ intro_dying_01	[lang:common]Sanctuary[/lang]... you must find it. My family, …
   `glyphBase` — see "Checking That the In-World Scripts Still Render". A line
   mixing tongues therefore mixes scripts, resolved per glyph by the font's
   `fallbacks`, with no markup and no change to any call site.
+- **The script is learned glyph by glyph.** `LanguageCoverage.glyphs` comes from
+  `LanguageData.glyphsCurve` like the other aspects (Vyeshal and Muddish reach
+  every glyph at 35% learned), and each of the 36 glyphs is known by its own
+  stable hash. A character is always drawn as its glyph — the same glyph in known and
+  unknown words — and reads as itself only when its word (or number) AND its
+  glyph are both known. So an unknown word stays wholly in the script, and early
+  on a known word comes through only partly. `Comprehension` scores a word by
+  the share of its characters that read, so glyphs count toward it.
+  In a book, every copy of a glyph in a known word flickers and lands together.
 - Balance, nesting and unknown ids are checked over every `.tsv` in the language
   folder — generated dialogue included — at build time by `tools/loc_generator` — a warning, never a build failure, so half-authored text
   never blocks a playtest. Text authored in a `.tres` isn't covered; that only

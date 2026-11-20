@@ -4,14 +4,14 @@
 [ext_resource type="Texture2D" uid="uid://befor4nndiyp8" path="res://assets/textures/items/Silver.png" id="2_icon"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="3_oj3hx"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="5_bgyfj"]
-[ext_resource type="PackedScene" uid="uid://cfugslgplto77" path="res://scenes/fx/loot_pickup_coin.tscn" id="9_pickupfx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/loot_pickup_coin.tscn" id="9_pickupfx"]
 
 [resource]
 script = ExtResource("1_item_data")
-typeTags = 512
 displayName = &"Silver"
 description = "Shining coin. The realm's common currency."
 maxStack = 99
 value = 1
 inventorySprite = ExtResource("2_icon")
+typeTags = 512
 pickupFx = ExtResource("9_pickupfx")

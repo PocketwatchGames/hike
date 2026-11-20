@@ -1,12 +1,14 @@
-[gd_resource type="Resource" script_class="RuneBoneData" format=3]
+[gd_resource type="Resource" script_class="RuneBoneData" format=3 uid="uid://dxnumj47udem2"]
 
-[ext_resource type="Script" uid="uid://i9d3uxs6vxutc" path="res://scripts/data/items/RuneBoneData.cs" id="1_bone"]
+[ext_resource type="Script" uid="uid://bjkdotyorj4bs" path="res://scripts/data/items/RuneBoneData.cs" id="1_bone"]
 [ext_resource type="Texture2D" uid="uid://b3245rbx36fb1" path="res://assets/textures/items/AncientBone.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="2_jownn"]
+[ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="4_tkjbr"]
 
 [resource]
 script = ExtResource("1_bone")
-typeTags = 16
 displayName = &"Ancient Bone"
 description = "Old bone, bleached and brittle, scratched with something deliberate."
 value = 1
 inventorySprite = ExtResource("2_icon")
+typeTags = 16

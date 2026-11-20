@@ -52,6 +52,8 @@ public partial class LanguageData : Resource
     [Export] public Curve grammarCurve;
     // Share of numbers readable.
     [Export] public Curve numbersCurve;
+    // Share of the script's glyphs known. Only matters with a glyphBase.
+    [Export] public Curve glyphsCurve;
 
     // Managed memo per amount learned — text renders and conversation
     // visibility ask this per line, a Curve sample is a native call, and the
@@ -87,7 +89,8 @@ public partial class LanguageData : Resource
         return new LanguageCoverage(
             SampleCurve(vocabularyCurve, learned),
             SampleCurve(grammarCurve, learned),
-            SampleCurve(numbersCurve, learned));
+            SampleCurve(numbersCurve, learned),
+            SampleCurve(glyphsCurve, learned));
     }
 
     static float SampleCurve(Curve curve, float progress)

@@ -30,8 +30,8 @@ festering_man		The Festering Man			greeting	language	vyeshal	npcvar:return=false
 					cookpot	topics					Find 3 cuts of goblin flesh you’ll feed us both! [narrate]He holds up 3 fingers[/narrate]
 					hiding						Hiding? Bah! The island is misery but the bridge is death. The purple mist waits across the channel.
 						hiding_topics					I buried the key so fools like you would stay put. But if you must leave, just follow the map and dig it up.
+				x	hiding_topics	mist					Purple mist?
 				x	hiding_topics					open_shop	Trade?
 				x	hiding_topics	hiding_cookpot					What did you say about the cookpot?
-				x	hiding_topics	mist					Purple mist?
 					hiding_cookpot	hiding_topics					Find 3 cuts of goblin flesh you’ll feed us both! [narrate]He holds up 3 fingers[/narrate]
 					mist	hiding_topics					It comes and goes. You can hear it. Like cicadas. Worse at night.

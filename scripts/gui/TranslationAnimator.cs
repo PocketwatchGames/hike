@@ -20,6 +20,11 @@ using Godot;
 //     moves play one at a time — a crossfaded swap — spaced evenly across the
 //     fill. A word gets its punctuation and capitals back once it is home in a
 //     position that holds.
+//   - Each glyph of the script is revealed the same way, but lands as ONE. A
+//     character in a script reads as itself only once its word AND its glyph
+//     have landed; when the glyph is the later, every copy of it in a known word
+//     flickers and turns over together, so the reader watches the alphabet being
+//     learned.
 // The last frame is exactly what LanguageText renders at `to`; the animator
 // checks that and reports a mismatch.
 //
@@ -187,6 +192,8 @@ public sealed class TranslationAnimator
         // the start, +inf = not yet.
         readonly float[] _wordRevealAt;
         readonly float[] _numberRevealAt;
+        // When each glyph of the script lands as Latin; same infinities.
+        readonly float[] _glyphLandAt = new float[TextScrambler.GlyphCount];
         readonly List<Move> _moves = new();
         // Moves already applied; the one after them is the one fading.
         int _applied;
@@ -207,6 +214,10 @@ public sealed class TranslationAnimator
             {
                 _wordRevealAt[k] = _state.wordKnown[k] ? float.NegativeInfinity : float.PositiveInfinity;
                 _numberRevealAt[k] = _state.numberKnown[k] ? float.NegativeInfinity : float.PositiveInfinity;
+            }
+            for (int s = 0; s < TextScrambler.GlyphCount; s++)
+            {
+                _glyphLandAt[s] = _state.glyphKnown[s] ? float.NegativeInfinity : float.PositiveInfinity;
             }
             PlanMoves(_state, _plan.StateAt(end));
         }
@@ -276,6 +287,13 @@ public sealed class TranslationAnimator
                     _numberRevealAt[k] = time;
                 }
             }
+            for (int s = 0; s < TextScrambler.GlyphCount; s++)
+            {
+                if (_state.glyphKnown[s] && float.IsPositiveInfinity(_glyphLandAt[s]))
+                {
+                    _glyphLandAt[s] = Land(time, Hash01(s, 0, 0x6A1C3));
+                }
+            }
             while (_applied < _moves.Count && time >= MoveStart(_applied) + MoveSeconds * 0.5f)
             {
                 Apply(_occupant, _moves[_applied]);
@@ -302,11 +320,30 @@ public sealed class TranslationAnimator
                     _numberRevealAt[k] = float.NegativeInfinity;
                 }
             }
+            for (int s = 0; s < TextScrambler.GlyphCount; s++)
+            {
+                if (_state.glyphKnown[s])
+                {
+                    _glyphLandAt[s] = float.NegativeInfinity;
+                }
+            }
+        }
+
+        // Which glyphs read as Latin at `time`.
+        bool[] GlyphsShown(float time)
+        {
+            var shown = new bool[TextScrambler.GlyphCount];
+            for (int s = 0; s < shown.Length; s++)
+            {
+                shown[s] = time >= _glyphLandAt[s];
+            }
+            return shown;
         }
 
         public bool MatchesFinal(float time, LanguageCoverage end)
         {
             TextScrambler.ScrambleState final = _plan.StateAt(end);
+            bool[] glyphsShown = GlyphsShown(time);
             var sb = new StringBuilder();
             sb.Append(_plan.Separator(0));
             for (int s = 0; s < _plan.Count; s++)
@@ -314,7 +351,7 @@ public sealed class TranslationAnimator
                 int k = _occupant[s];
                 if (k >= 0)
                 {
-                    sb.Append(TokenAt(k, time));
+                    sb.Append(TokenAt(k, time, glyphsShown));
                 }
                 sb.Append(_plan.Separator(s + 1));
             }
@@ -323,6 +360,7 @@ public sealed class TranslationAnimator
 
         public string Bbcode(float time, Color textColor)
         {
+            bool[] glyphsShown = GlyphsShown(time);
             var sb = new StringBuilder();
             sb.Append(LanguageText.EscapeBbcode(_plan.Separator(0)));
             int fading = -1;
@@ -343,7 +381,7 @@ public sealed class TranslationAnimator
                 int k = _occupant[s];
                 if (k >= 0)
                 {
-                    string text = LanguageText.EscapeBbcode(TokenAt(k, time));
+                    string text = LanguageText.EscapeBbcode(TokenAt(k, time, glyphsShown));
                     bool fades = fading >= 0 && (s == _moves[fading].slot || s == _moves[fading].from);
                     if (fades && alpha < 1f)
                     {
@@ -364,7 +402,10 @@ public sealed class TranslationAnimator
         // Token k as it reads at `time`: its punctuation and capitals only once
         // it is home in a held position, and each letter / digit landing on its
         // translation at its own moment, the last by the time the meter fills.
-        string TokenAt(int k, float time)
+        // In a script, a character lands only once its word (or number) AND its
+        // glyph have — when the glyph is the later of the two, every copy of it
+        // flickers and lands in unison.
+        string TokenAt(int k, float time, bool[] glyphsShown)
         {
             bool home = _state.held[k] && _occupant[k] == k;
             string text = _plan.BaseText(k, home);
@@ -374,7 +415,7 @@ public sealed class TranslationAnimator
             {
                 if (!char.IsLetterOrDigit(c))
                 {
-                    sb.Append(_plan.DisplayChar(k, c, true, true));
+                    sb.Append(c);
                     continue;
                 }
                 float h = Hash01(k, ordinal, 0x51ED27);
@@ -384,15 +425,26 @@ public sealed class TranslationAnimator
                 bool wordShown = time >= wordLand;
                 bool numberShown = time >= numberLand;
                 float land = isDigit ? numberLand : wordLand;
-                bool shown = isDigit ? numberShown : wordShown;
-                if (!shown && !float.IsInfinity(land) && time >= land - _tuning.flickerSeconds)
+                string display = _plan.DisplayChar(k, c, wordShown, numberShown, glyphsShown, out int glyph);
+                int flickerSeed = k * 7919 + ordinal;
+                bool lands;
+                if (_plan.GlyphBase > 0)
                 {
-                    sb.Append(FlickerGlyph(k, ordinal, time));
+                    // Drawn as a glyph (glyph >= 0) until both have landed.
+                    float glyphLand = glyph < 0 ? float.NegativeInfinity : _glyphLandAt[glyph];
+                    if (glyphLand > land)
+                    {
+                        flickerSeed = -1 - glyph;
+                    }
+                    land = Mathf.Max(land, glyphLand);
+                    lands = glyph >= 0;
                 }
                 else
                 {
-                    sb.Append(_plan.DisplayChar(k, c, wordShown, numberShown));
+                    lands = isDigit ? !numberShown : !wordShown;
                 }
+                bool flickers = lands && !float.IsInfinity(land) && time >= land - _tuning.flickerSeconds;
+                sb.Append(flickers ? FlickerGlyph(flickerSeed, time) : display);
                 ordinal++;
             }
             return sb.ToString();
@@ -411,10 +463,11 @@ public sealed class TranslationAnimator
             return revealAt + window * h;
         }
 
-        string FlickerGlyph(int k, int ordinal, float time)
+        // A random letter of the alphabet, re-picked every flicker interval.
+        string FlickerGlyph(int seed, float time)
         {
             int step = _tuning.flickerIntervalSeconds <= 0f ? 0 : (int)(time / _tuning.flickerIntervalSeconds);
-            int slot = (int)(Hash01(k * 7919 + ordinal, step, 0x2F1A9) * TextScrambler.GlyphLetterCount);
+            int slot = (int)(Hash01(seed, step, 0x2F1A9) * TextScrambler.GlyphLetterCount);
             return _plan.GlyphBase > 0 ? TextScrambler.GlyphString(_plan.GlyphBase + slot) : ((char)('a' + slot)).ToString();
         }
 

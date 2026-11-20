@@ -4,14 +4,14 @@
 [ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_loot_data"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="2_n464q"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="4_c11n3"]
-[ext_resource type="PackedScene" uid="uid://oehooqhrh5zt3" path="res://scenes/fx/eat_gulp.tscn" id="eat_gulp_fx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/eat_gulp.tscn" id="eat_gulp_fx"]
 
 [resource]
 script = ExtResource("1_loot_data")
-typeTags = 64
 useEffect = ExtResource("eat_gulp_fx")
 satiation = 0.05
 displayName = &"Mushroom"
 maxStack = 99
 spoilDays = 3
+typeTags = 64
 categoryOverride = 6

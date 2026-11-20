@@ -2,6 +2,10 @@
 
 [ext_resource type="Script" uid="uid://bpcbgagqxrvhu" path="res://scripts/data/LanguageData.cs" id="1_lang"]
 
+[sub_resource type="Curve" id="Curve_glyphs"]
+_data = [Vector2(0, 0), 0.0, 2.857143, 1, 1, Vector2(0.35, 1), 2.857143, 0.0, 1, 1, Vector2(1, 1), 0.0, 0.0, 1, 1]
+point_count = 3
+
 [sub_resource type="Curve" id="Curve_grammar"]
 _data = [Vector2(0, 0), 0.0, 0.0, 1, 1, Vector2(0.25, 0), 0.0, 2.0, 1, 1, Vector2(0.5, 0.5), 2.0, 1.2, 1, 1, Vector2(0.75, 0.8), 1.2, 0.8, 1, 1, Vector2(1, 1), 0.8, 0.8, 1, 1]
 point_count = 5
@@ -22,3 +26,4 @@ glyphBase = 57600
 vocabularyCurve = SubResource("Curve_vocabulary")
 grammarCurve = SubResource("Curve_grammar")
 numbersCurve = SubResource("Curve_numbers")
+glyphsCurve = SubResource("Curve_glyphs")

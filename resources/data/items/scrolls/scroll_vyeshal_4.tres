@@ -11,12 +11,12 @@
 [sub_resource type="Resource" id="Resource_concept_vocab1"]
 script = ExtResource("2_language_teachable")
 language = ExtResource("3_vyeshal")
-percent = 25.0
+percent = 15.0
 
 [resource]
 script = ExtResource("1_scroll")
-typeTags = 256
 concept = SubResource("Resource_concept_vocab1")
 description = "A glossary covering the first third of Vyeshal vocabulary."
 inventorySprite = ExtResource("4_8k1vg")
+typeTags = 256
 heldModel = ExtResource("7_held")
