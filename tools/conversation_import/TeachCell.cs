@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 
 // One thing an NPC teaches, parsed out of a sheet's action cell:
-// `teach:<kind> <name> [lesson percent%]`.
+// `teach:<kind> <name> [percent%]`.
 //
 //   teach:language vyeshal                     the whole tongue
-//   teach:language vyeshal 3 10%               lesson 3, worth 10% of it
+//   teach:language vyeshal 10%                 10% of it
 //   teach:recipe health_potion                 how to craft an item
 //   teach:meal stew_goblin_health              how to cook a cookpot meal
 //   teach:region swamp
@@ -15,7 +15,12 @@ using System.Collections.Generic;
 // The kind is part of the cell because the teachables are genuinely different
 // things drawn from different folders - `teach:swamp` would not say whether
 // that is a region, and a basename shared by two kinds would be ambiguous. It
-// also decides which extra words are legal: only a language takes a lesson.
+// also decides which extra words are legal: only a language takes an amount.
+//
+// A language lesson is identified by the cell it is written in (the generated
+// concept is named after it - TresWriter.AppendLesson), so the same cell
+// teaches once however often the player picks it, and two cells are two
+// lessons.
 //
 // The importer emits the TeachAction and its TeachableConcept itself, so a
 // one-concept lesson needs no authored .tres - that was the whole content of
@@ -34,9 +39,8 @@ class TeachRef
 	// [ext_resource] id prefix for Target, so the generated file reads
 	// Lang_vyeshal rather than Teach_vyeshal.
 	public string Prefix;
-	// Language only: the lesson number and its percent, or -1 to leave both
-	// off the sub-resource and take the export's default (the whole tongue).
-	public int Lesson = -1;
+	// Language only: how much of it, or -1 to take the export's default (the
+	// whole tongue).
 	public float Percent = -1f;
 }
 
@@ -129,32 +133,25 @@ static class TeachCell
 
 		if (parts.Length > 2 && kind != "language")
 		{
-			report.Error(row, $"'{token}' has more than a kind and a name - only a language takes a lesson, and ';'-separates several things taught");
+			report.Error(row, $"'{token}' has more than a kind and a name - only a language takes an amount, and ';'-separates several things taught");
 			return null;
 		}
-		if (parts.Length == 3 || parts.Length > 4)
+		if (parts.Length > 3)
 		{
-			report.Error(row, $"'{token}' - a partial lesson is 'teach:language {name} <lesson> <percent>%', e.g. 'teach:language {name} 3 10%'; leave both off to teach the whole tongue");
+			report.Error(row, $"'{token}' - a partial lesson is 'teach:language {name} <percent>%', e.g. 'teach:language {name} 10%' (lesson numbers are gone: the cell itself is the lesson); leave it off to teach the whole tongue");
 			return null;
 		}
-		if (parts.Length == 4 && !ParseLesson(parts[2], parts[3], token, row, report, out reference.Lesson, out reference.Percent))
+		if (parts.Length == 3 && !ParsePercent(parts[2], token, row, report, out reference.Percent))
 		{
 			return null;
 		}
 		return reference;
 	}
 
-	// A lesson number (0 or more) and how much of the language it teaches.
-	// Two sources with one number are one lesson, so each partial source wants
-	// its own; the number is the only thing that stops one teaching twice.
-	static bool ParseLesson(string lessonText, string percentText, string token, SheetRow row, Report report, out int lesson, out float percent)
+	// How much of the language the cell teaches.
+	static bool ParsePercent(string percentText, string token, SheetRow row, Report report, out float percent)
 	{
 		percent = -1f;
-		if (!int.TryParse(lessonText, out lesson) || lesson < 0)
-		{
-			report.Error(row, $"'{token}' names lesson '{lessonText}' - a lesson is a whole number from 0");
-			return false;
-		}
 		string amount = percentText.EndsWith("%") ? percentText[..^1] : percentText;
 		if (!float.TryParse(amount, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out percent)
 			|| percent <= 0f || percent > 100f)

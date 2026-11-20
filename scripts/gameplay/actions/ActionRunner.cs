@@ -1058,10 +1058,6 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoExtinguish(_actor, ev, ref _action);
 		}
-		if ((t & EItemEventType.LearnLanguage) != 0)
-		{
-			ItemEventHandlers.DoLearnLanguage(_actor, ev, ref _action);
-		}
 		if ((t & EItemEventType.LearnConcept) != 0)
 		{
 			ItemEventHandlers.DoLearnConcept(_actor, ev, ref _action);
@@ -1223,8 +1219,8 @@ public class ActionRunner
 		return true;
 	}
 
-	// Surface the first failed requirement's authored reason to the event log
-	// (via the same announcement bus region banners use). Interactive actions
+	// Surface the first failed requirement's authored reason — to the event log
+	// (the announcement bus) or as HudText, per its rejectDisplay. Interactive actions
 	// are only ever started by the player (PlayerWeapon.TryStartInteractiveAction),
 	// so the player's GameClient HUD is the correct, and only, destination —
 	// mob attacks never reach this path.
@@ -1256,6 +1252,12 @@ public class ActionRunner
 			if (string.IsNullOrEmpty(msg))
 			{
 				continue;
+			}
+			if (req.rejectDisplay == ActionRequirement.ERejectDisplay.HudText)
+			{
+				Vector3 at = context.primaryInteractive?.hudPosition ?? _actor.ActorWorldPosition;
+				GameClient.Current?.onHudText?.Invoke(at, msg, EHudTextType.Info);
+				return;
 			}
 			GameClient.Current?.Announce(new Announcement
 			{

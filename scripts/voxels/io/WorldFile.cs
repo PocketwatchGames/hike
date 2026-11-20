@@ -318,7 +318,15 @@ public static class WorldFile
     // v89: a weapon's and an armor piece's item state carries its rune
     //      inscription (RuneInscription) after gear durability; a rune bone's
     //      carries its species and rune position (RuneBoneState).
-    public const uint VERSION = 89;
+    // v90: Trigger tag added (TriggerSimState: box, actors, repeat, enter/exit
+    //      variable + actions, fired flags); a mob's payload carries
+    //      ScriptFollowing and Hidden after PlacedDead.
+    // v91: a mob's payload carries Invulnerable after Hidden.
+    // v92: KnowledgeStone tag becomes KnowledgeSource; after the lesson and
+    //      percent it carries its `teaches` concept list (count + refs).
+    // v93: a knowledge source carries no lesson / percent (its inscription is
+    //      the lesson); a loyalty gift carries no language fields.
+    public const uint VERSION = 93;
 
     public struct IndexEntry
     {

@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="KnowledgeStoneSpawnEntry" format=3 uid="uid://dnw6qkvrwv1dg"]
+[gd_resource type="Resource" script_class="KnowledgeSourceSpawnEntry" format=3 uid="uid://dnw6qkvrwv1dg"]
 
-[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="1_entry"]
+[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeSourceSpawnEntry.cs" id="1_entry"]
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="2_scene"]
 [ext_resource type="Resource" uid="uid://2xp5uowjmq8o" path="res://resources/data/worlds/shared/inscriptions/vyeshal_difficult_to_read.tres" id="insc_0"]
 
@@ -8,6 +8,4 @@
 script = ExtResource("1_entry")
 scene = ExtResource("2_scene")
 inscription = ExtResource("insc_0")
-lesson = 1
-percent = 20.0
 disabledVariable = null

@@ -58,6 +58,8 @@ public partial class Hud : Control
 	[Export] Control _questContainer;
 	[Export] PackedScene _questItemScene;
 	[Export] ConversationController _dialoguePanel;
+	// A knowledge source read as a page (a book) rather than a bubble.
+	[Export] BookPage _bookPage;
 	// Where every speech bubble is spawned. Outside _gameplayWidgets.
 	[Export] SpeechBubbles _speechBubbles;
 	// The gameplay widgets (vitals, hotbar, minimap, quests, effects), hidden
@@ -258,6 +260,11 @@ public partial class Hud : Control
 			_dialoguePanel.gameClient = gameClient;
 			_dialoguePanel.VisibilityChanged += OnConversationVisibilityChanged;
 		}
+		if (_bookPage != null)
+		{
+			_bookPage.gameClient = gameClient;
+			_bookPage.VisibilityChanged += OnConversationVisibilityChanged;
+		}
 		_weaponLeftHint?.SetHint("AttackContextSensitive", "AttackMelee", string.Empty, string.Empty);
 		_weaponRightHint?.SetHint("AttackContextSensitive", "AttackRanged", "Aim", string.Empty);
 		_shieldHint?.SetHint("Sneak", string.Empty);
@@ -314,9 +321,57 @@ public partial class Hud : Control
 			_composingReadable = false;
 		}
 		_dialoguePanel?.ShowReadable(bbcode, source);
-		if (!IsConversationOpen)
+		if (!IsTextPanelOpen)
 		{
 			ReleaseHeldDiscoveries();
+		}
+	}
+
+	// Opens `raw` (in `language`) on the book page, headed by `title` (same
+	// language; empty = none). `teach` grants what the read
+	// teaches; when that includes a lesson of `taught`, the page shows the meter
+	// rising from the amount held before to the amount after and the prose
+	// translating with it — so that language's discovery banner is dropped, the
+	// page is that banner. Anything else taught is announced once it closes.
+	public void ShowPage(Action teach, string title, string raw, LanguageData language, LanguageData taught, Player player)
+	{
+		if (taught != null && player == null)
+		{
+			taught = null;
+		}
+		float from = taught == null ? 0f : player.ComputeLanguageLearned(taught);
+		_composingReadable = true;
+		try
+		{
+			teach?.Invoke();
+		}
+		finally
+		{
+			_composingReadable = false;
+		}
+		float to = taught == null ? 0f : player.ComputeLanguageLearned(taught);
+		DropHeldDiscovery(EAnnouncementType.LanguageLearned, taught);
+		_bookPage?.Open(title, raw, language, taught, player, from, to);
+		if (!IsTextPanelOpen)
+		{
+			ReleaseHeldDiscoveries();
+		}
+	}
+
+	void DropHeldDiscovery(EAnnouncementType type, Resource subject)
+	{
+		if (subject == null || _heldDiscoveries.Count == 0)
+		{
+			return;
+		}
+		int count = _heldDiscoveries.Count;
+		for (int i = 0; i < count; i++)
+		{
+			Announcement a = _heldDiscoveries.Dequeue();
+			if (a.type != type || a.subject != subject)
+			{
+				_heldDiscoveries.Enqueue(a);
+			}
 		}
 	}
 
@@ -328,7 +383,9 @@ public partial class Hud : Control
 		}
 	}
 
-	public bool IsConversationOpen => _dialoguePanel != null && _dialoguePanel.IsOpen;
+	// A conversation, an inscription's bubble or a book page owns the screen.
+	public bool IsTextPanelOpen => (_dialoguePanel != null && _dialoguePanel.IsOpen)
+		|| (_bookPage != null && _bookPage.IsOpen);
 
 	public void ShowConversation(ConversationData conversation, ConversationContext ctx, System.Action onClose = null)
 	{
@@ -340,11 +397,12 @@ public partial class Hud : Control
 		_dialoguePanel?.Close();
 	}
 
-	// VisibilityChanged covers every way a conversation opens or closes,
-	// including an action (open_shop) closing it from inside the controller.
+	// VisibilityChanged covers every way a conversation or page opens or
+	// closes, including an action (open_shop) closing it from inside the
+	// controller.
 	void OnConversationVisibilityChanged()
 	{
-		bool hidden = IsConversationOpen;
+		bool hidden = IsTextPanelOpen;
 		if (_gameplayWidgets != null)
 		{
 			_gameplayWidgets.Visible = !hidden;
@@ -366,6 +424,10 @@ public partial class Hud : Control
 		if (_dialoguePanel != null)
 		{
 			_dialoguePanel.VisibilityChanged -= OnConversationVisibilityChanged;
+		}
+		if (_bookPage != null)
+		{
+			_bookPage.VisibilityChanged -= OnConversationVisibilityChanged;
 		}
 		if (gameClient != null)
 		{
@@ -438,7 +500,7 @@ public partial class Hud : Control
 		}
 		if (_announcementBanner != null && IsDiscovery(a.type))
 		{
-			if (_composingReadable || IsConversationOpen)
+			if (_composingReadable || IsTextPanelOpen)
 			{
 				_heldDiscoveries.Enqueue(a);
 				return;
@@ -479,7 +541,7 @@ public partial class Hud : Control
 		return gameClient == null
 			|| gameClient.InputSuppressed
 			|| gameClient.paused
-			|| IsConversationOpen
+			|| IsTextPanelOpen
 			|| ConsoleUI.IsOpen
 			|| (_player != null && _player.IsBirdsEye);
 	}
@@ -651,6 +713,99 @@ public partial class Hud : Control
 		}
 		_showingRemark = remark;
 		_remarkBubble.BeginAutoDismiss(Loc.Get(remark.textLocKey));
+	}
+
+	// A world script's standing line over a mob (WorldScriptApi.Say): a branch
+	// of its conversation typed out like any spoken line, but with no continue
+	// prompt — each paragraph holds for SpeechBubble.holdSeconds once typed and
+	// gives way to the next, and the last stays until replaced, hushed, or its
+	// speaker leaves the world (the bubble closes itself when its anchor dies).
+	// One per speaker.
+	sealed class StandingLine
+	{
+		public SpeechBubble Bubble;
+		public string Key;
+		public List<string> Lines;
+		public int Index;
+		public float HoldLeft = -1f;
+	}
+
+	readonly Dictionary<Mob, StandingLine> _standingLines = new();
+	readonly List<Mob> _standingScratch = new();
+
+	public void ShowStandingLine(Mob speaker, string key, List<string> lines, string speakerName)
+	{
+		if (_speechBubbles == null || speaker == null || lines == null || lines.Count == 0)
+		{
+			return;
+		}
+		// Already saying this one: leave it be rather than retype it.
+		if (key != null && _standingLines.TryGetValue(speaker, out StandingLine current)
+			&& current.Key == key && SpeechBubble.IsShowing(current.Bubble))
+		{
+			return;
+		}
+		HideStandingLine(speaker);
+		SpeechBubble bubble = _speechBubbles.Spawn(speaker, inscribed: false);
+		if (bubble == null)
+		{
+			return;
+		}
+		bubble.AwaitingContinue = false;
+		bubble.SetSpeakerName(speakerName);
+		bubble.Begin(lines[0]);
+		_standingLines[speaker] = new StandingLine { Bubble = bubble, Key = key, Lines = lines };
+	}
+
+	// `key` non-null: only if the speaker is still saying that branch.
+	public void HideStandingLine(Mob speaker, string key = null)
+	{
+		if (speaker == null || !_standingLines.TryGetValue(speaker, out StandingLine line)
+			|| (key != null && line.Key != key))
+		{
+			return;
+		}
+		_standingLines.Remove(speaker);
+		if (SpeechBubble.IsShowing(line.Bubble))
+		{
+			line.Bubble.Close();
+		}
+	}
+
+	void TickStandingLines(float delta)
+	{
+		if (_standingLines.Count == 0)
+		{
+			return;
+		}
+		_standingScratch.Clear();
+		foreach ((Mob speaker, StandingLine line) in _standingLines)
+		{
+			if (!SpeechBubble.IsShowing(line.Bubble))
+			{
+				_standingScratch.Add(speaker);
+				continue;
+			}
+			if (line.Index >= line.Lines.Count - 1 || !line.Bubble.IsFullyRevealed)
+			{
+				continue;
+			}
+			if (line.HoldLeft < 0f)
+			{
+				line.HoldLeft = line.Bubble.holdSeconds;
+			}
+			line.HoldLeft -= delta;
+			if (line.HoldLeft <= 0f)
+			{
+				line.Index++;
+				line.HoldLeft = -1f;
+				line.Bubble.Begin(line.Lines[line.Index]);
+			}
+		}
+		foreach (Mob gone in _standingScratch)
+		{
+			_standingLines.Remove(gone);
+		}
 	}
 
 	void StopRemark()
@@ -875,6 +1030,7 @@ public partial class Hud : Control
 		}
 
 		TickNeedRemarks((float)delta);
+		TickStandingLines((float)delta);
 
 		ulong now = gameClient.Sim?.GameTimeMs ?? 0;
 		TickWeaponSlot(_weaponLeftSlot, _weaponLeftHint, EInventorySlot.WeaponLeft, now);
@@ -1315,7 +1471,7 @@ public partial class Hud : Control
 		}
 		Vector3 worldPos = _player.hudAnchor != null ? _player.hudAnchor.GlobalPosition : _player.GlobalPosition;
 		bool behindCamera = gameClient.camera.IsPositionBehind(worldPos);
-		_statusEffectNotificationAnchor.Visible = !behindCamera && !IsConversationOpen;
+		_statusEffectNotificationAnchor.Visible = !behindCamera && !IsTextPanelOpen;
 		if (!behindCamera)
 		{
 			_statusEffectNotificationAnchor.Position = GameClient.Current.ProjectToScreen(worldPos);

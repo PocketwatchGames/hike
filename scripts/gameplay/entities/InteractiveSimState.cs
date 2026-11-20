@@ -296,26 +296,69 @@ public class SignpostSimState : EntitySimState
     }
 }
 
-public class KnowledgeStoneSimState : EntitySimState
+public class KnowledgeSourceSimState : EntitySimState
 {
-    // What this stone says (and the tongue it is written in, which drives the
-    // scramble on display); the .tscn is shared.
+    // What this source says, the tongue it is written in (which drives the
+    // scramble on display) and the lesson of it a read teaches
+    // (InscriptionData.percent). Null when it only teaches; the .tscn is shared.
     public InscriptionData Inscription;
-    // Concepts this specific stone grants on read. Empty/null falls back to
-    // whatever the scene authored on its `_concepts` field. Polymorphic
-    // resource refs — LanguageTeachable, RecipeTeachable, RegionTeachable.
-    public Godot.Collections.Array<TeachableConcept> Concepts;
+    // Concepts taught beside the inscription's lesson; null when none.
+    public Godot.Collections.Array<TeachableConcept> Teaches;
 
-    public KnowledgeStoneSimState(Vector3 worldPosition, PackedScene scene, InscriptionData inscription, Godot.Collections.Array<TeachableConcept> concepts)
+    public KnowledgeSourceSimState(Vector3 worldPosition, PackedScene scene, InscriptionData inscription,
+        Godot.Collections.Array<TeachableConcept> teaches)
         : base(worldPosition, scene)
     {
         Inscription = inscription;
-        Concepts = concepts;
+        Teaches = teaches;
+    }
+
+    // Grants everything a read teaches: the inscription's lesson, then each
+    // concept on `Teaches`.
+    public void Teach(Player player)
+    {
+        if (player == null)
+        {
+            return;
+        }
+        Inscription?.Teach(player);
+        if (Teaches == null)
+        {
+            return;
+        }
+        int count = Teaches.Count;
+        for (int i = 0; i < count; i++)
+        {
+            Teaches[i]?.Teach(player);
+        }
+    }
+
+    // Whether a read would still teach `player` anything — what keeps a sibling
+    // map marker bright (SimState.IsMarkerActive). A source that teaches
+    // nothing reads as fully learned.
+    public bool HasUnlearned(Player player)
+    {
+        if (Inscription != null && !Inscription.IsLearned(player))
+        {
+            return true;
+        }
+        if (Teaches == null)
+        {
+            return false;
+        }
+        foreach (TeachableConcept concept in Teaches)
+        {
+            if (concept != null && !concept.IsKnown(player))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     public override Node3D CreateEntity(Sim sim)
     {
-        return KnowledgeStone.Create(sim, this);
+        return KnowledgeSource.Create(sim, this);
     }
 }
 

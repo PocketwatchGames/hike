@@ -196,6 +196,7 @@ public partial class WorldMapPainter : Node3D
             new MobTool(),
             new HabitatTool(),
             new EntityTool(),
+            new TriggerTool(),
         };
         _toolIndex = 0;
 
@@ -244,6 +245,12 @@ public partial class WorldMapPainter : Node3D
             hud.entityInspector.AfterEdit = () =>
             {
                 _history.Commit();
+                // A trigger's size is one of its fields, so a panel edit can
+                // move its outline — and where it was is no longer known.
+                if (WorldMapState.TriggerOf(ActiveTool.SelectedEntity) != null)
+                {
+                    RebuildFull();
+                }
                 UpdateHud();
             };
             hud.entityInspector.World = data.World;
@@ -316,6 +323,12 @@ public partial class WorldMapPainter : Node3D
     {
         if (placement == null)
         {
+            return;
+        }
+        // A trigger's mark is its whole box outline.
+        if (WorldMapState.TriggerOf(placement) != null)
+        {
+            RebuildDisplay(_ctx.TriggerTexelRect(placement).Grow(1));
             return;
         }
         Vector2I at = _ctx.TexelXZ(placement.anchorXZ);
@@ -1177,6 +1190,89 @@ public partial class WorldMapPainter : Node3D
         else
         {
             DrawEntityGhosts(x0, z0, x1, z1, clipY);
+        }
+
+        // Trigger boxes on EVERY view, as outlines: where an event fires is a
+        // fact about the ground worth seeing while painting anything near it.
+        DrawTriggerMarks(x0, z0, x1, z1, clipY);
+    }
+
+    // Each trigger box as a one-pixel outline: faint everywhere, full strength
+    // under the trigger tool, the selection washed and its corners marked so the
+    // resize handles can be found.
+    private void DrawTriggerMarks(int x0, int z0, int x1, int z1, int clipY)
+    {
+        EntityPlacement[] triggers = _ctx.Placements.triggers;
+        if (triggers.Length == 0)
+        {
+            return;
+        }
+        bool active = ActiveTool is TriggerTool;
+        EntityPlacement selected = active ? ActiveTool.SelectedEntity : null;
+        var area = new Rect2I(x0, z0, x1 - x0, z1 - z0);
+        foreach (EntityPlacement placement in triggers)
+        {
+            if (placement == null)
+            {
+                continue;
+            }
+            Rect2I r = _ctx.TriggerTexelRect(placement);
+            if (!r.Grow(1).Intersects(area) || !_ctx.IsTriggerShown(placement, clipY))
+            {
+                continue;
+            }
+            bool isSelected = placement == selected;
+            bool isHover = active && placement == _hoverEntity;
+            Color line = isSelected || isHover ? ink.triggerSelectedInk : ink.triggerInk;
+            if (active && !isSelected && !isHover)
+            {
+                line.A = 1f;
+            }
+            int px0 = r.Position.X * pixelsPerMeter;
+            int pz0 = r.Position.Y * pixelsPerMeter;
+            int px1 = r.End.X * pixelsPerMeter - 1;
+            int pz1 = r.End.Y * pixelsPerMeter - 1;
+            if (isSelected && ink.triggerFillAlpha > 0f)
+            {
+                Color wash = ink.triggerSelectedInk;
+                wash.A = ink.triggerFillAlpha;
+                for (int y = pz0 + 1; y < pz1; y++)
+                {
+                    for (int x = px0 + 1; x < px1; x++)
+                    {
+                        BlendPixel(x, y, wash);
+                    }
+                }
+            }
+            for (int x = px0; x <= px1; x++)
+            {
+                BlendPixel(x, pz0, line);
+                BlendPixel(x, pz1, line);
+            }
+            for (int y = pz0 + 1; y < pz1; y++)
+            {
+                BlendPixel(px0, y, line);
+                BlendPixel(px1, y, line);
+            }
+            if (isSelected)
+            {
+                // The corner cells are the handles a drag resizes from.
+                FillTriggerCorner(r.Position.X, r.Position.Y, line);
+                FillTriggerCorner(r.End.X - 1, r.Position.Y, line);
+                FillTriggerCorner(r.Position.X, r.End.Y - 1, line);
+                FillTriggerCorner(r.End.X - 1, r.End.Y - 1, line);
+            }
+        }
+    }
+
+    private void FillTriggerCorner(int px, int pz, Color c)
+    {
+        for (int dz = 0; dz < pixelsPerMeter; dz++)
+        {
+            for (int dx = 0; dx < pixelsPerMeter; dx++)
+            {
+                BlendPixel(px * pixelsPerMeter + dx, pz * pixelsPerMeter + dz, c);
+            }
         }
     }
 

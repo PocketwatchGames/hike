@@ -18,19 +18,23 @@ public partial class Mob
     private float _vanishDuration;
     private float _vanishAscent;
     private Vector3 _vanishStartPosition;
+    // The vanish ends HIDDEN (MobSimState.Hidden) rather than removing the mob,
+    // so a script can bring it back (Reappear).
+    private bool _vanishHides;
 
     public bool IsVanishing => _vanishing;
 
     // Begin the escape ascent. ascentHeight = metres risen; durationSeconds =
     // time to rise and fully fade. Idempotent — a second call while already
     // vanishing is ignored.
-    public void BeginVanish(float ascentHeight, float durationSeconds)
+    public void BeginVanish(float ascentHeight, float durationSeconds, bool hide = false)
     {
         if (_vanishing)
         {
             return;
         }
         _vanishing = true;
+        _vanishHides = hide;
         _vanishElapsed = 0f;
         _vanishAscent = ascentHeight;
         _vanishDuration = Mathf.Max(0.01f, durationSeconds);
@@ -80,6 +84,14 @@ public partial class Mob
 
         if (t >= 1f)
         {
+            if (_vanishHides)
+            {
+                _vanishing = false;
+                _vanishHides = false;
+                _simState.WorldPosition = _vanishStartPosition;
+                EnterHidden();
+                return true;
+            }
             _world?.RemoveEntity(this);
             _world?.WorldState?.RemoveEntity(_simState);
             QueueFree();

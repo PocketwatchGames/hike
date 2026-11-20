@@ -10,7 +10,6 @@
 [sub_resource type="Resource" id="Resource_concept_grammar"]
 script = ExtResource("2_language_teachable")
 language = ExtResource("3_vyeshal")
-lesson = 2
 percent = 25.0
 
 [resource]

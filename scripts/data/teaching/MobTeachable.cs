@@ -10,6 +10,7 @@ using Godot;
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]
+[AuthoringKind("Bestiary")]
 public partial class MobTeachable : TeachableConcept
 {
     [Export] public SpeciesData species;

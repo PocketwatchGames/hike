@@ -280,6 +280,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // chunk-unload rescue can re-file the state under a new chunk (see
     // Sim.RescueCompanion / WorldState.MoveEntityToChunk).
     public MobSimState SimState => _simState;
+
+    // MobSpawnEntry.invulnerable: no damage, and never a threat target.
+    public bool IsInvulnerable => _simState?.Invulnerable ?? false;
     // Per-instance language override (set by WorldGen / world files) takes
     // precedence over MobData.language. Mirrors SpeakDialogue's resolution
     // order so dialogue and any other UI surface (merchant screen, etc.)
@@ -852,7 +855,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     public void OnSpawned(Sim sim)
     {
-        sim.MobSpatialHash.Add(this);
+        if (_simState.Hidden)
+        {
+            // Saved hidden: stays out of sight, and out of everyone's
+            // perception, until a script brings it back.
+            EnterHidden();
+        }
+        else
+        {
+            sim.MobSpatialHash.Add(this);
+        }
         if (alive)
         {
             SpawnWorldEffect(_spawnFx);
@@ -865,7 +877,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // draw on a living, un-recruited mob that carries a conversation.
         if (_liveMapMarker != null)
         {
-            _liveMapMarker.ActiveCondition = () => alive && !IsCompanion && _simState?.Conversation != null;
+            _liveMapMarker.ActiveCondition = () => alive && !IsCompanion && !IsHidden && _simState?.Conversation != null;
         }
         TreeExiting += () =>
         {
@@ -1462,6 +1474,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     public bool CanInteract()
     {
+        if (IsHidden)
+        {
+            return false;
+        }
         if (!alive)
         {
             return CanBeSearched();
@@ -1740,22 +1756,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         return total;
     }
 
-    // True if the gift would teach only a language lesson the player
-    // already holds. Item-bearing gifts are never redundant — even a known-
-    // language gift still carries a real item payload.
-    private bool IsGiftRedundant(LoyaltyGiftState gift, Player player)
+    // A gift with no item gives nothing.
+    private static bool IsGiftRedundant(LoyaltyGiftState gift, Player player)
     {
-        if (gift == null) { return true; }
-        if (gift.item != null) { return false; }
-        if (gift.language == null || gift.languagePercent <= 0f) { return true; }
-        if (player == null) { return false; }
-        return player.GetLessonPercent(gift.language, gift.languageLesson) >= gift.languagePercent;
+        return gift?.item == null;
     }
 
-    // Any non-redundant gift left in the mob's reserve. Drives the "nothing
-    // of value to give back" rejection case at the merchant screen — a mob
-    // whose only remaining gifts are language components the player already
-    // knows is functionally empty.
+    // Any gift with an item left in the mob's reserve. Drives the "nothing of
+    // value to give back" rejection case at the merchant screen.
     public bool HasReciprocableGift(Player player)
     {
         if (_simState == null) { return false; }
@@ -1851,7 +1859,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // can't be destroyed when its spawn chunk evicts (it's now player-
         // attached state, not world content). Starter pets spawn pre-tamed
         // straight into that store, so they never hit this path.
-        _world?.PromoteCompanionToPersistent(this);
+        _world?.PromoteMobToPersistent(this);
     }
 
     // Opens this mob's conversation — the Talk verb, or a world script
@@ -2646,7 +2654,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         int wy = Mathf.FloorToInt(pos.Y);
         int wz = Mathf.FloorToInt(pos.Z);
         bool waterIsSurface = _simState.MobData.CanSwim;
-        int surfHere = SurfaceTopAt(ws, wx, wz, wy, waterIsSurface);
+        // The floor under the flier, scanned down from its own voxel. Not
+        // SurfaceTopAt, which starts well ABOVE it (to see a cliff ahead): in a
+        // cave that finds the hill over the roof and lifts the flier through it.
+        int surfHere = FloorTopBelow(ws, wx, wz, wy, waterIsSurface);
         float target = Mathf.Max(requestedY, surfHere + 1f);
         int ceiling = CeilingYAbove(ws, wx, wy + 1, wz);
         if (ceiling != int.MaxValue)
@@ -2676,6 +2687,22 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         int startY = centerY + FlightSurfaceLookUp;
         int minY = centerY - FlightSurfaceLookDown;
         for (int y = startY; y > minY; y--)
+        {
+            int v = ws.GetBlockWorld(wx, y, wz);
+            if (Blocks.IsSolid(v) || (includeWater && Blocks.IsWater(v)))
+            {
+                return y + 1;
+            }
+        }
+        return minY;
+    }
+
+    // Top face of the first landable voxel at or below fromY in column (wx, wz),
+    // or the scan's lower bound if there is none.
+    private static int FloorTopBelow(WorldState ws, int wx, int wz, int fromY, bool includeWater)
+    {
+        int minY = fromY - FlightSurfaceLookDown;
+        for (int y = fromY; y > minY; y--)
         {
             int v = ws.GetBlockWorld(wx, y, wz);
             if (Blocks.IsSolid(v) || (includeWater && Blocks.IsWater(v)))
@@ -3026,6 +3053,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // despawn. Runs ahead of all normal physics/AI and short-circuits the
         // rest of the tick while active.
         if (TickVanish((float)delta))
+        {
+            return;
+        }
+        // A scripted reappear (WorldScriptApi.Reappear) owns the body the same way,
+        // and a hidden mob does nothing at all until one starts.
+        TickScriptedVanish();
+        if (TickReappear((float)delta) || IsHidden)
         {
             return;
         }
@@ -4712,6 +4746,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     public void Damage(HitInfo hit)
     {
+        // A plot-protected individual shrugs off every hit, payload and
+        // statuses included.
+        if (IsInvulnerable)
+        {
+            return;
+        }
         // Stamp the hit time for behaviors that react to being attacked
         // (BehaviorRetreat / HurtWhileTargetSafeCondition). Any hit reaching
         // here counts, including armor-only ones — a shot is a shot.
@@ -5004,10 +5044,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 RefreshArmorRecharge(false);
             }
-            health = Mathf.Max(0f, health - bypassed);
-            if (health <= 0f)
+            if (!IsInvulnerable)
             {
-                Die();
+                health = Mathf.Max(0f, health - bypassed);
+                if (health <= 0f)
+                {
+                    Die();
+                }
             }
         }
         // Status-effect ticks already fire at 1Hz from StatusEffectController,
@@ -5038,7 +5081,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // bar is the only feedback. Die() self-guards on !alive against re-entry.
     private void DrainMaxHealth(float amount)
     {
-        if (amount == 0f || !alive)
+        if (amount == 0f || !alive || IsInvulnerable)
         {
             return;
         }

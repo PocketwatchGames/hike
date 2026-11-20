@@ -12,7 +12,7 @@ using Godot;
 //
 // An array rather than a single concept because one exchange plausibly grants
 // several at once (the tongue AND the name of the place it's spoken) — matching
-// KnowledgeStone, whose inscription teaches a list.
+// KnowledgeSource, whose inscription teaches a list.
 //
 // Dedup is the concept's own: Teach returns true only on a NEW grant, so
 // re-running this on a repeatable response teaches nothing twice and the fx

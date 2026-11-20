@@ -23,6 +23,7 @@ class TresWriter
 	// the rest.
 	readonly StringBuilder _inlineSubResources = new StringBuilder();
 	int _inlineCount;
+	readonly HashSet<string> _usedIds = new();
 
 	public TresWriter(ResourceIndex index, Report report, VarDeclarations declarations)
 	{
@@ -37,6 +38,7 @@ class TresWriter
 		_externalIds.Clear();
 		_inlineSubResources.Clear();
 		_inlineCount = 0;
+		_usedIds.Clear();
 
 		string dataScript = ScriptId("ConversationData");
 		string branchScript = ScriptId("ConversationBranch");
@@ -59,7 +61,7 @@ class TresWriter
 			body.AppendLine($"script = ExtResource(\"{entryScript}\")");
 			AppendCondition(body, character, entry.Condition, entry.Row);
 			body.AppendLine($"branch = &\"{entry.Branch}\"");
-			AppendActions(body, "actions", character, entry.Actions, entry.Row);
+			AppendActions(body, id, "actions", character, entry.Actions, entry.Row);
 			body.AppendLine();
 		}
 
@@ -75,8 +77,8 @@ class TresWriter
 				body.AppendLine($"[sub_resource type=\"Resource\" id=\"{lineId}\"]");
 				body.AppendLine($"script = ExtResource(\"{lineScript}\")");
 				body.AppendLine($"locKey = &\"{line.Key}\"");
-				AppendActions(body, "startActions", character, line.StartActions, line.Row);
-				AppendActions(body, "completeActions", character, line.CompleteActions, line.Row);
+				AppendActions(body, lineId, "startActions", character, line.StartActions, line.Row);
+				AppendActions(body, lineId, "completeActions", character, line.CompleteActions, line.Row);
 				body.AppendLine();
 			}
 
@@ -121,8 +123,8 @@ class TresWriter
 				{
 					body.AppendLine($"destination = &\"{response.Destination}\"");
 				}
-				AppendActions(body, "startActions", character, response.StartActions, response.Row);
-				AppendActions(body, "completeActions", character, response.CompleteActions, response.Row);
+				AppendActions(body, id, "startActions", character, response.StartActions, response.Row);
+				AppendActions(body, id, "completeActions", character, response.CompleteActions, response.Row);
 				body.AppendLine();
 			}
 
@@ -211,7 +213,7 @@ class TresWriter
 			_report.Error(row, $"'{name}' teaches something - that is an action, not a condition (the gate for 'does the player know it yet' is e.g. 'understands<100%')");
 			return;
 		}
-		if (QuestCell.IsQuestToken(name) || BehaviorCell.IsBehaviorToken(name))
+		if (QuestCell.IsQuestToken(name) || BehaviorCell.IsBehaviorToken(name) || ReappearCell.IsReappearToken(name))
 		{
 			_report.Error(row, $"'{name}' is an action, not a condition");
 			return;
@@ -278,7 +280,9 @@ class TresWriter
 		return id;
 	}
 
-	void AppendActions(StringBuilder body, string property, SheetCharacter character, List<string> names, SheetRow row)
+	// `owner` is the id of the sub-resource the cell belongs to — deterministic,
+	// so anything generated under it can be named after it.
+	void AppendActions(StringBuilder body, string owner, string property, SheetCharacter character, List<string> names, SheetRow row)
 	{
 		if (names.Count == 0)
 		{
@@ -314,6 +318,15 @@ class TresWriter
 				}
 				continue;
 			}
+			if (ReappearCell.IsReappearToken(name))
+			{
+				string place = ReappearCell.Parse(name, row, _report);
+				if (place != null)
+				{
+					ids.Add($"SubResource(\"{AppendReappear(place)}\")");
+				}
+				continue;
+			}
 			if (UnderstandsCell.IsUnderstandsToken(name))
 			{
 				_report.Error(row, $"'{name}' tests what the player understands - that is a condition, not an action");
@@ -324,7 +337,7 @@ class TresWriter
 				TeachRef lesson = TeachCell.Parse(name, _index, character.World, row, _report);
 				if (lesson != null)
 				{
-					ids.Add($"SubResource(\"{AppendLesson(lesson)}\")");
+					ids.Add($"SubResource(\"{AppendLesson(lesson, $"{owner}_{property}")}\")");
 				}
 				continue;
 			}
@@ -392,15 +405,20 @@ class TresWriter
 	// taught is the whole content. TeachAction.learnEffect is deliberately left
 	// unset - an fx is a presentation choice with nowhere to live in a cell, and
 	// a lesson that wants one has earned an authored .tres.
-	string AppendLesson(TeachRef lesson)
+	//
+	// The concept's id is named after the cell it came from (`cell`, e.g.
+	// Line_greeting_2_completeActions) rather than counted: a language lesson is
+	// identified by its resource path (Player.LessonSourceKey), so a counted id
+	// would make an unrelated edit higher in the sheet re-teach every lesson
+	// below it.
+	string AppendLesson(TeachRef lesson, string cell)
 	{
-		string conceptId = NextInlineId();
+		string conceptId = UniqueId($"Teach_{cell}_{lesson.Prefix}_{lesson.Target.Name}");
 		_inlineSubResources.AppendLine($"[sub_resource type=\"Resource\" id=\"{conceptId}\"]");
 		_inlineSubResources.AppendLine($"script = ExtResource(\"{ScriptId(lesson.Teachable)}\")");
 		_inlineSubResources.AppendLine($"{lesson.Property} = ExtResource(\"{ExternalId(lesson.Target, lesson.Prefix)}\")");
-		if (lesson.Lesson >= 0)
+		if (lesson.Percent >= 0f)
 		{
-			_inlineSubResources.AppendLine($"lesson = {lesson.Lesson}");
 			_inlineSubResources.AppendLine($"percent = {lesson.Percent.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
 		}
 		_inlineSubResources.AppendLine();
@@ -433,6 +451,16 @@ class TresWriter
 		return id;
 	}
 
+	string AppendReappear(string place)
+	{
+		string id = NextInlineId();
+		_inlineSubResources.AppendLine($"[sub_resource type=\"Resource\" id=\"{id}\"]");
+		_inlineSubResources.AppendLine($"script = ExtResource(\"{ScriptId("ReappearAction")}\")");
+		_inlineSubResources.AppendLine($"place = &\"{place}\"");
+		_inlineSubResources.AppendLine();
+		return id;
+	}
+
 	string AppendUnderstands(UnderstandsRef gate)
 	{
 		string id = NextInlineId();
@@ -455,6 +483,17 @@ class TresWriter
 	{
 		_inlineCount++;
 		return $"Inline_{_inlineCount}";
+	}
+
+	// `id`, or `id_2`, `id_3`... if this file already used it.
+	string UniqueId(string id)
+	{
+		string candidate = id;
+		for (int n = 2; !_usedIds.Add(candidate); n++)
+		{
+			candidate = $"{id}_{n}";
+		}
+		return candidate;
 	}
 
 	static string ConditionFolders(string world)

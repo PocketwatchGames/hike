@@ -3,7 +3,8 @@ using System;
 using System.Collections.Generic;
 
 // Everything in WorldMapPlacements: the subscene stamps (with their forks of
-// their scenes' entities), the hand-placed entities, and the player spawn.
+// their scenes' entities), the hand-placed entities, the trigger boxes, and the
+// player spawn.
 //
 // Snapshotted WHOLE rather than tiled — these are a handful of entries, and
 // every edit (add, delete, move, rotate) changes a list or one entry's fields,
@@ -131,6 +132,12 @@ public sealed class PlacementsAspect : IMapEditAspect
         public readonly Variant[][] EntityValues;
         public readonly Variant[][] EntryValues;
 
+        // Trigger boxes are entity placements too, in their own list; their
+        // whole entry is the placement's own (`custom`).
+        public readonly EntityPlacement[] Triggers;
+        public readonly Variant[][] TriggerValues;
+        public readonly Variant[][] TriggerEntryValues;
+
         public readonly bool HasSpawn;
         public readonly Vector2I SpawnXZ;
 
@@ -165,6 +172,15 @@ public sealed class PlacementsAspect : IMapEditAspect
                 EntryValues[i] = CaptureEntry(Entities[i]);
             }
 
+            Triggers = (EntityPlacement[])p.triggers.Clone();
+            TriggerValues = new Variant[Triggers.Length][];
+            TriggerEntryValues = new Variant[Triggers.Length][];
+            for (int i = 0; i < Triggers.Length; i++)
+            {
+                TriggerValues[i] = Capture(Triggers[i]);
+                TriggerEntryValues[i] = CaptureEntry(Triggers[i]);
+            }
+
             HasSpawn = p.hasSpawn;
             SpawnXZ = p.spawnXZ;
         }
@@ -173,6 +189,7 @@ public sealed class PlacementsAspect : IMapEditAspect
         {
             if (Stamps.Length != other.Stamps.Length
                 || Entities.Length != other.Entities.Length
+                || Triggers.Length != other.Triggers.Length
                 || HasSpawn != other.HasSpawn
                 || SpawnXZ != other.SpawnXZ)
             {
@@ -205,6 +222,15 @@ public sealed class PlacementsAspect : IMapEditAspect
                     return false;
                 }
             }
+            for (int i = 0; i < Triggers.Length; i++)
+            {
+                if (!ReferenceEquals(Triggers[i], other.Triggers[i])
+                    || !SameValues(TriggerValues[i], other.TriggerValues[i])
+                    || !SameValues(TriggerEntryValues[i], other.TriggerEntryValues[i]))
+                {
+                    return false;
+                }
+            }
             return true;
         }
 
@@ -232,6 +258,13 @@ public sealed class PlacementsAspect : IMapEditAspect
                 // write), and for its redo is the fork.
                 Write(Entities[i], EntityValues[i]);
                 Write(Entities[i]?.custom, EntryValues[i]);
+            }
+
+            ctx.Placements.triggers = (EntityPlacement[])Triggers.Clone();
+            for (int i = 0; i < Triggers.Length; i++)
+            {
+                Write(Triggers[i], TriggerValues[i]);
+                Write(Triggers[i]?.custom, TriggerEntryValues[i]);
             }
 
             ctx.Placements.hasSpawn = HasSpawn;

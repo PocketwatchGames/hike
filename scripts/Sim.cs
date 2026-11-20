@@ -404,6 +404,8 @@ public partial class Sim : Node3D
 
         _heatField?.Tick();
 
+        TickTriggers(delta);
+
         TickQuests();
     }
 

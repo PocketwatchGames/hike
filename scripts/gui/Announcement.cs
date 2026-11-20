@@ -63,6 +63,10 @@ public class Announcement
 	// Region context used by HudRegionBanner — only set when type=Region.
 	public RegionData region;
 
+	// What was discovered, when a surface needs to recognise it — the language
+	// of a LanguageLearned, which a book page shows in place of the banner.
+	public Resource subject;
+
 	// Optional 0..1 progress the announcement moved, drawn by HudAnnouncementBanner
 	// as a bar filling from progressFrom to progressTo. Null = no bar.
 	public float? progressFrom;

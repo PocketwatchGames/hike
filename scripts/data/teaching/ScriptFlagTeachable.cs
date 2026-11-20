@@ -10,6 +10,7 @@ using Godot;
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]
+[AuthoringKind("Script flag")]
 public partial class ScriptFlagTeachable : TeachableConcept
 {
     // Bank variable (a Bool ScriptVariableData id) set true when taught.

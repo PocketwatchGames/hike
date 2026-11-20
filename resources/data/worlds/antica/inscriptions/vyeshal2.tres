@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="InscriptionData" format=3 uid="uid://cw6poko6evdnc"]
+
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/worlds/shared/languages/vyeshal.tres" id="1_7tn12"]
+[ext_resource type="Script" uid="uid://csme1i3g5loqx" path="res://scripts/data/InscriptionData.cs" id="1_jgicc"]
+
+[resource]
+script = ExtResource("1_jgicc")
+textKey = &"inscription_vyeshal2"
+titleKey = &"inscription_vyeshal2_title"
+language = ExtResource("1_7tn12")
+percent = 25.0

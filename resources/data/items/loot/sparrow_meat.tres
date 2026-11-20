@@ -9,6 +9,7 @@
 [ext_resource type="Resource" uid="uid://cfgrdp0ehape4" path="res://resources/data/status_effects/status_food_poisoning.tres" id="food_poisoning"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="item_effect"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/feather.tres" id="salvage_feather"]
+[ext_resource type="PackedScene" uid="uid://oehooqhrh5zt3" path="res://scenes/fx/eat_gulp.tscn" id="eat_gulp_fx"]
 
 [sub_resource type="Resource" id="eat_poison"]
 script = ExtResource("apply_status")
@@ -22,6 +23,7 @@ metadata/_custom_type_script = "uid://l6gx1iwvvcgsx"
 [resource]
 script = ExtResource("2_4siyi")
 effects = Array[ExtResource("item_effect")]([SubResource("eat_poison")])
+useEffect = ExtResource("eat_gulp_fx")
 satiation = 0.15
 displayName = &"Sparrow Meat"
 spoilDays = 3

@@ -696,7 +696,7 @@ static class ConversationSheet
 		{
 			if (!reachedBranches.Contains(branch.Name))
 			{
-				report.Warn(branch.Row, $"branch '{branch.Name}' is never reached - no entry or response goes to it");
+				report.Warn(branch.Row, $"branch '{branch.Name}' is never reached - no entry or response goes to it (fine if a world script says it: WorldScriptApi.Say)");
 			}
 		}
 	}

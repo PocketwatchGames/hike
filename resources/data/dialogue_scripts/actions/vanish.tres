@@ -1,0 +1,6 @@
+[gd_resource type="Resource" script_class="VanishAction" format=3]
+
+[ext_resource type="Script" uid="uid://rvz4uq672ahjt" path="res://scripts/data/conversation/actions/VanishAction.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")

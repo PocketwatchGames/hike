@@ -101,7 +101,7 @@ public partial class ConversationController : Control
 		{
 			return;
 		}
-		ConversationBranch branch = FindBranch(conversation, entry.branch);
+		ConversationBranch branch = conversation.FindBranch(entry.branch);
 		if (branch == null)
 		{
 			// Warned, like the exit-group miss below: an entry naming a branch
@@ -474,7 +474,7 @@ public partial class ConversationController : Control
 			Close();
 			return;
 		}
-		ConversationBranch next = FindBranch(_conversation, dest);
+		ConversationBranch next = _conversation.FindBranch(dest);
 		if (next == null)
 		{
 			GD.PushWarning($"ConversationController: response destination '{dest}' not found in conversation");
@@ -635,23 +635,6 @@ public partial class ConversationController : Control
 	static bool IsBlank(StringName name)
 	{
 		return name is null || name.IsEmpty;
-	}
-
-	static ConversationBranch FindBranch(ConversationData conv, StringName name)
-	{
-		if (conv.branches == null)
-		{
-			return null;
-		}
-		for (int i = 0; i < conv.branches.Count; i++)
-		{
-			ConversationBranch b = conv.branches[i];
-			if (b != null && b.name == name)
-			{
-				return b;
-			}
-		}
-		return null;
 	}
 
 	void ResolveAndScrambleLines(ConversationBranch branch, ConversationContext ctx)

@@ -9,6 +9,7 @@ using Godot;
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]
+[AuthoringKind("Item name")]
 public partial class ItemTeachable : TeachableConcept
 {
     [Export] public ItemData item;

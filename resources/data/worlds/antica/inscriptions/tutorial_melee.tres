@@ -1,7 +1,0 @@
-[gd_resource type="Resource" script_class="InscriptionData" format=3 uid="uid://cw6poko6evdnc"]
-
-[ext_resource type="Script" uid="uid://gn1amk0ppskip" path="res://scripts/data/InscriptionData.cs" id="1_jgicc"]
-
-[resource]
-script = ExtResource("1_jgicc")
-textKey = &"inscription_tutorial_melee"

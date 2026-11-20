@@ -2,7 +2,7 @@ using Godot;
 
 // A single thing a teaching source can grant to a player — a slice of a
 // language, a recipe, a map-region location, and (later) skills. Polymorphic
-// so any teaching source (KnowledgeStone, scroll, NPC dialogue) carries a
+// so any teaching source (KnowledgeSource, scroll, NPC dialogue) carries a
 // flat list of these and doesn't need to branch on what it teaches; subclasses
 // implement `Teach` against the appropriate world-state collection and
 // `GetDisplayName` for UI names that pull from the concept (scroll naming,

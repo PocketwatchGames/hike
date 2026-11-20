@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="apply_status"]
 [ext_resource type="Resource" uid="uid://cfgrdp0ehape4" path="res://resources/data/status_effects/status_food_poisoning.tres" id="food_poisoning"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="item_effect"]
+[ext_resource type="PackedScene" uid="uid://oehooqhrh5zt3" path="res://scenes/fx/eat_gulp.tscn" id="eat_gulp_fx"]
 
 [sub_resource type="Resource" id="eat_poison"]
 script = ExtResource("apply_status")
@@ -14,6 +15,7 @@ statusEffect = ExtResource("food_poisoning")
 [resource]
 script = ExtResource("1_loot_data")
 effects = Array[ExtResource("item_effect")]([SubResource("eat_poison")])
+useEffect = ExtResource("eat_gulp_fx")
 satiation = 0.15
 displayName = &"Meat"
 maxStack = 99

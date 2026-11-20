@@ -130,6 +130,22 @@ public static class WorldMapRotate
             entity.facing = (EEntityFacing)(((int)entity.facing + 6) & 7);
         }
 
+        // A trigger box stays axis-aligned: turn its two corner cells, take the
+        // new min corner, and swap its extents.
+        foreach (EntityPlacement trigger in state.Placements.triggers)
+        {
+            if (trigger?.Entry is not TriggerSpawnEntry box)
+            {
+                continue;
+            }
+            Rect2I r = box.Footprint(trigger.anchorXZ);
+            Vector2I a = TurnCell(r.Position);
+            Vector2I b = TurnCell(r.End - Vector2I.One);
+            trigger.anchorXZ = new Vector2I(Mathf.Min(a.X, b.X), Mathf.Min(a.Y, b.Y));
+            TriggerSpawnEntry own = (TriggerSpawnEntry)trigger.EditableEntry();
+            (own.sizeX, own.sizeZ) = (own.sizeZ, own.sizeX);
+        }
+
         if (state.Placements.hasSpawn)
         {
             state.Placements.spawnXZ = TurnCell(state.Placements.spawnXZ);

@@ -58,6 +58,26 @@ public partial class Sim
         }
     }
 
+    // Called by GameClient once a loaded game is playable — the twin of
+    // DispatchNewGame.
+    public void DispatchLoaded()
+    {
+        if (_scriptApi != null)
+        {
+            _worldState?.ScriptData?.OnLoaded(_scriptApi);
+        }
+    }
+
+    // An interaction with a named entity completed (ItemEventHandlers
+    // .DoOpenInteractive). Unnamed entities never reach the script.
+    public void DispatchInteracted(string name)
+    {
+        if (_scriptApi != null && !string.IsNullOrEmpty(name))
+        {
+            _worldState?.ScriptData?.OnInteracted(_scriptApi, name);
+        }
+    }
+
     public void ScheduleScriptDelay(double seconds, System.Action<WorldScriptApi> then)
     {
         _scriptDelays.Add((GameTimeMs + (ulong)(System.Math.Max(0.0, seconds) * 1000.0), then));

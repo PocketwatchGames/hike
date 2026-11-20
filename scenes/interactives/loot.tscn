@@ -16,6 +16,7 @@
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="13_xray"]
 [ext_resource type="Texture2D" uid="uid://bbp21smdd4f0b" path="res://assets/textures/interactions/pickup.png" id="14_pickup"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="15_meshhl"]
+[ext_resource type="PackedScene" uid="uid://cvoui2mg0oxau" path="res://scenes/fx/interact_reject.tscn" id="16_reject"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_loot"]
 bounce = 0.5
@@ -27,6 +28,7 @@ type = 256
 [sub_resource type="Resource" id="Resource_loot_req_fits"]
 script = ExtResource("7_pickupfits")
 rejectMessage = &"inventory_full"
+rejectDisplay = 1
 
 [sub_resource type="Resource" id="Resource_loot_action_open"]
 script = ExtResource("11_action")
@@ -34,6 +36,7 @@ displayName = &"Pick Up"
 icon = ExtResource("14_pickup")
 completionEvents = Array[ExtResource("12_event")]([SubResource("Resource_loot_event_open")])
 requirements = Array[ExtResource("7_1ntuc")]([SubResource("Resource_loot_req_fits")])
+rejectEffect = ExtResource("16_reject")
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_loot"]
 

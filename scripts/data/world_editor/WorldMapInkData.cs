@@ -94,6 +94,15 @@ public partial class WorldMapInkData : Resource
     // views draw at propDotDimAlpha for the same reason.
     [Export] public Color entityGhostInk = new Color(1f, 1f, 1f, 0.5f);
 
+    // A trigger box: an outline, one display pixel wide, so the ground inside
+    // stays readable. Its alpha is the weight on every view but the trigger
+    // tool's, where it draws at full strength; the selected box takes
+    // `triggerSelectedInk` and a wash of `triggerFillAlpha` over its inside,
+    // and the hovered one the selected ink's outline alone.
+    [Export] public Color triggerInk = new Color(1f, 0.3f, 0.85f, 0.45f);
+    [Export] public Color triggerSelectedInk = new Color(1f, 1f, 1f);
+    [Export(PropertyHint.Range, "0,1,0.05")] public float triggerFillAlpha = 0.2f;
+
     // How far a mark grows, in metres, when the tool is picking it out — the
     // cursor is over it, it is the selection, or it matches the palette entry. A
     // one-metre dot is smaller than the cursor that has to hit it, so growing is

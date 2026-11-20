@@ -2562,6 +2562,8 @@ public static class CVars
     // separated command line and `exec_delay` the seconds to wait after the
     // game scene comes up:
     //   -- "autostart 1" "exec_delay 25" "exec setup night_cascade"
+    // A `wait <seconds>` token pauses the chain (game time), so one run can step
+    // through a sequence: "exec tp a; wait 3; tp b; wait 3; quit".
     // Ends the process. Makes an `exec` chain self-terminating — without it an
     // unattended run has no reason to stop and burns its whole timeout, so wall
     // clock says nothing about what the run actually cost.

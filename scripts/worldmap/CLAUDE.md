@@ -239,6 +239,7 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | `MobLevelTool` | per-column danger level; with the plane lowered, the level of the PASSAGE under the cut | `Level` | terrain recoloured, one shade per level — **cuts away** (T/G) to shade passages |
 | `MobTool` | which `SpawnScatterData` supplies a column's wildlife + density; with the plane lowered, the PASSAGE's scatter; the inspector lists the set's entries at `n / km²` | `SetIndex`, `Density` | ground colour + a dot per mob spawn, the SELECTED set full weight and the rest dimmed — **cuts away** (T/G), dotting the passage scatter |
 | `EntityTool` | individual entities, their per-placement properties, and the player spawn; a STAMPED SCENE's entities are selectable too and edited for that stamp alone, never moved or deleted | `PaletteIndex`, `Selected`, `SelectedScene` | the ground map (the marks themselves draw on EVERY view that shows props, but only on the slice their floor is on; a scene's entities in `sceneEntityInk`) |
+| `TriggerTool` | trigger boxes (`TriggerSpawnEntry`, own list `WorldMapPlacements.triggers`): drag to draw, drag inside to move, drag the border ring to resize, R/F height, shift+R/F depth, RMB delete | `Selected` | `CutawayGroundView`; every box draws as an outline on EVERY view (`triggerInk`), full strength under this tool |
 
 A spawn brush writes only its raster; `RescatterColumns` resolves it during the
 bake. The two resolutions are not the same shape and should not be made to
@@ -267,6 +268,31 @@ match:
   barrier. Every decision is a hash of the column rather than a running `Random`,
   which is what lets the map preview reach the same answer without replaying the
   pass.
+
+### Triggers: boxes that fire script events
+
+**A trigger is an entity placement in its OWN list** (`WorldMapPlacements.triggers`),
+so the entity tool, its marks, its palette and its hit test never see one and
+only the sites that must (bake, undo, rotate, resize, check, drawing) do. Like
+the scene editor's roofs it has no palette file: the tool authors the whole
+`TriggerSpawnEntry` per placement (`source` null, `custom` the box).
+
+- **`anchorXZ` is the box's MIN CORNER**; the size is on the entry. The bake
+  seats it on the floor under its CENTRE (`SeatCell`) and spawns it AT the centre,
+  which is where `TriggerSpawnEntry` recovers the box from and what makes the
+  entity stream with the chunk most of the box is in.
+- **It fires on OCCUPANCY**: enter when the first admitted actor steps in, exit
+  when the last leaves. `actors` admits party kinds and mob TEAMS
+  (`Mob.ActorTeam`; the tamed companion is only ever `Companion`). Mobs are
+  tested every `SimData.triggerMobScanSeconds`, and only while a resident trigger
+  admits them; the party every tick (`Sim.TickTriggers`).
+- **Effects**: set a Bool variable, run `ConversationAction` files (picked, like
+  conversation cells), and — for a NAMED box — `WorldScriptData.OnTriggerEntered /
+  OnTriggerExited`. `Once` state (`EnterFired`/`ExitFired`) is saved through the
+  chunk content diff; who is inside is runtime only, so an actor already standing
+  in a box when it streams in counts as entering.
+- `worldmap_check` lists every box and warns about one that admits nobody or does
+  nothing with no name for a script.
 
 ### Passages: danger and scatter underground
 

@@ -3,10 +3,6 @@
 // a level or mod authored on the gift reaches the player.
 public class LoyaltyGiftState
 {
-    // Null = no item portion (a language-only gift).
     public ItemState item;
-    public LanguageData language;
-    public int languageLesson;
-    public float languagePercent;
     public float requiredLoyalty;
 }

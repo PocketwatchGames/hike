@@ -26,7 +26,7 @@
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="13_hatgq"]
 [ext_resource type="Resource" uid="uid://ps9u43jr55rie" path="res://resources/data/traps/poison_gas.tres" id="14_c27bh"]
 [ext_resource type="Resource" uid="uid://fi5efd0a26yy" path="res://resources/data/items/shields/spiked_shield.tres" id="14_l6wjl"]
-[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeStoneSpawnEntry.cs" id="14_w1yuy"]
+[ext_resource type="Script" uid="uid://d3c3iycy3trkp" path="res://scripts/data/spawn/KnowledgeSourceSpawnEntry.cs" id="14_w1yuy"]
 [ext_resource type="Resource" uid="uid://c53yx05jv1l81" path="res://resources/data/world_authoring/spawn_entries/knowledge_stone.tres" id="15_nb33q"]
 [ext_resource type="Resource" uid="uid://da4xu24a1otne" path="res://resources/data/items/shields/buckler.tres" id="16_c8824"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/signpost.tres" id="16_signpost"]
@@ -771,8 +771,6 @@ facing = 6
 script = ExtResource("14_w1yuy")
 scene = ExtResource("13_hatgq")
 inscription = ExtResource("insc_4")
-lesson = 9
-percent = 40.0
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_ql8yq"]
@@ -786,8 +784,6 @@ facing = 6
 script = ExtResource("14_w1yuy")
 scene = ExtResource("13_hatgq")
 inscription = ExtResource("insc_4")
-lesson = 4
-percent = 20.0
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_vm386"]
@@ -801,8 +797,6 @@ facing = 6
 script = ExtResource("14_w1yuy")
 scene = ExtResource("13_hatgq")
 inscription = ExtResource("insc_4")
-lesson = 4
-percent = 20.0
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_jj52j"]
@@ -816,8 +810,6 @@ facing = 6
 script = ExtResource("14_w1yuy")
 scene = ExtResource("13_hatgq")
 inscription = ExtResource("insc_4")
-lesson = 5
-percent = 20.0
 disabledVariable = &""
 
 [sub_resource type="Resource" id="Resource_1i773"]

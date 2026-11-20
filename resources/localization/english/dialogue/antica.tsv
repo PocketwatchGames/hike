@@ -2,8 +2,15 @@ key	value
 intro_fairy_description	Glowing Figure
 intro_fairy_greeting_01	It moves! It has soggy eyes though. So soggy.
 intro_fairy_greeting_02	You! Soggy! Your friends ran off. The bear ate one. His guts are sogging up ahead.
-intro_fairy_greeting_03	The other one took your stuff. She went towards the festering man.
-intro_fairy_greeting_04	The festering man knows. Find him.
+intro_fairy_guts_01	Here he is! The bear eated his guts. I tasted too. But only a little bit. Come look!
+intro_fairy_melee_01	Look out for these fossils. Bonk them with [input:melee]
+intro_fairy_sneak_01	Oooh but soggy people might like being sneaky. Hold [input:sneak]
+intro_fairy_ranged_01	Did you pick up the shooter from your friend’s guts? You can aim it with [input:aim] and shoot it with [input:ranged].
+intro_fairy_this_way_01	This way! Your bad friend flopped off towards the gross man's stone pile.
+intro_fairy_smell_01	Ooh I can smell him. He won't taste good.
+intro_fairy_gross_man_01	OOOSA. This man moves like a fossil. And he has too much hair. He is gross but he knows where your friend is.
+intro_fairy_look_01	Soggy! Come open this! Then look around with [input:camera]!
+intro_fairy_tasty_01	This sog is tasty too. You should try some!
 festering_man_description	The Festering Man
 festering_man_greeting_01	Another! The sea spat you out too, huh?
 festering_man_greeting_return_01	Ah, the sodden one returns.
@@ -12,6 +19,7 @@ festering_man_language_convo	Aye. My flesh was unwelcome even in her hungry gull
 festering_man_gestures_01	[narrate]He shakes his head and points to the library upstairs.[/narrate]
 festering_man_convo_01	I’m afraid my cookpot is also empty. But if you find 3 cuts of goblin flesh you’ll feed us both! [narrate]He holds up 3 fingers[/narrate]
 festering_man_mates_impatient	One of my mates came this way. Have you seen her?
+festering_man_mates_hiding	The last of my crew perished in the caves. But she had your map, and your shovel. What are you hiding?
 festering_man_impatient_01	Ah yes, she was impatient to leave my little island. Looking for the bridge key, hee hee!
 festering_man_impatient_02	I buried it long ago though. Your friend gave me her shiny hammer for a spade and a clue!
 festering_man_topics_where	Where did she go?
@@ -22,3 +30,10 @@ festering_man_where_01	Last I saw of her she was walking the beach to the west. 
 festering_man_clue_01	A little scribble on a scrap. She’ll need the shovel to dig it up.
 festering_man_hammer_01	Yes yes! Do you have something to trade too?
 festering_man_cookpot_01	Find 3 cuts of goblin flesh you’ll feed us both! [narrate]He holds up 3 fingers[/narrate]
+festering_man_hiding_01	Hiding? Bah! The island is misery but the bridge is death. The purple mist waits across the channel.
+festering_man_hiding_02	I buried the key so fools like you would stay put. But if you must leave, just follow the map and dig it up.
+festering_man_hiding_topics_end	Trade?
+festering_man_hiding_topics_hiding_cookpot	What did you say about the cookpot?
+festering_man_hiding_topics_mist	Purple mist?
+festering_man_hiding_cookpot_01	Find 3 cuts of goblin flesh you’ll feed us both! [narrate]He holds up 3 fingers[/narrate]
+festering_man_mist_01	It comes and goes. You can hear it. Like cicadas. Worse at night.

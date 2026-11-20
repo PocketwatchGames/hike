@@ -1419,34 +1419,28 @@ public partial class WorldMapEntityInspector : PanelContainer
     {
         var box = new VBoxContainer();
         bool picks = ListPicksFiles(element, World);
-        int built = ReadList(owner.Resolve(_rowsOwner?.Entry), name).Count;
+        // A record list whose element has subclasses holds one KIND per
+        // element: added from a menu of kinds, each showing its own fields.
+        Type[] kinds = picks ? Type.EmptyTypes : (_shownEntry?.RecordKinds(name, Kinds(element)) ?? Kinds(element));
+        List<Resource> current = ReadList(owner.Resolve(_rowsOwner?.Entry), name);
+        int built = current.Count;
+        string builtKinds = KindSignature(current);
         for (int i = 0; i < built; i++)
         {
             box.AddChild(picks
                 ? BuildListPick(owner, name, element, i)
-                : BuildListRecord(owner, name, element, i, depth));
+                : BuildListRecord(owner, name, current[i]?.GetType() ?? element, i, depth, kinds.Length > 0));
         }
-        var add = new Button
-        {
-            Text = "+ add",
-            // Bare keys belong to the painter, exactly as on the tool buttons.
-            FocusMode = Control.FocusModeEnum.None,
-            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
-        };
-        add.Pressed += () => Mutate(target => owner.Edit(target, record =>
-        {
-            List<Resource> items = ReadList(record, name);
-            // A picked element starts empty and is chosen in its own row; a
-            // record starts at its type's defaults (one of nothing, for loot).
-            items.Add(picks ? null : (Resource)Activator.CreateInstance(element));
-            WriteList(record, name, items);
-        }));
-        box.AddChild(add);
+        box.AddChild(kinds.Length > 0
+            ? AddKindButton(owner, name, kinds)
+            : AddButton(owner, name, () => picks ? null : (Resource)Activator.CreateInstance(element)));
         // An add, a remove, or an undo of either changes how many blocks there
-        // should be, which a refresh cannot do — the rows are rebuilt instead.
+        // should be - and an undo can swap one kind for another - which a
+        // refresh cannot do; the rows are rebuilt instead.
         _refreshers.Add(() =>
         {
-            if (ReadList(owner.Resolve(_rowsOwner?.Entry), name).Count != built)
+            List<Resource> now = ReadList(owner.Resolve(_rowsOwner?.Entry), name);
+            if (now.Count != built || KindSignature(now) != builtKinds)
             {
                 RebuildDeferred();
             }
@@ -1454,21 +1448,100 @@ public partial class WorldMapEntityInspector : PanelContainer
         return box;
     }
 
-    // One element that is a record: a header with its position and a remove
-    // button, then its own fields.
-    private Control BuildListRecord(Slot owner, StringName list, Type element, int index, int depth)
+    // A picked element starts empty and is chosen in its own row; a record
+    // starts at its type's defaults (one of nothing, for loot).
+    private Button AddButton(Slot owner, StringName name, Func<Resource> create)
+    {
+        var add = new Button
+        {
+            Text = "+ add",
+            // Bare keys belong to the painter, exactly as on the tool buttons.
+            FocusMode = Control.FocusModeEnum.None,
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
+        };
+        add.Pressed += () => Append(owner, name, create());
+        return add;
+    }
+
+    private MenuButton AddKindButton(Slot owner, StringName name, Type[] kinds)
+    {
+        var add = new MenuButton
+        {
+            Text = "+ add \u25BE",
+            FocusMode = Control.FocusModeEnum.None,
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
+            Flat = false,
+        };
+        PopupMenu menu = add.GetPopup();
+        for (int i = 0; i < kinds.Length; i++)
+        {
+            menu.AddItem(KindLabel(kinds[i]), i);
+        }
+        menu.IdPressed += id => Append(owner, name, (Resource)Activator.CreateInstance(kinds[(int)id]));
+        return add;
+    }
+
+    private void Append(Slot owner, StringName name, Resource item)
+    {
+        Mutate(target => owner.Edit(target, record =>
+        {
+            List<Resource> items = ReadList(record, name);
+            items.Add(item);
+            WriteList(record, name, items);
+        }));
+    }
+
+    // One element that is a record: a header with its position (and its kind,
+    // in a list of kinds) and a remove button, then its own fields.
+    private Control BuildListRecord(Slot owner, StringName list, Type type, int index, int depth, bool showKind)
     {
         var block = new VBoxContainer();
         block.AddChild(ListHeader(owner, list, index, new Label
         {
-            Text = $"#{index + 1}",
+            Text = showKind ? $"#{index + 1}  {KindLabel(type)}" : $"#{index + 1}",
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
         }));
         var indent = new MarginContainer();
         indent.AddThemeConstantOverride("margin_left", listIndent);
-        indent.AddChild(BuildRecordFields(owner.Element(list, index, element), depth + 1));
+        indent.AddChild(BuildRecordFields(owner.Element(list, index, type), depth + 1));
         block.AddChild(indent);
         return block;
+    }
+
+    // ---- Kinds ---------------------------------------------------------------
+
+    private static readonly Dictionary<Type, Type[]> _kinds = new();
+
+    // The concrete subclasses of `element` the panel can build, by label -
+    // empty when it has none, which makes the list an ordinary record list. The
+    // base is left out once it has subclasses: it is the abstraction they share
+    // (often non-abstract only so Godot's own picker lists it), never a kind.
+    public static Type[] Kinds(Type element)
+    {
+        if (element == null)
+        {
+            return Type.EmptyTypes;
+        }
+        if (!_kinds.TryGetValue(element, out Type[] kinds))
+        {
+            kinds = element.Assembly.GetTypes()
+                .Where(t => t != element && element.IsAssignableFrom(t) && IsRecordType(t))
+                .OrderBy(KindLabel, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            _kinds[element] = kinds;
+        }
+        return kinds;
+    }
+
+    public static string KindLabel(Type type)
+    {
+        var attribute = (AuthoringKindAttribute)Attribute.GetCustomAttribute(type, typeof(AuthoringKindAttribute), false);
+        return attribute?.Label ?? type.Name;
+    }
+
+    private static string KindSignature(List<Resource> items)
+    {
+        return string.Join(",", items.Select(i => i?.GetType().Name ?? "-"));
     }
 
     // One element that is a pick of an authored file: the picker and its remove

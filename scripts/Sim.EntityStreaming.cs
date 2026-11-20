@@ -93,7 +93,7 @@ public partial class Sim
     // companion(s). Spawned once by SpawnPersistentEntities and never filed in
     // _activeEntities, so chunk eviction can't free them. Tracked here so
     // GetEntities<T> still surfaces them to perception / queries that walk all
-    // mobs, and so a runtime-tamed mob can be moved in via PromoteCompanionToPersistent.
+    // mobs, and so a runtime-tamed mob can be moved in via PromoteMobToPersistent.
     private readonly List<Node3D> _persistentEntityNodes = new();
 
     private readonly struct PendingSpawn
@@ -292,7 +292,7 @@ public partial class Sim
 
     // Frees every entity node in an unloading chunk. The persistent companion is
     // never filed in _activeEntities (it lives outside chunk streaming — see
-    // SpawnPersistentEntities / PromoteCompanionToPersistent), so it normally
+    // SpawnPersistentEntities / PromoteMobToPersistent), so it normally
     // isn't here at all; the skip is belt-and-suspenders against a stray filing
     // so chunk eviction can never destroy the pet. Shared by both despawn paths:
     // the entity-radius shrink (UnloadEntitiesOutsideSet) and the chunk-mesh
@@ -975,7 +975,7 @@ public partial class Sim
     // can evict without destroying the now-companion. Moves both the live node
     // (out of _activeEntities into _persistentEntityNodes) and its sim state
     // (WorldState.PromoteToPersistent). The node itself stays in the tree.
-    public void PromoteCompanionToPersistent(Mob companion)
+    public void PromoteMobToPersistent(Mob companion)
     {
         if (companion == null)
         {
@@ -1105,6 +1105,13 @@ public partial class Sim
         Node3D root = FindEntityRoot(node);
         return root != null && _entityStates.TryGetValue(root, out EntitySimState state)
             && state.IsDisabled(_worldState?.SimState?.ScriptVars);
+    }
+
+    // The placement name of the entity `node` belongs to, or null.
+    public string EntityName(Node3D node)
+    {
+        Node3D root = FindEntityRoot(node);
+        return root != null && _entityStates.TryGetValue(root, out EntitySimState state) ? state.Name : null;
     }
 
     // Nearest ancestor (starting at `node` itself) that was registered as a

@@ -9,6 +9,7 @@ using Godot;
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]
+[AuthoringKind("Region")]
 public partial class RegionTeachable : TeachableConcept
 {
     [Export] public RegionData region;

@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="7_idrk6"]
 [ext_resource type="Resource" uid="uid://khjswp5qnpnm" path="res://resources/data/items/loot/drake_meat.tres" id="7_meat"]
 [ext_resource type="Script" uid="uid://ci8leenexn3d1" path="res://scripts/data/items/CraftRecipeData.cs" id="recipe_data"]
+[ext_resource type="PackedScene" uid="uid://oehooqhrh5zt3" path="res://scenes/fx/eat_gulp.tscn" id="eat_gulp_fx"]
 
 [sub_resource type="Resource" id="Resource_input_meat"]
 script = ExtResource("4_input")
@@ -19,6 +20,7 @@ inputs = Array[ExtResource("4_input")]([SubResource("Resource_input_meat")])
 
 [resource]
 script = ExtResource("1_consumable")
+useEffect = ExtResource("eat_gulp_fx")
 satiation = 0.2
 displayName = &"Smoked Drake"
 description = "Dark, leathery drake meat, smoked until it will never spoil."

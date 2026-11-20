@@ -155,6 +155,8 @@ public partial class GameClient : Node3D
 	// The world's intro story card, shown once a New Game finishes loading.
 	[Export] public StoryScreen storyScreen;
 	[Export] public SleepOverlay sleepOverlay;
+	// Wall-clock seconds after a sleep's fade-in before its quality floats over the player.
+	[Export(PropertyHint.Range, "0,5,0.05")] public float sleepQualityTextDelay = 1f;
 	// Full-screen black fade for the cinematic camp entry (lighting a campfire).
 	[Export] public ScreenFade campFade;
 	[Export] public UpgradeScreen upgradeScreen;
@@ -487,6 +489,12 @@ public partial class GameClient : Node3D
 	// and handles ui_accept advance/skip + player-input suppression while
 	// open.
 	public Action<ConversationData, ConversationContext> onConversation;
+	// A world script raised (or lowered) a mob's standing line — the sim side
+	// stays out of the GUI, same as onConversation. Args: speaker, the branch's
+	// paragraphs as rendered BBCode, the name tab (null for none).
+	public Action<Mob, string, List<string>, string> onStandingLine;
+	// Speaker, and the key it must still be saying (null = whatever it is).
+	public Action<Mob, string> onHushStandingLine;
 	// Upgrade / boon pick. A consumable's ApplyStatusEffect event fires this
 	// with the menu of effects the item can bestow and a callback that applies
 	// the player's chosen one (e.g. the fairy corpse). The default subscriber
@@ -789,6 +797,8 @@ public partial class GameClient : Node3D
 		onDamage += OnDamageRequested;
 		onHeal += OnHealRequested;
 		onConversation += OnConversationRequested;
+		onStandingLine += (speaker, key, lines, name) => hud?.ShowStandingLine(speaker, key, lines, name);
+		onHushStandingLine += (speaker, key) => hud?.HideStandingLine(speaker, key);
 		startUpgradeSelection += OnStartUpgradeSelection;
 
 		// The loading screen owned by Main is up and currently sitting on
@@ -949,6 +959,10 @@ public partial class GameClient : Node3D
 		if (save == null)
 		{
 			_world.DispatchNewGame();
+		}
+		else
+		{
+			_world.DispatchLoaded();
 		}
 	}
 
@@ -1455,6 +1469,7 @@ public partial class GameClient : Node3D
 		{
 			type = EAnnouncementType.LanguageLearned,
 			title = title,
+			subject = language,
 			progressFrom = from,
 			progressTo = to,
 		});
@@ -1727,36 +1742,71 @@ public partial class GameClient : Node3D
 	// scene comes up. CLI cvar args are processed in Main._Ready — before a world
 	// exists — so a launch line cannot drive anything that needs a running game
 	// (tp / spawn / give / setup) without a delay. See CVars.execDelay.
+	//
+	// `wait <seconds>` inside the chain pauses it, so a run can step through a
+	// sequence ("tp a; wait 3; tp b; wait 3; quit"). Game time, not wall time:
+	// it pauses with the game.
 	private double _execElapsed;
-	private bool _execDone;
+	private bool _execStarted;
+	private Queue<string> _execPending;
+	private double _execWaitLeft;
 
 	private void TickExecDelay(double deltaTime)
 	{
-		float delay = CVars.execDelay.Value;
-		if (_execDone || delay <= 0f || string.IsNullOrWhiteSpace(CVars.exec.Value))
+		if (!_execStarted)
 		{
-			return;
-		}
-		_execElapsed += deltaTime;
-		if (_execElapsed < delay)
-		{
-			return;
-		}
-		_execDone = true;
-		foreach (string raw in CVars.exec.Value.Split(';'))
-		{
-			string line = raw.Trim();
-			if (line.Length == 0)
+			float delay = CVars.execDelay.Value;
+			if (delay <= 0f || string.IsNullOrWhiteSpace(CVars.exec.Value))
 			{
+				return;
+			}
+			_execElapsed += deltaTime;
+			if (_execElapsed < delay)
+			{
+				return;
+			}
+			_execStarted = true;
+			_execPending = new Queue<string>();
+			foreach (string raw in CVars.exec.Value.Split(';'))
+			{
+				string line = raw.Trim();
+				if (line.Length > 0)
+				{
+					_execPending.Enqueue(line);
+				}
+			}
+		}
+		if (_execPending == null)
+		{
+			return;
+		}
+		if (_execWaitLeft > 0.0)
+		{
+			_execWaitLeft -= deltaTime;
+			return;
+		}
+		while (_execPending.Count > 0)
+		{
+			string line = _execPending.Dequeue();
+			GD.Print($"[exec] {line}");
+			if (line.StartsWith("wait ", StringComparison.Ordinal))
+			{
+				if (double.TryParse(line.Substring(5).Trim(), System.Globalization.NumberStyles.Float,
+					System.Globalization.CultureInfo.InvariantCulture, out double seconds))
+				{
+					_execWaitLeft = seconds;
+					return;
+				}
+				GD.PrintErr($"[exec]   wait needs a number of seconds: '{line}'");
 				continue;
 			}
-			GD.Print($"[exec] {line}");
 			string result = CVarRegistry.ProcessCommand(line);
 			if (!string.IsNullOrEmpty(result))
 			{
 				GD.Print($"[exec]   {result}");
 			}
 		}
+		_execPending = null;
 	}
 
 	private void TickNodeCensusDelay(double deltaTime)
@@ -2769,6 +2819,8 @@ public partial class GameClient : Node3D
 
 	void OnConversationRequested(ConversationData conversation, ConversationContext ctx)
 	{
+		// The conversation's own bubble takes over from a standing line.
+		hud?.HideStandingLine(ctx.speaker);
 		hud?.ShowConversation(conversation, ctx);
 	}
 
@@ -3162,6 +3214,9 @@ public partial class GameClient : Node3D
 	// or a loaded save ends in. No member is ever lost; the sack is the price.
 	public void RespawnAtHome()
 	{
+		// The wake needs a running world (spawning, settling) — lift the
+		// death pause before anything else.
+		GetTree().Paused = false;
 		if (_player == null || _world == null)
 		{
 			return;
@@ -3190,6 +3245,17 @@ public partial class GameClient : Node3D
 			if (p != null) { count++; }
 		}
 		return CampSpot(anchor, 0, count);
+	}
+
+	// Called by DeathScreen once it is fully black and showing "You Died". The
+	// world stops here: nothing may strike, hurt or rumble a dead player behind
+	// the prompt. The slow-mo fade before it keeps running on purpose (death cam).
+	// RespawnAtHome lifts it; _ExitTree covers a quit from the prompt.
+	public void OnDeathScreenOpaque()
+	{
+		GetTree().Paused = true;
+		// Motors keep running on their own; _Process no longer ticks to stop them.
+		_rumble.StopAll();
 	}
 
 	// Called by DeathScreen once its fade-in has revealed home. A death wake is a
@@ -3298,8 +3364,8 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	// The wake's "Sleep Quality" event-log line, graded from the heal multiplier
-	// the sleep ran at (PlayerData.sleepQuality*At).
+	// The wake's "Sleep Quality" floating text over the player, graded from the
+	// heal multiplier the sleep ran at (PlayerData.sleepQuality*At).
 	void AnnounceSleepQuality()
 	{
 		float? quality = _wakeSleepQuality;
@@ -3313,12 +3379,15 @@ public partial class GameClient : Node3D
 			: m >= data.sleepQualityGoodAt ? Loc.Keys.sleep_quality_good
 			: m >= data.sleepQualityPoorAt ? Loc.Keys.sleep_quality_poor
 			: Loc.Keys.sleep_quality_horrible;
-		Announce(new Announcement
+		string text = Loc.Format(Loc.Keys.sleep_quality, Loc.Get(grade));
+		// Pausable timer, so it waits out a pause rather than firing behind it.
+		GetTree().CreateTimer(sleepQualityTextDelay, processAlways: false).Timeout += () =>
 		{
-			type = EAnnouncementType.Notice,
-			title = Loc.Get(Loc.Keys.sleep_quality),
-			subtitle = Loc.Get(grade),
-		});
+			if (IsInstanceValid(this) && IsInstanceValid(_player))
+			{
+				onHudText?.Invoke(_player.hudPosition, text, EHudTextType.Info);
+			}
+		};
 	}
 
 	// Resolution of ReturnHomeEffect (the Ruby Rosaries, fired once the screen is

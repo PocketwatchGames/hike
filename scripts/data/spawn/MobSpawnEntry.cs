@@ -48,6 +48,12 @@ public partial class MobSpawnEntry : SpawnEntryData
     // a shared entry.
     [Export] public bool dead;
 
+    // THIS individual cannot be hurt, and nothing hostile picks it as a target
+    // — a story character the plot needs alive (the intro fairy hovering over a
+    // goblin). Health, armor and status damage are all untouched; a scripted
+    // kill (KillSpeakerAction) still works. Set on a placement's own copy.
+    [Export] public bool invulnerable;
+
     // Mobs require flat terrain to keep physics from knocking them off step
     // edges into the cliff face below. Water-bound mobs are exempt — they spawn
     // in the water column, where the dry-ground flatness test is meaningless
@@ -177,6 +183,7 @@ public partial class MobSpawnEntry : SpawnEntryData
     protected void ApplyLifeState(MobSimState state)
     {
         state.RespawnsOnRest = respawnsOnRest && !dead;
+        state.Invulnerable = invulnerable;
         if (dead)
         {
             state.Alive = false;

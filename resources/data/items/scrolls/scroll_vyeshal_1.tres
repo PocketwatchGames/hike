@@ -10,7 +10,6 @@
 [sub_resource type="Resource" id="Resource_concept_vocab3"]
 script = ExtResource("2_lqpnr")
 language = ExtResource("1_yj48g")
-lesson = 1
 percent = 25.0
 
 [resource]

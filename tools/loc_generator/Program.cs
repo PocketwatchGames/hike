@@ -263,6 +263,12 @@ class Program
 			{
 				Warn(name, $"textKey '{match.Groups[1].Value}' is in no .tsv", ref warnings);
 			}
+			// A title is optional, but one that is named must exist.
+			Match title = Regex.Match(text, "^titleKey = &\"([^\"]*)\"", RegexOptions.Multiline);
+			if (title.Success && title.Groups[1].Value.Length > 0 && !keys.Contains(title.Groups[1].Value))
+			{
+				Warn(name, $"titleKey '{title.Groups[1].Value}' is in no .tsv", ref warnings);
+			}
 		}
 	}
 

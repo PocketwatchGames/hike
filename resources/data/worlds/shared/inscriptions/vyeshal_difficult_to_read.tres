@@ -7,3 +7,4 @@
 script = ExtResource("1_script")
 textKey = &"inscription_vyeshal_difficult_to_read"
 language = ExtResource("2_language")
+percent = 20.0

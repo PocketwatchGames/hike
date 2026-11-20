@@ -402,8 +402,9 @@ public class WorldState
     // "you got something" fx on it.
     //
     // Answers false when the name isn't in TreasureSpots — already dug up, or
-    // never buried in this world.
-    public bool RevealTreasureMap(string treasureName)
+    // never buried in this world. randomizeRotation false draws the map at the
+    // world map's own heading, so the two read the same way up.
+    public bool RevealTreasureMap(string treasureName, bool randomizeRotation)
     {
         if (string.IsNullOrEmpty(treasureName) || SimState == null)
         {
@@ -417,7 +418,10 @@ public class WorldState
         {
             return false;
         }
-        SimState.AddTreasureMap(new TreasureMapState(location, TreasureMapState.DeriveRotation(location)));
+        float rotation = randomizeRotation
+            ? TreasureMapState.DeriveRotation(location)
+            : WorldMapScreen.NorthMapRotation;
+        SimState.AddTreasureMap(new TreasureMapState(location, rotation));
         return true;
     }
 
@@ -1670,7 +1674,7 @@ public class WorldState
     // once at startup, never despawned by chunk eviction, and serialized in the
     // world file's global section rather than inside a chunk blob. A mob starts
     // life chunk-streamed (in _entities) and is moved here by PromoteToPersistent
-    // the moment it's tamed (see Sim.PromoteCompanionToPersistent).
+    // the moment it's tamed (see Sim.PromoteMobToPersistent).
     private readonly List<EntitySimState> _persistentEntities = new();
     public IReadOnlyList<EntitySimState> PersistentEntities => _persistentEntities;
 

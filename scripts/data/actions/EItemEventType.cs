@@ -35,16 +35,12 @@ public enum EItemEventType
 	// terrain interactions, and end-of-motion behavior. Keeps the runner
 	// physics-agnostic.
 	ApplyMotion = 1 << 10,
-	// Teaches Player.LearnLanguage(ev.language). Reusable across sources —
-	// knowledge stones author it in their interactive's completionEvents, mob
-	// dialogue can fire it from a chatter timeline, and a language-teaching
-	// consumable authors it on the profile's release tick. The first-time
-	// flash plays on the actor (typically the player) only when Add returns
-	// true so re-reading a stone whose language is already known is silent.
-	LearnLanguage = 1 << 11,
-	// Teaches ev.concept (a TeachableConcept) to the learner. Superset of
-	// LearnLanguage — handles language pieces, recipes, region locations,
-	// and any future TeachableConcept subclass through one event type.
+	// 1 << 11 was LearnLanguage, retired: a language is taught through
+	// LearnConcept with a LanguageTeachable, whose own resource is the lesson's
+	// source. The bit is stored in .tres as an int — never reuse it.
+	// Teaches ev.concept (a TeachableConcept) to the learner — language
+	// lessons, recipes, region locations, and any future TeachableConcept
+	// subclass through one event type.
 	// Scrolls author this on the consumable's release tick alongside
 	// DecrementStack; NPCs (once IInteractive-backed) author it on a Talk
 	// action's completion events.

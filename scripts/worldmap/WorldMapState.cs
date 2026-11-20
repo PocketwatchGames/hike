@@ -1585,6 +1585,85 @@ public class WorldMapState
         Placements.entities = list.ToArray();
     }
 
+    public void AddTrigger(EntityPlacement placement)
+    {
+        var list = new System.Collections.Generic.List<EntityPlacement>(Placements.triggers) { placement };
+        Placements.triggers = list.ToArray();
+    }
+
+    public void RemoveTrigger(EntityPlacement placement)
+    {
+        var list = new System.Collections.Generic.List<EntityPlacement>(Placements.triggers);
+        list.Remove(placement);
+        Placements.triggers = list.ToArray();
+    }
+
+    // A trigger placement's entry, or null for one that is not a trigger.
+    public static TriggerSpawnEntry TriggerOf(EntityPlacement placement)
+        => placement?.Entry as TriggerSpawnEntry;
+
+    // The world-XZ cells a trigger box covers.
+    public static Rect2I TriggerRect(EntityPlacement placement)
+        => TriggerOf(placement)?.Footprint(placement.anchorXZ) ?? new Rect2I(placement.anchorXZ, Vector2I.One);
+
+    // The same in map texels.
+    public Rect2I TriggerTexelRect(EntityPlacement placement)
+    {
+        Rect2I world = TriggerRect(placement);
+        return new Rect2I(TexelXZ(world.Position), world.Size);
+    }
+
+    // The floor a trigger box is seated on: its recorded Y, or for one on the
+    // ground, the top of the column under its centre — what the bake seats it on.
+    public int TriggerFloor(EntityPlacement placement)
+    {
+        if (placement.floorY != EntityPlacement.OnTheGround)
+        {
+            return placement.floorY;
+        }
+        TriggerSpawnEntry t = TriggerOf(placement);
+        Vector2I at = TexelXZ(t != null ? t.SeatCell(placement.anchorXZ) : placement.anchorXZ);
+        return PlacementFloor(at.X, at.Y, int.MaxValue);
+    }
+
+    // On the slice a map cut at `clipY` shows, judged at the seat column, like an
+    // entity at its anchor.
+    public bool IsTriggerShown(EntityPlacement placement, int clipY)
+    {
+        TriggerSpawnEntry t = TriggerOf(placement);
+        Vector2I at = TexelXZ(t != null ? t.SeatCell(placement.anchorXZ) : placement.anchorXZ);
+        return IsFloorShown(at.X, at.Y, TriggerFloor(placement), clipY);
+    }
+
+    // The SMALLEST shown trigger box containing a texel, so a box nested inside
+    // a bigger one can still be grabbed. `grow` widens every box by that many
+    // cells (the edge handles reach a cell outside).
+    public EntityPlacement TriggerAt(int px, int pz, int clipY, int grow = 0)
+    {
+        EntityPlacement best = null;
+        int bestArea = int.MaxValue;
+        EntityPlacement[] list = Placements.triggers;
+        for (int i = list.Length - 1; i >= 0; i--)
+        {
+            if (list[i] == null)
+            {
+                continue;
+            }
+            Rect2I r = TriggerTexelRect(list[i]).Grow(grow);
+            if (!r.HasPoint(new Vector2I(px, pz)))
+            {
+                continue;
+            }
+            int area = r.Size.X * r.Size.Y;
+            if (area < bestArea && IsTriggerShown(list[i], clipY))
+            {
+                best = list[i];
+                bestArea = area;
+            }
+        }
+        return best;
+    }
+
     public void AddPlacement(SubscenePlacement placement)
     {
         var list = new System.Collections.Generic.List<SubscenePlacement>(Placements.placements) { placement };

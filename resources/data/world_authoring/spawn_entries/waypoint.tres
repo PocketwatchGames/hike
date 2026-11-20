@@ -1,0 +1,6 @@
+[gd_resource type="Resource" script_class="WaypointSpawnEntry" format=3]
+
+[ext_resource type="Script" uid="uid://6pp06g1etqgz9" path="res://scripts/data/spawn/WaypointSpawnEntry.cs" id="script"]
+
+[resource]
+script = ExtResource("script")

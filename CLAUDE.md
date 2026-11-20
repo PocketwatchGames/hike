@@ -141,7 +141,8 @@ automated:
   `Main._Ready`, before a world exists. Use the delayed driver:
   `-- "autostart 1" "exec_delay 8" "exec tp lake; spawn_mob drake_mountain 2"`
   (`exec` is a `;`-separated command line, run `exec_delay` seconds after the
-  game scene comes up).
+  game scene comes up; a `wait <seconds>` token pauses the chain, so one run can
+  step through a sequence: `"exec tp a; wait 3; tp b; wait 3; quit"`).
 
 ### Checking That Shaders Still Compile
 
@@ -485,9 +486,10 @@ Three rules, each of which was a real bug:
   reference. The TEXT is a localized string keyed `inscription_<file basename>`
   in the owning world folder's strings file (see Localization), so
   fixing a sign's wording needs no rebake and the build warns about an
-  inscription whose key no `.tsv` defines. Knowledge stones pick one the same way and
-  teach the tongue it is written in — or, written in no language, teach nothing
-  and are simply read (tutorial stones).
+  inscription whose key no `.tsv` defines. Knowledge stones and books pick one the
+  same way. **What an inscription teaches is on the inscription** (`percent` of
+  the tongue it is written in, default 0), so a signpost, a stone and a book
+  reading one file teach the same lesson, once.
   An entry that cannot function without the placement's value refuses loudly
   (`SignpostSpawnEntry` errors and does not place) rather than drawing a blank.
 
@@ -756,22 +758,45 @@ intro_dying_01	[lang:common]Sanctuary[/lang]... you must find it. My family, …
   raised while a bubble is up — or while `ShowReadable`'s render callback
   teaches — are held until it is dismissed, so a lesson never lands on top of
   the text that taught it.
-- **A language is learned in LESSONS, and the amount is on the SOURCE.** A
-  stone, scroll, `ItemEvent`, loyalty gift or `teach:language` cell names a
-  `lesson` number and a `percent` of the language it teaches (a stone 40, a
-  book 10). The party keeps, per language, each lesson it holds at the most any
-  source taught for it (`Knowledge.LearnedLessons`), so a source read twice, two
-  copies of one, or a lesson held both banked and in the field counts once —
-  the number is the identity, so each partial source wants a number of its own.
-  The amount LEARNED is the sum, linear and capped at 100%
+- **The one exception is a BOOK: a knowledge source whose scene sets
+  `_readAsPage` opens `BookPage`** (`Hud.ShowPage`) — prose on a parchment
+  page, headed by the inscription's optional title (`InscriptionData.titleKey`,
+  keyed `inscription_<file>_title` beside its text; same language, so it
+  translates on the same clock). When the read teaches the language the prose is written in, the page
+  carries that language's learn label and meter and DROPS its discovery banner
+  (`Announcement.subject`); the prose translates as the meter fills
+  (`TranslationAnimator`). The meter is the clock: each word, number and
+  position reveals when its scrambler hash drops under the coverage sampled at
+  the meter's value (`LanguageData.SampleCoverage` — never the memoized
+  `ComputeCoverage`, which a continuous value would grow forever). Letters land
+  one by one with a flicker; the word order's moves are planned up front and
+  play one crossfaded swap at a time, spaced evenly across the fill. **The text
+  resolves exactly when the meter is full** — `BookPage._fillSeconds` is the
+  whole animation. **It draws from `TextScrambler.ScramblePlan` /
+  `ScrambleState`, the same structure `Scramble` flattens**, and checks that its
+  last frame equals `Scramble` at the final amount — a change to the scrambler
+  that breaks that reports an error rather than drifting silently.
+- **A language is learned in LESSONS, and a lesson IS its source.** What
+  teaches names a `percent` of the language (a stone ~33, a book 20, a
+  signpost 10): an `InscriptionData` (read on a signpost, stone or book — 0, the
+  default, teaches nothing), a scroll's or an action's `LanguageTeachable`, or
+  a `teach:language` cell. The party keeps, per language, each SOURCE it has
+  learned from — the resource's path (`Player.LessonSourceKey`), in
+  `Knowledge.LearnedLessons` — so one inscription standing in three places, two
+  copies of one scroll, or a lesson held both banked and in the field counts
+  once, and two different sources always add. There are no lesson numbers. A
+  source with no path (built in code, or a placement fork stored by value)
+  cannot be told apart from another and is refused with an error, which is why
+  a knowledge source's `teaches` does not offer a Language kind — its lesson is
+  its inscription. The amount LEARNED is the sum, linear and capped at 100%
   (`Player.ComputeLanguageLearned` — the banner's "Vyeshal Learned 0% → 40%"
   and the `understands` gates' number). Only the RENDERING goes through the
   language's own curves (`vocabularyCurve`, `grammarCurve`, `numbersCurve`)
   into a `LanguageCoverage`, which `TextScrambler` compares a stable hash
   against: per WORD (vocabulary), per word POSITION (grammar — the loose ones
   lose punctuation and are rotated so none lands home) and per NUMBER. So
-  nothing un-reveals as more is learned. Lesson 0 at 100% is the default, "the
-  whole tongue".
+  nothing un-reveals as more is learned. A `LanguageTeachable` defaults to
+  100%, "the whole tongue".
 - **A span renders in its language's own script** where that language has a
   `glyphBase` — see "Checking That the In-World Scripts Still Render". A line
   mixing tongues therefore mixes scripts, resolved per glyph by the font's
@@ -884,15 +909,18 @@ wants falls straight out of it:
   level (a Fragile bomb), or several items that are one named concept reused
   across NPCs. A plain one-item handover is not that, and should not cost three
   nested resources to say.
-- **A lesson is written inline too**: `teach:<kind> <name> [lesson percent%]` in an
+- **A lesson is written inline too**: `teach:<kind> <name> [percent%]` in an
   action cell, where `<kind>` is one of `language`, `recipe` (an item crafted
   at a bench), `meal` (a cookpot meal), `region`, `item` (reveals its real name)
   or `bestiary`. The kind picks the namespace, so
   a name can never be ambiguous and the cell says what it means; the name is the
   `.tres` basename, except a language, which is its `LanguageData.id` — the same
   spelling the `language` column and `[lang:]` markup use. Only a language takes
-  a lesson number and how much it teaches (`teach:language vyeshal 3 10%`);
-  leave both off to teach the whole tongue. The importer emits the `TeachAction`
+  how much it teaches (`teach:language vyeshal 10%`); leave it off to teach the
+  whole tongue. The cell IS the lesson: the importer names the generated
+  concept after the line or choice it sits on (`Teach_Line_greeting_2_…`), so it
+  keeps its identity across re-imports, teaches once however often it is
+  picked, and two cells are two lessons. The importer emits the `TeachAction`
   and its `TeachableConcept`, one per token. **An authored action `.tres` is
   still right** when the lesson is a named concept reused across NPCs, grants
   several things at once, or teaches one of the
@@ -928,6 +956,18 @@ wants falls straight out of it:
   invites exactly those typos and nothing else guards them. Reachability problems
   (an orphan group, a branch nothing points at) are warnings — that is a
   half-finished edit, and it must never block a playtest.
+- **A world script can SAY a branch** by its conversation key
+  (`WorldScriptApi.Say`): typed over the character as a standing line, never
+  dismissed by a press. Such a branch is reached by no `goto`, so the importer's
+  "never reached" warning says a script may raise it. It must have no choices
+  and no line actions — see [scripts/gameplay/scripting/CLAUDE.md](scripts/gameplay/scripting/CLAUDE.md).
+- **`reappear:<place>`** in an action cell vanishes the speaker and fades it back
+  in at a named place (`ReappearAction`) — any named painter placement, usually a
+  `waypoint`. Unchecked at import; an unknown place errors when it fires.
+- **`vanish`** (an action file, `dialogue_scripts/actions/vanish.tres`) makes the
+  speaker rise, fade and stay HIDDEN — saved, out of every query — until a script
+  `Reappear`s it. `behavior:Escape` is the wild fairy's getaway and deletes the
+  mob for good; a story character that must come back vanishes instead.
 - **`shop:<moment>` is a reserved conversation key** — one row, text only, is
   what the character says at that moment of the trade screen
   (`ConversationData.shopLines`, loc key `<character>_shop_<moment>`). The

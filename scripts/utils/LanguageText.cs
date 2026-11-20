@@ -58,15 +58,15 @@ public static class LanguageText
     // knows in full, so nothing in it scrambles.
     const string CommonId = "common";
 
-    readonly struct Span
+    // One run of a line: text in one language, a narration run, or a resolved
+    // [input:] glyph. Narration and input carry no language.
+    public readonly struct Span
     {
         public readonly string Text;
         // Null = an unlanguaged line (nothing to scramble). The common tongue
         // is a real LanguageData now, and reads the same way.
         public readonly LanguageData Language;
-        // Narration carries no language (Language is null).
         public readonly bool Narration;
-        // A resolved [input:] glyph; no language either.
         public readonly bool Input;
 
         public Span(string text, LanguageData language, bool narration, bool input = false)
@@ -76,6 +76,40 @@ public static class LanguageText
             Narration = narration;
             Input = input;
         }
+    }
+
+    // `raw` split into its runs, markup consumed — for a display that renders
+    // each run itself (BookPage animates the runs in one language).
+    public static List<Span> Spans(string raw, LanguageData defaultLanguage, Player player)
+    {
+        List<Span> spans = new List<Span>();
+        if (!string.IsNullOrEmpty(raw))
+        {
+            Parse(raw, defaultLanguage, player, spans);
+        }
+        return spans;
+    }
+
+    // One run's static display form for a RichTextLabel: scrambled by the
+    // player's knowledge, escaped, narration in italics and input in bold —
+    // exactly as RenderBbcode draws it.
+    public static string SpanBbcode(Span span, Player player)
+    {
+        return WrapSpanBbcode(span, EscapeBbcode(ScrambleFor(span.Text, span.Language, player)));
+    }
+
+    // Wraps already-escaped run text in its run's style.
+    public static string WrapSpanBbcode(Span span, string escaped)
+    {
+        if (span.Input)
+        {
+            return "[b]" + escaped + "[/b]";
+        }
+        if (span.Narration)
+        {
+            return "[i]" + escaped + "[/i]";
+        }
+        return escaped;
     }
 
     // Display form of `raw` for `player`: markup removed, each span
@@ -124,24 +158,12 @@ public static class LanguageText
         StringBuilder sb = new StringBuilder(raw.Length + 16);
         for (int i = 0; i < spans.Count; i++)
         {
-            string text = EscapeBbcode(ScrambleFor(spans[i].Text, spans[i].Language, player));
-            if (spans[i].Input)
-            {
-                sb.Append("[b]").Append(text).Append("[/b]");
-            }
-            else if (spans[i].Narration)
-            {
-                sb.Append("[i]").Append(text).Append("[/i]");
-            }
-            else
-            {
-                sb.Append(text);
-            }
+            sb.Append(SpanBbcode(spans[i], player));
         }
         return sb.ToString();
     }
 
-    static string EscapeBbcode(string text)
+    public static string EscapeBbcode(string text)
     {
         return string.IsNullOrEmpty(text) || text.IndexOf('[') < 0 ? text : text.Replace("[", "[lb]");
     }

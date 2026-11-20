@@ -12,14 +12,13 @@ using Godot;
 [GlobalClass]
 public partial class LanguageData : Resource
 {
-    // A language is learned in LESSONS. Each teaching source names a lesson
-    // number and how much of the language it teaches (a percent); the party
-    // remembers each lesson it holds and the most any source taught for it, so
-    // a lesson taught twice — by two copies of a source, or banked and field
-    // knowledge together — counts once. The amount LEARNED is the sum, capped
-    // at 100%; the curves below turn it into what the player can read.
-    // Lesson 0 at 100% is "the whole tongue", the default every source starts
-    // at; a partial source should take a lesson number of its own.
+    // A language is learned in LESSONS, and a lesson is its SOURCE — the
+    // inscription, scroll or action that teaches it, naming how much of the
+    // language (a percent). The party remembers each source it has learned
+    // from (Player.LessonSourceKey), so one taught twice — two copies of a
+    // scroll, or banked and field knowledge together — counts once. The amount
+    // LEARNED is the sum, capped at 100%; the curves below turn it into what
+    // the player can read. FULL_PERCENT is "the whole tongue".
     public const float FULL_PERCENT = 100f;
 
     // Stable internal identifier, and the token an inline [lang:<id>] span
@@ -72,12 +71,23 @@ public partial class LanguageData : Resource
         {
             return cached;
         }
-        var coverage = new LanguageCoverage(
+        LanguageCoverage coverage = SampleCoverage(learned);
+        _coverageMemo[learned] = coverage;
+        return coverage;
+    }
+
+    // ComputeCoverage without the memo, for a CONTINUOUS amount — an animated
+    // meter passes a new value every frame, which would grow the memo forever.
+    public LanguageCoverage SampleCoverage(float learned)
+    {
+        if (learned >= 1f)
+        {
+            return LanguageCoverage.Full;
+        }
+        return new LanguageCoverage(
             SampleCurve(vocabularyCurve, learned),
             SampleCurve(grammarCurve, learned),
             SampleCurve(numbersCurve, learned));
-        _coverageMemo[learned] = coverage;
-        return coverage;
     }
 
     static float SampleCurve(Curve curve, float progress)

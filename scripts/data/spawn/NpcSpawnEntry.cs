@@ -13,7 +13,7 @@ using Godot.Collections;
 // **An NPC always spawns chunk-streamed and untamed.** Becoming a companion is a
 // RUNTIME transition and owns both halves of itself: Mob.Tame flips
 // MobSimState.Tamed once loyalty crosses MobData.tameLoyalty, and
-// Sim.PromoteCompanionToPersistent moves the mob out of its chunk bucket into the
+// Sim.PromoteMobToPersistent moves the mob out of its chunk bucket into the
 // persistent store at that same moment. The spawn-time `tamed` / `persistent`
 // pair that used to short-circuit that was the starter companion, and nothing
 // authored either flag — reintroducing one would mean a second way in, which is

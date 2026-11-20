@@ -34,13 +34,25 @@ operand = 1
 [sub_resource type="Resource" id="Inline_4"]
 script = ExtResource("Script_UnderstandsLanguageCondition")
 language = ExtResource("Lang_vyeshal")
-threshold = 0.5
+threshold = 0.75
 below = true
 
 [sub_resource type="Resource" id="Inline_5"]
 script = ExtResource("Script_UnderstandsLanguageCondition")
 language = ExtResource("Lang_vyeshal")
-threshold = 0.5
+threshold = 0.75
+
+[sub_resource type="Resource" id="Inline_6"]
+script = ExtResource("Script_ScriptVarCondition")
+variable = &"antica_dead_friend_found"
+op = 1
+operand = 0
+
+[sub_resource type="Resource" id="Inline_7"]
+script = ExtResource("Script_ScriptVarCondition")
+variable = &"antica_dead_friend_found"
+op = 0
+operand = 0
 
 [sub_resource type="Resource" id="Entry_1"]
 script = ExtResource("Script_ConversationEntry")
@@ -155,6 +167,41 @@ name = &"cookpot"
 lines = [SubResource("Line_cookpot_1")]
 exitGroup = &"topics"
 
+[sub_resource type="Resource" id="Line_hiding_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"festering_man_hiding_01"
+
+[sub_resource type="Resource" id="Line_hiding_2"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"festering_man_hiding_02"
+
+[sub_resource type="Resource" id="Branch_hiding"]
+script = ExtResource("Script_ConversationBranch")
+name = &"hiding"
+lines = [SubResource("Line_hiding_1"), SubResource("Line_hiding_2")]
+exitGroup = &"hiding_topics"
+isPrimaryGroupEntry = true
+
+[sub_resource type="Resource" id="Line_hiding_cookpot_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"festering_man_hiding_cookpot_01"
+
+[sub_resource type="Resource" id="Branch_hiding_cookpot"]
+script = ExtResource("Script_ConversationBranch")
+name = &"hiding_cookpot"
+lines = [SubResource("Line_hiding_cookpot_1")]
+exitGroup = &"hiding_topics"
+
+[sub_resource type="Resource" id="Line_mist_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"festering_man_mist_01"
+
+[sub_resource type="Resource" id="Branch_mist"]
+script = ExtResource("Script_ConversationBranch")
+name = &"mist"
+lines = [SubResource("Line_mist_1")]
+exitGroup = &"hiding_topics"
+
 [sub_resource type="Resource" id="Resp_language_1"]
 script = ExtResource("Script_ConversationResponse")
 textLocKey = &"festering_man_language_gestures"
@@ -177,12 +224,19 @@ responses = [SubResource("Resp_language_1"), SubResource("Resp_language_2")]
 [sub_resource type="Resource" id="Resp_mates_1"]
 script = ExtResource("Script_ConversationResponse")
 textLocKey = &"festering_man_mates_impatient"
+condition = SubResource("Inline_6")
 destination = &"impatient"
+
+[sub_resource type="Resource" id="Resp_mates_2"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"festering_man_mates_hiding"
+condition = SubResource("Inline_7")
+destination = &"hiding"
 
 [sub_resource type="Resource" id="Group_mates"]
 script = ExtResource("Script_ConversationResponseGroup")
 name = &"mates"
-responses = [SubResource("Resp_mates_1")]
+responses = [SubResource("Resp_mates_1"), SubResource("Resp_mates_2")]
 
 [sub_resource type="Resource" id="Resp_topics_1"]
 script = ExtResource("Script_ConversationResponse")
@@ -209,9 +263,29 @@ script = ExtResource("Script_ConversationResponseGroup")
 name = &"topics"
 responses = [SubResource("Resp_topics_1"), SubResource("Resp_topics_2"), SubResource("Resp_topics_3"), SubResource("Resp_topics_4")]
 
+[sub_resource type="Resource" id="Resp_hiding_topics_1"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"festering_man_hiding_topics_end"
+completeActions = Array[Object]([ExtResource("Act_open_shop")])
+
+[sub_resource type="Resource" id="Resp_hiding_topics_2"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"festering_man_hiding_topics_hiding_cookpot"
+destination = &"hiding_cookpot"
+
+[sub_resource type="Resource" id="Resp_hiding_topics_3"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"festering_man_hiding_topics_mist"
+destination = &"mist"
+
+[sub_resource type="Resource" id="Group_hiding_topics"]
+script = ExtResource("Script_ConversationResponseGroup")
+name = &"hiding_topics"
+responses = [SubResource("Resp_hiding_topics_1"), SubResource("Resp_hiding_topics_2"), SubResource("Resp_hiding_topics_3")]
+
 [resource]
 script = ExtResource("Script_ConversationData")
 entryBranches = [SubResource("Entry_1"), SubResource("Entry_2"), SubResource("Entry_3")]
-branches = [SubResource("Branch_greeting"), SubResource("Branch_greeting_return"), SubResource("Branch_gestures"), SubResource("Branch_convo"), SubResource("Branch_impatient"), SubResource("Branch_where"), SubResource("Branch_clue"), SubResource("Branch_hammer"), SubResource("Branch_cookpot")]
-responseGroups = [SubResource("Group_language"), SubResource("Group_mates"), SubResource("Group_topics")]
+branches = [SubResource("Branch_greeting"), SubResource("Branch_greeting_return"), SubResource("Branch_gestures"), SubResource("Branch_convo"), SubResource("Branch_impatient"), SubResource("Branch_where"), SubResource("Branch_clue"), SubResource("Branch_hammer"), SubResource("Branch_cookpot"), SubResource("Branch_hiding"), SubResource("Branch_hiding_cookpot"), SubResource("Branch_mist")]
+responseGroups = [SubResource("Group_language"), SubResource("Group_mates"), SubResource("Group_topics"), SubResource("Group_hiding_topics")]
 descriptionLocKey = &"festering_man_description"

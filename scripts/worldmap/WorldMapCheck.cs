@@ -64,6 +64,78 @@ public static class WorldMapCheck
         return disagreements;
     }
 
+    // Every trigger box: where, how big, who trips it and what it does. A box
+    // that admits nobody, or does nothing and has no name for a script to
+    // react to, is reported — it bakes, and silently never matters.
+    private static void ReportTriggers(WorldMapState ctx, StringBuilder sb)
+    {
+        EntityPlacement[] triggers = ctx.Placements?.triggers ?? System.Array.Empty<EntityPlacement>();
+        sb.AppendLine($"[worldmap_check] triggers: {triggers.Length}");
+        foreach (EntityPlacement placement in triggers)
+        {
+            if (placement?.Entry is not TriggerSpawnEntry t)
+            {
+                sb.AppendLine("[worldmap_check] WARN trigger placement with no TriggerSpawnEntry — it bakes nothing");
+                continue;
+            }
+            Rect2I r = t.Footprint(placement.anchorXZ);
+            string name = placement.Name ?? "(unnamed)";
+            string floor = placement.floorY == EntityPlacement.OnTheGround ? "ground" : $"y={placement.floorY}";
+            sb.AppendLine($"[worldmap_check]   {name}: {r.Size.X}x{r.Size.Y} at {r.Position} on {floor}, "
+                + $"-{t.depthBelow}/+{t.heightAbove}, actors={t.actors}, {t.repeat}, "
+                + $"enter[{Describe(t.enterSetsVariable, t.enterActions)}] exit[{Describe(t.exitSetsVariable, t.exitActions)}]"
+                + (t.disabledVariable != null && !t.disabledVariable.IsEmpty ? $", disabled when {t.disabledVariable}={t.disabledWhen}" : ""));
+            if (t.actors == ETriggerActors.None)
+            {
+                sb.AppendLine($"[worldmap_check] WARN trigger {name} admits no actors — it can never fire");
+            }
+            if (!t.HasEffect(placement.Name != null))
+            {
+                sb.AppendLine($"[worldmap_check] WARN trigger at {r.Position} does nothing: no variable, no actions, and no name for a world script");
+            }
+        }
+    }
+
+    // Waypoints exist only to be named; an unnamed one is a mark that does
+    // nothing at all.
+    private static void ReportWaypoints(WorldMapState ctx, StringBuilder sb)
+    {
+        var names = new List<string>();
+        foreach (EntityPlacement placement in ctx.Placements?.entities ?? System.Array.Empty<EntityPlacement>())
+        {
+            if (placement?.Entry is not WaypointSpawnEntry)
+            {
+                continue;
+            }
+            if (placement.Name == null)
+            {
+                sb.AppendLine($"[worldmap_check] WARN unnamed waypoint at {placement.anchorXZ} — a waypoint is only its name");
+                continue;
+            }
+            names.Add(placement.Name);
+        }
+        sb.AppendLine($"[worldmap_check] waypoints: {names.Count}{(names.Count > 0 ? " (" + string.Join(", ", names) + ")" : "")}");
+    }
+
+    private static string Describe(StringName variable, Godot.Collections.Array<ConversationAction> actions)
+    {
+        var parts = new List<string>();
+        if (variable != null && !variable.IsEmpty)
+        {
+            parts.Add($"{variable}=true");
+        }
+        if (actions != null)
+        {
+            foreach (ConversationAction action in actions)
+            {
+                parts.Add(action == null ? "(empty)"
+                    : !string.IsNullOrEmpty(action.ResourcePath) && !action.ResourcePath.Contains("::")
+                        ? action.ResourcePath.GetFile().GetBaseName() : action.GetType().Name);
+            }
+        }
+        return string.Join(", ", parts);
+    }
+
     // The hand-placed entities, by entry, and how many of each carry their OWN
     // customized entry rather than the palette's shared one. A fork that failed
     // to save reads as shared again here, which is the failure worth catching:
@@ -516,6 +588,8 @@ public static class WorldMapCheck
         sb.AppendLine($"[worldmap_check] danger: {spread} columns");
 
         ReportEntities(ctx, sb);
+        ReportTriggers(ctx, sb);
+        ReportWaypoints(ctx, sb);
 
         // Painted water types, reported because a document that reads all-zero
         // here bakes every body as whatever its ZONE says and nothing else
@@ -773,9 +847,12 @@ public static class WorldMapCheck
                     // The element's own fields, classified the way the panel
                     // will build them, so a list whose item picker found no
                     // items reports that rather than just "list".
+                    System.Type[] kinds = entry.RecordKinds(name, WorldMapEntityInspector.Kinds(resourceType));
                     editable.Add(WorldMapEntityInspector.ListPicksFiles(resourceType, ctx.Data.World)
                         ? $"{name}[pick {resourceType.Name}]"
-                        : $"{name}[{resourceType.Name}: {DescribeElement(resourceType, ctx.Data.World)}]");
+                        : kinds.Length > 0
+                            ? $"{name}[kinds: {DescribeKinds(kinds, ctx.Data.World)}]"
+                            : $"{name}[{resourceType.Name}: {DescribeElement(resourceType, ctx.Data.World)}]");
                 }
                 else if (kind == WorldMapEntityInspector.EPropertyEditor.Record)
                 {
@@ -797,6 +874,17 @@ public static class WorldMapCheck
 
     private static string Join(List<string> items)
         => items.Count == 0 ? "none" : string.Join(", ", items);
+
+    // A list of kinds: each kind the "+ add" menu offers, with its own fields.
+    private static string DescribeKinds(System.Type[] kinds, string world)
+    {
+        var parts = new List<string>();
+        foreach (System.Type kind in kinds)
+        {
+            parts.Add($"{WorldMapEntityInspector.KindLabel(kind)}{{{DescribeElement(kind, world)}}}");
+        }
+        return string.Join("; ", parts);
+    }
 
     // Nested records and lists are described inside their parent, in the same
     // {record} / [list] notation the top level uses. The depth guard mirrors the

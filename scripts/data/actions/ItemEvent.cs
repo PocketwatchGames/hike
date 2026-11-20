@@ -143,12 +143,6 @@ public partial class ItemEvent : Resource
 	// their max. See EItemEventType.Heal.
 	[Export] public float healAmount = 50f;
 
-	// LearnLanguage fields: the lesson of `language` taught and how much of it
-	// (see LanguageData) — default the whole tongue.
-	[Export] public LanguageData language;
-	[Export] public int languageLesson;
-	[Export(PropertyHint.Range, "0,100,1")] public float languagePercent = LanguageData.FULL_PERCENT;
-
 	// LearnConcept field. Polymorphic resource ref — any TeachableConcept
 	// subclass (LanguageTeachable, RecipeTeachable, RegionTeachable, ...).
 	[Export] public TeachableConcept concept;
@@ -447,7 +441,6 @@ public partial class ItemEvent : Resource
 			nameof(healAmount) => EItemEventType.Heal,
 			nameof(reagent) or nameof(consumeAmount) => EItemEventType.ConsumeFromInventory,
 			nameof(motionForwardSpeed) or nameof(motionDuration) or nameof(motionFreezeGravity) or nameof(motionDirection) => EItemEventType.ApplyMotion,
-			nameof(language) or nameof(languageLesson) or nameof(languagePercent) => EItemEventType.LearnLanguage,
 			nameof(concept) => EItemEventType.LearnConcept,
 			nameof(damageProfileKey) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile,
 			nameof(impactMissEffect)

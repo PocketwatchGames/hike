@@ -22,7 +22,7 @@ public static class EntitySerializer
         BerryTree = 9,
         Loot = 10,
         Campfire = 11,
-        KnowledgeStone = 12,
+        KnowledgeSource = 12,
         ClimbableTree = 14,
         Boat = 15,
         BuriedSpot = 16,
@@ -43,6 +43,7 @@ public static class EntitySerializer
         Cookpot = 32,
         Stash = 33,
         CraftingBench = 34,
+        Trigger = 35,
     }
 
     // Legacy PropType byte values for loot. PropSimState used to cover loot
@@ -432,6 +433,9 @@ public static class EntitySerializer
                 w.Write(mob.SpawnRotationY);
                 w.Write(mob.Alive);
                 w.Write(mob.PlacedDead);
+                w.Write(mob.ScriptFollowing);
+                w.Write(mob.Hidden);
+                w.Write(mob.Invulnerable);
                 w.Write(mob.RespawnsOnRest);
                 w.Write(mob.Burrowed);
                 w.Write(mob.Burrowing);
@@ -468,9 +472,6 @@ public static class EntitySerializer
                 {
                     LoyaltyGiftState gift = mob.LoyaltyGifts[i];
                     WriteItemState(w, gift?.item);
-                    WriteResource(w, gift?.language);
-                    w.Write(gift?.languageLesson ?? 0);
-                    w.Write(gift?.languagePercent ?? 0f);
                     w.Write(gift?.requiredLoyalty ?? 0f);
                 }
                 int giftCountsCount = mob.GiftCounts?.Count ?? 0;
@@ -628,31 +629,12 @@ public static class EntitySerializer
                 WriteResource(w, signpost.Inscription);
                 break;
 
-            case KnowledgeStoneSimState stone:
-                w.Write((byte)Tag.KnowledgeStone);
-                WriteVec3(w, stone.WorldPosition);
-                WriteScene(w, stone.Scene);
-                // Wire shape: the inscription + one lesson and its percent,
-                // which the loader synthesizes back into a single
-                // LanguageTeachable concept in the inscription's language. The
-                // full polymorphic concept array isn't persisted here — authored
-                // stones with non-language concepts (recipes / regions) lean on
-                // the scene's _concepts override path and don't ride this slot.
-                LanguageTeachable wireLesson = null;
-                if (stone.Concepts != null)
-                {
-                    int conceptCount = stone.Concepts.Count;
-                    for (int i = 0; i < conceptCount && wireLesson == null; i++)
-                    {
-                        if (stone.Concepts[i] is LanguageTeachable lt && lt.language != null)
-                        {
-                            wireLesson = lt;
-                        }
-                    }
-                }
-                WriteResource(w, stone.Inscription);
-                w.Write(wireLesson?.lesson ?? 0);
-                w.Write(wireLesson?.percent ?? 0f);
+            case KnowledgeSourceSimState source:
+                w.Write((byte)Tag.KnowledgeSource);
+                WriteVec3(w, source.WorldPosition);
+                WriteScene(w, source.Scene);
+                WriteResource(w, source.Inscription);
+                WriteResourceList(w, source.Teaches);
                 break;
 
             case FireTrapSimState fire:
@@ -758,6 +740,21 @@ public static class EntitySerializer
                 w.Write((byte)Tag.SafetyZone);
                 WriteVec3(w, safety.WorldPosition);
                 WriteScene(w, safety.Scene);
+                break;
+
+            case TriggerSimState trigger:
+                w.Write((byte)Tag.Trigger);
+                WriteVec3(w, trigger.WorldPosition);
+                WriteVec3(w, trigger.Box.Position);
+                WriteVec3(w, trigger.Box.Size);
+                w.Write((int)trigger.Actors);
+                w.Write((byte)trigger.Repeat);
+                WriteInternedString(w, trigger.EnterSetsVariable?.ToString() ?? "");
+                WriteActionList(w, trigger.EnterActions);
+                WriteInternedString(w, trigger.ExitSetsVariable?.ToString() ?? "");
+                WriteActionList(w, trigger.ExitActions);
+                w.Write(trigger.EnterFired);
+                w.Write(trigger.ExitFired);
                 break;
 
             // No scene ref: a roof has no authored mesh, only a style to skin
@@ -915,6 +912,9 @@ public static class EntitySerializer
                 float spawnRotationY = r.ReadSingle();
                 bool alive = r.ReadBoolean();
                 bool placedDead = r.ReadBoolean();
+                bool scriptFollowing = r.ReadBoolean();
+                bool hidden = r.ReadBoolean();
+                bool invulnerable = r.ReadBoolean();
                 bool respawnsOnRest = r.ReadBoolean();
                 bool burrowed = r.ReadBoolean();
                 bool burrowing = r.ReadBoolean();
@@ -954,9 +954,6 @@ public static class EntitySerializer
                     loyaltyGifts.Add(new LoyaltyGiftState
                     {
                         item = ReadItemState(r),
-                        language = ReadResource<LanguageData>(r),
-                        languageLesson = r.ReadInt32(),
-                        languagePercent = r.ReadSingle(),
                         requiredLoyalty = r.ReadSingle(),
                     });
                 }
@@ -1002,6 +999,9 @@ public static class EntitySerializer
                 mob.SpawnConditions = spawnConditions;
                 mob.Alive = alive;
                 mob.PlacedDead = placedDead;
+                mob.ScriptFollowing = scriptFollowing;
+                mob.Hidden = hidden;
+                mob.Invulnerable = invulnerable;
                 mob.RespawnsOnRest = respawnsOnRest;
                 mob.Burrowed = burrowed;
                 mob.Burrowing = burrowing;
@@ -1150,24 +1150,13 @@ public static class EntitySerializer
                 var inscription = ReadResource<InscriptionData>(r);
                 return new SignpostSimState(pos, scene, inscription);
             }
-            case Tag.KnowledgeStone:
+            case Tag.KnowledgeSource:
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 var inscription = ReadResource<InscriptionData>(r);
-                int lesson = r.ReadInt32();
-                float percent = r.ReadSingle();
-                LanguageData languageData = inscription?.language;
-                // Reconstruct the SimState concept override list from the
-                // inscription's language + the wire's lesson. A zero percent means "no override"
-                // — leave Concepts null so KnowledgeStone.Create falls back to
-                // the scene's authored _concepts array.
-                Godot.Collections.Array<TeachableConcept> concepts = null;
-                if (languageData != null && percent > 0f)
-                {
-                    concepts = new() { new LanguageTeachable { language = languageData, lesson = lesson, percent = percent } };
-                }
-                return new KnowledgeStoneSimState(pos, scene, inscription, concepts);
+                Godot.Collections.Array<TeachableConcept> teaches = ReadResourceList<TeachableConcept>(r);
+                return new KnowledgeSourceSimState(pos, scene, inscription, teaches);
             }
             case Tag.FireTrap:
             {
@@ -1289,6 +1278,24 @@ public static class EntitySerializer
                 PackedScene scene = ReadScene(r);
                 return new SafetyZoneSimState(pos, scene);
             }
+            case Tag.Trigger:
+            {
+                Vector3 pos = ReadVec3(r);
+                Vector3 boxPos = ReadVec3(r);
+                Vector3 boxSize = ReadVec3(r);
+                var trigger = new TriggerSimState(pos, new Aabb(boxPos, boxSize))
+                {
+                    Actors = (ETriggerActors)r.ReadInt32(),
+                    Repeat = (ETriggerRepeat)r.ReadByte(),
+                };
+                trigger.EnterSetsVariable = ReadOptionalName(r);
+                trigger.EnterActions = ReadActionList(r);
+                trigger.ExitSetsVariable = ReadOptionalName(r);
+                trigger.ExitActions = ReadActionList(r);
+                trigger.EnterFired = r.ReadBoolean();
+                trigger.ExitFired = r.ReadBoolean();
+                return trigger;
+            }
             case Tag.Roof:
             {
                 Vector3 pos = ReadVec3(r);
@@ -1333,6 +1340,38 @@ public static class EntitySerializer
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");
         }
+    }
+
+    // A trigger's actions: shipped action files by path, a placement's inline
+    // ones by value (flat records — see WriteInline).
+    private static void WriteActionList(BinaryWriter w, ConversationAction[] actions)
+    {
+        w.Write7BitEncodedInt(actions.Length);
+        foreach (ConversationAction action in actions)
+        {
+            WriteResource(w, action);
+        }
+    }
+
+    private static ConversationAction[] ReadActionList(BinaryReader r)
+    {
+        int count = r.Read7BitEncodedInt();
+        var list = new List<ConversationAction>(count);
+        for (int i = 0; i < count; i++)
+        {
+            ConversationAction action = ReadResource<ConversationAction>(r);
+            if (action != null)
+            {
+                list.Add(action);
+            }
+        }
+        return list.ToArray();
+    }
+
+    private static StringName ReadOptionalName(BinaryReader r)
+    {
+        string name = ReadInternedString(r);
+        return name.Length > 0 ? new StringName(name) : null;
     }
 
     private static void WriteVec3(BinaryWriter w, Vector3 v)
@@ -1583,6 +1622,33 @@ public static class EntitySerializer
             weapons.Add(ReadResource<WeaponData>(r));
         }
         return weapons;
+    }
+
+    // A list of resource refs: count + each one's table index. Null/empty
+    // writes a 0 count and reads back as null.
+    private static void WriteResourceList<[MustBeVariant] T>(BinaryWriter w, Godot.Collections.Array<T> resources) where T : Resource
+    {
+        int count = resources?.Count ?? 0;
+        w.Write(count);
+        for (int i = 0; i < count; i++)
+        {
+            WriteResource(w, resources[i]);
+        }
+    }
+
+    private static Godot.Collections.Array<T> ReadResourceList<[MustBeVariant] T>(BinaryReader r) where T : Resource
+    {
+        int count = r.ReadInt32();
+        if (count <= 0)
+        {
+            return null;
+        }
+        var resources = new Godot.Collections.Array<T>();
+        for (int i = 0; i < count; i++)
+        {
+            resources.Add(ReadResource<T>(r));
+        }
+        return resources;
     }
 
     // Per-instance descriptor status effects (MobSimState.StatusEffects): count +

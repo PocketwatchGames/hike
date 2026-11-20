@@ -8,6 +8,7 @@ using Godot;
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]
+[AuthoringKind("Recipe")]
 public partial class RecipeTeachable : TeachableConcept
 {
     [Export] public ItemData recipe;

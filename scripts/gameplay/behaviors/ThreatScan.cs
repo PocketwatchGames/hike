@@ -59,7 +59,7 @@ public static class ThreatScan
         for (int i = 0; i < _scratch.Count; i++)
         {
             Mob candidate = _scratch[i];
-            if (candidate == null || !candidate.alive || candidate.mobData == null)
+            if (candidate == null || !candidate.alive || candidate.mobData == null || candidate.IsInvulnerable)
             {
                 continue;
             }

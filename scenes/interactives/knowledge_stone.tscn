@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://ck5nlyf58chsy"]
 
-[ext_resource type="Script" uid="uid://00f5fp6egt2" path="res://scripts/gameplay/entities/KnowledgeStone.cs" id="1_knowledgestone"]
+[ext_resource type="Script" uid="uid://00f5fp6egt2" path="res://scripts/gameplay/entities/KnowledgeSource.cs" id="1_knowledgestone"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_interactivebox"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]

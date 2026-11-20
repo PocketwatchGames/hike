@@ -21,6 +21,12 @@ public partial class WorldMapPlacements : Resource
     // the painter writes both at runtime.
     [Export] public EntityPlacement[] entities = System.Array.Empty<EntityPlacement>();
 
+    // Trigger boxes (TriggerSpawnEntry, authored whole per placement by the
+    // trigger tool; anchorXZ is the box's min corner). Entity placements, baked
+    // through the same path, but a list of their own so the entity tool, its
+    // marks and its palette never see them.
+    [Export] public EntityPlacement[] triggers = System.Array.Empty<EntityPlacement>();
+
     // Where the player starts, in world XZ. Unset means the world origin, which
     // is what the bake used before this could be authored.
     [Export] public bool hasSpawn;

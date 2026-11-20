@@ -294,6 +294,17 @@ public static class WorldMapResize
                 entity.anchorXZ = MoveCell(entity.anchorXZ);
             }
         }
+        // A trigger keeps its size, like a stamp: its centre cell is carried
+        // across and the box is rebuilt around it.
+        foreach (EntityPlacement trigger in state.Placements.triggers)
+        {
+            if (trigger?.Entry is not TriggerSpawnEntry box)
+            {
+                continue;
+            }
+            Vector2I offset = box.SeatCell(trigger.anchorXZ) - trigger.anchorXZ;
+            trigger.anchorXZ = MoveCell(box.SeatCell(trigger.anchorXZ)) - offset;
+        }
         if (state.Placements.hasSpawn)
         {
             state.Placements.spawnXZ = MoveCell(state.Placements.spawnXZ);

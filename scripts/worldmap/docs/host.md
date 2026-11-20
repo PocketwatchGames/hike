@@ -649,14 +649,23 @@ mound when dug) or `carrot_patch`. What is buried lives on the entry, not the
 style, because it is the part that varies per spot; a spot with nothing buried is
 refused at bake, and `worldmap_check` counts them.
 
-**A knowledge stone is the same shape.** `knowledge_stone` carries only its
-scene; the placement picks its `inscription` (an `InscriptionData` file: text +
-language) and the `lesson` and `percent` it teaches — of the tongue the
-inscription is written in — and the hover names it by what it teaches
-(`knowledge_stone: vyeshal lesson 2 (40%)`). A stone whose inscription is in no
-language teaches nothing and is refused at bake, as a signpost with no
-inscription is — the language is a proper noun, so the shared entry carries no
-default for it.
+**A knowledge source is the same shape** — `knowledge_stone` and
+`knowledge_book` are one entry type (`KnowledgeSourceSpawnEntry`) over two
+scenes, and each carries only its scene. The placement picks its `inscription`
+(an `InscriptionData` file: text, language, and the `percent` of that language a
+read teaches — the lesson lives on the inscription, not the placement) and
+authors a `teaches` list INLINE: "+ add ▾" offers each kind (Recipe, Item name,
+Region, Meal, Bestiary, Map / scroll, Script flag) and the entry shows only that
+kind's fields, picked from files that already exist. No `.tres` per lesson. A
+list whose element type has subclasses gets this kind menu everywhere in the
+panel (`WorldMapEntityInspector.Kinds`, labels from `[AuthoringKind]`); an
+entry narrows it with `RecordKinds` — the knowledge source leaves out Language
+(its lesson is the inscription) and the by-name treasure map (Map / scroll picks
+the map item instead). The hover names it by its inscription and amount
+(`knowledge_stone: muddish_runs_slow (34%)`). The inscription is optional when `teaches` is
+not empty — a book can grant a recipe and say nothing; a source with neither is
+refused at bake. The stone shows its words in a speech bubble, the book on the
+book page (see "Spoken and inscribed text" in the root CLAUDE.md).
 
 **Signs and stones PICK their words; nobody types them in the panel.** An
 inscription is its own `.tres` (`worlds/<world>/inscriptions/` or

@@ -84,18 +84,20 @@ public class SimState
         return ForgeMarkers.TryGetValue(MapMarkerRecord.KeyFor(worldPos), out info);
     }
 
-    // Per-knowledge-stone concept list, keyed by quantized world position, so the
-    // map can dim a stone's marker once the party has learned everything it
-    // teaches (IsMarkerActive) even while the stone's chunk is unloaded. A stone
-    // registers on stream-in (KnowledgeStone.OnSpawned). Runtime cache, not
-    // serialized: each stone re-registers on stream-in, and known-ness is derived
-    // live from the (serialized) Knowledge stores.
-    public readonly Dictionary<Vector3I, Godot.Collections.Array<TeachableConcept>> KnowledgeStoneMarkers = new();
+    // Per knowledge source, keyed by quantized world position, so the map can
+    // dim its marker once the party has learned everything it teaches
+    // (IsMarkerActive) even while its chunk is unloaded. Registered on stream-in
+    // (KnowledgeSource.OnSpawned). Runtime cache, not serialized: each source
+    // re-registers on stream-in, and known-ness is derived live from the
+    // (serialized) Knowledge stores.
+    public readonly Dictionary<Vector3I, KnowledgeSourceSimState> KnowledgeSourceMarkers = new();
 
-    // Register the concepts a knowledge stone teaches for map-marker dimming.
-    public void SetKnowledgeStoneConcepts(Vector3 worldPos, Godot.Collections.Array<TeachableConcept> concepts)
+    public void SetKnowledgeSourceMarker(Vector3 worldPos, KnowledgeSourceSimState source)
     {
-        KnowledgeStoneMarkers[MapMarkerRecord.KeyFor(worldPos)] = concepts;
+        if (source != null)
+        {
+            KnowledgeSourceMarkers[MapMarkerRecord.KeyFor(worldPos)] = source;
+        }
     }
 
     // Central bank of named scripting variables — quest progress, world flags
@@ -438,32 +440,13 @@ public class SimState
         {
             return (Sim.Current?.WorldClockDays ?? 0.0) >= forge.ReactivateAtClock;
         }
-        // Knowledge stone: active (bright) while the party still has something to
+        // Knowledge source: active (bright) while the party still has something to
         // learn from it; inactive (dim) once every concept it teaches is known in
         // either store. Derived live so learning the same concept elsewhere (a
         // scroll, another stone) dims this one even while its chunk is unloaded.
-        if (KnowledgeStoneMarkers.TryGetValue(key, out Godot.Collections.Array<TeachableConcept> concepts))
+        if (KnowledgeSourceMarkers.TryGetValue(key, out KnowledgeSourceSimState source))
         {
-            return KnowledgeStoneHasUnlearned(concepts);
-        }
-        return false;
-    }
-
-    // True if any concept in `concepts` is not yet known (party ∪ active store).
-    // A null/empty list has nothing left to teach, so it reads as fully learned.
-    bool KnowledgeStoneHasUnlearned(Godot.Collections.Array<TeachableConcept> concepts)
-    {
-        if (concepts == null || concepts.Count == 0)
-        {
-            return false;
-        }
-        Player player = Sim.Current?.player;
-        foreach (TeachableConcept concept in concepts)
-        {
-            if (concept != null && !concept.IsKnown(player))
-            {
-                return true;
-            }
+            return source.HasUnlearned(Sim.Current?.player);
         }
         return false;
     }

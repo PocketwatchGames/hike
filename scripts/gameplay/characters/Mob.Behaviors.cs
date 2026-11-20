@@ -214,6 +214,12 @@ public partial class Mob
             output.suspended = true;
             return;
         }
+        // A world script's move or follow overrides the brain outright.
+        if (TickScripted(deltaTime, ref output))
+        {
+            _simState.CurrentBehaviorFlags = EBehaviorFlags.None;
+            return;
+        }
 
         ulong time = _world.GameTimeMs;
 

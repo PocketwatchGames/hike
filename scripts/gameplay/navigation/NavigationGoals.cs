@@ -309,95 +309,94 @@ public static class NavigationGoals
         return TraversalRule.CanRoute(profile, from.surfaceY, to.surfaceY, allowFalling);
     }
 
-    // True if `worldPos` sits over a column with a standable surface
-    // within a couple voxels of the requested Y. Snaps the returned
-    // `surfacePoint` to that surface so callers can hand the navigator a
-    // point that's actually on the ground rather than mid-air.
+    // True if `worldPos` sits over a column with a standable surface within
+    // SurfaceSearchRadius of the requested Y. Snaps the returned `surfacePoint`
+    // to that surface so callers can hand the navigator a point that's actually
+    // on the ground rather than mid-air.
+    //
+    // The search walks OUTWARD from the anchor Y (0, -1, +1, -2, +2, …) and takes
+    // the nearest standable layer — the same answer WalkabilityGrid.NearestLayer
+    // gives. Top-down would pick the highest layer in a 25-voxel window, which is
+    // the upper storey or the roof of whatever building the anchor stands in.
     private static bool IsStandable(WorldState ws, Sim sim, in TraversalProfile profile, Vector3 worldPos, out Vector3 surfacePoint)
     {
         surfacePoint = worldPos;
-        int verticalClearance = profile.verticalClearance;
         int wx = Mathf.FloorToInt(worldPos.X);
         int wz = Mathf.FloorToInt(worldPos.Z);
         int anchorY = Mathf.FloorToInt(worldPos.Y);
-        // Search ±SurfaceSearchRadius around the anchor Y for a standable
-        // air-or-water voxel over solid. Mirrors WalkabilityGrid.SampleColumn's
-        // contract; a land mob (avoidsDeepWater) additionally rejects a
-        // swim-depth water column so its standoff slot never lands in deep
-        // water (it may still wade in the shallows).
-        for (int dy = WalkabilityGrid.SurfaceSearchRadius; dy >= -WalkabilityGrid.SurfaceSearchRadius; dy--)
+        for (int k = 0; k <= WalkabilityGrid.SurfaceSearchRadius * 2; k++)
         {
+            // Below before above at equal distance: a body settles onto a floor.
+            int dy = (k + 1) / 2 * (k % 2 == 1 ? -1 : 1);
             int wy = anchorY + dy;
-            if (!ws.IsInBounds(wx, wy, wz))
+            if (IsStandableVoxel(ws, sim, profile, wx, wy, wz))
+            {
+                surfacePoint = new Vector3(wx + 0.5f, wy, wz + 0.5f);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // One voxel of IsStandable's column search: an air-or-water voxel over solid
+    // with the profile's headroom. Mirrors WalkabilityGrid.SampleColumn's
+    // contract; a land mob (avoidsDeepWater) additionally rejects a swim-depth
+    // water column so its standoff slot never lands in deep water (it may still
+    // wade in the shallows).
+    private static bool IsStandableVoxel(WorldState ws, Sim sim, in TraversalProfile profile, int wx, int wy, int wz)
+    {
+        int verticalClearance = profile.verticalClearance;
+        if (!ws.IsInBounds(wx, wy, wz) || !ws.IsInBounds(wx, wy - 1, wz))
+        {
+            return false;
+        }
+        int here = ws.GetBlockWorld(wx, wy, wz);
+        if (Blocks.IsSolid(here))
+        {
+            return false;
+        }
+        if (!Blocks.IsSolid(ws.GetBlockWorld(wx, wy - 1, wz)))
+        {
+            return false;
+        }
+        // Headroom check so the standoff point is in a slot the mob
+        // actually fits into — verticalClearance voxels above the floor,
+        // matching WalkabilityGrid.SampleColumn (vc=1 needs none).
+        for (int h = 1; h < verticalClearance; h++)
+        {
+            if (!ws.IsInBounds(wx, wy + h, wz) || Blocks.IsSolid(ws.GetBlockWorld(wx, wy + h, wz)))
             {
                 return false;
             }
-            int here = ws.GetBlockWorld(wx, wy, wz);
-            if (Blocks.IsSolid(here))
+        }
+        // A land mob won't stand at the bottom of a deep water body. The
+        // accepted voxel is Water only when the whole column is water over
+        // a solid floor; reject it once that column reaches swim depth.
+        if (Blocks.IsWater(here) && profile.AvoidsDeepWater)
+        {
+            int depth = 1;
+            while (ws.IsInBounds(wx, wy + depth, wz) && Blocks.IsWater(ws.GetBlockWorld(wx, wy + depth, wz)))
             {
-                continue;
+                depth++;
             }
-            if (!ws.IsInBounds(wx, wy - 1, wz))
+            if (depth >= Mathf.Max(1, Mathf.FloorToInt(profile.swimDepthThreshold)))
             {
                 return false;
             }
-            if (!Blocks.IsSolid(ws.GetBlockWorld(wx, wy - 1, wz)))
+        }
+        // Mirror WalkabilityGrid's entity-blocker rejection so standoff
+        // slots can't land on a cell occupied by a tree or chest.
+        if (sim != null)
+        {
+            for (int h = 0; h < verticalClearance; h++)
             {
-                continue;
-            }
-            // Headroom check so the standoff point is in a slot the mob
-            // actually fits into — verticalClearance voxels above the floor,
-            // matching WalkabilityGrid.SampleColumn (vc=1 needs none).
-            bool headroomBlocked = false;
-            for (int h = 1; h < verticalClearance; h++)
-            {
-                if (!ws.IsInBounds(wx, wy + h, wz) || Blocks.IsSolid(ws.GetBlockWorld(wx, wy + h, wz)))
-                {
-                    headroomBlocked = true;
-                    break;
-                }
-            }
-            if (headroomBlocked)
-            {
-                continue;
-            }
-            // A land mob won't stand at the bottom of a deep water body. The
-            // accepted voxel is Water only when the whole column is water over
-            // a solid floor; reject it once that column reaches swim depth.
-            if (Blocks.IsWater(here) && profile.AvoidsDeepWater)
-            {
-                int depth = 1;
-                while (ws.IsInBounds(wx, wy + depth, wz) && Blocks.IsWater(ws.GetBlockWorld(wx, wy + depth, wz)))
-                {
-                    depth++;
-                }
-                if (depth >= Mathf.Max(1, Mathf.FloorToInt(profile.swimDepthThreshold)))
+                if (sim.IsPathBlocked(wx, wy + h, wz))
                 {
                     return false;
                 }
             }
-            // Mirror WalkabilityGrid's entity-blocker rejection so standoff
-            // slots can't land on a cell occupied by a tree or chest.
-            if (sim != null)
-            {
-                bool entityBlocked = false;
-                for (int h = 0; h < verticalClearance; h++)
-                {
-                    if (sim.IsPathBlocked(wx, wy + h, wz))
-                    {
-                        entityBlocked = true;
-                        break;
-                    }
-                }
-                if (entityBlocked)
-                {
-                    continue;
-                }
-            }
-            surfacePoint = new Vector3(wx + 0.5f, wy, wz + 0.5f);
-            return true;
         }
-        return false;
+        return true;
     }
 
     // True if the cell one voxel behind `slotSurface` (away from `targetPos`)

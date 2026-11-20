@@ -692,10 +692,6 @@ public partial class MerchantScreen : Control
 					icon = given.inventorySprite,
 				});
 			}
-			if (gift.language != null && gift.languagePercent > 0f)
-			{
-				_player.LearnLanguageLesson(gift.language, gift.languageLesson, gift.languagePercent);
-			}
 		}
 	}
 

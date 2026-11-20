@@ -190,6 +190,17 @@ public class MobSimState : EntitySimState
     // whose state spawns nothing once its node is gone, this one's body is part
     // of the world and comes back as a corpse every time its chunk loads.
     public bool PlacedDead;
+    // A world script told this mob to follow the controlled player
+    // (WorldScriptApi.Follow). Saved, so a follower keeps following across a
+    // reload; while it is set the mob is filed as a persistent entity, so chunk
+    // streaming never drops it behind the party.
+    public bool ScriptFollowing;
+    // Vanished by a script or a conversation (`vanish`) and not yet brought
+    // back (Reappear): the mob is in the world but invisible, intangible and
+    // inert. Saved, so a reload does not bring it back early.
+    public bool Hidden;
+    // Takes no damage and is never a threat target (MobSpawnEntry.invulnerable).
+    public bool Invulnerable;
     // Whether a rest (Sim.ResetSpawns) brings this mob back once it is dead — a
     // population, as opposed to an individual who stays dead. Set from the spawn
     // entry (MobSpawnEntry.respawnsOnRest).

@@ -2,9 +2,11 @@
 
 [ext_resource type="Script" uid="uid://cjrr8wukx6bb5" path="res://scripts/data/items/ConsumableData.cs" id="1_loot_data"]
 [ext_resource type="Texture2D" uid="uid://bptqj1l2sfaks" path="res://assets/textures/items/BerriesBlue.png" id="2_icon"]
+[ext_resource type="PackedScene" uid="uid://oehooqhrh5zt3" path="res://scenes/fx/eat_gulp.tscn" id="eat_gulp_fx"]
 
 [resource]
 script = ExtResource("1_loot_data")
+useEffect = ExtResource("eat_gulp_fx")
 categoryOverride = 6
 satiation = 0.05
 displayName = &"Blue Berry"

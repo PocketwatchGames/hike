@@ -47,6 +47,10 @@ public partial class SleepOverlay : Control
 		Visible = false;
 		SetOverlayAlpha(0f);
 		MouseFilter = MouseFilterEnum.Ignore;
+		// The death screen pauses the tree on the same frame it turns opaque,
+		// which is the frame DeathHandoff waits for — paused, this overlay
+		// would never see it and stay black over the respawn.
+		ProcessMode = ProcessModeEnum.Always;
 	}
 
 	public void Show(GameClient gameClient, double hours, double healFractionPerHour)

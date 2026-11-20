@@ -663,23 +663,45 @@ public partial class Player : CharacterBody3D, IHudAnchored
 	Knowledge ActiveKnowledge => _world?.WorldState?.SimState?.Party?.Active?.Knowledge;
 	Knowledge PartyKnowledge => _world?.WorldState?.SimState?.Party?.Knowledge;
 
-	// The percent `lesson` of `language` taught the player, 0 when not held —
-	// the permanent party pool and the active member's provisional field store
-	// together, the larger of the two.
-	public float GetLessonPercent(LanguageData language, int lesson)
+	// A lesson is identified by what taught it — the inscription, scroll or
+	// action resource — so reading one source twice teaches once and two
+	// sources always count separately. Its resource path is the key the
+	// knowledge stores and saves hold; a source with no path (built in code, or
+	// stored by value) cannot be told apart from another and teaches nothing.
+	public static string LessonSourceKey(Resource source)
+	{
+		string key = source?.ResourcePath;
+		if (string.IsNullOrEmpty(key))
+		{
+			GD.PushError($"A language lesson's source has no resource path ({source?.GetType().Name ?? "null"}) — "
+				+ "a lesson is identified by the file that teaches it, so it must be authored in one.");
+			return null;
+		}
+		return key;
+	}
+
+	// The percent the lesson from `source` taught of `language`, 0 when not
+	// held — the permanent party pool and the active member's provisional field
+	// store together, the larger of the two.
+	public float GetLessonPercent(LanguageData language, Resource source)
+	{
+		return GetLessonPercent(language, LessonSourceKey(source));
+	}
+
+	float GetLessonPercent(LanguageData language, string source)
 	{
 		float percent = 0f;
-		if (language == null)
+		if (language == null || source == null)
 		{
 			return percent;
 		}
 		if (PartyKnowledge != null && PartyKnowledge.LearnedLessons.TryGetValue(language, out var banked)
-			&& banked.TryGetValue(lesson, out float b))
+			&& banked.TryGetValue(source, out float b))
 		{
 			percent = b;
 		}
 		if (ActiveKnowledge != null && ActiveKnowledge.LearnedLessons.TryGetValue(language, out var field)
-			&& field.TryGetValue(lesson, out float f))
+			&& field.TryGetValue(source, out float f))
 		{
 			percent = Mathf.Max(percent, f);
 		}
@@ -687,8 +709,7 @@ public partial class Player : CharacterBody3D, IHudAnchored
 	}
 
 	// How much of `language` the player has learned, in [0, 1]: every held
-	// lesson's percent summed (each lesson once, at the most any source taught
-	// for it), capped at 100%. Linear — the curves shape what that reads as,
+	// lesson's percent summed (each source once), capped at 100%. Linear — the curves shape what that reads as,
 	// not this number. Null and the common tongue are fully learned.
 	//
 	// SimData.commonTongue is fully known unconditionally: everyone is born
@@ -702,17 +723,17 @@ public partial class Player : CharacterBody3D, IHudAnchored
 			return 1f;
 		}
 		float total = 0f;
-		Dictionary<int, float> banked = null;
+		Dictionary<string, float> banked = null;
 		if (PartyKnowledge != null && PartyKnowledge.LearnedLessons.TryGetValue(language, out banked))
 		{
-			foreach (KeyValuePair<int, float> lesson in banked)
+			foreach (KeyValuePair<string, float> lesson in banked)
 			{
 				total += GetLessonPercent(language, lesson.Key);
 			}
 		}
 		if (ActiveKnowledge != null && ActiveKnowledge.LearnedLessons.TryGetValue(language, out var field))
 		{
-			foreach (KeyValuePair<int, float> lesson in field)
+			foreach (KeyValuePair<string, float> lesson in field)
 			{
 				if (banked == null || !banked.ContainsKey(lesson.Key))
 				{
@@ -733,20 +754,21 @@ public partial class Player : CharacterBody3D, IHudAnchored
 		return language.ComputeCoverage(ComputeLanguageLearned(language));
 	}
 
-	// Records `lesson` of `language` at `percent` in the active member's store,
-	// banked into the party pool when the player camps. Returns true only when
-	// this teaches something new — a lesson already held at that percent or
-	// more teaches nothing. Fires onLanguageLearned with the amount learned
+	// Records the lesson from `source`: `percent` of `language`, in the active
+	// member's store, banked into the party pool when
+	// the player camps. Returns true only when this teaches something new — a
+	// source already read teaches nothing. Fires onLanguageLearned with the amount learned
 	// BEFORE, so a listener can show the change.
 	public Action<LanguageData, float> onLanguageLearned;
-	public bool LearnLanguageLesson(LanguageData language, int lesson, float percent)
+	public bool LearnLanguageLesson(LanguageData language, Resource source, float percent)
 	{
 		if (language == null || percent <= 0f) { return false; }
+		string key = LessonSourceKey(source);
 		Knowledge store = ActiveKnowledge;
-		if (store == null) { return false; }
-		if (GetLessonPercent(language, lesson) >= percent) { return false; }
+		if (key == null || store == null) { return false; }
+		if (GetLessonPercent(language, key) >= percent) { return false; }
 		float before = ComputeLanguageLearned(language);
-		store.RecordLesson(language, lesson, percent);
+		store.RecordLesson(language, key, percent);
 		onLanguageLearned?.Invoke(language, before);
 		return true;
 	}

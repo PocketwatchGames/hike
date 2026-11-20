@@ -6,9 +6,11 @@
 [ext_resource type="Resource" uid="uid://c3ytrvm8kkbkt" path="res://resources/data/items/loot/mushroom.tres" id="3_parent"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="4_1lmhq"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="6_1d4ga"]
+[ext_resource type="PackedScene" uid="uid://oehooqhrh5zt3" path="res://scenes/fx/eat_gulp.tscn" id="eat_gulp_fx"]
 
 [resource]
 script = ExtResource("1_item_data")
+useEffect = ExtResource("eat_gulp_fx")
 satiation = 0.05
 displayName = &"Red Mushroom"
 maxStack = 99

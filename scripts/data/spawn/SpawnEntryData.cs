@@ -162,6 +162,11 @@ public partial class SpawnEntryData : Resource
     // value authored before the entry was retuned survives being looked at.
     public virtual Resource[] ResourceCandidates(StringName property) => null;
 
+    // Which subclasses a polymorphic list `property` may hold, narrowed from
+    // `kinds` (every concrete subclass of its element type) — what the painter's
+    // "+ add" menu offers. Default: all of them.
+    public virtual System.Type[] RecordKinds(StringName property, System.Type[] kinds) => kinds;
+
     // What to call this entry in the authoring UI — the palette FILE it is,
     // which is the name an author picked it by.
     //

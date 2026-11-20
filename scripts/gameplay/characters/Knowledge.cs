@@ -37,9 +37,10 @@ public class Knowledge
     // Per-species bestiary discovery — the set of species this store has charted.
     // Unioned across party+individual on read and on merge.
     public readonly HashSet<SpeciesData> DiscoveredSpecies = new();
-    // Per language: lesson number -> the percent it taught (see LanguageData).
-    // A missing key = nothing learned.
-    public readonly Dictionary<LanguageData, Dictionary<int, float>> LearnedLessons = new();
+    // Per language: the SOURCE of each lesson (Player.LessonSourceKey — the
+    // inscription or scroll it was read from) -> the percent it taught. One
+    // source teaches once. A missing key = nothing learned.
+    public readonly Dictionary<LanguageData, Dictionary<string, float>> LearnedLessons = new();
     // Characters introduced by name, keyed by their conversation - it is the one
     // resource per authored character (see ConversationData.nameLocKey).
     public readonly HashSet<ConversationData> KnownNames = new();
@@ -83,13 +84,13 @@ public class Knowledge
         int namesBefore = KnownNames.Count;
         KnownNames.UnionWith(other.KnownNames);
         if (KnownNames.Count > namesBefore) { changed |= EKnowledgeCategory.Name; }
-        foreach (KeyValuePair<LanguageData, Dictionary<int, float>> kv in other.LearnedLessons)
+        foreach (KeyValuePair<LanguageData, Dictionary<string, float>> kv in other.LearnedLessons)
         {
             if (kv.Key == null)
             {
                 continue;
             }
-            foreach (KeyValuePair<int, float> lesson in kv.Value)
+            foreach (KeyValuePair<string, float> lesson in kv.Value)
             {
                 if (RecordLesson(kv.Key, lesson.Key, lesson.Value))
                 {
@@ -115,11 +116,11 @@ public class Knowledge
             w.Write(kv.Value);
         }
         w.Write(LearnedLessons.Count);
-        foreach (KeyValuePair<LanguageData, Dictionary<int, float>> kv in LearnedLessons)
+        foreach (KeyValuePair<LanguageData, Dictionary<string, float>> kv in LearnedLessons)
         {
             EntitySerializer.WriteRef(w, kv.Key);
             w.Write(kv.Value.Count);
-            foreach (KeyValuePair<int, float> lesson in kv.Value)
+            foreach (KeyValuePair<string, float> lesson in kv.Value)
             {
                 w.Write(lesson.Key);
                 w.Write(lesson.Value);
@@ -152,7 +153,7 @@ public class Knowledge
             int lessons = r.ReadInt32();
             for (int j = 0; j < lessons; j++)
             {
-                int lesson = r.ReadInt32();
+                string lesson = r.ReadString();
                 float percent = r.ReadSingle();
                 if (language != null)
                 {
@@ -162,20 +163,20 @@ public class Knowledge
         }
     }
 
-    // Keeps the larger percent if the lesson is already held. True when that
+    // Keeps the larger percent if the source is already held. True when that
     // changed anything.
-    public bool RecordLesson(LanguageData language, int lesson, float percent)
+    public bool RecordLesson(LanguageData language, string source, float percent)
     {
-        if (!LearnedLessons.TryGetValue(language, out Dictionary<int, float> lessons))
+        if (!LearnedLessons.TryGetValue(language, out Dictionary<string, float> lessons))
         {
-            lessons = new Dictionary<int, float>();
+            lessons = new Dictionary<string, float>();
             LearnedLessons[language] = lessons;
         }
-        if (lessons.TryGetValue(lesson, out float existing) && existing >= percent)
+        if (lessons.TryGetValue(source, out float existing) && existing >= percent)
         {
             return false;
         }
-        lessons[lesson] = percent;
+        lessons[source] = percent;
         return true;
     }
 

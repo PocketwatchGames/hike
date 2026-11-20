@@ -37,6 +37,10 @@ public partial class LightningStrike : Node3D
     // frame is dropped. Magnitudes are authored on LightningData.
     private const float WARMUP_RUMBLE_REFRESH_SECONDS = 0.15f;
 
+    // The cover ray starts this far above the strike's ground hit, so it does
+    // not begin inside the surface the bolt landed on.
+    private const float COVER_RAY_ORIGIN_LIFT = 0.5f;
+
     // Bolt visibility uses MeshInstance3D.Transparency (0 = opaque,
     // 1 = invisible) — built-in per-instance fade that doesn't
     // require touching the shared material.
@@ -313,13 +317,10 @@ public partial class LightningStrike : Node3D
         TriggerScreenFlash();
     }
 
-    // Sphere overlap query against the HurtBox layer. SphereShape3D
-    // is allocated per-strike rather than cached because strikes are
-    // rare (peak storm cadence is single-digit per second across the
-    // whole world) and one-shot resource allocation is cheaper than
-    // the dictionary book-keeping a pool would need. Hits are
-    // distinct from a Projectile sweep: we don't care about
-    // line-of-sight, only proximity — lightning ignores cover.
+    // Sphere overlap query against the HurtBox layer, then a cover test per
+    // hurtbox: a bolt that lands on a bridge deck must not reach whoever is
+    // sheltering under it, and the sphere alone reaches straight through the
+    // deck. SphereShape3D is allocated per-strike — strikes are rare.
     private void ApplyRadialDamage()
     {
         if (_data.damage == null || _data.damageRadiusMeters <= 0f)
@@ -347,8 +348,10 @@ public partial class LightningStrike : Node3D
         query.CollideWithAreas = true;
         query.CollideWithBodies = false;
 
+        Vector3 origin = GlobalPosition + Vector3.Up * COVER_RAY_ORIGIN_LIFT;
         var results = space.IntersectShape(query, 32);
-        for (int i = 0; i < results.Count; i++)
+        int count = results.Count;
+        for (int i = 0; i < count; i++)
         {
             var entry = results[i];
             if (!entry.TryGetValue("collider", out Variant colliderVariant))
@@ -356,6 +359,13 @@ public partial class LightningStrike : Node3D
                 continue;
             }
             if (colliderVariant.Obj is not HurtBox hb)
+            {
+                continue;
+            }
+            // Burrowed hurtboxes are underground by definition — the ground
+            // carries the strike to them, so they skip the cover test.
+            bool burrowed = (hb.CollisionLayer & (uint)ECollisionLayer.BurrowedHurtBox) != 0;
+            if (!burrowed && IsCovered(space, origin, hb.GlobalPosition))
             {
                 continue;
             }
@@ -367,6 +377,19 @@ public partial class LightningStrike : Node3D
             var hit = new HitInfo(_data.damage, this, Vector3.Up);
             hb.Hit(hit);
         }
+    }
+
+    // True when structure stands between the strike point and the target.
+    // Environment (terrain, stamped voxels, roofs) and SeeThrough barriers are
+    // cover; Porous props (trees, prop colliders) are not — a trunk beside the
+    // strike must not shield whoever stands behind it.
+    private static bool IsCovered(PhysicsDirectSpaceState3D space, Vector3 from, Vector3 to)
+    {
+        using var ray = PhysicsRayQueryParameters3D.Create(from, to);
+        ray.CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.SeeThrough);
+        ray.CollideWithBodies = true;
+        ray.CollideWithAreas = false;
+        return space.IntersectRay(ray).Count > 0;
     }
 
     // Horizontal drift during the warning window. Picks between two
@@ -435,9 +458,10 @@ public partial class LightningStrike : Node3D
         float bestDistSq = radius * radius;
         bool found = false;
         Vector3 origin = GlobalPosition;
+        WorldState ws = _world.WorldState;
 
         Player player = _world.player;
-        if (player != null)
+        if (player != null && !player.IsDead && IsExposed(ws, player.GlobalPosition))
         {
             Vector3 p = player.GlobalPosition;
             float dx = p.X - origin.X;
@@ -473,7 +497,7 @@ public partial class LightningStrike : Node3D
             float dx = p.X - origin.X;
             float dz = p.Z - origin.Z;
             float d2 = dx * dx + dz * dz;
-            if (d2 < bestDistSq)
+            if (d2 < bestDistSq && IsExposed(ws, p))
             {
                 bestDistSq = d2;
                 targetPos = p;
@@ -481,6 +505,13 @@ public partial class LightningStrike : Node3D
             }
         }
         return found;
+    }
+
+    // A sheltered target does not draw the seek — the strike would only hang on
+    // the roof above it.
+    private bool IsExposed(WorldState ws, Vector3 feetPos)
+    {
+        return ws == null || ws.GetStandingSkyExposure01(feetPos) >= _data.minTargetSkyExposure;
     }
 
     // Screen flash intensity falls off linearly from

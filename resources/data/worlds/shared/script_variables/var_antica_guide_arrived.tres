@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ScriptVariableData" format=3]
+
+[ext_resource type="Script" uid="uid://cq2svar0data8" path="res://scripts/data/scripting/ScriptVariableData.cs" id="1_svd"]
+
+[resource]
+script = ExtResource("1_svd")
+id = &"antica_guide_arrived"
+description = "Antica tutorial: set when the player reaches this_way3_talk, by the festering man. Switches off the guide boxes (this_way2_start, this_way3_start)."

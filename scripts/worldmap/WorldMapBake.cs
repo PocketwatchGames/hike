@@ -255,66 +255,84 @@ public class WorldMapBake
             {
                 continue;
             }
-            int px = placement.anchorXZ.X - Map.Data.WorldMinX;
-            int pz = placement.anchorXZ.Y - Map.Data.WorldMinZ;
-            int floor = placement.floorY;
-            if (floor == EntityPlacement.OnTheGround)
+            StampEntity(placement, placement.anchorXZ,
+                new Vector2(placement.anchorXZ.X + 0.5f, placement.anchorXZ.Y + 0.5f));
+        }
+        // A trigger's anchor is its box's min corner; it is seated on the column
+        // under its centre and spawned AT the centre, which is what
+        // TriggerSpawnEntry recovers the box from.
+        foreach (EntityPlacement placement in Map.Placements.triggers)
+        {
+            if (placement?.Entry is not TriggerSpawnEntry trigger)
             {
-                // The top of the COLUMN, edits and stamps included — not the
-                // height field. They differ wherever something was carved or
-                // built, and an entity that says it stands on the ground should
-                // stand on the ground that is there: dig a pit under one and it
-                // drops in, drop one on a stamped plaza and it stands on the
-                // plaza, rather than hanging at the height the terrain used to
-                // be. The stamp is the half the document cannot answer, so it is
-                // asked first — SurfaceBelow sees the tunnel mask but never a
-                // subscene.
-                floor = IsStampedColumn(placement.anchorXZ.X, placement.anchorXZ.Y)
-                    ? GroundYAtWorld(placement.anchorXZ.X, placement.anchorXZ.Y)
-                    : Map.SurfaceBelow(px, pz, int.MaxValue);
-                if (floor < Map.Data.WorldMinY)
-                {
-                    floor = Map.TerrainHeight(px, pz);
-                }
+                continue;
             }
-            var pos = new Vector3(placement.anchorXZ.X + 0.5f, floor + 1f,
-                placement.anchorXZ.Y + 0.5f);
-            uint seed = WorldMapState.Hash(px, pz, WorldMapState.ENTITY_SALT);
-            // The eighth turn the placement was aimed at. Set on the shared bake
-            // context and cleared again rather than passed: this loop is the one
-            // caller that has a facing, and everything else the context answers
-            // must keep giving a scattered entity its random yaw. Safe because
-            // the bake walks these one at a time on one thread.
-            //
-            // AuthoredPosition rides along for the same reason and CANNOT live
-            // on the shared context: RescatterColumns uses that context too, and
-            // a scattered mob must keep the lateral-clearance gate — rejecting a
-            // 1-voxel tunnel is exactly what it is for. A hand-placed one is the
-            // opposite case: the gate wants 4-connected air around the anchor,
-            // which is what a wall is not, so a villager placed in the doorway
-            // you aimed at would silently never spawn. It is the same claim
-            // WorldGen makes for an entry it drops on an authored subscene
-            // marker.
-            //
-            // The name rides the same way, for the entry that has a use for one
-            // (a buried spot becomes that treasure).
-            string name = placement.Name;
-            SpawnContext context = SpawnContextForBake();
-            context.FacingY = placement.FacingRadians;
-            context.AuthoredPosition = true;
-            context.AuthoredName = name;
-            placement.Entry.TrySpawn(WorldState, pos, new System.Random((int)seed), context);
-            context.FacingY = null;
-            context.AuthoredPosition = false;
-            context.AuthoredName = null;
+            StampEntity(placement, trigger.SeatCell(placement.anchorXZ), trigger.CenterXZ(placement.anchorXZ));
+        }
+    }
 
-            // A named placement is a named PLACE, whether or not its entity
-            // passed the spawn gates — `tp` to it is exactly how you find out.
-            if (name != null && !WorldState.PointsOfInterest.TryAdd(name, pos))
+    // One placement, seated on the floor of column `seat` and spawned at
+    // `spawnXZ` on it.
+    private void StampEntity(EntityPlacement placement, Vector2I seat, Vector2 spawnXZ)
+    {
+        int px = seat.X - Map.Data.WorldMinX;
+        int pz = seat.Y - Map.Data.WorldMinZ;
+        int floor = placement.floorY;
+        if (floor == EntityPlacement.OnTheGround)
+        {
+            // The top of the COLUMN, edits and stamps included — not the
+            // height field. They differ wherever something was carved or
+            // built, and an entity that says it stands on the ground should
+            // stand on the ground that is there: dig a pit under one and it
+            // drops in, drop one on a stamped plaza and it stands on the
+            // plaza, rather than hanging at the height the terrain used to
+            // be. The stamp is the half the document cannot answer, so it is
+            // asked first — SurfaceBelow sees the tunnel mask but never a
+            // subscene.
+            floor = IsStampedColumn(seat.X, seat.Y)
+                ? GroundYAtWorld(seat.X, seat.Y)
+                : Map.SurfaceBelow(px, pz, int.MaxValue);
+            if (floor < Map.Data.WorldMinY)
             {
-                GD.PushError($"[bake] two entities are named '{name}' — the one at "
-                    + $"{placement.anchorXZ} is not a point of interest");
+                floor = Map.TerrainHeight(px, pz);
             }
+        }
+        var pos = new Vector3(spawnXZ.X, floor + 1f, spawnXZ.Y);
+        uint seed = WorldMapState.Hash(px, pz, WorldMapState.ENTITY_SALT);
+        // The eighth turn the placement was aimed at. Set on the shared bake
+        // context and cleared again rather than passed: this loop is the one
+        // caller that has a facing, and everything else the context answers
+        // must keep giving a scattered entity its random yaw. Safe because
+        // the bake walks these one at a time on one thread.
+        //
+        // AuthoredPosition rides along for the same reason and CANNOT live
+        // on the shared context: RescatterColumns uses that context too, and
+        // a scattered mob must keep the lateral-clearance gate — rejecting a
+        // 1-voxel tunnel is exactly what it is for. A hand-placed one is the
+        // opposite case: the gate wants 4-connected air around the anchor,
+        // which is what a wall is not, so a villager placed in the doorway
+        // you aimed at would silently never spawn. It is the same claim
+        // WorldGen makes for an entry it drops on an authored subscene
+        // marker.
+        //
+        // The name rides the same way, for the entry that has a use for one
+        // (a buried spot becomes that treasure).
+        string name = placement.Name;
+        SpawnContext context = SpawnContextForBake();
+        context.FacingY = placement.FacingRadians;
+        context.AuthoredPosition = true;
+        context.AuthoredName = name;
+        placement.Entry.TrySpawn(WorldState, pos, new System.Random((int)seed), context);
+        context.FacingY = null;
+        context.AuthoredPosition = false;
+        context.AuthoredName = null;
+
+        // A named placement is a named PLACE, whether or not its entity
+        // passed the spawn gates — `tp` to it is exactly how you find out.
+        if (name != null && !WorldState.PointsOfInterest.TryAdd(name, pos))
+        {
+            GD.PushError($"[bake] two entities are named '{name}' — the one at "
+                + $"{placement.anchorXZ} is not a point of interest");
         }
     }
 

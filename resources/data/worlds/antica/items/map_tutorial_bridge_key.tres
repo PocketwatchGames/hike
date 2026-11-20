@@ -10,6 +10,7 @@
 script = ExtResource("1_tdyq8")
 treasureName = "key_tutorial_bridge"
 mapName = "The Festering Man's Hiding Spot"
+randomizeRotation = false
 
 [resource]
 script = ExtResource("4_2ttrx")

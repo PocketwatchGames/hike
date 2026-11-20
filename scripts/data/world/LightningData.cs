@@ -56,6 +56,11 @@ public partial class LightningData : Resource
     // to disable targeting (pure wander).
     [Export(PropertyHint.Range, "0,40,0.5")] public float targetingRadiusMeters = 8f;
 
+    // Open-sky fraction (WorldState.GetStandingSkyExposure01, 0 = fully covered)
+    // a target must stand in to draw the homing seek. Below it the target is
+    // sheltered (under a bridge, a roof, in a cave) and the strike ignores it.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float minTargetSkyExposure = 0.5f;
+
     // Spatial frequency of the wander-direction Perlin noise. Higher
     // values change direction more often; the sample input is
     // `wanderTime * frequency`, so 0.5 gives noise features of roughly

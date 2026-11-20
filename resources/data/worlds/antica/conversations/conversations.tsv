@@ -1,15 +1,23 @@
 character	name	description	options	player	conversation key	goto	language	condition	on start	on complete	text
 intro_fairy		Glowing Figure	undismissable		greeting						It moves! It has soggy eyes though. So soggy.
-											You! Soggy! Your friends ran off. The bear ate one. His guts are sogging up ahead.
-											The other one took your stuff. She went towards the festering man.
-										start_quest:find_festering_man; behavior:Escape; wake_up; npcvar:spoken=true	The festering man knows. Find him.
+										vanish; wake_up; npcvar:spoken=true	You! Soggy! Your friends ran off. The bear ate one. His guts are sogging up ahead.
+					guts						Here he is! The bear eated his guts. I tasted too. But only a little bit. Come look!
+					melee						Look out for these fossils. Bonk them with [input:melee]
+					sneak						Oooh but soggy people might like being sneaky. Hold [input:sneak]
+					ranged						Did you pick up the shooter from your friend痴 guts? You can aim it with [input:aim] and shoot it with [input:ranged].
+					this_way						This way! Your bad friend flopped off towards the gross man's stone pile.
+					smell						Ooh I can smell him. He won't taste good.
+					gross_man						OOOSA. This man moves like a fossil. And he has too much hair. He is gross but he knows where your friend is.
+					look						Soggy! Come open this! Then look around with [input:camera]!
+					tasty						This sog is tasty too. You should try some!
 festering_man		The Festering Man			greeting	language	vyeshal	npcvar:return=false			Another! The sea spat you out too, huh?
 					greeting_return	mates	vyeshal	npcvar:return=true			Ah, the sodden one returns.
-				x	language	gestures	common	understands:vyeshal<50%			Your language is foreign to me. Do you speak the common tongue?
-				x	language	convo	vyeshal	understands:vyeshal>=50%			Aye. My flesh was unwelcome even in her hungry gullet, thanks be.
+				x	language	gestures	common	understands:vyeshal<75%			Your language is foreign to me. Do you speak the common tongue?
+				x	language	convo	vyeshal	understands:vyeshal>=75%			Aye. My flesh was unwelcome even in her hungry gullet, thanks be.
 					gestures						[narrate]He shakes his head and points to the library upstairs.[/narrate]
 					convo	mates				npcvar:return=true	I知 afraid my cookpot is also empty. But if you find 3 cuts of goblin flesh you値l feed us both! [narrate]He holds up 3 fingers[/narrate]
-				x	mates	impatient					One of my mates came this way. Have you seen her?
+				x	mates	impatient		var:antica_dead_friend_found!=true			One of my mates came this way. Have you seen her?
+				x	mates	hiding		var:antica_dead_friend_found			The last of my crew perished in the caves. But she had your map, and your shovel. What are you hiding?
 					impatient						Ah yes, she was impatient to leave my little island. Looking for the bridge key, hee hee!
 						topics					I buried it long ago though. Your friend gave me her shiny hammer for a spade and a clue!
 				x	topics	where					Where did she go?
@@ -20,3 +28,10 @@ festering_man		The Festering Man			greeting	language	vyeshal	npcvar:return=false
 					clue	topics					A little scribble on a scrap. She値l need the shovel to dig it up.
 					hammer					open_shop	Yes yes! Do you have something to trade too?
 					cookpot	topics					Find 3 cuts of goblin flesh you値l feed us both! [narrate]He holds up 3 fingers[/narrate]
+					hiding						Hiding? Bah! The island is misery but the bridge is death. The purple mist waits across the channel.
+						hiding_topics					I buried the key so fools like you would stay put. But if you must leave, just follow the map and dig it up.
+				x	hiding_topics					open_shop	Trade?
+				x	hiding_topics	hiding_cookpot					What did you say about the cookpot?
+				x	hiding_topics	mist					Purple mist?
+					hiding_cookpot	hiding_topics					Find 3 cuts of goblin flesh you値l feed us both! [narrate]He holds up 3 fingers[/narrate]
+					mist	hiding_topics					It comes and goes. You can hear it. Like cicadas. Worse at night.

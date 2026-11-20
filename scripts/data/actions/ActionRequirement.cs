@@ -21,6 +21,17 @@ public partial class ActionRequirement : Resource
 	// path — weapon tier gating stays silent.
 	[Export] public StringName rejectMessage = "";
 
+	// Where rejectMessage shows. Append-only: written into .tres as an int.
+	public enum ERejectDisplay
+	{
+		EventLog,
+		// Floating text over the interactive that refused — a passing reason
+		// tied to the thing pressed (Inventory Full), not worth a log line.
+		HudText,
+	}
+
+	[Export] public ERejectDisplay rejectDisplay = ERejectDisplay.EventLog;
+
 	// Whether failing this gate HIDES the action rather than refusing the press —
 	// for a condition the player should never be prompted without (no tool
 	// carried), not one worth explaining (in combat). Only read where an

@@ -57,6 +57,25 @@ public partial class ConversationData : Resource
     // back to SimData.merchantDefaults (ShopLineKey).
     [Export] public Dictionary<StringName, StringName> shopLines;
 
+    // The branch with this conversation key, or null.
+    public ConversationBranch FindBranch(StringName name)
+    {
+        if (branches == null || name == null)
+        {
+            return null;
+        }
+        int count = branches.Count;
+        for (int i = 0; i < count; i++)
+        {
+            ConversationBranch b = branches[i];
+            if (b != null && b.name == name)
+            {
+                return b;
+            }
+        }
+        return null;
+    }
+
     // The name once the party has learned it, the description until then; null
     // for an anonymous source.
     public StringName SpeakerLocKey(SimState state)

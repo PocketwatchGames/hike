@@ -1818,7 +1818,13 @@ public static class ItemEventHandlers
 		Node3D node = interactive as Node3D;
 		Node parent = node?.GetParent();
 		Vector3 pos = node?.Position ?? Vector3.Zero;
+		// Read before Complete for the same reason: the node may free itself.
+		string entityName = node != null ? Sim.Current?.EntityName(node) : null;
 		interactive.Complete(action.interactiveAction);
+		if (actor is Player)
+		{
+			Sim.Current?.DispatchInteracted(entityName);
+		}
 		if (ev.fx != null && parent != null)
 		{
 			Fx.Create(ev.fx, parent, pos);
@@ -1828,22 +1834,6 @@ public static class ItemEventHandlers
 	public static void DoApplyMotion(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		actor.ApplyMotion(ev.motionForwardSpeed, ev.motionDuration, action.context.MotionDurationMultiplier, ev.motionFreezeGravity, ev.motionDirection);
-	}
-
-	// Teaches ev.languageLesson of ev.language to the learner — for
-	// sources whose language is uniform across all uses (consumables, mob
-	// dialogue). Non-Player actors don't have a
-	// learned-language set — they no-op. Per-instance teaching
-	// (KnowledgeStone) doesn't go through this flag — it handles its own
-	// learn-and-display inside Complete() to guarantee ordering against the
-	// same-tick text reveal.
-	public static void DoLearnLanguage(IActionActor actor, ItemEvent ev, ref PlayerAction action)
-	{
-		if (ev.language == null || actor is not Player player)
-		{
-			return;
-		}
-		player.LearnLanguageLesson(ev.language, ev.languageLesson, ev.languagePercent);
 	}
 
 	// Generalized teach event — dispatches a TeachableConcept against the

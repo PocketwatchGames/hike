@@ -6,9 +6,18 @@
 [ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="4_pl1cs"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="5_fvgyx"]
 [ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/item_count_panel.tscn" id="6_32vq5"]
-[ext_resource type="Script" uid="uid://dxbje8s6mp5rh" path="res://scripts/gui/FloatBesideFocus.cs" id="float_beside_focus"]
-[ext_resource type="Script" uid="uid://6q30x9rawallt" path="res://scripts/gui/TypingText.cs" id="7_typing"]
+[ext_resource type="Script" uid="uid://tt18tfaenljp" path="res://scripts/gui/TypingText.cs" id="7_typing"]
 [ext_resource type="AudioStream" uid="uid://b5qptponk8lfi" path="res://assets/audio/source/ui/sfx_ui_dialogue_tick_01.wav" id="8_tick"]
+[ext_resource type="Script" uid="uid://dxbje8s6mp5rh" path="res://scripts/gui/FloatBesideFocus.cs" id="float_beside_focus"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_nametab"]
+content_margin_left = 14.0
+content_margin_top = 2.0
+content_margin_right = 14.0
+content_margin_bottom = 2.0
+bg_color = Color(0.85, 0.78, 0.55, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_remark"]
 content_margin_left = 20.0
@@ -25,15 +34,6 @@ corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_nametab"]
-content_margin_left = 14.0
-content_margin_top = 2.0
-content_margin_right = 14.0
-content_margin_bottom = 2.0
-bg_color = Color(0.85, 0.78, 0.55, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
 
 [node name="MerchantScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_merchantRemark", "_merchantNameTab", "_merchantNameLabel", "_merchantInventoryPanel", "_getPanel", "_tradeButton", "_inventoryPanel", "_stockGrid", "_giveGrid", "_getGrid", "_countPanel", "_itemInfoPanel", "_hintSend")]
 layout_mode = 3
@@ -165,7 +165,7 @@ theme_override_constants/margin_bottom = 100
 layout_mode = 2
 size_flags_vertical = 8
 
-[node name="RemarkStrip" type="CenterContainer" parent="."]
+[node name="RemarkStrip" type="CenterContainer" parent="." unique_id=1460525462]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
@@ -174,25 +174,25 @@ offset_bottom = 40.0
 grow_horizontal = 2
 mouse_filter = 2
 
-[node name="Column" type="VBoxContainer" parent="RemarkStrip"]
+[node name="Column" type="VBoxContainer" parent="RemarkStrip" unique_id=393581176]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 0
 
-[node name="NameTab" type="PanelContainer" parent="RemarkStrip/Column"]
+[node name="NameTab" type="PanelContainer" parent="RemarkStrip/Column" unique_id=204101253]
 visible = false
 layout_mode = 2
 size_flags_horizontal = 0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_nametab")
 
-[node name="NameLabel" type="Label" parent="RemarkStrip/Column/NameTab"]
+[node name="NameLabel" type="Label" parent="RemarkStrip/Column/NameTab" unique_id=924214394]
 layout_mode = 2
 theme_type_variation = &"DisplayLabel"
 theme_override_colors/font_color = Color(0.05, 0.05, 0.08, 1)
 theme_override_font_sizes/font_size = 28
 
-[node name="Remark" type="PanelContainer" parent="RemarkStrip/Column" node_paths=PackedStringArray("sizerLabel", "textLabel", "typeTick")]
+[node name="Remark" type="PanelContainer" parent="RemarkStrip/Column" unique_id=471963984 node_paths=PackedStringArray("sizerLabel", "textLabel", "typeTick")]
 visible = false
 layout_mode = 2
 mouse_filter = 2
@@ -203,28 +203,26 @@ textLabel = NodePath("TextLabel")
 typeTick = NodePath("TypeTick")
 maxTextWidth = 800.0
 
-[node name="TypeTick" type="AudioStreamPlayer" parent="RemarkStrip/Column/Remark"]
+[node name="TypeTick" type="AudioStreamPlayer" parent="RemarkStrip/Column/Remark" unique_id=1147307044]
 stream = ExtResource("8_tick")
 volume_db = -14.0
 max_polyphony = 3
 
-[node name="SizerLabel" type="RichTextLabel" parent="RemarkStrip/Column/Remark"]
+[node name="SizerLabel" type="RichTextLabel" parent="RemarkStrip/Column/Remark" unique_id=883646910]
 modulate = Color(1, 1, 1, 0)
 layout_mode = 2
 mouse_filter = 2
 theme_override_font_sizes/normal_font_size = 32
 bbcode_enabled = true
 scroll_active = false
-autowrap_mode = 3
 horizontal_alignment = 1
 
-[node name="TextLabel" type="RichTextLabel" parent="RemarkStrip/Column/Remark"]
+[node name="TextLabel" type="RichTextLabel" parent="RemarkStrip/Column/Remark" unique_id=1192125386]
 layout_mode = 2
 mouse_filter = 2
 theme_override_font_sizes/normal_font_size = 32
 bbcode_enabled = true
 scroll_active = false
-autowrap_mode = 3
 horizontal_alignment = 1
 visible_characters_behavior = 1
 

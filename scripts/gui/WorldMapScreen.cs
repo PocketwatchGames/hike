@@ -121,8 +121,9 @@ public partial class WorldMapScreen : Control
 	// the map. +X is screen-right and +Z screen-down in the shader's unrotated
 	// frame, so the (−X,−Z) diagonal starts at the upper-left; −π/4 rotates it
 	// to straight up. Fed to the shader's map_rotation and mirrored by the label
-	// / marker projection below so all three stay locked together.
-	const float NorthMapRotation = -Mathf.Pi / 4f;
+	// / marker projection below so all three stay locked together. A treasure map
+	// drawn at this heading reads the same way up as the world map.
+	public const float NorthMapRotation = -Mathf.Pi / 4f;
 
 	// Smallest render target we will ask for, so a degenerate panel size cannot
 	// produce a zero-area viewport.

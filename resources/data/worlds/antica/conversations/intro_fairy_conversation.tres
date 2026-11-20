@@ -6,21 +6,11 @@
 [ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
 [ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
-[ext_resource type="Script" uid="uid://hs2aa8y8pqsyk" path="res://scripts/data/conversation/actions/StartQuestAction.cs" id="Script_StartQuestAction"]
-[ext_resource type="Resource" uid="uid://jqpw6pijk3a92" path="res://resources/data/worlds/antica/quests/find_festering_man.tres" id="Quest_find_festering_man"]
-[ext_resource type="Script" uid="uid://mrnerfan3gnb9" path="res://scripts/data/conversation/actions/SetSpeakerBehaviorAction.cs" id="Script_SetSpeakerBehaviorAction"]
+[ext_resource type="Resource" path="res://resources/data/dialogue_scripts/actions/vanish.tres" id="Act_vanish"]
 [ext_resource type="Resource" uid="uid://djg1u6n4ky451" path="res://resources/data/dialogue_scripts/actions/wake_up.tres" id="Act_wake_up"]
 [ext_resource type="Script" uid="uid://cs8svar0acta4" path="res://scripts/data/scripting/actions/SetScriptVarAction.cs" id="Script_SetScriptVarAction"]
 
 [sub_resource type="Resource" id="Inline_1"]
-script = ExtResource("Script_StartQuestAction")
-quest = ExtResource("Quest_find_festering_man")
-
-[sub_resource type="Resource" id="Inline_2"]
-script = ExtResource("Script_SetSpeakerBehaviorAction")
-behavior = &"Escape"
-
-[sub_resource type="Resource" id="Inline_3"]
 script = ExtResource("Script_SetScriptVarAction")
 variable = &"intro_fairy_spoken"
 op = 0
@@ -37,25 +27,98 @@ locKey = &"intro_fairy_greeting_01"
 [sub_resource type="Resource" id="Line_greeting_2"]
 script = ExtResource("Script_ConversationLine")
 locKey = &"intro_fairy_greeting_02"
-
-[sub_resource type="Resource" id="Line_greeting_3"]
-script = ExtResource("Script_ConversationLine")
-locKey = &"intro_fairy_greeting_03"
-
-[sub_resource type="Resource" id="Line_greeting_4"]
-script = ExtResource("Script_ConversationLine")
-locKey = &"intro_fairy_greeting_04"
-completeActions = Array[Object]([SubResource("Inline_1"), SubResource("Inline_2"), ExtResource("Act_wake_up"), SubResource("Inline_3")])
+completeActions = Array[Object]([ExtResource("Act_vanish"), ExtResource("Act_wake_up"), SubResource("Inline_1")])
 
 [sub_resource type="Resource" id="Branch_greeting"]
 script = ExtResource("Script_ConversationBranch")
 name = &"greeting"
-lines = [SubResource("Line_greeting_1"), SubResource("Line_greeting_2"), SubResource("Line_greeting_3"), SubResource("Line_greeting_4")]
+lines = [SubResource("Line_greeting_1"), SubResource("Line_greeting_2")]
+
+[sub_resource type="Resource" id="Line_guts_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_guts_01"
+
+[sub_resource type="Resource" id="Branch_guts"]
+script = ExtResource("Script_ConversationBranch")
+name = &"guts"
+lines = [SubResource("Line_guts_1")]
+
+[sub_resource type="Resource" id="Line_melee_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_melee_01"
+
+[sub_resource type="Resource" id="Branch_melee"]
+script = ExtResource("Script_ConversationBranch")
+name = &"melee"
+lines = [SubResource("Line_melee_1")]
+
+[sub_resource type="Resource" id="Line_sneak_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_sneak_01"
+
+[sub_resource type="Resource" id="Branch_sneak"]
+script = ExtResource("Script_ConversationBranch")
+name = &"sneak"
+lines = [SubResource("Line_sneak_1")]
+
+[sub_resource type="Resource" id="Line_ranged_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_ranged_01"
+
+[sub_resource type="Resource" id="Branch_ranged"]
+script = ExtResource("Script_ConversationBranch")
+name = &"ranged"
+lines = [SubResource("Line_ranged_1")]
+
+[sub_resource type="Resource" id="Line_this_way_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_this_way_01"
+
+[sub_resource type="Resource" id="Branch_this_way"]
+script = ExtResource("Script_ConversationBranch")
+name = &"this_way"
+lines = [SubResource("Line_this_way_1")]
+
+[sub_resource type="Resource" id="Line_smell_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_smell_01"
+
+[sub_resource type="Resource" id="Branch_smell"]
+script = ExtResource("Script_ConversationBranch")
+name = &"smell"
+lines = [SubResource("Line_smell_1")]
+
+[sub_resource type="Resource" id="Line_gross_man_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_gross_man_01"
+
+[sub_resource type="Resource" id="Branch_gross_man"]
+script = ExtResource("Script_ConversationBranch")
+name = &"gross_man"
+lines = [SubResource("Line_gross_man_1")]
+
+[sub_resource type="Resource" id="Line_look_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_look_01"
+
+[sub_resource type="Resource" id="Branch_look"]
+script = ExtResource("Script_ConversationBranch")
+name = &"look"
+lines = [SubResource("Line_look_1")]
+
+[sub_resource type="Resource" id="Line_tasty_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_tasty_01"
+
+[sub_resource type="Resource" id="Branch_tasty"]
+script = ExtResource("Script_ConversationBranch")
+name = &"tasty"
+lines = [SubResource("Line_tasty_1")]
 
 [resource]
 script = ExtResource("Script_ConversationData")
 entryBranches = [SubResource("Entry_1")]
-branches = [SubResource("Branch_greeting")]
+branches = [SubResource("Branch_greeting"), SubResource("Branch_guts"), SubResource("Branch_melee"), SubResource("Branch_sneak"), SubResource("Branch_ranged"), SubResource("Branch_this_way"), SubResource("Branch_smell"), SubResource("Branch_gross_man"), SubResource("Branch_look"), SubResource("Branch_tasty")]
 responseGroups = []
 descriptionLocKey = &"intro_fairy_description"
 dismissable = false

@@ -50,6 +50,9 @@ public partial class DeathScreen : Control
 	public override void _Ready()
 	{
 		Visible = false;
+		// GameClient pauses the tree while the prompt is up; this screen must
+		// still take the Respawn press and run the fade-in.
+		ProcessMode = ProcessModeEnum.Always;
 		if (overlay != null)
 		{
 			Color c = overlay.Color;
@@ -114,7 +117,9 @@ public partial class DeathScreen : Control
 					if (promptRoot != null)
 					{
 						promptRoot.Visible = true;
-					}				}
+					}
+					_gameClient?.OnDeathScreenOpaque();
+				}
 				break;
 			}
 			case EState.Settling:

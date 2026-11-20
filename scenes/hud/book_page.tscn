@@ -1,0 +1,91 @@
+[gd_scene format=3 uid="uid://7idkrdw7ckjc"]
+
+[ext_resource type="Script" uid="uid://buo2lgu1pgj5v" path="res://scripts/gui/BookPage.cs" id="1_page"]
+
+[node name="BookPage" type="Control" node_paths=PackedStringArray("_title", "_prose", "_meterRow", "_meterLabel", "_meter")]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_page")
+_title = NodePath("Center/Panel/Margin/VBox/Title")
+_prose = NodePath("Center/Panel/Margin/VBox/Prose")
+_meterRow = NodePath("Center/Panel/Margin/VBox/MeterRow")
+_meterLabel = NodePath("Center/Panel/Margin/VBox/MeterRow/MeterLabel")
+_meter = NodePath("Center/Panel/Margin/VBox/MeterRow/Meter")
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+layout_mode = 2
+theme_type_variation = &"ParchmentPanel"
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 40
+theme_override_constants/margin_top = 36
+theme_override_constants/margin_right = 40
+theme_override_constants/margin_bottom = 36
+
+[node name="VBox" type="VBoxContainer" parent="Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="Title" type="RichTextLabel" parent="Center/Panel/Margin/VBox"]
+visible = false
+custom_minimum_size = Vector2(820, 0)
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"InscriptionText"
+theme_override_colors/default_color = Color(0.22, 0.15, 0.09, 1)
+theme_override_font_sizes/normal_font_size = 44
+theme_override_font_sizes/bold_font_size = 44
+theme_override_font_sizes/italics_font_size = 44
+theme_override_font_sizes/bold_italics_font_size = 44
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+horizontal_alignment = 1
+
+[node name="Prose" type="RichTextLabel" parent="Center/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(820, 0)
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.22, 0.15, 0.09, 1)
+theme_override_font_sizes/normal_font_size = 28
+theme_override_font_sizes/bold_font_size = 28
+theme_override_font_sizes/italics_font_size = 28
+theme_override_font_sizes/bold_italics_font_size = 28
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+
+[node name="MeterRow" type="VBoxContainer" parent="Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="MeterLabel" type="Label" parent="Center/Panel/Margin/VBox/MeterRow"]
+layout_mode = 2
+theme_type_variation = &"ParchmentTitle"
+theme_override_font_sizes/font_size = 36
+horizontal_alignment = 1
+
+[node name="Meter" type="ProgressBar" parent="Center/Panel/Margin/VBox/MeterRow"]
+custom_minimum_size = Vector2(400, 28)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+theme_override_font_sizes/font_size = 20
+max_value = 1.0
+step = 0.0

@@ -10,6 +10,7 @@ using Godot;
 // the [Tool]-parent rule in the root CLAUDE.md.
 [Tool]
 [GlobalClass]
+[AuthoringKind("Treasure map (by name)")]
 public partial class TreasureMapTeachable : TeachableConcept
 {
     // Name of the treasure to chart — a zone's ZoneGenData.treasureName, or the
@@ -20,6 +21,10 @@ public partial class TreasureMapTeachable : TeachableConcept
     // Authored here because a treasure spot is a worldgen string, not a named
     // Data resource to derive a name from.
     [Export] public string mapName = "";
+
+    // Off: the map is drawn at the world map's heading instead of its own
+    // per-location spin — for a map that should be easy to read against the world map.
+    [Export] public bool randomizeRotation = true;
 
     public override string GetDisplayName()
     {
@@ -50,7 +55,7 @@ public partial class TreasureMapTeachable : TeachableConcept
 
     public override bool Teach(Player player)
     {
-        return player?.Sim?.WorldState?.RevealTreasureMap(treasureName) ?? false;
+        return player?.Sim?.WorldState?.RevealTreasureMap(treasureName, randomizeRotation) ?? false;
     }
 
     public override bool IsKnown(Player player)

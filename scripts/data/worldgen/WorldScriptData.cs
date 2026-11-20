@@ -26,6 +26,13 @@ public partial class WorldScriptData : Resource
     // if any, has been read. Never on a load, so it runs once per run.
     public virtual void OnNewGame(WorldScriptApi api) { }
 
+    // A saved game's play begins: the party has woken at home and the world
+    // is streaming in around them. Never on a New Game. Runtime-only script
+    // state (a standing line, a move in progress) is gone; put back what the
+    // saved script variables say should be showing. A mob near the party may
+    // not be resident yet — wrap a call that needs one in api.After.
+    public virtual void OnLoaded(WorldScriptApi api) { }
+
     // The in-world clock crossed a sunrise — in play, a nap, or a sleep.
     public virtual void OnDawn(WorldScriptApi api) { }
 
@@ -41,6 +48,17 @@ public partial class WorldScriptData : Resource
     public virtual void OnVariableChanged(WorldScriptApi api, StringName id) { }
 
     public virtual void OnMobKilled(WorldScriptApi api, SpeciesData species, bool damagedByPlayer) { }
+
+    // A NAMED trigger (a painter trigger box) became occupied / empty by the
+    // actors it admits. `trigger` is the placement's name; an unnamed trigger
+    // never reaches the script.
+    public virtual void OnTriggerEntered(WorldScriptApi api, string trigger, TriggerActor who) { }
+
+    public virtual void OnTriggerExited(WorldScriptApi api, string trigger, TriggerActor who) { }
+
+    // The player finished an interaction (opened, searched, talked to...) with
+    // an entity an author NAMED in the painter. `name` is that placement name.
+    public virtual void OnInteracted(WorldScriptApi api, string name) { }
 
     // A Bool script variable that holds every region banner until it is true —
     // an intro that must finish before the world names itself. Regions are

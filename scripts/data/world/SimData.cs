@@ -1257,6 +1257,33 @@ public partial class SimData : Resource
     // since spawn conditions (time of day, weather) change slowly.
     [Export(PropertyHint.Range, "0.5,30,0.5")] public float spawnCleanupIntervalSeconds = 2f;
 
+    [ExportGroup("Triggers")]
+    // Seconds between trigger boxes testing the resident mobs (the party is
+    // tested every tick). Only runs while a resident trigger admits mobs.
+    [Export(PropertyHint.Range, "0.05,2,0.05")] public float triggerMobScanSeconds = 0.25f;
+
+    [ExportGroup("Scripted Moves")]
+    // WorldScriptApi.SendTo / Follow: normalized speeds (fraction of a mob's
+    // maxSpeed, or flySpeed for a flier) for a walk and a run.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float scriptWalkSpeed = 0.5f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float scriptRunSpeed = 1f;
+    // How close (flat metres) a SendTo counts as arrived.
+    [Export(PropertyHint.Range, "0.25,8,0.25")] public float scriptArriveDistance = 1f;
+    // A follower closes in beyond followDistance, settles at stopDistance, and
+    // runs when more than twice followDistance behind.
+    [Export(PropertyHint.Range, "0.5,20,0.25")] public float scriptFollowDistance = 3f;
+    [Export(PropertyHint.Range, "0.25,20,0.25")] public float scriptFollowStopDistance = 2f;
+    // A scripted mob stays where it was put; how far (flat metres) it may drift
+    // before it steers back.
+    [Export(PropertyHint.Range, "0.1,4,0.1")] public float scriptHoldDistance = 0.5f;
+    // The height a flier flies, holds and lands at under script control — above
+    // a waypoint or over a mob it was sent to — instead of its own hoverHeight.
+    [Export(PropertyHint.Range, "0.5,12,0.25")] public float scriptHoverHeight = 2.5f;
+    // WorldScriptApi.Reappear: how high the mob rises out of sight and drops
+    // back in, and the seconds each half takes.
+    [Export(PropertyHint.Range, "0,20,0.25")] public float scriptReappearAscent = 4f;
+    [Export(PropertyHint.Range, "0.1,5,0.1")] public float scriptReappearSeconds = 1f;
+
     [ExportGroup("Mob Tick LOD")]
     // Mobs farther than this from the player and not in combat drop their
     // rate-based upkeep (terrain speed, wetness / sunburn / safe-zone heal,

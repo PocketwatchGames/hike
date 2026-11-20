@@ -1,7 +1,14 @@
 key	value
 inscription_ilunas_rest	Iluna's Rest
 inscription_ilunas_way	Iluna's Way
-inscription_tutorial_camera	Use [input:camera] to look around.
-inscription_tutorial_sneak	Use [input:sneak] to sneak by your enemies.
-inscription_tutorial_melee	Use [input:melee] for melee combat.
-inscription_tutorial_ranged	Use [input:aim] to aim your ranged weapon and [input:ranged] to fire it.
+inscription_vyeshal1_title	A Little Alliteration
+inscription_vyeshal1	Big brown bugs brew bitter bean beer.
+inscription_vyeshal2_title	Hermit's Log, Entry 432
+inscription_vyeshal2	I've spent 13 years in my hermitage. Something prevents the mist from engulfing Iluna's rock. Shipwreck after shipwreck arrives here, and the survivors cross that cursed bridge to be swallowed up. I'll stay here.
+inscription_vyeshal3_title	Idle Thoughts
+inscription_vyeshal3	The Primes have abandoned us, but their misbegotten children still fill this miserable place. 7 Primes. Their stories wove the tapestry of our existence. They were a miserable bunch, and so it goes for the rest of us.
+inscription_vyeshal4_title	Iluna's Secrets
+inscription_vyeshal4	Dig up her bones, you'll see. The runes etched there are like tattoos, memorials for what she created. Those slobbering goblins got the same.
+story_intro_antica_01	A faint mist escapes from your mouth as rise from the mud.
+story_intro_antica_02	Your last memory is of a defiled bear.
+story_intro_antica_03	As your eyes adjust, a face stares down upon you.

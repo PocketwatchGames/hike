@@ -7,7 +7,7 @@ using Godot;
 // the .tres: assign `concept` and the scroll's display name is derived from it
 // (TeachableConcept.ScrollTitle: "Scroll of <region name>", "Scroll of
 // <language>", or a treasure map's own name). Its knowledge-stone sibling
-// (KnowledgeStone) grants the same concepts via its own Complete.
+// (KnowledgeSource) grants the same concepts via its own Complete.
 //
 // Read-side: SimState.GetItemDisplayName routes through here so the info panel
 // and cook-discovery announcement stay in sync with the (post-identification)
