@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using Godot;
 
-// A pot over its own fire. The first use lights the fire; using it while lit
-// opens the CookpotScreen. Lighting it douses nothing, and it never goes out.
+// A pot over its own fire. The first use lights the fire; it never goes out.
+// Lit and empty, the interaction is Cook (the CookingScreen). Holding a meal,
+// it is Eat, with Cook in the hold menu.
 //
 // The pot holds at most one meal (CookpotSimState.Meal), cooked in it from the
 // CookingScreen. Anyone may eat from it any number of times; it empties only
@@ -11,10 +12,12 @@ using Godot;
 [GlobalClass]
 public partial class Cookpot : Node3D, IInteractive, IWorldEntity
 {
-    // Shown while lit — the Cookpot entry.
-    [Export] private Godot.Collections.Array<InteractiveAction> _litActions = new();
-    // Shown while unlit — the Light entry.
+    // Shown while unlit — Light.
     [Export] private Godot.Collections.Array<InteractiveAction> _unlitActions = new();
+    // Shown while lit and empty — Cook.
+    [Export] private Godot.Collections.Array<InteractiveAction> _emptyActions = new();
+    // Shown while a meal is in the pot — Eat first (the tap), then Cook.
+    [Export] private Godot.Collections.Array<InteractiveAction> _mealActions = new();
     [Export] private Node3D _hudNode;
     [Export] private StationaryLight _light;
     // Sub-model swapped between the lit and doused materials — point it at just
@@ -79,18 +82,39 @@ public partial class Cookpot : Node3D, IInteractive, IWorldEntity
 
     public Godot.Collections.Array<InteractiveAction> GetActions(Player player)
     {
-        Godot.Collections.Array<InteractiveAction> active = IsLit ? _litActions : _unlitActions;
+        Godot.Collections.Array<InteractiveAction> active = !IsLit ? _unlitActions
+            : Meal != null ? _mealActions
+            : _emptyActions;
         return active != null && active.Count > 0 ? active : null;
     }
 
     public void Complete(InteractiveAction action)
     {
-        if (!IsLit)
+        switch (action?.verb)
         {
-            Light();
+            case EActionVerb.Light:
+                Light();
+                break;
+            case EActionVerb.Eat:
+                Eat();
+                break;
+            case EActionVerb.Cook:
+                GameClient.Current?.OpenCookingScreen(this);
+                break;
+        }
+    }
+
+    // The meal can go off between the press and completion; then nothing is eaten.
+    private void Eat()
+    {
+        MealData meal = Meal;
+        Player player = GameClient.Current?.Player;
+        if (meal == null || player == null)
+        {
             return;
         }
-        GameClient.Current?.OpenCookpotScreen(this);
+        meal.Eat(player);
+        GameClient.Current.onHudText?.Invoke(player.GlobalPosition, Loc.Format(Loc.Keys.cookpot_ate, meal.displayName.ToString()), EHudTextType.Info);
     }
 
     private void Light()

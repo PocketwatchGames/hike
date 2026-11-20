@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ScriptVariableData" format=3]
+
+[ext_resource type="Script" uid="uid://cq2svar0data8" path="res://scripts/data/scripting/ScriptVariableData.cs" id="1_svd"]
+
+[resource]
+script = ExtResource("1_svd")
+id = &"antica_bridge_opened"
+description = "Antica tutorial: set by an Unlock hook on the bridge door (the bridge_entrance stamp's override of it). Switches off the fairy's early lesson boxes (fairy_follow, tut_melee, tut_sneak, tut_ranged)."

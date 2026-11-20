@@ -7,6 +7,8 @@ using Godot;
 [GlobalClass]
 public partial class LearnNameAction : ConversationAction
 {
+    public override bool NeedsSpeaker => true;
+
     public override void Execute(ConversationContext ctx)
     {
         ctx.sim?.WorldState?.SimState?.LearnName(ctx.conversation);

@@ -14,31 +14,16 @@ class QuestRef
 
 static class QuestCell
 {
-	const string StartPrefix = "start_quest:";
-	const string CompletePrefix = "complete_quest:";
-
-	public static bool IsQuestToken(string token)
+	// Resolves a parsed `start_quest:` / `complete_quest:` (ActionCommand).
+	public static QuestRef Resolve(ActionCommand command, ResourceIndex index, string world, SheetRow row, Report report)
 	{
-		return token.StartsWith(StartPrefix, StringComparison.OrdinalIgnoreCase)
-			|| token.StartsWith(CompletePrefix, StringComparison.OrdinalIgnoreCase);
-	}
-
-	public static QuestRef Parse(string token, ResourceIndex index, string world, SheetRow row, Report report)
-	{
-		bool start = token.StartsWith(StartPrefix, StringComparison.OrdinalIgnoreCase);
-		string prefix = start ? StartPrefix : CompletePrefix;
-		string name = token.Substring(prefix.Length).Trim();
-		if (name.Length == 0 || name.IndexOfAny(new[] { ' ', '\t' }) >= 0)
-		{
-			report.Error(row, $"'{token}' must name exactly one quest - say '{prefix}find_festering_man'");
-			return null;
-		}
-		ResRef quest = index.Quest(world, name);
+		ResRef quest = index.Quest(world, command.Name);
 		if (quest == null)
 		{
-			report.Error(row, $"unknown quest '{name}' - no .tres by that basename under worlds/shared/quests/ or worlds/{world}/quests/");
+			report.Error(row, $"unknown quest '{command.Name}' - no .tres by that basename under worlds/shared/quests/ or worlds/{world}/quests/");
 			return null;
 		}
+		bool start = command.Kind == EActionCommand.StartQuest;
 		return new QuestRef { Quest = quest, ActionClass = start ? "StartQuestAction" : "CompleteQuestAction" };
 	}
 }

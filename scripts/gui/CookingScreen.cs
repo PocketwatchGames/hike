@@ -2,13 +2,13 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-// Cooking a meal into a Cookpot, opened from the CookpotScreen's Cook button.
+// Cooking a meal into a Cookpot, opened by the pot's Cook action.
 // Left = the pot's experimentation slots, Cook button and meal list
 // (StationPanel); center = the cook's backpack and sacks and, at camp, the party
 // stash below them (InventoryPanel), whose materials are the ingredient source.
 //
-// Opened with an onClose callback it dismisses itself on ui_cancel (back to the
-// CookpotScreen); without one its host owns ui_cancel.
+// Opened with an onClose callback it dismisses itself on ui_cancel; without one
+// its host owns ui_cancel.
 //
 // Cooking is INSTANT and makes no item: it fills the pot with the meal
 // (Cookpot.Fill), replacing whatever was in it, and closes the screen. The recipes are SimData.meals.
@@ -454,8 +454,8 @@ public partial class CookingScreen : Control
 		FillPot(meal);
 	}
 
-	// Cook `meal` into the pot, replacing what was there, and return to the
-	// opener (the CookpotScreen) — the pot now holds something to eat. Reagents
+	// Cook `meal` into the pot, replacing what was there, and close the screen —
+	// the pot now holds something to eat. Reagents
 	// are already spent by the caller.
 	void FillPot(MealData meal)
 	{

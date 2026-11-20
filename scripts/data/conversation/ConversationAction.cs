@@ -20,6 +20,11 @@ using Godot;
 [GlobalClass]
 public partial class ConversationAction : Resource
 {
+    // Does this act on whoever is speaking (ctx.speaker / controller /
+    // conversation)? Such an action means nothing on a source with no speaker —
+    // a placement hook refuses it at bake (EntityHookCommands).
+    public virtual bool NeedsSpeaker => false;
+
     public virtual void Execute(ConversationContext ctx)
     {
         GD.PushError($"ConversationAction subclass '{GetType().Name}' did not override Execute");

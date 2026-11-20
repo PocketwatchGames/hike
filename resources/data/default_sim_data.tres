@@ -61,9 +61,6 @@
 [ext_resource type="Resource" uid="uid://bt81x27m5jlgw" path="res://resources/data/status_effects/upgrades/upgrade_ranged_siphon.tres" id="54_up_siphon"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="55_status_wet"]
 [ext_resource type="Resource" uid="uid://c3mf60deqxp6f" path="res://resources/data/status_effects/upgrades/upgrade_armor_poison_thorns.tres" id="55_up_poison_thorns"]
-[ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="56_mobdesc_script"]
-[ext_resource type="Resource" uid="uid://cssgellycube1" path="res://resources/data/characters/slime/slime_cube_subspecies.tres" id="56_slime_cube"]
-[ext_resource type="Resource" uid="uid://cssgellysph01" path="res://resources/data/characters/slime/slime_sphere_subspecies.tres" id="56_slime_sphere"]
 [ext_resource type="Resource" uid="uid://dckk42hob78g0" path="res://resources/data/status_effects/upgrades/upgrade_weapon_explosive_corpse.tres" id="56_up_explosive_corpse"]
 [ext_resource type="Resource" uid="uid://diat8vsx8cp1i" path="res://resources/data/status_effects/status_sunburn.tres" id="57_sunburn"]
 [ext_resource type="Resource" uid="uid://jy11bcghauj" path="res://resources/data/status_effects/well_rested.tres" id="57_wellrested"]
@@ -204,10 +201,6 @@ nightAmbientBase = 0.05
 nightAmbientHumidityLift = 0.25
 rippleWindRef = 30.0
 canopyDensity = 0.35
-nightSpawnMobs = Array[ExtResource("56_mobdesc_script")]([ExtResource("56_slime_cube"), ExtResource("56_slime_sphere")])
-nightDarkThreshold = 0.25
-nightDarkRiseSeconds = 30.0
-nightDarkFallSeconds = 10.0
 fairySpawnSpecies = ExtResource("60_fairy_desc")
 groundMarkMaterial = ExtResource("1_atie7")
 roofCapMaskMaterial = ExtResource("75_roofcapmask")

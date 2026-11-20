@@ -6,5 +6,7 @@
   <ItemGroup>
     <!-- The game's own list of shop moments, so the sheet is checked against the one copy. -->
     <Compile Include="../../scripts/data/conversation/ShopMoment.cs" Link="ShopMoment.cs" />
+    <!-- The action-cell grammar, shared with placement hooks (EntityHookCommands). -->
+    <Compile Include="../../scripts/data/scripting/ActionCommand.cs" Link="ActionCommand.cs" />
   </ItemGroup>
 </Project>

@@ -6,6 +6,7 @@
 [ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="8_0e4bs"]
 [ext_resource type="Resource" uid="uid://dgldn4p2qx8wt" path="res://resources/data/items/loot/gold.tres" id="9_xm60t"]
 [ext_resource type="Script" uid="uid://bbwa7igks862i" path="res://scripts/data/world/HabitatData.cs" id="habitat_script"]
+[ext_resource type="Resource" uid="uid://daam30h4hafiu" path="res://resources/data/night_spawns/none.tres" id="night_spawn"]
 
 [sub_resource type="Resource" id="BlDesc_oil_droplet"]
 script = ExtResource("5_5ot6p")
@@ -28,4 +29,5 @@ chance = 0.1
 
 [resource]
 script = ExtResource("habitat_script")
+nightSpawn = ExtResource("night_spawn")
 loot = [SubResource("BlLoot_oil_droplet"), SubResource("BlLoot_gold")]

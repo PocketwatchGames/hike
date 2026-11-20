@@ -164,9 +164,8 @@ public partial class GameClient : Node3D
 	// Standalone station screens (Bed, Cookpot, CraftingBench). The camp screen
 	// has its own copies.
 	[Export] public SleepScreen sleepScreen;
-	// Opened from the cookpot screen's Cook button, never directly.
+	// Opened by a Cookpot's Cook action.
 	[Export] public CookingScreen cookingScreen;
-	[Export] public CookpotScreen cookpotScreen;
 	[Export] public CraftingScreen craftingScreen;
 	[Export] public StashScreen stashScreen;
 	[Export] public Node worldHUD;
@@ -750,10 +749,6 @@ public partial class GameClient : Node3D
 		if (craftingScreen != null)
 		{
 			craftingScreen.Visible = false;
-		}
-		if (cookpotScreen != null)
-		{
-			cookpotScreen.Visible = false;
 		}
 		if (stashScreen != null)
 		{
@@ -2272,6 +2267,20 @@ public partial class GameClient : Node3D
 		}).CallDeferred();
 	}
 
+	// Open the bestiary on one species' page. Deferred because it is called
+	// from a pickup inside the sim tick. No-op if a modal is already up.
+	public void OpenBestiary(SpeciesData species)
+	{
+		Callable.From(() =>
+		{
+			if (almanacScreen == null || almanacScreen.Visible || InputSuppressed || paused)
+			{
+				return;
+			}
+			almanacScreen.Open(AlmanacScreen.EAlmanacTab.Bestiary, this, focusSpecies: species);
+		}).CallDeferred();
+	}
+
 	// Bird's-eye lift (tree climb OR birds_eye consumable — they do the same
 	// thing) has settled at its apex. Arm the sweep of everything charted on the
 	// way up, then open the map on it. Closing the map (ESC / Map) descends the
@@ -3051,15 +3060,15 @@ public partial class GameClient : Node3D
 		StartSleep(hours, healFractionPerHour, onWake: null);
 	}
 
-	// Cookpot interact: the cookpot screen, with the HUD hidden. Its Cook button
-	// opens the cooking screen; closing the cookpot screen releases the gate.
-	public void OpenCookpotScreen(Cookpot pot)
+	// Cookpot Cook: the cooking screen, with the HUD hidden. Cooking a meal or
+	// backing out (ui_cancel) closes it and releases the gate.
+	public void OpenCookingScreen(Cookpot pot)
 	{
-		if (cookpotScreen == null || !EnterStationScreen(pot))
+		if (cookingScreen == null || !EnterStationScreen(pot))
 		{
 			return;
 		}
-		cookpotScreen.Open(_player, pot, onClose: ReleaseStationScreen);
+		cookingScreen.Open(_player, pot, onClose: ReleaseStationScreen);
 	}
 
 	// Crafting bench interact: the crafting screen, with the HUD hidden. Closing

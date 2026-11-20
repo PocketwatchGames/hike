@@ -2,8 +2,9 @@ using System.Collections.Generic;
 using Godot;
 
 // A cookpot meal's readout: name, icon, description, how filling it is and the
-// status effects it imparts. The CookpotScreen shows it over the Eat button; the
-// CookingScreen shows it, with the recipe's ingredients, over a meal recipe.
+// status effects it imparts. The InteractHUD shows a compact one (hud_meal_panel)
+// above a cookpot's icon; the CookingScreen shows it, with the recipe's
+// ingredients, over a meal recipe. Every node is optional.
 [GlobalClass]
 public partial class MealInfoPanel : PanelContainer
 {

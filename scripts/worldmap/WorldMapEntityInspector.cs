@@ -52,6 +52,8 @@ public partial class WorldMapEntityInspector : PanelContainer
     // Height of the box a multiline string gets.
     [Export] public int multilineHeight = 72;
     [Export] public Color readOnlyColor = new Color(0.75f, 0.75f, 0.8f, 0.6f);
+    // A record field's validation message (IValidatedRecord), e.g. a hook command that does not resolve.
+    [Export] public Color validationErrorColor = new Color(1f, 0.45f, 0.4f);
     // How far a list's elements sit in from its name, and each element's fields
     // in from its header.
     [Export] public int listIndent = 12;
@@ -1302,13 +1304,53 @@ public partial class WorldMapEntityInspector : PanelContainer
                 CustomMinimumSize = new Vector2(Mathf.Max(0, labelWidth - listIndent * depth), 0f),
                 VerticalAlignment = VerticalAlignment.Center,
             });
-            Control editor = BuildEditor(FieldBinding(record, field), kind, type, hint,
-                property["hint_string"].AsString(), resourceType, null, null);
+            string hintString = property["hint_string"].AsString();
+            if (kind == EPropertyEditor.Enum)
+            {
+                hintString = _shownEntry?.NarrowEnumHint(record.Type, field, hintString) ?? hintString;
+            }
+            Binding binding = FieldBinding(record, field);
+            Control editor = BuildEditor(binding, kind, type, hint, hintString, resourceType, null, null);
             editor.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
             row.AddChild(editor);
             fields.AddChild(row);
+            if (kind is EPropertyEditor.Text or EPropertyEditor.Multiline
+                && typeof(IValidatedRecord).IsAssignableFrom(record.Type))
+            {
+                fields.AddChild(BuildValidation(record, field, binding, editor));
+            }
         }
         return fields;
+    }
+
+    // The message under a text field whose record checks it (IValidatedRecord),
+    // re-checked as it is typed; hidden while the text is fine.
+    private Control BuildValidation(Slot record, StringName field, Binding binding, Control editor)
+    {
+        var message = new Label
+        {
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            Visible = false,
+        };
+        message.AddThemeColorOverride("font_color", validationErrorColor);
+        void Check(string text)
+        {
+            var validator = (record.Resolve(_rowsOwner?.Entry) ?? DefaultOf(record.Type)) as IValidatedRecord;
+            string error = validator?.ValidateField(field, text, World);
+            message.Text = error ?? "";
+            message.Visible = error != null;
+        }
+        switch (editor)
+        {
+            case LineEdit line:
+                line.TextChanged += text => Check(text);
+                break;
+            case TextEdit box:
+                box.TextChanged += () => Check(box.Text);
+                break;
+        }
+        _refreshers.Add(() => Check(binding.Read().AsString()));
+        return message;
     }
 
     // ---- Lists ---------------------------------------------------------------

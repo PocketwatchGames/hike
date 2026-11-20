@@ -1298,46 +1298,7 @@ public partial class SimData : Resource
     // same totals — only their granularity coarsens.
     [Export(PropertyHint.Range, "0.016,1,0.001")] public float mobColdTickIntervalSeconds = 0.133f;
 
-    [ExportGroup("Night Ambient Spawn")]
-    // Species the NightMobSpawner materializes in dark spots around the player
-    // after dark, one picked at random per spawn. These are TRANSIENT (not
-    // persisted to WorldState) — the live population near the player IS the
-    // whole mechanic. Empty = the night spawner stays dormant (no cost).
-    [Export] public Array<SpeciesData> nightSpawnMobs = new();
-
-    // Live night-mob population the spawner drives toward at the peak of night
-    // (midnight). Measured against currently-loaded night mobs near the player,
-    // so it's effectively "how many surround you at the densest". Keep modest —
-    // this is the "don't spawn too many" ceiling.
-    [Export(PropertyHint.Range, "0,120,1")] public int nightSpawnMaxPopulation = 18;
-
-    // The whole mechanic runs off ONE danger scalar = max(time-of-day term,
-    // darkness dwell). Both live on [0,1]; danger drives spawn rate, population
-    // cap, AND level together. The player's own light is NOT a spawn input — it's
-    // the separate concealment axis (slime vision, MobData.darkness*). See
-    // Sim.DarknessDwell / NightMobSpawner.
-
-    // Shapes the TIME term: pow(nightProgress, this), where nightProgress is 0 at
-    // sunset → 1 at midnight → 0 at dawn (and 0 all day, so daylight danger comes
-    // only from darkness). >1 keeps the evening and the small hours calm and
-    // peaks hard around midnight; 1 = linear.
-    [Export(PropertyHint.Range, "0.25,6,0.05")] public float nightTimeDangerCurve = 2.5f;
-
-    // DARKNESS term. Total perceived light [0,1] at the player at/below which the
-    // spot counts as fully dark (dwell targets 1); it ramps linearly to 0 as light
-    // reaches this. Deliberately low: this gate answers only "am I somewhere
-    // genuinely dark" (cave, dungeon, unlit interior) at any hour. Danger is
-    // max(time-of-day, dwell), so NIGHT is carried by the time term and needs no
-    // help from here — keep this below a windowed-but-roofed interior reading
-    // (~0.13-0.17) so only near-black spaces accumulate.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float nightDarkThreshold = 0.1f;
-    // Seconds for the darkness dwell to charge from 0 to full in pitch black — the
-    // "lurking in the dark draws them" ramp. Shorter in dimmer-but-not-black spots
-    // (it only eases toward that spot's partial darkness).
-    [Export(PropertyHint.Range, "5,300,1")] public float nightDarkRiseSeconds = 90f;
-    // Seconds for the darkness dwell to drain to 0 in full light — how fast the
-    // danger cools once the player reaches a bright/open/daylit spot.
-    [Export(PropertyHint.Range, "1,120,1")] public float nightDarkFallSeconds = 15f;
+    [ExportGroup("Sun Exposure")]
     // Direct-sun exposure (Sim.SunBurnExposure = sun elevation × open-sky) at
     // which the "shade" factor hits 0 — darkness stops building and slimes stop
     // spawning (they'd burn). Below it, shade ramps up linearly, so only deep
@@ -1347,44 +1308,12 @@ public partial class SimData : Resource
     // the same exposure so all three agree on where the sun burns.
     [Export(PropertyHint.Range, "0,1,0.01")] public float sunShadeFullExposure = 0.15f;
 
-    // Spawn interval (s) at full danger (fast) and near-zero danger (slow); the
-    // live interval lerps between them by danger, so the dark ramps spawns up.
-    [Export(PropertyHint.Range, "0.5,30,0.5")] public float nightSpawnIntervalSeconds = 4f;
-    [Export(PropertyHint.Range, "0.5,120,0.5")] public float nightSpawnSlowIntervalSeconds = 20f;
-
-    // Cap on new mobs spawned per interval, so a large deficit (a danger spike, or
-    // after fast-forwarding the clock) fills in over several intervals rather than
-    // a sudden wall of enemies at once.
-    [Export(PropertyHint.Range, "1,20,1")] public int nightSpawnMaxPerSweep = 3;
-
-    // Spawn ring around the player (m). Min keeps a mob from popping in within view
-    // in the player's lap; max must stay inside the loaded entity radius so the
-    // ground/collision under the spawn point actually exists. Max also sizes the
-    // nav-grid window scanned each cycle ((2·max+1)² columns, bounded by the code's
-    // MaxWindowHalfExtent), so keep it modest — larger costs more per scan and
-    // spawns farther off.
-    [Export(PropertyHint.Range, "4,80,1")] public float nightSpawnMinRadius = 8f;
-    [Export(PropertyHint.Range, "4,120,1")] public float nightSpawnMaxRadius = 24f;
-
-    // Location gate: a candidate position spawns only where BLOCK light (torches,
-    // campfires, lanterns — peak channel) is at or below this, so gellies appear in
-    // the dark around the player (moonlit ground and shadow both qualify) and never
-    // inside a firelit circle. Independent of the danger scalar. Low = they hug the
-    // dark just outside firelight.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float nightSpawnMaxBlockLight = 0.28f;
-    // Among the valid (standable, not block-lit) spawn candidates each cycle,
-    // selection is weighted toward darker ones (lower perceived light, shadow-only
-    // reading) raised to this power — so gellies prefer deep shadow / caves over
-    // open moonlight. 0 = ignore darkness (uniform pick among valid spots); 1 =
-    // linear; higher = strongly favor the darkest candidate.
-    [Export(PropertyHint.Range, "0,6,0.05")] public float nightSpawnDarknessBias = 2f;
-
-    // Difficulty tier at full danger (midnight, or dwelling in total darkness). A
-    // spawn's level is round(danger × this) — each level scales health / armor /
-    // outgoing damage by levelScalePerLevel (~1.5x) and shows as level+1 HUD pips.
-    // Already-spawned mobs keep
-    // the level they arrived at; only new spawns scale up.
-    [Export(PropertyHint.Range, "0,4,1")] public int nightSpawnMaxLevel = 4;
+    [ExportGroup("Habitat")]
+    // What lives in a chunk with no habitat of its own (unpainted, or a generated
+    // zone whose ZoneGenData.habitat is unset). Read by WorldState.HabitatAt, so
+    // every habitat reader falls back to it. Null = such chunks have no fairies,
+    // no night spawns and no habitat loot.
+    [Export] public HabitatData defaultHabitat;
 
     [ExportGroup("Fairy Ambient Spawn")]
     // The fairy the FairySpawner materializes near the player at a few points across

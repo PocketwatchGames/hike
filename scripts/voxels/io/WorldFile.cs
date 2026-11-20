@@ -326,7 +326,9 @@ public static class WorldFile
     //      percent it carries its `teaches` concept list (count + refs).
     // v93: a knowledge source carries no lesson / percent (its inscription is
     //      the lesson); a loyalty gift carries no language fields.
-    public const uint VERSION = 93;
+    // v94: every entity's common trailer ends with its placement's hooks
+    //      (event, once, fired, resolved commands).
+    public const uint VERSION = 94;
 
     public struct IndexEntry
     {

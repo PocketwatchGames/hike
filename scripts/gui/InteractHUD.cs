@@ -11,6 +11,7 @@ using Godot.Collections;
 //     is dropped until the player selects an action or hits ui_cancel.
 //   * While the runner is executing the picked action, _icon switches to
 //     that action's icon and _interactTimer fills with ClientInteractProgress.
+//   * Shows what is in a cookpot (_mealPanel) above the icon.
 //
 // Lifecycle: spawned by GameClient when player highlights or starts an
 // interaction; freed when the player has neither a highlight nor a
@@ -39,6 +40,13 @@ public partial class InteractHUD : Node2D
 	// that reads as "blocked" before the press is refused. Composes with the HUD's
 	// preview/committed Modulate. Actions with no reagent cost are never tinted.
 	[Export] private Color _unaffordableTint = new Color(1f, 0.45f, 0.45f, 0.6f);
+
+	// Half-opaque while the player is only standing next to the interactive.
+	// The meal panel is left out so its text stays readable.
+	[Export] private Array<CanvasItem> _previewDimmed = new();
+	// What is in a cookpot, anchored above the icon. Hidden for anything else.
+	[Export] private MealInfoPanel _mealPanel;
+	MealData _shownMeal;
 
 	Camera3D _camera;
 	Player _player;
@@ -247,7 +255,16 @@ public partial class InteractHUD : Node2D
 		// interactive (preview); full-opacity once they commit (action in
 		// flight) or while picking an option in the modal.
 		bool committed = _modalOpen || _player.CurInteractive == _interactive;
-		Modulate = new Color(1f, 1f, 1f, committed ? 1f : 0.5f);
+		Color dim = new Color(1f, 1f, 1f, committed ? 1f : 0.5f);
+		for (int i = 0; i < _previewDimmed.Count; i++)
+		{
+			if (_previewDimmed[i] != null)
+			{
+				_previewDimmed[i].Modulate = dim;
+			}
+		}
+
+		UpdateMealPanel();
 
 		// The set of actions can change at runtime (e.g. campfire toggles
 		// between [Cook,Douse] and [Light] when lit/unlit). Refresh each
@@ -288,6 +305,18 @@ public partial class InteractHUD : Node2D
 				_holdTimer.Value = _player.InteractHoldProgress;
 			}
 		}
+	}
+
+	// Rebuilt only when the meal changes — a cook, or the meal going off.
+	void UpdateMealPanel()
+	{
+		MealData meal = (_interactive as Cookpot)?.Meal;
+		if (meal == _shownMeal)
+		{
+			return;
+		}
+		_shownMeal = meal;
+		_mealPanel?.SetMeal(meal);
 	}
 
 	public override void _Process(double delta)

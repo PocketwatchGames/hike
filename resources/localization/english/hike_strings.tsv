@@ -101,10 +101,6 @@ craft_queue_blocked	Stash full
 craft_queue_full	Queue full
 craft_experiment_failed	Nothing came of it
 craft_queue_progress	%0 %1%
-cookpot_contents	In the pot: %0
-cookpot_empty	The pot is empty
-cookpot_eat	Eat %0
-cookpot_eat_nothing	Nothing to eat
 cookpot_ate	Ate %0
 meal_fills	Fills you up
 need_remark_hunger_1	I'm hungry.

@@ -5,6 +5,8 @@ using Godot;
 [GlobalClass]
 public partial class VocalizeAction : ConversationAction
 {
+    public override bool NeedsSpeaker => true;
+
     public override void Execute(ConversationContext ctx)
     {
         ctx.controller?.Vocalize();

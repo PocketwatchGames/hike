@@ -1369,8 +1369,8 @@ public class WorldState
         return (zi >= 0 && zi < Zones.Length) ? Zones[zi].Data : null;
     }
 
-    // The habitat of the chunk containing `pos`. Null outside the world or
-    // where none is painted.
+    // The habitat of the chunk containing `pos`; SimData.defaultHabitat outside
+    // the world or where none is painted (null only if that is unset too).
     public HabitatData HabitatAt(Vector3 pos)
     {
         ChunkState chunk = GetChunk(new Vector3I(
@@ -1378,7 +1378,8 @@ public class WorldState
             Mathf.FloorToInt(pos.Y / ChunkState.SIZE),
             Mathf.FloorToInt(pos.Z / ChunkState.SIZE)));
         int hi = (chunk?.HabitatIndex ?? 0) - 1;
-        return hi >= 0 && hi < Habitats.Length ? Habitats[hi] : null;
+        HabitatData habitat = hi >= 0 && hi < Habitats.Length ? Habitats[hi] : null;
+        return habitat ?? SimData?.defaultHabitat;
     }
 
     // World-XZ centroid of every named region in the loaded world,
@@ -1632,6 +1633,10 @@ public class WorldState
         {
             entity.DisabledVariable = SpawnStamp.DisabledVariable;
             entity.DisabledWhen = SpawnStamp.DisabledWhen;
+        }
+        if (SpawnStamp.Hooks != null)
+        {
+            entity.Hooks = new EntityHooks(SpawnStamp.Hooks);
         }
         RecordingAdds?.Add(entity);
         Vector3I coord = Sim.WorldToChunkCoord(entity.WorldPosition);

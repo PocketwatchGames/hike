@@ -21,44 +21,15 @@ class SpawnLootRef
 
 static class SpawnLootCell
 {
-	const string Prefix = "spawn_loot:";
-
-	// True when the cell token is the inline gift form rather than the name of
-	// an authored .tres. Note that `spawn_loot_lantern` is NOT this: the separator is
-	// the colon, so an authored action may still be named spawn_loot_something.
-	public static bool IsSpawnLootToken(string token)
+	// Resolves a parsed `spawn_loot:` (ActionCommand) against this world's items.
+	public static SpawnLootRef Resolve(ActionCommand command, ResourceIndex index, string world, SheetRow row, Report report)
 	{
-		return token.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase);
-	}
-
-	public static SpawnLootRef Parse(string token, ResourceIndex index, string world, SheetRow row, Report report)
-	{
-		string body = token.Substring(Prefix.Length).Trim();
-		if (body.Length == 0)
-		{
-			report.Error(row, $"'{token}' names no item - say 'spawn_loot:lantern'");
-			return null;
-		}
-
-		string[] parts = body.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-		if (parts.Length > 2)
-		{
-			report.Error(row, $"'{token}' has more than an item and a count - one gift per token, ';'-separate several");
-			return null;
-		}
-		int count = 1;
-		if (parts.Length == 2 && (!int.TryParse(parts[1], out count) || count < 1))
-		{
-			report.Error(row, $"'{token}' has a count of '{parts[1]}', which is not a whole number of 1 or more");
-			return null;
-		}
-
-		ResRef item = index.Item(world, parts[0]);
+		ResRef item = index.Item(world, command.Name);
 		if (item == null)
 		{
-			report.Error(row, $"unknown item '{parts[0]}' - no .tres by that basename under resources/data/items/ or worlds/{world}/items/ (the same names `spawn_loot ?` lists in the console)");
+			report.Error(row, $"unknown item '{command.Name}' - no .tres by that basename under resources/data/items/ or worlds/{world}/items/ (the same names `spawn_loot ?` lists in the console)");
 			return null;
 		}
-		return new SpawnLootRef { Item = item, Count = count };
+		return new SpawnLootRef { Item = item, Count = command.Count };
 	}
 }

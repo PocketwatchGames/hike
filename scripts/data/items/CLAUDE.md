@@ -280,4 +280,7 @@ writes one is not built yet.
   teaches that position (`SimState.LearnRune`). A pickup gets the instance
   (`IApplyOnPickup.ApplyOnPickup(player, item)`) for exactly this.
   Known positions are `Knowledge.KnownRunes`, provisional until camp like the
-  bestiary, and show on its rows (`RuneSlot`; blank = unknown).
+  bestiary, and show on its rows (`RuneSlot`; blank = unknown). A pickup opens
+  the bestiary on the species' page (`GameClient.OpenBestiary`) with the banner
+  over it — but only if the species is already discovered; otherwise the banner
+  alone, so a bone never reveals a creature.

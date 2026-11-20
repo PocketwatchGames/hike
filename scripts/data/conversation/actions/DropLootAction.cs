@@ -25,6 +25,9 @@ public partial class DropLootAction : ConversationAction
     // than stacking on one tile.
     [Export] public Godot.Collections.Array<ItemCount> loot = new();
 
+    public override bool NeedsSpeaker => true;
+
+
     public override void Execute(ConversationContext ctx)
     {
         if (ctx.speaker is not Mob mob)

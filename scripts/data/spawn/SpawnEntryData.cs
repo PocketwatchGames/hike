@@ -41,6 +41,15 @@ public partial class SpawnEntryData : Resource
     [Export] public StringName disabledVariable;
     [Export] public EDisabledWhen disabledWhen;
 
+    // What this placement runs when what it places raises an event (a door
+    // opening, a lock giving). Per-placement: authored on a fork, never on a
+    // shared file. Offered only by an entry that raises something (HookEvents).
+    [Export] public Godot.Collections.Array<EntityHook> hooks = new();
+
+    // The events the entities this entry places raise to `hooks`. Empty — the
+    // default — hides `hooks` from the painter.
+    public virtual EEntityEvent[] HookEvents => System.Array.Empty<EEntityEvent>();
+
     // Does this property mean anything to a HAND-PLACED entity? An editor for
     // one hides the rest, because a control that cannot change the result is
     // worse than a missing one — it invites tuning that does nothing. Which
@@ -94,7 +103,28 @@ public partial class SpawnEntryData : Resource
     // a control that cannot meaningfully change the result.
     public virtual bool ShowsProperty(StringName name)
     {
+        if (name == PropertyName.hooks)
+        {
+            return HookEvents.Length > 0;
+        }
         return ShowsInPlacementEditor(name);
+    }
+
+    // An enum field of a RECORD this entry holds, narrowed to the values that
+    // mean something here — a hook is offered only the events this entry
+    // raises. Null keeps `hintString` as declared.
+    public virtual string NarrowEnumHint(System.Type record, StringName field, string hintString)
+    {
+        if (record != typeof(EntityHook) || field != EntityHook.PropertyName.hookEvent)
+        {
+            return null;
+        }
+        var items = new System.Collections.Generic.List<string>();
+        foreach (EEntityEvent raised in HookEvents)
+        {
+            items.Add($"{raised}:{(int)raised}");
+        }
+        return string.Join(",", items);
     }
 
     // The rows this entry wants FIRST, in this order; anything not named follows
@@ -435,6 +465,12 @@ public partial class SpawnEntryData : Resource
         {
             stamp.DisabledVariable = disabledVariable;
             stamp.DisabledWhen = disabledWhen;
+        }
+        if (hooks != null && hooks.Count > 0)
+        {
+            string where = context?.AuthoredName ?? $"{TypeLabel(this)} at {position}";
+            string world = WorldScope.Of(ws.AuthoringDocument) ?? WorldScope.Of(ws.StartContentPath);
+            stamp.Hooks = EntityHookCommands.ResolveHooks(hooks, HookEvents, world, where);
         }
         ws.SpawnStamp = stamp;
         try

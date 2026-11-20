@@ -21,6 +21,9 @@ public struct EntitySpawnStamp
     public string Name;
     public StringName DisabledVariable;
     public EDisabledWhen DisabledWhen;
+    // The placement's resolved hooks; every entity it files gets its own
+    // EntityHooks over them.
+    public EntityHookSpec[] Hooks;
 }
 
 public abstract class EntitySimState
@@ -57,6 +60,10 @@ public abstract class EntitySimState
     // and which value of it does. Null = never disabled.
     public StringName DisabledVariable;
     public EDisabledWhen DisabledWhen;
+
+    // What this entity's placement runs when it raises an EEntityEvent
+    // (Sim.RaiseEntityEvent). Null when it authored none.
+    public EntityHooks Hooks;
 
     // The player has perceived this entity's Discoverable (a hidden chest, a trap,
     // a forge). Written by the Discoverable at runtime; never set by a bake.

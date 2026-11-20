@@ -7,6 +7,7 @@
 [ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="bl_oil_droplet"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="bl_range"]
 [ext_resource type="Script" uid="uid://bbwa7igks862i" path="res://scripts/data/world/HabitatData.cs" id="habitat_script"]
+[ext_resource type="Resource" uid="uid://nz1e6biih5omg" path="res://resources/data/night_spawns/standard.tres" id="night_spawn"]
 
 [sub_resource type="Resource" id="BlDesc_oil_droplet"]
 script = ExtResource("bl_desc")
@@ -41,4 +42,5 @@ metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 
 [resource]
 script = ExtResource("habitat_script")
+nightSpawn = ExtResource("night_spawn")
 loot = [SubResource("BlLoot_oil_droplet"), SubResource("BlLoot_gold"), SubResource("Resource_wsg2i")]

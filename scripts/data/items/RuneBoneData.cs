@@ -28,13 +28,21 @@ public partial class RuneBoneData : ItemData, IApplyOnPickup
 				+ $"'{bone?.species?.ResourcePath}', position {bone?.position}).");
 			return true;
 		}
-		player?.Sim?.WorldState?.SimState?.LearnRune(bone.species, bone.position);
+		SimState sim = player?.Sim?.WorldState?.SimState;
+		sim?.LearnRune(bone.species, bone.position);
 		GameClient.Current?.AnnounceDiscovery(new Announcement
 		{
 			type = EAnnouncementType.RuneLearned,
 			title = Loc.Get(Loc.Keys.rune_bone_etched),
 			revealIcon = rune.icon,
 		});
+		// The species' page shows its rune sequence, so open it there — unless the
+		// species is undiscovered, which would reveal it; then the banner alone.
+		// The banner draws on its own canvas layer, above the almanac.
+		if (sim != null && sim.IsSpeciesDiscovered(bone.species))
+		{
+			GameClient.Current?.OpenBestiary(bone.species);
+		}
 		return true;
 	}
 }

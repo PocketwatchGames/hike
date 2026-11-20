@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="NightSpawnData" format=3 uid="uid://nz1e6biih5omg"]
+
+[ext_resource type="Script" uid="uid://6yh3r82f7cmv0" path="res://scripts/data/world/NightSpawnData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="2_species"]
+[ext_resource type="Resource" uid="uid://cssgellycube1" path="res://resources/data/characters/slime/slime_cube_subspecies.tres" id="3_slime_cube"]
+[ext_resource type="Resource" uid="uid://cssgellysph01" path="res://resources/data/characters/slime/slime_sphere_subspecies.tres" id="4_slime_sphere"]
+
+[resource]
+script = ExtResource("1_script")
+mobs = Array[ExtResource("2_species")]([ExtResource("3_slime_cube"), ExtResource("4_slime_sphere")])
+darkThreshold = 0.25
+darkRiseSeconds = 30.0
+darkFallSeconds = 10.0

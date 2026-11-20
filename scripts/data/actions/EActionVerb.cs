@@ -11,7 +11,8 @@ public enum EActionVerb
 	// bubble anchored to the speaker. Authored as an InteractiveAction with
 	// verb=Talk on a friendly mob's _interactiveActions array.
 	Talk,
-	// Open the cooking screen at a standalone station (a lit Cookpot). Cooking
+	// Open the cooking screen at a standalone station (a lit Cookpot) — the
+	// default on an empty pot, the hold-menu alternate on a full one. Cooking
 	// at a campfire is the camp screen's Cook tab instead (see Camp).
 	Cook,
 	// Ignite an unlit fire / torch / campfire — the interactive's Complete
@@ -49,4 +50,6 @@ public enum EActionVerb
 	// Search a body placed dead that still carries something (Mob.SearchBody):
 	// its carried loot spills out as ordinary pickups.
 	Search,
+	// Eat the meal in a Cookpot (MealData.Eat). Eating never empties the pot.
+	Eat,
 }

@@ -14,9 +14,9 @@ metadata/_custom_type_script = "uid://do0gxlqe4tomu"
 
 [resource]
 script = ExtResource("1_pickup")
-typeTags = 256
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_refill_oil")])
 displayName = &"Oil Droplet"
 description = "A bead of lamp oil. Tops up your lantern oil."
 inventorySprite = ExtResource("4_icon")
+typeTags = 256
 metadata/_custom_type_script = "uid://c558nly57hnmr"

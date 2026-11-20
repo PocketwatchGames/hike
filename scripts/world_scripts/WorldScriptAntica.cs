@@ -3,9 +3,11 @@ using Godot;
 // Antica's scripted events: the intro fairy's tutorial.
 //
 // Each named box below is a painter trigger. Whether it is live is the box's own
-// data, not this script's: each carries a disabled variable (the lesson boxes go
-// off at antica_lessons_done, the guide boxes at antica_guide_arrived, the rest
-// at antica_dead_friend_found), and the lesson boxes repeat on every entry.
+// data, not this script's: each carries a disabled variable (fairy_follow and
+// the three combat lessons go off at antica_bridge_opened — an Unlock hook on
+// the bridge portcullis — tut_follow at antica_lessons_done, the guide boxes at
+// antica_guide_arrived, the rest at antica_dead_friend_found), and the lesson
+// boxes repeat on every entry.
 //
 //   New game          -> her greeting; its last line vanishes her.
 //   fairy_follow      -> appears at the `bear_body` waypoint, says `guts`.
@@ -15,7 +17,8 @@ using Godot;
 //   tut_ranged        -> appears over `goblin_ranged`, says `ranged`.
 //     (leaving any of those three vanishes her again)
 //   tut_follow        -> appears over the `this_way1` waypoint, says `this_way`.
-//   this_way2_start   -> lessons over; appears over `this_way2`.
+//   this_way2_start   -> lessons over; appears over `this_way2`, says
+//                        `this_way2`.
 //   this_way3_start   -> appears over `this_way3`, says `smell`.
 //   this_way3_talk    -> guiding over; appears over `this_way4`, says
 //                        `gross_man`.
@@ -69,6 +72,7 @@ public partial class WorldScriptAntica : WorldScriptData
     private const string SaySneak = "sneak";
     private const string SayRanged = "ranged";
     private const string SayThisWay = "this_way";
+    private const string SayThisWay2 = "this_way2";
     private const string SaySmell = "smell";
     private const string SayGrossMan = "gross_man";
     private const string SayLook = "look";
@@ -107,7 +111,7 @@ public partial class WorldScriptAntica : WorldScriptData
                 break;
             case ThisWay2Trigger:
                 api.SetBool(LessonsDone, true);
-                AppearAndSay(api, ThisWay2, trigger, null);
+                AppearAndSay(api, ThisWay2, trigger, SayThisWay2);
                 break;
             case ThisWay3Trigger:
                 AppearAndSay(api, ThisWay3, trigger, SaySmell);

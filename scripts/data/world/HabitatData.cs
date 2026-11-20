@@ -8,13 +8,18 @@ using Godot;
 // WorldState.Habitats) and read live by position (WorldState.HabitatAt), so
 // retuning a habitat needs no rebake. A painted world paints it on its own
 // per-chunk layer; a generated world takes each zone's ZoneGenData.habitat.
-// A chunk with none has no fairies and no habitat loot.
+// A chunk with none uses SimData.defaultHabitat; with that unset too, it has
+// no fairies, no night spawns and no habitat loot.
 [GlobalClass]
 public partial class HabitatData : Resource
 {
     // Chance each of the day's fairy spawn windows actually produces a fairy
     // while the player stands here. 0 = fairies never appear. See FairySpawner.
     [Export(PropertyHint.Range, "0,1,0.01")] public float fairySpawnChance = 0f;
+
+    // The after-dark threat while the player stands here (NightMobSpawner).
+    // Null, or one with no mobs, = nothing spawns from night or darkness.
+    [Export] public NightSpawnData nightSpawn;
 
     // Rolled the moment a breakable that fills with habitat loot breaks
     // (Destructible._fillWithHabitatLoot) or a creature that carries it dies

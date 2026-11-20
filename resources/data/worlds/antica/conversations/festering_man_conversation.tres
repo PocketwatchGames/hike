@@ -265,18 +265,18 @@ responses = [SubResource("Resp_topics_1"), SubResource("Resp_topics_2"), SubReso
 
 [sub_resource type="Resource" id="Resp_hiding_topics_1"]
 script = ExtResource("Script_ConversationResponse")
-textLocKey = &"festering_man_hiding_topics_end"
-completeActions = Array[Object]([ExtResource("Act_open_shop")])
+textLocKey = &"festering_man_hiding_topics_mist"
+destination = &"mist"
 
 [sub_resource type="Resource" id="Resp_hiding_topics_2"]
 script = ExtResource("Script_ConversationResponse")
-textLocKey = &"festering_man_hiding_topics_hiding_cookpot"
-destination = &"hiding_cookpot"
+textLocKey = &"festering_man_hiding_topics_end"
+completeActions = Array[Object]([ExtResource("Act_open_shop")])
 
 [sub_resource type="Resource" id="Resp_hiding_topics_3"]
 script = ExtResource("Script_ConversationResponse")
-textLocKey = &"festering_man_hiding_topics_mist"
-destination = &"mist"
+textLocKey = &"festering_man_hiding_topics_hiding_cookpot"
+destination = &"hiding_cookpot"
 
 [sub_resource type="Resource" id="Group_hiding_topics"]
 script = ExtResource("Script_ConversationResponseGroup")

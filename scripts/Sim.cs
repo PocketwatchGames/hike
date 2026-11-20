@@ -138,9 +138,9 @@ public partial class Sim : Node3D
     private ChunkAmbienceSpawner _chunkAmbienceSpawner;
 
     // Darkness dwell [0,1]: how "charged" the local darkness around the player is,
-    // updated each Tick (UpdateNightDarkness). Eases up over nightDarkRiseSeconds
-    // toward how dark the spot is (total sky+block light vs nightDarkThreshold) and
-    // back down over nightDarkFallSeconds in the light — so lurking in the dark, a
+    // updated each Tick (UpdateNightDarkness). Eases up over the habitat's
+    // NightSpawnData.darkRiseSeconds toward how dark the spot is (vs its
+    // darkThreshold) and back down over darkFallSeconds in the light — so lurking in the dark, a
     // cave, or a dungeon draws the gellies, day or night. The night spawner maxes
     // this against a time-of-day term for its single danger scalar. Transient; not
     // saved.
@@ -294,7 +294,7 @@ public partial class Sim : Node3D
 
         // Ambient after-dark spawner: keeps a live population of night mobs
         // (gellies) in dark spots around the player, denser as midnight nears.
-        // Dormant when SimData has no nightSpawnMobs wired up.
+        // Dormant where the habitat under the player has no NightSpawnData mobs.
         _nightMobSpawner = new NightMobSpawner();
         _nightMobSpawner.Name = "NightMobSpawner";
         AddChild(_nightMobSpawner);
@@ -435,7 +435,7 @@ public partial class Sim : Node3D
         // Darkness dwell — eases toward how dark the spot is right now. total01 is
         // the player's perceived light (sky + block, so daylight/moonlight AND fire
         // all lighten it); darkTarget is 1 in pitch black, 0 once the spot reaches
-        // nightDarkThreshold of light. Rise/fall are separate so darkness takes a
+        // darkThreshold of light. Rise/fall are separate so darkness takes a
         // while to charge up and the light clears it a bit faster.
         //
         // ...then scaled by the SUN-SHADE falloff so darkness never accrues where a
@@ -444,20 +444,29 @@ public partial class Sim : Node3D
         // (the same exposure signal the sunburn DoT uses) smoothly pulls darkTarget
         // toward 0 as the sun climbs. Cover / night have no sun → shade 1 → caves
         // and the real night are unaffected.
-        float total01 = _player?.visibilityLight ?? 1f;
-        float darkFromLight = data.nightDarkThreshold > 0f
-            ? Mathf.Clamp((data.nightDarkThreshold - total01) / data.nightDarkThreshold, 0f, 1f)
+        //
+        // The tuning is the habitat's under the player; where it spawns nothing
+        // there is no dwell to keep.
+        NightSpawnData night = _player != null ? _worldState.HabitatAt(_player.GlobalPosition)?.nightSpawn : null;
+        if (night == null || !night.SpawnsAnything())
+        {
+            _darknessDwell = 0f;
+            return;
+        }
+        float total01 = _player.visibilityLight;
+        float darkFromLight = night.darkThreshold > 0f
+            ? Mathf.Clamp((night.darkThreshold - total01) / night.darkThreshold, 0f, 1f)
             : (total01 <= 0f ? 1f : 0f);
-        float shade = _player != null ? SunShade01(_player.GlobalPosition) : 1f;
+        float shade = SunShade01(_player.GlobalPosition);
         float darkTarget = darkFromLight * shade;
         if (darkTarget > _darknessDwell)
         {
-            float step = data.nightDarkRiseSeconds > 0f ? delta / data.nightDarkRiseSeconds : 1f;
+            float step = night.darkRiseSeconds > 0f ? delta / night.darkRiseSeconds : 1f;
             _darknessDwell = Mathf.Min(darkTarget, _darknessDwell + step);
         }
         else
         {
-            float step = data.nightDarkFallSeconds > 0f ? delta / data.nightDarkFallSeconds : 1f;
+            float step = night.darkFallSeconds > 0f ? delta / night.darkFallSeconds : 1f;
             _darknessDwell = Mathf.Max(darkTarget, _darknessDwell - step);
         }
     }

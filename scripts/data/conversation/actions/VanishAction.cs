@@ -9,6 +9,8 @@ using Godot;
 [GlobalClass]
 public partial class VanishAction : ConversationAction
 {
+    public override bool NeedsSpeaker => true;
+
     public override void Execute(ConversationContext ctx)
     {
         if (ctx.speaker is not Mob mob)

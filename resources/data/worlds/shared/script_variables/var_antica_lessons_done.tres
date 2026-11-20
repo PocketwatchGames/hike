@@ -5,4 +5,4 @@
 [resource]
 script = ExtResource("1_svd")
 id = &"antica_lessons_done"
-description = "Antica tutorial: set when the player reaches this_way2_start. Switches off the fairy's lesson boxes (fairy_follow, tut_melee, tut_sneak, tut_ranged, tut_follow)."
+description = "Antica tutorial: set when the player reaches this_way2_start. Switches off the fairy's tut_follow box (the earlier lesson boxes wait for antica_bridge_opened)."

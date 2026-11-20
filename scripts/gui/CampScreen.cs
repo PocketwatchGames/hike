@@ -8,7 +8,7 @@ using System.Collections.Generic;
 //
 // Layout: a swappable body that is the CampRoot button hub or one of the Sleep /
 // Select-Character / Stash sub-screens. Cooking is not part of camp: meals are
-// cooked in a Cookpot (CookpotScreen). The hub buttons switch the body;
+// cooked in a Cookpot (CookingScreen). The hub buttons switch the body;
 // ui_cancel backs a sub-screen out to the hub, or (from the hub) leaves camp.
 //
 // The controlled character carries over between camps and rests — it changes only

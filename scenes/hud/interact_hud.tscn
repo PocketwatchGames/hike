@@ -6,8 +6,9 @@
 [ext_resource type="Texture2D" uid="uid://bbp21smdd4f0b" path="res://assets/textures/interactions/pickup.png" id="4_wbs0u"]
 [ext_resource type="Texture2D" uid="uid://ipw1j2270e46" path="res://assets/textures/gui/interact_hud_fg.png" id="5_uqyid"]
 [ext_resource type="Texture2D" uid="uid://c724fln4nwxjb" path="res://assets/textures/gui/mob_hud_level_star.png" id="6_lvlstar"]
+[ext_resource type="PackedScene" path="res://scenes/gui/hud_meal_panel.tscn" id="7_meal"]
 
-[node name="InteractHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_interactTimer", "_holdTimer", "_icon", "_holdContainer", "_interactOptionsParent", "_interactOptionsContainer", "_levelContainer", "_levelPips")]
+[node name="InteractHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_interactTimer", "_holdTimer", "_icon", "_holdContainer", "_interactOptionsParent", "_interactOptionsContainer", "_levelContainer", "_levelPips", "_previewDimmed", "_mealPanel")]
 script = ExtResource("1_kuoe4")
 _interactTimer = NodePath("MarginContainer/HBoxContainer/MarginContainer/TextureRect/TextureProgressBar")
 _holdTimer = NodePath("MarginContainer/HBoxContainer/MarginContainer/MarginContainer/ProgressBar")
@@ -18,6 +19,8 @@ _interactOptionsContainer = NodePath("MarginContainer/HBoxContainer/PanelContain
 _interactOptionScene = ExtResource("2_73lh7")
 _levelContainer = NodePath("Level")
 _levelPips = [NodePath("Level/Star1"), NodePath("Level/Star2"), NodePath("Level/Star3"), NodePath("Level/Star4"), NodePath("Level/Star5")]
+_previewDimmed = [NodePath("MarginContainer"), NodePath("Level")]
+_mealPanel = NodePath("MealAnchor/HudMealPanel")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=10288936]
 anchors_preset = 7
@@ -169,3 +172,20 @@ offset_bottom = 24.0
 texture = ExtResource("6_lvlstar")
 expand_mode = 1
 stretch_mode = 5
+
+[node name="MealAnchor" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 0
+offset_top = -54.0
+offset_bottom = -54.0
+mouse_filter = 2
+
+[node name="HudMealPanel" parent="MealAnchor" instance=ExtResource("7_meal")]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 0

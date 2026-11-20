@@ -96,6 +96,60 @@ public static class WorldMapCheck
         }
     }
 
+    // Every placement hook — hand-placed entities and stamped scenes' overrides
+    // — with its commands resolved exactly as the bake will. A command that does
+    // not resolve is dropped at bake with an error, so it is an ERROR here.
+    private static void ReportHooks(WorldMapState ctx, StringBuilder sb)
+    {
+        string world = WorldScope.Of(ctx.Data?.PlacementsPath);
+        int count = 0;
+        foreach (EntityPlacement placement in ctx.Placements?.entities ?? System.Array.Empty<EntityPlacement>())
+        {
+            count += ReportHooksOf(placement?.Entry, placement?.Name ?? $"entity at {placement?.anchorXZ}", world, sb);
+        }
+        foreach (SubscenePlacement stamp in ctx.Placements?.placements ?? System.Array.Empty<SubscenePlacement>())
+        {
+            foreach (SubsceneEntityOverride o in stamp?.entityOverrides ?? System.Array.Empty<SubsceneEntityOverride>())
+            {
+                count += ReportHooksOf(o?.custom, $"{stamp.path.GetFile()} at {stamp.anchorXZ}, entity {o?.entityId}", world, sb);
+            }
+        }
+        sb.AppendLine($"[worldmap_check] placement hooks: {count}");
+    }
+
+    private static int ReportHooksOf(SpawnEntryData entry, string where, string world, StringBuilder sb)
+    {
+        if (entry?.hooks == null || entry.hooks.Count == 0)
+        {
+            return 0;
+        }
+        int count = 0;
+        foreach (EntityHook hook in entry.hooks)
+        {
+            if (hook == null)
+            {
+                continue;
+            }
+            count++;
+            sb.AppendLine($"[worldmap_check]   hook {where}: on {hook.hookEvent}{(hook.once ? " (once)" : "")}: {hook.commands}");
+            if (System.Array.IndexOf(entry.HookEvents, hook.hookEvent) < 0)
+            {
+                sb.AppendLine($"[worldmap_check] ERROR hook {where}: {entry.GetType().Name} never raises {hook.hookEvent}");
+            }
+            var errors = new List<string>();
+            HookCommand[] resolved = EntityHookCommands.Resolve(hook.commands, world, errors);
+            foreach (string error in errors)
+            {
+                sb.AppendLine($"[worldmap_check] ERROR hook {where}: {error}");
+            }
+            if (resolved.Length == 0 && errors.Count == 0)
+            {
+                sb.AppendLine($"[worldmap_check] WARN hook {where}: no commands - it does nothing");
+            }
+        }
+        return count;
+    }
+
     // Waypoints exist only to be named; an unnamed one is a mark that does
     // nothing at all.
     private static void ReportWaypoints(WorldMapState ctx, StringBuilder sb)
@@ -589,6 +643,7 @@ public static class WorldMapCheck
 
         ReportEntities(ctx, sb);
         ReportTriggers(ctx, sb);
+        ReportHooks(ctx, sb);
         ReportWaypoints(ctx, sb);
 
         // Painted water types, reported because a document that reads all-zero

@@ -159,7 +159,12 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
 
     public void Unlock()
     {
+        if (_interactiveState.Lock == null)
+        {
+            return;
+        }
         _interactiveState.Lock = null;
+        _world.RaiseEntityEvent(_interactiveState, EEntityEvent.Unlock);
     }
 
     // Active == closed, so a toggle opens exactly when it is closed.

@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://scripts/data/worldmap/WorldMapPlacements.cs" id="1_ghrgx"]
 [ext_resource type="Resource" path="res://resources/data/worlds/antica/conversations/intro_fairy_conversation.tres" id="2_tf1ad"]
 [ext_resource type="Script" path="res://scripts/data/items/ItemTagPreference.cs" id="3_biew4"]
+[ext_resource type="Script" path="res://scripts/data/spawn/EntityHook.cs" id="3_eaidk"]
 [ext_resource type="Script" path="res://scripts/data/characters/LoyaltyGift.cs" id="4_uauec"]
 [ext_resource type="Script" path="res://scripts/data/spawn/NpcSpawnEntry.cs" id="5_ki3pu"]
 [ext_resource type="Resource" path="res://resources/data/characters/fairy/fairy_npc.tres" id="6_tnxmk"]
@@ -802,7 +803,7 @@ custom = SubResource("Resource_kivux")
 
 [sub_resource type="Resource" id="Resource_mea0d"]
 script = ExtResource("7_1qx4t")
-anchorXZ = Vector2i(55, 202)
+anchorXZ = Vector2i(48, 209)
 facing = 7
 source = ExtResource("91_eaidk")
 
@@ -1026,11 +1027,18 @@ script = ExtResource("69_g6wiu")
 entityId = 2
 custom = SubResource("Resource_5uspq")
 
+[sub_resource type="Resource" id="Resource_7ufi1"]
+script = ExtResource("3_eaidk")
+hookEvent = 2
+commands = "var:antica_bridge_opened=true"
+once = true
+
 [sub_resource type="Resource" id="Resource_vuk2g"]
 script = ExtResource("37_y7d5i")
 scene = ExtResource("75_odsir")
 lockData = ExtResource("35_bto32")
 disabledVariable = &""
+hooks = Array[ExtResource("3_eaidk")]([SubResource("Resource_7ufi1")])
 
 [sub_resource type="Resource" id="Resource_p1fgo"]
 script = ExtResource("69_g6wiu")
@@ -1089,7 +1097,7 @@ enterSetsVariable = &""
 exitSetsVariable = &""
 sizeX = 12
 sizeZ = 9
-disabledVariable = &"antica_lessons_done"
+disabledVariable = &"antica_bridge_opened"
 
 [sub_resource type="Resource" id="Resource_sgafk"]
 script = ExtResource("7_1qx4t")
@@ -1104,7 +1112,7 @@ enterSetsVariable = &""
 exitSetsVariable = &""
 sizeX = 12
 sizeZ = 9
-disabledVariable = &"antica_lessons_done"
+disabledVariable = &"antica_bridge_opened"
 
 [sub_resource type="Resource" id="Resource_odmug"]
 script = ExtResource("7_1qx4t")
@@ -1119,7 +1127,7 @@ enterSetsVariable = &""
 exitSetsVariable = &""
 sizeX = 11
 sizeZ = 13
-disabledVariable = &"antica_lessons_done"
+disabledVariable = &"antica_bridge_opened"
 
 [sub_resource type="Resource" id="Resource_br2c0"]
 script = ExtResource("7_1qx4t")
@@ -1134,7 +1142,7 @@ enterSetsVariable = &""
 exitSetsVariable = &""
 sizeX = 15
 sizeZ = 14
-disabledVariable = &"antica_lessons_done"
+disabledVariable = &"antica_bridge_opened"
 
 [sub_resource type="Resource" id="Resource_y5gjg"]
 script = ExtResource("7_1qx4t")
@@ -1178,7 +1186,8 @@ script = ExtResource("102_itcdu")
 repeat = 1
 enterSetsVariable = &""
 exitSetsVariable = &""
-sizeZ = 8
+sizeX = 7
+sizeZ = 10
 heightAbove = 8
 disabledVariable = &"antica_guide_arrived"
 

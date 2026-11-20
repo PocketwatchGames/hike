@@ -395,6 +395,67 @@ public static class EntitySerializer
         WriteInternedString(w, e.DisabledVariable?.ToString() ?? "");
         w.Write((byte)e.DisabledWhen);
         w.Write(e.Discovered);
+        WriteHooks(w, e.Hooks);
+    }
+
+    // A placement's hooks: per hook its event, once flag, this entity's fired
+    // flag and the resolved commands. Zero hooks is one byte.
+    private static void WriteHooks(BinaryWriter w, EntityHooks hooks)
+    {
+        if (hooks == null)
+        {
+            w.Write7BitEncodedInt(0);
+            return;
+        }
+        w.Write7BitEncodedInt(hooks.Specs.Length);
+        for (int i = 0; i < hooks.Specs.Length; i++)
+        {
+            EntityHookSpec spec = hooks.Specs[i];
+            w.Write((byte)spec.On);
+            w.Write(spec.Once);
+            w.Write(hooks.Fired[i]);
+            w.Write7BitEncodedInt(spec.Commands.Length);
+            foreach (HookCommand command in spec.Commands)
+            {
+                w.Write((byte)command.Kind);
+                WriteInternedString(w, command.Ref ?? "");
+                w.Write(command.Op);
+                w.Write(command.Operand);
+            }
+        }
+    }
+
+    private static EntityHooks ReadHooks(BinaryReader r)
+    {
+        int count = r.Read7BitEncodedInt();
+        if (count == 0)
+        {
+            return null;
+        }
+        var specs = new EntityHookSpec[count];
+        var fired = new bool[count];
+        for (int i = 0; i < count; i++)
+        {
+            var spec = new EntityHookSpec
+            {
+                On = (EEntityEvent)r.ReadByte(),
+                Once = r.ReadBoolean(),
+            };
+            fired[i] = r.ReadBoolean();
+            spec.Commands = new HookCommand[r.Read7BitEncodedInt()];
+            for (int c = 0; c < spec.Commands.Length; c++)
+            {
+                spec.Commands[c] = new HookCommand
+                {
+                    Kind = (EActionCommand)r.ReadByte(),
+                    Ref = ReadInternedString(r),
+                    Op = r.ReadInt32(),
+                    Operand = r.ReadInt32(),
+                };
+            }
+            specs[i] = spec;
+        }
+        return new EntityHooks(specs, fired);
     }
 
     private static void WritePayload(BinaryWriter w, EntitySimState e)
@@ -851,6 +912,7 @@ public static class EntitySerializer
         string disabledVariable = ReadInternedString(r);
         var disabledWhen = (EDisabledWhen)r.ReadByte();
         bool discovered = r.ReadBoolean();
+        EntityHooks hooks = ReadHooks(r);
         if (state != null)
         {
             state.RotationY = rotationY;
@@ -860,6 +922,7 @@ public static class EntitySerializer
             state.DisabledVariable = disabledVariable.Length > 0 ? new StringName(disabledVariable) : null;
             state.DisabledWhen = disabledWhen;
             state.Discovered = discovered;
+            state.Hooks = hooks;
         }
         return state;
     }

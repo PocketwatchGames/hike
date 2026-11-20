@@ -203,19 +203,9 @@ class TresWriter
 		{
 			return;
 		}
-		if (SpawnLootCell.IsSpawnLootToken(name))
+		if (ActionCommand.IsInlineActionToken(name))
 		{
-			_report.Error(row, $"'{name}' hands over an item - that is an action, not a condition");
-			return;
-		}
-		if (TeachCell.IsTeachToken(name))
-		{
-			_report.Error(row, $"'{name}' teaches something - that is an action, not a condition (the gate for 'does the player know it yet' is e.g. 'understands<100%')");
-			return;
-		}
-		if (QuestCell.IsQuestToken(name) || BehaviorCell.IsBehaviorToken(name) || ReappearCell.IsReappearToken(name))
-		{
-			_report.Error(row, $"'{name}' is an action, not a condition");
+			_report.Error(row, $"'{name}' is an action, not a condition (the gate for 'does the player know it yet' is e.g. 'understands<100%')");
 			return;
 		}
 		if (UnderstandsCell.IsUnderstandsToken(name))
@@ -291,69 +281,57 @@ class TresWriter
 		var ids = new List<string>();
 		foreach (string name in names)
 		{
-			if (SpawnLootCell.IsSpawnLootToken(name))
+			ActionCommand command = ActionCommand.Parse(name, out string error);
+			if (command == null)
 			{
-				SpawnLootRef gift = SpawnLootCell.Parse(name, _index, character.World, row, _report);
-				if (gift != null)
-				{
-					ids.Add($"SubResource(\"{AppendGift(gift)}\")");
-				}
+				_report.Error(row, error);
 				continue;
 			}
-			if (QuestCell.IsQuestToken(name))
+			switch (command.Kind)
 			{
-				QuestRef quest = QuestCell.Parse(name, _index, character.World, row, _report);
-				if (quest != null)
+				case EActionCommand.SpawnLoot:
 				{
-					ids.Add($"SubResource(\"{AppendQuest(quest)}\")");
-				}
-				continue;
-			}
-			if (BehaviorCell.IsBehaviorToken(name))
-			{
-				string node = BehaviorCell.Parse(name, row, _report);
-				if (node != null)
-				{
-					ids.Add($"SubResource(\"{AppendBehavior(node)}\")");
-				}
-				continue;
-			}
-			if (ReappearCell.IsReappearToken(name))
-			{
-				string place = ReappearCell.Parse(name, row, _report);
-				if (place != null)
-				{
-					ids.Add($"SubResource(\"{AppendReappear(place)}\")");
-				}
-				continue;
-			}
-			if (UnderstandsCell.IsUnderstandsToken(name))
-			{
-				_report.Error(row, $"'{name}' tests what the player understands - that is a condition, not an action");
-				continue;
-			}
-			if (TeachCell.IsTeachToken(name))
-			{
-				TeachRef lesson = TeachCell.Parse(name, _index, character.World, row, _report);
-				if (lesson != null)
-				{
-					ids.Add($"SubResource(\"{AppendLesson(lesson, $"{owner}_{property}")}\")");
-				}
-				continue;
-			}
-			if (ScriptVarCell.IsVarToken(name))
-			{
-				ScriptVarRef reference = ScriptVarCell.ParseAction(name, character.Name, row, _report);
-				if (reference == null)
-				{
+					SpawnLootRef gift = SpawnLootCell.Resolve(command, _index, character.World, row, _report);
+					if (gift != null)
+					{
+						ids.Add($"SubResource(\"{AppendGift(gift)}\")");
+					}
 					continue;
 				}
-				string varId = DeclareVar(reference, character, row, "SetScriptVarAction");
-				if (varId != null)
+				case EActionCommand.StartQuest:
+				case EActionCommand.CompleteQuest:
 				{
-					ids.Add($"SubResource(\"{varId}\")");
+					QuestRef quest = QuestCell.Resolve(command, _index, character.World, row, _report);
+					if (quest != null)
+					{
+						ids.Add($"SubResource(\"{AppendQuest(quest)}\")");
+					}
+					continue;
 				}
-				continue;
+				case EActionCommand.Behavior:
+					ids.Add($"SubResource(\"{AppendBehavior(command.Name)}\")");
+					continue;
+				case EActionCommand.Reappear:
+					ids.Add($"SubResource(\"{AppendReappear(command.Name)}\")");
+					continue;
+				case EActionCommand.Teach:
+				{
+					TeachRef lesson = TeachCell.Resolve(command, _index, character.World, row, _report);
+					if (lesson != null)
+					{
+						ids.Add($"SubResource(\"{AppendLesson(lesson, $"{owner}_{property}")}\")");
+					}
+					continue;
+				}
+				case EActionCommand.SetVar:
+				{
+					string varId = DeclareVar(ScriptVarCell.FromCommand(command, character.Name), character, row, "SetScriptVarAction");
+					if (varId != null)
+					{
+						ids.Add($"SubResource(\"{varId}\")");
+					}
+					continue;
+				}
 			}
 			ResRef action = _index.Action(character.World, name);
 			if (action == null)

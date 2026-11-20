@@ -79,6 +79,15 @@ script = ExtResource("Script_ConversationBranch")
 name = &"this_way"
 lines = [SubResource("Line_this_way_1")]
 
+[sub_resource type="Resource" id="Line_this_way2_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_this_way2_01"
+
+[sub_resource type="Resource" id="Branch_this_way2"]
+script = ExtResource("Script_ConversationBranch")
+name = &"this_way2"
+lines = [SubResource("Line_this_way2_1")]
+
 [sub_resource type="Resource" id="Line_smell_1"]
 script = ExtResource("Script_ConversationLine")
 locKey = &"intro_fairy_smell_01"
@@ -118,7 +127,7 @@ lines = [SubResource("Line_tasty_1")]
 [resource]
 script = ExtResource("Script_ConversationData")
 entryBranches = [SubResource("Entry_1")]
-branches = [SubResource("Branch_greeting"), SubResource("Branch_guts"), SubResource("Branch_melee"), SubResource("Branch_sneak"), SubResource("Branch_ranged"), SubResource("Branch_this_way"), SubResource("Branch_smell"), SubResource("Branch_gross_man"), SubResource("Branch_look"), SubResource("Branch_tasty")]
+branches = [SubResource("Branch_greeting"), SubResource("Branch_guts"), SubResource("Branch_melee"), SubResource("Branch_sneak"), SubResource("Branch_ranged"), SubResource("Branch_this_way"), SubResource("Branch_this_way2"), SubResource("Branch_smell"), SubResource("Branch_gross_man"), SubResource("Branch_look"), SubResource("Branch_tasty")]
 responseGroups = []
 descriptionLocKey = &"intro_fairy_description"
 dismissable = false

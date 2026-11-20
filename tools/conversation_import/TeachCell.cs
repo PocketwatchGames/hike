@@ -46,37 +46,14 @@ class TeachRef
 
 static class TeachCell
 {
-	const string Prefix = "teach:";
-
-	// True when the cell token is the inline teach form rather than the name of
-	// an authored .tres. The separator is the colon, so an authored action may
-	// still be named teach_something.
-	public static bool IsTeachToken(string token)
+	// Resolves a parsed `teach:` (ActionCommand): which concept class teaches the
+	// kind, and the resource it names.
+	public static TeachRef Resolve(ActionCommand command, ResourceIndex index, string world, SheetRow row, Report report)
 	{
-		return token.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase);
-	}
-
-	public static TeachRef Parse(string token, ResourceIndex index, string world, SheetRow row, Report report)
-	{
-		string body = token.Substring(Prefix.Length).Trim();
-		string[] parts = body.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-		if (parts.Length == 0)
-		{
-			report.Error(row, $"'{token}' names nothing - say 'teach:{KindList()} <name>'");
-			return null;
-		}
-
-		string kind = parts[0].ToLowerInvariant();
-		if (parts.Length < 2)
-		{
-			report.Error(row, $"'{token}' names a kind but nothing to teach - say 'teach:{kind} <name>'");
-			return null;
-		}
-		string name = parts[1];
-
-		var reference = new TeachRef();
+		string name = command.Name;
+		var reference = new TeachRef { Percent = command.Percent };
 		string where;
-		switch (kind)
+		switch (command.TeachKind)
 		{
 			case "language":
 				reference.Teachable = "LanguageTeachable";
@@ -121,49 +98,14 @@ static class TeachCell
 				where = "no SpeciesData .tres has that basename";
 				break;
 			default:
-				report.Error(row, $"'{token}' teaches a '{kind}', which is not a kind of thing - say one of {KindList()}");
+				report.Error(row, $"'{command.Token}' teaches a '{command.TeachKind}', which this importer has no concept for");
 				return null;
 		}
-
 		if (reference.Target == null)
 		{
-			report.Error(row, $"unknown {kind} '{name}' - {where}");
-			return null;
-		}
-
-		if (parts.Length > 2 && kind != "language")
-		{
-			report.Error(row, $"'{token}' has more than a kind and a name - only a language takes an amount, and ';'-separates several things taught");
-			return null;
-		}
-		if (parts.Length > 3)
-		{
-			report.Error(row, $"'{token}' - a partial lesson is 'teach:language {name} <percent>%', e.g. 'teach:language {name} 10%' (lesson numbers are gone: the cell itself is the lesson); leave it off to teach the whole tongue");
-			return null;
-		}
-		if (parts.Length == 3 && !ParsePercent(parts[2], token, row, report, out reference.Percent))
-		{
+			report.Error(row, $"unknown {command.TeachKind} '{name}' - {where}");
 			return null;
 		}
 		return reference;
-	}
-
-	// How much of the language the cell teaches.
-	static bool ParsePercent(string percentText, string token, SheetRow row, Report report, out float percent)
-	{
-		percent = -1f;
-		string amount = percentText.EndsWith("%") ? percentText[..^1] : percentText;
-		if (!float.TryParse(amount, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out percent)
-			|| percent <= 0f || percent > 100f)
-		{
-			report.Error(row, $"'{token}' teaches '{percentText}' - say how much of the language, from 1% to 100%");
-			return false;
-		}
-		return true;
-	}
-
-	static string KindList()
-	{
-		return "language, recipe, meal, region, item, bestiary";
 	}
 }

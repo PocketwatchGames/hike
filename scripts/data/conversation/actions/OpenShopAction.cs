@@ -17,6 +17,9 @@ public partial class OpenShopAction : ConversationAction
     // GiveItem action-verb split on Mob.
     [Export] public bool trading = true;
 
+    public override bool NeedsSpeaker => true;
+
+
     public override void Execute(ConversationContext ctx)
     {
         if (ctx.speaker is not Mob mob)

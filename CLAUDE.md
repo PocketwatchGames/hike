@@ -449,12 +449,16 @@ colour, ambience) and no display name; a region carries nothing BUT a display
 name ("The Crowns", "Mire of the Lost"). Themes are reusable, named places are
 not.
 
-**`HabitatData` is what LIVES in a place** — its fairy chance and the loot
-breakables and creatures give up (`resources/data/habitats/`). It is a third
+**`HabitatData` is what LIVES in a place** — its fairy chance, its after-dark
+threat (`nightSpawn`, a shared `NightSpawnData` in `resources/data/night_spawns/`:
+`standard` or `none`) and the loot breakables and creatures give up
+(`resources/data/habitats/`). It is a third
 per-chunk channel (`ChunkState.HabitatIndex`, `WorldState.HabitatAt`), kept off
 `ZoneData` so one look can host different wildlife and loot. The painter paints
 it on its own layer; a generated world takes `ZoneGenData.habitat`. A chunk with
-none gets no fairies and no habitat loot.
+none falls back to `SimData.defaultHabitat` (inside `WorldState.HabitatAt`, so
+every reader gets it); with that unset too, it has no fairies, no night spawns and
+no habitat loot.
 
 Three rules, each of which was a real bug:
 
@@ -879,6 +883,12 @@ wants falls straight out of it:
   ways. The row declares a `ConversationEntry` (`goto` = the branch it opens on,
   `condition` gates it, no text), walked in sheet order, and a character that has
   any replaces the branch-condition rule wholesale — mixing the two is an error.
+- **The action-cell grammar is ONE file, `scripts/data/scripting/ActionCommand.cs`**,
+  which the importer compiles as a link (it must stay plain C#) and a painter
+  placement hook parses too (see "Placement hooks" in
+  [scripts/worldmap/CLAUDE.md](scripts/worldmap/CLAUDE.md)). A new inline form is
+  added there, once, and each consumer resolves it its own way; the importer's
+  `*Cell.cs` files only resolve names.
 - **`condition` and action cells (`on start` / `on complete`) NAME an authored `.tres`**, `;`-separated for
   several, resolved from `dialogue_scripts/<kind>/` (a verb with no
   proper noun in it — `open_shop`, `recruit_to_party`), then

@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="NightSpawnData" format=3 uid="uid://wlby193ebasbo"]
+
+[ext_resource type="Script" uid="uid://6yh3r82f7cmv0" path="res://scripts/data/world/NightSpawnData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="2_species"]
+
+[resource]
+script = ExtResource("1_script")
+mobs = Array[ExtResource("2_species")]([])

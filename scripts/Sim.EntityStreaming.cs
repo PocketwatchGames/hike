@@ -1095,6 +1095,24 @@ public partial class Sim
             UpdateLighting(changed);
         }
         (door.RuntimeNode as Door)?.SyncFromState(animate: true);
+        RaiseEntityEvent(door, open ? EEntityEvent.Open : EEntityEvent.Close);
+    }
+
+    // Runs `state`'s placement hooks for `on`, resident or not. The context's
+    // player is the controlled one whoever caused it — a world script has no
+    // actor — and there is no speaker (EntityHookCommands refuses commands
+    // that need one).
+    public void RaiseEntityEvent(EntitySimState state, EEntityEvent on)
+    {
+        if (state?.Hooks == null)
+        {
+            return;
+        }
+        state.Hooks.Raise(on, new ConversationContext
+        {
+            sim = this,
+            player = _player,
+        });
     }
 
     // Is this interactive switched off by its placement's disabled gate? False

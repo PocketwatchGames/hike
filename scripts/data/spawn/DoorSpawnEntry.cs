@@ -19,6 +19,10 @@ public partial class DoorSpawnEntry : SpawnEntryData
 
     public override PackedScene PaletteScene => scene;
 
+    private static readonly EEntityEvent[] DoorEvents = { EEntityEvent.Open, EEntityEvent.Close, EEntityEvent.Unlock };
+
+    public override EEntityEvent[] HookEvents => DoorEvents;
+
     protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (scene == null)

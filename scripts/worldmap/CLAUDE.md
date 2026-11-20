@@ -294,6 +294,30 @@ the scene editor's roofs it has no palette file: the tool authors the whole
 - `worldmap_check` lists every box and warns about one that admits nobody or does
   nothing with no name for a script.
 
+### Placement hooks: what an entity runs when it raises an event
+
+**A hook is per-placement typed text**: `SpawnEntryData.hooks`, a list of
+`EntityHook` (`hookEvent`, `commands`, `once`), authored on a placement's fork —
+or on a stamped scene's override of one of its entities, which is how one
+bridge's portcullis sets a flag and the others do not. `commands` is the
+conversation sheet's action-cell grammar (`ActionCommand`):
+`var:antica_bridge_opened=true; start_quest:find_her; some_action_file`.
+
+- **An entry offers hooks only if it raises something** (`HookEvents`; doors:
+  Open, Close, Unlock), and the panel's event dropdown lists only those
+  (`NarrowEnumHint`). Raising one is `Sim.RaiseEntityEvent` from the entity's own
+  code path — `SetDoorOpen` (player or script) and `Door.Unlock` today.
+- **Commands are resolved AT SPAWN to paths and ids** (`EntityHookCommands`),
+  and that resolved form is what the state carries and the `.hike` stores in the
+  common entity trailer, with each hook's fired flag. Nothing scans for a name
+  after the bake.
+- **A placement has no speaker**, so `npcvar:`, `spawn_loot:`, `behavior:`,
+  `reappear:` and any action file whose `ConversationAction.NeedsSpeaker` is true
+  are refused; `teach:` is refused because a lesson's identity is its source FILE
+  and a hook is not one. A refused command is dropped at bake with an error; the
+  panel shows the first problem under the field as it is typed
+  (`IValidatedRecord`), and `worldmap_check` lists every hook and ERRORs on each.
+
 ### Passages: danger and scatter underground
 
 **A passage's danger and wildlife live ON THE CARVE, not in a per-column
