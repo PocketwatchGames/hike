@@ -131,6 +131,13 @@ public sealed class SpawnContext
     // Set and cleared around one spawn, like FacingY.
     public string AuthoredName;
 
+    // Set by a document whose placement values are picked in a LATER layer —
+    // the scene editor, whose stamps pick them in the painter. An entry missing
+    // one (SpawnEntryData.MissingPlacementValue) then places bare as a preview
+    // instead of refusing. Never set by a bake: a stamp nobody filled in must
+    // still fail loudly there.
+    public bool PlacesIncomplete;
+
     // Pick a position within `radius` of `anchor` that satisfies all the
     // entry's placement gates: column validity (IsValidColumn), flat
     // terrain if required (IsFlatColumn + entry.RequireFlatTerrain), and

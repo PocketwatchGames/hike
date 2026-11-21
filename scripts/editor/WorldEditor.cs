@@ -570,6 +570,20 @@ public partial class WorldEditor : Node3D
             saveDialog.RegisterTextEnter(saveNameEdit);
         }
 
+        if (editorHud.entityInspector != null)
+        {
+            // One property change is one undo step. The history is ours, the
+            // widgets are the panel's; the panel edits the placement's fork in
+            // place, and Sync respawns the preview because the fork's values
+            // no longer match what was spawned.
+            editorHud.entityInspector.BeforeEdit = () => _history.Begin("Edit Entity")?.TouchScenePlacements(_entities);
+            editorHud.entityInspector.AfterEdit = () =>
+            {
+                SyncEntities(_history.Current);
+                _history.Commit();
+            };
+        }
+
         UpdateDocumentHud();
         GD.Print($"[Editor] editing scene: {(string.IsNullOrEmpty(_documentPath) ? "(unsaved)" : _documentPath)}");
         BuildToolPalette();
@@ -888,7 +902,7 @@ public partial class WorldEditor : Node3D
         // the cursor; UpdateCamera then skips its own tick.
         camera.TickRotation(dt);
 
-        Vector3 move = _flying ? FlyMove(dt) : PanMove(dt);
+        Vector3 move = IsTypingInPanel() ? Vector3.Zero : _flying ? FlyMove(dt) : PanMove(dt);
 
         if (_orbiting)
         {
@@ -991,6 +1005,8 @@ public partial class WorldEditor : Node3D
     // a chunk eviction is pruned before anything draws or drags it.
     private void TickSelection(bool overUi)
     {
+        // One placement at a time: the panel edits a single entry.
+        editorHud.entityInspector?.Show(IsSelectMode && _selection.Count == 1 ? _selection.Placements[0] : null);
         if (!IsSelectMode)
         {
             _hotHandle = EGizmoHandle.None;
@@ -1465,6 +1481,13 @@ public partial class WorldEditor : Node3D
             return;
         }
 
+        // A press that reached here missed the HUD: whatever was being typed
+        // into the panel is done, and lands ahead of what the press does.
+        if (e is InputEventMouseButton { Pressed: true })
+        {
+            FlushInspectorEdit();
+        }
+
         // Right-drag flies the camera. Started here rather than in _Input so a
         // press that lands on the HUD stays the HUD's.
         if (e is InputEventMouseButton flyButton && flyButton.ButtonIndex == MouseButton.Right && flyButton.Pressed)
@@ -1774,7 +1797,8 @@ public partial class WorldEditor : Node3D
     private void StepHistory(bool redo)
     {
         // A stroke still in flight would keep writing into an edit that the
-        // history is about to close, so end it first.
+        // history is about to close, so end it first. Same for a typed value.
+        FlushInspectorEdit();
         EndDrag();
         CancelGizmoDrag();
         // Entity changes reach the preview through the document's Restored hook
@@ -2983,11 +3007,18 @@ public partial class WorldEditor : Node3D
     // forge sits at tier 0. That is honest here: an authored scene has no zone
     // until something stamps it into a world, and it is the DESTINATION's
     // context that should decide, not this one.
+    //
+    // ONE context for every spawn of a placement, the scene's opening spawn
+    // included: a second one built at load lacked PlacesIncomplete, so a bare
+    // book that placed fine vanished when the scene was reopened.
     private SpawnContext EditorSpawnContext()
     {
         return _editorSpawnContext ??= new SpawnContext
         {
             SurfaceYAt = SurfaceYAtWorld,
+            // A scene may hold a book or a signpost bare: each stamp picks what
+            // it says in the painter. The bake still refuses one left unpicked.
+            PlacesIncomplete = true,
         };
     }
 
@@ -3106,6 +3137,7 @@ public partial class WorldEditor : Node3D
     // document kind, fixed when the editor opened — never at save time.
     private void Save()
     {
+        FlushInspectorEdit();
         if (!string.IsNullOrEmpty(_documentPath) && File.Exists(ProjectSettings.GlobalizePath(_documentPath)))
         {
             SaveDocument(_documentPath);
@@ -3118,6 +3150,7 @@ public partial class WorldEditor : Node3D
     // default directory) still comes from the open document.
     private void SaveAs()
     {
+        FlushInspectorEdit();
         PromptForSaveName(_documentPath);
     }
 
@@ -3211,6 +3244,29 @@ public partial class WorldEditor : Node3D
         bool saved = !string.IsNullOrEmpty(_documentPath)
             && File.Exists(ProjectSettings.GlobalizePath(_documentPath));
         editorHud?.SetDocument("Scene", _documentPath, saved);
+        if (editorHud?.entityInspector != null)
+        {
+            // A scene under worlds/<name>/ is that world's and is offered its
+            // files; one in world_authoring/ is reused by every world, so it is
+            // offered only the unscoped ones — a world's own text goes on the
+            // stamp, in the painter.
+            editorHud.entityInspector.World = WorldScope.Of(_documentPath);
+        }
+    }
+
+    // A row still being typed into commits on losing focus — which a click in
+    // the world, a save or an undo never gives it, so each asks first.
+    private void FlushInspectorEdit()
+    {
+        editorHud?.entityInspector?.FlushPendingEdit();
+    }
+
+    // Typing into the panel must not also fly the camera: movement polls Input,
+    // which ignores focus.
+    private bool IsTypingInPanel()
+    {
+        Control focused = GetViewport().GuiGetFocusOwner();
+        return focused is LineEdit || focused is TextEdit;
     }
 
     public override void _ExitTree()
@@ -3577,6 +3633,9 @@ public partial class WorldEditor : Node3D
         // into this world's space, and spawn as its preview; the save moves
         // them back.
         SubsceneStamper.StampVoxels(ws, sub, Vector3.Zero);
+        // Before Init, which assigns the same world: the spawn context below
+        // reads it to find the ground.
+        _worldState = ws;
         _entities = new SceneEntityDocument(ws) { NextId = sub.NextEntityId };
         Vector3 offset = SubsceneStamper.WorldOffset(sub, Vector3.Zero);
         foreach (SceneEntity entity in sub.Entities)
@@ -3584,7 +3643,7 @@ public partial class WorldEditor : Node3D
             entity.Placement.position = entity.Position + offset;
             _entities.Add(entity.Placement);
         }
-        _entities.Sync(new SpawnContext());
+        _entities.Sync(EditorSpawnContext());
         SubsceneStamper.StampEnvOverrides(ws, sub, Vector3.Zero);
         // Rasterize the non-voxel sun occluders the scene just brought in —
         // foliage canopies and roofs — BEFORE relighting. Without this an opened

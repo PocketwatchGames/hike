@@ -33,4 +33,10 @@ public partial class AnimationData : Resource
     // then pops back when the clip ends. Read by Player via HeldItemVisual;
     // mobs ignore it (they have no held visual yet).
     [Export] public bool hidesHeldItem;
+
+    // Leading fraction of this clip, played as a one-shot, during which the actor
+    // takes no movement, look or action input (getting up off the ground). Once
+    // it elapses, moving cuts the rest of the clip off. 0 = never locks. Read from
+    // the base set only, like the flags above.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float inputLockFraction;
 }

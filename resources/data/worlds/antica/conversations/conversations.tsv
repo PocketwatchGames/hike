@@ -1,6 +1,6 @@
 character	name	description	options	player	conversation key	goto	language	condition	on start	on complete	text
-intro_fairy		Glowing Figure	undismissable		greeting						It moves! It has soggy eyes though. So soggy.
-										vanish; wake_up; npcvar:spoken=true	You! Soggy! Your friends ran off. The bear ate one. His guts are sogging up ahead.
+intro_fairy		Glowing Figure	undismissable		greeting				wake_up		It moves! It has soggy eyes though. So soggy.
+										vanish; npcvar:spoken=true	You! Soggy! Your friends ran off. The bear ate one. His guts are sogging up ahead.
 					guts						Here he is! The bear eated his guts. I tasted too. But only a little bit. Come look!
 					melee						Look out for these fossils. Bonk them with [input:melee]
 					sneak						You could also sneak by these soggy fossils. Hold [input:sneak] to sneak!
@@ -11,6 +11,7 @@ intro_fairy		Glowing Figure	undismissable		greeting						It moves! It has soggy 
 					gross_man						Hey soggy! I peeked inside. This man has too much hair. He is gross but he knows where your friend is.
 					look						Soggy! Come open this! Then look around with [input:camera]!
 					tasty						This sog is tasty too. You should try some!
+					bridge						Soggy! You opened the big gate! The purple mist is across there. It buzzes like bugs. Bugs I can't eat.
 festering_man		The Festering Man			greeting	language	vyeshal	npcvar:return=false			Another! The sea spat you out too, huh?
 					greeting_return	mates	vyeshal	npcvar:return=true			Ah, the sodden one returns.
 				x	language	gestures	common	understands:vyeshal<75%			Your language is foreign to me. Do you speak the common tongue?

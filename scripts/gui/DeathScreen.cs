@@ -128,6 +128,7 @@ public partial class DeathScreen : Control
 				{
 					_state = EState.FadingIn;
 					respawnRevealSound?.Play();
+					_gameClient?.OnRespawnFadeIn();
 				}
 				break;
 			}

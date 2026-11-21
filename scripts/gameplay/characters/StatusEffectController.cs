@@ -535,24 +535,20 @@ public class StatusEffectController
 	// — effects authored with overrides should be mutually exclusive in
 	// practice (Dizzy can't stack with itself, can't co-apply with another
 	// override-bearer in current content), so ordering ambiguity is moot.
-	public EAnimation LoopAnimOverride
+	public EAnimation LoopAnimOverride => PoseHoldingEffect()?.loopAnimOverride ?? EAnimation.None;
+
+	// The effect LoopAnimOverride is read from, or null.
+	public StatusEffectData PoseHoldingEffect()
 	{
-		get
+		for (int i = 0; i < _statusEffects.Count; i++)
 		{
-			for (int i = 0; i < _statusEffects.Count; i++)
+			StatusEffectData data = _statusEffects[i]?.data;
+			if (data != null && data.loopAnimOverride != EAnimation.None)
 			{
-				StatusEffectData data = _statusEffects[i]?.data;
-				if (data == null)
-				{
-					continue;
-				}
-				if (data.loopAnimOverride != EAnimation.None)
-				{
-					return data.loopAnimOverride;
-				}
+				return data;
 			}
-			return EAnimation.None;
 		}
+		return null;
 	}
 
 	// Data of the first active effect whose category overlaps `mask`, or null.

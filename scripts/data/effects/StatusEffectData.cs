@@ -266,6 +266,11 @@ public partial class StatusEffectData : Resource
 	// First active effect with an override wins.
 	[Export] public EAnimation loopAnimOverride = EAnimation.None;
 
+	// One-shot played when this effect stops holding the pose — however it ends
+	// (removed, expired, woken by a hit) — so long as the actor is still alive.
+	// Unconscious → StandUp. Read by Player only.
+	[Export] public EAnimation endAnim = EAnimation.None;
+
 	// Per-effect crit-vulnerability in [0,1], composed across effects as 1 - prod(1 - v_i)
 	// (independent probabilities). Top-level because that math isn't a StatModifier. Dizzy
 	// authors 1.0 (always crit when triggered).

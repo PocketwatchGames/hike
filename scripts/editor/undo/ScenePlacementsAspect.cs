@@ -15,26 +15,35 @@ public sealed class ScenePlacementsAspect : IEditorEditAspect
         public readonly Vector3 Position;
         public readonly float RotationY;
         public readonly SpawnEntryData Custom;
+        // The fork's own fields: the property panel edits a fork IN PLACE after
+        // the first edit made it, so the reference alone would miss every edit
+        // but the first.
+        public readonly Variant[] CustomValues;
 
         public Values(SceneEntityPlacement p)
         {
             Position = p.position;
             RotationY = p.rotationY;
             Custom = p.custom;
+            CustomValues = ResourceValues.Capture(p.custom);
         }
 
         public bool Same(Values other)
         {
             return Position == other.Position
                 && Mathf.IsEqualApprox(RotationY, other.RotationY)
-                && ReferenceEquals(Custom, other.Custom);
+                && ReferenceEquals(Custom, other.Custom)
+                && ResourceValues.Same(CustomValues, other.CustomValues);
         }
 
         public void ApplyTo(SceneEntityPlacement p)
         {
             p.position = Position;
             p.rotationY = RotationY;
+            // The reference first, so the values land in the copy this
+            // placement holds again — none for the undo of a first edit.
             p.custom = Custom;
+            ResourceValues.Write(p.custom, CustomValues);
         }
     }
 

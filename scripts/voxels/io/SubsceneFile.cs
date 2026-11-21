@@ -48,6 +48,11 @@ public static class SubsceneFile
     // SubscenePlacement references them by res:// path.
     public const string DEFAULT_SCENE_DIR = "res://resources/data/world_authoring/subscenes/";
 
+    // A scene only one world stamps lives in that world's folder, under this
+    // (WorldScope.RootOf(world) + WORLD_SCENE_SUBDIR); the painter offers it
+    // only in that world.
+    public const string WORLD_SCENE_SUBDIR = "subscenes/";
+
     public const uint MAGIC = 0x4E435348; // 'HSCN' little-endian
     // v21: entities are spawn-entry placements in the `.entities.tres` beside
     //      the scene, not serialized states in its body. Nothing older reads:

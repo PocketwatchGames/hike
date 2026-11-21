@@ -46,37 +46,52 @@ public class SceneTool : IWorldMapTool
     // .hikescene is made in the world editor, and having to register it in a
     // second resource before it could be placed is a step that would be
     // forgotten every time.
-    private string[] Paths()
+    //
+    // Two folders: the reusable kit (world_authoring/subscenes/) and the open
+    // world's own (worlds/<world>/subscenes/), by the same WorldScope rule every
+    // other by-name lookup follows. A world's scene shadows a kit scene of the
+    // same name, and another world's is never offered.
+    private string[] Paths(WorldMapState ctx)
     {
         if (_paths != null)
         {
             return _paths;
         }
-        var found = new System.Collections.Generic.List<string>();
-        using (DirAccess dir = DirAccess.Open(SubsceneFile.DEFAULT_SCENE_DIR))
+        var byName = new System.Collections.Generic.SortedDictionary<string, string>();
+        AddScenes(SubsceneFile.DEFAULT_SCENE_DIR, byName);
+        string world = ctx?.Data?.World;
+        if (!string.IsNullOrEmpty(world))
         {
-            if (dir != null)
+            AddScenes(WorldScope.RootOf(world) + SubsceneFile.WORLD_SCENE_SUBDIR, byName);
+        }
+        _paths = new string[byName.Count];
+        byName.Values.CopyTo(_paths, 0);
+        return _paths;
+    }
+
+    // Later calls overwrite earlier ones by name, which is what shadows.
+    private static void AddScenes(string folder, System.Collections.Generic.IDictionary<string, string> byName)
+    {
+        using DirAccess dir = DirAccess.Open(folder);
+        if (dir == null)
+        {
+            return;
+        }
+        foreach (string file in dir.GetFiles())
+        {
+            // An exported build serves "x.hikescene.remap"; the loader still
+            // wants the original name.
+            string name = file.EndsWith(".remap") ? file.Substr(0, file.Length - 6) : file;
+            if (name.EndsWith("." + WorldEditor.SCENE_FILE_EXTENSION))
             {
-                foreach (string file in dir.GetFiles())
-                {
-                    // An exported build serves "x.hikescene.remap"; the loader
-                    // still wants the original name.
-                    string name = file.EndsWith(".remap") ? file.Substr(0, file.Length - 6) : file;
-                    if (name.EndsWith("." + WorldEditor.SCENE_FILE_EXTENSION))
-                    {
-                        found.Add(SubsceneFile.DEFAULT_SCENE_DIR + name);
-                    }
-                }
+                byName[name.GetBaseName()] = folder + name;
             }
         }
-        found.Sort();
-        _paths = found.ToArray();
-        return _paths;
     }
 
     public string[] Options(WorldMapState ctx)
     {
-        string[] paths = Paths();
+        string[] paths = Paths(ctx);
         var names = new string[paths.Length];
         for (int i = 0; i < names.Length; i++)
         {
@@ -105,10 +120,10 @@ public class SceneTool : IWorldMapTool
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
-        string[] paths = Paths();
+        string[] paths = Paths(ctx);
         if (paths.Length == 0)
         {
-            return "No ." + WorldEditor.SCENE_FILE_EXTENSION + " files in " + SubsceneFile.DEFAULT_SCENE_DIR;
+            return "No ." + WorldEditor.SCENE_FILE_EXTENSION + " files in " + SubsceneFile.DEFAULT_SCENE_DIR + " or this world's " + SubsceneFile.WORLD_SCENE_SUBDIR;
         }
         return paths[Mathf.Clamp(SceneIndex, 0, paths.Length - 1)].GetFile().GetBaseName();
     }
@@ -249,7 +264,7 @@ public class SceneTool : IWorldMapTool
             }
             else
             {
-                string[] paths = Paths();
+                string[] paths = Paths(ctx);
                 if (paths.Length == 0)
                 {
                     return;
@@ -291,7 +306,7 @@ public class SceneTool : IWorldMapTool
 
     public void Cycle(WorldMapState ctx, int dir)
     {
-        int n = Mathf.Max(1, Paths().Length);
+        int n = Mathf.Max(1, Paths(ctx).Length);
         SceneIndex = ((SceneIndex + dir) % n + n) % n;
     }
 

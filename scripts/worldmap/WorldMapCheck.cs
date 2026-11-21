@@ -229,12 +229,12 @@ public static class WorldMapCheck
         sb.AppendLine($"[worldmap_check] entities: {entities.Length} placed — "
             + (spread.Length == 0 ? "none" : spread.ToString()));
 
-        // A buried spot the bake would refuse (nothing buried, a rune bone with
-        // no species or a rune its sequence lacks) is otherwise only an error
-        // line in the bake's log and a hole in the world.
+        // A placement the bake would refuse (a signpost or book with nothing to
+        // say, nothing buried, a rune its sequence lacks) is otherwise only an
+        // error line in the bake's log and a hole in the world.
         foreach (EntityPlacement placement in entities)
         {
-            string refusal = (placement?.Entry as BuriedSpotSpawnEntry)?.Refusal();
+            string refusal = placement?.Entry?.Refusal();
             if (refusal != null)
             {
                 sb.AppendLine($"[worldmap_check] ERROR: {SpawnEntryData.PaletteName(placement.source)} "
@@ -757,6 +757,15 @@ public static class WorldMapCheck
                     sb.AppendLine($"[worldmap_check] WARNING: scene entity never drawn: {stamp.path.GetFile()} "
                         + $"at {stamp.anchorXZ}, entity {entity.Id} ({entity.Placement.Label()}) on floor Y={floor}");
                 }
+                // A scene may hold an entity bare (a book whose text each stamp
+                // picks); a stamp that never picked it bakes without it.
+                string refusal = entity.EntryFor(stamp)?.Refusal();
+                if (refusal != null)
+                {
+                    sb.AppendLine($"[worldmap_check] ERROR: {stamp.path.GetFile()} at {stamp.anchorXZ}, entity "
+                        + $"{entity.Id} ({entity.Placement.Label()}) will not be placed — {refusal}. Pick it on "
+                        + "this stamp in the painter, or on the entity in the scene editor.");
+                }
             }
             foreach (SubsceneEntityOverride o in stamp.entityOverrides ?? System.Array.Empty<SubsceneEntityOverride>())
             {
@@ -811,7 +820,7 @@ public static class WorldMapCheck
                 continue;
             }
             List<(string Name, string Rate)> listed =
-                WorldMapEntityInspector.ScatterRows(set);
+                EntityInspector.ScatterRows(set);
             sb.AppendLine($"[worldmap_check] scatter set {set.Label}: {listed.Count} entries");
             foreach ((string name, string rate) in listed)
             {
@@ -875,16 +884,16 @@ public static class WorldMapCheck
             var picks = new List<string>();
             var locked = new List<string>();
             foreach (Godot.Collections.Dictionary property in
-                WorldMapEntityInspector.OrderedProperties(entry))
+                EntityInspector.OrderedProperties(entry))
             {
                 var name = new StringName(property["name"].AsString());
-                WorldMapEntityInspector.EPropertyEditor kind =
-                    WorldMapEntityInspector.EditorFor(entry, name,
+                EntityInspector.EPropertyEditor kind =
+                    EntityInspector.EditorFor(entry, name,
                         (Variant.Type)(long)property["type"],
                         (PropertyHint)(long)property["hint"], ctx.Data.World,
                         out System.Type resourceType, out string[] names,
                         out Resource[] resources);
-                if (kind == WorldMapEntityInspector.EPropertyEditor.ResourcePick)
+                if (kind == EntityInspector.EPropertyEditor.ResourcePick)
                 {
                     // A row constrained to the entry's own set reports its own
                     // count and is marked, so the listing distinguishes "every
@@ -893,27 +902,27 @@ public static class WorldMapCheck
                         ? $"{name}({resources.Length} offered)"
                         : $"{name}({ResourceTypeIndex.Candidates(resourceType, ctx.Data.World).Length})");
                 }
-                else if (kind == WorldMapEntityInspector.EPropertyEditor.NamePick)
+                else if (kind == EntityInspector.EPropertyEditor.NamePick)
                 {
                     picks.Add($"{name}({names.Length})");
                 }
-                else if (kind == WorldMapEntityInspector.EPropertyEditor.List)
+                else if (kind == EntityInspector.EPropertyEditor.List)
                 {
                     // The element's own fields, classified the way the panel
                     // will build them, so a list whose item picker found no
                     // items reports that rather than just "list".
-                    System.Type[] kinds = entry.RecordKinds(name, WorldMapEntityInspector.Kinds(resourceType));
-                    editable.Add(WorldMapEntityInspector.ListPicksFiles(resourceType, ctx.Data.World)
+                    System.Type[] kinds = entry.RecordKinds(name, EntityInspector.Kinds(resourceType));
+                    editable.Add(EntityInspector.ListPicksFiles(resourceType, ctx.Data.World)
                         ? $"{name}[pick {resourceType.Name}]"
                         : kinds.Length > 0
                             ? $"{name}[kinds: {DescribeKinds(kinds, ctx.Data.World)}]"
                             : $"{name}[{resourceType.Name}: {DescribeElement(resourceType, ctx.Data.World)}]");
                 }
-                else if (kind == WorldMapEntityInspector.EPropertyEditor.Record)
+                else if (kind == EntityInspector.EPropertyEditor.Record)
                 {
                     editable.Add($"{name}{{{resourceType.Name}: {DescribeElement(resourceType, ctx.Data.World)}}}");
                 }
-                else if (kind == WorldMapEntityInspector.EPropertyEditor.ReadOnly)
+                else if (kind == EntityInspector.EPropertyEditor.ReadOnly)
                 {
                     locked.Add(name.ToString());
                 }
@@ -936,7 +945,7 @@ public static class WorldMapCheck
         var parts = new List<string>();
         foreach (System.Type kind in kinds)
         {
-            parts.Add($"{WorldMapEntityInspector.KindLabel(kind)}{{{DescribeElement(kind, world)}}}");
+            parts.Add($"{EntityInspector.KindLabel(kind)}{{{DescribeElement(kind, world)}}}");
         }
         return string.Join("; ", parts);
     }
@@ -948,26 +957,26 @@ public static class WorldMapCheck
     {
         const int MaxDepth = 4;
         var fields = new List<string>();
-        foreach (Godot.Collections.Dictionary property in WorldMapEntityInspector.ElementProperties(element))
+        foreach (Godot.Collections.Dictionary property in EntityInspector.ElementProperties(element))
         {
             var name = new StringName(property["name"].AsString());
-            WorldMapEntityInspector.EPropertyEditor kind = WorldMapEntityInspector.ElementEditorFor(
+            EntityInspector.EPropertyEditor kind = EntityInspector.ElementEditorFor(
                 element, name, (Variant.Type)(long)property["type"], (PropertyHint)(long)property["hint"],
                 world, out System.Type resourceType);
             bool nests = depth < MaxDepth;
             fields.Add(kind switch
             {
-                WorldMapEntityInspector.EPropertyEditor.ResourcePick =>
+                EntityInspector.EPropertyEditor.ResourcePick =>
                     $"{name}({ResourceTypeIndex.Candidates(resourceType, world).Length})",
-                WorldMapEntityInspector.EPropertyEditor.Record when nests =>
+                EntityInspector.EPropertyEditor.Record when nests =>
                     $"{name}{{{resourceType.Name}: {DescribeElement(resourceType, world, depth + 1)}}}",
-                WorldMapEntityInspector.EPropertyEditor.List when nests =>
-                    WorldMapEntityInspector.ListPicksFiles(resourceType, world)
+                EntityInspector.EPropertyEditor.List when nests =>
+                    EntityInspector.ListPicksFiles(resourceType, world)
                         ? $"{name}[pick {resourceType.Name}]"
                         : $"{name}[{resourceType.Name}: {DescribeElement(resourceType, world, depth + 1)}]",
-                WorldMapEntityInspector.EPropertyEditor.ReadOnly
-                    or WorldMapEntityInspector.EPropertyEditor.Record
-                    or WorldMapEntityInspector.EPropertyEditor.List => $"{name}(read-only)",
+                EntityInspector.EPropertyEditor.ReadOnly
+                    or EntityInspector.EPropertyEditor.Record
+                    or EntityInspector.EPropertyEditor.List => $"{name}(read-only)",
                 _ => name.ToString(),
             });
         }
@@ -1130,14 +1139,9 @@ public static class WorldMapCheck
     private static void ReportNames(System.Text.StringBuilder sb, EntityPlacement[] entities, string world)
     {
         var byName = new SortedDictionary<string, List<EntityPlacement>>(System.StringComparer.Ordinal);
-        int emptySpots = 0;
         int emptyLoot = 0;
         foreach (EntityPlacement placement in entities)
         {
-            if (placement?.Entry is BuriedSpotSpawnEntry spot && spot.item?.item == null && spot.payload == null)
-            {
-                emptySpots++;
-            }
             if (placement?.Entry is LootSpawnEntry loot && loot.item?.item == null)
             {
                 emptyLoot++;
@@ -1180,11 +1184,6 @@ public static class WorldMapCheck
             {
                 sb.AppendLine($"[worldmap_check] treasures: {Join(treasures)}");
             }
-        }
-        if (emptySpots > 0)
-        {
-            sb.AppendLine($"[worldmap_check] ERROR: {emptySpots} buried spot(s) have nothing buried and "
-                + "will NOT spawn — select each and pick an item or a payload");
         }
         if (emptyLoot > 0)
         {

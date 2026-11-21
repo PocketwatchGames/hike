@@ -26,6 +26,8 @@ using Godot;
 //   tut_look          -> appears over `lantern_chest`, says `look`.
 //   tut_spade         -> appears over `dead_friend`, says `tasty`.
 //     (leaving either vanishes her again)
+//   bridge_trigger    -> appears over the `bridge_fairy` waypoint, says `bridge`.
+//     (leaving it vanishes her again)
 //   search dead_friend-> she vanishes for good; antica_dead_friend_found is set
 //                        (what the festering man's conversation branches on).
 //
@@ -53,6 +55,7 @@ public partial class WorldScriptAntica : WorldScriptData
     private const string ThisWay4 = "this_way4";
     private const string LanternChest = "lantern_chest";
     private const string DeadFriend = "dead_friend";
+    private const string BridgeSpot = "bridge_fairy";
 
     // Trigger boxes.
     private const string BodyTrigger = "fairy_follow";
@@ -65,6 +68,7 @@ public partial class WorldScriptAntica : WorldScriptData
     private const string TalkTrigger = "this_way3_talk";
     private const string LookTrigger = "tut_look";
     private const string SpadeTrigger = "tut_spade";
+    private const string BridgeTrigger = "bridge_trigger";
 
     // Her conversation keys, said as standing lines.
     private const string SayGuts = "guts";
@@ -77,6 +81,7 @@ public partial class WorldScriptAntica : WorldScriptData
     private const string SayGrossMan = "gross_man";
     private const string SayLook = "look";
     private const string SayTasty = "tasty";
+    private const string SayBridge = "bridge";
 
     // How long the party lies there before the fairy speaks.
     [Export(PropertyHint.Range, "0,10,0.1")] public float introConversationDelaySeconds = 1.5f;
@@ -126,6 +131,9 @@ public partial class WorldScriptAntica : WorldScriptData
             case SpadeTrigger:
                 AppearAndSay(api, DeadFriend, trigger, SayTasty);
                 break;
+            case BridgeTrigger:
+                AppearAndSay(api, BridgeSpot, trigger, SayBridge);
+                break;
         }
     }
 
@@ -144,6 +152,7 @@ public partial class WorldScriptAntica : WorldScriptData
             case TalkTrigger:
             case LookTrigger:
             case SpadeTrigger:
+            case BridgeTrigger:
                 api.VanishAfter(IntroFairy, leaveGraceSeconds);
                 break;
         }

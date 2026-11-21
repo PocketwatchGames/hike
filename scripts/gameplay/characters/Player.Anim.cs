@@ -49,9 +49,19 @@ public partial class Player : CharacterBody3D
 		_oneShotClip = name;
 		_oneShotIsHitstun = isHitstun;
 		_oneShotOverridesCharge = overridesCharge;
+		_oneShotInputLock = data.AnimationInputLockFraction(anim);
 		// restart: a re-fired one-shot (mashing an attack that maps to the same
 		// clip) must replay from the start rather than no-op on the in-flight clip.
 		_animator.Play(name, restart: true, animDuration: animDuration);
+	}
+
+	// True while the latched one-shot is inside its authored input lock (getting
+	// up off the ground): no movement, look or presses, as when incapacitated.
+	public bool OneShotLocksInput()
+	{
+		return _oneShotClip != default && _oneShotInputLock > 0f && _animator != null
+			&& _animator.CurrentAnimation == _oneShotClip && !_animator.Finished
+			&& _animator.NormalizedPosition() < _oneShotInputLock;
 	}
 
 	// Resolve an EAnimation slot to a clip name, preferring the wielded weapon's
@@ -127,6 +137,19 @@ public partial class Player : CharacterBody3D
 		// die) take the early return below, so this default sticks for them.
 		_animator.effectSpeedMultiplier = 1f;
 
+		// The tick a status stops holding the pose, play its exit (Unconscious →
+		// StandUp), however it ended. Not on death: the Die one-shot owns that.
+		StatusEffectData poseEffect = _statusEffects?.PoseHoldingEffect();
+		if (poseEffect != _poseEffect)
+		{
+			StatusEffectData ended = _poseEffect;
+			_poseEffect = poseEffect;
+			if (poseEffect == null && ended != null && ended.endAnim != EAnimation.None && _health > 0f)
+			{
+				PlayOneShot(ended.endAnim);
+			}
+		}
+
 		// Track airborne dwell time. Cleared the instant we hit ground so the
 		// next lift-off starts a fresh grace window. Running up a slope tends
 		// to lose floor contact for a frame or two between step-up cycles, and
@@ -197,7 +220,10 @@ public partial class Player : CharacterBody3D
 			}
 			else
 			{
-				if (_animator.CurrentAnimation == _oneShotClip && !_animator.Finished)
+				// Past an input-locked clip's lock, moving cuts the rest of it off
+				// (the input gate holds _inputMove at zero until then).
+				bool movedOff = _oneShotInputLock > 0f && _inputMove.LengthSquared() > 0.0001f;
+				if (_animator.CurrentAnimation == _oneShotClip && !_animator.Finished && !movedOff)
 				{
 					return;
 				}
@@ -225,7 +251,7 @@ public partial class Player : CharacterBody3D
 		{
 			loopAnim = EAnimation.Dead;
 		}
-		else if (_statusEffects?.LoopAnimOverride is EAnimation statusAnim && statusAnim != EAnimation.None)
+		else if (poseEffect?.loopAnimOverride is EAnimation statusAnim && statusAnim != EAnimation.None)
 		{
 			// A status effect holding a pose (unconscious lies Dead, dizzy sways).
 			loopAnim = statusAnim;

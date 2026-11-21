@@ -32,13 +32,10 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
         {
             Player player = gc?.Player;
             InscriptionData inscription = _inscription;
-            // Teach first, then render, so a sign teaching its own tongue reads
-            // with what it just taught (InscriptionData.percent; most teach nothing).
-            hud.ShowReadable(() =>
-            {
-                inscription.Teach(player);
-                return LanguageText.RenderBbcode(inscription.LookUpText(), inscription.language, player);
-            }, this);
+            // Read on the parchment page; a sign teaching its own tongue
+            // (InscriptionData.percent) translates there as the meter fills.
+            LanguageData taught = inscription.TeachesLanguage() ? inscription.language : null;
+            hud.ShowPage(() => inscription.Teach(player), inscription.LookUpTitle(), inscription.LookUpText(), inscription.language, taught, player);
         }
     }
 

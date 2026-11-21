@@ -37,6 +37,9 @@ public sealed class SceneEntityDocument
         public Vector3 Position;
         public float RotationY;
         public SpawnEntryData Entry;
+        // The fork's fields as spawned. The property panel and undo both edit a
+        // fork in place, which leaves Entry's reference unchanged.
+        public Variant[] CustomValues;
     }
 
     private readonly Dictionary<SceneEntityPlacement, Spawn> _spawned = new();
@@ -128,7 +131,8 @@ public sealed class SceneEntityDocument
     {
         return spawn.Position == p.position
             && Mathf.IsEqualApprox(spawn.RotationY, p.rotationY)
-            && ReferenceEquals(spawn.Entry, p.Entry);
+            && ReferenceEquals(spawn.Entry, p.Entry)
+            && ResourceValues.Same(spawn.CustomValues, ResourceValues.Capture(p.custom));
     }
 
     private void Despawn(SceneEntityPlacement p, Changes changes)
@@ -147,7 +151,13 @@ public sealed class SceneEntityDocument
 
     private void SpawnPlacement(SceneEntityPlacement p, SpawnContext context, Changes changes)
     {
-        var spawn = new Spawn { Position = p.position, RotationY = p.rotationY, Entry = p.Entry };
+        var spawn = new Spawn
+        {
+            Position = p.position,
+            RotationY = p.rotationY,
+            Entry = p.Entry,
+            CustomValues = ResourceValues.Capture(p.custom),
+        };
         _spawned[p] = spawn;
         if (p.Entry == null)
         {

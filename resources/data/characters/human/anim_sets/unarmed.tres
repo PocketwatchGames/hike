@@ -133,6 +133,11 @@ name = &"climb_down"
 script = ExtResource("2_animdata")
 name = &"climb_idle"
 
+[sub_resource type="Resource" id="a_stand_up"]
+script = ExtResource("2_animdata")
+name = &"stand_up"
+inputLockFraction = 0.75
+
 [resource]
 script = ExtResource("1_animset")
 overrides = Dictionary[int, ExtResource("2_animdata")]({
@@ -165,6 +170,7 @@ overrides = Dictionary[int, ExtResource("2_animdata")]({
 38: SubResource("a_sitidle"),
 39: SubResource("a_climb"),
 40: SubResource("a_climb_down"),
-41: SubResource("a_climb_idle")
+41: SubResource("a_climb_idle"),
+44: SubResource("a_stand_up")
 })
 metadata/_custom_type_script = "uid://ebr0vht6y6v0e"

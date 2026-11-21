@@ -622,6 +622,17 @@ public partial class ModelAnimator : Node
         return anim != null && anim.LoopMode != Animation.LoopModeEnum.None;
     }
 
+    // How far through the current clip playback is, 0..1 (1 once finished).
+    public float NormalizedPosition()
+    {
+        if (player == null || CurrentAnimation == default)
+        {
+            return 1f;
+        }
+        double length = player.CurrentAnimationLength;
+        return length > 0.0 ? (float)(player.CurrentAnimationPosition / length) : 1f;
+    }
+
     // `restart` forces a re-fire of the SAME clip to replay from the start
     // (one-shot attacks, hitstun, jump): mashing the knife's light attack maps
     // to the same `stab1` slot every press and must interrupt itself. The

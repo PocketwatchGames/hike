@@ -72,13 +72,9 @@ public partial class BuriedSpotSpawnEntry : SpawnEntryData
         return payload != null ? PaletteName(payload) : null;
     }
 
-    // Why this spot cannot be placed, or null. Fixed on the placement, in the
-    // painter's property panel.
-    public virtual string Refusal()
+    public override string MissingPlacementValue()
     {
-        return item?.item == null && payload == null
-            ? "nothing is buried — pick an item or a payload (on the placement, in the painter's property panel)."
-            : null;
+        return item?.item == null && payload == null ? "nothing is buried — pick an item or a payload" : null;
     }
 
     // The items sprayed out of the hole when it is dug.
@@ -93,10 +89,8 @@ public partial class BuriedSpotSpawnEntry : SpawnEntryData
         {
             return;
         }
-        string refusal = Refusal();
-        if (refusal != null)
+        if (!CheckPlaceable(position, context, out bool bare))
         {
-            GD.PushError($"{GetType().Name} at {position}: {refusal} Not placed.");
             return;
         }
         var state = new BuriedSpotSimState(position, scene, style)
@@ -104,7 +98,10 @@ public partial class BuriedSpotSpawnEntry : SpawnEntryData
             Payload = payload,
             RotationY = FacingY(context),
         };
-        AppendContents(state.Contents);
+        if (!bare)
+        {
+            AppendContents(state.Contents);
+        }
         string name = context?.AuthoredName;
         if (!string.IsNullOrEmpty(name))
         {

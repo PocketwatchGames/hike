@@ -1,84 +1,86 @@
 [gd_resource type="Resource" script_class="SubsceneEntities" format=3]
 
-[ext_resource type="Script" uid="uid://x2lwcbq1u8tta" path="res://scripts/data/SceneEntityPlacement.cs" id="1_3ndge"]
+[ext_resource type="Script" path="res://scripts/data/SceneEntityPlacement.cs" id="1_3ndge"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/door.tres" id="2_n5j5n"]
-[ext_resource type="Script" uid="uid://41lo9qn3msvo8" path="res://scripts/data/spawn/RoofSpawnEntry.cs" id="3_kw6qe"]
-[ext_resource type="Resource" uid="uid://bun2d7ceigicv" path="res://resources/data/roofs/roof_wood_shakes.tres" id="4_smurq"]
+[ext_resource type="Script" path="res://scripts/data/spawn/RoofSpawnEntry.cs" id="3_kw6qe"]
+[ext_resource type="Resource" path="res://resources/data/roofs/roof_wood_shakes.tres" id="4_smurq"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/table_long.tres" id="4_tvbuh"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/furniture/chair.tres" id="5_ltqms"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/other/windowframe_timber.tres" id="5_tvbuh"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/lights/candle_cluster.tres" id="6_0yu4r"]
-[ext_resource type="Script" uid="uid://gdg3bigklxmsu" path="res://scripts/data/SubsceneEntities.cs" id="6_ltqms"]
+[ext_resource type="Script" path="res://scripts/data/SubsceneEntities.cs" id="6_ltqms"]
 [ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/props/lights/candelabra_floor.tres" id="7_7p2ks"]
+[ext_resource type="Script" path="res://scripts/data/spawn/EntityHook.cs" id="8_0yu4r"]
+[ext_resource type="Resource" path="res://resources/data/world_authoring/spawn_entries/knowledge_book.tres" id="12_7p2ks"]
 
-[sub_resource type="Resource" id="Resource_tvbuh"]
+[sub_resource type="Resource" id="Resource_0yu4r"]
 script = ExtResource("1_3ndge")
 id = 1
 position = Vector3(5.5, 1, 12.5)
 source = ExtResource("2_n5j5n")
 
-[sub_resource type="Resource" id="Resource_ltqms"]
+[sub_resource type="Resource" id="Resource_7p2ks"]
 script = ExtResource("1_3ndge")
 id = 3
 position = Vector3(2.5, 2, 12.5)
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_0yu4r"]
+[sub_resource type="Resource" id="Resource_0m4v3"]
 script = ExtResource("1_3ndge")
 id = 4
 position = Vector3(8.5, 2, 12.5)
 rotationY = -3.1415927
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_7p2ks"]
+[sub_resource type="Resource" id="Resource_lkr63"]
 script = ExtResource("1_3ndge")
 id = 5
 position = Vector3(10.5, 2, 10.5)
 rotationY = 1.5707964
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_0m4v3"]
+[sub_resource type="Resource" id="Resource_qywum"]
 script = ExtResource("1_3ndge")
 id = 6
 position = Vector3(10.5, 2, 6.5)
 rotationY = 1.5707964
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_lkr63"]
+[sub_resource type="Resource" id="Resource_o0b0m"]
 script = ExtResource("1_3ndge")
 id = 7
 position = Vector3(10.5, 2, 2.5)
 rotationY = 1.5707964
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_qywum"]
+[sub_resource type="Resource" id="Resource_idw6n"]
 script = ExtResource("1_3ndge")
 id = 8
 position = Vector3(0.5, 2, 2.5)
 rotationY = -1.5707964
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_o0b0m"]
+[sub_resource type="Resource" id="Resource_tby6l"]
 script = ExtResource("1_3ndge")
 id = 9
 position = Vector3(0.5, 2, 6.5)
 rotationY = -1.5707964
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_idw6n"]
+[sub_resource type="Resource" id="Resource_7vam3"]
 script = ExtResource("1_3ndge")
 id = 10
 position = Vector3(0.5, 2, 10.5)
 rotationY = 1.5707964
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_tby6l"]
+[sub_resource type="Resource" id="Resource_i10cf"]
 script = ExtResource("1_3ndge")
 id = 14
 position = Vector3(8.5, 2, 0.5)
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_7vam3"]
+[sub_resource type="Resource" id="Resource_iqavy"]
 script = ExtResource("1_3ndge")
 id = 17
 position = Vector3(8.5, 6, 2.5)
@@ -86,7 +88,7 @@ rotationY = 1.5707964
 seed = -1331359091
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_i10cf"]
+[sub_resource type="Resource" id="Resource_vkj5u"]
 script = ExtResource("1_3ndge")
 id = 18
 position = Vector3(8.5, 6, 8.5)
@@ -94,21 +96,21 @@ rotationY = 1.5707964
 seed = 417810571
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_iqavy"]
+[sub_resource type="Resource" id="Resource_c4a8h"]
 script = ExtResource("1_3ndge")
 id = 20
 position = Vector3(6.5, 6, 0.5)
 seed = -1210601156
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_vkj5u"]
+[sub_resource type="Resource" id="Resource_d8m26"]
 script = ExtResource("1_3ndge")
 id = 22
 position = Vector3(4.5, 6, 0.5)
 seed = 474878264
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_c4a8h"]
+[sub_resource type="Resource" id="Resource_drx74"]
 script = ExtResource("1_3ndge")
 id = 23
 position = Vector3(2.5, 6, 2.5)
@@ -116,59 +118,59 @@ rotationY = 1.5707964
 seed = -597464049
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_d8m26"]
+[sub_resource type="Resource" id="Resource_7kvsv"]
 script = ExtResource("1_3ndge")
 id = 24
-position = Vector3(2.5, 6, 8)
+position = Vector3(2.5, 6, 8.5)
 rotationY = 1.5707964
 seed = -201449546
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_drx74"]
+[sub_resource type="Resource" id="Resource_vd0in"]
 script = ExtResource("1_3ndge")
 id = 26
 position = Vector3(4.5, 6, 10.5)
 seed = 175484700
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_7kvsv"]
+[sub_resource type="Resource" id="Resource_khi6m"]
 script = ExtResource("1_3ndge")
 id = 27
 position = Vector3(6.5, 6, 10.5)
 seed = -301166236
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_vd0in"]
+[sub_resource type="Resource" id="Resource_jja11"]
 script = ExtResource("1_3ndge")
 id = 29
 position = Vector3(2.5, 2, 0.5)
 seed = -2041875470
 source = ExtResource("5_tvbuh")
 
-[sub_resource type="Resource" id="Resource_khi6m"]
+[sub_resource type="Resource" id="Resource_4updc"]
 script = ExtResource("1_3ndge")
 id = 30
-position = Vector3(6.5, 5, 7)
-rotationY = -2.3561945
+position = Vector3(5.885551, 5.1321115, 7.284642)
+rotationY = -2.8964214
 seed = 413856732
 source = ExtResource("4_tvbuh")
 
-[sub_resource type="Resource" id="Resource_jja11"]
+[sub_resource type="Resource" id="Resource_3su5q"]
 script = ExtResource("1_3ndge")
 id = 31
-position = Vector3(7, 5, 8)
+position = Vector3(7.5124345, 5, 6.6610355)
 rotationY = -1.5707964
 seed = 44932010
 source = ExtResource("5_ltqms")
 
-[sub_resource type="Resource" id="Resource_4updc"]
+[sub_resource type="Resource" id="Resource_yp40m"]
 script = ExtResource("1_3ndge")
 id = 32
-position = Vector3(6.5, 6, 6.5)
+position = Vector3(6.5536084, 6, 7.098042)
 seed = 1508995869
 source = ExtResource("6_0yu4r")
 
-[sub_resource type="Resource" id="Resource_3su5q"]
+[sub_resource type="Resource" id="Resource_axc15"]
 script = ExtResource("1_3ndge")
 id = 33
 position = Vector3(3.5, 5, 9.5)
@@ -185,14 +187,46 @@ slopeDegrees = 40.0
 broken = 0.05
 disabledVariable = &""
 
-[sub_resource type="Resource" id="Resource_yp40m"]
+[sub_resource type="Resource" id="Resource_47qk3"]
 script = ExtResource("1_3ndge")
 id = 35
 position = Vector3(5.5, 8, 5.5)
 seed = 1441423838
 custom = SubResource("Resource_d2a0v")
 
+[sub_resource type="Resource" id="Resource_je0h7"]
+script = ExtResource("1_3ndge")
+id = 37
+position = Vector3(3.5232291, 6, 6.551977)
+rotationY = 2.3561945
+seed = 652794805
+source = ExtResource("12_7p2ks")
+
+[sub_resource type="Resource" id="Resource_cj635"]
+script = ExtResource("1_3ndge")
+id = 38
+position = Vector3(3.4860706, 6, 5.1067443)
+rotationY = 1.7165534
+seed = 1215651302
+source = ExtResource("12_7p2ks")
+
+[sub_resource type="Resource" id="Resource_wggct"]
+script = ExtResource("1_3ndge")
+id = 39
+position = Vector3(5.720621, 6, 7.2698703)
+rotationY = -1.9960408
+seed = -281943399
+source = ExtResource("12_7p2ks")
+
+[sub_resource type="Resource" id="Resource_10xl3"]
+script = ExtResource("1_3ndge")
+id = 40
+position = Vector3(3.5, 5, 6)
+rotationY = 1.5707964
+seed = -870406450
+source = ExtResource("4_tvbuh")
+
 [resource]
 script = ExtResource("6_ltqms")
-placements = [SubResource("Resource_tvbuh"), SubResource("Resource_ltqms"), SubResource("Resource_0yu4r"), SubResource("Resource_7p2ks"), SubResource("Resource_0m4v3"), SubResource("Resource_lkr63"), SubResource("Resource_qywum"), SubResource("Resource_o0b0m"), SubResource("Resource_idw6n"), SubResource("Resource_tby6l"), SubResource("Resource_7vam3"), SubResource("Resource_i10cf"), SubResource("Resource_iqavy"), SubResource("Resource_vkj5u"), SubResource("Resource_c4a8h"), SubResource("Resource_d8m26"), SubResource("Resource_drx74"), SubResource("Resource_7kvsv"), SubResource("Resource_vd0in"), SubResource("Resource_khi6m"), SubResource("Resource_jja11"), SubResource("Resource_4updc"), SubResource("Resource_3su5q"), SubResource("Resource_yp40m")]
-nextId = 36
+placements = [SubResource("Resource_0yu4r"), SubResource("Resource_7p2ks"), SubResource("Resource_0m4v3"), SubResource("Resource_lkr63"), SubResource("Resource_qywum"), SubResource("Resource_o0b0m"), SubResource("Resource_idw6n"), SubResource("Resource_tby6l"), SubResource("Resource_7vam3"), SubResource("Resource_i10cf"), SubResource("Resource_iqavy"), SubResource("Resource_vkj5u"), SubResource("Resource_c4a8h"), SubResource("Resource_d8m26"), SubResource("Resource_drx74"), SubResource("Resource_7kvsv"), SubResource("Resource_vd0in"), SubResource("Resource_khi6m"), SubResource("Resource_jja11"), SubResource("Resource_4updc"), SubResource("Resource_3su5q"), SubResource("Resource_yp40m"), SubResource("Resource_axc15"), SubResource("Resource_47qk3"), SubResource("Resource_je0h7"), SubResource("Resource_cj635"), SubResource("Resource_wggct"), SubResource("Resource_10xl3")]
+nextId = 41

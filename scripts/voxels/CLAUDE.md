@@ -56,6 +56,14 @@ without its entities file or an entities file without its scene.
   painter document that overrides a removed one; undoing the delete restores the
   same id, so undo-and-save keeps the edit. `worldmap_check` reports any such
   override that slipped through as an ERROR.
+- **A scene entity's properties are edited in the painter's panel**
+  (`EntityInspector`, shown for a single selection in Select mode). The panel
+  forks the placement's entry and edits the fork in place, so both the preview
+  sync (`SceneEntityDocument.Matches`) and undo (`ScenePlacementsAspect`)
+  compare the fork's VALUES (`ResourceValues`), not just its reference. An
+  entry missing a per-placement value (a book with no inscription) is kept and
+  previewed bare — the editor's context sets `PlacesIncomplete` — and the stamp
+  picks it in the painter; a bake refuses one nobody picked.
 - **Roofs are `RoofSpawnEntry` placements with no `source`**: the roof tool
   authors the whole entry, since a footprint and pitch are the whole of a roof.
 - **The format is exact-version** (v21), like `.hike`. All earlier versions

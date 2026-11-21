@@ -23,6 +23,12 @@ public partial class PlayerData : Resource
 		return baseAnims != null && baseAnims.IsSpeedAffected(anim);
 	}
 
+	// Leading fraction of the slot's one-shot that locks input (base-set value).
+	public float AnimationInputLockFraction(EAnimation anim)
+	{
+		return baseAnims != null ? baseAnims.InputLockFraction(anim) : 0f;
+	}
+
 	// Whether the currently-playing clip conceals the wielded weapon (drink / read
 	// / cast). Keyed by clip name so HeldItemVisual can test the animator's current
 	// clip directly; the hides poses are base clips, never weapon-overridden.

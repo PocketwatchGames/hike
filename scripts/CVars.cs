@@ -1065,6 +1065,19 @@ public static class CVars
         manifest.RebuildAtlas();
     });
 
+    // Console action: merges the player animation FBXs into human_anims.res,
+    // the headless twin of the editor's "Rebuild Player Animations" menu item.
+    public static CVar animRebuild = new CVar("anim_rebuild", (cvar) =>
+    {
+        var manifest = Godot.GD.Load<PlayerAnimManifest>(PlayerAnimManifest.ManifestResourcePath);
+        if (manifest == null)
+        {
+            Godot.GD.PrintErr($"anim_rebuild: could not load {PlayerAnimManifest.ManifestResourcePath}.");
+            return;
+        }
+        manifest.RebuildLibrary();
+    });
+
     // Console action: dumps a block-id census of the loaded world, most common
     // first. The check for "is this material actually being placed?" — reading
     // the catalog and the atlas only proves the material COULD render.

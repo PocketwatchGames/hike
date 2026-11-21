@@ -253,7 +253,7 @@ public partial class Player : CharacterBody3D
 		// since it shares ESC with TogglePause and needs to consume the input
 		// before TogglePause sees it.
 		// Incapacitated (unconscious, stunned): no movement, no look, no presses.
-		if (_birdsEye || Incapacitated)
+		if (_birdsEye || Incapacitated || OneShotLocksInput())
 		{
 			_inputMove = Vector3.Zero;
 			_inputLook = Vector3.Zero;

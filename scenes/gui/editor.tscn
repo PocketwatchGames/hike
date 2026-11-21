@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" uid="uid://daek4pk8ecen3" path="res://scenes/fx/motes.tscn" id="14_motes"]
 [ext_resource type="Script" uid="uid://chc6q4c8lwnc8" path="res://scripts/editor/EditorGizmo.cs" id="15_gizmo"]
 [ext_resource type="Script" uid="uid://cvullrngv2d0n" path="res://scripts/editor/EditorIconBaker.cs" id="15_icon_baker"]
+[ext_resource type="Script" uid="uid://cost64s6twxhj" path="res://scripts/authoring/EntityInspector.cs" id="16_inspector"]
 
 [sub_resource type="Environment" id="Environment_bloom"]
 background_mode = 3
@@ -308,7 +309,7 @@ mouse_filter = 2
 [node name="EditorGizmo" type="Node" parent="." unique_id=1408225650]
 script = ExtResource("15_gizmo")
 
-[node name="EditorHud" type="CanvasLayer" parent="." unique_id=1379480736 node_paths=PackedStringArray("clipLabel", "coordsLabel", "helpLabel", "documentLabel", "toastLabel", "voxelToolButton", "entityToolButton", "roofToolButton", "voxelPalette", "entityPalette", "roofPalette", "voxelInfoPanel", "voxelTab", "entityDetailsPanel", "placeModeButton", "selectModeButton", "selectionLabel", "snapToGridButton", "snapRotationButton", "roofInfoPanel", "roofTab", "ridgeXButton", "ridgeZButton", "gableFormButton", "hipFormButton", "slopeSlider", "slopeLabel", "brokenSlider", "brokenLabel", "drawRoofModeButton", "editRoofModeButton", "brushImage", "brushNameLabel", "paintButton", "eraseButton", "replaceButton", "voxelShapeButton", "floorShapeButton", "wallShapeButton", "fillShapeButton", "roomShapeButton", "windowShapeButton", "doorShapeButton", "plateauSnapButton", "autoEdgesButton", "blockyEdgesButton", "steppedEdgesButton", "smoothEdgesButton", "lightingButton", "timeOfDaySlider", "weatherOption", "interiorClassOption")]
+[node name="EditorHud" type="CanvasLayer" parent="." unique_id=1379480736 node_paths=PackedStringArray("clipLabel", "coordsLabel", "helpLabel", "documentLabel", "toastLabel", "voxelToolButton", "entityToolButton", "roofToolButton", "voxelPalette", "entityPalette", "roofPalette", "voxelInfoPanel", "voxelTab", "entityDetailsPanel", "placeModeButton", "selectModeButton", "selectionLabel", "entityInspector", "snapToGridButton", "snapRotationButton", "roofInfoPanel", "roofTab", "ridgeXButton", "ridgeZButton", "gableFormButton", "hipFormButton", "slopeSlider", "slopeLabel", "brokenSlider", "brokenLabel", "drawRoofModeButton", "editRoofModeButton", "brushImage", "brushNameLabel", "paintButton", "eraseButton", "replaceButton", "voxelShapeButton", "floorShapeButton", "wallShapeButton", "fillShapeButton", "roomShapeButton", "windowShapeButton", "doorShapeButton", "plateauSnapButton", "autoEdgesButton", "blockyEdgesButton", "steppedEdgesButton", "smoothEdgesButton", "lightingButton", "timeOfDaySlider", "weatherOption", "interiorClassOption")]
 script = ExtResource("3_hud")
 clipLabel = NodePath("UpperLeft/VBoxContainer/ClipLabel")
 coordsLabel = NodePath("UpperLeft/VBoxContainer/CoordsLabel")
@@ -328,6 +329,7 @@ entityDetailsPanel = NodePath("MiddleLeft/VBoxContainer/EntityDetails")
 placeModeButton = NodePath("MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer/ModeRow/Place")
 selectModeButton = NodePath("MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer/ModeRow/Select")
 selectionLabel = NodePath("MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer/SelectionLabel")
+entityInspector = NodePath("UpperRight/Stack/EntityInspector")
 snapToGridButton = NodePath("MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer/SnapToGrid")
 snapRotationButton = NodePath("MiddleLeft/VBoxContainer/EntityDetails/MarginContainer/VBoxContainer/SnapRotation")
 roofInfoPanel = NodePath("MiddleLeft/VBoxContainer/RoofInfo")
@@ -359,10 +361,10 @@ autoEdgesButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/V
 blockyEdgesButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Voxel Edges/VBoxContainer/HBoxContainer/Blocky")
 steppedEdgesButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Voxel Edges/VBoxContainer/HBoxContainer/Stepped")
 smoothEdgesButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Voxel Edges/VBoxContainer/HBoxContainer/Smooth")
-lightingButton = NodePath("UpperRight/PanelContainer/VBoxContainer/Lighting")
-timeOfDaySlider = NodePath("UpperRight/PanelContainer/VBoxContainer/TimeOfDay")
-weatherOption = NodePath("UpperRight/PanelContainer/VBoxContainer/Weather")
-interiorClassOption = NodePath("UpperRight/PanelContainer/VBoxContainer/InteriorClass")
+lightingButton = NodePath("UpperRight/Stack/PanelContainer/VBoxContainer/Lighting")
+timeOfDaySlider = NodePath("UpperRight/Stack/PanelContainer/VBoxContainer/TimeOfDay")
+weatherOption = NodePath("UpperRight/Stack/PanelContainer/VBoxContainer/Weather")
+interiorClassOption = NodePath("UpperRight/Stack/PanelContainer/VBoxContainer/InteriorClass")
 
 [node name="UpperLeft" type="MarginContainer" parent="EditorHud" unique_id=16426533]
 offset_right = 600.0
@@ -779,40 +781,77 @@ size_flags_horizontal = 8
 size_flags_vertical = 0
 mouse_filter = 2
 
-[node name="PanelContainer" type="PanelContainer" parent="EditorHud/UpperRight" unique_id=940148899]
+[node name="Stack" type="VBoxContainer" parent="EditorHud/UpperRight"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="EditorHud/UpperRight/Stack" unique_id=940148899]
+size_flags_horizontal = 8
 layout_mode = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="EditorHud/UpperRight/PanelContainer" unique_id=168115577]
+[node name="VBoxContainer" type="VBoxContainer" parent="EditorHud/UpperRight/Stack/PanelContainer" unique_id=168115577]
 layout_mode = 2
 
-[node name="Lighting" type="CheckButton" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer" unique_id=885312951]
+[node name="Lighting" type="CheckButton" parent="EditorHud/UpperRight/Stack/PanelContainer/VBoxContainer" unique_id=885312951]
 layout_mode = 2
 button_pressed = true
 text = "Lighting"
 
-[node name="Label" type="Label" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer" unique_id=586148304]
+[node name="Label" type="Label" parent="EditorHud/UpperRight/Stack/PanelContainer/VBoxContainer" unique_id=586148304]
 layout_mode = 2
 text = "Time of Day"
 
-[node name="TimeOfDay" type="HSlider" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer" unique_id=273418617]
+[node name="TimeOfDay" type="HSlider" parent="EditorHud/UpperRight/Stack/PanelContainer/VBoxContainer" unique_id=273418617]
 layout_mode = 2
 max_value = 1.0
 step = 0.01
 value = 0.3
 
-[node name="Label2" type="Label" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer" unique_id=723376304]
+[node name="Label2" type="Label" parent="EditorHud/UpperRight/Stack/PanelContainer/VBoxContainer" unique_id=723376304]
 layout_mode = 2
 text = "Weather"
 
-[node name="Weather" type="OptionButton" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer" unique_id=894124908]
+[node name="Weather" type="OptionButton" parent="EditorHud/UpperRight/Stack/PanelContainer/VBoxContainer" unique_id=894124908]
 layout_mode = 2
 
-[node name="Label3" type="Label" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer" unique_id=1195162749]
+[node name="Label3" type="Label" parent="EditorHud/UpperRight/Stack/PanelContainer/VBoxContainer" unique_id=1195162749]
 layout_mode = 2
 text = "Scene Interior"
 
-[node name="InteriorClass" type="OptionButton" parent="EditorHud/UpperRight/PanelContainer/VBoxContainer" unique_id=370913601]
+[node name="InteriorClass" type="OptionButton" parent="EditorHud/UpperRight/Stack/PanelContainer/VBoxContainer" unique_id=370913601]
 layout_mode = 2
+
+[node name="EntityInspector" type="PanelContainer" parent="EditorHud/UpperRight/Stack" node_paths=PackedStringArray("titleLabel", "scroll", "rows")]
+visible = false
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+size_flags_horizontal = 8
+script = ExtResource("16_inspector")
+titleLabel = NodePath("Margin/VBoxContainer/TitleLabel")
+scroll = NodePath("Margin/VBoxContainer/Scroll")
+rows = NodePath("Margin/VBoxContainer/Scroll/Rows")
+
+[node name="Margin" type="MarginContainer" parent="EditorHud/UpperRight/Stack/EntityInspector"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="VBoxContainer" type="VBoxContainer" parent="EditorHud/UpperRight/Stack/EntityInspector/Margin"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="EditorHud/UpperRight/Stack/EntityInspector/Margin/VBoxContainer"]
+layout_mode = 2
+text = "Entity"
+
+[node name="Scroll" type="ScrollContainer" parent="EditorHud/UpperRight/Stack/EntityInspector/Margin/VBoxContainer"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Rows" type="VBoxContainer" parent="EditorHud/UpperRight/Stack/EntityInspector/Margin/VBoxContainer/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="SaveDialog" type="ConfirmationDialog" parent="EditorHud" unique_id=354178986]
 title = "Save World"

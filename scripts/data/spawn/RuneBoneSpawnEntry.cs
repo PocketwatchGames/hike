@@ -65,7 +65,12 @@ public partial class RuneBoneSpawnEntry : BuriedSpotSpawnEntry
         return $"{boneSpecies.ResourcePath.GetFile().GetBaseName()} {runeNumber}";
     }
 
-    public override string Refusal()
+    public override string MissingPlacementValue()
+    {
+        return boneSpecies == null ? "no species picked" : null;
+    }
+
+    public override string InvalidPlacementValue()
     {
         if (bone == null)
         {
@@ -73,7 +78,7 @@ public partial class RuneBoneSpawnEntry : BuriedSpotSpawnEntry
         }
         if (boneSpecies == null)
         {
-            return "no species picked (on the placement, in the painter's property panel).";
+            return null;
         }
         int length = boneSpecies.RunesFlat.Length;
         if (runeNumber < 1 || runeNumber > length)

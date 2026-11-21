@@ -25,48 +25,6 @@ using System.Collections.Generic;
 // from a snapshot; it just stops being undoable.
 public sealed class PlacementsAspect : IMapEditAspect
 {
-    // The script-declared properties of a placement resource, cached per type.
-    // ScriptVariable is the flag Godot sets on a script's own exports, so engine
-    // bookkeeping (resource_path, script, resource_local_to_scene) is skipped —
-    // restoring THOSE would do real damage.
-    private static readonly Dictionary<Type, StringName[]> _propsByType = new();
-
-    private static StringName[] PropsOf(Resource r)
-    {
-        Type type = r.GetType();
-        if (_propsByType.TryGetValue(type, out StringName[] cached))
-        {
-            return cached;
-        }
-        var names = new List<StringName>();
-        foreach (Godot.Collections.Dictionary entry in r.GetPropertyList())
-        {
-            var usage = (PropertyUsageFlags)(long)entry["usage"];
-            if ((usage & PropertyUsageFlags.ScriptVariable) != 0)
-            {
-                names.Add(new StringName(entry["name"].AsString()));
-            }
-        }
-        cached = names.ToArray();
-        _propsByType[type] = cached;
-        return cached;
-    }
-
-    private static Variant[] Capture(Resource r)
-    {
-        if (r == null)
-        {
-            return null;
-        }
-        StringName[] props = PropsOf(r);
-        var values = new Variant[props.Length];
-        for (int i = 0; i < props.Length; i++)
-        {
-            values[i] = r.Get(props[i]);
-        }
-        return values;
-    }
-
     // The values inside a placement's OWN copy (see EntityPlacement.EditableEntry).
     // A placement still using the shared palette file has nothing here: that
     // entry belongs to every other placement using it and is not ours to
@@ -74,47 +32,7 @@ public sealed class PlacementsAspect : IMapEditAspect
     // as an EntityPlacement property like any other.
     private static Variant[] CaptureEntry(EntityPlacement e)
     {
-        return Capture(e?.custom);
-    }
-
-    private static void Write(Resource r, Variant[] values)
-    {
-        if (r == null || values == null)
-        {
-            return;
-        }
-        StringName[] props = PropsOf(r);
-        for (int i = 0; i < props.Length && i < values.Length; i++)
-        {
-            r.Set(props[i], values[i]);
-        }
-    }
-
-    private static bool SameValues(Variant[] a, Variant[] b)
-    {
-        if (a == null || b == null)
-        {
-            return ReferenceEquals(a, b);
-        }
-        if (a.Length != b.Length)
-        {
-            return false;
-        }
-        for (int i = 0; i < a.Length; i++)
-        {
-            // Compared as TEXT, deliberately. Variant does not compare by value
-            // here — MEASURED: two Variants holding the same Vector2I are not
-            // Equal, so a no-op press registered as a change and cost an undo
-            // slot every time. Every property a placement can hold prints
-            // faithfully (ints, strings, enums, Vector2I, bools) and an object
-            // reference prints its instance id, so identity still compares as
-            // identity.
-            if (a[i].ToString() != b[i].ToString())
-            {
-                return false;
-            }
-        }
-        return true;
+        return ResourceValues.Capture(e?.custom);
     }
 
     private readonly struct Snapshot
@@ -150,7 +68,7 @@ public sealed class PlacementsAspect : IMapEditAspect
             OverrideEntryValues = new Variant[Stamps.Length][][];
             for (int i = 0; i < Stamps.Length; i++)
             {
-                StampValues[i] = Capture(Stamps[i]);
+                StampValues[i] = ResourceValues.Capture(Stamps[i]);
                 SubsceneEntityOverride[] list = (SubsceneEntityOverride[])Stamps[i]?.entityOverrides?.Clone()
                     ?? System.Array.Empty<SubsceneEntityOverride>();
                 Overrides[i] = list;
@@ -158,8 +76,8 @@ public sealed class PlacementsAspect : IMapEditAspect
                 OverrideEntryValues[i] = new Variant[list.Length][];
                 for (int k = 0; k < list.Length; k++)
                 {
-                    OverrideValues[i][k] = Capture(list[k]);
-                    OverrideEntryValues[i][k] = Capture(list[k]?.custom);
+                    OverrideValues[i][k] = ResourceValues.Capture(list[k]);
+                    OverrideEntryValues[i][k] = ResourceValues.Capture(list[k]?.custom);
                 }
             }
 
@@ -168,7 +86,7 @@ public sealed class PlacementsAspect : IMapEditAspect
             EntryValues = new Variant[Entities.Length][];
             for (int i = 0; i < Entities.Length; i++)
             {
-                EntityValues[i] = Capture(Entities[i]);
+                EntityValues[i] = ResourceValues.Capture(Entities[i]);
                 EntryValues[i] = CaptureEntry(Entities[i]);
             }
 
@@ -177,7 +95,7 @@ public sealed class PlacementsAspect : IMapEditAspect
             TriggerEntryValues = new Variant[Triggers.Length][];
             for (int i = 0; i < Triggers.Length; i++)
             {
-                TriggerValues[i] = Capture(Triggers[i]);
+                TriggerValues[i] = ResourceValues.Capture(Triggers[i]);
                 TriggerEntryValues[i] = CaptureEntry(Triggers[i]);
             }
 
@@ -198,7 +116,7 @@ public sealed class PlacementsAspect : IMapEditAspect
             for (int i = 0; i < Stamps.Length; i++)
             {
                 if (!ReferenceEquals(Stamps[i], other.Stamps[i])
-                    || !SameValues(StampValues[i], other.StampValues[i])
+                    || !ResourceValues.Same(StampValues[i], other.StampValues[i])
                     || Overrides[i].Length != other.Overrides[i].Length)
                 {
                     return false;
@@ -206,8 +124,8 @@ public sealed class PlacementsAspect : IMapEditAspect
                 for (int k = 0; k < Overrides[i].Length; k++)
                 {
                     if (!ReferenceEquals(Overrides[i][k], other.Overrides[i][k])
-                        || !SameValues(OverrideValues[i][k], other.OverrideValues[i][k])
-                        || !SameValues(OverrideEntryValues[i][k], other.OverrideEntryValues[i][k]))
+                        || !ResourceValues.Same(OverrideValues[i][k], other.OverrideValues[i][k])
+                        || !ResourceValues.Same(OverrideEntryValues[i][k], other.OverrideEntryValues[i][k]))
                     {
                         return false;
                     }
@@ -216,8 +134,8 @@ public sealed class PlacementsAspect : IMapEditAspect
             for (int i = 0; i < Entities.Length; i++)
             {
                 if (!ReferenceEquals(Entities[i], other.Entities[i])
-                    || !SameValues(EntityValues[i], other.EntityValues[i])
-                    || !SameValues(EntryValues[i], other.EntryValues[i]))
+                    || !ResourceValues.Same(EntityValues[i], other.EntityValues[i])
+                    || !ResourceValues.Same(EntryValues[i], other.EntryValues[i]))
                 {
                     return false;
                 }
@@ -225,8 +143,8 @@ public sealed class PlacementsAspect : IMapEditAspect
             for (int i = 0; i < Triggers.Length; i++)
             {
                 if (!ReferenceEquals(Triggers[i], other.Triggers[i])
-                    || !SameValues(TriggerValues[i], other.TriggerValues[i])
-                    || !SameValues(TriggerEntryValues[i], other.TriggerEntryValues[i]))
+                    || !ResourceValues.Same(TriggerValues[i], other.TriggerValues[i])
+                    || !ResourceValues.Same(TriggerEntryValues[i], other.TriggerEntryValues[i]))
                 {
                     return false;
                 }
@@ -241,11 +159,11 @@ public sealed class PlacementsAspect : IMapEditAspect
             {
                 // The stamp first: it carries the override list, and the values
                 // below land in the overrides that list holds again.
-                Write(Stamps[i], StampValues[i]);
+                ResourceValues.Write(Stamps[i], StampValues[i]);
                 for (int k = 0; k < Overrides[i].Length; k++)
                 {
-                    Write(Overrides[i][k], OverrideValues[i][k]);
-                    Write(Overrides[i][k]?.custom, OverrideEntryValues[i][k]);
+                    ResourceValues.Write(Overrides[i][k], OverrideValues[i][k]);
+                    ResourceValues.Write(Overrides[i][k]?.custom, OverrideEntryValues[i][k]);
                 }
             }
 
@@ -256,15 +174,15 @@ public sealed class PlacementsAspect : IMapEditAspect
                 // values below land in the copy this placement is holding again
                 // — which for the undo of a first edit is null (nothing to
                 // write), and for its redo is the fork.
-                Write(Entities[i], EntityValues[i]);
-                Write(Entities[i]?.custom, EntryValues[i]);
+                ResourceValues.Write(Entities[i], EntityValues[i]);
+                ResourceValues.Write(Entities[i]?.custom, EntryValues[i]);
             }
 
             ctx.Placements.triggers = (EntityPlacement[])Triggers.Clone();
             for (int i = 0; i < Triggers.Length; i++)
             {
-                Write(Triggers[i], TriggerValues[i]);
-                Write(Triggers[i]?.custom, TriggerEntryValues[i]);
+                ResourceValues.Write(Triggers[i], TriggerValues[i]);
+                ResourceValues.Write(Triggers[i]?.custom, TriggerEntryValues[i]);
             }
 
             ctx.Placements.hasSpawn = HasSpawn;

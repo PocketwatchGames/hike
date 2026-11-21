@@ -46,6 +46,8 @@ using System.Collections.Generic;
 [GlobalClass]
 public partial class PlayerAnimManifest : Resource
 {
+    public const string ManifestResourcePath = "res://assets/models/characters/polysplit/player_anim_manifest.tres";
+
     // Folder scanned for *.fbx animation sources, relative to asset_src/ (see
     // AssetSource) — Godot never imports them; RebuildLibrary parses each one.
     [Export(PropertyHint.GlobalDir)]

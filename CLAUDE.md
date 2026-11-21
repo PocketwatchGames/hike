@@ -496,6 +496,17 @@ Three rules, each of which was a real bug:
   reading one file teach the same lesson, once.
   An entry that cannot function without the placement's value refuses loudly
   (`SignpostSpawnEntry` errors and does not place) rather than drawing a blank.
+  It says which value through `SpawnEntryData.MissingPlacementValue` (an
+  unusable one through `InvalidPlacementValue`) and gates on `CheckPlaceable`;
+  `worldmap_check` reports `Refusal()` for every hand placement and every
+  stamp's scene entity. **The scene editor is the one place a missing value is
+  allowed** (`SpawnContext.PlacesIncomplete`): a scene holds a bare book and
+  places it as a preview, and each stamp picks its text in the painter — or the
+  scene picks it itself. Both tools edit it in the SAME panel
+  (`EntityInspector`, `scripts/authoring/`), each against its own document and
+  undo; a scene in `world_authoring/subscenes/` is offered only unscoped files,
+  one in `worlds/<world>/subscenes/` that world's too (and only that world's
+  painter lists it).
 
 **A baked `.hike` is not self-contained, and what it may reference is exactly
 what a build SHIPS.** Its header stores `res://` paths and re-resolves them on
@@ -753,8 +764,8 @@ intro_dying_01	[lang:common]Sanctuary[/lang]... you must find it. My family, …
   logs an error where it renders. Resolved when the line is rendered, so a
   bubble already on screen keeps the glyph of the device it opened on.
 - **Spoken and inscribed text appear in a `SpeechBubble` over the source's
-  `hudPosition`**, never a screen-anchored box — NPC lines, and signposts and
-  knowledge stones through `Hud.ShowReadable` (a one-line, response-less run
+  `hudPosition`**, never a screen-anchored box — NPC lines, and knowledge
+  stones through `Hud.ShowReadable` (a one-line, response-less run
   of `ConversationController`). Only the player's choices stay in a box. The
   bubble reserves its final size from the first character: a transparent copy
   of the whole line (`sizerLabel`) is what it lays out around, so it must stay
@@ -762,8 +773,8 @@ intro_dying_01	[lang:common]Sanctuary[/lang]... you must find it. My family, …
   raised while a bubble is up — or while `ShowReadable`'s render callback
   teaches — are held until it is dismissed, so a lesson never lands on top of
   the text that taught it.
-- **The one exception is a BOOK: a knowledge source whose scene sets
-  `_readAsPage` opens `BookPage`** (`Hud.ShowPage`) — prose on a parchment
+- **The exceptions are SIGNPOSTS and BOOKS: a `Signpost`, and a knowledge
+  source whose scene sets `_readAsPage`, open `BookPage`** (`Hud.ShowPage`) — prose on a parchment
   page, headed by the inscription's optional title (`InscriptionData.titleKey`,
   keyed `inscription_<file>_title` beside its text; same language, so it
   translates on the same clock). When the read teaches the language the prose is written in, the page

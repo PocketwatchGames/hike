@@ -51,6 +51,12 @@ public partial class WeaponAnimSet : Resource
         return d != null && d.affectedBySpeedMultiplier;
     }
 
+    public float InputLockFraction(EAnimation anim)
+    {
+        AnimationData d = Get(anim);
+        return d != null ? d.inputLockFraction : 0f;
+    }
+
     // Whether `clipName` is one of this set's hides-held-item poses. Keyed by clip
     // name (not slot) so HeldItemVisual can test the animator's current clip
     // directly; the hides poses live on the base set, never weapon-overridden.

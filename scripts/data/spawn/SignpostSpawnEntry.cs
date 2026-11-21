@@ -8,7 +8,8 @@ using Godot;
 // picked (EntityPlacement.EditableEntry, copy-on-write).
 //
 // A signpost with nothing to say is not placeable, so an unedited placement is
-// refused loudly rather than silently drawing a blank post. Wants flat, grassy
+// refused loudly rather than silently drawing a blank post (a scene editor
+// preview excepted — see SpawnContext.PlacesIncomplete). Wants flat, grassy
 // ground so the post does not tilt off a step edge.
 [GlobalClass]
 public partial class SignpostSpawnEntry : SpawnEntryData
@@ -28,17 +29,22 @@ public partial class SignpostSpawnEntry : SpawnEntryData
             ? null : inscription.ResourcePath.GetFile().GetBaseName();
     }
 
+    public override string MissingPlacementValue()
+    {
+        return inscription == null ? "no inscription" : null;
+    }
+
+    public override string InvalidPlacementValue()
+    {
+        return inscription != null && !inscription.HasText()
+            ? $"inscription {inscription.ResourcePath} has no text."
+            : null;
+    }
+
     protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (scene == null)
+        if (scene == null || !CheckPlaceable(position, context, out _))
         {
-            return;
-        }
-        if (inscription == null || !inscription.HasText())
-        {
-            GD.PushError($"SignpostSpawnEntry at {position}: no inscription — what a signpost says is "
-                + "picked on the PLACEMENT (in the painter's property panel, or on the copy embedded "
-                + "in the containing PoiPlacement), not on the shared palette entry. Not placed.");
             return;
         }
         ws.AddEntity(new SignpostSimState(position, scene, inscription)

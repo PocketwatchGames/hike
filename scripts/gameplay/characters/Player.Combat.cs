@@ -655,6 +655,9 @@ public partial class Player : CharacterBody3D
 	public void Respawn(Vector3 position)
 	{
 		_statusEffects?.Clear();
+		// Cleared silently: the respawn's own StandUp plays as the screen fades in
+		// (GameClient.OnRespawnFadeIn), not behind the black.
+		_poseEffect = null;
 		CapNeedsForRespawn();
 		_coldState = null;
 		_hotState = null;

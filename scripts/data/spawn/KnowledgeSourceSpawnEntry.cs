@@ -16,7 +16,7 @@ using Godot;
 // What a source says and teaches belongs to the world, not to stones or books
 // in general, so the shared palette entry carries only the scene — the same
 // rule, and the same reason, as SignpostSpawnEntry. A source that neither says
-// nor teaches anything is refused loudly.
+// nor teaches anything is refused loudly, except as a scene editor preview.
 [GlobalClass]
 public partial class KnowledgeSourceSpawnEntry : SpawnEntryData
 {
@@ -60,24 +60,24 @@ public partial class KnowledgeSourceSpawnEntry : SpawnEntryData
         return inscription.TeachesLanguage() ? $"{name} ({inscription.percent:0}%)" : name;
     }
 
+    public override string MissingPlacementValue()
+    {
+        return inscription == null && (teaches == null || teaches.Count == 0)
+            ? "no inscription and nothing on `teaches`"
+            : null;
+    }
+
+    public override string InvalidPlacementValue()
+    {
+        return inscription != null && !inscription.HasText()
+            ? $"inscription {inscription.ResourcePath} has no text."
+            : null;
+    }
+
     protected override void SpawnEntities(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (scene == null)
+        if (scene == null || !CheckPlaceable(position, context, out _))
         {
-            return;
-        }
-        bool teachesConcepts = teaches != null && teaches.Count > 0;
-        if (inscription == null && !teachesConcepts)
-        {
-            GD.PushError($"KnowledgeSourceSpawnEntry at {position}: no inscription and nothing on `teaches` — "
-                + "what a knowledge source says and teaches is picked on the PLACEMENT (in the painter's "
-                + "property panel), not on the shared palette entry. Not placed.");
-            return;
-        }
-        if (inscription != null && !inscription.HasText())
-        {
-            GD.PushError($"KnowledgeSourceSpawnEntry at {position}: inscription "
-                + $"{inscription.ResourcePath} has no text. Not placed.");
             return;
         }
         Godot.Collections.Array<TeachableConcept> taught = null;

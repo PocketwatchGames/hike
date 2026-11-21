@@ -34,7 +34,7 @@ public partial class WorldMapHud : CanvasLayer
     [Export] public Label hintLabel;
     // Properties of the entity tool's selection. Hides itself when there is no
     // selection, so it costs nothing on the other tools.
-    [Export] public WorldMapEntityInspector entityInspector;
+    [Export] public EntityInspector entityInspector;
 
     private Button[] _toolButtons;
     // Held rather than re-connected: BuildOptionButtons runs on every tool change

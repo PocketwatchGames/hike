@@ -13,3 +13,4 @@ modifiers = []
 conditionalModifiers = []
 incapacitates = true
 loopAnimOverride = 1
+endAnim = 44

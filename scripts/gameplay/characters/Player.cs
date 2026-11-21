@@ -589,6 +589,11 @@ public partial class Player : CharacterBody3D, IHudAnchored
 	StringName _oneShotClip;
 	bool _oneShotIsHitstun;
 	bool _oneShotOverridesCharge;
+	// The latched one-shot's AnimationData.inputLockFraction (0 = no lock).
+	float _oneShotInputLock;
+	// The status effect holding the pose last tick, so its endAnim plays the tick
+	// it stops (see UpdateAnimation).
+	StatusEffectData _poseEffect;
 	// The weapon whose WeaponAnimSet currently drives the player's stance / charge
 	// / attack poses — the last weapon popped into the hand (swing or aim). Null
 	// until the player first draws a weapon; then its set overrides the unarmed

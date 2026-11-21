@@ -3,12 +3,15 @@ using Godot;
 using System.Collections.Generic;
 using System.Linq;
 
-// What the active tool has SELECTED, top-right of the painter. Two modes,
-// because two tools have a selection worth reading:
+// The property panel of BOTH authoring tools — the painter and the scene
+// editor. Each owns its document and its undo history and hands the panel the
+// selection plus BeforeEdit / AfterEdit; the panel owns only the widgets, so a
+// field is edited the same way whichever file ends up saving it. Two modes:
 //
-//   a hand-placed ENTITY  — its properties, editable (the entity tool);
+//   a placed ENTITY       — its properties, editable (the painter's entity
+//                           tool, or the scene editor's selection);
 //   a scatter SET         — what spawns from it and how much, read-only
-//                           (the mob tool).
+//                           (the painter's mob tool).
 //
 // A hand-placed entity's properties ARE its SpawnEntryData's — the text on a
 // signpost, the conditions on a chest — so this REFLECTS the entry rather than
@@ -36,7 +39,7 @@ using System.Linq;
 // row is there rather than hidden so the panel never implies the entry holds
 // less than it does.
 [GlobalClass]
-public partial class WorldMapEntityInspector : PanelContainer
+public partial class EntityInspector : PanelContainer
 {
     [Export] public Label titleLabel;
     // Holds `rows`. A ScrollContainer reports no height of its own, so FitScroll

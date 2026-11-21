@@ -3267,6 +3267,13 @@ public partial class GameClient : Node3D
 		_rumble.StopAll();
 	}
 
+	// Called by DeathScreen as its fade-in starts: the fallen member gets up off
+	// the ground in view rather than behind the black.
+	public void OnRespawnFadeIn()
+	{
+		_player?.PlayOneShot(EAnimation.StandUp);
+	}
+
 	// Called by DeathScreen once its fade-in has revealed home. A death wake is a
 	// plain respawn — it never opens the camp screen, even at a campfire home.
 	public void OnRespawnRevealed()

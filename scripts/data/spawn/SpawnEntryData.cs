@@ -294,6 +294,48 @@ public partial class SpawnEntryData : Resource
     // HIGHLIGHT, this answers WHICH ONE IS IT, and the UI wants both.
     public virtual string VariantName() => null;
 
+    // What this entry still needs its PLACEMENT to pick before it can spawn — a
+    // signpost's inscription, what a buried spot holds — or null when it has
+    // it. The shared palette file deliberately carries none of these, so an
+    // unedited placement of it answers here.
+    public virtual string MissingPlacementValue() => null;
+
+    // A value the placement HAS picked that cannot work (a rune outside its
+    // species' sequence, an inscription with no text), or null.
+    public virtual string InvalidPlacementValue() => null;
+
+    // Why this entry will not spawn as it stands, or null — what worldmap_check
+    // reports for a hand placement or a stamp's scene entity.
+    public string Refusal() => MissingPlacementValue() ?? InvalidPlacementValue();
+
+    // The gate an entry with placement values runs at the top of SpawnEntities.
+    // False, with an error, when it must not place. `bare` is true when it is
+    // only missing a value and the context places such entries as previews
+    // (SpawnContext.PlacesIncomplete): the caller then spawns what it has.
+    protected bool CheckPlaceable(Vector3 position, SpawnContext context, out bool bare)
+    {
+        bare = false;
+        string missing = MissingPlacementValue();
+        if (missing != null)
+        {
+            if (context?.PlacesIncomplete != true)
+            {
+                GD.PushError($"{GetType().Name} at {position}: {missing} — picked on the PLACEMENT (the "
+                    + "painter's or the scene editor's property panel, or a stamp's override of a scene "
+                    + "entity), not on the shared palette entry. Not placed.");
+                return false;
+            }
+            bare = true;
+        }
+        string invalid = InvalidPlacementValue();
+        if (invalid != null)
+        {
+            GD.PushError($"{GetType().Name} at {position}: {invalid} Not placed.");
+            return false;
+        }
+        return true;
+    }
+
     // What to call `candidate` wherever an author picks it for `property` — a
     // palette button, an inspector dropdown. For the variant property it is the
     // member's own name, asked of a fork so the entry answers for the candidate

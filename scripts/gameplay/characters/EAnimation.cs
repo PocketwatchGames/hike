@@ -83,4 +83,7 @@ public enum EAnimation
     // mob's .tres maps these onto whichever of its clips reads least wrong.
     Mantle = 42,
     MantleDown = 43,
+    // Getting up off the ground: played as a waking status ends (Unconscious's
+    // StatusEffectData.endAnim) and as a death respawn fades in.
+    StandUp = 44,
 }

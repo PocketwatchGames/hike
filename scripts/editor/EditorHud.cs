@@ -37,6 +37,9 @@ public partial class EditorHud : CanvasLayer
     // The entity tool's own panel — mode row plus selection readout. Mirrors
     // VoxelInfo: shown only while its tool is the active one.
     [Export] public Control entityDetailsPanel;
+    // The selected placement's properties — the painter's panel, shared. Shown
+    // by WorldEditor for a single selection; hides itself otherwise.
+    [Export] public EntityInspector entityInspector;
     [Export] public Button placeModeButton;
     [Export] public Button selectModeButton;
     [Export] public Label selectionLabel;

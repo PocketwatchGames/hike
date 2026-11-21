@@ -1865,7 +1865,7 @@ public partial class WorldMapPainter : Node3D
         // entity, whose properties it EDITS, or a scatter set, whose contents it
         // lists read-only. A placement wins where a tool somehow answers both,
         // since that is the one that can be typed into.
-        WorldMapEntityInspector inspector = hud.entityInspector;
+        EntityInspector inspector = hud.entityInspector;
         if (inspector != null)
         {
             IEntryEditTarget selected = (IEntryEditTarget)ActiveTool.SelectedEntity ?? ActiveTool.SelectedSceneEntity;

@@ -6,8 +6,8 @@
 [ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
 [ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
 [ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
-[ext_resource type="Resource" path="res://resources/data/dialogue_scripts/actions/vanish.tres" id="Act_vanish"]
 [ext_resource type="Resource" uid="uid://djg1u6n4ky451" path="res://resources/data/dialogue_scripts/actions/wake_up.tres" id="Act_wake_up"]
+[ext_resource type="Resource" path="res://resources/data/dialogue_scripts/actions/vanish.tres" id="Act_vanish"]
 [ext_resource type="Script" uid="uid://cs8svar0acta4" path="res://scripts/data/scripting/actions/SetScriptVarAction.cs" id="Script_SetScriptVarAction"]
 
 [sub_resource type="Resource" id="Inline_1"]
@@ -23,11 +23,12 @@ branch = &"greeting"
 [sub_resource type="Resource" id="Line_greeting_1"]
 script = ExtResource("Script_ConversationLine")
 locKey = &"intro_fairy_greeting_01"
+startActions = Array[Object]([ExtResource("Act_wake_up")])
 
 [sub_resource type="Resource" id="Line_greeting_2"]
 script = ExtResource("Script_ConversationLine")
 locKey = &"intro_fairy_greeting_02"
-completeActions = Array[Object]([ExtResource("Act_vanish"), ExtResource("Act_wake_up"), SubResource("Inline_1")])
+completeActions = Array[Object]([ExtResource("Act_vanish"), SubResource("Inline_1")])
 
 [sub_resource type="Resource" id="Branch_greeting"]
 script = ExtResource("Script_ConversationBranch")
@@ -124,10 +125,19 @@ script = ExtResource("Script_ConversationBranch")
 name = &"tasty"
 lines = [SubResource("Line_tasty_1")]
 
+[sub_resource type="Resource" id="Line_bridge_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_bridge_01"
+
+[sub_resource type="Resource" id="Branch_bridge"]
+script = ExtResource("Script_ConversationBranch")
+name = &"bridge"
+lines = [SubResource("Line_bridge_1")]
+
 [resource]
 script = ExtResource("Script_ConversationData")
 entryBranches = [SubResource("Entry_1")]
-branches = [SubResource("Branch_greeting"), SubResource("Branch_guts"), SubResource("Branch_melee"), SubResource("Branch_sneak"), SubResource("Branch_ranged"), SubResource("Branch_this_way"), SubResource("Branch_this_way2"), SubResource("Branch_smell"), SubResource("Branch_gross_man"), SubResource("Branch_look"), SubResource("Branch_tasty")]
+branches = [SubResource("Branch_greeting"), SubResource("Branch_guts"), SubResource("Branch_melee"), SubResource("Branch_sneak"), SubResource("Branch_ranged"), SubResource("Branch_this_way"), SubResource("Branch_this_way2"), SubResource("Branch_smell"), SubResource("Branch_gross_man"), SubResource("Branch_look"), SubResource("Branch_tasty"), SubResource("Branch_bridge")]
 responseGroups = []
 descriptionLocKey = &"intro_fairy_description"
 dismissable = false

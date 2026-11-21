@@ -167,7 +167,7 @@ declaration order is the C# field order across a hierarchy — which floats the
 base class's bookkeeping above the fields an author came to set. An NPC reads
 appearance → idle animation → conversation → language → recruit template, then
 everything unnamed in declaration order. The panel and the check share ONE
-enumeration (`WorldMapEntityInspector.OrderedProperties`), so the report is of
+enumeration (`EntityInspector.OrderedProperties`), so the report is of
 the panel that will actually be built.
 
 The lists are AUTHORED (`MobSpawnEntry.variants`, `NpcSpawnEntry.appearances`),
@@ -658,7 +658,7 @@ authors a `teaches` list INLINE: "+ add ▾" offers each kind (Recipe, Item name
 Region, Meal, Bestiary, Map / scroll, Script flag) and the entry shows only that
 kind's fields, picked from files that already exist. No `.tres` per lesson. A
 list whose element type has subclasses gets this kind menu everywhere in the
-panel (`WorldMapEntityInspector.Kinds`, labels from `[AuthoringKind]`); an
+panel (`EntityInspector.Kinds`, labels from `[AuthoringKind]`); an
 entry narrows it with `RecordKinds` — the knowledge source leaves out Language
 (its lesson is the inscription) and the by-name treasure map (Map / scroll picks
 the map item instead). The hover names it by its inscription and amount
@@ -691,11 +691,14 @@ non-stackable one (`ItemCountRange.AppendStates`, the chest's own rule). A drop
 with no item is refused at bake, and `worldmap_check` counts them.
 
 **A placed entity's properties ARE its entry's**, edited in the panel top-right
-(`WorldMapEntityInspector`) — the inscription on a signpost, the conditions on a chest,
+(`EntityInspector`) — the inscription on a signpost, the conditions on a chest,
 the descriptor on a mob. There is no parallel set of per-placement overrides,
 because a `SpawnEntryData` subclass already exports exactly the fields its entity
 type needs; the panel REFLECTS them, so an entry type written tomorrow is
-editable the day it is written.
+editable the day it is written. It lives in `scripts/authoring/` because the
+scene editor shows the same panel for its selection: each tool hands it a target
+plus `BeforeEdit` / `AfterEdit` and owns the document and undo, and here an edit
+to a stamp's scene entity is that stamp's override, never the scene's own value.
 
 **The same panel lists a selected SCATTER SET, read-only.** The mob tool
 answers `IWorldMapTool.SelectedScatter`, and the panel then shows one row per
@@ -724,7 +727,7 @@ documents paint, so editing one here would silently change every world using it 
 unlike a placement, which the first edit forks into the document. The panel is
 answering "how much of what am I about to paint" without a trip to the `.tres`.
 `worldmap_check` prints the identical listing off the same helper
-(`WorldMapEntityInspector.ScatterRows`), so the report cannot drift from the
+(`EntityInspector.ScatterRows`), so the report cannot drift from the
 panel.
 
 **A flags property is a compact DROPDOWN**, not a row of checkboxes —
@@ -904,7 +907,7 @@ empty field and invite a pick that silently discarded it.
 
 `worldmap_check` reports, per palette entry type, which properties are editable,
 which get a picker (with its candidate count), and which stay read-only — using
-the panel's OWN classifier (`WorldMapEntityInspector.EditorFor`) rather than a
+the panel's OWN classifier (`EntityInspector.EditorFor`) rather than a
 second copy of the rules. It is also the check on the scan: a picker row showing
 0 candidates means the index failed to see that type's files.
 
