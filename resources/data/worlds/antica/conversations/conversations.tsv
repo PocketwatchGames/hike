@@ -1,21 +1,22 @@
 character	name	description	options	player	conversation key	goto	language	condition	on start	on complete	text
 intro_fairy		Glowing Figure	undismissable		greeting				wake_up		It moves! It has soggy eyes though. So soggy.
-										vanish; npcvar:spoken=true	You! Soggy! Your friends ran off. The bear ate one. His guts are sogging up ahead.
-					guts						Here he is! The bear eated his guts. I tasted too. But only a little bit. Come look!
+										vanish; npcvar:spoken=true	Your friends ran off. The bear ate one. His guts are up ahead.
+					climb						Can you fly? No? How about climb? Come over here and press [input:interact].
+					guts						Oooh! The bear eated your friend’s guts. I tasted too. But only a little bit. He has some things you might want though. Come over here and press [input:interact]!
 					melee						Look out for these fossils. Bonk them with [input:melee]
-					sneak						You could also sneak by these soggy fossils. Hold [input:sneak] to sneak!
-					ranged						Did you pick up the shooter from your friend’s guts? You can aim it with [input:aim] and shoot it with [input:ranged].
-					this_way						Your alive friend flopped off this way.
-					this_way2						She climbed up this path towards the big stinky house!
-					smell						Whoever lives here smells gross. He won't taste good.
-					gross_man						Hey soggy! I peeked inside. This man has too much hair. He is gross but he knows where your friend is.
+					sneak						You could also do the sneaky sneaky! Hold [input:sneak] and sneak by him!
+					ranged						Did you pick up the pistol from your friend’s guts? You can aim it with [input:aim] and shoot it with [input:ranged].
+					this_way						Your alive friend squish squashed off this way.
+					this_way2						This way! This way!
+					smell						I think your friend went in that house.
+					gross_man						Hmm, your friend isn’t here. The man inside is hairy. You could talk to him but I wouldn’t taste his guts. Ick.
 					look						Soggy! Come open this! Then look around with [input:camera]!
-					tasty						This sog is tasty too. You should try some!
-					bridge						Soggy! You opened the big gate! The purple mist is across there. It buzzes like bugs. Bugs I can't eat.
+					tasty						Ooh your friend let their guts out too! She’s tasty! You should try some!
+					bridge						Hello again! Where are you going? Do you wanna be friends? Let’s be friends. Best friends.
 festering_man		The Festering Man			greeting	language	vyeshal	npcvar:return=false			Another! The sea spat you out too, huh?
 					greeting_return	mates	vyeshal	npcvar:return=true			Ah, the sodden one returns.
 				x	language	gestures	common	understands:vyeshal<75%			Your language is foreign to me. Do you speak the common tongue?
-				x	language	convo	vyeshal	understands:vyeshal>=75%			Aye. My flesh was unwelcome even in her hungry gullet, thanks be.
+				x	language	convo	vyeshal	understands:vyeshal>=75%			Aye. My flesh was unwelcome even in her hungry gullet.
 					gestures						[narrate]He shakes his head and points to the library upstairs.[/narrate]
 					convo	mates				npcvar:return=true	I’m afraid my cookpot is also empty. But if you cook 3 cuts of goblin flesh you’ll feed us both! [narrate]He holds up 3 fingers[/narrate]
 				x	mates	impatient		var:antica_dead_friend_found!=true			One of my mates came this way. Have you seen her?

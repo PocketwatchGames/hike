@@ -23,12 +23,6 @@ public partial class ScreenEffectsController : Node
 	[Export(PropertyHint.Range, "0,1.5,0.01")] public float vignetteSoftness = 0.45f;
 	[Export(PropertyHint.Range, "0,1,0.01")] public float vignetteStrength = 0.5f;
 
-	[ExportGroup("Screen Flash")]
-	// Default fade time (peak → 0) for a triggered flash when the caller doesn't
-	// pass its own. The channel is colorless here — callers pick the color, so
-	// one flash serves lightning, pickups, the fairy's death, and so on.
-	[Export(PropertyHint.Range, "0.05,2,0.05")] public float screenFlashFadeSeconds = 0.3f;
-
 	[ExportGroup("Damage Feedback")]
 	// Red-flash intensity = (damage / maxHealth) * scale, clamped to 1.
 	// A scale of 2 means a 50% chunk drives the flash to its max; tune up
@@ -102,11 +96,20 @@ public partial class ScreenEffectsController : Node
 	// flash fades over damageFlashFadeSeconds.
 	float _damageFlash;
 
-	// Generic screen-flash state. Intensity ramps to a peak on Flash() and
-	// decays linearly each frame over _screenFlashFadeActive seconds toward 0.
-	float _screenFlash;
-	Color _screenFlashColor = Colors.White;
-	float _screenFlashFadeActive = 0.3f;
+	// Must match SCREEN_FLASH_SLOTS in post_process.gdshader.
+	const int SCREEN_FLASH_SLOTS = 4;
+
+	// One playing flash. Intensity decays linearly to 0 over data.fadeSeconds.
+	struct FlashSlot
+	{
+		public ScreenFlashData data;
+		public float intensity;
+	}
+
+	readonly FlashSlot[] _flashSlots = new FlashSlot[SCREEN_FLASH_SLOTS];
+	// Reused per-frame uniform buffers.
+	readonly Vector4[] _flashColorParam = new Vector4[SCREEN_FLASH_SLOTS];
+	readonly Vector4[] _flashShapeParam = new Vector4[SCREEN_FLASH_SLOTS];
 
 	// Heartbeat pulse state. `_heartbeatPhase` is the position in the current
 	// lub-dub cycle in [0, 1); a cycle boundary retriggers the SFX. While the
@@ -139,18 +142,40 @@ public partial class ScreenEffectsController : Node
 		}
 	}
 
-	// Trigger a one-shot full-screen flash toward `color`. `intensity` (0..1) is
-	// the peak; `fadeSeconds` <= 0 falls back to screenFlashFadeSeconds. Stacks
-	// max-of with any in-progress flash so a follow-up doesn't dim an active one.
-	public void Flash(Color color, float intensity = 1f, float fadeSeconds = -1f)
+	// Play `flash` at its authored peak times `intensityScale` (a distance
+	// falloff, say). A flash of the same data already playing is re-peaked
+	// (max-of) rather than given a second slot; otherwise it takes a free slot,
+	// or the dimmest one when all are busy.
+	public void Flash(ScreenFlashData flash, float intensityScale = 1f)
 	{
-		intensity = Mathf.Clamp(intensity, 0f, 1f);
+		if (flash == null) { return; }
+		float intensity = Mathf.Clamp(flash.intensity * intensityScale, 0f, 1f);
 		if (intensity <= 0f) { return; }
-		_screenFlashColor = color;
-		_screenFlashFadeActive = fadeSeconds > 0f ? fadeSeconds : screenFlashFadeSeconds;
-		if (intensity > _screenFlash)
+
+		int target = -1;
+		for (int i = 0; i < SCREEN_FLASH_SLOTS; i++)
 		{
-			_screenFlash = intensity;
+			if (_flashSlots[i].data == flash)
+			{
+				target = i;
+				break;
+			}
+		}
+		if (target < 0)
+		{
+			target = 0;
+			for (int i = 1; i < SCREEN_FLASH_SLOTS; i++)
+			{
+				if (_flashSlots[i].intensity < _flashSlots[target].intensity)
+				{
+					target = i;
+				}
+			}
+			_flashSlots[target] = new FlashSlot { data = flash, intensity = 0f };
+		}
+		if (intensity > _flashSlots[target].intensity)
+		{
+			_flashSlots[target].intensity = intensity;
 		}
 	}
 
@@ -241,14 +266,27 @@ public partial class ScreenEffectsController : Node
 		// hint_default_white kicks in and the flash paints uniformly red.
 		postProcessMaterial.SetShaderParameter("damage_flash_tex", damageFlashTexture);
 
-		// Generic screen flash — decay toward 0 and push every frame (including
-		// 0) so a finished flash clears.
-		if (_screenFlash > 0f && _screenFlashFadeActive > 0f)
+		// Screen flashes — decay each slot and push every frame (including 0) so
+		// a finished flash clears. Intensity rides in the color's alpha.
+		for (int i = 0; i < SCREEN_FLASH_SLOTS; i++)
 		{
-			_screenFlash = Mathf.Max(0f, _screenFlash - dt / _screenFlashFadeActive);
+			ref FlashSlot slot = ref _flashSlots[i];
+			if (slot.data == null)
+			{
+				_flashColorParam[i] = Vector4.Zero;
+				continue;
+			}
+			slot.intensity = Mathf.Max(0f, slot.intensity - dt / Mathf.Max(slot.data.fadeSeconds, 0.001f));
+			Color c = slot.data.color;
+			_flashColorParam[i] = new Vector4(c.R, c.G, c.B, slot.intensity * c.A);
+			_flashShapeParam[i] = new Vector4(slot.data.edgeAmount, slot.data.edgeRadius, slot.data.edgeSoftness, 0f);
+			if (slot.intensity <= 0f)
+			{
+				slot.data = null;
+			}
 		}
-		postProcessMaterial.SetShaderParameter("screen_flash", _screenFlash);
-		postProcessMaterial.SetShaderParameter("screen_flash_color", _screenFlashColor);
+		postProcessMaterial.SetShaderParameter("screen_flash_color", _flashColorParam);
+		postProcessMaterial.SetShaderParameter("screen_flash_shape", _flashShapeParam);
 
 		// Low-health overlay. Ramp = (threshold - healthFrac) / threshold
 		// so at threshold the ramp is 0, at 0 health the ramp is 1. Each

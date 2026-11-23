@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://dkwu7lidv1kxj" path="res://scripts/client/ContinuousCameraShake.cs" id="3_shake"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="4_particle_lit"]
 [ext_resource type="Script" uid="uid://bscrflashemit01" path="res://scripts/client/ScreenFlashEmitter.cs" id="5_flash"]
+[ext_resource type="Resource" path="res://resources/data/screen_flashes/parry.tres" id="6_flashdata"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_parry"]
 playback_mode = 1
@@ -82,6 +83,4 @@ range = 12.0
 
 [node name="Flash" type="Node" parent="."]
 script = ExtResource("5_flash")
-color = Color(1, 1, 1, 1)
-intensity = 0.4
-fadeSeconds = 0.2
+flash = ExtResource("6_flashdata")

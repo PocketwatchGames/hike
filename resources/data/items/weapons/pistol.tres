@@ -28,10 +28,12 @@
 [ext_resource type="Resource" path="res://resources/data/items/materials/gunpowder.tres" id="repair_gunpowder"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/lead.tres" id="repair_lead"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
+[ext_resource type="Resource" path="res://resources/data/screen_flashes/weapon_fire.tres" id="fire_flash"]
 
 [sub_resource type="Resource" id="Resource_event_scatter"]
 script = ExtResource("3_event")
-type = 42016836
+type = 42278980
+screenFlash = ExtResource("fire_flash")
 fx = ExtResource("8_fire")
 cameraShakeMagnitude = 0.12
 cameraShakeDuration = 0.12
@@ -70,7 +72,8 @@ impactBackstabEffect = ExtResource("7_hitcreature")
 
 [sub_resource type="Resource" id="Resource_event_heavy"]
 script = ExtResource("3_event")
-type = 42017860
+type = 42280004
+screenFlash = ExtResource("fire_flash")
 animName = 20
 fx = ExtResource("8_fire")
 damageProfileKey = &"charged"

@@ -12,9 +12,11 @@ using Godot;
 // hands it back to its brain. A flier holds and moves at
 // SimData.scriptHoverHeight rather than its own hoverHeight.
 //
-// Runtime only, apart from following and hiding (MobSimState.ScriptFollowing /
-// Hidden): a move, a hold and a `then` are lost if the mob streams out or the
-// run ends.
+// A mob a script moves, follows or reappears becomes PERSISTENT (like the
+// companion): its node is never evicted with the chunk it spawned in, which a
+// script can send it arbitrarily far from. Runtime only, apart from following
+// and hiding (MobSimState.ScriptFollowing / Hidden): a move, a hold and a
+// `then` are lost when the run ends.
 public partial class Mob
 {
     private Vector3? _scriptGoal;
@@ -73,6 +75,7 @@ public partial class Mob
         {
             _simState.ScriptFollowing = false;
         }
+        _world?.PromoteMobToPersistent(this);
         SimData data = _world?.SimData;
         _scriptGoal = goal;
         _scriptSpeed = run ? (data?.scriptRunSpeed ?? 1f) : (data?.scriptWalkSpeed ?? 0.5f);
@@ -254,6 +257,7 @@ public partial class Mob
     public void Reappear(Vector3 at, Action then = null)
     {
         _vanishAtMs = 0;
+        _world?.PromoteMobToPersistent(this);
         if (IsHoldingAt(at, null))
         {
             then?.Invoke();

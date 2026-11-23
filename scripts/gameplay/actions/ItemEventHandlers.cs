@@ -164,6 +164,10 @@ public static class ItemEventHandlers
 		if (mobStruck && !mobStruckBefore)
 		{
 			WearOnStrike(actor.AttackerNode, action.context.primaryItem as WeaponState, ev.durabilityCostOnHit);
+			if (actor is Player player)
+			{
+				(ev.impactFeedback ?? player.data?.meleeHitFeedback)?.Play();
+			}
 		}
 
 		// Whiff / environment thunk. A window can only be called a whiff once it
@@ -1238,7 +1242,7 @@ public static class ItemEventHandlers
 		}
 		if ((ev.type & EItemEventType.ScreenFlash) != 0)
 		{
-			ScreenEffectsController.Current?.Flash(ev.screenFlashColor, ev.screenFlashIntensity, ev.screenFlashFadeSeconds);
+			ScreenEffectsController.Current?.Flash(ev.screenFlash);
 		}
 		if ((ev.type & EItemEventType.Noise) != 0)
 		{
@@ -1503,14 +1507,16 @@ public static class ItemEventHandlers
 		cam.Shake.AddImpulse(ev.cameraShakeMagnitude, ev.cameraShakeDuration, actor.ActorWorldPosition, ev.cameraShakeRange, playerPos);
 	}
 
-	// One-shot full-screen flash toward ev.screenFlashColor, decayed by the
-	// ScreenEffectsController. The main-timeline counterpart to the projectile-
-	// impact ScreenFlash in DispatchAtPosition — author it on any tier / charge
-	// event that should punch a screenspace flash (a spell going off). No-op
-	// when there's no controller (headless).
+	// Plays ev.screenFlash for the PLAYER's own actions only — mobs wield the
+	// same WeaponData, and a goblin's pistol must not flash the screen. The
+	// projectile-impact ScreenFlash in DispatchAtPosition is the in-world
+	// counterpart and is not gated.
 	public static void DoScreenFlash(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
-		ScreenEffectsController.Current?.Flash(ev.screenFlashColor, ev.screenFlashIntensity, ev.screenFlashFadeSeconds);
+		if (actor is Player)
+		{
+			ScreenEffectsController.Current?.Flash(ev.screenFlash);
+		}
 	}
 
 	// Fires a one-shot controller-rumble impulse anchored at the actor's

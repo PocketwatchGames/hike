@@ -1,23 +1,24 @@
 key	value
 intro_fairy_description	Glowing Figure
 intro_fairy_greeting_01	It moves! It has soggy eyes though. So soggy.
-intro_fairy_greeting_02	You! Soggy! Your friends ran off. The bear ate one. His guts are sogging up ahead.
-intro_fairy_guts_01	Here he is! The bear eated his guts. I tasted too. But only a little bit. Come look!
+intro_fairy_greeting_02	Your friends ran off. The bear ate one. His guts are up ahead.
+intro_fairy_climb_01	Can you fly? No? How about climb? Come over here and press [input:interact].
+intro_fairy_guts_01	Oooh! The bear eated your friend’s guts. I tasted too. But only a little bit. He has some things you might want though. Come over here and press [input:interact]!
 intro_fairy_melee_01	Look out for these fossils. Bonk them with [input:melee]
-intro_fairy_sneak_01	You could also sneak by these soggy fossils. Hold [input:sneak] to sneak!
-intro_fairy_ranged_01	Did you pick up the shooter from your friend’s guts? You can aim it with [input:aim] and shoot it with [input:ranged].
-intro_fairy_this_way_01	Your alive friend flopped off this way.
-intro_fairy_this_way2_01	She climbed up this path towards the big stinky house!
-intro_fairy_smell_01	Whoever lives here smells gross. He won't taste good.
-intro_fairy_gross_man_01	Hey soggy! I peeked inside. This man has too much hair. He is gross but he knows where your friend is.
+intro_fairy_sneak_01	You could also do the sneaky sneaky! Hold [input:sneak] and sneak by him!
+intro_fairy_ranged_01	Did you pick up the pistol from your friend’s guts? You can aim it with [input:aim] and shoot it with [input:ranged].
+intro_fairy_this_way_01	Your alive friend squish squashed off this way.
+intro_fairy_this_way2_01	This way! This way!
+intro_fairy_smell_01	I think your friend went in that house.
+intro_fairy_gross_man_01	Hmm, your friend isn’t here. The man inside is hairy. You could talk to him but I wouldn’t taste his guts. Ick.
 intro_fairy_look_01	Soggy! Come open this! Then look around with [input:camera]!
-intro_fairy_tasty_01	This sog is tasty too. You should try some!
-intro_fairy_bridge_01	Soggy! You opened the big gate! The purple mist is across there. It buzzes like bugs. Bugs I can't eat.
+intro_fairy_tasty_01	Ooh your friend let their guts out too! She’s tasty! You should try some!
+intro_fairy_bridge_01	Hello again! Where are you going? Do you wanna be friends? Let’s be friends. Best friends.
 festering_man_description	The Festering Man
 festering_man_greeting_01	Another! The sea spat you out too, huh?
 festering_man_greeting_return_01	Ah, the sodden one returns.
 festering_man_language_gestures	Your language is foreign to me. Do you speak the common tongue?
-festering_man_language_convo	Aye. My flesh was unwelcome even in her hungry gullet, thanks be.
+festering_man_language_convo	Aye. My flesh was unwelcome even in her hungry gullet.
 festering_man_gestures_01	[narrate]He shakes his head and points to the library upstairs.[/narrate]
 festering_man_convo_01	I’m afraid my cookpot is also empty. But if you cook 3 cuts of goblin flesh you’ll feed us both! [narrate]He holds up 3 fingers[/narrate]
 festering_man_mates_impatient	One of my mates came this way. Have you seen her?

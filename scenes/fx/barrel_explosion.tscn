@@ -3,6 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://bm0blastfx7k2" path="res://scenes/fx/bomb_blast_fx.tscn" id="1_blast"]
 [ext_resource type="Script" uid="uid://dkwu7lidv1kxj" path="res://scripts/client/ContinuousCameraShake.cs" id="2_shake"]
 [ext_resource type="Script" uid="uid://bscrflashemit01" path="res://scripts/client/ScreenFlashEmitter.cs" id="3_flash"]
+[ext_resource type="Resource" path="res://resources/data/screen_flashes/barrel_explosion.tres" id="4_flashdata"]
 
 [node name="BarrelExplosion" instance=ExtResource("1_blast")]
 
@@ -13,5 +14,4 @@ range = 22.0
 
 [node name="Flash" type="Node" parent="."]
 script = ExtResource("3_flash")
-color = Color(1, 0.7, 0.35, 1)
-intensity = 0.4
+flash = ExtResource("4_flashdata")

@@ -5,4 +5,4 @@
 [resource]
 script = ExtResource("1_svd")
 id = &"antica_bridge_opened"
-description = "Antica tutorial: set by an Unlock hook on the bridge door (the bridge_entrance stamp's override of it). Switches off the fairy's early lesson boxes (fairy_follow, tut_melee, tut_sneak, tut_ranged)."
+description = "Antica tutorial: set by an Unlock hook on the bridge door (the bridge_entrance stamp's override of it). Switches off the fairy's early lesson boxes (tut_climb, tut_melee, tut_sneak, tut_ranged); the same hook sets antica_guts_done."

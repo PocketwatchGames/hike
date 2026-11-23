@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="HitFeedbackData" format=3 uid="uid://wy8yi5ewt85o"]
+
+[ext_resource type="Script" path="res://scripts/data/combat/HitFeedbackData.cs" id="1_feedback"]
+[ext_resource type="Resource" uid="uid://ci31x3u78lg7b" path="res://resources/data/screen_flashes/melee_hit.tres" id="2_flash"]
+
+[resource]
+script = ExtResource("1_feedback")
+screenFlash = ExtResource("2_flash")
+cameraShakeMagnitude = 0.1
+cameraShakeDuration = 0.15

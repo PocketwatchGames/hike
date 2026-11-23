@@ -493,6 +493,9 @@ public partial class PlayerData : Resource
 
 	// What the player bleeds when wounded (see BloodData).
 	[Export] public BloodData blood;
+	// Flash + shake on every melee swing's first creature strike. A swing's
+	// ItemEvent.impactFeedback overrides it.
+	[Export] public HitFeedbackData meleeHitFeedback;
 
 	[ExportGroup("Armor")]
 	[Export] public float armorRechargeDelay = 3f;

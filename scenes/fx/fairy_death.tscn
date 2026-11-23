@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_particle_lit"]
 [ext_resource type="Script" uid="uid://bscrflashemit01" path="res://scripts/client/ScreenFlashEmitter.cs" id="3_flash"]
+[ext_resource type="Resource" path="res://resources/data/screen_flashes/fairy_death.tres" id="4_flashdata"]
 
 [sub_resource type="Gradient" id="Gradient_pixfade"]
 offsets = PackedFloat32Array(0, 0.15, 0.85, 1)
@@ -51,6 +52,4 @@ draw_pass_1 = SubResource("QuadMesh_fairy")
 
 [node name="Flash" type="Node" parent="."]
 script = ExtResource("3_flash")
-color = Color(0.72, 0.5, 1, 1)
-intensity = 0.55
-fadeSeconds = 0.35
+flash = ExtResource("4_flashdata")

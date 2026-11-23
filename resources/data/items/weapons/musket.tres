@@ -27,11 +27,13 @@
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="27_048yb"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/steel.tres" id="salvage_steel"]
+[ext_resource type="Resource" path="res://resources/data/screen_flashes/weapon_fire.tres" id="fire_flash"]
 
 [sub_resource type="Resource" id="Resource_event_shot"]
 script = ExtResource("3_event")
 time = 500
-type = 42017860
+type = 42280004
+screenFlash = ExtResource("fire_flash")
 animName = 20
 fx = ExtResource("8_fire")
 motionForwardSpeed = -10.0

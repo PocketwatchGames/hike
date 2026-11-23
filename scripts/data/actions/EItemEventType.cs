@@ -74,10 +74,10 @@ public enum EItemEventType
 	CameraShake = 1 << 16,
 	// 1 << 17 was Dig (the hotbar shovel); digging is an interaction now
 	// (BuriedSpot). Free.
-	// One-shot full-screen flash toward ev.screenFlashColor, decayed by
-	// ScreenEffectsController. Parallels CameraShake — an action-timeline way to
-	// punch a screenspace flash (a spell, a flashbang). For effect SCENES
-	// (particle bursts, sounds) drop a ScreenFlashEmitter node in instead.
+	// Plays ev.screenFlash, only when the PLAYER is the actor (a mob firing a
+	// pistol flashes nothing). An action-timeline way to punch a screenspace
+	// flash (a gunshot, a spell). For effect SCENES (particle bursts, sounds)
+	// drop a ScreenFlashEmitter node in instead.
 	ScreenFlash = 1 << 18,
 	// Summons a minion mob (ev.minionSpecies) on the player's team at the actor's
 	// aim point (or position when no aim cursor is active). The minion follows

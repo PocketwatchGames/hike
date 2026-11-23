@@ -52,13 +52,15 @@ uniform sampler2D damage_flash_tex : hint_default_white, filter_linear;
 uniform vec4 damage_flash_color : source_color = vec4(1.0, 0.05, 0.05, 1.0);
 uniform float damage_flash : hint_range(0.0, 1.0) = 0.0;
 
-// Screenspace flash. A brief full-screen wash toward `screen_flash_color`,
-// driven 0..1 by ScreenEffectsController.Flash and decayed there. A reusable
-// channel any effect can punch (lightning, a fairy winking out, an explosion):
-// the trigger picks the color + peak intensity, the controller fades it. Sits
-// above the vignette so it reads as a true full-screen flash, edges included.
-uniform vec4 screen_flash_color : source_color = vec4(1.0, 1.0, 1.0, 1.0);
-uniform float screen_flash : hint_range(0.0, 1.0) = 0.0;
+// Screen flashes: SCREEN_FLASH_SLOTS independent washes, each a ScreenFlashData
+// played by ScreenEffectsController.Flash and decayed there, so overlapping
+// flashes don't overwrite each other. Per slot: `screen_flash_color` (rgb, a =
+// current intensity) and `screen_flash_shape` (x = edgeAmount, y = edgeRadius,
+// z = edgeSoftness). Sits above the vignette so it reaches the edges.
+// SCREEN_FLASH_SLOTS must match ScreenEffectsController.SCREEN_FLASH_SLOTS.
+const int SCREEN_FLASH_SLOTS = 4;
+uniform vec4 screen_flash_color[SCREEN_FLASH_SLOTS];
+uniform vec4 screen_flash_shape[SCREEN_FLASH_SLOTS];
 
 // Both pushed pre-scaled from GameClient — the C# side maps the player's
 // health fraction through the threshold ramp + per-component max, so the
@@ -189,9 +191,15 @@ void fragment()
 	float v = smoothstep(vignette_radius, vignette_radius + vignette_softness, dist);
 	scene = mix(scene, vec3(0.0), v * vignette_strength);
 
-	if (screen_flash > 0.0)
+	for (int i = 0; i < SCREEN_FLASH_SLOTS; i++)
 	{
-		scene = mix(scene, screen_flash_color.rgb, screen_flash * screen_flash_color.a);
+		vec4 c = screen_flash_color[i];
+		if (c.a > 0.0)
+		{
+			vec4 sh = screen_flash_shape[i];
+			float rim = smoothstep(sh.y, sh.y + sh.z, dist);
+			scene = mix(scene, c.rgb, c.a * mix(1.0, rim, sh.x));
+		}
 	}
 
 	COLOR = vec4(scene, 1.0);

@@ -13,7 +13,8 @@
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/script_variables/var_antica_guide_arrived.tres" id="11_antica_guide_arrived"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/script_variables/var_antica_dead_friend_found.tres" id="12_antica_dead_friend_found"]
 [ext_resource type="Resource" path="res://resources/data/worlds/shared/script_variables/var_antica_bridge_opened.tres" id="13_antica_bridge_opened"]
+[ext_resource type="Resource" path="res://resources/data/worlds/shared/script_variables/var_antica_guts_done.tres" id="14_antica_guts_done"]
 
 [resource]
 script = ExtResource("1_reg")
-variables = Array[ExtResource("2_svd")]([ExtResource("3_boss"), ExtResource("4_quest"), ExtResource("5_verse1"), ExtResource("6_verse2"), ExtResource("7_verse3"), ExtResource("8_verse4"), ExtResource("9_firstmap"), ExtResource("10_antica_lessons_done"), ExtResource("11_antica_guide_arrived"), ExtResource("12_antica_dead_friend_found"), ExtResource("13_antica_bridge_opened")])
+variables = Array[ExtResource("2_svd")]([ExtResource("3_boss"), ExtResource("4_quest"), ExtResource("5_verse1"), ExtResource("6_verse2"), ExtResource("7_verse3"), ExtResource("8_verse4"), ExtResource("9_firstmap"), ExtResource("10_antica_lessons_done"), ExtResource("11_antica_guide_arrived"), ExtResource("12_antica_dead_friend_found"), ExtResource("13_antica_bridge_opened"), ExtResource("14_antica_guts_done")])

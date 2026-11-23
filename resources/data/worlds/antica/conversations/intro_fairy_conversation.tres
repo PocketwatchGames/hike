@@ -35,6 +35,15 @@ script = ExtResource("Script_ConversationBranch")
 name = &"greeting"
 lines = [SubResource("Line_greeting_1"), SubResource("Line_greeting_2")]
 
+[sub_resource type="Resource" id="Line_climb_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"intro_fairy_climb_01"
+
+[sub_resource type="Resource" id="Branch_climb"]
+script = ExtResource("Script_ConversationBranch")
+name = &"climb"
+lines = [SubResource("Line_climb_1")]
+
 [sub_resource type="Resource" id="Line_guts_1"]
 script = ExtResource("Script_ConversationLine")
 locKey = &"intro_fairy_guts_01"
@@ -137,7 +146,7 @@ lines = [SubResource("Line_bridge_1")]
 [resource]
 script = ExtResource("Script_ConversationData")
 entryBranches = [SubResource("Entry_1")]
-branches = [SubResource("Branch_greeting"), SubResource("Branch_guts"), SubResource("Branch_melee"), SubResource("Branch_sneak"), SubResource("Branch_ranged"), SubResource("Branch_this_way"), SubResource("Branch_this_way2"), SubResource("Branch_smell"), SubResource("Branch_gross_man"), SubResource("Branch_look"), SubResource("Branch_tasty"), SubResource("Branch_bridge")]
+branches = [SubResource("Branch_greeting"), SubResource("Branch_climb"), SubResource("Branch_guts"), SubResource("Branch_melee"), SubResource("Branch_sneak"), SubResource("Branch_ranged"), SubResource("Branch_this_way"), SubResource("Branch_this_way2"), SubResource("Branch_smell"), SubResource("Branch_gross_man"), SubResource("Branch_look"), SubResource("Branch_tasty"), SubResource("Branch_bridge")]
 responseGroups = []
 descriptionLocKey = &"intro_fairy_description"
 dismissable = false

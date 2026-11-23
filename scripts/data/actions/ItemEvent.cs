@@ -167,12 +167,8 @@ public partial class ItemEvent : Resource
 	[Export] public float controllerRumbleDuration = 0.2f;
 	[Export] public float controllerRumbleRange = 0f;
 
-	// ScreenFlash fields. Color + peak intensity of a one-shot full-screen
-	// flash; fadeSeconds <= 0 uses the ScreenEffectsController default. See
-	// EItemEventType.ScreenFlash.
-	[Export] public Color screenFlashColor = new Color(1f, 1f, 1f, 1f);
-	[Export(PropertyHint.Range, "0,1,0.01")] public float screenFlashIntensity = 0.5f;
-	[Export] public float screenFlashFadeSeconds = 0.3f;
+	// ScreenFlash: the flash to play. See EItemEventType.ScreenFlash.
+	[Export] public ScreenFlashData screenFlash;
 
 	// Noise: loudness of the event, in impactDecibels' currency. See
 	// EItemEventType.Noise.
@@ -196,6 +192,10 @@ public partial class ItemEvent : Resource
 	// raises mobs' perception of the player; a mob's raises the player's awareness
 	// of that mob. 0 = silent.
 	[Export] public float impactDecibels = 0f;
+	// What the PLAYER feels when this swing first strikes a creature. Null =
+	// PlayerData.meleeHitFeedback, so only a swing that should feel different
+	// (a heavy finisher) sets one.
+	[Export] public HitFeedbackData impactFeedback;
 	// Durability the driving weapon spends when this attack first strikes a MOB —
 	// a melee swing's first creature, a hitscan hit, a projectile's first creature
 	// (pierce-throughs don't add more). Breakables and props never wear it.
@@ -433,7 +433,8 @@ public partial class ItemEvent : Resource
 		{
 			nameof(range) or nameof(nearWidth) or nameof(farWidth) or nameof(meleeHeight)
 				or nameof(meleeDuration)
-				or nameof(smearEffect) or nameof(smearClockwise) => EItemEventType.Melee,
+				or nameof(smearEffect) or nameof(smearClockwise)
+				or nameof(impactFeedback) => EItemEventType.Melee,
 			nameof(hitScanRange) => EItemEventType.Hitscan,
 			nameof(effects) => EItemEventType.ApplyStatusEffect | EItemEventType.ApplyAreaStatusEffect,
 			nameof(animName) or nameof(animDuration) => EItemEventType.PlayAnim,
@@ -483,9 +484,7 @@ public partial class ItemEvent : Resource
 				or nameof(controllerRumbleStrong)
 				or nameof(controllerRumbleDuration)
 				or nameof(controllerRumbleRange) => EItemEventType.ControllerRumble,
-			nameof(screenFlashColor)
-				or nameof(screenFlashIntensity)
-				or nameof(screenFlashFadeSeconds) => EItemEventType.ScreenFlash,
+			nameof(screenFlash) => EItemEventType.ScreenFlash,
 			nameof(noiseDecibels) => EItemEventType.Noise,
 			nameof(minionSpecies) => EItemEventType.SummonMinion,
 			_ => 0,

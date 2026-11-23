@@ -3,16 +3,21 @@ using Godot;
 // Antica's scripted events: the intro fairy's tutorial.
 //
 // Each named box below is a painter trigger. Whether it is live is the box's own
-// data, not this script's: each carries a disabled variable (fairy_follow and
-// the three combat lessons go off at antica_bridge_opened — an Unlock hook on
-// the bridge portcullis — tut_follow at antica_lessons_done, the guide boxes at
+// data, not this script's: each carries a disabled variable (fairy_follow goes
+// off at antica_guts_done, tut_climb and the three combat lessons at
+// antica_bridge_opened — an Unlock hook on the bridge portcullis that sets both
+// — tut_follow at antica_lessons_done, the guide boxes at
 // antica_guide_arrived, the rest at antica_dead_friend_found), and the lesson
 // boxes repeat on every entry.
 //
 //   New game          -> her greeting; its last line vanishes her.
 //   fairy_follow      -> appears at the `bear_body` waypoint, says `guts`.
 //     (leaving it vanishes her again)
-//   tut_melee         -> appears over `tut_goblin`, says `melee`.
+//   search bear_corpse-> she vanishes; antica_guts_done is set, switching
+//                        fairy_follow off.
+//   tut_climb         -> appears at the `waypoint_climb` waypoint, says `climb`.
+//     (leaving it vanishes her again)
+//   tut_melee        -> appears over `tut_goblin`, says `melee`.
 //   tut_sneak         -> appears at the `sneak_waypoint`, says `sneak`.
 //   tut_ranged        -> appears over `goblin_ranged`, says `ranged`.
 //     (leaving any of those three vanishes her again)
@@ -26,8 +31,10 @@ using Godot;
 //   tut_look          -> appears over `lantern_chest`, says `look`.
 //   tut_spade         -> appears over `dead_friend`, says `tasty`.
 //     (leaving either vanishes her again)
-//   bridge_trigger    -> appears over the `bridge_fairy` waypoint, says `bridge`.
-//     (leaving it vanishes her again)
+//   bridge_trigger    -> appears over the `bridge_fairy` waypoint and says
+//                        `bridge` on arrival, whether or not the player is
+//                        still in the box (it is crossed, not stood in); she
+//                        stays there after the player leaves.
 //   search dead_friend-> she vanishes for good; antica_dead_friend_found is set
 //                        (what the festering man's conversation branches on).
 //
@@ -40,12 +47,15 @@ public partial class WorldScriptAntica : WorldScriptData
     private const string IntroFairy = "intro_fairy";
 
     // Variables (declared in worlds/shared/script_variables).
+    private const string GutsDone = "antica_guts_done";
     private const string LessonsDone = "antica_lessons_done";
     private const string GuideArrived = "antica_guide_arrived";
     private const string DeadFriendFound = "antica_dead_friend_found";
 
     // Where she appears: waypoints and named entities.
     private const string BearBody = "bear_body";
+    private const string BearCorpse = "bear_corpse";
+    private const string ClimbSpot = "waypoint_climb";
     private const string TutGoblin = "tut_goblin";
     private const string SneakSpot = "sneak_waypoint";
     private const string RangedSpot = "goblin_ranged";
@@ -59,6 +69,7 @@ public partial class WorldScriptAntica : WorldScriptData
 
     // Trigger boxes.
     private const string BodyTrigger = "fairy_follow";
+    private const string ClimbTrigger = "tut_climb";
     private const string MeleeTrigger = "tut_melee";
     private const string SneakTrigger = "tut_sneak";
     private const string RangedTrigger = "tut_ranged";
@@ -72,6 +83,7 @@ public partial class WorldScriptAntica : WorldScriptData
 
     // Her conversation keys, said as standing lines.
     private const string SayGuts = "guts";
+    private const string SayClimb = "climb";
     private const string SayMelee = "melee";
     private const string SaySneak = "sneak";
     private const string SayRanged = "ranged";
@@ -101,6 +113,9 @@ public partial class WorldScriptAntica : WorldScriptData
         {
             case BodyTrigger:
                 AppearAndSay(api, BearBody, trigger, SayGuts);
+                break;
+            case ClimbTrigger:
+                AppearAndSay(api, ClimbSpot, trigger, SayClimb);
                 break;
             case MeleeTrigger:
                 AppearAndSay(api, TutGoblin, trigger, SayMelee);
@@ -132,7 +147,7 @@ public partial class WorldScriptAntica : WorldScriptData
                 AppearAndSay(api, DeadFriend, trigger, SayTasty);
                 break;
             case BridgeTrigger:
-                AppearAndSay(api, BridgeSpot, trigger, SayBridge);
+                api.Reappear(IntroFairy, BridgeSpot, a => a.Say(IntroFairy, SayBridge));
                 break;
         }
     }
@@ -143,6 +158,7 @@ public partial class WorldScriptAntica : WorldScriptData
         switch (trigger)
         {
             case BodyTrigger:
+            case ClimbTrigger:
             case MeleeTrigger:
             case SneakTrigger:
             case RangedTrigger:
@@ -152,17 +168,23 @@ public partial class WorldScriptAntica : WorldScriptData
             case TalkTrigger:
             case LookTrigger:
             case SpadeTrigger:
-            case BridgeTrigger:
                 api.VanishAfter(IntroFairy, leaveGraceSeconds);
                 break;
         }
     }
 
+    // Searching the bear's body ends its lesson: she vanishes, and the variable
+    // switches its box off.
     // Searching the friend's body ends the tutorial: she goes for good, and the
     // variable switches off every box still live.
     public override void OnInteracted(WorldScriptApi api, string name)
     {
-        if (name == DeadFriend && !api.GetBool(DeadFriendFound))
+        if (name == BearCorpse && !api.GetBool(GutsDone))
+        {
+            api.SetBool(GutsDone, true);
+            api.Vanish(IntroFairy);
+        }
+        else if (name == DeadFriend && !api.GetBool(DeadFriendFound))
         {
             api.SetBool(DeadFriendFound, true);
             api.Vanish(IntroFairy);

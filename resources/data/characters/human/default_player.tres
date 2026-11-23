@@ -12,6 +12,7 @@
 [ext_resource type="Resource" uid="uid://dwk6aa74jfi6k" path="res://resources/data/actions/mantle_down_action.tres" id="31_mantle_down"]
 [ext_resource type="Resource" uid="uid://dbm53bqcpue8w" path="res://resources/data/blood/red_blood.tres" id="blood_1"]
 [ext_resource type="Script" uid="uid://b324fje5al755" path="res://scripts/data/characters/NeedRemarkData.cs" id="need_remark_script"]
+[ext_resource type="Resource" path="res://resources/data/hit_feedback/melee_hit.tres" id="melee_hit_feedback"]
 
 [sub_resource type="Resource" id="need_remark_hunger_1"]
 script = ExtResource("need_remark_script")
@@ -111,6 +112,7 @@ unarmedShield = ExtResource("8_fists_shield")
 modifiers = Array[Object]([])
 weaponQueueWindowSeconds = 0.25
 blood = ExtResource("blood_1")
+meleeHitFeedback = ExtResource("melee_hit_feedback")
 armorRechargeDelay = 5.0
 bloodRegenSpeed = 10.0
 maxStamina = 2.0

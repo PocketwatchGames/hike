@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ScreenFlashData" format=3 uid="uid://de7x71tv3loun"]
+
+[ext_resource type="Script" uid="uid://csuvrb1cvqwns" path="res://scripts/data/combat/ScreenFlashData.cs" id="1_flash"]
+
+[resource]
+script = ExtResource("1_flash")
+intensity = 0.25
+fadeSeconds = 0.2
+edgeAmount = 1.0
+edgeRadius = 0.45
+edgeSoftness = 0.6
