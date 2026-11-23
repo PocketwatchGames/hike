@@ -34,6 +34,9 @@ using System.Text;
 //
 //   Meat — a MobData.meat never stacks, being one animal's worth.
 //
+//   Enemy HUD — a hostile mob's hudScale is at least MinEnemyHudScale, so a
+//   small enemy's health bar still reads.
+//
 //   Tool uses — every ItemData.toolUses row names a kind; a None row makes the
 //   item serve as nothing while reading as if it did.
 //
@@ -401,6 +404,7 @@ public static class ResourceCheck
             problems.Add($"{path}: meat {mob.meat.ResourcePath} must not stack (maxStack {mob.meat.maxStack})");
         }
         CheckPalette((res as MobData)?.palette ?? (res as SpeciesData)?.palette, path, problems);
+        CheckEnemyHudScale(res, path, problems);
         if (res is not ItemData item)
         {
             return;
@@ -415,6 +419,30 @@ public static class ResourceCheck
                     problems.Add($"{path}: toolUses[{i}] names no tool kind");
                 }
             }
+        }
+    }
+
+    // An enemy's health bar and callout must read at a glance whatever its body
+    // size, so a hostile mob never shrinks them below this. Prey and friendlies
+    // may go smaller.
+    private const float MinEnemyHudScale = 0.8f;
+
+    private static void CheckEnemyHudScale(Resource res, string path, List<string> problems)
+    {
+        MobData mob = res as MobData;
+        ETeam team = mob?.team ?? ETeam.Hostile;
+        if (res is SpeciesData species)
+        {
+            if (!species.overridesTeam || species.mob == null)
+            {
+                return;
+            }
+            mob = species.mob;
+            team = species.team;
+        }
+        if (mob != null && team == ETeam.Hostile && mob.hudScale < MinEnemyHudScale)
+        {
+            problems.Add($"{path}: hostile mob hudScale {mob.hudScale} is below the enemy minimum {MinEnemyHudScale}");
         }
     }
 

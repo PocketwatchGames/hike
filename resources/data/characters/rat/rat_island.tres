@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://cewbb2s8o2k2d"]
+
+[ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="1_species"]
+[ext_resource type="Resource" uid="uid://01trfhtbad76" path="res://resources/data/characters/rat/rat.tres" id="2_mob"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_weapon"]
+[ext_resource type="Resource" uid="uid://bkh775jv8bf30" path="res://resources/data/characters/rat/rat_bite.tres" id="4_bite"]
+[ext_resource type="Script" uid="uid://esxkt6kn9aw5a" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_02.tres" id="rune_02"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_04.tres" id="rune_04"]
+[ext_resource type="Resource" path="res://resources/data/runes/rune_06.tres" id="rune_06"]
+
+[resource]
+script = ExtResource("1_species")
+runes = Array[ExtResource("rune_script")]([ExtResource("rune_04"), ExtResource("rune_06"), ExtResource("rune_02")])
+mob = ExtResource("2_mob")
+displayName = &"Island Rat"
+weapons = Array[ExtResource("3_weapon")]([ExtResource("4_bite")])
+abilities = 5
+metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

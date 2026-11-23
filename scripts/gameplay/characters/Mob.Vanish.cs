@@ -42,13 +42,7 @@ public partial class Mob
 
         // Detach from physics and all targeting/collision so the rise is a
         // clean scripted motion and nothing can hit it or path against it.
-        Freeze = true;
-        CollisionLayer = 0;
-        CollisionMask = 0;
-        if (_hurtBox != null)
-        {
-            _hurtBox.CollisionLayer = 0;
-        }
+        BeginIntangible();
     }
 
     // Immediately and permanently remove this mob — active node AND persistent

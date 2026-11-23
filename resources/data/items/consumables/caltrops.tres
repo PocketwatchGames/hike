@@ -56,7 +56,6 @@ inputs = Array[ExtResource("7_input")]([SubResource("Resource_reagent_legs"), Su
 
 [resource]
 script = ExtResource("1_spell")
-typeTags = 2
 actionProfile = SubResource("Resource_profile")
 displayName = &"Caltrops"
 unidentifiedDisplayName = &"Unknown Potion"
@@ -64,4 +63,5 @@ description = "Scatters iron spikes at your feet. Anything that walks through th
 maxStack = 5
 value = 12
 inventorySprite = ExtResource("9_1wvor")
+typeTags = 2
 recipe = SubResource("Recipe")

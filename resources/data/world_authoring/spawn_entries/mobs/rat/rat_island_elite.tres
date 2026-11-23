@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="MobSpawnEntry" format=3 uid="uid://bvuoqc27e5b7x"]
+
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="1_count"]
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_entry"]
+[ext_resource type="Resource" uid="uid://s2f2qpedbhfw" path="res://resources/data/items/loot/oil_droplet.tres" id="3_oil"]
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="4_1eb4x"]
+[ext_resource type="Resource" path="res://resources/data/characters/rat/rat_island.tres" id="4_species"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="5_desc"]
+[ext_resource type="Resource" uid="uid://f5b02lyuvhbo" path="res://resources/data/characters/elites/elite_stoneskin.tres" id="6_elite"]
+[ext_resource type="Script" path="res://scripts/data/spawn/EntityHook.cs" id="6_r4w4h"]
+
+[sub_resource type="Resource" id="Resource_oil_desc"]
+script = ExtResource("5_desc")
+item = ExtResource("3_oil")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_oil_count"]
+script = ExtResource("1_count")
+descriptor = SubResource("Resource_oil_desc")
+count = 3
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
+[resource]
+script = ExtResource("2_entry")
+species = ExtResource("4_species")
+elite = ExtResource("6_elite")
+initialBehavior = null
+carriedLoot = Array[ExtResource("1_count")]([SubResource("Resource_oil_count")])
+disabledVariable = null

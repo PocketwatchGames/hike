@@ -81,7 +81,7 @@ animations = Dictionary[int, ExtResource("4_animdata")]({
 18: SubResource("Resource_anim_hitstun"),
 26: SubResource("Resource_anim_fly")
 })
-hudScale = 0.6
+hudScale = 0.8
 mobScene = ExtResource("3_scene")
 palette = SubResource("Resource_base_palette")
 levelColorMeshNames = PackedStringArray("Eyes", "Feathers")

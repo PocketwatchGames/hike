@@ -132,8 +132,8 @@ public class MobSimState : EntitySimState
     // party) so it round-trips through EntitySerializer by resource path — an
     // un-recruited NPC keeps its recruitability across chunk eviction / save.
     public PlayerState RecruitTemplate;
-    // Elite mobs are a rarer, tougher variant — 25% larger (Mob applies the
-    // scale), crowned, with the shared elite buff and crown-trophy loot. Authored
+    // Elite mobs are a rarer, tougher variant — larger (MobData.eliteScale,
+    // applied by Mob), crowned, with the shared elite buff and crown-trophy loot. Authored
     // on the spawning MobSpawnEntry (its EliteData), so it persists as
     // a plain flag; the signature effect + HUD badge ride StatusEffects / Badge
     // below.

@@ -853,6 +853,7 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	public uint AttackHurtboxMask => (uint)ECollisionLayer.HurtBox;
 	public HurtBox SelfHurtBox => _hurtBox;
 	public Node3D AttackerNode => this;
+	public float BodyScale => 1f;
 	public float OutgoingDamageMultiplier => _statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f;
 	// IActionActor — melee-only damage scale from the hosted member's strength.
 	public float MeleeDamageMultiplier => Member?.strength ?? 1f;

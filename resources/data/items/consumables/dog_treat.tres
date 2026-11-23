@@ -54,11 +54,11 @@ inputs = Array[ExtResource("15_opdly")]([SubResource("Resource_reagent_meat"), S
 
 [resource]
 script = ExtResource("1_consumable")
-typeTags = 5
 actionProfile = SubResource("Resource_profile")
 displayName = &"Dog Treat"
 description = "A savory treat that calls your loyal dog to your side. Hold to summon it — or, while it's near, to send it away."
 maxStack = 5
 value = 15
 inventorySprite = ExtResource("8_inv")
+typeTags = 5
 recipe = SubResource("Recipe")

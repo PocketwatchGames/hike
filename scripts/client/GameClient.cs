@@ -2505,7 +2505,8 @@ public partial class GameClient : Node3D
 				float anchorY = entity is IClipAnchored anchored
 					? anchored.ClipAnchorY
 					: entityPos.Y;
-				entity.Visible = anchorY < ResolveClipHeight(entityPos, cameraClip);
+				entity.Visible = !(entity is IHideable h && h.IsHidden)
+					&& anchorY < ResolveClipHeight(entityPos, cameraClip);
 			}
 		}
 	}

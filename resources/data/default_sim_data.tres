@@ -82,6 +82,9 @@
 [ext_resource type="Resource" uid="uid://whg31ieo7e33" path="res://resources/data/meals/stew_goblin_health.tres" id="84_st_gob_h"]
 [ext_resource type="Resource" uid="uid://0deofo5jf6aj" path="res://resources/data/meals/stew_troll_health.tres" id="84_st_trl_h"]
 [ext_resource type="Resource" uid="uid://cdtljsy1frwrm" path="res://resources/data/meals/stew_goblin_stamina.tres" id="85_st_gob_e"]
+[ext_resource type="Resource" uid="uid://b8lkn2a7pha7t" path="res://resources/data/meals/grilled_rat.tres" id="86_gr_rat"]
+[ext_resource type="Resource" uid="uid://bvv4wney746xr" path="res://resources/data/meals/stew_rat_health.tres" id="87_st_rat_h"]
+[ext_resource type="Resource" uid="uid://mfdgn7ijqoen" path="res://resources/data/meals/stew_rat_stamina.tres" id="88_st_rat_e"]
 [ext_resource type="Resource" uid="uid://fkt82c6kaf52" path="res://resources/data/meals/stew_troll_stamina.tres" id="85_st_trl_e"]
 [ext_resource type="Resource" uid="uid://d2hjas454j7b4" path="res://resources/data/meals/stew_kun_kun_damage.tres" id="86_st_kk_s"]
 [ext_resource type="Resource" uid="uid://eow7shyryu3x" path="res://resources/data/meals/stew_kun_kun_perception.tres" id="87_st_kk_k"]
@@ -140,6 +143,7 @@
 [ext_resource type="Resource" uid="uid://dh3b6y854xyjl" path="res://resources/data/status_effects/upgrades/upgrade_weapon_speed.tres" id="up_weapon_speed"]
 [ext_resource type="Resource" path="res://resources/data/worlds/default_world/conversations/merchant_conversation.tres" id="merchant_defaults"]
 [ext_resource type="Resource" path="res://resources/data/test_scenarios/runes.tres" id="ts_runes"]
+[ext_resource type="Resource" path="res://resources/data/test_scenarios/rat.tres" id="ts_rat"]
 [ext_resource type="Script" uid="uid://esxkt6kn9aw5a" path="res://scripts/data/characters/RuneData.cs" id="rune_script"]
 [ext_resource type="Resource" path="res://resources/data/runes/rune_01.tres" id="rune_01"]
 [ext_resource type="Resource" path="res://resources/data/runes/rune_02.tres" id="rune_02"]
@@ -154,7 +158,7 @@ script = ExtResource("1_1meao")
 gravity = 50.0
 partyStashCapacity = 20
 recipes = Array[ExtResource("3_recipe_script")]([ExtResource("sm_kun_kun"), ExtResource("sm_sparrow"), ExtResource("sm_drake"), ExtResource("rc_health_potion"), ExtResource("rc_health_potion_superior"), ExtResource("71_spell_dog_treat"), ExtResource("73_spell_cure_poison"), ExtResource("74_spell_stamina"), ExtResource("75_spell_shockwave"), ExtResource("75_spell_invisibility"), ExtResource("76_spell_caltrops"), ExtResource("rc_beads")])
-meals = Array[ExtResource("meal_script")]([ExtResource("5_recipe_gkk"), ExtResource("6_recipe_gg"), ExtResource("6_recipe_gt"), ExtResource("80_gr_drake"), ExtResource("81_gr_spider"), ExtResource("82_gr_sparrow"), ExtResource("83_gr_lurker"), ExtResource("84_st_gob_h"), ExtResource("85_st_gob_e"), ExtResource("84_st_trl_h"), ExtResource("85_st_trl_e"), ExtResource("86_st_kk_s"), ExtResource("87_st_kk_k"), ExtResource("88_st_spr_k"), ExtResource("89_st_spr_e"), ExtResource("90_st_drk_s"), ExtResource("91_st_drk_f"), ExtResource("92_st_lur_s"), ExtResource("93_st_lur_f"), ExtResource("94_st_spd_s"), ExtResource("95_st_spd_h")])
+meals = Array[ExtResource("meal_script")]([ExtResource("5_recipe_gkk"), ExtResource("6_recipe_gg"), ExtResource("6_recipe_gt"), ExtResource("80_gr_drake"), ExtResource("81_gr_spider"), ExtResource("82_gr_sparrow"), ExtResource("83_gr_lurker"), ExtResource("84_st_gob_h"), ExtResource("85_st_gob_e"), ExtResource("84_st_trl_h"), ExtResource("85_st_trl_e"), ExtResource("86_st_kk_s"), ExtResource("87_st_kk_k"), ExtResource("88_st_spr_k"), ExtResource("89_st_spr_e"), ExtResource("90_st_drk_s"), ExtResource("91_st_drk_f"), ExtResource("92_st_lur_s"), ExtResource("93_st_lur_f"), ExtResource("94_st_spd_s"), ExtResource("95_st_spd_h"), ExtResource("86_gr_rat"), ExtResource("87_st_rat_h"), ExtResource("88_st_rat_e")])
 mobs = Array[ExtResource("7_mob_script")]([ExtResource("8_mob_goblin"), ExtResource("8_mob_troll"), ExtResource("9_mob_kun_kun"), ExtResource("10_mob_villager"), ExtResource("24_mob_spider"), ExtResource("25_mob_sparrow"), ExtResource("26_mob_dog")])
 scriptVariables = Array[ExtResource("98_scriptvar_script")]([ExtResource("23_scriptvars"), ExtResource("99_npcvars")])
 foundFirstMapVariable = &"found_first_map"
@@ -216,5 +220,5 @@ weatherLightning = ExtResource("12_lightning")
 rainVisionReduction = 0.35
 weightSpeedModifier = -0.07999999999999996
 weightDashDistanceModifier = -0.25
-testScenarios = [ExtResource("ts_snow"), ExtResource("ts_shockwave"), ExtResource("ts_invisibility"), ExtResource("ts_caltrops"), ExtResource("ts_dawn"), ExtResource("ts_oil_droplets"), ExtResource("ts_blood"), ExtResource("ts_needs"), ExtResource("ts_sack"), ExtResource("ts_salvage"), ExtResource("ts_meat"), ExtResource("ts_spear"), ExtResource("ts_sling"), ExtResource("ts_misfire"), ExtResource("ts_tomahawk"), ExtResource("ts_blowgun"), ExtResource("ts_ammo"), ExtResource("ts_torch"), ExtResource("ts_runes")]
+testScenarios = [ExtResource("ts_snow"), ExtResource("ts_shockwave"), ExtResource("ts_invisibility"), ExtResource("ts_caltrops"), ExtResource("ts_dawn"), ExtResource("ts_oil_droplets"), ExtResource("ts_blood"), ExtResource("ts_needs"), ExtResource("ts_sack"), ExtResource("ts_salvage"), ExtResource("ts_meat"), ExtResource("ts_spear"), ExtResource("ts_sling"), ExtResource("ts_misfire"), ExtResource("ts_tomahawk"), ExtResource("ts_blowgun"), ExtResource("ts_ammo"), ExtResource("ts_torch"), ExtResource("ts_runes"), ExtResource("ts_rat")]
 metadata/_custom_type_script = "uid://chvgahtb671mg"

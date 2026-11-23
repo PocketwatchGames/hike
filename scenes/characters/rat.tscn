@@ -1,0 +1,109 @@
+[gd_scene format=3 uid="uid://d1q6lasi4rn4i"]
+
+[ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/characters/Mob.cs" id="1_mob"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_interactivebox"]
+[ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="3_mobhud"]
+[ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/effects/footprint.png" id="8_fp"]
+[ext_resource type="PackedScene" uid="uid://m4gdn08c2l4r" path="res://scenes/fx/footstep_grass.tscn" id="11_fstgrass"]
+[ext_resource type="PackedScene" uid="uid://buklbibdpbasp" path="res://scenes/fx/footstep_mud.tscn" id="11_fstmud"]
+[ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/fx/footstep_sand.tscn" id="11_fstsand"]
+[ext_resource type="PackedScene" uid="uid://7nfxgl33kg3n" path="res://scenes/fx/footstep_stone.tscn" id="11_fststone"]
+[ext_resource type="PackedScene" uid="uid://0gwx2qeenb5r" path="res://scenes/fx/footstep_water.tscn" id="11_fstwater"]
+[ext_resource type="PackedScene" uid="uid://dj7kicjpkco3y" path="res://scenes/fx/death_splat_small.tscn" id="13_deathsml"]
+[ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/fx/water_enter_splash.tscn" id="14_watenter"]
+[ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/fx/water_movement_loop.tscn" id="15_watloop"]
+[ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="16_grassloop"]
+[ext_resource type="PackedScene" uid="uid://lff1yu3sobc8" path="res://assets/models/characters/rat/rat.fbx" id="28_ratfbx"]
+[ext_resource type="AnimationLibrary" uid="uid://dbs001h7repk2" path="res://assets/models/characters/rat/rat_anims.res" id="29_ratanims"]
+[ext_resource type="Material" uid="uid://b1sgkwbdt8370" path="res://resources/materials/rat_lit.tres" id="30_ratmat"]
+[ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="31_modelanim"]
+[ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
+[ext_resource type="Resource" uid="uid://bu0byh6u4mf3c" path="res://resources/data/characters/rat/rat_voice.tres" id="55_voice"]
+[ext_resource type="PackedScene" uid="uid://dseuhbe357xj7" path="res://scenes/fx/footstep_snow.tscn" id="99_fstsnow"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_move"]
+radius = 0.4
+height = 0.8
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hurt"]
+radius = 0.7
+height = 1.4
+
+[node name="Mob" type="RigidBody3D" unique_id=1355142747 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "hudAnchor")]
+axis_lock_angular_x = true
+axis_lock_angular_z = true
+script = ExtResource("1_mob")
+_collisionShape = NodePath("MovementCollision")
+_modelAnimator = NodePath("ModelAnimator")
+_mesh = NodePath("Visuals/MeshContainer")
+_visuals = NodePath("Visuals")
+_hurtBox = NodePath("HurtBox")
+hudAnchor = NodePath("Visuals/HUDNode")
+hudScene = ExtResource("3_mobhud")
+_deathFx = ExtResource("13_deathsml")
+_waterEnterSplashFx = ExtResource("14_watenter")
+_waterMovementLoopFx = ExtResource("15_watloop")
+_foliageMovementLoopFx = ExtResource("16_grassloop")
+_voice = ExtResource("55_voice")
+_footstepEffects = Dictionary[int, PackedScene]({
+0: ExtResource("11_fstgrass"),
+1: ExtResource("11_fststone"),
+2: ExtResource("11_fstsand"),
+3: ExtResource("11_fstwater"),
+4: ExtResource("11_fstmud"),
+5: ExtResource("11_fststone"),
+7: ExtResource("99_fstsnow")
+})
+_footprintTexture = ExtResource("8_fp")
+_footprintSize = Vector2(0.2, 0.25)
+metadata/_custom_type_script = "uid://b71b1ywgyuwp"
+
+[node name="Visuals" type="Node3D" parent="." unique_id=506217856]
+
+[node name="MeshContainer" type="Node3D" parent="Visuals" unique_id=954590727]
+
+[node name="RatModel" type="Node3D" parent="Visuals/MeshContainer" unique_id=1853180079]
+
+[node name="rat" parent="Visuals/MeshContainer/RatModel" unique_id=1461267141 instance=ExtResource("28_ratfbx")]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 0, 0, -0.20460725)
+
+[node name="AnimationPlayer2" type="AnimationPlayer" parent="Visuals/MeshContainer/RatModel/rat" unique_id=571425190]
+libraries/ = ExtResource("29_ratanims")
+
+[node name="HUDNode" type="Node3D" parent="Visuals" unique_id=1451261164]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+
+[node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1328888215]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+shape = SubResource("CapsuleShape3D_move")
+
+[node name="HurtBox" type="Area3D" parent="." unique_id=1794476707]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=2047325117]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("CapsuleShape3D_hurt")
+
+[node name="InteractiveBox" type="Area3D" parent="." unique_id=2121482414 node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("2_interactivebox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=1577088183]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("CapsuleShape3D_hurt")
+
+[node name="PixelSnap" type="Node" parent="." unique_id=297363152 node_paths=PackedStringArray("_target")]
+script = ExtResource("40_pixelsnap")
+_target = NodePath("../Visuals/MeshContainer/RatModel")
+
+[node name="ModelAnimator" type="Node" parent="." unique_id=671118758 node_paths=PackedStringArray("player", "visual")]
+script = ExtResource("31_modelanim")
+player = NodePath("../Visuals/MeshContainer/RatModel/rat/AnimationPlayer2")
+visual = NodePath("../Visuals/MeshContainer/RatModel")
+modelMaterial = ExtResource("30_ratmat")

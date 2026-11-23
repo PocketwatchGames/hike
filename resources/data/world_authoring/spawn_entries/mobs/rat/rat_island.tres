@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="MobSpawnEntry" format=3 uid="uid://dr30ospg7t22e"]
+
+[ext_resource type="Resource" uid="uid://cewbb2s8o2k2d" path="res://resources/data/characters/rat/rat_island.tres" id="r1"]
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="script"]
+
+[resource]
+script = ExtResource("script")
+species = ExtResource("r1")
+initialBehavior = null

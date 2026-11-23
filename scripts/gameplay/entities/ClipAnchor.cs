@@ -18,6 +18,15 @@ public interface IClipAnchored
     float ClipAnchorY { get; }
 }
 
+// An entity that can be taken out of the world while its node stays resident (a
+// scripted mob between a Vanish and a Reappear). The cutaway writes every
+// entity's Visible each frame, so an entity hiding itself by Visible alone is
+// shown again the next frame; this is how it says to stay hidden.
+public interface IHideable
+{
+    bool IsHidden { get; }
+}
+
 // Re-anchors the ceiling cutaway for a visual that floats above the thing it
 // belongs to.
 //

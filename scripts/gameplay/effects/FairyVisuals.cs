@@ -21,6 +21,9 @@ public partial class FairyVisuals : Node3D, IVanishFade
 {
     [Export] private MeshInstance3D _orb;
     [Export] private OmniLight3D _light;
+    // Thinned with the fade so the sparkles die out over the rise instead of
+    // cutting off when the mob is hidden.
+    [Export] private GpuParticles3D _glimmer;
 
     // Vertical bob: the orb oscillates +/- _bobAmplitude (metres) around its
     // authored rest height at _bobFrequency Hz. Phase is randomized per
@@ -72,6 +75,16 @@ public partial class FairyVisuals : Node3D, IVanishFade
         if (_light != null)
         {
             _light.LightEnergy = _baseLightEnergy * v;
+        }
+        if (_glimmer != null)
+        {
+            _glimmer.AmountRatio = v;
+            if (v <= 0f)
+            {
+                // World-space sparkles already in flight would otherwise sit
+                // frozen in the hidden subtree and resume there on reappear.
+                _glimmer.Restart();
+            }
         }
     }
 }

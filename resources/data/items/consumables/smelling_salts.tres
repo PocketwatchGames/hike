@@ -6,7 +6,7 @@
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="5_apply"]
-[ext_resource type="Resource" uid="uid://v9y7855rsadol" path="res://resources/data/status_effects/status_stamina_restore.tres" id="5_stamina"]
+[ext_resource type="Resource" uid="uid://cxxvbvkix8yvr" path="res://resources/data/status_effects/status_stamina_restore.tres" id="5_stamina"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_effect"]
 [ext_resource type="Texture2D" uid="uid://tjwldw1h4h45" path="res://assets/textures/items/Potion_blue.png" id="7_inv"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_4vnu5"]
@@ -60,7 +60,6 @@ inputs = Array[ExtResource("11_input")]([SubResource("Resource_reagent_gold"), S
 
 [resource]
 script = ExtResource("1_consumable")
-typeTags = 32
 actionProfile = SubResource("Resource_profile")
 displayName = &"Smelling Salts"
 unidentifiedDisplayName = &"Unknown Potion"
@@ -68,4 +67,5 @@ description = "A sharp whiff that restores your stamina in an instant."
 maxStack = 5
 value = 10
 inventorySprite = ExtResource("7_inv")
+typeTags = 32
 recipe = SubResource("Recipe")

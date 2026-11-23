@@ -59,7 +59,6 @@ inputs = Array[ExtResource("15_bwxhw")]([SubResource("Resource_reagent_purple"),
 
 [resource]
 script = ExtResource("1_spell")
-typeTags = 48
 actionProfile = SubResource("Resource_profile")
 displayName = &"Invisibility"
 unidentifiedDisplayName = &"Unknown Potion"
@@ -67,4 +66,5 @@ description = "Vanish from sight, sound and scent for a few heartbeats. Attackin
 maxStack = 5
 value = 15
 inventorySprite = ExtResource("8_inv")
+typeTags = 48
 recipe = SubResource("Recipe")

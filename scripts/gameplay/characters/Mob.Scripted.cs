@@ -47,9 +47,6 @@ public partial class Mob
     // A vanish scheduled on the sim clock (ScriptVanishAfter); 0 = none. Any
     // later scripted command cancels it.
     private ulong _vanishAtMs;
-    private uint _reappearLayer;
-    private uint _reappearMask;
-    private uint _reappearHurtLayer;
 
     public bool IsScriptMoving => _scriptGoal.HasValue;
 
@@ -143,7 +140,6 @@ public partial class Mob
         }
         ClearScripted();
         SimData data = _world?.SimData;
-        CaptureBodyLayers();
         BeginVanish(data?.scriptReappearAscent ?? 4f, data?.scriptReappearSeconds ?? 1f, hide: true);
     }
 
@@ -189,26 +185,24 @@ public partial class Mob
     // Flat metres within which a Reappear counts as "where it already is".
     private const float SameSpotDistance = 0.5f;
 
-    // Out of sight, intangible and inert, and out of the spatial hash so no
-    // other mob perceives it. Saved (MobSimState.Hidden).
+    // Out of sight and out of the spatial hash so no other mob perceives it.
+    // Saved (MobSimState.Hidden). The subtree is DISABLED, not just invisible:
+    // visibility only stops drawing, so audio, processing and anything a child
+    // holds in the world (a MovingLight's deposit) would carry on. Disabled
+    // also takes the body and hurtbox out of physics (DisableMode Remove).
     private void EnterHidden()
     {
-        if (!_hidingLayersCaptured)
-        {
-            CaptureBodyLayers();
-        }
         _simState.Hidden = true;
         _navigator?.Stop();
-        Freeze = true;
         LinearVelocity = Vector3.Zero;
-        CollisionLayer = 0;
-        CollisionMask = 0;
-        if (_hurtBox != null)
-        {
-            _hurtBox.CollisionLayer = 0;
-        }
+        UpdateAnimLoop(null);
         (_vanishFade as IVanishFade)?.SetFade(0f);
         Visible = false;
+        if (ProcessMode != ProcessModeEnum.Disabled)
+        {
+            _shownProcessMode = ProcessMode;
+        }
+        ProcessMode = ProcessModeEnum.Disabled;
         _world?.MobSpatialHash.Remove(this);
         Hush();
         Action next = _afterVanish;
@@ -216,17 +210,52 @@ public partial class Mob
         next?.Invoke();
     }
 
-    // The body's collision as it stands, for a reappear to restore. A mob that
-    // spawns hidden has never been tangible in this session, so it captures
-    // what its own setup left.
-    private bool _hidingLayersCaptured;
+    private ProcessModeEnum _shownProcessMode = ProcessModeEnum.Inherit;
 
-    private void CaptureBodyLayers()
+    // A scripted flight (a vanish's rise, a reappear's drop) is drawn and
+    // processed but must touch nothing: frozen, with no collision. Begin
+    // captures the layers as they stand and is a no-op while already
+    // intangible, so a rise that ends hidden and a drop that starts there
+    // restore the layers from before the rise.
+    private bool _intangible;
+    private uint _tangibleLayer;
+    private uint _tangibleMask;
+    private uint _tangibleHurtLayer;
+
+    private void BeginIntangible()
     {
-        _reappearLayer = CollisionLayer;
-        _reappearMask = CollisionMask;
-        _reappearHurtLayer = _hurtBox?.CollisionLayer ?? 0;
-        _hidingLayersCaptured = true;
+        if (_intangible)
+        {
+            return;
+        }
+        _intangible = true;
+        _tangibleLayer = CollisionLayer;
+        _tangibleMask = CollisionMask;
+        _tangibleHurtLayer = _hurtBox?.CollisionLayer ?? 0;
+        Freeze = true;
+        CollisionLayer = 0;
+        CollisionMask = 0;
+        if (_hurtBox != null)
+        {
+            _hurtBox.CollisionLayer = 0;
+        }
+    }
+
+    private void EndIntangible()
+    {
+        if (!_intangible)
+        {
+            return;
+        }
+        _intangible = false;
+        Freeze = false;
+        LinearVelocity = Vector3.Zero;
+        CollisionLayer = _tangibleLayer;
+        CollisionMask = _tangibleMask;
+        if (_hurtBox != null)
+        {
+            _hurtBox.CollisionLayer = _tangibleHurtLayer;
+        }
     }
 
     // Fade back in over `target` — where it is at the moment the mob comes back
@@ -294,6 +323,9 @@ public partial class Mob
             // Already out of sight: straight to the arriving half.
             _reappearArriving = true;
             _simState.Hidden = false;
+            // A mob saved hidden was never made intangible: the drop needs it.
+            BeginIntangible();
+            ProcessMode = _shownProcessMode;
             GlobalPosition = ArrivalPosition(1f);
             Visible = true;
             _world?.MobSpatialHash.Add(this);
@@ -301,14 +333,7 @@ public partial class Mob
         }
         _reappearArriving = false;
         Hush();
-        CaptureBodyLayers();
-        Freeze = true;
-        CollisionLayer = 0;
-        CollisionMask = 0;
-        if (_hurtBox != null)
-        {
-            _hurtBox.CollisionLayer = 0;
-        }
+        BeginIntangible();
     }
 
     // Where the arriving half puts the mob, `up` (1 -> 0) of the way through
@@ -386,14 +411,7 @@ public partial class Mob
         if (t >= 1f)
         {
             _reappearing = false;
-            Freeze = false;
-            LinearVelocity = Vector3.Zero;
-            CollisionLayer = _reappearLayer;
-            CollisionMask = _reappearMask;
-            if (_hurtBox != null)
-            {
-                _hurtBox.CollisionLayer = _reappearHurtLayer;
-            }
+            EndIntangible();
             _simState.WorldPosition = GlobalPosition;
             if (!_simState.ScriptFollowing)
             {

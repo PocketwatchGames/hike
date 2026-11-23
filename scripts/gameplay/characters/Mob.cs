@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Godot;
 
 [GlobalClass]
-public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive, IAimTarget, ISyncsSimState
+public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive, IAimTarget, ISyncsSimState, IHideable
 {
     [Export] private CollisionShape3D _collisionShape;
     // Live map/minimap marker child (talkable NPCs only — authored into the
@@ -939,7 +939,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 _statusEffects.Add(sharedElite);
             }
+            // Crown first: it is parented under _mesh at the unscaled head
+            // height, so the scale carries it up with the body.
             SpawnEliteCrown();
+            ScaleMob(mobData?.eliteScale ?? 1f);
         }
 
         // Per-instance status effects authored on the spawning SpeciesData
@@ -1046,12 +1049,23 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // scale. Both shapes are duplicated first because Godot shares a scene's
     // embedded sub-resources across every instance — mutating the shared shape
     // would resize every mob of this species.
+    // The HUD anchor sits outside _mesh, so it is raised by hand to stay above
+    // the taller head.
     private void ScaleMob(float scale)
     {
         float k = scale;
+        if (Mathf.IsEqualApprox(k, 1f))
+        {
+            return;
+        }
+        BodyScale = k;
         if (_mesh != null)
         {
             _mesh.Scale = Vector3.One * k;
+        }
+        if (hudAnchor != null)
+        {
+            SetLocalY(hudAnchor, hudAnchor.Position.Y * k);
         }
 
         CapsuleShape3D bodyCap = DuplicateCapsule(_collisionShape);
@@ -1169,6 +1183,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
     public Node3D AttackerNode => this;
+    // Set by ScaleMob; 1 for an ordinary spawn.
+    public float BodyScale { get; private set; } = 1f;
+    // A weapon's authored AI ranges at this body's scale. The AI reads them
+    // only through these, so a grown mob closes to and fires from its own reach.
+    public float MaxAttackRange(WeaponData w) => w.maxAttackRange * BodyScale;
+    public float DesiredAttackRange(WeaponData w) => w.desiredAttackRange * BodyScale;
+    public float MaxVerticalAttackRange(WeaponData w) => w.maxVerticalAttackRange * BodyScale;
     public void PlayAnim(EAnimation anim, float animDuration)
     {
         PlayOneShot(anim, animDuration);

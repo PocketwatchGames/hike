@@ -19,10 +19,12 @@ public static class ItemEventHandlers
 		System.Collections.Generic.HashSet<ulong> alreadyHit, bool windowStart, bool windowEnd)
 	{
 		// Effective attack shape — single source of truth shared by the damage
-		// query and the smear visual, so a reach mod lengthens both together.
-		float shapeRange = ev.range * WeaponRangeScale(action.context.primaryItem as WeaponState, action.selectedTier);
-		float shapeNearWidth = ev.nearWidth;
-		float shapeFarWidth = ev.farWidth;
+		// query and the smear visual, so a reach mod or a grown body lengthens
+		// both together.
+		float body = actor.BodyScale;
+		float shapeRange = ev.range * body * WeaponRangeScale(action.context.primaryItem as WeaponState, action.selectedTier);
+		float shapeNearWidth = ev.nearWidth * body;
+		float shapeFarWidth = ev.farWidth * body;
 
 		// Swing smear, sized to that live shape. Fired on every swing — a
 		// blocked or zero-damage swing still swooshes — so it spawns before the
@@ -35,7 +37,7 @@ public static class ItemEventHandlers
 		// Swing geometry. Resolved before the damage early-out so the debug
 		// draw below covers a zero-damage swing too — the volume is the same
 		// one either way, and a mob's reach is most often wrong on a whiff.
-		float halfHeight = ev.meleeHeight * 0.5f;
+		float halfHeight = ev.meleeHeight * body * 0.5f;
 		Vector3 basePos = actor.ActorWorldPosition + Vector3.Up * halfHeight;
 		Vector3 forward = actor.ActorForward;
 		float nearRadius = shapeNearWidth * 0.5f;
@@ -1669,7 +1671,7 @@ public static class ItemEventHandlers
 		// The crier always buffs itself, and it does NOT count against the ally
 		// cap — ev.areaMaxTargets bounds how many OTHERS it rallies.
 		ApplyAreaBuff(sourceMob, ev, ref action);
-		float radius = ev.areaRadius;
+		float radius = ev.areaRadius * sourceMob.BodyScale;
 		if (radius <= 0f)
 		{
 			return;
@@ -1839,7 +1841,9 @@ public static class ItemEventHandlers
 
 	public static void DoApplyMotion(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
-		actor.ApplyMotion(ev.motionForwardSpeed, ev.motionDuration, action.context.MotionDurationMultiplier, ev.motionFreezeGravity, ev.motionDirection);
+		// Speed, not duration, so a grown body covers proportionally more ground
+		// on the same authored timeline.
+		actor.ApplyMotion(ev.motionForwardSpeed * actor.BodyScale, ev.motionDuration, action.context.MotionDurationMultiplier, ev.motionFreezeGravity, ev.motionDirection);
 	}
 
 	// Generalized teach event — dispatches a TeachableConcept against the
@@ -2100,7 +2104,7 @@ public static class ItemEventHandlers
 		{
 			return null;
 		}
-		return Fx.Create(scene, parent, position);
+		return Fx.Create(scene, parent, ScaledAt(actor, position), null);
 	}
 
 	// Actor-parented effect — tracks the actor as it moves. Use for charge
@@ -2111,7 +2115,13 @@ public static class ItemEventHandlers
 		{
 			return null;
 		}
-		return Fx.Create(scene, actor.AttackerNode, Vector3.Zero);
+		return Fx.Create(scene, actor.AttackerNode, ScaledAt(actor, Vector3.Zero), null);
+	}
+
+	// An attack effect is drawn at its actor's body scale.
+	private static Transform3D ScaledAt(IActionActor actor, Vector3 position)
+	{
+		return new Transform3D(Basis.Identity.Scaled(Vector3.One * actor.BodyScale), position);
 	}
 
 	// Un-spread firing direction for a directional shot. With an explicit aim

@@ -35,10 +35,11 @@ _idleLoopFx = ExtResource("7_idlefx")
 _vanishFade = NodePath("FairyOrb")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
-[node name="FairyOrb" type="Node3D" parent="." unique_id=1047339726 node_paths=PackedStringArray("_orb", "_light")]
+[node name="FairyOrb" type="Node3D" parent="." unique_id=1047339726 node_paths=PackedStringArray("_orb", "_light", "_glimmer")]
 script = ExtResource("2_fairyvis")
 _orb = NodePath("Orb")
 _light = NodePath("OrbLight")
+_glimmer = NodePath("Glimmer/Sparkles")
 metadata/_custom_type_script = "uid://bfryvis7k2a01"
 
 [node name="Orb" type="MeshInstance3D" parent="FairyOrb" unique_id=456785502]

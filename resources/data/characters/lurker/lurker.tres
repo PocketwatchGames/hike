@@ -85,7 +85,7 @@ animations = Dictionary[int, ExtResource("2_anim")]({
 8: SubResource("Resource_anim_swim_idle"),
 18: SubResource("Resource_anim_hitstun")
 })
-hudScale = 0.6
+hudScale = 0.8
 mobScene = ExtResource("1_scene")
 palette = SubResource("palette_lurker")
 blood = ExtResource("blood_1")

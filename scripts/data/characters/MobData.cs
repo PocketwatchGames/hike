@@ -284,6 +284,10 @@ public partial class MobData : Resource
     // than on EliteData because the elite signatures are shared across species,
     // and not every elite body wears armor.
     [Export] public float eliteMaxArmor = 0f;
+    // Uniform size multiplier when the spawn is elite. On the species for the
+    // same reason as eliteMaxArmor: one shared signature (Stoneskin) shouldn't
+    // dictate how big every species' elite is.
+    [Export(PropertyHint.Range, "1,4,0.05")] public float eliteScale = 1.25f;
     [Export] public float armorRechargeDelay = 6f;
     // Seconds for the armor pool to refill from empty to full maxArmor. The
     // per-tick rate is derived as maxArmor / armorRechargeTime, so a mob whose

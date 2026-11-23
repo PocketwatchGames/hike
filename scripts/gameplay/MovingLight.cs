@@ -97,7 +97,38 @@ public partial class MovingLight : Node3D
         // the console at every spawn. Deferring the whole activation
         // keeps the log clean and registers the light one frame later,
         // which is invisible.
-        if (Active) { CallDeferred(MethodName.Activate); }
+        if (Active) { CallDeferred(MethodName.ActivateIfStillActive); }
+    }
+
+    // A SetActive(false) or a disable can land between _Ready and the deferred
+    // call (a mob spawned hidden), and must win.
+    private void ActivateIfStillActive()
+    {
+        if (Active && CanProcess())
+        {
+            Activate();
+        }
+    }
+
+    // The deposit lives in the world's light map, so nothing that hides or
+    // disables this node's owner removes it. A disabled subtree (a hidden mob)
+    // suspends the light: its deposit goes, Active is kept, and re-enabling
+    // brings it back. No on/off cue either way: this is not a switch.
+    public override void _Notification(int what)
+    {
+        if (what == NotificationDisabled)
+        {
+            bool wasActive = Active;
+            Cleanup();
+            Active = wasActive;
+        }
+        else if (what == NotificationEnabled)
+        {
+            if (Active && !_registered)
+            {
+                Activate(playCue: false);
+            }
+        }
     }
 
     public override void _PhysicsProcess(double delta)
@@ -236,6 +267,11 @@ public partial class MovingLight : Node3D
 
     public void Activate()
     {
+        Activate(playCue: true);
+    }
+
+    private void Activate(bool playCue)
+    {
         Sim sim = Sim.Current;
         if (sim == null) { return; }
 
@@ -248,7 +284,7 @@ public partial class MovingLight : Node3D
                 _deactivating = false;
                 Active = true;
                 _fadeTarget = 1f;
-                if (lightOnEffectScene != null)
+                if (playCue && lightOnEffectScene != null)
                 {
                     Fx.Create(lightOnEffectScene, GetParent() ?? this, GlobalPosition);
                 }
@@ -278,7 +314,7 @@ public partial class MovingLight : Node3D
         Reshade(sim.WorldState, pos);
         _lastShadeSub = new Vector3(pos.X - voxel.X, pos.Y - voxel.Y, pos.Z - voxel.Z);
 
-        if (lightOnEffectScene != null)
+        if (playCue && lightOnEffectScene != null)
         {
             Fx.Create(lightOnEffectScene, GetParent() ?? this, GlobalPosition);
         }

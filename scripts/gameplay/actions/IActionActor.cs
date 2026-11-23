@@ -12,6 +12,11 @@ public interface IActionActor
 	uint AttackHurtboxMask { get; }
 	HurtBox SelfHurtBox { get; }
 	Node3D AttackerNode { get; }
+	// Uniform size of the actor's body relative to its authored scene (an elite
+	// mob's eliteScale; 1 for the player). Every authored reach, lunge, area
+	// radius and attack-effect size is multiplied by it, so a grown body
+	// attacks at its own scale.
+	float BodyScale { get; }
 	// `animDuration` > 0 asks the actor to retime the clip so it runs for exactly
 	// that many seconds (ItemEvent.animDuration); 0 plays it at authored speed.
 	void PlayAnim(EAnimation anim, float animDuration);

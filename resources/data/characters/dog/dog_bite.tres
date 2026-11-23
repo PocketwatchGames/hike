@@ -61,7 +61,6 @@ modifiers = []
 
 [resource]
 script = ExtResource("1_weapon")
-typeTags = 2
 damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 &"primary": SubResource("Resource_damage_primary")
 })
@@ -69,3 +68,4 @@ actionProfile = SubResource("Resource_profile")
 desiredAttackRange = 1.5
 cooldownSeconds = 1.0
 displayName = &"Dog Bite"
+typeTags = 2

@@ -80,7 +80,7 @@ animations = Dictionary[int, ExtResource("4_animdata")]({
 20: SubResource("anim_attack2"),
 24: SubResource("anim_cast")
 })
-hudScale = 0.45
+hudScale = 0.8
 mobScene = ExtResource("3_scene")
 blood = ExtResource("blood_1")
 triggersTraps = false

@@ -162,12 +162,12 @@ public partial class BehaviorAttack : BehaviorBase
         {
             string swing = ready == null
                 ? (readyWeapon != null ? $"pause {(_attackPauseUntilMs - time) / 1000f:F1}s" : "none ready")
-                : dist2d >= ready.maxAttackRange ? $"range {dist2d:F2}>={ready.maxAttackRange:F2}"
+                : dist2d >= me.MaxAttackRange(ready) ? $"range {dist2d:F2}>={me.MaxAttackRange(ready):F2}"
                 : !facingTarget ? "facing"
                 : "SWING";
             _debugStatus = $"\nWeap {_gateDebug}\nSwing {swing} d{dist2d:F2} dy{diff.Y:F2}";
         }
-        if (ready != null && dist2d < ready.maxAttackRange && facingTarget)
+        if (ready != null && dist2d < me.MaxAttackRange(ready) && facingTarget)
         {
             // Mob's _PhysicsProcess will TryStart the profile this same tick.
             output.attackProfile = ready.actionProfile;
@@ -218,10 +218,10 @@ public partial class BehaviorAttack : BehaviorBase
             out float ringAngle, out int ringTier);
         _ringTarget = target;
         bool closing = ready != null && !ready.aiReactiveOnly;
-        float standoffDistance = closing ? ready.desiredAttackRange : holdDistance + ringTier * _data.encircleOverflowGap;
+        float standoffDistance = closing ? me.DesiredAttackRange(ready) : holdDistance + ringTier * _data.encircleOverflowGap;
         // Closing for a lunge: the point must be one the lunge gate will fire
         // from. The hold ring is not an attack position, so it isn't checked.
-        float lungeReach = closing && ready.actionProfile.Lunges && !me.IsAirborne ? ready.actionProfile.LungeDistance : 0f;
+        float lungeReach = closing && ready.actionProfile.Lunges && !me.IsAirborne ? ready.actionProfile.LungeDistance * me.BodyScale : 0f;
         // Encircle around the *perceived* target position (targetPos), not the
         // live target.GlobalPosition. Using the real position let a mob that
         // had lost sight keep circling exactly where the player actually is —
@@ -352,15 +352,15 @@ public partial class BehaviorAttack : BehaviorBase
                 NoteGate(debug, w, "outranked");
                 continue;
             }
-            if (Mathf.Abs(diffY) > w.maxVerticalAttackRange)
+            if (Mathf.Abs(diffY) > me.MaxVerticalAttackRange(w))
             {
-                NoteGate(debug, w, debug ? $"vert {Mathf.Abs(diffY):F1}>{w.maxVerticalAttackRange:F1}" : null);
+                NoteGate(debug, w, debug ? $"vert {Mathf.Abs(diffY):F1}>{me.MaxVerticalAttackRange(w):F1}" : null);
                 continue;
             }
             // A reactive weapon is never approached for — it's eligible only once
             // the target is already inside its reach, so a ranged kiter doesn't
             // close to melee between shots.
-            if (w.aiReactiveOnly && dist2d > w.maxAttackRange)
+            if (w.aiReactiveOnly && dist2d > me.MaxAttackRange(w))
             {
                 NoteGate(debug, w, "reactive-out-of-range");
                 continue;
@@ -391,7 +391,7 @@ public partial class BehaviorAttack : BehaviorBase
             // plain swing — are untouched and still fire across a gap.
             // Only a body on its feet can be carried off a ledge; an airborne
             // attacker's dart (the drake's bite) has no ground to leave.
-            if (w.actionProfile.Lunges && !me.IsAirborne && !WalkLineClear(me, time, targetPos, w.actionProfile.LungeDistance))
+            if (w.actionProfile.Lunges && !me.IsAirborne && !WalkLineClear(me, time, targetPos, w.actionProfile.LungeDistance * me.BodyScale))
             {
                 NoteGate(debug, w, debug ? $"lunge-{_lungeFail}@({_lungeFailCell.X},{_lungeFailCell.Y})" : null);
                 continue;
@@ -433,13 +433,13 @@ public partial class BehaviorAttack : BehaviorBase
                 {
                     continue;
                 }
-                if (w.desiredAttackRange < bestAny)
+                if (me.DesiredAttackRange(w) < bestAny)
                 {
-                    bestAny = w.desiredAttackRange;
+                    bestAny = me.DesiredAttackRange(w);
                 }
-                if (!w.aiReactiveOnly && w.desiredAttackRange < bestNonReactive)
+                if (!w.aiReactiveOnly && me.DesiredAttackRange(w) < bestNonReactive)
                 {
-                    bestNonReactive = w.desiredAttackRange;
+                    bestNonReactive = me.DesiredAttackRange(w);
                 }
             }
         }

@@ -12,5 +12,6 @@ spawn_mob kun_kun_forest 1
 spawn_mob spider_forest 1
 spawn_mob drake_mountain 1
 spawn_mob sparrow_forest 1
-spawn_mob lurker_swamp 1"
+spawn_mob lurker_swamp 1
+spawn_mob rat_island 1"
 metadata/_custom_type_script = "uid://ctiaf4vfszxoh"
