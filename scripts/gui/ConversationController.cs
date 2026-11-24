@@ -23,6 +23,10 @@ using System.Collections.Generic;
 //               native focus chain, ui_cancel still closes from this
 //               controller's _UnhandledInput
 //
+// Either state can be HELD by an action that needs the player before the
+// conversation goes on (NamePlayerAction): Hold() freezes input, and whatever
+// would have followed the actions runs on Release().
+//
 // Response visibility uses ConversationVisibility (combines authored
 // condition + per-response RNG vs. language comprehension). If a branch's
 // visible-response set is empty, the conversation ends — there's no "press
@@ -80,7 +84,42 @@ public partial class ConversationController : Control
 	// touching the Label that shares the container.
 	readonly List<Button> _responseButtons = new();
 
+	// Outstanding Hold()s, and what runs once the last is released.
+	int _holds;
+	Action _resume;
+
 	public bool IsOpen => Visible;
+	bool IsHeld => _holds > 0;
+
+	// Pauses the conversation where it stands: input is ignored, and what
+	// follows the actions being fired runs only once every hold is released.
+	// No-op while closed.
+	public void Hold()
+	{
+		if (Visible)
+		{
+			_holds++;
+		}
+	}
+
+	public void Release()
+	{
+		if (_holds == 0)
+		{
+			return;
+		}
+		_holds--;
+		if (_holds > 0)
+		{
+			return;
+		}
+		Action next = _resume;
+		_resume = null;
+		if (Visible)
+		{
+			next?.Invoke();
+		}
+	}
 
 	public override void _Ready()
 	{
@@ -129,12 +168,11 @@ public partial class ConversationController : Control
 		// to take over the screen (OpenShopAction etc.) can call Close()
 		// and have it actually dismiss before StartBranch runs.
 		FireActions(entry.actions, _ctx);
-		if (!Visible)
+		AfterActions(() =>
 		{
-			return;
-		}
-		Vocalize();
-		StartBranch(branch);
+			Vocalize();
+			StartBranch(branch);
+		});
 	}
 
 	// Types `bbcode` out over `source` (a signpost, a knowledge stone) and
@@ -193,6 +231,8 @@ public partial class ConversationController : Control
 		_state = EState.Hidden;
 		_conversation = null;
 		_currentBranch = null;
+		_holds = 0;
+		_resume = null;
 		if (gameClient != null)
 		{
 			gameClient.InputSuppressed = false;
@@ -342,6 +382,11 @@ public partial class ConversationController : Control
 				return;
 			}
 		}
+		AfterActions(FocusResponses);
+	}
+
+	void FocusResponses()
+	{
 		ShowSpeaker(npcSpeaking: false);
 		// CallDeferred — focus must be grabbed after the button is in the
 		// tree and laid out, otherwise GrabFocus is a silent no-op. Find
@@ -455,7 +500,8 @@ public partial class ConversationController : Control
 
 	void OnResponsePressed(ConversationResponse response)
 	{
-		if (_state != EState.Choosing)
+		// A held chooser's buttons are still on screen and clickable.
+		if (_state != EState.Choosing || IsHeld)
 		{
 			return;
 		}
@@ -464,10 +510,11 @@ public partial class ConversationController : Control
 		// Fire actions FIRST so an action can close / redirect before the
 		// destination lookup runs.
 		FireActions(response.completeActions, _ctx);
-		if (!Visible)
-		{
-			return;
-		}
+		AfterActions(() => FollowResponse(response));
+	}
+
+	void FollowResponse(ConversationResponse response)
+	{
 		StringName dest = response.destination;
 		if (dest == default || dest == "")
 		{
@@ -504,7 +551,8 @@ public partial class ConversationController : Control
 
 	public override void _UnhandledInput(InputEvent e)
 	{
-		if (!Visible)
+		// While held, whatever holds it owns the input.
+		if (!Visible || IsHeld)
 		{
 			return;
 		}
@@ -541,10 +589,11 @@ public partial class ConversationController : Control
 			return;
 		}
 		FireActions(_lineData[_lineIndex]?.completeActions, _ctx);
-		if (!Visible)
-		{
-			return;
-		}
+		AfterActions(AdvanceLine);
+	}
+
+	void AdvanceLine()
+	{
 		_lineIndex++;
 		if (_lineIndex >= _lines.Count)
 		{
@@ -604,6 +653,22 @@ public partial class ConversationController : Control
 		{
 			RefreshNameBox();
 		}
+	}
+
+	// Runs `next` - what follows the actions just fired - now, or on Release()
+	// if one of them held the conversation. Dropped if one closed it.
+	void AfterActions(Action next)
+	{
+		if (!Visible)
+		{
+			return;
+		}
+		if (IsHeld)
+		{
+			_resume += next;
+			return;
+		}
+		next();
 	}
 
 	// Swaps between the NPC talking (continue hint armed) and the party

@@ -63,7 +63,7 @@ public partial class WorldMapHud : CanvasLayer
         if (optionTree != null)
         {
             // Never take keyboard focus — the painter's shortcuts are bare keys
-            // (1-9, Q/E, W, X, Tab), and a focused tree would eat them for its
+            // (1-9, Q/E, T/G, W, X), and a focused tree would eat them for its
             // own navigation. Mouse selection and wheel scrolling do not need it.
             optionTree.FocusMode = Control.FocusModeEnum.None;
             optionTree.HideRoot = true;
@@ -82,7 +82,7 @@ public partial class WorldMapHud : CanvasLayer
     // one-per-node, so adding a tool — or an op to a tool — cannot leave a stale
     // button behind. The OPTION list labels its hotkeys where the tool HAS them
     // (IWorldMapTool.NumberKeys), because that is the thing you change
-    // mid-stroke; switching tool is Tab or a click.
+    // mid-stroke; switching tool is a click.
     public void BuildToolButtons(string[] names, System.Action<int> onPressed)
     {
         _toolButtons = BuildGroup(toolButtonBar, names, onPressed);
@@ -118,7 +118,7 @@ public partial class WorldMapHud : CanvasLayer
 
     // Reflects a selection rather than making one, so it cannot call back into
     // the painter (the same reason the tool buttons use SetPressedNoSignal).
-    // Opens the option's section and scrolls to it: a Q/E step or a tool change
+    // Opens the option's section and scrolls to it: a tool change
     // that restores a stored index can land anywhere in a long list.
     public void SetActiveOption(int index)
     {

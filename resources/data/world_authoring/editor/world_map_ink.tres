@@ -10,3 +10,5 @@ elevationBandHues = PackedColorArray(0.5019608, 0.5019608, 0, 1, 0, 0.5019608, 0
 edgeInkSub2m = Color(1, 1, 1, 0.05882353)
 edgeInk2m = Color(1, 1, 1, 0.34509805)
 edgeInkOver2m = Color(0, 0, 0, 1)
+bombWallInk = Color(1, 0.55, 0.1, 0.5)
+bombWallSelectedInk = Color(1, 0.9, 0.6, 1)

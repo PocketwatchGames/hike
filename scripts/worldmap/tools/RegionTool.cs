@@ -1,6 +1,6 @@
 using Godot;
 
-// Paints the per-chunk region index. Cycle selects the region to paint; erase
+// Paints the per-chunk region index. The option row selects the region to paint; erase
 // clears to 0 (no region / border). The view shows region colours, darkened in
 // ocean.
 public class RegionTool : IWorldMapTool
@@ -95,14 +95,6 @@ public class RegionTool : IWorldMapTool
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-        if (ctx.RegionCount > 0)
-        {
-            RegionIndex = (RegionIndex + dir + ctx.RegionCount) % ctx.RegionCount;
-        }
-    }
-
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
     }

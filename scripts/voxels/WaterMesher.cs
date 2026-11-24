@@ -32,6 +32,11 @@ using Godot;
 public static class WaterMesher
 {
     private const int N = ChunkState.SIZE;
+
+    // How far outside the chunk Build reads on every side (ChunkMeshReach),
+    // EXCEPT ProbeOpenAbove, which climbs a water run without bound and is
+    // covered by ChunkMeshReach's water-run rule instead.
+    public const int READ_REACH = 1;
     private const float TOP_EPSILON = 0.02f;
     private const int MAX_COLUMN_PROBE = 1024;
     private const int TOP_FACE = 0;   // index into Faces / Normals

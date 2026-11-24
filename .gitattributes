@@ -1,2 +1,9 @@
 # Normalize EOL for all files that Git considers text files.
 * text=auto eol=lf
+
+# Binary data: never let EOL normalisation touch these (git only guesses a
+# file is binary from a NUL in its first 8000 bytes).
+*.bin binary
+*.exr binary
+*.png binary
+*.hike binary

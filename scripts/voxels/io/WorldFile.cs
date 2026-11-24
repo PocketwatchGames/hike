@@ -328,7 +328,9 @@ public static class WorldFile
     //      the lesson); a loyalty gift carries no language fields.
     // v94: every entity's common trailer ends with its placement's hooks
     //      (event, once, fired, resolved commands).
-    public const uint VERSION = 94;
+    // v95: BombWall tag added (BombWallSimState: scene, crack surface, broken
+    //      flag, world cells); EEntityEvent gains Break.
+    public const uint VERSION = 95;
 
     public struct IndexEntry
     {

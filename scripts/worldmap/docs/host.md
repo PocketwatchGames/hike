@@ -17,8 +17,8 @@ modder) put it, and nothing has to be registered for it to open. Open checks the
 `.tres` HEADER LINE for `WorldMapData` rather than loading it — loading a document
 to find out what it is pulls in its whole resource graph.
 
-**A document is its folder.** Every layer is a fixed file name beside the `.tres`
-(`WorldMapData.LAYER_FILES`), resolved from the document's own `ResourcePath`, so
+**A document is its folder.** Its layers (`layers.bin`), placements and palettes
+are fixed file names beside the `.tres` (`WorldMapData.LAYER_FILES`), resolved from the document's own `ResourcePath`, so
 copying a world's folder gives a world that edits only its own files. The one
 exception is the bake OUTPUT, which is the world's, not the document's: it is
 written to `worlds/<world>/<world>.hike`, outside `map/`, because it is the only
@@ -572,7 +572,7 @@ set full.
 
 Changing the selection is a WHOLE-MAP repaint, not a pair of marks —
 `RefreshEntityHighlight` tracks the selected set beside the selected entry and
-defers one `RebuildFull`, so holding Q/E through the palette costs one repaint
+defers one `RebuildFull`, so a burst of selection changes costs one repaint
 per frame rather than one per set.
 
 Two differences from the scatter dots underneath them. They are drawn LAST, over
@@ -942,7 +942,7 @@ under a road is still the hillside's.
 cutaway plane. With the plane parked over the world that is the surface, exactly
 as it always was; lower it into a passage, or under an arch you built with the
 block tool, and the stroke paves the floor down there instead. So the tool needs
-no level of its own: **T/G already aims the cutaway** (and alt+RMB aims it at a
+no level of its own: **Q/E already aims the cutaway** (and alt+RMB aims it at a
 clicked floor), and a level you cannot see is a level you cannot aim. Solid rock
 under the plane exposes no floor and takes no paving.
 
@@ -1071,7 +1071,7 @@ every tool change. `Options` takes the document because zone and region names
 come out of its own palettes — a region's authored `displayName`, a zone's
 resource file name — so those layers are painted by NAME rather than by index
 (empty for tools whose primary parameter is not a small fixed set, like a region
-index). Every way of changing either — button, Tab, number key, Q/E — routes
+index). Every way of changing either — button or number key — routes
 through `SelectTool` / `SelectOption`, so the bars cannot disagree with what the
 map is showing.
 
@@ -1082,9 +1082,8 @@ declines: a palette is discovered from a directory (see the palette section in
 [../CLAUDE.md](../CLAUDE.md)) and grows whenever someone drops a file in it, so
 nine keys would cover an arbitrary and shifting prefix of it — the entity list is
 45 long and sorted by filename, so the row a digit lands on moves when an
-unrelated resource is added. Q/E still steps every option and the rows are still
-clickable, which is why nothing is lost by dropping the binding rather than
-extending it.
+unrelated resource is added. The rows are still clickable, which is why nothing
+is lost by dropping the binding rather than extending it.
 
 The brush ring takes its colour from `IWorldMapTool.CursorColor`: while
 flattening it is the band colour of the target height, so the cursor answers
@@ -1098,12 +1097,9 @@ middle-drag pan, draws the cursor, reports texel strokes via `OnPaint`, hover vi
 images directly, so nothing here needs the voxel world.
 
 Keys: LMB paint / RMB erase · **1-9** pick the active tool's option, where it
-has them · **Tab** or
-the HUD toolbar cycle tool (+view) · **Q/E** step the tool's `Cycle`
-parameter — the option index on most tools, and the parameter the option row
-cannot show on the ones whose row is empty (the tunnel brush's
-height) · **R/F** Flatten target level / tunnel floor · **T/G** or
-**alt+wheel** cutaway level (**alt+RMB** aims it at a clicked floor) · **W** show/hide
+has them · the HUD toolbar picks the tool (+view) · **T/G** the tunnel / block brush's height (`AdjustBrushHeight`; options are
+never stepped by key — click the row or use 1-9) · **R/F** Flatten target
+level / tunnel floor · **Q/E** or **alt+wheel** cutaway level (E up, Q down) (**alt+RMB** aims it at a clicked floor) · **W** show/hide
 water · **Ctrl+Z** undo, **Ctrl+Shift+Z** / **Ctrl+Y** redo
 · **alt+click** pick a height (alt+drag spreads it) · **shift+drag**
 constrain to that one height, or **aim** the entity under the press · **ctrl+drag**
@@ -1121,7 +1117,7 @@ a different key — and a key that means something else — the moment that set 
 edited. Q/E were bound to `UseItem` / `Interact`; Q became
 `Lantern` while `UseItem` had moved onto **Ctrl**: Q did nothing here, and every
 Ctrl press (the one held for Ctrl+Z and Ctrl+S included) cycled the tool's
-parameter. They are `EditorParamLeft` / `EditorParamRight` now, alongside
-`EditorUp` / `EditorDown` and `EditorClipUp` / `EditorClipDown` — actions
+parameter. They are `EditorBrushTaller` / `EditorBrushShorter` (T/G) now, alongside
+`EditorUp` / `EditorDown` and `EditorClipUp` / `EditorClipDown` (E/Q) — actions
 nothing remaps, which is what makes them rebindable in the input map without
 touching this file.

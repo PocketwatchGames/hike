@@ -15,7 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/fx/water_movement_loop.tscn" id="15_watloop"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="16_grassloop"]
 [ext_resource type="PackedScene" uid="uid://lff1yu3sobc8" path="res://assets/models/characters/rat/rat.fbx" id="28_ratfbx"]
-[ext_resource type="AnimationLibrary" uid="uid://dbs001h7repk2" path="res://assets/models/characters/rat/rat_anims.res" id="29_ratanims"]
+[ext_resource type="AnimationLibrary" uid="uid://byig358kfoxec" path="res://assets/models/characters/rat/rat_anims.res" id="29_ratanims"]
 [ext_resource type="Material" uid="uid://b1sgkwbdt8370" path="res://resources/materials/rat_lit.tres" id="30_ratmat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="31_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
@@ -72,7 +72,7 @@ transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 0, 0, -0.20460725)
 libraries/ = ExtResource("29_ratanims")
 
 [node name="HUDNode" type="Node3D" parent="Visuals" unique_id=1451261164]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6833043, 0)
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1328888215]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)

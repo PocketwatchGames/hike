@@ -397,13 +397,14 @@ public partial class Player : CharacterBody3D, IActionActor, IAimTarget
 	}
 
 	// Start `item`'s use timeline on this member, spending from `source` (null:
-	// the member's own inventory). False when it has none, the source doesn't hold
-	// it, the member is idle (an idle runner doesn't tick, so the action would
+	// the member's own inventory). False when it has none, it is broken gear, the
+	// source doesn't hold it, the member is idle (an idle runner doesn't tick, so the action would
 	// never finish), or the runner is busy / refuses it.
 	public bool StartUseAction(ItemState item, IItemSource source = null)
 	{
 		source ??= _inventory;
 		if (!IsActive || item?.data is not IUsableItem usable || usable.ActionProfile == null
+			|| item is GearState { IsBroken: true }
 			|| _runner == null || _runner.IsBusy || source == null || !source.Holds(item))
 		{
 			return false;

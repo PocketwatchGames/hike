@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TestScenarioData" format=3]
+
+[ext_resource type="Script" uid="uid://ctiaf4vfszxoh" path="res://scripts/data/world/TestScenarioData.cs" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+scenarioName = "bomb_wall"
+description = "Stand facing a rock face (within 8m) first. Marks a 3x3 bomb wall on it and drops a mace, a saber and five bombs. The mace usually breaks it in three quick bashes; the saber never does, however long it swings, because the wall regenerates faster than a blade cuts; a bomb usually does it in one."
+commands = "spawn_bomb_wall bomb_wall 3 3 1
+spawn_loot mace
+spawn_loot saber
+spawn_loot bomb 5"
+metadata/_custom_type_script = "uid://ctiaf4vfszxoh"

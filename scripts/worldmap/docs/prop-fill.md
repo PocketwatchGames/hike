@@ -23,7 +23,7 @@ guaranteed, and what was tried and rejected. `../CLAUDE.md` carries the summary.
 
 One layer, one `R8` raster, one palette:
 
-- `map/props_blocking.png` — every painted region is a barrier, and **a no-spawn
+- the `props_blocking` layer — every painted region is a barrier, and **a no-spawn
   region** (see below). Whether it can be CLEARED is a property of the scenes in
   the list, not of the raster it was painted on — which is why the second
   ("breakable") layer is gone: it could state no difference the list did not.

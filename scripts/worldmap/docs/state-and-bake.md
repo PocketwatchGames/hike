@@ -13,7 +13,7 @@ no live voxel `World` is kept.** The `WorldState` is materialized on demand:
 and scatters entities. Lighting is a later step of the bake — see below.
 
 **Ctrl+S saves on the main thread and bakes on a background one.** `Save` writes
-the layer images — fast, and all it takes not to lose your painting. `Bake` then
+the layers to `layers.bin` — fast, and all it takes not to lose your painting. `Bake` then
 builds every chunk (~7M voxels stamped), floods the sun, and writes a ~57MB file
 in a `Task`, with a progress panel bottom-right; painting stays live throughout.
 

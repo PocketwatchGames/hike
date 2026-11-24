@@ -131,11 +131,6 @@ public class WindTool : IWorldMapTool
 
     public Rect2I? LastPaintRect => null;
 
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-        _mode = (EWindMode)Mathf.PosMod((int)_mode + dir, 3);
-    }
-
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
         _strength = Mathf.Clamp(_strength + dir * StrengthStep, 0f, 1f);

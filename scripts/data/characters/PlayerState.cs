@@ -19,7 +19,8 @@ public partial class PlayerState : Resource
 	[ExportGroup("Identity")]
 	// Display name, shown on the stats panel. A proper name, authored as-is
 	// rather than localized (names aren't translated). Blank falls back to the
-	// Player's default name.
+	// Player's default name. The authored value is only the default: the player
+	// can rename the member in play (NamePlayerAction), and a save keeps that.
 	[Export] public string characterName = "Wyatt Anderson";
 	[Export] public string characterClass = "Adventurer";
 
@@ -162,6 +163,7 @@ public partial class PlayerState : Resource
 	public void WriteRuntime(BinaryWriter w)
 	{
 		EntitySerializer.WriteRef(w, Template);
+		w.Write(characterName ?? string.Empty);
 		w.Write(RestDays);
 		w.Write(ForceWellRestedNextDay);
 		w.Write(IsWellRested);
@@ -172,6 +174,7 @@ public partial class PlayerState : Resource
 	public static PlayerState ReadRuntime(BinaryReader r)
 	{
 		PlayerState template = EntitySerializer.ReadRef<PlayerState>(r);
+		string name = r.ReadString();
 		int restDays = r.ReadInt32();
 		bool forceWellRested = r.ReadBoolean();
 		bool isWellRested = r.ReadBoolean();
@@ -182,6 +185,7 @@ public partial class PlayerState : Resource
 			return null;
 		}
 		PlayerState member = FromTemplate(template);
+		member.characterName = name;
 		member.RestDays = restDays;
 		member.ForceWellRestedNextDay = forceWellRested;
 		member.IsWellRested = isWellRested;

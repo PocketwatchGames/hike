@@ -82,7 +82,7 @@ flagged and done once per frame in `_Process`, not per motion event.
 
 
 **A full rebuild is ~295k texels, and everything resolved per texel is multiplied
-by that.** It matters because **T/G rebuilds the whole map** — the cutaway changes
+by that.** It matters because **Q/E rebuilds the whole map** — the cutaway changes
 every cell — so scrubbing it is the worst case the painter has. Measured on the
 default document, a full rebuild was ~620 ms, which under key repeat queued
 faster than it could run and stopped the painter answering the keyboard at all.
@@ -118,3 +118,18 @@ The rebuild is ~4x cheaper for it. If it needs to get cheaper again, the lever i
 rebuilding only the **visible** region rather than the whole map — the canvas
 draws unscaled with pan, so a window typically shows a small fraction of a large
 document — which needs dirty-tracking so panning rebuilds what it exposes.
+
+## The column gauge
+
+A vertical strip pinned to the map's right edge (`WorldMapColumnGauge`, in `WorldMapCanvas.cs`)
+shows the hovered column from the side: every voxel from `WorldMinY` to
+`WorldMaxY` in its elevation band (or built block's `minimapColor`), water by
+depth wherever the bake would put it (every empty voxel at or under the surface,
+carved passages included), a dashed line for water buried under ground, and
+labelled lines for sea level (`0`), the cutaway (when cutting; voxels above it
+are dimmed) and what the active tool would write. A tool answers
+`IWorldMapTool.PaintSpanAt` with a `PaintSpan` — the level it leaves, plus the
+voxel run its box covers for a ranged tool — and the gauge draws the box and
+labels its far end. Answered by elevation (Flatten ops), water (not in
+REPLACE), tunnel and block; a new 3D-positioned tool should answer it too.
+Sizes and inks are the `columnGauge*` fields on `WorldMapInkData`.

@@ -1,7 +1,11 @@
 using Godot;
 
-// Paints water: every column the brush touches is filled from its ground up to
-// the level you have selected.
+// Paints water as a BOX, like the tunnel tool: `Depth` voxels (T/G) hung down
+// from the surface level (R/F), in every column the brush covers. Water is per
+// voxel, so a pool in a cave and the lake above it are separate bodies with their
+// own levels and types. The box writes buried voxels too — that water is latent,
+// and carving the land away later reveals it. X cycles Box / To bottom (the
+// whole column below the surface) / Retype (only retypes water in the box).
 //
 // A BRUSH, not a fill. The fill that came before answered a question the author
 // had already answered by clicking, and it could not tell a lake from a river
@@ -35,13 +39,22 @@ public class WaterTool : IWorldMapTool
     // option row and what an unpainted column already means.
     private int _typeIndex = -1;
 
-    // REPLACE only retypes water that is already there: it never moves a
-    // surface and never creates water. That is the whole reason it exists — the
-    // ordinary brush fills a column to SurfaceVoxels, so using it to change a
-    // lake's type would also flatten the lake to the level in the HUD, and
-    // getting that level exactly right across a hand-painted shoreline is not
-    // something anyone should have to do to recolour it.
-    public bool ReplaceOnly;
+    // How many voxels the box reaches down from the surface (T/G).
+    public int Depth = 4;
+    private const int MaxDepth = 64;
+
+    public enum EWaterMode
+    {
+        Box,
+        // Every voxel from the surface to the world floor: a sea or a lake whose
+        // bed is wherever the ground is.
+        ToBottom,
+        // Only retypes water already in the box; never creates or removes any.
+        // Recolouring a lake must not move its surface.
+        Retype,
+    }
+
+    public EWaterMode Mode = EWaterMode.Box;
 
     public WaterTool()
     {
@@ -89,9 +102,19 @@ public class WaterTool : IWorldMapTool
 
     public bool ToggleMode(WorldMapState ctx)
     {
-        ReplaceOnly = !ReplaceOnly;
+        Mode = (EWaterMode)(((int)Mode + 1) % 3);
         return true;
     }
+
+    public void AdjustBrushHeight(WorldMapState ctx, int dir)
+    {
+        Depth = Mathf.Clamp(Depth + dir, 1, MaxDepth);
+    }
+
+    private int TopY(WorldMapState ctx) => ctx.SeaLevel + SurfaceVoxels;
+
+    private int BottomY(WorldMapState ctx)
+        => Mode == EWaterMode.ToBottom ? ctx.Data.WorldMinY : TopY(ctx) - Depth + 1;
 
     // The type about to be laid down, so the brush ring answers "what am I
     // painting" against the map under it — the same thing the elevation tool's
@@ -105,13 +128,17 @@ public class WaterTool : IWorldMapTool
     }
 
     public string HintText(WorldMapState ctx)
-        => "Q/E water type  |  X fill / replace-only  |  R/F set the surface  |  "
-        + "T/G cutaway (paint water inside a tunnel)  |  "
+        => "X box / to bottom / retype  |  R/F surface  |  T/G depth  |  Q/E cutaway  |  "
         + "alt+LMB samples a height, alt+RMB aims the cutaway  |  "
-        + "RMB removes the water (replace-only: reverts the type)";
+        + "RMB removes the water in the box (retype: back to the zone's)";
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
-        => ReplaceOnly ? "Retypes water already there" : "Fills each column to the surface";
+        => Mode switch
+        {
+            EWaterMode.ToBottom => "Fills from the surface to the bottom",
+            EWaterMode.Retype => $"Retypes water in the box, depth {Depth}",
+            _ => $"Fills a box {Depth} deep",
+        };
 
     public string LevelText(WorldMapState ctx, WorldMapView view)
     {
@@ -120,10 +147,11 @@ public class WaterTool : IWorldMapTool
             && types[_typeIndex] != null
             ? types[_typeIndex].blockName.ToString()
             : "the zone's";
-        return $"Type {type}"
-            + (ReplaceOnly ? "  |  REPLACE ONLY" : $"  |  Surface {SurfaceVoxels:+#;-#;0}v (Y={ctx.SeaLevel + SurfaceVoxels})")
-            + $"  |  Cutaway Y={view.CutawayY}";
+        return $"Type {type}  |  Surface {SurfaceVoxels:+#;-#;0}v (Y={TopY(ctx)})";
     }
+
+    public PaintSpan? PaintSpanAt(WorldMapState ctx, int px, int pz)
+        => new PaintSpan(TopY(ctx), BottomY(ctx), TopY(ctx));
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
@@ -146,53 +174,37 @@ public class WaterTool : IWorldMapTool
             {
                 return;   // solid rock at the cut: nothing to sample
             }
-            // The column's water counts only where it is VISIBLE under the cut.
-            // Its surface is otherwise a pool standing on top of the rock you are
-            // looking through, and aiming at a tunnel would hand back the lake
-            // above it — or, clamped to the plane, the plane itself.
-            int ws = ctx.WaterSurface(texel.X, texel.Y);
+            // The water standing on that floor, so aiming into a tunnel picks
+            // the pool in it rather than the lake above.
+            int ws = ctx.WaterTopOver(texel.X, texel.Y, floor);
             int picked = ws > floor && ws <= clip ? ws : floor;
             SurfaceVoxels = ClampSurface(ctx, picked - ctx.SeaLevel);
         }
     }
 
-    // LMB sets the column's water surface, RMB removes its water outright.
-    //
-    // A stroke writes every column it covers, including ones whose ground stands
-    // above the surface — that water is LATENT, and it is the point: carve the
-    // land away later and the lake you painted is already there. (The map still
-    // draws only water you could actually see, so it never shows a shoreline the
-    // bake does not produce; the hover readout is where latent water shows up.)
+    // LMB fills the box, RMB empties it. Hard-edged, ignoring the falloff: a
+    // water surface is LEVEL, and a type is an index with no such thing as half
+    // of one.
     public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
     {
-        // Hard-edged, ignoring the falloff: a water surface is LEVEL, and easing
-        // it in by weight would tilt the rim of every stroke into a ring of
-        // half-steps — the same reason Flatten ignores it. The TYPE is equally
-        // hard-edged, and for a plainer reason: it is an index, and there is no
-        // such thing as half of one.
-        float typeValue = erase ? 0f : (_typeIndex + 1) / 255f;
-        if (ReplaceOnly)
-        {
-            // Only where water already stands, and the surface is left exactly
-            // as it is. HasWater rather than a depth test, so latent water under
-            // a hillside retypes too — it is the lake you will carve down to.
-            brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
-            {
-                if (ctx.HasWater(px, pz))
-                {
-                    ctx.WaterType.SetPixel(px, pz, new Color(typeValue, 0f, 0f, 1f));
-                }
-            });
-            return;
-        }
-        float voxels = erase ? ctx.NoWaterVoxels : ClampSurface(ctx, SurfaceVoxels);
+        int top = TopY(ctx);
+        int bottom = Mathf.Max(BottomY(ctx), ctx.Data.WorldMinY);
+        int code = WorldMapState.WaterCodeFor(_typeIndex);
+        bool retype = Mode == EWaterMode.Retype;
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
-            ctx.Water.SetPixel(px, pz, new Color(voxels, 0f, 0f, 1f));
-            // Erasing the water erases its type with it: a column with no water
-            // has no type, and leaving one behind would silently retype whatever
-            // gets painted there next.
-            ctx.WaterType.SetPixel(px, pz, new Color(typeValue, 0f, 0f, 1f));
+            for (int wy = bottom; wy <= top; wy++)
+            {
+                if (retype)
+                {
+                    if (ctx.WaterAt(px, pz, wy))
+                    {
+                        ctx.SetWaterAt(px, pz, wy, erase ? WorldMapState.ZoneWaterCode : code);
+                    }
+                    continue;
+                }
+                ctx.SetWaterAt(px, pz, wy, erase ? WorldMapState.NoWaterCode : code);
+            }
         });
     }
 
@@ -201,14 +213,6 @@ public class WaterTool : IWorldMapTool
         return Mathf.Clamp(voxels,
             Mathf.RoundToInt(ctx.Data.minElevationVoxels),
             Mathf.RoundToInt(ctx.Data.maxElevationVoxels));
-    }
-
-    // Q/E walks the TYPE row now, which is what the option row shows; R/F keeps
-    // the surface level, so the two axes stay on their own keys.
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-        int count = Options(ctx).Length;
-        OptionIndex = Mathf.PosMod(OptionIndex + dir, count);
     }
 
     public void AdjustLevel(WorldMapState ctx, int dir)
@@ -220,7 +224,7 @@ public class WaterTool : IWorldMapTool
 // Water shaded by depth over dimmed land — the map for deciding where water goes
 // and how deep it is.
 //
-// It CUTS AWAY like the voxel-edit views, so the same T/G that drops the plane
+// It CUTS AWAY like the voxel-edit views, so the same Q/E that drops the plane
 // into a passage lets you paint water in it. Harmless on the surface: the cutaway
 // starts at the top of the world, where every column's floor is its own ground
 // and nothing reads as roofed, so the map is exactly what it always was until you
@@ -248,7 +252,7 @@ public class WaterView : IWorldMapView
         {
             return band;   // the painter dithers it
         }
-        return Mathf.Min(ink.Map.WaterSurface(px, pz), clip) > floor
+        return Mathf.Min(ink.Map.WaterTopOver(px, pz, floor), clip) > floor
             ? ink.WithWaterOver(band, px, pz, floor, clip)
             : new Color(band.R * DryLandShade, band.G * DryLandShade, band.B * DryLandShade);
     }

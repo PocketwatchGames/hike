@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://cofvg5huphoqm"]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="2_autocoll"]
+[ext_resource type="PackedScene" uid="uid://chqjcpljf8u6f" path="res://assets/models/shipwreck/Shipwreck_Oar.fbx" id="3_fbx"]
+[ext_resource type="Material" uid="uid://bhnlarlqortod" path="res://assets/models/shipwreck/shipwreck_oar_lit.tres" id="4_mat"]
+
+[node name="PropInstance" type="Node3D"]
+script = ExtResource("1_prop")
+
+[node name="Model" type="Node3D" parent="."]
+script = ExtResource("2_autocoll")
+collide = false
+materialOverride = ExtResource("4_mat")
+
+[node name="Shipwreck_Oar" parent="Model" instance=ExtResource("3_fbx")]

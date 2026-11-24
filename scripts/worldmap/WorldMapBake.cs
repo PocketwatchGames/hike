@@ -214,7 +214,6 @@ public class WorldMapBake
                 Map.SurfaceBuiltBlockAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ) != null
                 || IsStampedColumn(wx, wz),
             GroundYAt = GroundYAtWorld,
-            PaintedWaterBlockAt = (wx, wz) => Map.PaintedWaterBlockAt(wx - Map.Data.WorldMinX, wz - Map.Data.WorldMinZ),
             // Moss comes off the painted GROUND, because a painted world has no
             // ZoneGenData to ask (its zone layer paints ZoneData, and the two
             // palettes do not correspond). A column's surface terrain and cave terrain
@@ -537,26 +536,54 @@ public class WorldMapBake
         }
     }
 
+    // Per-column scratch: the kit override in force at each voxel of the column
+    // being stamped (index ly), or -1 for the column's own kit.
+    private int[] _kitScratch;
+
     private void StampColumn(int px, int pz, List<Vector3I> changed)
     {
         int wx = Map.Data.WorldMinX + px;
         int wz = Map.Data.WorldMinZ + pz;
         int th = Map.TerrainHeight(px, pz);
-        int wsurf = Map.WaterSurface(px, pz);
+        int minY = Map.Data.WorldMinY;
 
-        // Resolved once for the column: paving is one voxel, and resolving a
-        // surface-seated level walks the column.
-        BlockData paving = Map.PavingAt(px, pz);
-        int pavedY = paving != null ? Map.PavedYAt(px, pz) : Map.Data.WorldMinY - 1;
+        // The surface road, resolved once: it rides the top solid voxel. Paving
+        // on floors under something is per voxel (EditRepave), below.
+        BlockData surfacePaving = Map.PavingAt(px, pz);
+        int surfacePavedY = surfacePaving != null ? Map.SurfacePavedY(px, pz) : minY - 1;
+
+        // A kit painted on a FLOOR is what that ground is made of, so it carries
+        // down through the solid run under the floor until the next open space —
+        // otherwise a cliff under a painted floor would show the column's kit.
+        _kitScratch ??= new int[Map.Data.VoxelHeight];
+        int kitInForce = -1;
+        for (int wy = Map.Data.WorldMaxY; wy >= minY; wy--)
+        {
+            byte e = Map.VoxelEdit(px, pz, wy);
+            bool solid = e == WorldMapState.EditAdd || (e != WorldMapState.EditCarve && wy <= th);
+            if (!solid)
+            {
+                kitInForce = -1;
+            }
+            else
+            {
+                int k = Map.KitOverrideAt(px, pz, wy);
+                if (k >= 0)
+                {
+                    kitInForce = k;
+                }
+            }
+            _kitScratch[wy - minY] = solid ? kitInForce : -1;
+        }
 
         // Which of the column's zone terrains its ground is made of. Painting a zone
         // changes the material, not just the chunk's runtime behaviour — without
         // this every painted world came out in whichever terrain happened to land in
         // palette slot 0.
-        ZoneTerrains terrains = TerrainsAt(px, pz);
-        byte topTerrain = wsurf > th
-            ? terrains.Submerged
-            : Map.IsShoreAt(px, pz) ? terrains.Shore : terrains.Surface;
+        ZoneTerrains columnTerrains = TerrainsAt(px, pz);
+        // The top band is submerged where water stands on the column's own ground.
+        bool topWet = Map.WaterTopOver(px, pz, th) > th;
+        bool topShore = !topWet && Map.IsShoreAt(px, pz);
 
         // The chunk is resolved once per 16 voxels of column instead of per
         // write. WorldState's world-space setters each hash a Vector3I, and the
@@ -570,7 +597,7 @@ public class WorldMapBake
         ChunkState chunk = null;
         int chunkCy = int.MinValue;
 
-        for (int wy = Map.Data.WorldMinY; wy <= Map.Data.WorldMaxY; wy++)
+        for (int wy = minY; wy <= Map.Data.WorldMaxY; wy++)
         {
             int cy = wy >> ChunkGrid.SHIFT;
             if (cy != chunkCy)
@@ -586,50 +613,62 @@ public class WorldMapBake
 
             int desired;
             byte edit = Map.VoxelEdit(px, pz, wy);
-            if (edit == WorldMapState.EditCarve)
+            bool solid = edit == WorldMapState.EditAdd || (edit != WorldMapState.EditCarve && wy <= th);
+            if (solid)
             {
-                // Carve removes GROUND; what stands in the space it opens is the
-                // water layer's business, exactly as it is above the terrain. So
-                // a passage bored below a painted surface comes out flooded —
-                // which is the only way to paint water in a tunnel at all, and it
-                // is undone the same way it is anywhere else, by erasing the
-                // column's water. (Per COLUMN, so a dry passage cannot run under
-                // a lake: the erase that drains the tunnel drains the lake too.)
-                desired = wy <= wsurf ? Blocks.DefaultWaterId : Blocks.AirId;
-            }
-            else if (wy <= th || edit == WorldMapState.EditAdd)
-            {
-                // Added geometry stands above the painted ground, so it takes
-                // the zone's surface terrain — or its submerged one where the new
-                // voxel sits below a water surface — unless it was built from a
-                // chosen block. The terrain channel is written either way, for
-                // the reason paving keeps it: it says what the column is made of.
-                byte terrain = wy > th
-                    ? (wy <= wsurf ? terrains.Submerged : terrains.Surface)
-                    : th - wy <= Map.Data.surfaceDepthVoxels ? topTerrain : terrains.Cave;
+                int kit = _kitScratch[wy - minY];
+                ZoneTerrains terrains = kit >= 0 ? TerrainsOfKit(kit) : columnTerrains;
+                byte terrain;
+                if (edit == WorldMapState.EditAdd)
+                {
+                    // Added geometry stands above the painted ground, so it takes
+                    // the surface terrain — or the submerged one where it was built
+                    // into water (the voxel still carries the water it displaced).
+                    terrain = Map.WaterAt(px, pz, wy) ? terrains.Submerged : terrains.Surface;
+                }
+                else if (th - wy <= Map.Data.surfaceDepthVoxels)
+                {
+                    terrain = topWet ? terrains.Submerged : topShore ? terrains.Shore : terrains.Surface;
+                }
+                else
+                {
+                    // Deep rock — unless it is the floor of a pool inside it.
+                    terrain = Map.WaterAt(px, pz, wy + 1) && !Map.SolidAt(px, pz, wy + 1)
+                        ? terrains.Submerged
+                        : terrains.Cave;
+                }
                 chunk.SetTerrainId(lx, ly, lz, terrain);
                 BlockData built = edit == WorldMapState.EditAdd ? Map.AddedBlockAt(px, pz, wy) : null;
                 desired = built?.blockId ?? WorldState.Terrains.BlockFor(terrain);
-                if (wy == pavedY)
+                // Paving replaces the terrain's block on ONE voxel — a repaved
+                // floor, or the surface road on the top of the column. The terrain
+                // channel keeps its own value: it is what the ground IS made of,
+                // which a road laid over it does not change.
+                int repave = Map.RepaveIndexAt(px, pz, wy);
+                if (repave >= 0)
                 {
-                    // Paving replaces the terrain's block on ONE voxel — the floor
-                    // it was laid on, which is the top of the column for a road
-                    // on open ground and the floor of a passage or the ground
-                    // under an arch for one laid beneath the cutaway. Paving is
-                    // a surface, so the rock under a road is still the
-                    // hillside's, and the terrain channel keeps its own value: it is
-                    // what the column IS made of, which a road laid over it does
-                    // not change.
-                    desired = paving.blockId;
+                    desired = Map.BuildingBlocks[repave].blockId;
                 }
-            }
-            else if (wy <= wsurf)
-            {
-                desired = Blocks.DefaultWaterId;
+                else if (wy == surfacePavedY)
+                {
+                    desired = surfacePaving.blockId;
+                }
             }
             else
             {
-                desired = Blocks.AirId;
+                // Open space holds whatever water the voxel was painted with:
+                // above the ground, in a passage, wherever. The type is the
+                // painted block, else the zone's (standard) water.
+                int code = Map.WaterCodeAt(px, pz, wy);
+                if (code == WorldMapState.NoWaterCode)
+                {
+                    desired = Blocks.AirId;
+                }
+                else
+                {
+                    int painted = Map.PaintedWaterBlockAt(px, pz, wy);
+                    desired = painted >= 0 ? painted : Blocks.DefaultWaterId;
+                }
             }
 
             int current = chunk.Voxels[lx, ly, lz];
@@ -840,7 +879,11 @@ public class WorldMapBake
     // material any more — that is the whole point of splitting them.
     private ZoneTerrains TerrainsAt(int px, int pz)
     {
-        int g = Map.GroundIndexAt(px, pz);
+        return TerrainsOfKit(Map.GroundIndexAt(px, pz));
+    }
+
+    private ZoneTerrains TerrainsOfKit(int g)
+    {
         return g >= 0 && _groundTerrains != null && g < _groundTerrains.Length ? _groundTerrains[g] : _defaultTerrains;
     }
 

@@ -1,8 +1,17 @@
 [gd_resource type="Resource" script_class="ToolData" format=3 uid="uid://xv8s26e5dtbw"]
 
 [ext_resource type="Script" uid="uid://dbb386ly515bo" path="res://scripts/data/items/ToolData.cs" id="1_tool"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_req"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="6_actorstate"]
+[ext_resource type="Script" uid="uid://b6v83hp2t5bx" path="res://scripts/data/actions/requirements/NotInCombatRequirement.cs" id="6_combat"]
 [ext_resource type="Texture2D" uid="uid://djbrh2y7f5jpj" path="res://assets/textures/items/Shovel.png" id="7_icon"]
 [ext_resource type="PackedScene" uid="uid://cwk3rn8qv2tba" path="res://scenes/items/shovel_held.tscn" id="8_held"]
+[ext_resource type="PackedScene" uid="uid://b2dgl8kq5wrxa" path="res://scenes/fx/dig_loop.tscn" id="9_digloop"]
+[ext_resource type="PackedScene" uid="uid://cqn7thwp82vd4" path="res://scenes/fx/dig_nothing.tscn" id="10_dignothing"]
+[ext_resource type="PackedScene" uid="uid://cvoui2mg0oxau" path="res://scenes/fx/interact_reject.tscn" id="13_reject"]
 [ext_resource type="Script" uid="uid://k8dac546ptjn" path="res://scripts/data/items/MaterialCount.cs" id="material_count"]
 [ext_resource type="Resource" path="res://resources/data/items/materials/iron.tres" id="repair_iron"]
 [ext_resource type="Script" uid="uid://8epnr6857hsm" path="res://scripts/data/items/ToolUse.cs" id="tool_use"]
@@ -17,13 +26,47 @@ script = ExtResource("tool_use")
 kind = 2
 metadata/_custom_type_script = "uid://65nod8j9othuq"
 
+[sub_resource type="Resource" id="Event_dig_anim"]
+script = ExtResource("4_event")
+type = 64
+animName = 36
+
+[sub_resource type="Resource" id="Event_dig"]
+script = ExtResource("4_event")
+type = 131072
+digRadius = 1.5
+digNothingEffect = ExtResource("10_dignothing")
+
+[sub_resource type="Resource" id="Req_grounded"]
+script = ExtResource("6_actorstate")
+requireGrounded = true
+
+[sub_resource type="Resource" id="Req_combat"]
+script = ExtResource("6_combat")
+
+[sub_resource type="Resource" id="Action_dig"]
+script = ExtResource("3_action")
+chargeTime = 2.5
+events = Array[ExtResource("4_event")]([SubResource("Event_dig")])
+requirements = Array[ExtResource("5_req")]([SubResource("Req_grounded"), SubResource("Req_combat")])
+maxSpeedCharging = 0
+chargeLoopEffect = ExtResource("9_digloop")
+
+[sub_resource type="Resource" id="Profile_dig"]
+script = ExtResource("2_profile")
+chargedActions = Array[ExtResource("3_action")]([SubResource("Action_dig")])
+chargeEvents = Array[ExtResource("4_event")]([SubResource("Event_dig_anim")])
+rejectEffect = ExtResource("13_reject")
+requireFullCharge = true
+
 [resource]
 script = ExtResource("1_tool")
+actionProfile = SubResource("Profile_dig")
 typeTags = 256
 maxDurability = 40
 repair = Array[ExtResource("material_count")]([SubResource("repair_cost_iron")])
 displayName = &"Shovel"
-description = "Carry it to dig up buried things: stand over a spot and dig."
+description = "Hold to dig at your feet."
 value = 15
 inventorySprite = ExtResource("7_icon")
 heldModel = ExtResource("8_held")

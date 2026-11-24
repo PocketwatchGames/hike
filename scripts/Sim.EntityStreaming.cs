@@ -1092,10 +1092,41 @@ public partial class Sim
         EntityVoxelStamper.Apply(_worldState, door.ResolveStamp(_worldState), changed);
         if (changed.Count > 0)
         {
-            UpdateLighting(changed);
+            OnVoxelsChanged(changed);
         }
         (door.RuntimeNode as Door)?.SyncFromState(animate: true);
         RaiseEntityEvent(door, open ? EEntityEvent.Open : EEntityEvent.Close);
+    }
+
+    // Smash a bomb wall open for good, resident or not (a world script may break
+    // one the party is nowhere near). The cells clear to Air, then everything
+    // derived from the rock that a world build would redo: light, the mantleable
+    // lips the hole may have made, walkability, and the meshes and collision of
+    // its chunks and their neighbours.
+    public void BreakBombWall(BombWallSimState wall)
+    {
+        if (wall == null || wall.Broken)
+        {
+            return;
+        }
+        wall.Broken = true;
+        var changed = new List<Vector3I>();
+        EntityVoxelStamper.Apply(_worldState, wall.ResolveStamp(_worldState), changed);
+        if (changed.Count > 0)
+        {
+            OnVoxelsChanged(changed);
+            ClimbLedgeStamper.RestampRegion(_worldState, wall.Bounds());
+            RemeshVoxels(changed);
+        }
+        // CreateEntity yields nothing for a broken wall, so this retires the node
+        // and leaves the state filed — it is what re-clears the cells on load.
+        // A node streaming never registered (spawn_bomb_wall's) is just freed.
+        if (wall.RuntimeNode != null && IsInstanceValid(wall.RuntimeNode))
+        {
+            RespawnEntity(wall.RuntimeNode);
+            wall.RuntimeNode.QueueFree();
+        }
+        RaiseEntityEvent(wall, EEntityEvent.Break);
     }
 
     // Runs `state`'s placement hooks for `on`, resident or not. The context's

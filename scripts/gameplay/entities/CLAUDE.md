@@ -64,3 +64,47 @@ rubble the player is looking at stays rubble until its chunk reloads.
 always-false legacy `PickedUp` flag, so every older stamped scene reads as
 standing; the restore deadlines follow only while broken.
 
+
+# Bomb walls (`BombWall.cs`, `BombWallSimState.cs`, `BombWallSpawnEntry.cs`)
+
+**A bomb wall MARKS rock the world already has; it never adds any.** Its
+placement picks cells (`BombWallSpawnEntry.cells`, placement-frame offsets turned
+by the facing); the state's stamp (`IVoxelStamper`) dresses their open faces in
+the entry's `crackSurface` overlay while standing and clears them to Air once
+broken. Breaking is permanent, so nothing remembers what the rock was — and the
+broken state stays filed with no node (`ShouldSpawn`), because it is what
+re-clears the cells when a save loads over the world file's standing rock
+(`SaveFile.ReconcileStamps`, which re-meshes and restamps lips since it runs
+after the world is meshed).
+
+**Breaking is a DPS race, not a hit count.** `BombWall` keeps a health pool that
+regenerates (`_regenPerSecond`, evaluated lazily off `Sim.GameTimeMs` — no
+per-frame tick) and scales incoming health damage by `_damageTaken`, every
+matching `TagModifier` multiplied in. Unlike a creature's resistances (where
+Blunt scales armour chip), a wall applies them to health for ANY tag — it has
+no armour. Authored: Blunt ×3, Explosive ×3, so a bomb (Blunt AND Explosive) is
+×9. A weapon whose sustained damage stays under the regen never gets through.
+`EHitTag.Explosive` exists for this: no other combination identified a blast.
+
+**Each open side gets its OWN hurtbox, aimed at a sight point in the air.**
+Blasts and melee test line of sight to `HurtBox.Center` (the first shape), and
+the terrain mesh smooths a voxel face into a slope that bulges past it — so a
+target on the face reads as behind rock from every angle, and one hurtbox over
+every side is shadowed by the wall from whichever side its first shape is not
+on. So: one hurtbox per face direction, first shape a small sphere
+`_sightPointDistance` out from the middle of that face, then the face slabs.
+Copies are taken from the EMPTY template — a duplicate carries its children, and
+that bug aimed every side around one corner. One blow overlapping two sides at a
+corner counts once (per physics frame).
+
+**Breaking redoes what a world build would** (`Sim.BreakBombWall`): relight +
+walkability invalidation (`Sim.OnVoxelsChanged`, which every runtime voxel write
+now goes through — `SharedWalkabilityCache.InvalidateChunk` had no caller
+before, so door toggles never reached mob nav), the mantle lips around the hole,
+and a re-mesh of the chunks and their neighbours. It raises `EEntityEvent.Break`
+for placement hooks. Derived channels baked by `WorldFinish` (fog, `EnvTag`,
+`Interiorness`) are NOT redone — a breach into a sealed room keeps reading as
+inside until a rebake.
+
+`spawn_bomb_wall <entry> [w] [h] [depth]` marks the face in front of the player
+(transient, like `spawn_mob`); `setup bomb_wall` adds a mace, a saber and bombs.

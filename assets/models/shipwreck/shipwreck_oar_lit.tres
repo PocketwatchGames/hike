@@ -1,0 +1,11 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bhnlarlqortod"]
+
+[ext_resource type="Shader" uid="uid://degldxr2s4vxw" path="res://shaders/model_lit_two_sided.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://vpjj75c3ul0s" path="res://assets/models/shipwreck/shipwreck_oar_color.png" id="2_tex"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_tex")
+shader_parameter/form_strength = 0.55
+shader_parameter/color_tint = Color(1, 1, 1, 1)

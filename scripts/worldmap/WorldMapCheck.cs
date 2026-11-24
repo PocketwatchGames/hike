@@ -96,6 +96,62 @@ public static class WorldMapCheck
         }
     }
 
+    // Every bomb wall: where, how many cells, how many are rock at bake and how
+    // many of those have a face the crack overlay can dress. Three ERRORs, each a
+    // wall that bakes and is wrong: one with no exposed rock (invisible, cannot be
+    // hit), one with a cell in or beside water (a breach floods it), and two
+    // walls claiming one cell (breaking either carves the other's rock).
+    private static void ReportBombWalls(WorldMapState ctx, StringBuilder sb)
+    {
+        var owner = new Dictionary<Vector3I, string>();
+        var reported = new HashSet<(string, string)>();
+        int count = 0;
+        foreach (EntityPlacement placement in ctx.Placements?.entities ?? System.Array.Empty<EntityPlacement>())
+        {
+            if (WorldMapState.BombWallOf(placement) == null)
+            {
+                continue;
+            }
+            count++;
+            (Vector3I min, Vector3I size) = ctx.BombWallBox(placement);
+            string name = $"{placement.Name ?? "(unnamed)"} at {min}";
+            WorldMapState.BombWallSurvey s = ctx.SurveyBombWall(placement);
+            string floor = placement.floorY == EntityPlacement.OnTheGround ? "ON THE GROUND" : $"floorY={placement.floorY}";
+            sb.AppendLine($"[worldmap_check]   bomb wall {name}: {size.X}x{size.Y}x{size.Z}, {s.Cells} cells, "
+                + $"{s.Solid} rock at bake, {s.OpenFaced} with an open face, {floor}, facing {(int)placement.facing * 45}");
+            if (s.Cells == 0)
+            {
+                // Refused at bake (MissingPlacementValue); ReportEntities says so too.
+                continue;
+            }
+            if (s.OpenFaced == 0)
+            {
+                sb.AppendLine($"[worldmap_check] ERROR bomb wall {name} has no rock with an open face — it is invisible and cannot be broken");
+            }
+            if (s.Wet > 0)
+            {
+                sb.AppendLine($"[worldmap_check] ERROR bomb wall {name}: {s.Wet} cell(s) are in or beside water");
+            }
+            if (placement.floorY == EntityPlacement.OnTheGround)
+            {
+                sb.AppendLine($"[worldmap_check] WARN bomb wall {name} is seated on the ground — it moves with the terrain and can slide off its rock");
+            }
+            foreach (Vector3I cell in ctx.BombWallCells(placement))
+            {
+                if (owner.TryGetValue(cell, out string other))
+                {
+                    if (other != name && reported.Add((other, name)))
+                    {
+                        sb.AppendLine($"[worldmap_check] ERROR bomb walls {other} and {name} share cell {cell}");
+                    }
+                    continue;
+                }
+                owner[cell] = name;
+            }
+        }
+        sb.AppendLine($"[worldmap_check] bomb walls: {count}");
+    }
+
     // Every placement hook — hand-placed entities and stamped scenes' overrides
     // — with its commands resolved exactly as the bake will. A command that does
     // not resolve is dropped at bake with an error, so it is an ERROR here.
@@ -412,28 +468,15 @@ public static class WorldMapCheck
                 }
                 if (ctx.PavingAt(px, pz) != null)
                 {
-                    int pavedY = ctx.PavedYAt(px, pz);
-                    if (pavedY < data.WorldMinY)
+                    // A block-tool build stands on the floor it was laid on,
+                    // and paving never replaces a built voxel.
+                    if (ctx.SurfacePavedY(px, pz) < data.WorldMinY)
                     {
-                        // A block-tool build stands on the floor it was laid
-                        // on, and paving never replaces a built voxel.
                         pavedBuiltOver++;
-                    }
-                    else if (ctx.PavingLevelAt(px, pz) == WorldMapState.PavedOnSurface)
-                    {
-                        pavedSurface++;
-                    }
-                    else if (ctx.SolidAt(px, pz, pavedY) && !ctx.SolidAt(px, pz, pavedY + 1))
-                    {
-                        pavedUnder++;
                     }
                     else
                     {
-                        // The floor a road was laid on is no longer a floor, so
-                        // the bake lays nothing: terrain repainted under it, or
-                        // a carve took it. Only an absolute level can strand —
-                        // a surface-seated one is re-resolved every bake.
-                        pavedStranded++;
+                        pavedSurface++;
                     }
                 }
 
@@ -449,6 +492,21 @@ public static class WorldMapCheck
                         if (slot >= 0)
                         {
                             passageSets[slot] = passageSets.GetValueOrDefault(slot) + 1;
+                        }
+                    }
+                    else if (edit == WorldMapState.EditRepave)
+                    {
+                        // A repaved floor that is no longer a floor lays nothing:
+                        // terrain repainted under it, or something built on it.
+                        // Only a floor under something is repaved per voxel — a
+                        // surface road is re-resolved every bake.
+                        if (ctx.SolidAt(px, pz, wy) && !ctx.SolidAt(px, pz, wy + 1))
+                        {
+                            pavedUnder++;
+                        }
+                        else
+                        {
+                            pavedStranded++;
                         }
                     }
                     else if (edit == WorldMapState.EditAdd)
@@ -520,7 +578,7 @@ public static class WorldMapCheck
             + $"{blockingUncovered} uncovered (must be 0)");
 
         sb.AppendLine($"[worldmap_check] paving: {pavedSurface} columns on the surface, "
-            + $"{pavedUnder} on a floor under it, {pavedStranded} stranded (no floor at their level), "
+            + $"{pavedUnder} repaved floors under something, {pavedStranded} stranded repaves (no floor at their level), "
             + $"{pavedBuiltOver} under a block-tool build");
 
         sb.AppendLine($"[worldmap_check] voxel edits: {carved} carved, {added} added "
@@ -643,71 +701,91 @@ public static class WorldMapCheck
 
         ReportEntities(ctx, sb);
         ReportTriggers(ctx, sb);
+        ReportBombWalls(ctx, sb);
         ReportHooks(ctx, sb);
         ReportWaypoints(ctx, sb);
 
-        // Painted water types, reported because a document that reads all-zero
-        // here bakes every body as whatever its ZONE says and nothing else
-        // tells you — the same argument the paving and danger counts make.
-        // Counted against the water layer, so a type painted where no water
-        // stands shows up as stranded rather than silently doing nothing.
-        var typeCounts = new System.Collections.Generic.Dictionary<int, int>();
-        int typedDry = 0;
-        int typedLatent = 0;
-        for (int px = 0; px < w; px++)
-        {
-            for (int pz = 0; pz < h; pz++)
-            {
-                int idx = ctx.WaterTypeIndexAt(px, pz);
-                if (idx < 0)
-                {
-                    continue;
-                }
-                if (!ctx.HasWater(px, pz))
-                {
-                    typedDry++;
-                    continue;
-                }
-                // LATENT water — painted, but buried under ground that has not
-                // been carved away — has no free surface for the bake to dress,
-                // so its type stamps nothing until the land above it goes. Split
-                // out because the totals otherwise disagree with the bake's
-                // "painted" count by a factor of ten and nothing says why.
-                if (!ctx.Underwater(px, pz))
-                {
-                    typedLatent++;
-                    continue;
-                }
-                typeCounts.TryGetValue(idx, out int c);
-                typeCounts[idx] = c + 1;
-            }
-        }
-        if (typeCounts.Count == 0 && typedDry == 0 && typedLatent == 0)
-        {
-            sb.AppendLine("[worldmap_check] water types: none painted (every body takes its zone's)");
-        }
-        else
-        {
-            foreach (System.Collections.Generic.KeyValuePair<int, int> kv in typeCounts)
-            {
-                BlockData b = kv.Key < ctx.WaterTypes.Length ? ctx.WaterTypes[kv.Key] : null;
-                bool ok = b != null && b.render == EBlockRender.Water;
-                sb.AppendLine($"[worldmap_check] water type {kv.Key} {(b != null ? b.blockName.ToString() : "<empty palette slot>")}"
-                    + $"{(ok ? "" : "  <-- NOT A WATER BLOCK, will not stamp")}: {kv.Value} columns");
-            }
-            if (typedLatent > 0)
-            {
-                sb.AppendLine($"[worldmap_check] water types on LATENT water (buried, stamps nothing until carved): {typedLatent}");
-            }
-            if (typedDry > 0)
-            {
-                sb.AppendLine($"[worldmap_check] water types on DRY columns (stranded, stamps nothing): {typedDry}");
-            }
-        }
+        ReportWater(ctx, sb);
 
         sb.Append("[worldmap_check] done");
         GD.Print(sb.ToString());
         tree.Quit();
+    }
+
+    // Water, per voxel. OPEN water is what the bake fills (water in a voxel that
+    // comes out empty); BURIED water is latent in ground and fills only once the
+    // ground is carved away. Reported by type, because a document reading all
+    // "zone's" here bakes every body as whatever its zone says and nothing else
+    // tells you. FLOATING water — an open water voxel over open air — is almost
+    // always a box painted shallower than the ground it was meant to reach, or
+    // ground dug out from under a pool, and in game it hangs in the air.
+    private static void ReportWater(WorldMapState ctx, StringBuilder sb)
+    {
+        WorldMapData data = ctx.Data;
+        var openByType = new System.Collections.Generic.Dictionary<int, long>();
+        long buried = 0;
+        long floating = 0;
+        int stackedColumns = 0;
+        for (int px = 0; px < data.ImageWidth; px++)
+        {
+            for (int pz = 0; pz < data.ImageHeight; pz++)
+            {
+                if (ctx.WaterSurface(px, pz) < data.WorldMinY)
+                {
+                    continue;
+                }
+                int bodies = 0;
+                bool inBody = false;
+                for (int wy = data.WorldMinY; wy <= data.WorldMaxY; wy++)
+                {
+                    if (!ctx.WaterAt(px, pz, wy))
+                    {
+                        inBody = false;
+                        continue;
+                    }
+                    if (ctx.SolidAt(px, pz, wy))
+                    {
+                        buried++;
+                        inBody = false;
+                        continue;
+                    }
+                    if (!inBody)
+                    {
+                        bodies++;
+                        inBody = true;
+                        if (wy > data.WorldMinY && !ctx.SolidAt(px, pz, wy - 1) && !ctx.WaterAt(px, pz, wy - 1))
+                        {
+                            floating++;
+                        }
+                    }
+                    int type = ctx.WaterTypeIndexAt(px, pz, wy);
+                    openByType[type] = openByType.GetValueOrDefault(type) + 1;
+                }
+                if (bodies > 1)
+                {
+                    stackedColumns++;
+                }
+            }
+        }
+        foreach (System.Collections.Generic.KeyValuePair<int, long> kv in openByType)
+        {
+            if (kv.Key < 0)
+            {
+                sb.AppendLine($"[worldmap_check] water, zone's: {kv.Value} open voxels");
+                continue;
+            }
+            BlockData b = ctx.WaterTypes[kv.Key];
+            bool ok = b != null && b.render == EBlockRender.Water;
+            sb.AppendLine($"[worldmap_check] water type {kv.Key} {(b != null ? b.blockName.ToString() : "<empty palette slot>")}"
+                + $"{(ok ? "" : "  <-- NOT A WATER BLOCK, bakes as the zone's")}: {kv.Value} open voxels");
+        }
+        sb.AppendLine($"[worldmap_check] water: {buried} buried voxels (latent until carved), "
+            + $"{stackedColumns} columns with more than one body");
+        if (floating > 0)
+        {
+            sb.AppendLine($"[worldmap_check] WARNING water: {floating} bodies floating over open air "
+                + "(a box shallower than its ground, or ground dug out from under it)");
+        }
     }
 
     // What each palette resolved to, and — for the INDEXED ones — the slot each

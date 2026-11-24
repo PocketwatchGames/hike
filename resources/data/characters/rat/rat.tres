@@ -58,6 +58,21 @@ script = ExtResource("4_animdata")
 name = &"hitstun"
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
+[sub_resource type="Resource" id="Resource_anim_dodge_back"]
+script = ExtResource("4_animdata")
+name = &"dodge_back"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_dodge_left"]
+script = ExtResource("4_animdata")
+name = &"dodge_left"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_dodge_right"]
+script = ExtResource("4_animdata")
+name = &"dodge_right"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
 [resource]
 script = ExtResource("1_mobdata")
 displayName = &"Rat"
@@ -84,7 +99,10 @@ animations = Dictionary[int, ExtResource("4_animdata")]({
 8: SubResource("Resource_anim_swim_idle"),
 18: SubResource("Resource_anim_hitstun"),
 42: SubResource("Resource_anim_fall"),
-43: SubResource("Resource_anim_fall")
+43: SubResource("Resource_anim_fall"),
+45: SubResource("Resource_anim_dodge_back"),
+46: SubResource("Resource_anim_dodge_left"),
+47: SubResource("Resource_anim_dodge_right")
 })
 hudScale = 0.8
 mobScene = ExtResource("3_scene")

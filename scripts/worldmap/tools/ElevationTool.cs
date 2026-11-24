@@ -33,7 +33,7 @@ public class ElevationTool : IWorldMapTool
     public IWorldMapView View { get; }
     public float Radius { get; set; } = 12f;
 
-    public EBrushOp Op = EBrushOp.Raise;
+    public EBrushOp Op = EBrushOp.Flatten;
 
     // Voxels a single stroke event moves a texel at full brush weight. A drag
     // fires one of these per mouse-motion event, so this is deliberately a
@@ -102,7 +102,15 @@ public class ElevationTool : IWorldMapTool
         View = new ElevationView();
     }
 
-    private static readonly string[] OP_NAMES = System.Enum.GetNames<EBrushOp>();
+    // The option row's order, which is what 1-9 pick: Flatten first, as the op
+    // used most. A display order only — EBrushOp's values are append-only.
+    private static readonly EBrushOp[] OP_ORDER =
+    {
+        EBrushOp.Flatten, EBrushOp.Raise, EBrushOp.Lower, EBrushOp.Smooth,
+        EBrushOp.FlattenSoft, EBrushOp.Lift, EBrushOp.Smear, EBrushOp.Roughen,
+    };
+
+    private static readonly string[] OP_NAMES = System.Array.ConvertAll(OP_ORDER, op => op.ToString());
 
     public string[] Options(WorldMapState ctx) => OP_NAMES;
 
@@ -110,8 +118,8 @@ public class ElevationTool : IWorldMapTool
 
     public int OptionIndex
     {
-        get => (int)Op;
-        set => Op = (EBrushOp)Mathf.Clamp(value, 0, OP_NAMES.Length - 1);
+        get => System.Array.IndexOf(OP_ORDER, Op);
+        set => Op = OP_ORDER[Mathf.Clamp(value, 0, OP_ORDER.Length - 1)];
     }
 
     // Only the ops that write one specific height can preview it; Raise, Lower
@@ -122,6 +130,12 @@ public class ElevationTool : IWorldMapTool
             ? ink.ElevationColorAt(ink.Map.SnapVoxels(TargetVoxels))
             : Colors.White;
     }
+
+    // Only the ops that write one specific height, the same set CursorColor previews.
+    public PaintSpan? PaintSpanAt(WorldMapState ctx, int px, int pz)
+        => Op == EBrushOp.Flatten || Op == EBrushOp.FlattenSoft
+            ? new PaintSpan(ctx.SeaLevel + TargetVoxels)
+            : null;
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
@@ -385,12 +399,6 @@ public class ElevationTool : IWorldMapTool
         EBrushOp.Roughen => _roughenDirty,
         _ => null,
     };
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-        int n = System.Enum.GetValues<EBrushOp>().Length;
-        Op = (EBrushOp)(((int)Op + dir + n) % n);
-    }
-
     // R/F edits whichever number the current op actually uses: Lift's offset, or
     // everything else's target height. Both step by one lattice step, so they
     // walk the same bands the map draws.

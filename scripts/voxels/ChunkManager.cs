@@ -32,8 +32,7 @@ public partial class ChunkManager : Node3D
     // texel-wrap boundary never lands inside the rendered region — see
     // WindowedVolumeMap. The +2 margin (one chunk each side) provides that.
     private const int LIGHT_WINDOW_DIAMETER_CHUNKS = MAX_LOAD_DISTANCE * 2 + 1 + 2;
-    private const int MAX_REBUILDS_PER_FRAME = 3;
-    // Streaming loads build on the thread pool (ChunkMesh.BuildGeometry is
+    // Streaming loads and rebuilds of loaded chunks both build on the thread pool (ChunkMesh.BuildGeometry is
     // pure; ~50ms a chunk) and only Realize on the main thread. A synchronous
     // build per frame — even capped at one — was a 20fps stretch after every
     // chunk crossing. Half the cores leaves room for Godot's own workers and
@@ -80,7 +79,10 @@ public partial class ChunkManager : Node3D
     public event Action<Vector3I> onChunkUnloaded;
 
     private readonly Dictionary<Vector3I, ChunkMesh> _loadedChunks = new();
-    private readonly Queue<Vector3I> _meshRebuildQueue = new();
+    // Loaded chunks whose mesh is stale, waiting for a build slot. A set, so a
+    // brush drag naming the same chunks every stamp costs one rebuild each.
+    private readonly HashSet<Vector3I> _remeshPending = new();
+    private readonly List<LoadCandidate> _remeshCandidatesScratch = new();
 
     // Bird's-eye overlook streaming state. _overlookActive widens the frustum
     // pass to the panorama radius; _overlookFrontierRadiusWorld is the world
@@ -139,11 +141,17 @@ public partial class ChunkManager : Node3D
     {
         public Vector3I Coord;
         public bool VisualOnly;
+        // Replaces the mesh of a chunk that is already loaded, rather than
+        // loading it.
+        public bool Remesh;
         public Task<ChunkGeometry> Task;
         // Written by the worker before the task completes; read only after.
         public double BuildMs;
         // RebuildChunkMeshes named this chunk mid-build, so the worker may have
-        // read pre-edit voxels. The result is discarded and the chunk rebuilt.
+        // read pre-edit voxels. A load discards the result and is resubmitted; a
+        // remesh is swapped in anyway and queued again — under a continuous
+        // brush drag every remesh is stale by the time it lands, and discarding
+        // them would show nothing until the drag stopped.
         public bool Stale;
         public int Priority;
     }
@@ -370,6 +378,8 @@ public partial class ChunkManager : Node3D
         return _loadedChunks.ContainsKey(coord);
     }
 
+    public IEnumerable<Vector3I> LoadedChunkCoords => _loadedChunks.Keys;
+
     public bool IsSpawnChunkReady(Vector3 spawnPosition)
     {
         Vector3I coord = Sim.WorldToChunkCoord(spawnPosition);
@@ -379,11 +389,6 @@ public partial class ChunkManager : Node3D
     public override void _Process(double delta)
     {
         using var _prof = Profiler.Sample("ChunkManager.Process");
-
-        using (Profiler.Sample("ChunkManager.RebuildQueue"))
-        {
-            ProcessMeshRebuildQueue();
-        }
 
         Vector3I prevPlayerChunk = _lastPlayerChunkCoord;
         _lastPlayerChunkCoord = Sim.WorldToChunkCoord(_getPlayerPosition());
@@ -514,8 +519,8 @@ public partial class ChunkManager : Node3D
     // whose sunlight moved also staled its neighbours' boundary texels. Only sun
     // changes pay this 7x re-encode — block-light flicker re-dirties chunks
     // every frame and must not, which is why this keys off SunlightChunkDirty
-    // rather than LightChunkDirty. Marks into LightChunkDirty (a texture
-    // concern), never SunlightChunkDirty (which drives mesh rebuilds).
+    // rather than LightChunkDirty. Marks into LightChunkDirty, never
+    // SunlightChunkDirty, so the set keeps naming only where sun really moved.
     private void MarkSunlightNeighborsDirty()
     {
         if (_worldData.SunlightChunkDirty.Count == 0) { return; }
@@ -650,33 +655,34 @@ public partial class ChunkManager : Node3D
         _worldData.WindChunkDirty.Clear();
     }
 
-    // Requeue the mesh of each named chunk. Coords that aren't resident are
-    // skipped — they re-mesh from current voxel state when they stream in.
-    // A chunk mid-build in the background is marked stale instead: its worker
-    // may already have read the pre-edit voxels.
+    // Re-mesh each named chunk on the thread pool; the old mesh (and its
+    // collision) stays up until the new one is realized, a few frames later.
+    // Coords that aren't resident are skipped — they mesh from current voxel
+    // state when they stream in. Any build already in flight is marked stale,
+    // since its worker may have read the pre-edit voxels.
     public void RebuildChunkMeshes(IEnumerable<Vector3I> coords)
     {
         foreach (Vector3I coord in coords)
         {
-            if (_loadedChunks.ContainsKey(coord))
-            {
-                _meshRebuildQueue.Enqueue(coord);
-            }
-            else if (_building.TryGetValue(coord, out ChunkBuild build))
+            if (_building.TryGetValue(coord, out ChunkBuild build))
             {
                 build.Stale = true;
+            }
+            if (_loadedChunks.ContainsKey(coord))
+            {
+                _remeshPending.Add(coord);
             }
         }
     }
 
-    // Requeue every loaded chunk. For cvars that change mesh geometry globally
-    // (debug_voxel_center_sampling). The queue is rate-limited per frame, so a large
-    // resident world trickles in over several seconds rather than hitching.
+    // Re-mesh every loaded chunk. For cvars that change mesh geometry globally
+    // (debug_voxel_center_sampling). Bounded by the build slots, so a large
+    // resident world trickles in over a few seconds rather than hitching.
     public void RebuildAllChunkMeshes()
     {
         foreach (Vector3I coord in _loadedChunks.Keys)
         {
-            _meshRebuildQueue.Enqueue(coord);
+            _remeshPending.Add(coord);
         }
         foreach (ChunkBuild build in _building.Values)
         {
@@ -877,6 +883,11 @@ public partial class ChunkManager : Node3D
         {
             RealizeFinishedBuilds(desired, frustum);
         }
+
+        // Re-meshes take build slots ahead of streaming loads: they are an edit
+        // the player or author is looking at, and the chunk it replaces is
+        // already on screen showing the wrong thing.
+        DispatchRemeshes(frustum);
 
         // Pass 2: the 3x3x3 box around the player loads NOW, on this thread —
         // these are where the player can step in one frame, and missing one
@@ -1085,7 +1096,56 @@ public partial class ChunkManager : Node3D
         return onScreen ? distSq : OFF_SCREEN_PRIORITY + distSq;
     }
 
-    private void StartBuild(Vector3I coord)
+    // Pending re-meshes into free build slots, on-screen and nearest first.
+    // A chunk with a build already in flight waits for it to land: that build is
+    // stale, and realizing it re-pends the chunk (see ChunkBuild.Stale).
+    private void DispatchRemeshes(Plane[] frustum)
+    {
+        if (_remeshPending.Count == 0)
+        {
+            return;
+        }
+        int freeSlots = MAX_BUILDS_IN_FLIGHT - _building.Count;
+        if (freeSlots <= 0)
+        {
+            return;
+        }
+        List<LoadCandidate> candidates = _remeshCandidatesScratch;
+        candidates.Clear();
+        _toRemoveScratch.Clear();
+        foreach (Vector3I coord in _remeshPending)
+        {
+            if (!_loadedChunks.ContainsKey(coord))
+            {
+                // Unloaded since it was named; it meshes fresh if it returns.
+                _toRemoveScratch.Add(coord);
+            }
+            else if (!_building.ContainsKey(coord))
+            {
+                candidates.Add(new LoadCandidate { Priority = LoadPriority(coord, DistSqFromPlayer(coord), frustum), Coord = coord });
+            }
+        }
+        foreach (Vector3I coord in _toRemoveScratch)
+        {
+            _remeshPending.Remove(coord);
+        }
+        _toRemoveScratch.Clear();
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+        ChunkMesh.EnsureMaterialsInitialized();
+        candidates.Sort(_byPriority);
+        int dispatch = Math.Min(freeSlots, candidates.Count);
+        for (int i = 0; i < dispatch; i++)
+        {
+            Vector3I coord = candidates[i].Coord;
+            _remeshPending.Remove(coord);
+            StartBuild(coord, remesh: true);
+        }
+    }
+
+    private void StartBuild(Vector3I coord, bool remesh = false)
     {
         ChunkState data = _worldData.GetChunk(coord);
         if (data == null)
@@ -1093,7 +1153,7 @@ public partial class ChunkManager : Node3D
             return;
         }
         WorldState world = _worldData;
-        var build = new ChunkBuild { Coord = coord, VisualOnly = IsVisualOnly(coord) };
+        var build = new ChunkBuild { Coord = coord, VisualOnly = IsVisualOnly(coord), Remesh = remesh };
         bool visualOnly = build.VisualOnly;
         // Workers read voxel arrays the main thread may be writing. A torn read
         // can only produce a wrong mesh, and every edit that remeshes goes
@@ -1141,6 +1201,14 @@ public partial class ChunkManager : Node3D
                 break;
             }
             _building.Remove(build.Coord);
+            if (build.Remesh)
+            {
+                if (RealizeRemesh(build))
+                {
+                    realized++;
+                }
+                continue;
+            }
             if (build.Stale
                 || !desired.Contains(build.Coord)
                 || _loadedChunks.ContainsKey(build.Coord)
@@ -1362,32 +1430,46 @@ public partial class ChunkManager : Node3D
         starved.Clear();
     }
 
-    private void ProcessMeshRebuildQueue()
+    // Swaps a finished re-mesh in over the loaded chunk. False when the chunk
+    // unloaded while it built, and nothing was realized.
+    private bool RealizeRemesh(ChunkBuild build)
     {
-        int rebuilt = 0;
-        while (_meshRebuildQueue.Count > 0 && rebuilt < MAX_REBUILDS_PER_FRAME)
+        Vector3I coord = build.Coord;
+        if (!_loadedChunks.TryGetValue(coord, out ChunkMesh oldMesh))
         {
-            Vector3I coord = _meshRebuildQueue.Dequeue();
-            if (!_loadedChunks.TryGetValue(coord, out ChunkMesh oldMesh))
-            {
-                continue;
-            }
-
+            return false;
+        }
+        ChunkGeometry geo;
+        if (build.Task.IsFaulted)
+        {
+            // Same policy as a faulted load: a race retries cleanly, a real bug
+            // throws here with a main-thread stack.
+            GD.PushWarning($"ChunkManager: background re-mesh of chunk {coord} failed, rebuilding on the main thread: {build.Task.Exception?.GetBaseException()}");
             ChunkState data = _worldData.GetChunk(coord);
             if (data == null)
             {
-                continue;
+                return false;
             }
-
-            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetBlockWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, _worldData.CollectClimbLipsWorld);
-            // Before QueueFree — the outgoing node's _ExitTree runs at the end
-            // of the frame and would otherwise strip the live detail scatter.
-            oldMesh.TransferDetailScatterTo(mesh);
-            oldMesh.QueueFree();
-            AddChild(mesh);
-            _loadedChunks[coord] = mesh;
-            rebuilt++;
+            bool visualOnly = IsVisualOnly(coord);
+            geo = ChunkMesh.BuildGeometry(data, _worldData.GetBlockWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.GetSunlightWorld, _worldData.GetSunOpaqueWorld, _worldData.IsInBounds, _worldData.CollectClimbLipsWorld, buildCollision: !visualOnly, buildDetails: !visualOnly, outOfLightWindow: visualOnly);
         }
+        else
+        {
+            geo = build.Task.Result;
+            if (build.Stale || build.VisualOnly != IsVisualOnly(coord))
+            {
+                _remeshPending.Add(coord);
+            }
+        }
+
+        ChunkMesh mesh = ChunkMesh.Realize(geo);
+        // Before QueueFree — the outgoing node's _ExitTree runs at the end of
+        // the frame and would otherwise strip the live detail scatter.
+        oldMesh.TransferDetailScatterTo(mesh);
+        oldMesh.QueueFree();
+        AddChild(mesh);
+        _loadedChunks[coord] = mesh;
+        return true;
     }
 
     // Copied out of the Godot array once per scan: the desired-set scan tests

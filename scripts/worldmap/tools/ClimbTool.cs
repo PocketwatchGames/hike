@@ -73,10 +73,6 @@ public class ClimbTool : IWorldMapTool
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-    }
-
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
     }

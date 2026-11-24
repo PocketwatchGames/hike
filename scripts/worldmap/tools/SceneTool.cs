@@ -304,12 +304,6 @@ public class SceneTool : IWorldMapTool
         _dirty = before.Merge(ctx.FootprintOf(Selected));
     }
 
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-        int n = Mathf.Max(1, Paths(ctx).Length);
-        SceneIndex = ((SceneIndex + dir) % n + n) % n;
-    }
-
     // R/F turn the SELECTED stamp rather than stepping a tool parameter. The
     // scene spins about its ANCHOR, so one anchored at a corner swings around it
     // — the host rebuilds the whole map after this, which a footprint sweeping

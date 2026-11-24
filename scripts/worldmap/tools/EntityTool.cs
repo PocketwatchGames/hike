@@ -27,6 +27,11 @@ using Godot;
 // SpawnEntryData.FacingY), so there is no palette entry the gesture does nothing
 // for and nothing here has to ask whether this one is turnable.
 //
+// A BOMB WALL is a volume rather than a point: it is drawn as its box, and a
+// click anywhere in that box selects it into the panel (RMB deletes it), but its
+// cells are edited only in the bomb-wall tool — so this tool neither moves nor
+// turns one, nor drops a new one as a point with no cells.
+//
 // The PLAYER SPAWN is the first palette entry rather than a tool of its own.
 // There is exactly one of it, so placing it MOVES it — a tool whose whole job is
 // to move a single point does not need a button in the toolbar, and having it
@@ -65,6 +70,8 @@ public class EntityTool : IWorldMapTool
     private EntityPlacement _pressHit;
     private SceneEntityTarget _pressScene;
     private bool _pressWasSpawn;
+    // The press landed on a bomb wall's box.
+    private bool _pressIsWall;
     private Vector2I _grabOffset;
     private bool _strokeActed;
     // This stroke turns the selection instead of moving it. Decided at the press
@@ -72,6 +79,18 @@ public class EntityTool : IWorldMapTool
     // is aimed by the same drag that dropped it.
     private bool _aiming;
     private Rect2I? _dirty;
+
+    // Clicking again on a stack of overlapping entities steps the selection
+    // through them. The press still grabs the CURRENT selection, so a drag moves
+    // the one you have; only a click released without moving advances, to
+    // _cycleNext (the entity after it in the stack).
+    private object _cycleNext;
+    private Vector2I _pressTexel;
+    private bool _pressMoved;
+    private readonly System.Collections.Generic.List<EntityPlacement> _stackEntities = new();
+    private readonly System.Collections.Generic.List<SceneEntityTarget> _stackScene = new();
+    private readonly System.Collections.Generic.List<EntityPlacement> _stackWalls = new();
+    private readonly System.Collections.Generic.List<object> _stack = new();
 
     public EntityTool()
     {
@@ -125,7 +144,9 @@ public class EntityTool : IWorldMapTool
     public string HintText(WorldMapState ctx)
         => "Hover to name  |  Click to place then drag to aim, drag to move, "
             + "Shift+drag to aim, R/F to turn 45 deg, RMB to delete  |  "
-            + "A scene's entities: click to edit for that stamp (fixed in place)";
+            + "Click again on overlapping entities to cycle through them  |  "
+            + "A scene's entities: click to edit for that stamp (fixed in place)  |  "
+            + "Bomb walls: click to edit, drawn with the Bomb walls tool";
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
@@ -151,8 +172,14 @@ public class EntityTool : IWorldMapTool
 
     // The same proximity test the press grabs with, so what the cursor grows and
     // the HUD names is exactly what a click would pick up.
+    // A bomb wall's box is the last thing hit: it is big, and a point mark or a
+    // scene entity standing inside it must stay grabbable.
     public EntityPlacement EntityUnder(WorldMapState ctx, WorldMapView view, Vector2I texel)
-        => ctx.EntityAt(texel.X, texel.Y, GrabRadius, Clip(view));
+    {
+        int clip = Clip(view);
+        return ctx.EntityAt(texel.X, texel.Y, GrabRadius, clip)
+            ?? (ctx.SceneEntityAt(texel.X, texel.Y, clip) == null ? ctx.BombWallAt(texel.X, texel.Y, clip) : null);
+    }
 
     public SceneEntityTarget SceneEntityUnder(WorldMapState ctx, WorldMapView view, Vector2I texel)
         => EntityUnder(ctx, view, texel) == null ? ctx.SceneEntityAt(texel.X, texel.Y, Clip(view)) : null;
@@ -166,6 +193,10 @@ public class EntityTool : IWorldMapTool
         if (SelectedScene != null)
         {
             return "Scene entity: placed by its stamp, edits apply to this stamp only";
+        }
+        if (WorldMapState.BombWallOf(Selected) != null)
+        {
+            return "Bomb wall: reshape it with the Bomb walls tool";
         }
         return Selected == null ? "" : $"Selected facing {(int)Selected.facing * 45} deg";
     }
@@ -187,10 +218,64 @@ public class EntityTool : IWorldMapTool
         _pressHit = ctx.EntityAt(texel.X, texel.Y, GrabRadius, clip);
         _pressScene = _pressHit == null ? ctx.SceneEntityAt(texel.X, texel.Y, clip) : null;
         _pressWasSpawn = _pressHit == null && _pressScene == null && ctx.IsSpawnNear(texel.X, texel.Y, GrabRadius, clip);
-        _strokeActed = false;
-        _dirty = null;
+        if (_pressHit == null && _pressScene == null && !_pressWasSpawn)
+        {
+            _pressHit = ctx.BombWallAt(texel.X, texel.Y, clip);
+        }
         // Shift: this drag aims what it grabbed instead of sliding it.
         _aiming = (mods & EStrokeMods.Constrain) != 0;
+        _pressTexel = texel;
+        _pressMoved = false;
+        _cycleNext = null;
+        if (!_aiming && !_pressWasSpawn && (mods & EStrokeMods.Pick) == 0)
+        {
+            GrabFromStack(ctx, texel, clip);
+        }
+        _pressIsWall = WorldMapState.BombWallOf(_pressHit) != null;
+        _strokeActed = false;
+        _dirty = null;
+    }
+
+    // Everything under the press, in the order a single press prefers it: hand
+    // placements, then a scene's entities, then bomb walls. Where the current
+    // selection is in the stack, the press is about IT (so LMB drags it and RMB
+    // deletes it), and the entity after it is what a plain click advances to.
+    private void GrabFromStack(WorldMapState ctx, Vector2I texel, int clip)
+    {
+        _stackEntities.Clear();
+        _stackScene.Clear();
+        _stackWalls.Clear();
+        _stack.Clear();
+        ctx.EntitiesAt(texel.X, texel.Y, GrabRadius, clip, _stackEntities);
+        ctx.SceneEntitiesAt(texel.X, texel.Y, clip, _stackScene);
+        ctx.BombWallsAt(texel.X, texel.Y, clip, _stackWalls);
+        _stack.AddRange(_stackEntities);
+        _stack.AddRange(_stackScene);
+        _stack.AddRange(_stackWalls);
+        if (_stack.Count < 2)
+        {
+            return;
+        }
+        object current = (object)Selected ?? SelectedScene;
+        int at = current != null ? _stack.IndexOf(current) : -1;
+        if (at < 0)
+        {
+            return;
+        }
+        _pressHit = current as EntityPlacement;
+        _pressScene = current as SceneEntityTarget;
+        _cycleNext = _stack[(at + 1) % _stack.Count];
+    }
+
+    public void EndStroke(WorldMapState ctx, WorldMapView view)
+    {
+        if (_cycleNext == null || _pressMoved)
+        {
+            return;
+        }
+        Selected = _cycleNext as EntityPlacement;
+        SelectedScene = _cycleNext as SceneEntityTarget;
+        _cycleNext = null;
     }
 
     public void Paint(WorldMapState ctx, WorldMapView view, WorldMapBrush brush, Vector2I texel, bool erase)
@@ -198,6 +283,15 @@ public class EntityTool : IWorldMapTool
         // Per stamp, not per stroke: a rect that accumulated over a whole drag
         // would repaint the entire path travelled on every motion event.
         _dirty = null;
+        if (texel != _pressTexel)
+        {
+            _pressMoved = true;
+        }
+        // An erase acts at once, so there is no click left to advance.
+        if (erase)
+        {
+            _cycleNext = null;
+        }
 
         // A scene's entity is selected and nothing else: the scene decides where
         // it stands, so a drag cannot move or aim it and RMB cannot delete it.
@@ -221,12 +315,24 @@ public class EntityTool : IWorldMapTool
             if (!_strokeActed && _pressHit != null)
             {
                 _strokeActed = true;
-                _dirty = CellRect(ctx, _pressHit.anchorXZ);
+                _dirty = _pressIsWall ? ctx.BombWallTexelRect(_pressHit).Grow(1) : CellRect(ctx, _pressHit.anchorXZ);
                 if (Selected == _pressHit)
                 {
                     Selected = null;
                 }
                 ctx.RemoveEntity(_pressHit);
+            }
+            return;
+        }
+
+        // A wall is selected and nothing else; its box is the bomb-wall tool's.
+        if (_pressIsWall)
+        {
+            if (!_strokeActed)
+            {
+                _strokeActed = true;
+                SelectedScene = null;
+                Selected = _pressHit;
             }
             return;
         }
@@ -257,7 +363,8 @@ public class EntityTool : IWorldMapTool
             else
             {
                 SpawnEntryData entry = SelectedEntry(ctx);
-                if (entry == null)
+                // A wall dropped as a point has no cells and bakes nothing.
+                if (entry == null || entry is BombWallSpawnEntry)
                 {
                     return;
                 }
@@ -330,19 +437,13 @@ public class EntityTool : IWorldMapTool
     private static Rect2I CellRect(WorldMapState ctx, Vector2I worldXZ)
         => new Rect2I(ctx.TexelXZ(worldXZ), Vector2I.One);
 
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-        int n = ctx.EntityPalette.Length + 1;
-        PaletteIndex = ((PaletteIndex + dir) % n + n) % n;
-    }
-
     // R/F turn the SELECTED entity rather than stepping a tool parameter, the
     // way they turn the selected stamp in the scene tool. One eighth turn a
     // press, matching what an aiming drag can express, so the two agree about
     // what the authorable facings are.
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
-        if (Selected == null)
+        if (Selected == null || WorldMapState.BombWallOf(Selected) != null)
         {
             return;
         }

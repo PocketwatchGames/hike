@@ -47,9 +47,21 @@ public partial class Sim
         return _chunkManager.IsChunkLoaded(WorldToChunkCoord(worldPos));
     }
 
-    public void UpdateLighting(List<Vector3I> changedPositions)
+    // What every runtime voxel write needs afterwards, whatever made it: a
+    // relight of the moved cells, and dropping the walkability samples over them.
+    // Re-meshing is separate (RemeshVoxels) because a geometry-less write — a
+    // door's Barrier — needs no new mesh, but it does change what can be walked.
+    public void OnVoxelsChanged(List<Vector3I> changedPositions)
     {
         _chunkManager.UpdateLighting(changedPositions);
+        var chunks = new HashSet<Vector3I>();
+        foreach (Vector3I cell in changedPositions)
+        {
+            if (chunks.Add(WorldToChunkCoord(cell)))
+            {
+                SharedWalkabilityCache.InvalidateChunk(WorldToChunkCoord(cell));
+            }
+        }
     }
 
     public void FlushLighting()
@@ -87,11 +99,18 @@ public partial class Sim
         _chunkManager?.SetFogVolumetricEnabled(enabled);
     }
 
-    // Requeue specific chunks. For edits whose extent is known up front — an
-    // editor fill or its undo names its own chunks rather than deriving them
-    // from a voxel list.
-    public void RebuildChunkMeshes(IEnumerable<Vector3I> chunkCoords)
+    // Re-mesh every resident chunk whose mesh reads one of `cells`, which must
+    // already hold their new voxels (ChunkMeshReach decides the set). Call after
+    // OnVoxelsChanged for a write that changes geometry.
+    public void RemeshVoxels(IEnumerable<Vector3I> cells)
     {
-        _chunkManager.RebuildChunkMeshes(chunkCoords);
+        _chunkManager.RebuildChunkMeshes(ChunkMeshReach.ChunksReading(_worldState, cells));
+    }
+
+    // Re-mesh every resident chunk whose mesh reads anything in `region` — for
+    // an edit that moves a non-voxel mesh input there (a roof's SunOpaque).
+    public void RemeshRegion(VoxelBox region)
+    {
+        _chunkManager.RebuildChunkMeshes(ChunkMeshReach.ChunksReading(region));
     }
 }

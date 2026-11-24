@@ -1,7 +1,8 @@
 using Godot;
 
-// The weathered height and water fields, derived from a document's elevation,
-// water and roughness layers and cached per column.
+// The weathered height field, derived from a document's elevation and roughness
+// layers (and the water, through StandHeight) and cached per column. A water
+// edit still owes it an Invalidate: weathering measures cliffs from the water.
 //
 // A CACHE WITH AN INVALIDATION PROTOCOL, which is the whole reason it is its own
 // type: it is rebuilt over a dirty rect, and a path that edits those layers
@@ -27,16 +28,7 @@ public class TerrainField
         return _heights[Map.ClampZ(pz) * Map.Data.ImageWidth + Map.ClampX(px)];
     }
 
-    // Surface of the water at a column, or Map.NoWater where it has been erased.
-    public int Water(int px, int pz)
-    {
-        EnsureHeights();
-        return _water[Map.ClampZ(pz) * Map.Data.ImageWidth + Map.ClampX(px)];
-    }
-
-    // Merge a region into the pending rebuild. The water fill is GLOBAL — a notch
-    // cut in a rim moves a shoreline on the far side of the lake — so water
-    // cannot be updated over a rect and is simply rebuilt with it.
+    // Merge a region into the pending rebuild.
     public void Invalidate(Rect2I texelRect)
     {
         if (_heights == null)
@@ -59,7 +51,6 @@ public class TerrainField
         if (_heights == null)
         {
             _heights = new int[Map.Data.ImageWidth * Map.Data.ImageHeight];
-            _water = new int[Map.Data.ImageWidth * Map.Data.ImageHeight];
             RebuildHeights(new Rect2I(0, 0, Map.Data.ImageWidth, Map.Data.ImageHeight));
             _heightsDirty = default;
             return;
@@ -96,21 +87,6 @@ public class TerrainField
         int spread = Mathf.Clamp(Map.Data.roughenMaxSpreadVoxels, 1, 32);
         Rect2I outer = Clip(Inflate(rect, spread + 1), w, h);
         Rect2I src = Clip(Inflate(outer, spread), w, h);
-        // Water first: Map.StandHeight reads it while the erosion below is computed,
-        // and it is a straight per-column read with no neighbourhood, so the same
-        // rect covers it.
-        _water ??= new int[w * h];
-        for (int x = src.Position.X; x < src.Position.X + src.Size.X; x++)
-        {
-            for (int z = src.Position.Y; z < src.Position.Y + src.Size.Y; z++)
-            {
-                float painted = Map.WaterVoxels(x, z);
-                _water[z * w + x] = painted < Map.NoWaterVoxels + 0.5f
-                    ? Map.NoWater
-                    : Map.ColumnHeight(painted);
-            }
-        }
-
         int ow = outer.Size.X;
         int oh = outer.Size.Y;
         var raise = new int[ow * oh];
@@ -356,11 +332,6 @@ public class TerrainField
 
     private FastNoiseLite _roughNoise;
     private int[] _heights;
-
-    // Painted water surface per column, floored at the sea. Cached beside the
-    // heights and refreshed by the same rebuild, so both are array reads on the
-    // paths that ask per texel.
-    private int[] _water;
 
     private Rect2I _heightsDirty;
 }

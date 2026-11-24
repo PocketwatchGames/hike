@@ -395,6 +395,42 @@ public static class ChunkDetailScatter
     //
     // Walks the four cardinal directions outward, carrying the ground level
     // with it, so a long grade stays continuous and only a real step ends a run.
+    // How far outside the chunk Compute reads, per side (ChunkMeshReach), for
+    // the given groups. Every probe starts at a voxel inside the chunk: the AO
+    // march goes AO_STEPS out, the normal reads the four neighbour columns over
+    // ±NORMAL_SCAN_RANGE (and one above), and ComputeEdgeFactor walks maxSteps
+    // columns out, its ground level free to climb or fall (step - 1) a column.
+    public static void ReadReach(DetailGroupData[] groups, out Vector3I below, out Vector3I above)
+    {
+        int horizontal = Math.Max(AO_STEPS, 1);
+        int down = Math.Max(AO_STEPS, NORMAL_SCAN_RANGE);
+        int up = Math.Max(AO_STEPS, NORMAL_SCAN_RANGE + 1);
+        if (groups != null)
+        {
+            foreach (DetailGroupData group in groups)
+            {
+                if (group == null)
+                {
+                    continue;
+                }
+                int step = group.cliffStepVoxels;
+                int setback = group.edgeSetbackVoxels;
+                int minWidth = group.minLedgeWidthVoxels;
+                if (step <= 0 || (setback <= 0 && minWidth <= 1))
+                {
+                    continue;
+                }
+                int maxSteps = Math.Max(setback, minWidth - 1);
+                int drift = maxSteps * (step - 1);
+                horizontal = Math.Max(horizontal, maxSteps);
+                down = Math.Max(down, drift);
+                up = Math.Max(up, drift + 1);
+            }
+        }
+        below = new Vector3I(horizontal, down, horizontal);
+        above = new Vector3I(horizontal, up, horizontal);
+    }
+
     private static float ComputeEdgeFactor(int wx, int wy, int wz, DetailGroupData group, System.Func<int, int, int, int> getVoxel)
     {
         int step = group.cliffStepVoxels;

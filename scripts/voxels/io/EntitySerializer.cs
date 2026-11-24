@@ -44,6 +44,7 @@ public static class EntitySerializer
         Stash = 33,
         CraftingBench = 34,
         Trigger = 35,
+        BombWall = 36,
     }
 
     // Legacy PropType byte values for loot. PropSimState used to cover loot
@@ -850,6 +851,23 @@ public static class EntitySerializer
                 WriteScene(w, hint.Scene);
                 break;
 
+            // The cells are stored, not re-derived: they are what the placement
+            // picked, and once broken the rock that would identify them is gone.
+            case BombWallSimState wall:
+                w.Write((byte)Tag.BombWall);
+                WriteVec3(w, wall.WorldPosition);
+                WriteScene(w, wall.Scene);
+                WriteResource(w, wall.CrackSurface);
+                w.Write(wall.Broken);
+                w.Write7BitEncodedInt(wall.Cells.Length);
+                foreach (Vector3I cell in wall.Cells)
+                {
+                    w.Write(cell.X);
+                    w.Write(cell.Y);
+                    w.Write(cell.Z);
+                }
+                break;
+
             // No scene ref and no style ref: a waterfall is the edge its water
             // pours over, swept into a sheet at spawn, and everything else about
             // how it looks comes off SimData. The edge has to be stored because
@@ -1384,6 +1402,20 @@ public static class EntitySerializer
                 PackedScene scene = ReadScene(r);
                 // Hint name comes from the common trailing field, as above.
                 return new PathHintSimState(pos, "", scene);
+            }
+            case Tag.BombWall:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                var surface = ReadResource<BlockSurfaceData>(r);
+                bool broken = r.ReadBoolean();
+                var cells = new Vector3I[r.Read7BitEncodedInt()];
+                for (int i = 0; i < cells.Length; i++)
+                {
+                    cells[i] = new Vector3I(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
+                }
+                // Facing comes from the common trailing field ReadOne applies.
+                return new BombWallSimState(pos, 0f, scene, surface, cells) { Broken = broken };
             }
             case Tag.Waterfall:
             {

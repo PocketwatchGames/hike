@@ -86,4 +86,10 @@ public enum EAnimation
     // Getting up off the ground: played as a waking status ends (Unconscious's
     // StatusEffectData.endAnim) and as a death respawn fades in.
     StandUp = 44,
+    // A mob's dodge dash, picked by where the dash goes relative to its facing
+    // (Mob.ApplyDodge). One-shots at authored speed; an unmapped slot just
+    // slides in the current pose.
+    DodgeBack = 45,
+    DodgeLeft = 46,
+    DodgeRight = 47,
 }

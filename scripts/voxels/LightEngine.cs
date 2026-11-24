@@ -537,8 +537,7 @@ public static class LightEngine
     // over it would only dirty every chunk in the stack for identical values.
     //
     // Leaves SunlightChunkDirty naming exactly the chunks whose sunlight moved,
-    // which is what the caller has to re-mesh (terrain sun is a per-vertex bake)
-    // and upload.
+    // which is what the caller has to upload.
     // Share of the sunlight pass spent scanning columns before the flood.
     // Measured on an 18x16 chunk bake: the scan is ~4s of a ~19s pass, the flood
     // the remaining ~15s, so the flood is where a bake actually spends its time.
@@ -695,7 +694,7 @@ public static class LightEngine
 
     public static void OnVoxelsChanged(WorldState world, List<Vector3I> changedPositions)
     {
-        // Scope SunlightChunkDirty to this call — callers re-mesh what it names.
+        // Scope SunlightChunkDirty to this call.
         world.SunlightChunkDirty.Clear();
         UpdateSunlightAt(world, changedPositions);
         RecomputeSkyExposureColumns(world, changedPositions);

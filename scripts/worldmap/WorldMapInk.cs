@@ -81,10 +81,28 @@ public class WorldMapInk
         {
             return WithWater(built.minimapColor, px, pz);
         }
-        int idx = Map.GroundIndexAt(px, pz);
+        return WithWater(KitColor(Map.FloorKitAt(px, pz, Map.SurfaceBelow(px, pz, int.MaxValue))), px, pz);
+    }
+
+    // The ground map, CUT AWAY: the kit (or paving, or built block) of the first
+    // floor under the plane, which may be a kit painted on that floor alone.
+    // `buried` as in CutawayColorAt.
+    public Color CutawayGroundColorAt(int px, int pz, int clipY, out bool buried)
+    {
+        int floor = Map.CutawayFloor(px, pz, clipY, out buried);
+        if (floor < Map.Data.WorldMinY)
+        {
+            return Data.cutawayRockColor;
+        }
+        BlockData built = Map.BuiltBlockAtFloor(px, pz, floor);
+        Color c = built != null ? built.minimapColor : KitColor(Map.FloorKitAt(px, pz, floor));
+        return buried ? c : WithWaterOver(c, px, pz, floor, clipY);
+    }
+
+    private Color KitColor(int idx)
+    {
         TerrainKitData[] sets = Map.Terrains;
-        Color c = idx >= 0 && idx < sets.Length && sets[idx] != null ? sets[idx].mapColor : UNPAINTED_GROUND;
-        return WithWater(c, px, pz);
+        return idx >= 0 && idx < sets.Length && sets[idx] != null ? sets[idx].mapColor : UNPAINTED_GROUND;
     }
 
     public Color StampColorAt(WorldMapState.StampPlan plan, int px, int pz, Color under,
@@ -170,7 +188,9 @@ public class WorldMapInk
         {
             return terrain;
         }
-        int depth = Mathf.Min(Map.WaterSurface(px, pz), clipY) - surface;
+        // The water standing on THIS floor, so a dry cave under a lake draws dry
+        // and a pool in a cave draws as a pool.
+        int depth = Mathf.Min(Map.WaterTopOver(px, pz, surface), clipY) - surface;
         if (depth <= 0)
         {
             return terrain;
@@ -194,7 +214,7 @@ public class WorldMapInk
         // own water is applied per column by a noise field at bake time, so
         // drawing it here would show a pattern the bake does not reproduce —
         // the same reason latent water is deliberately invisible.
-        Color ink = WaterTypeInkAt(px, pz);
+        Color ink = WaterTypeInkAt(px, pz, surface + 1);
         return ink.A > 0f ? water.Lerp(ink, Data.waterTypeTintStrength) : water;
     }
 
@@ -202,7 +222,7 @@ public class WorldMapInk
     // against a table built once at load: this runs for every texel of every
     // rebuild (~295k), so walking to the BlockData per texel would put a
     // resource dereference in the map's hottest loop.
-    private Color WaterTypeInkAt(int px, int pz)
+    private Color WaterTypeInkAt(int px, int pz, int wy)
     {
         // Cheapest gates first: this is reached for every WET texel of every
         // rebuild, and the GetPixel below is a native call. Dry land never gets
@@ -211,7 +231,7 @@ public class WorldMapInk
         {
             return default;
         }
-        int idx = Map.WaterTypeIndexAt(px, pz);
+        int idx = Map.WaterTypeIndexAt(px, pz, wy);
         return idx >= 0 && idx < _waterTypeInk.Length ? _waterTypeInk[idx] : default;
     }
 

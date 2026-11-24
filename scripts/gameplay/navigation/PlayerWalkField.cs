@@ -32,6 +32,7 @@ public sealed class PlayerWalkField
     private int _originZ;
     private int _anchorY;
     private bool _valid;
+    private int _epoch;
 
     // Rebuild the memo if the player has left the window it was sampled for.
     // Cheap and idempotent — call once per tick before querying.
@@ -44,6 +45,7 @@ public sealed class PlayerWalkField
         int wantOriginZ = pz - WindowRadius;
 
         if (_valid
+            && _epoch == SharedWalkabilityCache.Epoch
             && _originX == wantOriginX
             && _originZ == wantOriginZ
             && Mathf.Abs(py - _anchorY) <= AnchorRestampY)
@@ -55,6 +57,7 @@ public sealed class PlayerWalkField
         _originX = wantOriginX;
         _originZ = wantOriginZ;
         _anchorY = py;
+        _epoch = SharedWalkabilityCache.Epoch;
 
         for (int j = 0; j < WindowSize; j++)
         {

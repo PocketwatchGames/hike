@@ -33,7 +33,7 @@ public static class SaveGame
 {
 	// Anything that isn't exactly this version is rejected — pre-release saves
 	// are discarded, never upgraded (CLAUDE.md "Priorities").
-	private const int SAVE_VERSION = 67;
+	private const int SAVE_VERSION = 68;
 
 	public static string GlobalPath(string path) => ProjectSettings.GlobalizePath(path);
 
@@ -321,11 +321,16 @@ public sealed class SaveFile
 	}
 
 	// Once the Sim exists: re-stamp the voxels the saved chunks' entities own (a
-	// door the run left open) and relight just the cells that moved — what Door
-	// does when it swings. Everything else was stamped as the world was built.
+	// door the run left open, a bomb wall broken open) and relight just the cells
+	// that moved. Everything else was stamped as the world was built. This runs
+	// after Sim.Initialize has meshed the world, so a change with geometry (a
+	// broken wall's cleared rock) re-meshes, and the lips baked against the rock
+	// that was there are redone — per stamp, since one box over every change could
+	// span the map.
 	public void ReconcileStamps(Sim sim)
 	{
 		var changed = new List<Vector3I>();
+		var stampChanged = new List<Vector3I>();
 		foreach (Vector3I coord in _savedChunks)
 		{
 			List<EntitySimState> bucket = sim.WorldState.GetEntities(coord);
@@ -335,15 +340,31 @@ public sealed class SaveFile
 			}
 			foreach (EntitySimState state in bucket)
 			{
-				if (state is IVoxelStamper stamper)
+				if (state is not IVoxelStamper stamper)
 				{
-					EntityVoxelStamper.Apply(sim.WorldState, stamper.ResolveStamp(sim.WorldState), changed);
+					continue;
 				}
+				stampChanged.Clear();
+				EntityVoxelStamper.Apply(sim.WorldState, stamper.ResolveStamp(sim.WorldState), stampChanged);
+				if (stampChanged.Count == 0)
+				{
+					continue;
+				}
+				Vector3I min = stampChanged[0];
+				Vector3I max = stampChanged[0];
+				foreach (Vector3I cell in stampChanged)
+				{
+					min = min.Min(cell);
+					max = max.Max(cell);
+				}
+				ClimbLedgeStamper.RestampRegion(sim.WorldState, new VoxelBox(min, max));
+				changed.AddRange(stampChanged);
 			}
 		}
 		if (changed.Count > 0)
 		{
-			sim.UpdateLighting(changed);
+			sim.OnVoxelsChanged(changed);
+			sim.RemeshVoxels(changed);
 		}
 	}
 

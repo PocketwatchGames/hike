@@ -32,6 +32,12 @@ public static class DebugContentIndex
 
     public static Dictionary<string, string> Species => _species ??= Scan(SpeciesRoots);
 
+    private const string SpawnEntryRoot = "res://resources/data/world_authoring/spawn_entries";
+    private static Dictionary<string, string> _spawnEntries;
+
+    // The shared spawn-entry palette (what the painter offers).
+    public static Dictionary<string, string> SpawnEntries => _spawnEntries ??= Scan(SpawnEntryRoot);
+
     // The items a game in `world` may name (WorldScope): that world's own, then
     // every unscoped one. A world's own item shadows an unscoped one of the same
     // name, and another world's are not listed at all.

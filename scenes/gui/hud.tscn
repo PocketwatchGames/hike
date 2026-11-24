@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="3_ueg55"]
 [ext_resource type="PackedScene" uid="uid://blmj70p54o01u" path="res://scenes/hud/conversation_panel.tscn" id="4_dialogue"]
 [ext_resource type="PackedScene" uid="uid://7idkrdw7ckjc" path="res://scenes/hud/book_page.tscn" id="4_bookpage"]
+[ext_resource type="PackedScene" uid="uid://3ndok4j7jomd2" path="res://scenes/hud/name_prompt.tscn" id="4_nameprompt"]
 [ext_resource type="Script" uid="uid://dxm5ynymyakmv" path="res://scripts/gui/SpeechBubbles.cs" id="4_speechbubbles"]
 [ext_resource type="PackedScene" uid="uid://37ckvhv0e306" path="res://scenes/hud/speech_bubble.tscn" id="4_bubble"]
 [ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="5_gbuxp"]
@@ -21,7 +22,7 @@
 [ext_resource type="Texture2D" uid="uid://c5ogqm7cj0u3a" path="res://assets/textures/map_markers/question.png" id="mm_question"]
 [ext_resource type="PackedScene" uid="uid://obntj5em5frg" path="res://scenes/gui/player_vitals.tscn" id="vitals_scene"]
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_armorSlot", "_dashHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_statusEffectContainer", "_boonContainer", "_vitals", "_statusEffectNotificationAnchor", "_questContainer", "_dialoguePanel", "_bookPage", "_speechBubbles", "_gameplayWidgets", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftSlot", "_weaponRightSlot", "_weaponLeftHint", "_weaponRightHint", "_shieldSlot", "_shieldHint", "_armorSlot", "_dashHint", "_hotbarSlots", "_hotbarCycleLeftHint", "_hotbarCycleRightHint", "_hotbarUseHints", "_statusEffectContainer", "_boonContainer", "_vitals", "_statusEffectNotificationAnchor", "_questContainer", "_dialoguePanel", "_bookPage", "_namePrompt", "_speechBubbles", "_gameplayWidgets", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -51,6 +52,7 @@ _questContainer = NodePath("ScreenMarginContainer/UpperLeft/QuestContainer")
 _questItemScene = ExtResource("13_o8nis")
 _dialoguePanel = NodePath("DialoguePanel")
 _bookPage = NodePath("BookPage")
+_namePrompt = NodePath("NamePrompt")
 _speechBubbles = NodePath("SpeechBubbles")
 _gameplayWidgets = NodePath("ScreenMarginContainer")
 _regionBanner = NodePath("MarginContainer/RegionBanner")
@@ -507,6 +509,9 @@ layout_mode = 1
 bubbles = NodePath("../SpeechBubbles")
 
 [node name="BookPage" parent="." instance=ExtResource("4_bookpage")]
+layout_mode = 1
+
+[node name="NamePrompt" parent="." instance=ExtResource("4_nameprompt")]
 layout_mode = 1
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=329998641]

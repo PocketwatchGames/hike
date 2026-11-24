@@ -18,6 +18,9 @@ public static class WaterWallMesher
 {
     private const int N = ChunkState.SIZE;
 
+    // How far outside the chunk Build reads on every side (ChunkMeshReach).
+    public const int READ_REACH = 1;
+
     // How far a wall reaches below the lowest exposed face of its column, in
     // metres. Below the exposed run the neighbour is water or ground, and where
     // it is water (a pool standing beside a deeper one, no rock between) a

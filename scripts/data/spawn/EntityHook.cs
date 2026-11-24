@@ -10,6 +10,8 @@ public enum EEntityEvent
     Close,
     // A key removed its lock. Raised once, just before the Open it causes.
     Unlock,
+    // Smashed open for good (a bomb wall).
+    Break,
 }
 
 // One per-placement reaction: when `hookEvent` happens, run `commands` — the

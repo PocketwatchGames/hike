@@ -60,6 +60,8 @@ public partial class Hud : Control
 	[Export] ConversationController _dialoguePanel;
 	// A knowledge source read as a page (a book) rather than a bubble.
 	[Export] BookPage _bookPage;
+	// The text box a conversation opens to name the player (NamePlayerAction).
+	[Export] NamePrompt _namePrompt;
 	// Where every speech bubble is spawned. Outside _gameplayWidgets.
 	[Export] SpeechBubbles _speechBubbles;
 	// The gameplay widgets (vitals, hotbar, minimap, quests, effects), hidden
@@ -265,6 +267,10 @@ public partial class Hud : Control
 			_bookPage.gameClient = gameClient;
 			_bookPage.VisibilityChanged += OnConversationVisibilityChanged;
 		}
+		if (_namePrompt != null)
+		{
+			_namePrompt.gameClient = gameClient;
+		}
 		_weaponLeftHint?.SetHint("AttackContextSensitive", "AttackMelee", string.Empty, string.Empty);
 		_weaponRightHint?.SetHint("AttackContextSensitive", "AttackRanged", "Aim", string.Empty);
 		_shieldHint?.SetHint("Sneak", string.Empty);
@@ -381,6 +387,18 @@ public partial class Hud : Control
 		{
 			_announcementBanner?.Enqueue(_heldDiscoveries.Dequeue());
 		}
+	}
+
+	// Opens the name box on `initial`; `onConfirm` gets the trimmed, non-blank name.
+	public void ShowNamePrompt(string initial, Action<string> onConfirm)
+	{
+		if (_namePrompt == null)
+		{
+			GD.PushError("Hud: no NamePrompt wired; keeping the current name");
+			onConfirm?.Invoke(initial);
+			return;
+		}
+		_namePrompt.Open(initial, onConfirm);
 	}
 
 	// A conversation, an inscription's bubble or a book page owns the screen.

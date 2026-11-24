@@ -6,6 +6,58 @@
 [ext_resource type="AudioStream" uid="uid://bnbp6thx7ydhd" path="res://assets/audio/source/weapons/sfx_weapon_fist_hit_03.wav" id="2_a03"]
 [ext_resource type="AudioStream" uid="uid://bqoh2hf0cfe7u" path="res://assets/audio/source/weapons/sfx_weapon_fist_hit_04.wav" id="2_a04"]
 [ext_resource type="AudioStream" uid="uid://c810p7p3ro02g" path="res://assets/audio/source/weapons/sfx_weapon_fist_hit_05.wav" id="2_a05"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="3_shader"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="4_puff"]
+[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="5_fade"]
+
+[sub_resource type="ParticleProcessMaterial" id="Proc_dust"]
+emission_shape = 1
+emission_sphere_radius = 0.08
+direction = Vector3(0, 1, 0)
+spread = 180.0
+initial_velocity_min = 0.4
+initial_velocity_max = 1.2
+gravity = Vector3(0, -1.5, 0)
+damping_min = 2.0
+damping_max = 3.0
+scale_min = 0.6
+scale_max = 1.4
+color_ramp = ExtResource("5_fade")
+
+[sub_resource type="ShaderMaterial" id="Shader_dust"]
+render_priority = 0
+shader = ExtResource("3_shader")
+shader_parameter/albedo_texture = ExtResource("4_puff")
+shader_parameter/albedo = Color(0.55, 0.5, 0.42, 0.55)
+shader_parameter/emission = Color(0, 0, 0, 0)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="Quad_dust"]
+material = SubResource("Shader_dust")
+size = Vector2(0.14, 0.14)
+
+[sub_resource type="ParticleProcessMaterial" id="Proc_grit"]
+emission_shape = 1
+emission_sphere_radius = 0.05
+direction = Vector3(0, 1, 0)
+spread = 180.0
+initial_velocity_min = 1.2
+initial_velocity_max = 2.8
+gravity = Vector3(0, -9, 0)
+damping_min = 0.5
+damping_max = 1.0
+scale_min = 0.6
+scale_max = 1.0
+
+[sub_resource type="ShaderMaterial" id="Shader_grit"]
+render_priority = 0
+shader = ExtResource("3_shader")
+shader_parameter/albedo = Color(0.32, 0.28, 0.23, 1)
+shader_parameter/emission = Color(0, 0, 0, 0)
+
+[sub_resource type="QuadMesh" id="Quad_grit"]
+material = SubResource("Shader_grit")
+size = Vector2(0.05, 0.05)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_fisthitsolid"]
 playback_mode = 1
@@ -25,6 +77,26 @@ stream_4/weight = 1.0
 
 [node name="FistHitSolid" type="Node3D"]
 script = ExtResource("1_oneshot")
+
+[node name="Dust" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 6
+lifetime = 0.45
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("Proc_dust")
+draw_pass_1 = SubResource("Quad_dust")
+
+[node name="Grit" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 10
+lifetime = 0.35
+one_shot = true
+explosiveness = 1.0
+randomness = 0.5
+process_material = SubResource("Proc_grit")
+draw_pass_1 = SubResource("Quad_grit")
 
 [node name="Audio" type="AudioStreamPlayer3D" parent="."]
 stream = SubResource("AudioStreamRandomizer_fisthitsolid")

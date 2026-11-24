@@ -253,6 +253,11 @@ public static class CVars
     });
 
     public static CVar debugMesherProbe = new CVar("debug_mesher_probe", (cvar) => MesherProbe.Run());
+
+    // Rebuilds every loaded chunk through recording accessors and checks that
+    // no build read further than ChunkMeshReach declares. Prints "[mesh_reach] ok"
+    // or FAIL; needs a running world.
+    public static CVar debugMeshReach = new CVar("debug_mesh_reach", (cvar) => MeshReachProbe.Run());
     public static CVar debugMesherSweep = new CVar("debug_mesher_sweep", (cvar) => MesherProbe.Sweep());
     public static CVar debugMesherWallSweep = new CVar("debug_mesher_wall_sweep", (cvar) => MesherProbe.WallSweep());
     public static CVar debugMesherStepTexture = new CVar("debug_mesher_step_texture", (cvar) => MesherProbe.StepTexture());
@@ -2532,6 +2537,14 @@ public static class CVars
     public static CVarString spawnLoot = new CVarString("spawn_loot", "", (cvar) =>
     {
         DebugVerbs.Give(((CVarString)cvar).Value);
+    });
+
+    // `spawn_bomb_wall <entry> [width] [height] [depth]` — mark the rock face
+    // ahead of the player as a transient bomb wall. `spawn_bomb_wall ?` lists
+    // the entries.
+    public static CVarString spawnBombWall = new CVarString("spawn_bomb_wall", "", (cvar) =>
+    {
+        DebugVerbs.SpawnBombWall(((CVarString)cvar).Value);
     });
 
     // `setup <name>` — run an authored scenario's command list (SimData

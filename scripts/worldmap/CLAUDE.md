@@ -32,40 +32,41 @@ carries invariants that are not repeated here.
 The authored source of truth is **`WorldMapData`** (`scripts/data/worldmap/`,
 a plain `Resource` — deliberately NOT `[Tool]`, or the editor strips every
 typed reference it holds on save; see the note on the class) — bake settings
-(world extent in chunks, default sea level, height scale). The **layer files**
-(openable directly) are NOT referenced: each is a fixed name beside the `.tres`
-(`WorldMapData.LAYER_FILES`), so a document is its folder and a copied folder is
-an independent world. The painter opens one through a file dialog, never a
+(world extent in chunks, default sea level, height scale). The layers are NOT
+referenced: they are ONE binary file, `layers.bin`, at a fixed name beside the
+`.tres` with `placements.tres` and `palettes.tres` (`WorldMapData.LAYER_FILES`),
+so a document is its folder and a copied folder is an independent world.
+`layers.bin` holds every raster layer and the voxel layer as ONE independently
+compressed section per chunk column — everything the document says about those
+16 x 16 columns — so an edit with any tool changes only the sections of the
+chunk columns it touched and git deltas the rest; ~110 KB for antica, ~140 ms to
+save, ~110 ms to load. Exact-version: a file of another
+version, or with a layer missing or unknown, is refused by name. See
+`WorldMapData.LoadLayers`. The painter opens one through a file dialog, never a
 folder search — see [docs/host.md](docs/host.md). It mirrors the `VoxelAtlasManifest` convention: one editor-visible
 resource of record + a re-runnable bake (`BakeToWorldFile`, pure C# so it runs
 headless).
 
 Layers:
-- **Elevation** — `.exr` `Rf`, per voxel **column**, in **voxels relative to
-  `seaLevel`, signed** (negative digs seabed). Godot's EXR round-trips negatives
-  exactly, verified.
-- **Water** — `.exr` `Rf`, per column: the water SURFACE, in voxels relative to
-  `seaLevel`, signed like the elevation layer. **The layer is the whole answer —
-  there is no waterline rule folded in.** A blank layer is zeros and 0 encodes
-  `seaLevel`, so an untouched document is already prefilled with water at the sea
-  everywhere; land simply hides the water it stands above. A value below
-  `minElevationVoxels` is the "no water at all" sentinel the erase brush writes,
-  which is what makes a DRY basin below sea level expressible.
-- **Water type** — `.png` `R8`, per column (index into `WorldMapData.waterTypes`
-  + 1; 0 = "whatever the zone says", which is what every document meant before
-  the layer existed). The palette holds `BlockData` references directly, which is
-  safe here and not on `ZoneWaterData`: `WorldMapData` is deliberately not
-  `[Tool]`, so nothing it holds is subject to the `[Tool]` closure rule.
-- **Region** / **Zone** — `.png` `R8`, per **chunk** (index → `ChunkState.RegionIndex` / `ZoneIndex`).
-- **Habitat** — `habitat.png` `R8`, per **chunk** (slot + 1; 0 = none →
+- **Elevation** — `Rf`, per voxel **column**, in **voxels relative to
+  `seaLevel`, signed** (negative digs seabed).
+- **Water** — PER VOXEL, in the voxel layer (bits 16-23): 0 none,
+  1 the zone's water, n the water-type slot n - 2. **The layer is the whole answer
+  — there is no waterline rule folded in.** A new document is prefilled with the
+  zone's water up to `seaLevel`; land hides the water it stands in, and the bake
+  fills a voxel with water only where it comes out empty. Per voxel, so a column
+  can hold several bodies (a pool in a cave under a hill, a lake over a dry cave),
+  each with its own level and type. See [docs/water.md](docs/water.md).
+- **Region** / **Zone** — `R8`, per **chunk** (index → `ChunkState.RegionIndex` / `ZoneIndex`).
+- **Habitat** — `R8`, per **chunk** (slot + 1; 0 = none →
   `ChunkState.HabitatIndex`, same encoding). What LIVES in a place — fairy
   chance and breakable/creature loot — painted apart from the zone so one look
   can host different wildlife. Per chunk because that is what the world
   records; a passage shares the habitat of the chunk column it is carved in.
-- **Wind** — `.png` `Rgba8`, per **chunk**: R = compass angle over a full turn,
+- **Wind** — `Rgba8`, per **chunk**: R = compass angle over a full turn,
   G = strength, with **0 reserved for UNPAINTED**. Per chunk because that is the
   granularity the bake seeds `ChunkState`'s wind-velocity subgrid at.
-- **Props — one layer**, `props_blocking.png`, `.png` `R8`, per column (prop
+- **Props — one layer**, `props_blocking`, `R8`, per column (prop
   list index + 1; 0 = none), indexing the `props` palette. No density
   channel and no spacing: the bake FILLS a painted region until every column of
   it is inside some prop's collision, because a painted region is a barrier and
@@ -73,30 +74,33 @@ Layers:
   ("breakable") layer over the same palette; whether a barrier can be CLEARED is
   decided by what the scenes in the list are built out of, so the two rasters
   could not state a difference and the pair is now one.
-- **Mobs** — `.png` `Rgba8`, per column (R = set index + 1, G = density
+- **Mobs** — `Rgba8`, per column (R = set index + 1, G = density
   multiplier), indexing `mobSets`. Still a rate: a mob set is a
   `SpawnScatterData` over a `SpawnListData` whose rows carry their own
   square-metres-per-spawn.
-- **Ground** — `.png` `R8`, per column (terrain kit + 1; 0 = `defaultGround`).
-- **Paving** — `.png` `Rgba8`, per column: R = paving block + 1 (0 = none),
-  G/B = the world Y it is laid at + 1, low byte first, with **0 meaning "on
-  whatever surface is under it"**. Two channels because a document may span more
-  than 255 voxels of height. A layer written before levels existed is
-  single-channel and converts with G/B zero, i.e. surface-seated, which is what
-  it always meant.
-- **Scalars** — `.png` `Rgba8`, per column: R = mob level, G = climb route flag,
+- **Ground** — the same split: the `ground` layer (`R8`, terrain kit + 1; 0 =
+  `defaultGround`) for a column's surface, and a per-voxel kit override (voxel
+  layer bits 24-31) on a floor under something. The bake carries a floor's kit
+  down through the solid run beneath it, so a cliff under a painted floor matches.
+- **Paving** — two kinds, split the way an entity's `floorY` is. A road on a
+  column's SURFACE is the `paving` layer (`R8`, block + 1) and follows the ground as it
+  is reshaped; paving on a floor with something over it is a REPAVED voxel
+  (`EditRepave` in the voxel layer) at that height. One surface road plus any
+  number of repaved floors per column.
+- **Scalars** — `Rgba8`, per column: R = mob level, G = climb route flag,
   B = cliff roughness.
 - **Placements** — `.tres` (`WorldMapPlacements`): the subscene stamps (each
   with its own forks of its scene's entities, `entityOverrides`), the
   hand-placed entities, and the player spawn. Not a raster: a per-column byte
   cannot hold "this scene, facing that way", nor two of them overlapping, nor a
   footprint that moves as one thing.
-- **Tunnels** — `.bin` (magic + version + dims, then zlib), a per-voxel
-  `ushort[px,ly,pz]`: the EDIT in the low two bits (0 untouched, 1 carved away,
-  2 added) and, on a carve, the **passage** it belongs to — its danger level,
-  scatter set and density — or, on an add, the **block** it is built of (a
-  `BuildingBlocks` slot + 1; 0 = the column's ground terrain). Too 3D to be a
-  useful image; the result is captured in the baked `.hike`. See "Passages" below.
+- **Voxel layer** — a per-voxel `uint[px,ly,pz]`, each column run-length
+  encoded inside its chunk column's section. Low 16 bits: the EDIT in the low two (0 untouched,
+  1 carved away, 2 added, 3 repaved) and, on a carve, the **passage** it belongs
+  to — its danger level, scatter set and density — or, on an add or a repave, the
+  **block** (a `BuildingBlocks` slot + 1; 0 on an add = the column's ground
+  terrain). High 16 bits, independent of the edit: the voxel's **water** (16-23)
+  and **terrain kit override** (24-31). See "Passages" below.
 ## What a painted world needs that is not the generator's
 
 
@@ -225,21 +229,22 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | Tool | Paints | Extra vars | View |
 |------|--------|-----------|------|
 | `ElevationTool` | elevation (raise/lower/flatten/flatten-soft/smooth/lift/smear) **and** cliff weathering (roughen) | `Op`, `VoxelsPerStroke`, `TargetVoxels`, `RoughenStopIndex`; `AdjustLevel` steps whichever number the op uses | one band per lattice step, eroded heights, water overlaid when `ShowWater` (**W**) |
-| `WaterTool` | each painted column's water surface AND its water type (RMB removes) | `SurfaceVoxels` (R/F, signed; alt+click samples), type (**Q/E**), `ReplaceOnly` (**X**) | water shaded by depth, dry land dimmed — **cuts away** (T/G), so water can be painted inside a passage |
-| `TunnelTool` | LMB carves the box ABOVE `PaintY`, which is the floor left behind; RMB erases the whole exposed passage | `PaintY` (R/F), `Height` (Q/E) | `CutawayElevationView` — the elevation map cut at `view.CutawayY` (T/G): the highest floor under the cut in its own band, dithered where seen through rock |
+| `WaterTool` | each painted column's water surface AND its water type (RMB removes) | `SurfaceVoxels` (R/F, signed; alt+click samples), type (option row), `ReplaceOnly` (**X**) | water shaded by depth, dry land dimmed — **cuts away** (Q/E), so water can be painted inside a passage |
+| `TunnelTool` | LMB carves the box ABOVE `PaintY`, which is the floor left behind; RMB erases the carve inside the same box | `PaintY` (R/F, the floor), `Height` (T/G, the ceiling) | `CutawayElevationView` — the elevation map cut at `view.CutawayY` (Q/E): the highest floor under the cut in its own band, dithered where seen through rock |
 | `BlockTool` | the same box, LMB filling it DOWN to `PaintY`, the new surface — or, in wall mode, `Height` voxels stood on each column's ground | the same, plus the block (option row; "Ground" = the column's terrain) and `WallMode` (**X**) | the same view, built blocks in their `minimapColor` |
 | `RegionTool` | per-chunk region index | `RegionIndex`, named in the option row | region colours, **50% darker under water** |
 | `HabitatTool` | per-chunk habitat (RMB clears to none) | `HabitatIndex`, named in the option row | habitat colours, unpainted grey, **50% darker under water** |
 | `ZoneTool` | per-chunk zone index | `ZoneIndex`, named in the option row | zone colours, **brightness by elevation** |
 | `WindTool` | per-chunk wind direction + strength (RMB clears back to the zone's) | `Mode` (Stroke / Inward / Outward), `AdjustLevel` = strength in m/s; alt+click samples | hue = compass angle, a sawtooth ramp ALONG the flow, unpainted chunks flat grey |
-| `PaveTool` | a block on the floor the map is SHOWING — the surface, or a passage's floor under the cut | `BlockIndex` | `CutawayGroundView` — the ground map, **cutting away** (T/G) once the plane comes down |
+| `PaveTool` | a block on the floor the map is SHOWING — the surface, or a passage's floor under the cut | `BlockIndex` | `CutawayGroundView` — the ground map, **cutting away** (Q/E) once the plane comes down |
 | `PropPaintTool` ("Blocking") | which `PropListData` fills a column (RMB clears, alt+click samples) | `ListIndex` | ground colour, a dot per painted column in that list's own `mapColor` — black for a barrier, mid-grey for a breakable one |
-| `ClimbTool` | climbing route on a column's walls | none | `CutawayElevationView`, routed edges inked magenta — **cuts away** (T/G), so a route can be painted on a passage's walls |
-| `SceneTool` | `.hikescene` stamps — place / select / move / rotate / delete; seat follows the ground or is pinned (`fixedY`: X, shift+R/F, alt+click) | `SceneIndex`, `Selected` | `CutawayGroundView` — **cuts away** (T/G), so a stamp can be placed in a passage (the stamps themselves draw on EVERY view) |
-| `MobLevelTool` | per-column danger level; with the plane lowered, the level of the PASSAGE under the cut | `Level` | terrain recoloured, one shade per level — **cuts away** (T/G) to shade passages |
-| `MobTool` | which `SpawnScatterData` supplies a column's wildlife + density; with the plane lowered, the PASSAGE's scatter; the inspector lists the set's entries at `n / km²` | `SetIndex`, `Density` | ground colour + a dot per mob spawn, the SELECTED set full weight and the rest dimmed — **cuts away** (T/G), dotting the passage scatter |
+| `ClimbTool` | climbing route on a column's walls | none | `CutawayElevationView`, routed edges inked magenta — **cuts away** (Q/E), so a route can be painted on a passage's walls |
+| `SceneTool` | `.hikescene` stamps — place / select / move / rotate / delete; seat follows the ground or is pinned (`fixedY`: X, shift+R/F, alt+click) | `SceneIndex`, `Selected` | `CutawayGroundView` — **cuts away** (Q/E), so a stamp can be placed in a passage (the stamps themselves draw on EVERY view) |
+| `MobLevelTool` | per-column danger level; with the plane lowered, the level of the PASSAGE under the cut | `Level` | terrain recoloured, one shade per level — **cuts away** (Q/E) to shade passages |
+| `MobTool` | which `SpawnScatterData` supplies a column's wildlife + density; with the plane lowered, the PASSAGE's scatter; the inspector lists the set's entries at `n / km²` | `SetIndex`, `Density` | ground colour + a dot per mob spawn, the SELECTED set full weight and the rest dimmed — **cuts away** (Q/E), dotting the passage scatter |
 | `EntityTool` | individual entities, their per-placement properties, and the player spawn; a STAMPED SCENE's entities are selectable too and edited for that stamp alone, never moved or deleted | `PaletteIndex`, `Selected`, `SelectedScene` | the ground map (the marks themselves draw on EVERY view that shows props, but only on the slice their floor is on; a scene's entities in `sceneEntityInk`) |
-| `TriggerTool` | trigger boxes (`TriggerSpawnEntry`, own list `WorldMapPlacements.triggers`): drag to draw, drag inside to move, drag the border ring to resize, R/F height, shift+R/F depth, RMB delete | `Selected` | `CutawayGroundView`; every box draws as an outline on EVERY view (`triggerInk`), full strength under this tool |
+| `TriggerTool` | trigger boxes (`TriggerSpawnEntry`, own list `WorldMapPlacements.triggers`): drag to draw, drag inside to move, drag the border ring to resize, R/F height, shift+R/F depth, RMB delete (the box gestures are `BoxPlacementTool`'s, shared with bomb walls) | `Selected` | `CutawayGroundView`; every box draws as an outline on EVERY view (`triggerInk`), full strength under this tool |
+| `BombWallTool` | bomb walls (`BombWallSpawnEntry`) as voxel boxes — ordinary ENTITY placements of the palette's `bomb_wall`, so the panel, hooks and the entity tool's selection apply. Same box gestures; R/F moves the top, shift+R/F the bottom; a new box stands on the floor shown under the press (or hangs from the plane over rock). The box is DERIVED from `cells` (`WorldMapState.BombWallBox`); `floorY` is always absolute, facing Deg0. The entity tool selects/deletes a wall but never moves, aims or point-places one. `worldmap_check` ERRORs a wall with no exposed rock, one in/beside water, and two sharing a cell | the palette's bomb-wall entry | `CutawayGroundView`; boxes on EVERY view (`bombWallInk`), drawn while any of the box is at or below the cut |
 
 A spawn brush writes only its raster; `RescatterColumns` resolves it during the
 bake. The two resolutions are not the same shape and should not be made to
@@ -327,7 +332,7 @@ carved voxel packs, beside its edit bits (`WorldMapState.Tunnels`):
 | Bits | Field | 0 means |
 |---|---|---|
 | 2–5 | level + 1 | the surface's level at this column |
-| 6–11 | scatter slot + 1 (the same ledger slot `mobs.png` stores) | nothing scatters here |
+| 6–11 | scatter slot + 1 (the same ledger slot the `mobs` layer stores) | nothing scatters here |
 | 12–15 | density, 15 steps | — |
 
 So `mobLevelCount` is capped at 15 and a passage can name scatter slots 0..62.
@@ -446,17 +451,16 @@ KIND of thing.
 | Presets | `world_authoring/presets/` |
 | Entities | `world_authoring/spawn_entries/` (recursive — the folder is the section: `mobs/goblin/`, `props/furniture/`) and `worlds/shared/spawn_entries/npcs/` — one row per FILE; what a buried spot holds, what a stone teaches, what a chest contains is still set on the placement (see [docs/host.md](docs/host.md)) |
 | Water | the block catalog, every block whose `render` is `Water` |
-| Blocks (paving AND block edits — one slot numbering, stored by both `paving.png` and `tunnels.bin`) | the block catalog, every solid block with a top surface |
+| Blocks (paving AND block edits — one slot numbering, stored by both the `paving` layer and the voxel layer) | the block catalog, every solid block with a top surface |
 
 Four rules, three of which were real bugs:
 
 - **A palette whose index is painted is a WIRE FORMAT, and its slots live in a
-  LEDGER.** `zone.png`, `region.png`, `habitat.png`, `ground.png`, `props_blocking.png`,
-  `mobs.png`,
-  `paving.png` and `water_type.png` all store a slot number, so a slot that moves
+  LEDGER.** The `zone`, `region`, `habitat`, `ground`, `props_blocking`, `mobs`
+  and `paving` layers and the voxel layer's water and kit bytes all store a slot number, so a slot that moves
   silently re-zones or re-textures every world already baked — with the stored
   bytes still perfectly valid. Discovery therefore only ever APPENDS to
-  `WorldMapPalettes` (`map/palettes.tres`, beside the layer images), never
+  `WorldMapPalettes` (`map/palettes.tres`, beside `layers.bin`), never
   reorders, and a slot whose file is gone keeps its index as a named dead slot.
   Same rule and same reason as `TerrainPaletteData`.
 - **A FREE palette has no ledger at all.** Nothing stores an index for entities

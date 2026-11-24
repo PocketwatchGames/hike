@@ -42,8 +42,8 @@ public sealed class EditorRefresh
             }
             if (_voxels.Count > 0)
             {
-                sim.UpdateLighting(_voxels);
-                sim.RebuildChunkMeshes(ChunksToRemesh());
+                sim.OnVoxelsChanged(_voxels);
+                sim.RemeshVoxels(_voxels);
             }
             foreach (Vector3I coord in _entityChunks)
             {
@@ -78,37 +78,5 @@ public sealed class EditorRefresh
             max = max.Max(lo + Vector3I.One * (ChunkState.SIZE - 1));
         }
         return max.X < min.X ? VoxelBox.Empty : new VoxelBox(min, max);
-    }
-
-    private HashSet<Vector3I> ChunksToRemesh()
-    {
-        var touched = new HashSet<Vector3I>();
-        foreach (Vector3I cell in _voxels)
-        {
-            touched.Add(Sim.WorldToChunkCoord(cell));
-        }
-        return GrowByOne(touched);
-    }
-
-    // Chunks grown by one in every direction: a chunk's mesh culls its faces and
-    // shades its corners against its neighbours' voxels and sunlight, so a
-    // change on a seam restains the chunk next door.
-    public static HashSet<Vector3I> GrowByOne(IEnumerable<Vector3I> chunkCoords)
-    {
-        var grown = new HashSet<Vector3I>();
-        foreach (Vector3I coord in chunkCoords)
-        {
-            for (int dx = -1; dx <= 1; dx++)
-            {
-                for (int dy = -1; dy <= 1; dy++)
-                {
-                    for (int dz = -1; dz <= 1; dz++)
-                    {
-                        grown.Add(coord + new Vector3I(dx, dy, dz));
-                    }
-                }
-            }
-        }
-        return grown;
     }
 }

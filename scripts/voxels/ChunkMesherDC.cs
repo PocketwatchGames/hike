@@ -52,6 +52,14 @@ public static class ChunkMesherDC
     private const int CORNER_HI = N + 3;
     private const int CORNER_DIM = N + 7;
 
+    // How far outside the chunk Build reads, per side (ChunkMeshReach). The
+    // widest read is the sun/openness march: from every cell vertex in
+    // [CELL_LO, CELL_HI] (a vertex sits within [0, 2) of its cell origin) out
+    // SUN_STEPS voxels. The corner field, one voxel below CORNER_LO and up to
+    // CORNER_HI, falls inside it. Widen these with any of those constants.
+    public const int READ_BELOW = SUN_STEPS - CELL_LO;
+    public const int READ_ABOVE = CELL_HI + 2 + SUN_STEPS - (N - 1);
+
     private static int CellIdx(int c) => c - CELL_LO;
     private static int CornerIdx(int c) => c - CORNER_LO;
 

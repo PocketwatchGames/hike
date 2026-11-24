@@ -13,7 +13,7 @@
 
 [sub_resource type="Resource" id="blastDamage"]
 script = ExtResource("5_damage")
-tags = 3079
+tags = 134151
 healthDamage = 20.0
 damageVariance = 0.25
 hitstun = 0.3

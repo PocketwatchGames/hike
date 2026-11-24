@@ -265,8 +265,9 @@ public class WorldState
 
     // Chunks whose stored sunlight moved during the most recent incremental
     // relight. Narrower than LightChunkDirty (which block-light flicker
-    // re-marks constantly) because sunlight is BAKED INTO MESH VERTICES — a
-    // chunk in here has a stale mesh until it is re-meshed. Cleared at the top
+    // re-marks constantly); the light texture dilates sun one voxel past each
+    // chunk, so these chunks' neighbours re-encode too. Not a re-mesh signal:
+    // terrain shades with the live volume (see ChunkMeshReach). Cleared at the top
     // of LightEngine.OnVoxelsChanged, so it only ever describes that call; the
     // world-load flood populates it harmlessly and the first incremental edit
     // wipes it.

@@ -260,6 +260,15 @@ public partial class ItemEvent : Resource
 	// ItemEventHandlers.DoSummonMinion.
 	[Export] public SpeciesData minionSpecies;
 
+	// Dig fields. Centered on the player's positional aim cursor when one is
+	// active, else `digReach` metres in front of the actor (0 = at the feet).
+	// `digRadius` is how close a buried spot / burrowed mob must be to that
+	// center. A find plays its own feedback (the spot style's digEffect, the
+	// mob's emerge); `digNothingEffect` is the empty hole.
+	[Export(PropertyHint.Range, "0,5,0.05")] public float digRadius = 1.5f;
+	[Export(PropertyHint.Range, "0,5,0.05")] public float digReach = 0f;
+	[Export] public PackedScene digNothingEffect;
+
 	// Projectile fields. Spawned by DoProjectile at the actor's position,
 	// flying along the actor's forward (with the tier's accuracy spread
 	// applied via ItemAction.spreadDegrees). Damage on impact is resolved from the
@@ -487,6 +496,7 @@ public partial class ItemEvent : Resource
 			nameof(screenFlash) => EItemEventType.ScreenFlash,
 			nameof(noiseDecibels) => EItemEventType.Noise,
 			nameof(minionSpecies) => EItemEventType.SummonMinion,
+			nameof(digRadius) or nameof(digReach) or nameof(digNothingEffect) => EItemEventType.Dig,
 			_ => 0,
 		};
 	}

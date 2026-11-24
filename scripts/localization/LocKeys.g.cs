@@ -117,6 +117,8 @@ public static partial class Loc
 		need_remark_fatigue_2,
 		need_remark_fatigue_3,
 		rune_bone_etched,
-		runes_recorded
+		runes_recorded,
+		name_prompt_title,
+		name_prompt_confirm
 	}
 }

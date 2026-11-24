@@ -209,37 +209,31 @@ mods. Empty = not salvageable. The materials live in `resources/data/items/mater
 
 ## Tools (`EToolKind`, `ItemData.toolUses`)
 
-**What an item can do besides its main use is a row on the item; what an action
-needs is a requirement naming the kind.** A knife and a sword are Blades, the
-shovel is a Digging tool. Carrying one anywhere counts — the backpack or a sack,
-equipped or not.
+**What an item can do besides its main use is a row on the item** (`ToolUse`:
+a kind and the durability one use wears). A knife and a sword are Blades, the
+shovel is a Digging tool.
 
-- **`Inventory.FindTool(kind)` is the one search**, broken gear skipped,
-  non-allocating (prompts ask it every frame). **`Player.UseTool(kind)` /
-  `WearTool(item, kind)` is the one wear path**, by the row's `wear`; an item
-  that isn't `GearData` never wears.
-- **An action gates on `CarriesToolRequirement`**, marked
-  `hidesActionWhenUnmet` so no tool means no prompt at all
-  (`InteractiveAction.IsOfferedTo`); a gate without the flag refuses at the press
-  with its message instead. An interactive whose offered set can change filters
-  its `GetActions` by it — safe because `IInteractive.Complete` receives the
-  action that ran, never an index into a list that may since have changed.
-- **Tool work is not done in combat** — digging, and a salvage that
-  needs a tool. Combat is `CombatTracker` (a perceived dangerous enemy attacking,
-  what the combat music follows), NOT `NoDangerRequirement`'s merely-nearby
-  hostile: `NotInCombatRequirement` (hiding) on the actions, `ItemData.CanSalvage`
-  for salvage. In combat the prompts simply aren't there.
-- **A kind has code behind it** (the dig path), which is why it is
-  an enum and not a resource — APPEND-ONLY, stored as an int.
-- **A tool has no use of its own.** `ToolData` (the shovel) is `GearData` in the
-  `Tool` category: it rides in the backpack, never the hotbar, and wears only
-  through the interactions it enables. Digging is ONLY the `BuriedSpot`
-  interaction — a Dig prompt within 1 m with a shovel carried, and for a
-  treasure spot only while its map is held.
-- **A burrowed mob is dug out the same way** (`SimData.digUpAction`, the same
-  Dig): offered only while it is fully burrowed AND shows its dirt mound, so the
-  prompt never reveals a mob that left no trace. Like a corpse it is targeted by
-  its hurtbox (`ECollisionLayer.BurrowedHurtBox`, in the player's interact mask).
+- **`Inventory.FindTool(kind)` is the one search** for a tool CARRIED anywhere
+  (backpack, sack, equipped or not), broken gear skipped, non-allocating.
+  **`Player.UseTool(kind)` / `WearTool(item, kind)` is the one wear path**, by
+  the row's `wear`; an item that isn't `GearData` never wears.
+- **Tool work is not done in combat** — digging, and a salvage that needs a
+  tool. Combat is `CombatTracker` (a perceived dangerous enemy attacking, what
+  the combat music follows), NOT `NoDangerRequirement`'s merely-nearby hostile:
+  `NotInCombatRequirement` on the dig timeline, `ItemData.CanSalvage` for
+  salvage.
+- **A kind has code behind it**, which is why it is an enum and not a resource
+  — APPEND-ONLY, stored as an int.
+- **Digging is the shovel's hotbar use, never a prompt.** `ToolData` is
+  `GearData` in the `Tool` category with an `ItemActionProfile`: auto-belted on
+  pickup like a usable (`Inventory.AutoBelt`), held and charged from the hotbar, its timeline's
+  `EItemEventType.Dig` event runs `Sim.TryDig` at the feet — the nearest
+  unexcavated `BuriedSpot`, else the nearest burrowed mob. A find wears the
+  shovel by its Digging row; an empty hole wears nothing and plays the event's
+  `digNothingEffect`. Neither a buried spot nor a burrowed mob is an
+  interactive, so nothing on screen gives one away — a treasure spot is dug
+  with or without its map. A broken shovel can't be used from the hotbar
+  (`Player.StartUseAction` refuses broken gear).
 
 ## Meat (`MobData.meat`)
 

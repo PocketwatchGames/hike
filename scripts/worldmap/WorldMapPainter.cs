@@ -144,7 +144,7 @@ public partial class WorldMapPainter : Node3D
 
     // Bindings that mean the same thing whichever tool is active.
     private const string GLOBAL_HINT =
-        "Tab tool  |  Q/E param  |  R/F level  |  T/G or Alt+Wheel cutaway  |  Alt+RMB aim it  |  X mode  |  Hold B+Click fill  |  Wheel brush  |  Ctrl+Wheel zoom  |  MMB pan  |  W water  |  Ctrl+Z undo  |  Ctrl+S save  |  Esc menu";
+        "R/F level  |  T/G brush height  |  Q/E or Alt+Wheel cutaway  |  Alt+RMB aim it  |  X mode  |  Hold B+Click fill  |  W water";
 
     // The document this painter is editing, for the console commands that act on
     // "whatever is open".
@@ -197,6 +197,7 @@ public partial class WorldMapPainter : Node3D
             new HabitatTool(),
             new EntityTool(),
             new TriggerTool(),
+            new BombWallTool(),
         };
         _toolIndex = 0;
 
@@ -210,7 +211,9 @@ public partial class WorldMapPainter : Node3D
         // seats, and neither passes through any other UpdateHud path.
         canvas.OnStrokeEnd = () =>
         {
+            ActiveTool.EndStroke(_ctx, _view);
             _history.Commit();
+            RefreshEntityHighlight();
             UpdateHud();
         };
         // Wheel UP shrinks the brush. The canvas reports the raw notch; the
@@ -218,7 +221,7 @@ public partial class WorldMapPainter : Node3D
         // own (smaller / bigger) sense.
         canvas.OnAdjustRadius = notch => AdjustRadius(-notch);
         canvas.OnZoom = AdjustZoom;
-        // alt+wheel is T/G under the hand already on the mouse — the plane spans
+        // alt+wheel is Q/E under the hand already on the mouse — the plane spans
         // the world's whole height, so scrubbing it is the common gesture and
         // walking there a keypress at a time is not.
         // Wheel DOWN lowers the plane — the same sense as scrolling down a page,
@@ -230,6 +233,7 @@ public partial class WorldMapPainter : Node3D
             UpdateHud();
         };
         canvas.OnHover = ReportHover;
+        canvas.Gauge = _gauge;
 
         var toolNames = new string[_tools.Length];
         for (int i = 0; i < _tools.Length; i++)
@@ -278,8 +282,25 @@ public partial class WorldMapPainter : Node3D
     // cutaway the two differ by a whole mountain, and a readout that reports the
     // hilltop while the map draws the passage beneath it makes every alt+click
     // look like it sampled the wrong thing — which is exactly how it read.
+    // The column gauge follows the last hovered column, and is re-captured on
+    // every HUD update so a level or cutaway change shows without moving the mouse.
+    private readonly WorldMapColumnGauge _gauge = new();
+    private Vector2I _hoverTexel;
+    private bool _hasHoverTexel;
+
+    private void CaptureGauge()
+    {
+        if (_hasHoverTexel)
+        {
+            _gauge.Capture(_ctx, _ink, _view, ActiveTool, _hoverTexel);
+        }
+    }
+
     private void ReportHover(Vector2I t)
     {
+        _hoverTexel = t;
+        _hasHoverTexel = true;
+        CaptureGauge();
         SetHoverEntity(ActiveTool.EntityUnder(_ctx, _view, t), ActiveTool.SceneEntityUnder(_ctx, _view, t));
         int clip = ActiveTool.View.CutsAway ? _view.CutawayY : int.MaxValue;
         int shown = _ctx.PlacementFloor(t.X, t.Y, clip);
@@ -325,10 +346,15 @@ public partial class WorldMapPainter : Node3D
         {
             return;
         }
-        // A trigger's mark is its whole box outline.
+        // A trigger's or a bomb wall's mark is its whole box outline.
         if (WorldMapState.TriggerOf(placement) != null)
         {
             RebuildDisplay(_ctx.TriggerTexelRect(placement).Grow(1));
+            return;
+        }
+        if (WorldMapState.BombWallOf(placement) != null)
+        {
+            RebuildDisplay(_ctx.BombWallTexelRect(placement).Grow(1));
             return;
         }
         Vector2I at = _ctx.TexelXZ(placement.anchorXZ);
@@ -394,8 +420,8 @@ public partial class WorldMapPainter : Node3D
             // Every placement of an entry is inked as a match, and every column
             // of a scatter set is dotted at its own weight, so both are
             // whole-map answers rather than a pair of marks. Deferred and
-            // coalesced like every other full rebuild, so holding Q/E through the
-            // palette costs one repaint per frame.
+            // coalesced like every other full rebuild, so a burst of selection changes
+            // costs one repaint per frame.
             _markedEntry = entry;
             _markedScatter = scatter;
             _markedPropList = propList;
@@ -403,8 +429,8 @@ public partial class WorldMapPainter : Node3D
         }
     }
 
-    // The single way the active tool changes — buttons, Tab and the number keys
-    // all come through here, so the toolbar can never disagree with the map.
+    // The single way the active tool changes — the toolbar buttons
+    // come through here, so the toolbar can never disagree with the map.
     private void SelectTool(int index)
     {
         if (index < 0 || index >= _tools.Length)
@@ -451,7 +477,7 @@ public partial class WorldMapPainter : Node3D
         UpdateHud();
     }
 
-    // T/G. A view setting rather than a tool parameter, so it lives on the state
+    // Q/E. A view setting rather than a tool parameter, so it lives on the state
     // beside ShowWater: every cutting view cuts at the same plane, and switching
     // between them keeps the slice you were reading.
     private void AdjustCutaway(int dir)
@@ -465,7 +491,7 @@ public partial class WorldMapPainter : Node3D
     }
 
     // Reported on EVERY tool, including the ten whose view does not cut. The
-    // plane is shared state and T/G moves it whatever is active, so a tool that
+    // plane is shared state and Q/E moves it whatever is active, so a tool that
     // said nothing about it made the keys read as broken — and on a cutting tool
     // parked at the world top, the dozens of presses before the plane reaches
     // any ground read the same way.
@@ -478,13 +504,10 @@ public partial class WorldMapPainter : Node3D
         return _view.IsCutAway ? $"Cutaway Y={_view.CutawayY}" : "Cutaway off (above the world)";
     }
 
-    // Q/E. The option row is refreshed as well as the HUD, since a tool whose
-    // Cycle moves its option index would otherwise leave a stale button lit.
-    private void CycleParameter(int dir)
+    // T/G: the brush box's height, on the tools whose brush has one.
+    private void AdjustBrushHeight(int dir)
     {
-        ActiveTool.Cycle(_ctx, dir);
-        hud.SetActiveOption(ActiveTool.OptionIndex);
-        RefreshEntityHighlight();
+        ActiveTool.AdjustBrushHeight(_ctx, dir);
         UpdateHud();
     }
 
@@ -532,25 +555,22 @@ public partial class WorldMapPainter : Node3D
             }
             return;
         }
-        // Q/E step the tool's Cycle parameter. For most tools that IS the option
-        // index and the keys are simply a second way to reach the row; where the
-        // row is already spoken for they reach the parameter it cannot show (the
-        // tunnel tool's carve height).
-        if (e.IsActionPressed("EditorParamLeft"))   // Q
+        // T/G: brush box height (tunnel ceiling, block thickness).
+        if (e.IsActionPressed("EditorBrushTaller"))   // T
         {
-            CycleParameter(-1);
+            AdjustBrushHeight(1);
             GetViewport().SetInputAsHandled();
             return;
         }
-        if (e.IsActionPressed("EditorParamRight"))  // E
+        if (e.IsActionPressed("EditorBrushShorter"))  // G
         {
-            CycleParameter(1);
+            AdjustBrushHeight(-1);
             GetViewport().SetInputAsHandled();
             return;
         }
-        // T/G. NOT bracketed as an edit: a cutaway is what the map is showing,
-        // not anything the document holds, so there is nothing to undo.
-        if (e.IsActionPressed("EditorClipUp"))    // T
+        // Q/E: the cutaway. NOT bracketed as an edit: a cutaway is what the map is
+        // showing, not anything the document holds, so there is nothing to undo.
+        if (e.IsActionPressed("EditorClipUp"))    // E
         {
             AdjustCutaway(1);
             RebuildFull();
@@ -558,7 +578,7 @@ public partial class WorldMapPainter : Node3D
             GetViewport().SetInputAsHandled();
             return;
         }
-        if (e.IsActionPressed("EditorClipDown"))  // G
+        if (e.IsActionPressed("EditorClipDown"))  // Q
         {
             AdjustCutaway(-1);
             RebuildFull();
@@ -580,7 +600,7 @@ public partial class WorldMapPainter : Node3D
         if (e is InputEventKey k && k.Pressed && !k.Echo)
         {
             // 1..9 pick the active tool's option — the thing you change often
-            // mid-stroke. Switching tool is Tab or the toolbar. Tools whose
+            // mid-stroke. Switching tool is the toolbar. Tools whose
             // options are a discovered palette decline the keys entirely rather
             // than binding nine of an open-ended list; the option row labels
             // digits only where they work, so the affordance follows the tool.
@@ -616,10 +636,6 @@ public partial class WorldMapPainter : Node3D
             }
             switch (k.Keycode)
             {
-                case Key.Tab:
-                    SelectTool((_toolIndex + 1) % _tools.Length);
-                    GetViewport().SetInputAsHandled();
-                    return;
                 case Key.W:
                     _view.ShowWater = !_view.ShowWater;
                     RebuildFull();
@@ -870,7 +886,7 @@ public partial class WorldMapPainter : Node3D
             return false;
         }
         // alt+RMB aims the CUTAWAY at the floor under it, with headroom to stand
-        // in — the one gesture that moves the plane without hunting for T/G.
+        // in — the one gesture that moves the plane without hunting for Q/E.
         // Only where a cutaway is on screen: elsewhere it would silently consume
         // a press whose effect nothing can show, so alt+RMB keeps its ordinary
         // tool-pick meaning there.
@@ -1010,7 +1026,7 @@ public partial class WorldMapPainter : Node3D
     }
 
     // Deferred to _Process, so several calls in one frame cost ONE rebuild. Key
-    // repeat is why: T/G scrubs the cutaway and every press rebuilt the whole
+    // repeat is why: Q/E scrubs the cutaway and every press rebuilt the whole
     // map synchronously, so holding the key queued rebuilds faster than they
     // could run and the painter stopped answering the keyboard.
     private void RebuildFull()
@@ -1192,38 +1208,45 @@ public partial class WorldMapPainter : Node3D
             DrawEntityGhosts(x0, z0, x1, z1, clipY);
         }
 
-        // Trigger boxes on EVERY view, as outlines: where an event fires is a
-        // fact about the ground worth seeing while painting anything near it.
-        DrawTriggerMarks(x0, z0, x1, z1, clipY);
+        // Trigger boxes and bomb walls on EVERY view, as outlines: where an
+        // event fires, and which rock gives way, are facts about the ground
+        // worth seeing while painting anything near them.
+        DrawBoxMarks(_ctx.Placements.triggers, ActiveTool is TriggerTool, ink.triggerInk, ink.triggerSelectedInk,
+            _ => true, p => _ctx.TriggerTexelRect(p),
+            p => _ctx.IsTriggerShown(p, clipY), x0, z0, x1, z1);
+        DrawBoxMarks(_ctx.Placements.entities, ActiveTool is BombWallTool || ActiveTool is EntityTool,
+            ink.bombWallInk, ink.bombWallSelectedInk,
+            p => WorldMapState.BombWallOf(p) != null, p => _ctx.BombWallTexelRect(p),
+            p => _ctx.IsBombWallShown(p, clipY), x0, z0, x1, z1);
     }
 
-    // Each trigger box as a one-pixel outline: faint everywhere, full strength
-    // under the trigger tool, the selection washed and its corners marked so the
+    // Each box as a one-pixel outline: faint everywhere, full strength under the
+    // tools that edit it, the selection washed and its corners marked so the
     // resize handles can be found.
-    private void DrawTriggerMarks(int x0, int z0, int x1, int z1, int clipY)
+    private void DrawBoxMarks(EntityPlacement[] list, bool active, Color baseInk, Color selectedInk,
+        System.Func<EntityPlacement, bool> isBox, System.Func<EntityPlacement, Rect2I> rectOf,
+        System.Func<EntityPlacement, bool> isShown, int x0, int z0, int x1, int z1)
     {
-        EntityPlacement[] triggers = _ctx.Placements.triggers;
-        if (triggers.Length == 0)
+        if (list.Length == 0)
         {
             return;
         }
-        bool active = ActiveTool is TriggerTool;
         EntityPlacement selected = active ? ActiveTool.SelectedEntity : null;
         var area = new Rect2I(x0, z0, x1 - x0, z1 - z0);
-        foreach (EntityPlacement placement in triggers)
+        foreach (EntityPlacement placement in list)
         {
-            if (placement == null)
+            if (placement == null || !isBox(placement))
             {
                 continue;
             }
-            Rect2I r = _ctx.TriggerTexelRect(placement);
-            if (!r.Grow(1).Intersects(area) || !_ctx.IsTriggerShown(placement, clipY))
+            Rect2I r = rectOf(placement);
+            if (!r.Grow(1).Intersects(area) || !isShown(placement))
             {
                 continue;
             }
             bool isSelected = placement == selected;
             bool isHover = active && placement == _hoverEntity;
-            Color line = isSelected || isHover ? ink.triggerSelectedInk : ink.triggerInk;
+            Color line = isSelected || isHover ? selectedInk : baseInk;
             if (active && !isSelected && !isHover)
             {
                 line.A = 1f;
@@ -1234,7 +1257,7 @@ public partial class WorldMapPainter : Node3D
             int pz1 = r.End.Y * pixelsPerMeter - 1;
             if (isSelected && ink.triggerFillAlpha > 0f)
             {
-                Color wash = ink.triggerSelectedInk;
+                Color wash = selectedInk;
                 wash.A = ink.triggerFillAlpha;
                 for (int y = pz0 + 1; y < pz1; y++)
                 {
@@ -1257,15 +1280,15 @@ public partial class WorldMapPainter : Node3D
             if (isSelected)
             {
                 // The corner cells are the handles a drag resizes from.
-                FillTriggerCorner(r.Position.X, r.Position.Y, line);
-                FillTriggerCorner(r.End.X - 1, r.Position.Y, line);
-                FillTriggerCorner(r.Position.X, r.End.Y - 1, line);
-                FillTriggerCorner(r.End.X - 1, r.End.Y - 1, line);
+                FillBoxCorner(r.Position.X, r.Position.Y, line);
+                FillBoxCorner(r.End.X - 1, r.Position.Y, line);
+                FillBoxCorner(r.Position.X, r.End.Y - 1, line);
+                FillBoxCorner(r.End.X - 1, r.End.Y - 1, line);
             }
         }
     }
 
-    private void FillTriggerCorner(int px, int pz, Color c)
+    private void FillBoxCorner(int px, int pz, Color c)
     {
         for (int dz = 0; dz < pixelsPerMeter; dz++)
         {
@@ -1282,7 +1305,8 @@ public partial class WorldMapPainter : Node3D
     {
         foreach (EntityPlacement placement in _ctx.Placements.entities)
         {
-            if (placement == null)
+            // A bomb wall is drawn as its box on every view.
+            if (placement == null || WorldMapState.BombWallOf(placement) != null)
             {
                 continue;
             }
@@ -1317,7 +1341,7 @@ public partial class WorldMapPainter : Node3D
         var shown = new List<EntityPlacement>();
         foreach (EntityPlacement placement in _ctx.Placements.entities)
         {
-            if (placement == null)
+            if (placement == null || WorldMapState.BombWallOf(placement) != null)
             {
                 continue;
             }
@@ -1502,7 +1526,7 @@ public partial class WorldMapPainter : Node3D
                     continue;
                 }
                 int water = waterVisible && !roofed
-                    ? Mathf.Min(_ctx.WaterSurface(px, pz), clipY)
+                    ? Mathf.Min(_ctx.WaterTopOver(px, pz, floor), clipY)
                     : int.MinValue;
                 _cutStand[i] = water > floor
                     ? water - WorldMapState.WaterStandDrop
@@ -1852,6 +1876,7 @@ public partial class WorldMapPainter : Node3D
         // through here — tool, option, target level, eyedropper — so the ring
         // tracks it without its own set of hooks.
         canvas.CursorColor = ActiveTool.CursorColor(_ink);
+        CaptureGauge();
         canvas.Refresh();
 
         hud.SetTool(ActiveTool.Name);

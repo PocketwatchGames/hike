@@ -155,6 +155,15 @@ public static class LedgeBarrierMesher
     // standing at every line where shallow water meets deep. Only the surface
     // being more than a step BELOW us is a real drop, and that is judged the
     // same way for water as for ground.
+    // How far outside the chunk Build reads (ChunkMeshReach): blocks sample
+    // their +X/+Z corner columns, and a corner probes down the legal drop plus
+    // a voxel of slack, then IsSurface reads one below that.
+    public static void ReadReach(int maxLegalDropVoxels, out Vector3I below, out Vector3I above)
+    {
+        below = new Vector3I(0, maxLegalDropVoxels + 2, 0);
+        above = new Vector3I(1, 0, 1);
+    }
+
     private static bool NeighbourIsReachable(System.Func<int, int, int, int> getVoxel, int nx, int y, int nz,
         int maxLegalDropVoxels)
     {

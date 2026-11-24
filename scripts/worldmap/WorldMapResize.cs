@@ -83,9 +83,7 @@ public static class WorldMapResize
 
         // Per-column layers.
         state.Elevation = Resample(state.Elevation, newW, newH);
-        state.Water = Resample(state.Water, newW, newH);
         state.Ground = Resample(state.Ground, newW, newH);
-        state.WaterType = Resample(state.WaterType, newW, newH);
         state.Paving = Resample(state.Paving, newW, newH);
         state.BlockingProps = Resample(state.BlockingProps, newW, newH);
         state.Mobs = Resample(state.Mobs, newW, newH);
@@ -170,9 +168,7 @@ public static class WorldMapResize
         var chunkShift = new Vector2I(oldMinChunkX - data.MinChunk.X, oldMinChunkZ - data.MinChunk.Z);
 
         state.Elevation = Recanvas(state.Elevation, newW, newH, texelShift);
-        state.Water = Recanvas(state.Water, newW, newH, texelShift);
         state.Ground = Recanvas(state.Ground, newW, newH, texelShift);
-        state.WaterType = Recanvas(state.WaterType, newW, newH, texelShift);
         state.Paving = Recanvas(state.Paving, newW, newH, texelShift);
         state.BlockingProps = Recanvas(state.BlockingProps, newW, newH, texelShift);
         state.Mobs = Recanvas(state.Mobs, newW, newH, texelShift);
@@ -181,7 +177,7 @@ public static class WorldMapResize
         state.Zone = Recanvas(state.Zone, newChunksX, newChunksZ, chunkShift);
         state.Habitat = Recanvas(state.Habitat, newChunksX, newChunksZ, chunkShift);
         state.Wind = Recanvas(state.Wind, newChunksX, newChunksZ, chunkShift);
-        state.Tunnels = RecanvasTunnels(state.Tunnels, oldW, oldH, newW, newH, texelShift, data.VoxelHeight);
+        state.Tunnels = RecanvasTunnels(data, state.Tunnels, oldW, oldH, newW, newH, texelShift);
         state.InvalidateVoxelEdits();
 
         state.Save();
@@ -228,14 +224,17 @@ public static class WorldMapResize
         return dst;
     }
 
-    private static ushort[,,] RecanvasTunnels(ushort[,,] src, int oldW, int oldH, int newW, int newH,
-        Vector2I shift, int voxelHeight)
+    // New columns start as a new document does: sea up to seaLevel.
+    private static uint[,,] RecanvasTunnels(WorldMapData data, uint[,,] src, int oldW, int oldH, int newW, int newH,
+        Vector2I shift)
     {
         if (src == null)
         {
             return null;
         }
-        var dst = new ushort[newW, voxelHeight, newH];
+        int voxelHeight = data.VoxelHeight;
+        var dst = new uint[newW, voxelHeight, newH];
+        data.FillSea(dst);
         for (int x = 0; x < oldW; x++)
         {
             int nx = x + shift.X;
@@ -289,10 +288,21 @@ public static class WorldMapResize
         }
         foreach (EntityPlacement entity in state.Placements.entities)
         {
-            if (entity != null)
+            if (entity == null)
             {
-                entity.anchorXZ = MoveCell(entity.anchorXZ);
+                continue;
             }
+            if (WorldMapState.BombWallOf(entity) != null)
+            {
+                // A bomb wall keeps its size and its absolute Y, like a trigger:
+                // its centre column is carried across and the anchor follows,
+                // taking the cells (offsets from it) along.
+                (Vector3I min, Vector3I size) = state.BombWallBox(entity);
+                var centre = new Vector2I(min.X + size.X / 2, min.Z + size.Z / 2);
+                entity.anchorXZ += MoveCell(centre) - centre;
+                continue;
+            }
+            entity.anchorXZ = MoveCell(entity.anchorXZ);
         }
         // A trigger keeps its size, like a stamp: its centre cell is carried
         // across and the box is rebuilt around it.
@@ -316,13 +326,13 @@ public static class WorldMapResize
     // worse than one that comes out a metre wide. A carve beats an added voxel
     // for the same reason — a sealed passage is the worse of the two failures.
     // Whole cells are copied, so a carve keeps the passage it belonged to.
-    private static ushort[,,] ResampleTunnels(ushort[,,] src, int oldW, int oldH, int newW, int newH, int voxelHeight)
+    private static uint[,,] ResampleTunnels(uint[,,] src, int oldW, int oldH, int newW, int newH, int voxelHeight)
     {
         if (src == null)
         {
             return null;
         }
-        var dst = new ushort[newW, voxelHeight, newH];
+        var dst = new uint[newW, voxelHeight, newH];
         for (int x = 0; x < newW; x++)
         {
             int sx0 = x * oldW / newW;
@@ -333,12 +343,14 @@ public static class WorldMapResize
                 int sz1 = Mathf.Max(sz0 + 1, (z + 1) * oldH / newH);
                 for (int y = 0; y < voxelHeight; y++)
                 {
-                    ushort v = 0;
+                    // The first source cell (its water and kit come with it),
+                    // unless another holds an edit — a carve above all.
+                    uint v = src[sx0, y, sz0];
                     for (int sx = sx0; sx < sx1 && WorldMapState.EditOf(v) != WorldMapState.EditCarve; sx++)
                     {
                         for (int sz = sz0; sz < sz1 && WorldMapState.EditOf(v) != WorldMapState.EditCarve; sz++)
                         {
-                            ushort sv = src[sx, y, sz];
+                            uint sv = src[sx, y, sz];
                             if (WorldMapState.EditOf(sv) != WorldMapState.EditNone)
                             {
                                 v = sv;

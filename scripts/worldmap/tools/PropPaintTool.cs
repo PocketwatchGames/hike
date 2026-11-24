@@ -125,12 +125,6 @@ public class PropPaintTool : IWorldMapTool
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
 
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-        int n = Mathf.Max(1, ctx.PropLists.Length);
-        ListIndex = ((ListIndex + dir) % n + n) % n;
-    }
-
     // Nothing to step: a painted column is furnished or it is not, and the only
     // thing a brush decides is which columns those are.
     public void AdjustLevel(WorldMapState ctx, int dir)

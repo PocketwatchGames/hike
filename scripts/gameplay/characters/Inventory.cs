@@ -470,11 +470,11 @@ public class Inventory : IItemSource
 	}
 
 	// Put the top-level stack of `data` on the first free belt slot, unless the
-	// belt already carries that kind or `data` isn't a usable. Gear is belted only
-	// by hand.
+	// belt already carries that kind or `data` isn't a usable or a tool. Other gear
+	// is belted only by hand.
 	private void AutoBelt(ItemData data)
 	{
-		if (data?.Category != EItemCategory.Usable || BeltHolds(data))
+		if (data?.Category is not (EItemCategory.Usable or EItemCategory.Tool) || BeltHolds(data))
 		{
 			return;
 		}
@@ -744,8 +744,9 @@ public class Inventory : IItemSource
 	// ---- Belt ------------------------------------------------------------------
 
 	// What may go on the belt: what the player uses from the hotbar.
-	// Usables, plus gear the hotbar equips on Use (a quick-swap weapon).
-	public static bool Beltable(ItemData data) => data != null && (data.Category == EItemCategory.Usable || data.IsEquippable);
+	// Usables, tools, plus gear the hotbar equips on Use (a quick-swap weapon).
+	public static bool Beltable(ItemData data) => data != null
+		&& (data.Category is EItemCategory.Usable or EItemCategory.Tool || data.IsEquippable);
 
 	public int BeltSize => _belt.Length;
 

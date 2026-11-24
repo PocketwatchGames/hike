@@ -1,0 +1,28 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://ogs67dz55y5l1" path="res://scripts/gameplay/entities/BombWall.cs" id="1_wall"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
+[ext_resource type="Script" uid="uid://duesqvuecsbm2" path="res://scripts/data/combat/TagModifier.cs" id="3_tagmod"]
+[ext_resource type="PackedScene" path="res://scenes/fx/stone_chip.tscn" id="4_chip"]
+
+[sub_resource type="Resource" id="Resource_blunt"]
+script = ExtResource("3_tagmod")
+value = 3.0
+tag = 4
+
+[sub_resource type="Resource" id="Resource_explosive"]
+script = ExtResource("3_tagmod")
+value = 3.0
+tag = 131072
+
+[node name="BombWall" type="Node3D" node_paths=PackedStringArray("_hurtBox")]
+script = ExtResource("1_wall")
+_hurtBox = NodePath("HurtBox")
+_damageTaken = Array[ExtResource("3_tagmod")]([SubResource("Resource_blunt"), SubResource("Resource_explosive")])
+_hitEffect = ExtResource("4_chip")
+_breakEffect = ExtResource("4_chip")
+
+[node name="HurtBox" type="Area3D" parent="."]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("2_hurtbox")

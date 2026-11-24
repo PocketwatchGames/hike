@@ -7,8 +7,8 @@ using Godot;
 // the .hike is never hand-edited. Mirrors the VoxelAtlasManifest pattern.
 //
 // Layers: elevation (per-column height in voxels relative to seaLevel, signed),
-// water (per-column water surface, same encoding; below the range = none),
-// region (per-chunk index), zone (per-chunk index), tunnels (per-voxel carve).
+// region (per-chunk index), zone (per-chunk index), and the per-voxel layer
+// (tunnels.bin: carves, builds, repaving, water, terrain kit overrides).
 //
 // NOT [Tool], and it must stay that way. Nothing it references is [Tool], so
 // under the rule in the root CLAUDE.md a [Tool] class here would materialise
@@ -107,18 +107,15 @@ public partial class WorldMapData : Resource
 
     // World voxel Y that 0 means in both height layers (matches
     // TerrainMath.SEA_LEVEL). It is the ORIGIN of the signed encoding and the
-    // level an unpainted water column reads as — not a waterline rule: nothing
-    // asks "is this ground below the sea", the water layer alone says where
-    // water is. Which also makes it the elevation the world is prefilled with
-    // water at, since a blank layer is zeros.
+    // level a new document is prefilled with water up to — not a waterline
+    // rule: nothing asks "is this ground below the sea", the voxel layer's water
+    // alone says where water is.
     [Export] public int seaLevel = 0;
 
     // Vertical range BOTH height layers can express, in voxels relative to
     // seaLevel. Negative is seabed — digging below the sea is how ocean and lake
     // beds are made, so this must stay negative. Deepening it past the floor
-    // chunk does nothing: SnapVoxels also clamps to the world extent. One value
-    // below the floor is reserved as the water layer's "no water" sentinel
-    // (WorldMapState.NoWaterVoxels), so the range is what an author can paint.
+    // chunk does nothing: SnapVoxels also clamps to the world extent.
     [Export(PropertyHint.Range, "-512,0,1")] public float minElevationVoxels = -16f;
     [Export(PropertyHint.Range, "1,512,1")] public float maxElevationVoxels = 64f;
 
@@ -139,47 +136,12 @@ public partial class WorldMapData : Resource
     // the terrain generator snaps enclosed space to.
     [Export(PropertyHint.Range, "1,16,1")] public int elevationStepVoxels = 1;
 
-    // A DOCUMENT IS ITS FOLDER. Every layer is a fixed file name beside this
-    // .tres, resolved from where the document was loaded — nothing to author,
-    // so copying a world's folder copies a world that edits only its own files.
-    // Don't reintroduce authored paths: a copied document then silently paints
-    // and bakes over the world it was copied from. A file that does not exist
-    // yet loads as a blank layer and is written on first save.
-    public const string ELEVATION_FILE = "elevation.exr";        // Rf, per column (voxels rel. sea, signed)
-    public const string WATER_FILE = "water.exr";                // Rf, per column (voxels rel. sea, signed)
-    public const string REGION_FILE = "region.png";              // R8, per chunk
-    public const string ZONE_FILE = "zone.png";                  // R8, per chunk
-    public const string HABITAT_FILE = "habitat.png";            // R8, per chunk (habitat + 1, 0 = none)
-    // Prevailing wind, per CHUNK — the grid the bake seeds ChunkState's wind
-    // velocity subgrid at. R = compass angle (0..255 spans a full turn), G =
-    // strength (0 = UNPAINTED, inherit the zone's prevailing direction; 1..255
-    // = calm through gale), so the strength byte doubles as the painted-mask.
-    public const string WIND_FILE = "wind.png";                  // Rgba8, per chunk
-    // The prop layer, per column: R = prop list index + 1 (0 = none). Direct
-    // placement — the painted region IS the furniture, so there is no density
-    // channel. One layer, because a painted region is a BARRIER and which list
-    // furnishes it says what the barrier is made of.
-    public const string BLOCKING_PROPS_FILE = "props_blocking.png"; // R8, per column
-    public const string GROUND_FILE = "ground.png";              // R8, per column (ground set + 1, 0 = default)
-    public const string WATER_TYPE_FILE = "water_type.png";      // R8, per column (water type + 1, 0 = the zone's)
-    // Rgba8, per column: R = paving block + 1 (0 = none), G/B = the world Y it
-    // is laid at + 1 (0 = seated on the column's own surface).
-    public const string PAVING_FILE = "paving.png";
-    public const string PLACEMENTS_FILE = "placements.tres";     // WorldMapPlacements
-    public const string PALETTES_FILE = "palettes.tres";         // WorldMapPalettes (palette slot ledgers)
-    public const string MOBS_FILE = "mobs.png";                  // Rgba8, per column (R = mob set + 1, G = density)
-    // Per-column SCALAR layers, one per channel: R = mob level, G = climb
-    // coverage (not yet painted), B/A spare.
-    public const string SCALARS_FILE = "scalars.png";
-    public const string TUNNELS_FILE = "tunnels.bin";            // per-voxel carve mask
+    // A DOCUMENT IS ITS FOLDER: this .tres, its layers.bin, placements.tres and
+    // palettes.tres, at fixed names beside it — nothing to author, so copying a
+    // world's folder copies a world that edits only its own files. Don't
+    // reintroduce authored paths: a copied document then silently paints and
+    // bakes over the world it was copied from.
 
-    // Every file a document owns beside itself — what makes a folder taken.
-    public static readonly string[] LAYER_FILES =
-    {
-        ELEVATION_FILE, WATER_FILE, REGION_FILE, ZONE_FILE, WIND_FILE, BLOCKING_PROPS_FILE,
-        GROUND_FILE, WATER_TYPE_FILE, PAVING_FILE, PLACEMENTS_FILE, PALETTES_FILE, MOBS_FILE,
-        SCALARS_FILE, TUNNELS_FILE, HABITAT_FILE,
-    };
 
     // World m/s the wind layer's full strength paints. The layer stores a
     // normalized strength, so this is the only place the authored range lives;
@@ -198,21 +160,6 @@ public partial class WorldMapData : Resource
         return string.IsNullOrEmpty(dir) ? "" : dir.PathJoin(file);
     }
 
-    public string ElevationImagePath => LayerPath(ELEVATION_FILE);
-    public string WaterImagePath => LayerPath(WATER_FILE);
-    public string RegionImagePath => LayerPath(REGION_FILE);
-    public string ZoneImagePath => LayerPath(ZONE_FILE);
-    public string HabitatImagePath => LayerPath(HABITAT_FILE);
-    public string WindImagePath => LayerPath(WIND_FILE);
-    public string BlockingPropImagePath => LayerPath(BLOCKING_PROPS_FILE);
-    public string GroundImagePath => LayerPath(GROUND_FILE);
-    public string WaterTypeImagePath => LayerPath(WATER_TYPE_FILE);
-    public string PavingImagePath => LayerPath(PAVING_FILE);
-    public string PlacementsPath => LayerPath(PLACEMENTS_FILE);
-    public string PalettesPath => LayerPath(PALETTES_FILE);
-    public string MobImagePath => LayerPath(MOBS_FILE);
-    public string ScalarImagePath => LayerPath(SCALARS_FILE);
-    public string TunnelMaskPath => LayerPath(TUNNELS_FILE);
     // The world this document authors — the worlds/<name>/ it sits in — which
     // decides what the painter's pickers offer (WorldScope). Null for a
     // document outside worlds/.
@@ -284,373 +231,411 @@ public partial class WorldMapData : Resource
         return new WorldMapBake(state, outputPath).Bake(progress);
     }
 
-    // ---- Layer load / create / save -------------------------------------
-
-    public Image LoadOrCreateElevation()
-    {
-        return LoadOrCreateColumnImage(ElevationImagePath);
-    }
-
-    public Image LoadOrCreateWater()
-    {
-        return LoadOrCreateColumnImage(WaterImagePath);
-    }
-
-    // Per-column index layer (R8 at column resolution) — unlike region/zone,
-    // which are per chunk.
-    public Image LoadOrCreateScalars()
-    {
-        return LoadOrCreateSpawnImage(ScalarImagePath);
-    }
-
-    public void SaveScalars(Image img)
-    {
-        SavePng(ScalarImagePath, img, "scalars");
-    }
-
-    public Image LoadOrCreateMobs()
-    {
-        return LoadOrCreateSpawnImage(MobImagePath);
-    }
-
-    public void SaveMobs(Image img)
-    {
-        SavePng(MobImagePath, img, "mobs");
-    }
-
-    public Image LoadOrCreateGround()
-    {
-        return LoadOrCreateIndexImage(GroundImagePath);
-    }
-
-    public Image LoadOrCreateWaterType()
-    {
-        return LoadOrCreateIndexImage(WaterTypeImagePath);
-    }
-
-    // A per-column INDEX layer: R8, storing a palette index + 1 so 0 can mean
-    // "nothing painted".
-    private Image LoadOrCreateIndexImage(string path)
-    {
-        Image img = TryLoad(path);
-        if (img != null)
-        {
-            if (img.GetWidth() != ImageWidth || img.GetHeight() != ImageHeight)
-            {
-                img.Resize(ImageWidth, ImageHeight, Image.Interpolation.Nearest);
-            }
-            if (img.GetFormat() != Image.Format.R8)
-            {
-                img.Convert(Image.Format.R8);
-            }
-            return img;
-        }
-        Image blank = Image.CreateEmpty(ImageWidth, ImageHeight, false, Image.Format.R8);
-        blank.Fill(new Color(0f, 0f, 0f, 1f));
-        return blank;
-    }
-
-    // The paving layer is a per-column RGBA8 rather than a plain index image:
-    // R = block index + 1 (0 = none), G/B = the world Y it is laid at, plus one,
-    // low byte first, with 0 meaning "on whatever surface is under it". Two
-    // channels because a document may span more than 255 voxels of height.
+    // ---- The layer file ---------------------------------------------------
     //
-    // A layer written before levels existed is single-channel and converts with
-    // G/B zero, which is exactly the surface-seated it always meant.
-    public Image LoadOrCreatePaving()
+    // Every raster layer of the document and the voxel layer, in ONE binary file
+    // beside the .tres (layers.bin), cut into one SECTION per chunk column — the
+    // whole of what the document says about those 16 x 16 columns:
+    //
+    //   magic, version, nx, ny, nz, section size (16)
+    //   the image layer table: name, format, per-chunk flag, in stored order
+    //   section count, each section's byte length (7-bit varint), the sections
+    //
+    // A section is zlib over, in the table's order, each image layer's slice —
+    // a per-column layer's 16 x 16 texels as byte PLANES (all first bytes, then
+    // all second bytes: a float's slow high bytes then form runs), a per-chunk
+    // layer's one texel — followed by the voxel columns, px-major then pz, each
+    // run-length encoded bottom to top as (ushort count, uint cell).
+    //
+    // One rule for the whole file, and an edit with ANY tool changes only the
+    // sections of the chunk columns it touched: the encoding is deterministic,
+    // so every other section saves byte-identical and git deltas one version of
+    // the file against the last. It is also the unit a partial load would read.
+    //
+    // The layers are held in memory as Images and the voxel array; only how they
+    // reach the disk is here. Exact-version like .hike: another version, or a
+    // layer table that is not exactly this code's, is refused by name.
+
+    public const string LAYERS_FILE = "layers.bin";
+    public const string PLACEMENTS_FILE = "placements.tres";     // WorldMapPlacements
+    public const string PALETTES_FILE = "palettes.tres";         // WorldMapPalettes (palette slot ledgers)
+
+    // Every file a document owns beside itself — what makes a folder taken.
+    public static readonly string[] LAYER_FILES = { LAYERS_FILE, PLACEMENTS_FILE, PALETTES_FILE };
+
+    public string LayersPath => LayerPath(LAYERS_FILE);
+    public string PlacementsPath => LayerPath(PLACEMENTS_FILE);
+    public string PalettesPath => LayerPath(PALETTES_FILE);
+
+    // Image layer names, as stored. See WorldMapState for what each holds.
+    public const string ElevationLayer = "elevation";        // Rf, per column (voxels rel. sea, signed)
+    public const string RegionLayer = "region";              // R8, per chunk
+    public const string ZoneLayer = "zone";                  // R8, per chunk
+    public const string HabitatLayer = "habitat";            // R8, per chunk (habitat + 1, 0 = none)
+    // R = compass angle (0..255 a full turn), G = strength (0 = UNPAINTED,
+    // inherit the zone's; 1..255 calm through gale).
+    public const string WindLayer = "wind";                  // Rgba8, per chunk
+    // The painted region IS the barrier: which list furnishes it, no density.
+    public const string BlockingPropsLayer = "props_blocking"; // R8, per column (prop list + 1)
+    public const string GroundLayer = "ground";              // R8, per column (surface terrain kit + 1)
+    public const string PavingLayer = "paving";              // R8, per column (surface paving block + 1)
+    public const string MobsLayer = "mobs";                  // Rgba8, per column (R = mob set + 1, G = density)
+    public const string ScalarsLayer = "scalars";            // Rgba8, per column (R = mob level, G = climb, B = roughness)
+    // Per voxel: the edit and its payload, the water, the terrain kit override.
+    public const string VoxelLayer = "voxels";
+
+    private static readonly (string Name, Image.Format Format, bool PerChunk)[] IMAGE_LAYERS =
     {
-        Image img = TryLoad(PavingImagePath);
-        if (img != null)
+        (ElevationLayer, Image.Format.Rf, false),
+        (RegionLayer, Image.Format.R8, true),
+        (ZoneLayer, Image.Format.R8, true),
+        (HabitatLayer, Image.Format.R8, true),
+        (WindLayer, Image.Format.Rgba8, true),
+        (BlockingPropsLayer, Image.Format.R8, false),
+        (GroundLayer, Image.Format.R8, false),
+        (PavingLayer, Image.Format.R8, false),
+        (MobsLayer, Image.Format.Rgba8, false),
+        (ScalarsLayer, Image.Format.Rgba8, false),
+    };
+
+    // The document's layers, as loaded or about to be saved.
+    public sealed class LayerSet
+    {
+        public readonly System.Collections.Generic.Dictionary<string, Image> Images = new();
+        public uint[,,] Voxels;
+    }
+
+    private const int LAYERS_MAGIC = 0x504D4B48; // "HKMP"
+    private const int LAYERS_VERSION = 2;
+    private const int SECTION = ChunkState.SIZE;
+
+    // A document with no layer file yet gets blank layers, and its voxel layer is
+    // prefilled with the zone's water up to seaLevel: the world starts as sea,
+    // and land hides the water it stands above until it is carved away.
+    public LayerSet LoadLayers()
+    {
+        string os = string.IsNullOrEmpty(LayersPath) ? "" : ProjectSettings.GlobalizePath(LayersPath);
+        if (os == "" || !System.IO.File.Exists(os))
         {
-            if (img.GetWidth() != ImageWidth || img.GetHeight() != ImageHeight)
-            {
-                img.Resize(ImageWidth, ImageHeight, Image.Interpolation.Nearest);
-            }
-            if (img.GetFormat() != Image.Format.Rgba8)
-            {
-                img.Convert(Image.Format.Rgba8);
-            }
-            return img;
+            return BlankLayers();
         }
-        Image blank = Image.CreateEmpty(ImageWidth, ImageHeight, false, Image.Format.Rgba8);
-        blank.Fill(new Color(0f, 0f, 0f, 1f));
-        return blank;
-    }
-
-    public void SavePaving(Image img)
-    {
-        SavePng(PavingImagePath, img, "paving");
-    }
-
-    public void SaveGround(Image img)
-    {
-        SavePng(GroundImagePath, img, "ground");
-    }
-
-    public void SaveWaterType(Image img)
-    {
-        SavePng(WaterTypeImagePath, img, "water type");
-    }
-
-    public Image LoadOrCreateRegion()
-    {
-        return LoadOrCreateChunkImage(RegionImagePath);
-    }
-
-    public Image LoadOrCreateHabitat()
-    {
-        return LoadOrCreateChunkImage(HabitatImagePath);
-    }
-
-    public Image LoadOrCreateZone()
-    {
-        return LoadOrCreateChunkImage(ZoneImagePath);
-    }
-
-    public Image LoadOrCreateWind()
-    {
-        return LoadOrCreateChunkRgbaImage(WindImagePath);
-    }
-
-    public Image LoadOrCreateBlockingProps()
-    {
-        return LoadOrCreateIndexImage(BlockingPropImagePath);
-    }
-
-    // A spawn layer is a per-column RGBA8: R = set index + 1 (0 = none),
-    // G = density multiplier. Props and mobs are the same shape.
-    private Image LoadOrCreateSpawnImage(string path)
-    {
-        Image img = TryLoad(path);
-        if (img != null)
-        {
-            if (img.GetWidth() != ImageWidth || img.GetHeight() != ImageHeight)
-            {
-                img.Resize(ImageWidth, ImageHeight, Image.Interpolation.Nearest);
-            }
-            if (img.GetFormat() != Image.Format.Rgba8)
-            {
-                img.Convert(Image.Format.Rgba8);
-            }
-            return img;
-        }
-        Image blank = Image.CreateEmpty(ImageWidth, ImageHeight, false, Image.Format.Rgba8);
-        blank.Fill(new Color(0f, 0f, 0f, 1f));
-        return blank;
-    }
-
-    private Image LoadOrCreateColumnImage(string path)
-    {
-        Image img = TryLoad(path);
-        if (img != null)
-        {
-            if (img.GetWidth() != ImageWidth || img.GetHeight() != ImageHeight)
-            {
-                img.Resize(ImageWidth, ImageHeight);
-            }
-            if (img.GetFormat() != Image.Format.Rf)
-            {
-                img.Convert(Image.Format.Rf);
-            }
-            return img;
-        }
-        Image blank = Image.CreateEmpty(ImageWidth, ImageHeight, false, Image.Format.Rf);
-        blank.Fill(new Color(0f, 0f, 0f, 1f));
-        return blank;
-    }
-
-    private Image LoadOrCreateChunkImage(string path)
-    {
-        Image img = TryLoad(path);
-        if (img != null)
-        {
-            if (img.GetWidth() != sizeChunksX || img.GetHeight() != sizeChunksZ)
-            {
-                img.Resize(sizeChunksX, sizeChunksZ, Image.Interpolation.Nearest);
-            }
-            if (img.GetFormat() != Image.Format.R8)
-            {
-                img.Convert(Image.Format.R8);
-            }
-            return img;
-        }
-        Image blank = Image.CreateEmpty(sizeChunksX, sizeChunksZ, false, Image.Format.R8);
-        blank.Fill(new Color(0f, 0f, 0f, 1f));
-        return blank;
-    }
-
-    // Per-chunk again, but four channels: a layer that needs to carry a value AND
-    // a painted-or-not flag cannot fit in the R8 index images.
-    private Image LoadOrCreateChunkRgbaImage(string path)
-    {
-        Image img = TryLoad(path);
-        if (img != null)
-        {
-            if (img.GetWidth() != sizeChunksX || img.GetHeight() != sizeChunksZ)
-            {
-                img.Resize(sizeChunksX, sizeChunksZ, Image.Interpolation.Nearest);
-            }
-            if (img.GetFormat() != Image.Format.Rgba8)
-            {
-                img.Convert(Image.Format.Rgba8);
-            }
-            return img;
-        }
-        Image blank = Image.CreateEmpty(sizeChunksX, sizeChunksZ, false, Image.Format.Rgba8);
-        blank.Fill(new Color(0f, 0f, 0f, 1f));
-        return blank;
-    }
-
-    // Per-voxel tunnel mask, indexed [px, ly, pz] (ly = wy - WorldMinY), one
-    // ushort per voxel packing the edit and its passage (see WorldMapState's
-    // accessors). Stored as a .bin — magic, version, dims, then the cells
-    // zlib-compressed: too 3D to be a useful image, and nearly all zeros, which
-    // raw was 28 MB of in git.
-    private const int TUNNEL_MAGIC = 0x4E544B48; // "HKTN"
-    private const int TUNNEL_VERSION = 2;
-
-    public ushort[,,] LoadOrCreateTunnels()
-    {
-        int nx = ImageWidth;
-        int ny = VoxelHeight;
-        int nz = ImageHeight;
-        var arr = new ushort[nx, ny, nz];
-        if (string.IsNullOrEmpty(TunnelMaskPath))
-        {
-            return arr;
-        }
-        string os = ProjectSettings.GlobalizePath(TunnelMaskPath);
-        if (!System.IO.File.Exists(os))
-        {
-            return arr;
-        }
-        // A mask that cannot be read THROWS rather than coming back blank: the
-        // painter saves every layer together, so a blank mask here is every
-        // tunnel in the document deleted at the next Ctrl+S.
+        // A file that cannot be read THROWS rather than coming back blank: the
+        // painter saves every layer together, so a blank one here is the whole
+        // document deleted at the next Ctrl+S.
         using var fs = System.IO.File.OpenRead(os);
         using var br = new System.IO.BinaryReader(fs);
         int magic = br.ReadInt32();
         int version = br.ReadInt32();
-        if (magic != TUNNEL_MAGIC || version != TUNNEL_VERSION)
+        if (magic != LAYERS_MAGIC || version != LAYERS_VERSION)
         {
             throw new System.IO.InvalidDataException(
-                $"{TunnelMaskPath}: not a v{TUNNEL_VERSION} tunnel mask (magic {magic:X8}, version {version})");
+                $"{LayersPath}: not a v{LAYERS_VERSION} layer file (magic {magic:X8}, version {version})");
         }
-        int fx = br.ReadInt32();
-        int fy = br.ReadInt32();
-        int fz = br.ReadInt32();
-        if (fx != nx || fy != ny || fz != nz)
+        int nx = br.ReadInt32();
+        int ny = br.ReadInt32();
+        int nz = br.ReadInt32();
+        int section = br.ReadInt32();
+        if (nx != ImageWidth || ny != VoxelHeight || nz != ImageHeight || section != SECTION)
         {
             throw new System.IO.InvalidDataException(
-                $"{TunnelMaskPath}: mask is {fx}x{fy}x{fz}, document is {nx}x{ny}x{nz}");
+                $"{LayersPath}: layers are {nx}x{ny}x{nz} in {section}-column sections, "
+                + $"document is {ImageWidth}x{VoxelHeight}x{ImageHeight} in {SECTION}");
         }
-        byte[] buf = new byte[arr.Length * sizeof(ushort)];
-        using (var z = new System.IO.Compression.ZLibStream(fs, System.IO.Compression.CompressionMode.Decompress))
+        int layerCount = br.ReadInt32();
+        if (layerCount != IMAGE_LAYERS.Length)
         {
-            z.ReadExactly(buf);
+            throw new System.IO.InvalidDataException(
+                $"{LayersPath}: {layerCount} image layers, this code has {IMAGE_LAYERS.Length}");
         }
-        System.Buffer.BlockCopy(buf, 0, arr, 0, buf.Length);
-        return arr;
-    }
-
-    public void SaveElevation(Image img)
-    {
-        SaveExr(ElevationImagePath, img, "elevation");
-    }
-
-    public void SaveWater(Image img)
-    {
-        SaveExr(WaterImagePath, img, "water");
-    }
-
-    public void SaveRegion(Image img)
-    {
-        SavePng(RegionImagePath, img, "region");
-    }
-
-    public void SaveHabitat(Image img)
-    {
-        SavePng(HabitatImagePath, img, "habitat");
-    }
-
-    public void SaveZone(Image img)
-    {
-        SavePng(ZoneImagePath, img, "zone");
-    }
-
-    public void SaveWind(Image img)
-    {
-        SavePng(WindImagePath, img, "wind");
-    }
-
-    public void SaveBlockingProps(Image img)
-    {
-        SavePng(BlockingPropImagePath, img, "blocking props");
-    }
-
-    public void SaveTunnels(ushort[,,] tunnels)
-    {
-        if (string.IsNullOrEmpty(TunnelMaskPath))
+        for (int i = 0; i < layerCount; i++)
         {
+            string name = br.ReadString();
+            var format = (Image.Format)br.ReadInt32();
+            bool perChunk = br.ReadBoolean();
+            (string Name, Image.Format Format, bool PerChunk) spec = IMAGE_LAYERS[i];
+            if (name != spec.Name || format != spec.Format || perChunk != spec.PerChunk)
+            {
+                throw new System.IO.InvalidDataException(
+                    $"{LayersPath}: layer {i} is '{name}' {format}{(perChunk ? " per chunk" : "")}, "
+                    + $"this code expects '{spec.Name}' {spec.Format}{(spec.PerChunk ? " per chunk" : "")}");
+            }
+        }
+
+        int sx = nx / SECTION;
+        int sz = nz / SECTION;
+        int count = br.ReadInt32();
+        if (count != sx * sz)
+        {
+            throw new System.IO.InvalidDataException($"{LayersPath}: {count} sections, expected {sx * sz}");
+        }
+        var lengths = new int[count];
+        for (int i = 0; i < count; i++)
+        {
+            lengths[i] = br.Read7BitEncodedInt();
+        }
+        var packed = new byte[count][];
+        for (int i = 0; i < count; i++)
+        {
+            packed[i] = br.ReadBytes(lengths[i]);
+            if (packed[i].Length != lengths[i])
+            {
+                throw new System.IO.InvalidDataException($"{LayersPath}: truncated at section {i}");
+            }
+        }
+
+        byte[][] images = new byte[IMAGE_LAYERS.Length][];
+        for (int l = 0; l < IMAGE_LAYERS.Length; l++)
+        {
+            images[l] = new byte[LayerWidth(l) * LayerHeight(l) * BytesPerPixel(IMAGE_LAYERS[l].Format)];
+        }
+        var voxels = new uint[nx, ny, nz];
+        string bad = null;
+        // Sections write disjoint texels and columns, so they decode in parallel.
+        System.Threading.Tasks.Parallel.For(0, count, i =>
+        {
+            try
+            {
+                DecodeSection(packed[i], i / sz, i % sz, images, voxels, ny);
+            }
+            catch (System.Exception e)
+            {
+                bad = $"section {i}: {e.Message}";
+            }
+        });
+        if (bad != null)
+        {
+            throw new System.IO.InvalidDataException($"{LayersPath}: {bad}");
+        }
+
+        var set = new LayerSet { Voxels = voxels };
+        for (int l = 0; l < IMAGE_LAYERS.Length; l++)
+        {
+            set.Images[IMAGE_LAYERS[l].Name] = Image.CreateFromData(
+                LayerWidth(l), LayerHeight(l), false, IMAGE_LAYERS[l].Format, images[l]);
+        }
+        return set;
+    }
+
+    public LayerSet BlankLayers()
+    {
+        var set = new LayerSet();
+        for (int l = 0; l < IMAGE_LAYERS.Length; l++)
+        {
+            Image blank = Image.CreateEmpty(LayerWidth(l), LayerHeight(l), false, IMAGE_LAYERS[l].Format);
+            blank.Fill(new Color(0f, 0f, 0f, 1f));
+            set.Images[IMAGE_LAYERS[l].Name] = blank;
+        }
+        set.Voxels = new uint[ImageWidth, VoxelHeight, ImageHeight];
+        FillSea(set.Voxels);
+        return set;
+    }
+
+    public void SaveLayers(LayerSet set)
+    {
+        if (string.IsNullOrEmpty(LayersPath))
+        {
+            GD.PrintErr("WorldMapData: document has no folder; cannot save its layers.");
             return;
         }
         try
         {
-            byte[] buf = new byte[tunnels.Length * sizeof(ushort)];
-            System.Buffer.BlockCopy(tunnels, 0, buf, 0, buf.Length);
-            using var fs = System.IO.File.Create(ProjectSettings.GlobalizePath(TunnelMaskPath));
-            using (var bw = new System.IO.BinaryWriter(fs, System.Text.Encoding.UTF8, leaveOpen: true))
+            byte[][] images = new byte[IMAGE_LAYERS.Length][];
+            for (int l = 0; l < IMAGE_LAYERS.Length; l++)
             {
-                bw.Write(TUNNEL_MAGIC);
-                bw.Write(TUNNEL_VERSION);
-                bw.Write(tunnels.GetLength(0));
-                bw.Write(tunnels.GetLength(1));
-                bw.Write(tunnels.GetLength(2));
+                Image img = set.Images[IMAGE_LAYERS[l].Name];
+                if (img.GetFormat() != IMAGE_LAYERS[l].Format)
+                {
+                    img.Convert(IMAGE_LAYERS[l].Format);
+                }
+                if (img.GetWidth() != LayerWidth(l) || img.GetHeight() != LayerHeight(l))
+                {
+                    throw new System.ArgumentException(
+                        $"layer '{IMAGE_LAYERS[l].Name}' is {img.GetWidth()}x{img.GetHeight()}, "
+                        + $"document wants {LayerWidth(l)}x{LayerHeight(l)}");
+                }
+                images[l] = img.GetData();
             }
-            using var z = new System.IO.Compression.ZLibStream(fs, System.IO.Compression.CompressionLevel.Optimal);
-            z.Write(buf);
+            uint[,,] voxels = set.Voxels;
+            int ny = voxels.GetLength(1);
+            int sx = ImageWidth / SECTION;
+            int sz = ImageHeight / SECTION;
+            var sections = new byte[sx * sz][];
+            System.Threading.Tasks.Parallel.For(0, sections.Length, i =>
+            {
+                sections[i] = EncodeSection(i / sz, i % sz, images, voxels, ny);
+            });
+
+            // Encoded in full before the file is opened, so a failure part-way
+            // leaves the previous file intact.
+            using var ms = new System.IO.MemoryStream();
+            using (var bw = new System.IO.BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+            {
+                bw.Write(LAYERS_MAGIC);
+                bw.Write(LAYERS_VERSION);
+                bw.Write(ImageWidth);
+                bw.Write(ny);
+                bw.Write(ImageHeight);
+                bw.Write(SECTION);
+                bw.Write(IMAGE_LAYERS.Length);
+                foreach ((string name, Image.Format format, bool perChunk) in IMAGE_LAYERS)
+                {
+                    bw.Write(name);
+                    bw.Write((int)format);
+                    bw.Write(perChunk);
+                }
+                bw.Write(sections.Length);
+                foreach (byte[] sec in sections)
+                {
+                    bw.Write7BitEncodedInt(sec.Length);
+                }
+                foreach (byte[] sec in sections)
+                {
+                    bw.Write(sec);
+                }
+            }
+            System.IO.File.WriteAllBytes(ProjectSettings.GlobalizePath(LayersPath), ms.ToArray());
         }
         catch (System.Exception e)
         {
-            GD.PrintErr($"WorldMapData: tunnel save failed: {e.Message}");
+            GD.PrintErr($"WorldMapData: layer save failed: {e.Message}");
         }
     }
 
-    private static Image TryLoad(string resPath)
+    private int LayerWidth(int layer) => IMAGE_LAYERS[layer].PerChunk ? sizeChunksX : ImageWidth;
+    private int LayerHeight(int layer) => IMAGE_LAYERS[layer].PerChunk ? sizeChunksZ : ImageHeight;
+
+    private static int BytesPerPixel(Image.Format format)
     {
-        if (string.IsNullOrEmpty(resPath))
+        return format switch
         {
-            return null;
-        }
-        string os = ProjectSettings.GlobalizePath(resPath);
-        return System.IO.File.Exists(os) ? Image.LoadFromFile(os) : null;
+            Image.Format.R8 => 1,
+            Image.Format.Rgba8 => 4,
+            Image.Format.Rf => 4,
+            _ => throw new System.ArgumentException($"no layer is stored as {format}"),
+        };
     }
 
-    private static void SaveExr(string resPath, Image img, string label)
+    // Chunk column (cx, cz): every image layer's slice in table order, then the
+    // voxel columns. See the format comment above.
+    private byte[] EncodeSection(int cx, int cz, byte[][] images, uint[,,] voxels, int ny)
     {
-        if (string.IsNullOrEmpty(resPath))
+        using var ms = new System.IO.MemoryStream();
+        using (var z = new System.IO.Compression.ZLibStream(ms, System.IO.Compression.CompressionLevel.Optimal, leaveOpen: true))
+        using (var w = new System.IO.BinaryWriter(z))
         {
-            GD.PrintErr($"WorldMapData: {label} path not set; cannot save.");
-            return;
+            for (int l = 0; l < IMAGE_LAYERS.Length; l++)
+            {
+                int bpp = BytesPerPixel(IMAGE_LAYERS[l].Format);
+                byte[] data = images[l];
+                if (IMAGE_LAYERS[l].PerChunk)
+                {
+                    w.Write(data, (cz * sizeChunksX + cx) * bpp, bpp);
+                    continue;
+                }
+                for (int b = 0; b < bpp; b++)
+                {
+                    for (int pz = cz * SECTION; pz < cz * SECTION + SECTION; pz++)
+                    {
+                        for (int px = cx * SECTION; px < cx * SECTION + SECTION; px++)
+                        {
+                            w.Write(data[(pz * ImageWidth + px) * bpp + b]);
+                        }
+                    }
+                }
+            }
+            for (int px = cx * SECTION; px < cx * SECTION + SECTION; px++)
+            {
+                for (int pz = cz * SECTION; pz < cz * SECTION + SECTION; pz++)
+                {
+                    int y = 0;
+                    while (y < ny)
+                    {
+                        uint cell = voxels[px, y, pz];
+                        int run = 1;
+                        while (y + run < ny && voxels[px, y + run, pz] == cell)
+                        {
+                            run++;
+                        }
+                        w.Write((ushort)run);
+                        w.Write(cell);
+                        y += run;
+                    }
+                }
+            }
         }
-        Error e = img.SaveExr(ProjectSettings.GlobalizePath(resPath));
-        if (e != Error.Ok)
+        return ms.ToArray();
+    }
+
+    private void DecodeSection(byte[] packed, int cx, int cz, byte[][] images, uint[,,] voxels, int ny)
+    {
+        using var ms = new System.IO.MemoryStream(packed);
+        using var z = new System.IO.Compression.ZLibStream(ms, System.IO.Compression.CompressionMode.Decompress);
+        using var r = new System.IO.BinaryReader(z);
+        for (int l = 0; l < IMAGE_LAYERS.Length; l++)
         {
-            GD.PrintErr($"WorldMapData: {label} SaveExr failed: {e}");
+            int bpp = BytesPerPixel(IMAGE_LAYERS[l].Format);
+            byte[] data = images[l];
+            if (IMAGE_LAYERS[l].PerChunk)
+            {
+                for (int b = 0; b < bpp; b++)
+                {
+                    data[(cz * sizeChunksX + cx) * bpp + b] = r.ReadByte();
+                }
+                continue;
+            }
+            for (int b = 0; b < bpp; b++)
+            {
+                for (int pz = cz * SECTION; pz < cz * SECTION + SECTION; pz++)
+                {
+                    for (int px = cx * SECTION; px < cx * SECTION + SECTION; px++)
+                    {
+                        data[(pz * ImageWidth + px) * bpp + b] = r.ReadByte();
+                    }
+                }
+            }
+        }
+        for (int px = cx * SECTION; px < cx * SECTION + SECTION; px++)
+        {
+            for (int pz = cz * SECTION; pz < cz * SECTION + SECTION; pz++)
+            {
+                int y = 0;
+                while (y < ny)
+                {
+                    int run = r.ReadUInt16();
+                    uint cell = r.ReadUInt32();
+                    if (run == 0 || y + run > ny)
+                    {
+                        throw new System.IO.InvalidDataException($"bad voxel run in column ({px}, {pz})");
+                    }
+                    for (int k = 0; k < run; k++)
+                    {
+                        voxels[px, y + k, pz] = cell;
+                    }
+                    y += run;
+                }
+            }
         }
     }
 
-    private static void SavePng(string resPath, Image img, string label)
+    // The zone's water in every voxel at or below seaLevel, whole world.
+    public void FillSea(uint[,,] arr)
     {
-        if (string.IsNullOrEmpty(resPath))
+        FillSea(arr, 0, 0, arr.GetLength(0), arr.GetLength(2));
+    }
+
+    // Same, over columns [x0, x1) x [z0, z1) only — a canvas grown at its edge.
+    public void FillSea(uint[,,] arr, int x0, int z0, int x1, int z1)
+    {
+        int top = Mathf.Min(seaLevel - WorldMinY, arr.GetLength(1) - 1);
+        for (int px = x0; px < x1; px++)
         {
-            GD.PrintErr($"WorldMapData: {label} path not set; cannot save.");
-            return;
-        }
-        Error e = img.SavePng(ProjectSettings.GlobalizePath(resPath));
-        if (e != Error.Ok)
-        {
-            GD.PrintErr($"WorldMapData: {label} SavePng failed: {e}");
+            for (int ly = 0; ly <= top; ly++)
+            {
+                for (int pz = z0; pz < z1; pz++)
+                {
+                    arr[px, ly, pz] |= WorldMapState.ZoneWaterBits;
+                }
+            }
         }
     }
 }

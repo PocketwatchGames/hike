@@ -1,11 +1,13 @@
 using Godot;
 
-// Paints which TerrainKitData a column's voxels are stamped from. Erase clears
-// back to 0, which means "inherit this column's zone", so a map can be zoned
-// broadly and then have its ground detailed only where it matters.
+// Paints which TerrainKitData ground is stamped from, on the first floor under
+// the cut. Where that floor is a column's SURFACE it writes the column layer, so
+// the kit follows the ground as it is reshaped; where something is over it (a
+// passage, under an arch) it writes that voxel, and the bake carries the kit down
+// through the solid run beneath. Erase clears back to the document's default.
 public class GroundTool : IWorldMapTool
 {
-    public string Name => "Ground";
+    public string Name => "Terrain override";
     public IWorldMapView View { get; }
     public float Radius { get; set; } = 12f;
 
@@ -56,7 +58,8 @@ public class GroundTool : IWorldMapTool
             : Colors.White;
     }
 
-    public string HintText(WorldMapState ctx) => "RMB clears back to the zone's own ground";
+    public string HintText(WorldMapState ctx)
+        => "Paints the first floor under the cutaway  |  RMB clears back to the default ground  |  Q/E cutaway";
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
@@ -75,33 +78,36 @@ public class GroundTool : IWorldMapTool
     {
         // Hard-edged like the index layers it resembles: a half-painted ground
         // index is not a blend, it is a different material.
-        float value = erase ? 0f : Mathf.Clamp(SetIndex + 1, 1, 255) / 255f;
+        int kit = erase ? -1 : SetIndex;
+        int clip = view.ClipFor(true);
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
-            ctx.Ground.SetPixel(px, pz, new Color(value, 0f, 0f, 1f));
+            if (ctx.TryPaintFloor(px, pz, clip, out int floor, out bool onSurface))
+            {
+                ctx.SetFloorKit(px, pz, floor, onSurface, kit);
+            }
         });
     }
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-        int n = Mathf.Max(1, ctx.Terrains.Length);
-        SetIndex = ((SetIndex + dir) % n + n) % n;
-    }
-
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
     }
 }
 
 // Ground type and nothing else. Height comes entirely from the outlines, which
-// is why this view asks for every step including 1m ones.
+// is why this view asks for every step including 1m ones. Cuts away, showing
+// the kit of the first floor under the plane.
 public class GroundView : IWorldMapView
 {
     public bool ShowsAllSteps => true;
     public bool DrawsWater => true;
+    public bool CutsAway => true;
     public ESpawnPreview PreviewLayer => ESpawnPreview.Props;
 
-    public Color ColorAt(WorldMapInk ink, int px, int pz) => ink.GroundColorAt(px, pz);
+    public Color ColorAt(WorldMapInk ink, int px, int pz)
+        => ink.View.IsCutAway
+            ? ink.CutawayGroundColorAt(px, pz, ink.View.CutawayY, out _)
+            : ink.GroundColorAt(px, pz);
 }

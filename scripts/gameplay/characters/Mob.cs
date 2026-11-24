@@ -1250,6 +1250,25 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _simState.MotionTime = duration;
         _simState.MotionFreezeGravity = freezeGravity;
         _simState.MotionGroundStick = StartsMotionOnGround(freezeGravity);
+        PlayAnim(DodgeAnimFor(worldDir), 0f);
+    }
+
+    // The dodge slot for a dash along `worldDir`: back when it runs mostly
+    // behind the body, else the side it runs toward. There is no forward slot —
+    // a dodge slips out of a shot's path, so a forward-ish dash reads as a side
+    // step.
+    private EAnimation DodgeAnimFor(Vector3 worldDir)
+    {
+        Vector3 forward = ActorForward;
+        forward.Y = 0f;
+        Vector3 right = forward.Cross(Vector3.Up);
+        float along = worldDir.Dot(forward);
+        float side = worldDir.Dot(right);
+        if (along < -Mathf.Abs(side))
+        {
+            return EAnimation.DodgeBack;
+        }
+        return side >= 0f ? EAnimation.DodgeRight : EAnimation.DodgeLeft;
     }
 
     // Whether a motion beginning now is a GROUND move — one StickMotionToGround
@@ -1503,9 +1522,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return CanBeSearched();
         }
+        // A burrowed mob offers nothing — it is dug up by the belted shovel
+        // (Sim.TryDig), so no prompt gives away where it went to ground.
         if (burrowed || burrowing)
         {
-            return CanBeDugUp();
+            return false;
         }
         bool hasAuthored = _interactiveActions != null && _interactiveActions.Count > 0;
         return hasAuthored || _simState?.Conversation != null || ShopAction() != null;
@@ -1534,18 +1555,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
 
     // A mob the player hasn't perceived offers nothing, or the interact prompt
-    // would give away a creature the perception model is still hiding. A burrowed
-    // mob offers Dig only to a member it is offered to (a shovel carried, not in
-    // combat).
+    // would give away a creature the perception model is still hiding.
     public bool CanActorInteract(Player player)
     {
         if (!CanInteract())
         {
             return false;
-        }
-        if (burrowed)
-        {
-            return _world.SimData.digUpAction.IsOfferedTo(player);
         }
         if (!alive)
         {
@@ -1579,14 +1594,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _simState.Loot = null;
     }
 
-    // A burrowed mob is dug up only where it shows — its dirt mound — so the
-    // prompt never gives away one that left no trace. Targeted by its hurtbox on
-    // the BurrowedHurtBox layer (in the player's interact mask).
-    private bool CanBeDugUp()
-    {
-        return burrowed && _burrowMound != null && _world?.SimData?.digUpAction != null;
-    }
-
     // Talk (with a conversation) and the shop verb, then the authored actions.
     // Cached so the merged array isn't allocated per HUD refresh, and rebuilt
     // when the verbs change — the shop verb comes and goes as gifts run out or
@@ -1595,22 +1602,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private InteractiveAction _resolvedTalk;
     private InteractiveAction _resolvedShop;
     private bool _resolvedActionsBuilt;
-    private Godot.Collections.Array<InteractiveAction> _burrowedActions;
     private Godot.Collections.Array<InteractiveAction> _corpseActions;
 
-    // The action list for the mob's current state: a body's Search, a burrowed
-    // mob's Dig, or its authored actions behind whichever social verbs it offers.
+    // The action list for the mob's current state: a body's Search, or its
+    // authored actions behind whichever social verbs it offers.
     private Godot.Collections.Array<InteractiveAction> ResolveActions()
     {
         if (!alive)
         {
             _corpseActions ??= new Godot.Collections.Array<InteractiveAction> { _world?.SimData?.searchAction };
             return _corpseActions;
-        }
-        if (burrowed || burrowing)
-        {
-            _burrowedActions ??= new Godot.Collections.Array<InteractiveAction> { _world?.SimData?.digUpAction };
-            return _burrowedActions;
         }
         InteractiveAction talk = _simState?.Conversation != null ? _world?.SimData?.talkAction : null;
         InteractiveAction shop = ShopAction();
@@ -1674,24 +1675,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             case EActionVerb.Trade:
                 OpenMerchantScreen(trade: true, onClose: null);
                 break;
-            case EActionVerb.Dig:
-                DigOut(GameClient.Current?.Player);
-                break;
             case EActionVerb.Search:
                 SearchBody();
                 break;
         }
-    }
-
-    // Dig a burrowed mob out with the member's digging tool (worn once). Nothing
-    // if it surfaced on its own during the dig.
-    private void DigOut(Player player)
-    {
-        if (!burrowed || !alive || player == null || !player.UseTool(EToolKind.Digging))
-        {
-            return;
-        }
-        DigUp(player);
     }
 
     public void OpenMerchantScreen(bool trade, Action onClose)
@@ -5603,7 +5590,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
 
     // Dug up — out of a buried spot (BuriedSpot.Dig), or out of its own burrow by
-    // a member with a shovel (DigOut). Latches full awareness of
+    // a member's shovel (Sim.TryDig). Latches full awareness of
     // the digger onto the primary perception slot — same edge the hit handler
     // writes. For a burrowed mob this makes its Burrow behavior fail its
     // out-of-range gate and transition to attack/chase, which drops

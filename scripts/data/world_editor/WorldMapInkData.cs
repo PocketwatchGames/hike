@@ -103,6 +103,11 @@ public partial class WorldMapInkData : Resource
     [Export] public Color triggerSelectedInk = new Color(1f, 1f, 1f);
     [Export(PropertyHint.Range, "0,1,0.05")] public float triggerFillAlpha = 0.2f;
 
+    // A bomb wall's box, drawn the way a trigger's is (same wash alpha), at full
+    // strength under the bomb-wall and entity tools.
+    [Export] public Color bombWallInk = new Color(1f, 0.55f, 0.1f, 0.5f);
+    [Export] public Color bombWallSelectedInk = new Color(1f, 0.9f, 0.6f);
+
     // How far a mark grows, in metres, when the tool is picking it out — the
     // cursor is over it, it is the selection, or it matches the palette entry. A
     // one-metre dot is smaller than the cursor that has to hit it, so growing is
@@ -209,6 +214,25 @@ public partial class WorldMapInkData : Resource
     [Export] public Color edgeInkSub2m = new Color(1f, 1f, 1f, 0.35f);
     [Export] public Color edgeInk2m = new Color(1f, 1f, 1f, 0.5961f);
     [Export] public Color edgeInkOver2m = new Color(0f, 0f, 0f, 0.8314f);
+
+    // The column gauge pinned to the map's right edge: the hovered column's
+    // voxels bottom to top, with the sea, the cutaway and what the active tool
+    // would write marked on it. Its height is a fraction of the map's, so the
+    // world's whole height always fits.
+    [Export(PropertyHint.Range, "4,64,1")] public int columnGaugeWidth = 20;
+    [Export(PropertyHint.Range, "0.2,1,0.05")] public float columnGaugeHeightFraction = 0.9f;
+    [Export(PropertyHint.Range, "0,200,1")] public int columnGaugeRightMargin = 16;
+    [Export(PropertyHint.Range, "8,32,1")] public int columnGaugeFontSize = 12;
+    [Export] public Color columnGaugeAirColor = new Color(0f, 0f, 0f, 0.55f);
+    // Voxels above the cutaway are drawn at this alpha: the view has cut them away.
+    [Export(PropertyHint.Range, "0,1,0.05")] public float columnGaugeAboveCutAlpha = 0.35f;
+    [Export] public Color columnGaugeSeaInk = new Color(1f, 1f, 1f, 0.9f);
+    [Export] public Color columnGaugeCutawayInk = new Color(1f, 0.55f, 0.15f, 1f);
+    [Export] public Color columnGaugePaintInk = new Color(1f, 0.95f, 0.3f, 1f);
+    // Fill of the box a ranged tool (tunnel, block) covers; its outline is the paint ink.
+    [Export] public Color columnGaugeRangeFill = new Color(1f, 0.95f, 0.3f, 0.25f);
+    // Tint over ground that holds buried (latent) water, see docs/water.md.
+    [Export] public Color columnGaugeLatentWaterInk = new Color(0.4f, 0.7f, 1f, 1f);
 
     // The swatch for a danger level, clamped so a colour list shorter than
     // WorldMapData.mobLevelCount still draws instead of throwing.

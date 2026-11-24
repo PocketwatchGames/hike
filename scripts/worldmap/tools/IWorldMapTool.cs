@@ -53,6 +53,34 @@ public sealed class WorldMapFill
     public System.Action<int, int> Write;
 }
 
+// What a tool would write in one column, in world voxel Y. `Surface` is the
+// level the stroke leaves, read like every height in the painter as the TOP of
+// that voxel. A ranged tool also names the run of voxels its box covers, Lo..Hi
+// inclusive.
+public readonly struct PaintSpan
+{
+    public readonly int Surface;
+    public readonly int Lo;
+    public readonly int Hi;
+    public readonly bool HasRange;
+
+    public PaintSpan(int surface)
+    {
+        Surface = surface;
+        Lo = surface;
+        Hi = surface;
+        HasRange = false;
+    }
+
+    public PaintSpan(int surface, int lo, int hi)
+    {
+        Surface = surface;
+        Lo = lo;
+        Hi = hi;
+        HasRange = true;
+    }
+}
+
 // A painting tool. Each tool owns its parameters (radius, op, active elevation,
 // cross-section, index...) and its visualization (View). The active tool drives
 // both what a stroke does and how the 2D map is coloured.
@@ -67,10 +95,8 @@ public interface IWorldMapTool
     // Brush size in texels — a per-tool variable.
     float Radius { get; set; }
 
-    // Discrete choices for the tool's primary parameter — what Q/E cycles, and
-    // what the HUD offers as a button group. Empty when the parameter is not a
-    // small fixed set (a region index, a carve height), which is why Cycle stays
-    // the general mechanism and this is only the presentable subset of it.
+    // Discrete choices for the tool's primary parameter — what the HUD offers as
+    // a button group. Empty when the tool has none.
     string[] Options(WorldMapState ctx);
 
     // One section path per option ("Mobs/Goblin", "" for the top level), or null
@@ -83,7 +109,7 @@ public interface IWorldMapTool
     // instead of something to memorise.
     Color[] OptionColors(WorldMapInk ink);
 
-    // Which of Options is selected. Setting it is equivalent to cycling to it.
+    // Which of Options is selected.
     int OptionIndex { get; set; }
 
     // Do 1-9 pick this tool's options?
@@ -95,7 +121,7 @@ public interface IWorldMapTool
     // (the entity list is 45 long and sorted by filename). Labelling nine of
     // those rows with a digit advertises a shortcut system that mostly is not
     // there, and the row a digit lands on changes when an unrelated resource is
-    // added. Q/E still steps every option, and the row is still clickable.
+    // added. The row is still clickable.
     bool NumberKeys => true;
 
     // Colour of the brush ring. A tool that is about to write one specific value
@@ -119,6 +145,12 @@ public interface IWorldMapTool
     // predictable.
     void BeginStroke(WorldMapState ctx, WorldMapView view, Vector2I texel, EStrokeMods mods);
 
+    // The stroke ended (button released, or the press was dropped). Called before
+    // the host commits the edit, so a change made here is part of the stroke.
+    void EndStroke(WorldMapState ctx, WorldMapView view)
+    {
+    }
+
     // Apply one stamp at the given column texel. A tool writes its LAYER IMAGE
     // and nothing else — there is no live voxel world to update, and the bake
     // reads the images back at the end.
@@ -141,8 +173,16 @@ public interface IWorldMapTool
     // Paints at FULL weight: a fill has no falloff to ease by.
     WorldMapFill Fill(WorldMapState ctx, WorldMapView view, bool erase) => null;
 
-    // Cycle the primary parameter (e.g. brush op, region index, carve height).
-    void Cycle(WorldMapState ctx, int dir);
+    // Where a stroke at this column would write, for the column gauge; null for
+    // a tool (or op) with no height of its own to aim at. Takes the column
+    // because some answers depend on it (a wall stands on that column's ground).
+    PaintSpan? PaintSpanAt(WorldMapState ctx, int px, int pz) => null;
+
+    // T/G: the brush box's height, for a tool whose brush has one (tunnel,
+    // block). Options are picked from the option row or 1-9, never stepped by key.
+    void AdjustBrushHeight(WorldMapState ctx, int dir)
+    {
+    }
 
     // Move the active elevation / cross-section (e.g. tunnel slice, ocean level).
     void AdjustLevel(WorldMapState ctx, int dir);

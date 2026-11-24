@@ -27,7 +27,7 @@ public enum EItemCategory
 	// A sack (SackData): carried in the backpack, holding the categories it
 	// lists. Never a reagent, and never inside another sack.
 	Sack,
-	// A carried tool (ToolData — the shovel): kept in the backpack and never used
-	// from it. Carrying it is what enables its interactions (ItemData.toolUses).
+	// A tool used from the hotbar (ToolData — the shovel). Auto-belted on pickup
+	// like a Usable, but gear: it wears and is repaired rather than spent.
 	Tool,
 }

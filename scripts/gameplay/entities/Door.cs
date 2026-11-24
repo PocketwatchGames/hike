@@ -280,7 +280,7 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
             EntityVoxelStamper.Apply(sim.WorldState, data.ResolveStamp(sim.WorldState), changed);
             if (changed.Count > 0)
             {
-                sim.UpdateLighting(changed);
+                sim.OnVoxelsChanged(changed);
             }
         }
 

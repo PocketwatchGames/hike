@@ -52,6 +52,6 @@ public class PropSimState : EntitySimState, IVoxelStamper, IBreakableSimState
             Mathf.FloorToInt(WorldPosition.X),
             Mathf.FloorToInt(WorldPosition.Y),
             Mathf.FloorToInt(WorldPosition.Z));
-        return new VoxelStamp(cell, height, Blocks.OpeningId, carves: true);
+        return VoxelStamp.Column(cell, height, Blocks.OpeningId, carves: true);
     }
 }

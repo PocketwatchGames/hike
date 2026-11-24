@@ -47,7 +47,7 @@ public class DoorSimState : EntitySimState, IVoxelStamper
     // open state reverted to plain Air.
     public VoxelStamp ResolveStamp(WorldState world)
     {
-        return new VoxelStamp(
+        return VoxelStamp.Column(
             Door.ResolveOccluderBase(world, this),
             Mathf.Max(1, Door.GetOccluderHeight(Scene)),
             Active ? Door.GetClosedBlock(Scene) : Blocks.OpeningId,

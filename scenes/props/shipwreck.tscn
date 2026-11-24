@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://ikf48sl5p12i"]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="2_autocoll"]
+[ext_resource type="PackedScene" uid="uid://h0yt26lcsrgt" path="res://assets/models/shipwreck/Shipwreck.fbx" id="3_fbx"]
+[ext_resource type="Material" uid="uid://dgwdor1ub5c2e" path="res://assets/models/shipwreck/shipwreck_lit.tres" id="4_mat"]
+
+[node name="PropInstance" type="Node3D"]
+script = ExtResource("1_prop")
+
+[node name="Model" type="Node3D" parent="."]
+script = ExtResource("2_autocoll")
+materialOverride = ExtResource("4_mat")
+
+[node name="Shipwreck" parent="Model" instance=ExtResource("3_fbx")]

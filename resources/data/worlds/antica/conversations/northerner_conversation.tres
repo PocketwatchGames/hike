@@ -1,0 +1,52 @@
+[gd_resource type="Resource" script_class="ConversationData" format=3]
+
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="Script_ConversationData"]
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="Script_ConversationBranch"]
+[ext_resource type="Script" uid="uid://drrpmtebgfwg0" path="res://scripts/data/conversation/ConversationLine.cs" id="Script_ConversationLine"]
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="Script_ConversationEntry"]
+[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="Script_ConversationResponse"]
+[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="Script_ConversationResponseGroup"]
+[ext_resource type="Resource" path="res://resources/data/dialogue_scripts/actions/name_player.tres" id="Act_name_player"]
+
+[sub_resource type="Resource" id="Entry_1"]
+script = ExtResource("Script_ConversationEntry")
+branch = &"greetings"
+
+[sub_resource type="Resource" id="Line_greetings_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"northerner_greetings_01"
+
+[sub_resource type="Resource" id="Branch_greetings"]
+script = ExtResource("Script_ConversationBranch")
+name = &"greetings"
+lines = [SubResource("Line_greetings_1")]
+
+[sub_resource type="Resource" id="Line_dangers_1"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"northerner_dangers_01"
+
+[sub_resource type="Resource" id="Line_dangers_2"]
+script = ExtResource("Script_ConversationLine")
+locKey = &"northerner_dangers_02"
+completeActions = Array[Object]([ExtResource("Act_name_player")])
+
+[sub_resource type="Resource" id="Branch_dangers"]
+script = ExtResource("Script_ConversationBranch")
+name = &"dangers"
+lines = [SubResource("Line_dangers_1"), SubResource("Line_dangers_2")]
+
+[sub_resource type="Resource" id="Resp_greeeting_response_1"]
+script = ExtResource("Script_ConversationResponse")
+textLocKey = &"northerner_greeeting_response_dangers"
+destination = &"dangers"
+
+[sub_resource type="Resource" id="Group_greeeting_response"]
+script = ExtResource("Script_ConversationResponseGroup")
+name = &"greeeting_response"
+responses = [SubResource("Resp_greeeting_response_1")]
+
+[resource]
+script = ExtResource("Script_ConversationData")
+entryBranches = [SubResource("Entry_1")]
+branches = [SubResource("Branch_greetings"), SubResource("Branch_dangers")]
+responseGroups = [SubResource("Group_greeeting_response")]

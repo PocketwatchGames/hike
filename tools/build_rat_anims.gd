@@ -10,7 +10,8 @@ extends SceneTree
 # them from the AssetDump "HEROIC FANTASY CREATURES FULL PACK VOL 1/Fantasy
 # Animals Pack/Giant Rat/FBX Files" folder into asset_src/models/characters/rat/
 # anims/ under the names in MAP (GiantRat@Idle -> idle, @Run -> run, @Death ->
-# die, @GetHitFront -> hit, @JumpBite -> bite; the in-place clips, never _RM),
+# die, @GetHitFront -> hit, @JumpBite -> bite, @DodgeBackwards/Left/Right ->
+# dodge_back/left/right, @Taunt -> taunt; the in-place clips, never _RM),
 # then run:
 #   Godot --path . --headless -s res://tools/build_rat_anims.gd
 #
@@ -31,6 +32,10 @@ const MAP := {
 	"die":        ["die.fbx", false],
 	"hitstun":    ["hit.fbx", false],
 	"attack":     ["bite.fbx", false],
+	"dodge_back": ["dodge_back.fbx", false],
+	"dodge_left": ["dodge_left.fbx", false],
+	"dodge_right": ["dodge_right.fbx", false],
+	"taunt":      ["taunt.fbx", false],
 }
 
 func _find(n, cls):

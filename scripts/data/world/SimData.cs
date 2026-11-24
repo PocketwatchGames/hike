@@ -275,9 +275,6 @@ public partial class SimData : Resource
     // The trade screen's lines for every ShopMoment a merchant's own sheet rows
     // leave out — the sheet's `merchant_` character, which has only `shop:` rows.
     [Export] public ConversationData merchantDefaults;
-    // Dig a burrowed mob out of the ground with a carried Digging tool — the same
-    // Dig a buried spot offers, shared by every species.
-    [Export] public InteractiveAction digUpAction;
     // Search a body placed dead (MobSpawnEntry.dead) for what it carries, shared
     // by every species. Null leaves such bodies unsearchable.
     [Export] public InteractiveAction searchAction;

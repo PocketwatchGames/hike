@@ -142,12 +142,6 @@ public class PresetTool : IWorldMapTool
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-        int n = Mathf.Max(1, ctx.Presets.Length);
-        PresetIndex = ((PresetIndex + dir) % n + n) % n;
-    }
-
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
     }

@@ -48,6 +48,10 @@ public enum EHitTag
 	Sunlight = 1 << 15,
 	// An open wound bleeding out (knife cuts).
 	Bleeding = 1 << 16,
+	// A blast — a bomb, an exploding barrel. Said outright because no other
+	// combination identifies one: a bomb's Damage|Fire|Blunt|Knockback|Physical
+	// is also a burning club. Bomb walls take extra damage from it.
+	Explosive = 1 << 17,
 }
 
 public static class HitTags
@@ -62,7 +66,8 @@ public static class HitTags
 		| EHitTag.Electrical
 		| EHitTag.Physical
 		| EHitTag.Ranged
-		| EHitTag.Melee;
+		| EHitTag.Melee
+		| EHitTag.Explosive;
 
 	// What a hit is MADE of, as opposed to delivery (Ranged / Melee), mechanic
 	// (Blunt / ArmorPenetration / Knockback) or the universal Damage marker.

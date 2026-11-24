@@ -261,6 +261,129 @@ public static class DebugVerbs
         GD.Print($"spawn_loot: {count}x {data.ResourcePath.GetFile()} dropped at your feet");
     }
 
+    // --- spawn_bomb_wall ------------------------------------------------
+
+    // How far ahead the face is searched for, in metres.
+    private const int BombWallReach = 8;
+    private const int MaxBombWallSpan = 16;
+
+    // `spawn_bomb_wall <entry> [width] [height] [depth]` — mark the rock face the
+    // player is looking at as a bomb wall: width x height cells on the face, from
+    // the player's feet up, `depth` cells into the rock. Transient, like
+    // spawn_mob: the state is never filed in the WorldState, so nothing about it
+    // reaches a save. Its voxels do change while the run lasts, and breaking it
+    // clears them for that run.
+    public static void SpawnBombWall(string arg)
+    {
+        Sim sim = Sim.Current;
+        Player player = sim?.player;
+        if (sim == null || player == null)
+        {
+            GD.PrintErr("spawn_bomb_wall: no running game.");
+            return;
+        }
+        string[] tokens = Tokenize(arg);
+        if (tokens.Length == 0 || tokens[0] == ListToken)
+        {
+            var names = new List<string>();
+            foreach (KeyValuePair<string, string> kv in DebugContentIndex.SpawnEntries)
+            {
+                if (GD.Load<Resource>(kv.Value) is BombWallSpawnEntry)
+                {
+                    names.Add(kv.Key);
+                }
+            }
+            names.Sort();
+            GD.Print("spawn_bomb_wall: usage `spawn_bomb_wall <entry> [width] [height] [depth]`. Known: "
+                + string.Join(", ", names));
+            return;
+        }
+        BombWallSpawnEntry entry = DebugContentIndex.Resolve<BombWallSpawnEntry>(DebugContentIndex.SpawnEntries,
+            tokens[0], out string error);
+        if (entry == null)
+        {
+            GD.PrintErr($"spawn_bomb_wall: {error}. `spawn_bomb_wall ?` lists them.");
+            return;
+        }
+        int width = ParseSpan(tokens, 1, 3);
+        int height = ParseSpan(tokens, 2, 3);
+        int depth = ParseSpan(tokens, 3, 1);
+
+        WorldState ws = sim.WorldState;
+        Vector3 feet = player.GlobalPosition;
+        var start = new Vector3I(Mathf.FloorToInt(feet.X), Mathf.FloorToInt(feet.Y + 0.5f), Mathf.FloorToInt(feet.Z));
+        if (!TryFindRockFace(ws, start, ((IActionActor)player).ActorForward, out Vector3I dir, out Vector3I face))
+        {
+            GD.PrintErr($"spawn_bomb_wall: no rock face within {BombWallReach}m of the player.");
+            return;
+        }
+
+        var lateral = new Vector3I(dir.Z, 0, -dir.X);
+        var cells = new List<Vector3I>();
+        for (int u = 0; u < width; u++)
+        {
+            for (int v = 0; v < height; v++)
+            {
+                for (int k = 0; k < depth; k++)
+                {
+                    cells.Add(face + lateral * (u - width / 2) + Vector3I.Up * v + dir * k);
+                }
+            }
+        }
+        var state = new BombWallSimState(face, 0f, entry.scene, entry.crackSurface, cells.ToArray());
+        var changed = new List<Vector3I>();
+        EntityVoxelStamper.Apply(ws, state.ResolveStamp(ws), changed);
+        if (changed.Count > 0)
+        {
+            sim.OnVoxelsChanged(changed);
+            sim.RemeshVoxels(changed);
+        }
+        state.RuntimeNode = BombWall.Create(sim, state);
+        GD.Print($"spawn_bomb_wall: {cells.Count} cells at {face} facing {-dir} ({changed.Count} dressed).");
+    }
+
+    // The first solid cell along the axis the player faces, else the nearest one
+    // along any horizontal axis — so the verb still finds a wall when the player
+    // is turned slightly away from it.
+    private static bool TryFindRockFace(WorldState ws, Vector3I start, Vector3 forward, out Vector3I dir, out Vector3I face)
+    {
+        Vector3I ahead = Mathf.Abs(forward.X) >= Mathf.Abs(forward.Z)
+            ? new Vector3I(forward.X >= 0f ? 1 : -1, 0, 0)
+            : new Vector3I(0, 0, forward.Z >= 0f ? 1 : -1);
+        Vector3I[] dirs = { ahead, Vector3I.Right, Vector3I.Left, Vector3I.Back, Vector3I.Forward };
+        int best = int.MaxValue;
+        dir = ahead;
+        face = start;
+        for (int d = 0; d < dirs.Length; d++)
+        {
+            for (int i = 1; i <= BombWallReach && i < best; i++)
+            {
+                Vector3I cell = start + dirs[d] * i;
+                if (Blocks.HasGeometry(ws.GetBlockWorld(cell.X, cell.Y, cell.Z)))
+                {
+                    if (d == 0)
+                    {
+                        dir = dirs[d];
+                        face = cell;
+                        return true;
+                    }
+                    best = i;
+                    dir = dirs[d];
+                    face = cell;
+                    break;
+                }
+            }
+        }
+        return best != int.MaxValue;
+    }
+
+    private static int ParseSpan(string[] tokens, int index, int fallback)
+    {
+        return tokens.Length > index && int.TryParse(tokens[index], out int n)
+            ? Mathf.Clamp(n, 1, MaxBombWallSpan)
+            : fallback;
+    }
+
     // --- setvar ---------------------------------------------------------
 
     public static void SetVar(string arg)
@@ -400,4 +523,6 @@ public static class DebugVerbs
             ? System.Array.Empty<string>()
             : arg.Trim().Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
     }
+
+
 }

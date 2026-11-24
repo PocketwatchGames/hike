@@ -3,12 +3,22 @@
 ## Water is painted, and the map answers back
 
 
-Every column the brush touches is filled from its ground up to the selected
-surface level. A BRUSH, not a fill.
+**Water is PER VOXEL** (the voxel layer's water byte: none, the zone's, or a
+painted type), and the brush is a BOX like the tunnel tool's: `Depth` voxels
+(T/G, default 4) hung down from the surface (R/F) in every column it covers. X
+cycles **Box** / **To bottom** (the whole column below the surface — what the
+brush used to always do) / **Retype** (only retypes water already in the box).
+RMB empties the box. Because it is per voxel, a column can hold several separate
+bodies — a pool in a cave under a hill, a lake over a dry cave — each with its
+own level and type, and `WaterSurface` (the top of a column's water) is a
+different question from `WaterTopOver(floor)` (the water standing on one floor),
+which is what every floor-aware view, the bake and the passage spawn gate ask.
+A box shallower than the ground under it leaves water floating over air;
+`worldmap_check` warns about it. A BRUSH, not a fill.
 
-**There is no waterline.** The water layer alone says where water is, and the
-world starts PREFILLED with it at `seaLevel` — which costs nothing, because a
-blank layer is zeros and 0 already encodes `seaLevel`. Land hides the water it
+**There is no waterline.** The water alone says where water is, and a new
+document starts PREFILLED with the zone's water up to `seaLevel`
+(`WorldMapData.FillSea`, also applied to columns a canvas grows). Land hides the water it
 stands above; carving that land away reveals water that was there the whole
 time. So a sea is not a rule about low ground, it is the water nobody erased,
 and three things fall out that the old `max(seaLevel, painted)` could not
@@ -103,24 +113,24 @@ into a ring of half-steps. It writes every column it covers, including ones whos
 ground stands above the surface — that is the latent water above. **alt+click**
 samples a height to aim at, the same eyedropper the elevation tool has.
 
-The surface is cached per column beside the weathered heights and refreshed by
-the same rect rebuild — no longer global, since a painted surface has no
-neighbourhood to spread through. Weathering still measures against it
-(`StandHeight`) while it measures against RAW heights, which is what keeps the
-two from depending on each other.
+The top of each column's water (`WaterSurface`) is a per-column summary of the
+voxel layer (`VoxelEditOverlay.WaterTop`), maintained as voxels are written. It
+reads no heights, which is what lets weathering measure against it
+(`StandHeight`) without the two depending on each other — but a water stroke
+still invalidates the weathered heights over its rect.
 
 **Water TYPE is painted beside the surface, and REPLACE is why it is its own
 mode.** The option row is the document's `waterTypes` palette with "Zone's" as
 entry 0 — the unpainted state — so there is always a way back to it and it is a
-special case nowhere. The ordinary brush writes the surface AND the type
-together, which is right when you are putting water somewhere; **X** switches to
-REPLACE, which only retypes columns that already hold water and never touches a
-surface. Without it, recolouring a lake would mean filling it to whatever level
+special case nowhere. The ordinary brush writes the water AND the type
+together, which is right when you are putting water somewhere; **X** reaches
+RETYPE, which only retypes water already in the box and never adds or removes
+any. Without it, recolouring a lake would mean filling it to whatever level
 the HUD happened to hold, and getting that exactly right across a hand-painted
 shoreline is not something anyone should have to do to change its colour.
 
-Erasing a column's water erases its type with it: a column with no water has no
-type, and one left behind would silently retype whatever gets painted there next.
+Erasing water erases its type with it: the type is the water byte itself, so
+there is no type left behind to retype whatever is painted there next.
 
 **A painted type TINTS the water on the map**, on every view that draws water —
 resolved inside `WorldMapState.WithWaterOver`, the shared "there is water here"
@@ -137,10 +147,8 @@ never drew.) The colour is the block's own `minimapColor`, resolved into a table
 at load: this is reached for every wet texel of every rebuild, so a resource
 dereference per texel would land in the map's hottest loop.
 
-**The painted layer is the only source** — it reaches the shared pass as
-`WorldFinish.Options.PaintedWaterBlockAt`, the same seam shape `MossCoverageAt`
-uses, and worldgen passes null and keeps standard water. Two things the bake will
-NOT stamp, both of which
-`worldmap_check` reports separately because their absence is otherwise silent:
-a type on **latent** water (painted, but buried under ground not yet carved — no
-free surface to dress until the land goes) and a type on a **dry** column.
+**The painted type is the only source**, and it is per voxel: the bake writes each
+open water voxel as its own block (`StampColumn`), so a scum pond can sit over a
+clear cave pool. Worldgen keeps standard water. `worldmap_check` reports open
+water voxels per type, buried (latent) voxels, and columns holding more than one
+body.

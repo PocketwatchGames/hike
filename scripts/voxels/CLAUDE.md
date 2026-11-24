@@ -165,9 +165,30 @@ the ledge barriers 1.8s, the water mesher 0.8s, the detail scatter 0.2s — agai
   discarded and rebuilt. **A new path that changes mesh-visible voxels without
   calling it** leaves a streamed-in chunk showing pre-edit geometry. A build that
   throws is rebuilt on the main thread, where a real bug surfaces with a stack.
-- **The mesh rebuild queue is still synchronous** (`ProcessMeshRebuildQueue`, ~50ms
-  a chunk). Only the scene editor and a few debug cvars use it; gameplay never
-  remeshes.
+- **A re-mesh of a loaded chunk builds on the same pool** (`RebuildChunkMeshes` →
+  `DispatchRemeshes` → `RealizeRemesh`), ahead of streaming loads. The pending
+  set is a SET, so a brush drag naming the same chunks every stamp costs one
+  rebuild each. The old mesh and its collision stay up until the new one lands,
+  a few frames later. A re-mesh that went stale mid-build is swapped in anyway
+  and queued again, unlike a stale load: during a continuous drag every result
+  is stale by the time it lands, and discarding them would show nothing until
+  the drag stopped.
+- **An edit re-meshes exactly the chunks that READ it** (`Sim.RemeshVoxels`,
+  `Sim.RemeshRegion` → `ChunkMeshReach`), never a fixed box. A build reads past
+  its own 16³ — 7 voxels below and 9 above for the DC sun/openness march, plus
+  ledge-barrier drops and detail-scatter edge walks sized by data — and each
+  mesher declares its own reach beside the constants that set it
+  (`ChunkMesherDC.READ_BELOW/ABOVE`, `LedgeBarrierMesher.ReadReach`,
+  `ChunkDetailScatter.ReadReach`, the water meshers' `READ_REACH`). **A mesher
+  change that reads further must widen its declaration**, or an edit near a seam
+  leaves the neighbour's mesh stale with nothing reporting it; `debug_mesh_reach`
+  (needs a running world, ~40s) rebuilds every loaded chunk through recording
+  accessors and prints `[mesh_reach] ok` or FAIL. The one unbounded read, the
+  water mesher climbing a water run to see whether it is roofed, is covered by
+  adding the run under each edited cell. Sunlight is NOT a mesh input for
+  in-window chunks — terrain multiplies the live volume by a baked openness term
+  — so a relight never re-meshes; SunOpaque cover is, hence `RemeshRegion` for
+  roofs.
 - **`debug_chunk_stream_log 1|2`** reports streaming: pending and starved
   on-screen chunks, fps, worker build vs main-thread realize cost, and (at 2) one
   line per load.

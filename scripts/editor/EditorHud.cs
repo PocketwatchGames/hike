@@ -24,6 +24,7 @@ public partial class EditorHud : CanvasLayer
     [Export] public Button voxelToolButton;
     [Export] public Button entityToolButton;
     [Export] public Button roofToolButton;
+    [Export] public Button bombWallToolButton;
     // Bottom-of-screen palettes. Exactly one is shown, per the selected tool.
     [Export] public Control voxelPalette;
     [Export] public Control entityPalette;
@@ -67,6 +68,15 @@ public partial class EditorHud : CanvasLayer
     // Draw a new roof, or retune one already placed.
     [Export] public Button drawRoofModeButton;
     [Export] public Button editRoofModeButton;
+
+    [ExportGroup("Bomb Wall Details")]
+    // The bomb-wall tool's panel. It has no bottom palette: a wall is the one
+    // bomb_wall entry, and what varies is which cells it takes.
+    [Export] public Control bombWallInfoPanel;
+    // Cells one click takes, counting inward from the clicked face.
+    [Export] public SpinBox bombWallDepthSpin;
+    [Export] public Button newBombWallButton;
+    [Export] public Label bombWallStatusLabel;
 
     [ExportGroup("Current Tool")]
     [Export] public TextureRect brushImage;
@@ -115,6 +125,8 @@ public partial class EditorHud : CanvasLayer
     // roof's chunk and relights the world — far too much to do per drag pixel.
     public Action onRoofSettingsCommitted;
     public Action<EEditorEntityMode> onEntityToolModeChanged;
+    public Action<int> onBombWallDepthChanged;
+    public Action onNewBombWall;
     public Action<bool> onSnapToGridChanged;
     public Action<bool> onSnapRotationChanged;
     public Action<EEditorBrushOperation> onOperationSelected;
@@ -164,6 +176,15 @@ public partial class EditorHud : CanvasLayer
         BindToolButton(voxelToolButton, EEditorTool.Voxel);
         BindToolButton(entityToolButton, EEditorTool.Entity);
         BindToolButton(roofToolButton, EEditorTool.Roof);
+        BindToolButton(bombWallToolButton, EEditorTool.BombWall);
+        if (bombWallDepthSpin != null)
+        {
+            bombWallDepthSpin.ValueChanged += value => onBombWallDepthChanged?.Invoke((int)value);
+        }
+        if (newBombWallButton != null)
+        {
+            newBombWallButton.Pressed += () => onNewBombWall?.Invoke();
+        }
         BindEntityModeButton(placeModeButton, EEditorEntityMode.Place);
         BindEntityModeButton(selectModeButton, EEditorEntityMode.Select);
         BindRoofModeButton(drawRoofModeButton, EEditorRoofMode.Draw);
@@ -533,12 +554,14 @@ public partial class EditorHud : CanvasLayer
         voxelToolButton?.SetPressedNoSignal(_tool == EEditorTool.Voxel);
         entityToolButton?.SetPressedNoSignal(_tool == EEditorTool.Entity);
         roofToolButton?.SetPressedNoSignal(_tool == EEditorTool.Roof);
+        bombWallToolButton?.SetPressedNoSignal(_tool == EEditorTool.BombWall);
         SetVisible(voxelPalette, _tool == EEditorTool.Voxel);
         SetVisible(voxelInfoPanel, _tool == EEditorTool.Voxel);
         SetVisible(entityPalette, _tool == EEditorTool.Entity);
         SetVisible(entityDetailsPanel, _tool == EEditorTool.Entity);
         SetVisible(roofPalette, _tool == EEditorTool.Roof);
         SetVisible(roofInfoPanel, _tool == EEditorTool.Roof);
+        SetVisible(bombWallInfoPanel, _tool == EEditorTool.BombWall);
     }
 
     private static void SetVisible(Control control, bool visible)
@@ -713,6 +736,27 @@ public partial class EditorHud : CanvasLayer
             1 => "1 selected",
             _ => $"{count} selected",
         };
+    }
+
+    // ----- Bomb wall options -----------------------------------------------
+
+    // Seated by WorldEditor at startup. NoSignal, so seating it can't echo back
+    // as an author edit.
+    public void SetBombWallDepth(int depth)
+    {
+        bombWallDepthSpin?.SetValueNoSignal(depth);
+    }
+
+    // Pushed every frame while the tool is up: the current wall's cell count, or
+    // null when the next click starts a new wall.
+    public void SetBombWallStatus(int? cells)
+    {
+        if (bombWallStatusLabel != null)
+        {
+            bombWallStatusLabel.Text = cells.HasValue
+                ? $"Current wall: {cells.Value} cells"
+                : "No wall: click rock to start one";
+        }
     }
 
     // ----- Paint / erase ---------------------------------------------------

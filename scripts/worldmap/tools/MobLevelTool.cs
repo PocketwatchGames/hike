@@ -55,7 +55,7 @@ public class MobLevelTool : IWorldMapTool
 
     public string HintText(WorldMapState ctx)
         => "Eases toward the level you pick; RMB eases back to 0  |  "
-            + "T/G lower the cutaway to set a PASSAGE's level (RMB: back to the surface's)";
+            + "Q/E lower the cutaway to set a PASSAGE's level (RMB: back to the surface's)";
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
         => view.IsCutAway ? $"Danger level {Level} (passages under the cut)" : $"Danger level {Level}";
@@ -144,12 +144,6 @@ public class MobLevelTool : IWorldMapTool
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-        int n = ctx.MobLevelCount;
-        Level = ((Level + dir) % n + n) % n;
-    }
-
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
         Level = Mathf.Clamp(Level + dir, 0, ctx.MobLevelCount - 1);

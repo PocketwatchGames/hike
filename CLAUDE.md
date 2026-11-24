@@ -531,9 +531,8 @@ rather than half-written — a resource with structure of its own has earned a
 
 So a shipped build needs the world's baked `worlds/<world>/<world>.hike` (the
 bake writes it there, beside the start content, not into `map/`), its start
-content, zones and regions. It needs NOTHING under `map/`: the raster layers
-(`*.png`, `*.exr`, `tunnels.bin` — 27 MB on its own), the `WorldMapData`, or
-`placements.tres`. The `.hike` is gitignored (`worlds/*/*.hike`) and the export
+content, zones and regions. It needs NOTHING under `map/`: the layers
+(`layers.bin`), the `WorldMapData`, or `placements.tres`. The `.hike` is gitignored (`worlds/*/*.hike`) and the export
 preset includes the same pattern; re-bake rather than commit it.
 
 ### World Map Painting Tool (`scripts/worldmap/`, `scripts/data/worldmap/`, `scripts/data/world_editor/`)
@@ -998,6 +997,10 @@ wants falls straight out of it:
   speaker rise, fade and stay HIDDEN — saved, out of every query — until a script
   `Reappear`s it. `behavior:Escape` is the wild fairy's getaway and deletes the
   mob for good; a story character that must come back vanishes instead.
+- **`name_player`** (an action file) opens a text box to name the controlled
+  party member and HOLDS the conversation until a name is confirmed
+  (`ConversationController.Hold` / `Release`), so the next line follows from it.
+  The name is `PlayerState.characterName` and is saved. Keyboard only for now.
 - **`shop:<moment>` is a reserved conversation key** — one row, text only, is
   what the character says at that moment of the trade screen
   (`ConversationData.shopLines`, loc key `<character>_shop_<moment>`). The
@@ -1137,6 +1140,14 @@ past the component:
   `rock_cracked_lit`; debris props (`barrel_broken`, `barrel_staves`) read as
   already broken. Don't author an unbreakable scene on a breakable's mesh.
 
+See [scripts/gameplay/entities/CLAUDE.md](scripts/gameplay/entities/CLAUDE.md).
+
+### Bomb Walls (`scripts/gameplay/entities/BombWall*.cs`)
+
+**A bomb wall marks existing rock as permanently breakable** — a placement's
+picked cells wear a crack overlay while standing and clear to Air once broken,
+by a regenerating health pool weak to Blunt and `EHitTag.Explosive`. Every
+runtime voxel write goes through `Sim.OnVoxelsChanged` (relight + walkability).
 See [scripts/gameplay/entities/CLAUDE.md](scripts/gameplay/entities/CLAUDE.md).
 
 ### Visual Render Layers (`VisualInstance3D.Layers` / `Camera3D.CullMask`)

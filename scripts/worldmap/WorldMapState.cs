@@ -38,7 +38,6 @@ public class WorldMapState
     public readonly VoxelEditOverlay Edits;
 
     public Image Elevation;        // Rf, per column (normalized height, truth)
-    public Image Water;            // Rf, per column (water surface height)
     public Image Region;           // R8, per chunk (region index)
     public Image Zone;             // R8, per chunk (zone index)
     public Image Habitat;          // R8, per chunk (habitat index + 1; 0 = none)
@@ -47,11 +46,12 @@ public class WorldMapState
     // density channel — placement is direct and one prop per column, so a
     // painted column is a furnished column and nothing thins it but CanSpawnAt.
     public Image BlockingProps;
-    public Image Ground;           // R8, per column (ground set + 1; 0 = default ground)
-    public Image WaterType;        // R8, per column (waterTypes index + 1; 0 = the zone's)
-    // Rgba8, per column: R = paving block + 1 (0 = none), G/B = the world Y it
-    // is laid at + 1 (0 = seated on the column's own surface, so it follows
-    // ground that later moves).
+    // R8, per column: the terrain kit (+ 1; 0 = default) of the column's
+    // SURFACE. A kit painted on a floor under something is in the voxel layer.
+    public Image Ground;
+    // R8, per column: the paving block (+ 1; 0 = none) on the column's SURFACE,
+    // which it follows as the ground moves. Paving on a floor under something is
+    // a repaved voxel in the voxel layer.
     public Image Paving;
 
     // Subscene stamps. A LIST, not a layer: a stamp is an identity, an
@@ -69,9 +69,12 @@ public class WorldMapState
     public HabitatData[] Habitats;
     public Image Mobs;             // Rgba8, per column (R = mob set + 1, G = density)
     public Image Scalars;          // Rgba8, per column (R = mob level, G = climb)
-    // Per-voxel edits to the heightfield: EditCarve removes a voxel the height
+    // The per-voxel layer, indexed [px, ly, pz], ly = wy - WorldMinY. The low 16
+    // bits are an edit to the heightfield: EditCarve removes a voxel the height
     // map would have made solid, EditAdd makes one solid the height map would
-    // have left as air. Indexed [px, ly, pz], ly = wy - WorldMinY.
+    // have left as air, EditRepave remakes a natural solid voxel (paving on a
+    // floor under something) of a block. The high 16 bits are independent of the
+    // edit: the voxel's water, and a terrain kit override.
     //
     // A carved cell also names the PASSAGE it is part of — the danger level and
     // the mob scatter that apply in that space — because a per-column layer
@@ -86,13 +89,34 @@ public class WorldMapState
     //   bits 12-15  passage density, 0..15
     //   add:
     //   bits  2-15  BuildingBlocks slot + 1    (0 = the column's ground terrain)
+    //   repave:
+    //   bits  2-15  BuildingBlocks slot + 1
+    //   any edit:
+    //   bits 16-23  water: 0 none, 1 the zone's water, n the WaterTypes slot n - 2
+    //   bits 24-31  terrain kit override: 0 none, n the Terrains slot n - 1
+    //
+    // Water is kept whether or not the voxel is solid: land hides the water it
+    // stands in, and carving or lowering the land reveals it. The bake fills a
+    // voxel with water only where it comes out empty.
     //
     // Read and written only through the accessors below.
-    public ushort[,,] Tunnels;
+    public uint[,,] Tunnels;
 
     public const byte EditNone = 0;
     public const byte EditCarve = 1;
     public const byte EditAdd = 2;
+    public const byte EditRepave = 3;
+
+    private const uint GEOMETRY_MASK = 0xFFFF;
+    private const int WATER_SHIFT = 16;
+    private const uint WATER_MASK = 0xFF;
+    private const int KIT_SHIFT = 24;
+    private const uint KIT_MASK = 0xFF;
+
+    // The zone's water, as cell bits — what a new document is prefilled with.
+    public const uint ZoneWaterBits = 1u << WATER_SHIFT;
+
+    public static bool HasWaterBits(uint cell) => ((cell >> WATER_SHIFT) & WATER_MASK) != 0;
 
     private const int EDIT_MASK = 0x3;
     private const int PASSAGE_MASK = 0xFFFC;
@@ -120,23 +144,10 @@ public class WorldMapState
     // it, so shorelines are painted rather than made by sliding the sea.
     public int SeaLevel => Data.seaLevel;
 
-    // "This column holds no water at all", in both encodings.
-    //
-    // The layer value sits BELOW the lowest surface an author can paint, so
-    // nothing paintable collides with it; the world Y sits below the world
-    // floor, so it is smaller than every column's ground and every question
-    // asked of it — is there water over me, how deep, StandHeight's Max — comes
-    // out right with no special case.
-    //
-    // It exists because there is no waterline any more. The sea used to be a
-    // rule (max(SeaLevel, painted)), which made "dry ground below sea level"
-    // inexpressible: the sea was wherever the ground was low, whatever the
-    // author wanted. Now the water layer is the whole answer, an unpainted
-    // column reads as water at seaLevel (a blank layer is zeros, and 0 encodes
-    // seaLevel — that IS the prefill), and erasing a column is what digs a dry
-    // basin under it.
-    public float NoWaterVoxels => Data.minElevationVoxels - 1f;
-
+    // "This column holds no water at all", as a world Y: below the world floor,
+    // so smaller than every column's ground, and every question asked of it — is
+    // there water over me, how deep, StandHeight's Max — comes out right with no
+    // special case.
     public int NoWater => Data.WorldMinY - 1;
 
     // Palette slots for one zone's terrains, resolved once per bake. The per-voxel
@@ -148,16 +159,18 @@ public class WorldMapState
         Data = data;
         Field = new TerrainField(this);
         Edits = new VoxelEditOverlay(this);
-        Elevation = data.LoadOrCreateElevation();
-        Water = data.LoadOrCreateWater();
-        Region = data.LoadOrCreateRegion();
-        Zone = data.LoadOrCreateZone();
-        Habitat = data.LoadOrCreateHabitat();
-        Wind = data.LoadOrCreateWind();
-        BlockingProps = data.LoadOrCreateBlockingProps();
-        Ground = data.LoadOrCreateGround();
-        WaterType = data.LoadOrCreateWaterType();
-        Paving = data.LoadOrCreatePaving();
+        WorldMapData.LayerSet layers = data.LoadLayers();
+        Elevation = layers.Images[WorldMapData.ElevationLayer];
+        Region = layers.Images[WorldMapData.RegionLayer];
+        Zone = layers.Images[WorldMapData.ZoneLayer];
+        Habitat = layers.Images[WorldMapData.HabitatLayer];
+        Wind = layers.Images[WorldMapData.WindLayer];
+        BlockingProps = layers.Images[WorldMapData.BlockingPropsLayer];
+        Ground = layers.Images[WorldMapData.GroundLayer];
+        Paving = layers.Images[WorldMapData.PavingLayer];
+        Mobs = layers.Images[WorldMapData.MobsLayer];
+        Scalars = layers.Images[WorldMapData.ScalarsLayer];
+        Tunnels = layers.Voxels;
         Placements = LoadOrCreatePlacements(data);
         Palettes = LoadOrCreatePalettes(data);
         Zones = AuthoringPaletteSource.Resolve<ZoneData>(AuthoringPaletteSource.Zones, Palettes);
@@ -170,9 +183,6 @@ public class WorldMapState
         BuildingBlocks = AuthoringPaletteSource.Resolve<BlockData>(AuthoringPaletteSource.BuildingBlocks, Palettes);
         EntityPalette = AuthoringPaletteSource.Resolve<SpawnEntryData>(AuthoringPaletteSource.Entities, Palettes);
         Presets = AuthoringPaletteSource.Resolve<PaintPresetData>(AuthoringPaletteSource.Presets, Palettes);
-        Mobs = data.LoadOrCreateMobs();
-        Scalars = data.LoadOrCreateScalars();
-        Tunnels = data.LoadOrCreateTunnels();
     }
 
     // Where the cutaway starts a session: the top of the world, i.e. NOT CUT.
@@ -277,11 +287,6 @@ public class WorldMapState
         return Elevation.GetPixel(ClampX(px), ClampZ(pz)).R;
     }
 
-    public float WaterVoxels(int px, int pz)
-    {
-        return Water.GetPixel(ClampX(px), ClampZ(pz)).R;
-    }
-
     // Signed lattice index of a column — 0 is the shore, +1 the first step up.
     // The map paints one distinct band per index.
     public int LevelAt(int px, int pz)
@@ -368,25 +373,33 @@ public class WorldMapState
     internal static readonly int[] NeighbourDz = { 0, 0, 1, -1 };
 
     // 0 = the erosion all comes off the top, 1 = it all piles at the base.
-    // Surface of the water at a column, or NoWater where it has been erased.
-    // Read from the cache filled beside the heights, since the outline pass asks
-    // per edge and the bake per column.
+    // The top of a column's water: its highest water voxel, open or buried under
+    // land, or NoWater for none. A column can hold several separate bodies (a
+    // lake over a dry cave, a pool in a cave under a hill); this is the highest.
+    // A question about the water ON a particular floor is WaterTopOver.
     //
-    // THE LAYER IS THE WHOLE ANSWER — there is no waterline folded in. The world
-    // starts prefilled with water at seaLevel (an unpainted column's 0 encodes
-    // exactly that), land hides the water it stands above, and carving that land
-    // away reveals the water that was there the whole time. So a sea is not a
-    // rule about low ground; it is the water nobody has erased.
-    //
-    // PAINTED, not filled. A flood fill was tried and removed: it answered a
-    // question the author had already answered by clicking, and it could not
-    // tell a lake from a river without being told which it was looking at. A
-    // brush that fills a column to the level you have selected says exactly what
-    // it does, and showing depth and spill on the map is what replaces the
-    // fill's usefulness.
+    // Water is the voxel layer's own answer — there is no waterline folded in. A
+    // new document is prefilled with water up to seaLevel, land hides the water
+    // it stands in, and carving that land away reveals it.
     public int WaterSurface(int px, int pz)
     {
-        return Field.Water(px, pz);
+        return Edits.WaterTop(ClampX(px), ClampZ(pz));
+    }
+
+    // The top of the water standing on floorY: the last voxel of the run of open
+    // water directly above it, or floorY where none stands there. Depth is the
+    // difference.
+    public int WaterTopOver(int px, int pz, int floorY)
+    {
+        int x = ClampX(px);
+        int z = ClampZ(pz);
+        int top = Edits.WaterTop(x, z);
+        int wy = floorY;
+        while (wy < top && WaterAt(x, z, wy + 1) && !SolidAt(x, z, wy + 1))
+        {
+            wy++;
+        }
+        return wy;
     }
 
     // Water at column A stands above whatever B's top surface is, so it pours
@@ -446,13 +459,19 @@ public class WorldMapState
             && ly >= 0 && ly < Data.VoxelHeight;
     }
 
-    private int VoxelCell(int px, int pz, int wy)
+    private uint RawCell(int px, int pz, int wy)
     {
         int ly = wy - Data.WorldMinY;
-        return InMask(px, pz, ly) ? Tunnels[px, ly, pz] : 0;
+        return InMask(px, pz, ly) ? Tunnels[px, ly, pz] : 0u;
     }
 
-    public static byte EditOf(ushort cell) => (byte)(cell & EDIT_MASK);
+    // The low 16 bits only: the edit and its payload.
+    private int VoxelCell(int px, int pz, int wy)
+    {
+        return (int)(RawCell(px, pz, wy) & GEOMETRY_MASK);
+    }
+
+    public static byte EditOf(uint cell) => (byte)(cell & EDIT_MASK);
 
     public byte VoxelEdit(int px, int pz, int wy) => (byte)(VoxelCell(px, pz, wy) & EDIT_MASK);
 
@@ -460,13 +479,80 @@ public class WorldMapState
 
     public bool IsAdded(int px, int pz, int wy) => VoxelEdit(px, pz, wy) == EditAdd;
 
+    // ---- Water, per voxel ----
+
+    // Water code: 0 none, 1 the zone's water, n the WaterTypes slot n - 2.
+    public const int NoWaterCode = 0;
+    public const int ZoneWaterCode = 1;
+
+    public static int WaterCodeFor(int typeIndex) => typeIndex < 0 ? ZoneWaterCode : typeIndex + 2;
+
+    public int WaterCodeAt(int px, int pz, int wy) => (int)((RawCell(px, pz, wy) >> WATER_SHIFT) & WATER_MASK);
+
+    // Holds water — open, or buried in ground that would reveal it if carved.
+    public bool WaterAt(int px, int pz, int wy) => WaterCodeAt(px, pz, wy) != NoWaterCode;
+
+    // The WaterTypes slot of the water in a voxel, or -1 for the zone's (or none).
+    public int WaterTypeIndexAt(int px, int pz, int wy)
+    {
+        int code = WaterCodeAt(px, pz, wy);
+        return code >= 2 && code - 2 < WaterTypes.Length ? code - 2 : -1;
+    }
+
+    // The painted water block in a voxel, or -1 for the zone's. An entry that is
+    // not a water block is refused rather than stamped: it would turn a lake to rock.
+    public int PaintedWaterBlockAt(int px, int pz, int wy)
+    {
+        int idx = WaterTypeIndexAt(px, pz, wy);
+        if (idx < 0)
+        {
+            return -1;
+        }
+        BlockData b = WaterTypes[idx];
+        return b != null && b.render == EBlockRender.Water ? b.blockId : -1;
+    }
+
+    public void SetWaterAt(int px, int pz, int wy, int code)
+    {
+        int ly = wy - Data.WorldMinY;
+        if (!InMask(px, pz, ly))
+        {
+            return;
+        }
+        uint stored = (uint)Mathf.Clamp(code, 0, (int)WATER_MASK);
+        Tunnels[px, ly, pz] = (Tunnels[px, ly, pz] & ~(WATER_MASK << WATER_SHIFT)) | (stored << WATER_SHIFT);
+        Edits.NoteWater(px, pz, wy, stored != 0);
+    }
+
+    // ---- Terrain kit override, per voxel ----
+
+    // The Terrains slot painted on this voxel, or -1 for none. A kit is painted on
+    // a FLOOR; the bake carries it down through the solid run beneath (KitAt).
+    public int KitOverrideAt(int px, int pz, int wy)
+    {
+        int idx = (int)((RawCell(px, pz, wy) >> KIT_SHIFT) & KIT_MASK) - 1;
+        return idx >= 0 && idx < Terrains.Length ? idx : -1;
+    }
+
+    // -1 clears.
+    public void SetKitOverride(int px, int pz, int wy, int kitIndex)
+    {
+        int ly = wy - Data.WorldMinY;
+        if (!InMask(px, pz, ly))
+        {
+            return;
+        }
+        uint stored = (uint)Mathf.Clamp(kitIndex + 1, 0, (int)KIT_MASK);
+        Tunnels[px, ly, pz] = (Tunnels[px, ly, pz] & ~(KIT_MASK << KIT_SHIFT)) | (stored << KIT_SHIFT);
+    }
+
     // Only a carve carries a passage. Re-carving a carved voxel keeps its
     // passage; a FRESH carve takes the passage of a carved neighbour, so
     // extending a tunnel extends what lives in it rather than leaving a strip of
     // it with no level and no mobs.
     //
-    // Only an add carries a block: `block` is a BuildingBlocks index, -1 for the
-    // column's ground terrain. Ignored for any other edit.
+    // An add carries a block: `block` is a BuildingBlocks index, -1 for the
+    // column's ground terrain. A repave carries one always. Ignored for the rest.
     public void SetVoxelEdit(int px, int pz, int wy, byte edit, int block = -1)
     {
         int ly = wy - Data.WorldMinY;
@@ -474,17 +560,24 @@ public class WorldMapState
         {
             return;
         }
-        int old = Tunnels[px, ly, pz];
+        uint raw = Tunnels[px, ly, pz];
+        int old = (int)(raw & GEOMETRY_MASK);
         int payload = 0;
         if (edit == EditCarve)
         {
             payload = (old & EDIT_MASK) == EditCarve ? old & PASSAGE_MASK : NeighbourPassage(px, pz, wy);
         }
-        else if (edit == EditAdd && block >= 0 && block < BLOCK_MASK)
+        else if ((edit == EditAdd || edit == EditRepave) && block >= 0 && block < BLOCK_MASK)
         {
             payload = (block + 1) << BLOCK_SHIFT;
         }
-        Tunnels[px, ly, pz] = (ushort)(edit | payload);
+        else if (edit == EditRepave)
+        {
+            // A repave with no block is no repave at all.
+            edit = EditNone;
+        }
+        // The high bits (water, kit) are the voxel's own and survive any edit.
+        Tunnels[px, ly, pz] = (raw & ~GEOMETRY_MASK) | (uint)(edit | payload);
         Edits.Note(px, pz, wy, edit);
     }
 
@@ -582,9 +675,9 @@ public class WorldMapState
         {
             return;
         }
-        int stored = Mathf.Clamp(level, -1, MaxPassageLevel) + 1;
-        int cell = Tunnels[px, ly, pz] & ~(LEVEL_MASK << LEVEL_SHIFT);
-        Tunnels[px, ly, pz] = (ushort)(cell | (stored << LEVEL_SHIFT));
+        uint stored = (uint)(Mathf.Clamp(level, -1, MaxPassageLevel) + 1);
+        uint cell = Tunnels[px, ly, pz] & ~((uint)LEVEL_MASK << LEVEL_SHIFT);
+        Tunnels[px, ly, pz] = cell | (stored << LEVEL_SHIFT);
     }
 
     // setIndex -1 (or density 0) clears the passage's scatter.
@@ -601,9 +694,9 @@ public class WorldMapState
         {
             step = 0;
         }
-        int cell = Tunnels[px, ly, pz]
-            & ~(SET_MASK << SET_SHIFT) & ~(DENSITY_MASK << DENSITY_SHIFT);
-        Tunnels[px, ly, pz] = (ushort)(cell | (slot << SET_SHIFT) | (step << DENSITY_SHIFT));
+        uint cell = Tunnels[px, ly, pz]
+            & ~((uint)SET_MASK << SET_SHIFT) & ~((uint)DENSITY_MASK << DENSITY_SHIFT);
+        Tunnels[px, ly, pz] = cell | (uint)(slot << SET_SHIFT) | (uint)(step << DENSITY_SHIFT);
     }
 
     // The passage a cutaway shows at a column: the carved run standing on the
@@ -769,7 +862,7 @@ public class WorldMapState
         {
             return h;
         }
-        int water = Mathf.Min(WaterSurface(px, pz), clipY);
+        int water = Mathf.Min(WaterTopOver(px, pz, h), clipY);
         return water > h ? water - WaterStandDrop : h;
     }
 
@@ -881,7 +974,6 @@ public class WorldMapState
         return new[]
         {
             new RasterLayer(Elevation, 1),
-            new RasterLayer(Water, 1),
             new RasterLayer(Ground, 1),
             new RasterLayer(Paving, 1),
             new RasterLayer(BlockingProps, 1),
@@ -890,7 +982,6 @@ public class WorldMapState
             new RasterLayer(Region, ChunkState.SIZE),
             new RasterLayer(Zone, ChunkState.SIZE),
             new RasterLayer(Wind, ChunkState.SIZE),
-            new RasterLayer(WaterType, 1),
             new RasterLayer(Habitat, ChunkState.SIZE),
         };
     }
@@ -1322,7 +1413,8 @@ public class WorldMapState
     // couple of metres apart, last-in-the-list grabbed the neighbour of the one
     // you clicked squarely on. A tie goes to the later one, matching draw order.
     // Only what a map cut at `clipY` draws (IsEntityShown), so a chest upstairs
-    // and the bed under it are each grabbed on their own floor.
+    // and the bed under it are each grabbed on their own floor. A bomb wall is a
+    // volume, not a point, and is hit by BombWallAt instead.
     public EntityPlacement EntityAt(int px, int pz, int radius, int clipY)
     {
         Vector2I world = WorldXZ(new Vector2I(px, pz));
@@ -1331,7 +1423,7 @@ public class WorldMapState
         int bestDist = int.MaxValue;
         for (int i = list.Length - 1; i >= 0; i--)
         {
-            if (list[i] == null)
+            if (list[i] == null || BombWallOf(list[i]) != null)
             {
                 continue;
             }
@@ -1348,6 +1440,55 @@ public class WorldMapState
             }
         }
         return best;
+    }
+
+    // EVERY hand-placed entity EntityAt could pick here, in the order it prefers
+    // them (nearest first, the most recently added first among equals), so a
+    // tool can step through a stack of them.
+    public void EntitiesAt(int px, int pz, int radius, int clipY, List<EntityPlacement> into)
+    {
+        Vector2I world = WorldXZ(new Vector2I(px, pz));
+        EntityPlacement[] list = Placements.entities;
+        int start = into.Count;
+        for (int i = list.Length - 1; i >= 0; i--)
+        {
+            if (list[i] == null || BombWallOf(list[i]) != null)
+            {
+                continue;
+            }
+            Vector2I d = list[i].anchorXZ - world;
+            if (Mathf.Abs(d.X) <= radius && Mathf.Abs(d.Y) <= radius && IsEntityShown(list[i], clipY))
+            {
+                into.Add(list[i]);
+            }
+        }
+        // Stable, so equal distances keep the newest-first order of the walk.
+        List<EntityPlacement> found = into.GetRange(start, into.Count - start);
+        into.RemoveRange(start, into.Count - start);
+        into.AddRange(System.Linq.Enumerable.OrderBy(found, e => (e.anchorXZ - world).LengthSquared()));
+    }
+
+    // Every stamped scene entity on this texel, in the order SceneEntityAt walks.
+    public void SceneEntitiesAt(int px, int pz, int clipY, List<SceneEntityTarget> into)
+    {
+        var at = new Vector2I(px, pz);
+        SubscenePlacement[] stamps = Placements.placements;
+        for (int i = stamps.Length - 1; i >= 0; i--)
+        {
+            SubsceneState sub = SubsceneFor(stamps[i]);
+            if (sub == null)
+            {
+                continue;
+            }
+            for (int k = sub.Entities.Count - 1; k >= 0; k--)
+            {
+                if (SceneEntityTexel(stamps[i], sub, sub.Entities[k]) == at
+                    && IsSceneEntityShown(stamps[i], sub, sub.Entities[k], clipY))
+                {
+                    into.Add(SceneTarget(stamps[i], sub.Entities[k].Id));
+                }
+            }
+        }
     }
 
     // One target per (stamp, scene entity id) for the session, so the hover, the
@@ -1664,6 +1805,210 @@ public class WorldMapState
         return best;
     }
 
+    // A hand placement that is a bomb wall, or null. A wall is an ordinary
+    // entity placement, but a VOLUME: it is drawn, hit and edited as the box its
+    // cells span, never as a point at its anchor.
+    public static BombWallSpawnEntry BombWallOf(EntityPlacement placement)
+        => placement?.Entry as BombWallSpawnEntry;
+
+    // Where the bake spawns a hand placement (WorldMapBake.StampEntity): the
+    // centre of its anchor column, in the voxel over its floor.
+    public Vector3 EntitySpawnPosition(EntityPlacement placement)
+        => new(placement.anchorXZ.X + 0.5f, EntityFloor(placement) + 1f, placement.anchorXZ.Y + 0.5f);
+
+    // The world cells a bomb wall covers, exactly as the bake resolves them.
+    public Vector3I[] BombWallCells(EntityPlacement placement)
+        => BombWallOf(placement)?.WorldCells(EntitySpawnPosition(placement), placement.FacingRadians)
+            ?? System.Array.Empty<Vector3I>();
+
+    // The world box a bomb wall's cells span — the box the painter edits, DERIVED
+    // from the cells so the cells stay the one source of truth. A wall with no
+    // cells is its anchor voxel. Cached per placement against everything the
+    // answer reads, since the hover asks it on every mouse motion and the cells
+    // are a native array; every writer assigns a NEW cells array, so reference
+    // equality is enough to notice an edit (and an undo).
+    public (Vector3I Min, Vector3I Size) BombWallBox(EntityPlacement placement)
+    {
+        BombWallSpawnEntry wall = BombWallOf(placement);
+        int floor = EntityFloor(placement);
+        if (_wallBoxes.TryGetValue(placement, out WallBoxKey key)
+            && ReferenceEquals(key.Cells, wall?.cells) && key.Anchor == placement.anchorXZ
+            && key.Floor == floor && key.Facing == placement.facing)
+        {
+            return (key.Min, key.Size);
+        }
+        Vector3I[] cells = BombWallCells(placement);
+        Vector3I min = new(placement.anchorXZ.X, floor + 1, placement.anchorXZ.Y);
+        Vector3I max = min;
+        if (cells.Length > 0)
+        {
+            min = cells[0];
+            max = cells[0];
+            foreach (Vector3I c in cells)
+            {
+                min = min.Min(c);
+                max = max.Max(c);
+            }
+        }
+        Vector3I size = max - min + Vector3I.One;
+        _wallBoxes[placement] = new WallBoxKey(wall?.cells, placement.anchorXZ, floor, placement.facing, min, size);
+        return (min, size);
+    }
+
+    private readonly record struct WallBoxKey(Godot.Collections.Array<Vector3I> Cells, Vector2I Anchor, int Floor,
+        EEntityFacing Facing, Vector3I Min, Vector3I Size);
+
+    private readonly System.Collections.Generic.Dictionary<EntityPlacement, WallBoxKey> _wallBoxes = new();
+
+    public Rect2I BombWallTexelRect(EntityPlacement placement)
+    {
+        (Vector3I min, Vector3I size) = BombWallBox(placement);
+        return new Rect2I(TexelXZ(new Vector2I(min.X, min.Z)), new Vector2I(size.X, size.Z));
+    }
+
+    // Drawn whenever any of it is at or below the cut. Not hidden under the floor
+    // the map shows, the way a point entity is: a wall IS rock, so the floor drawn
+    // over it says nothing about whether it is there — a wall in a cliff face
+    // would otherwise vanish behind the clifftop on the uncut map.
+    public bool IsBombWallShown(EntityPlacement placement, int clipY)
+        => BombWallBox(placement).Min.Y <= clipY;
+
+    // The SMALLEST shown bomb wall whose footprint (grown by `grow`) holds a
+    // texel, like TriggerAt.
+    // Every bomb wall whose box holds this texel, smallest first (the order
+    // BombWallAt prefers).
+    public void BombWallsAt(int px, int pz, int clipY, List<EntityPlacement> into)
+    {
+        int start = into.Count;
+        EntityPlacement[] list = Placements.entities;
+        for (int i = list.Length - 1; i >= 0; i--)
+        {
+            if (BombWallOf(list[i]) != null && BombWallTexelRect(list[i]).HasPoint(new Vector2I(px, pz))
+                && IsBombWallShown(list[i], clipY))
+            {
+                into.Add(list[i]);
+            }
+        }
+        List<EntityPlacement> found = into.GetRange(start, into.Count - start);
+        into.RemoveRange(start, into.Count - start);
+        into.AddRange(System.Linq.Enumerable.OrderBy(found, e => BombWallTexelRect(e).Size.X * BombWallTexelRect(e).Size.Y));
+    }
+
+    public EntityPlacement BombWallAt(int px, int pz, int clipY, int grow = 0)
+    {
+        EntityPlacement best = null;
+        int bestArea = int.MaxValue;
+        EntityPlacement[] list = Placements.entities;
+        for (int i = list.Length - 1; i >= 0; i--)
+        {
+            if (BombWallOf(list[i]) == null)
+            {
+                continue;
+            }
+            Rect2I r = BombWallTexelRect(list[i]).Grow(grow);
+            if (!r.HasPoint(new Vector2I(px, pz)))
+            {
+                continue;
+            }
+            int area = r.Size.X * r.Size.Y;
+            if (area < bestArea && IsBombWallShown(list[i], clipY))
+            {
+                best = list[i];
+                bestArea = area;
+            }
+        }
+        return best;
+    }
+
+    // What the bake will leave in a voxel, as far as the document can say
+    // without building a world: the stamps over the column first (the bake
+    // writes them over the terrain), else the height field and edit layer, else
+    // the water layer — StampColumn's own order. Entity voxel stamps (doors,
+    // walls) are not included.
+    public enum EDocVoxel
+    {
+        Empty,
+        Solid,
+        Water,
+    }
+
+    public EDocVoxel DocVoxelAt(int px, int pz, int wy)
+    {
+        if (px < 0 || pz < 0 || px >= Data.ImageWidth || pz >= Data.ImageHeight)
+        {
+            return EDocVoxel.Empty;
+        }
+        List<(SubsceneState Sub, int Lx, int Lz, int BaseY)> stamps = StampsOverColumn(px, pz, out _);
+        if (stamps != null)
+        {
+            foreach ((SubsceneState sub, int lx, int lz, int baseY) in stamps)
+            {
+                int ly = wy - baseY;
+                if (ly < 0 || ly >= sub.Size.Y || !sub.PresenceMask[lx, ly, lz])
+                {
+                    continue;
+                }
+                byte id = sub.Voxels[lx, ly, lz];
+                if (id == Blocks.AirId)
+                {
+                    continue;
+                }
+                // The catalog rather than the Blocks tables: nothing binds those
+                // in the painter's own process.
+                BlockData block = BlockCatalog.Active?.GetById(id);
+                return block == null ? EDocVoxel.Empty
+                    : block.solid ? EDocVoxel.Solid
+                    : block.render == EBlockRender.Water ? EDocVoxel.Water
+                    : EDocVoxel.Empty;
+            }
+        }
+        if (SolidAt(px, pz, wy))
+        {
+            return EDocVoxel.Solid;
+        }
+        return WaterAt(px, pz, wy) ? EDocVoxel.Water : EDocVoxel.Empty;
+    }
+
+    // What a bomb wall will be once baked: how many of its cells are rock, how
+    // many of those have a face open to non-rock (the faces the crack overlay
+    // dresses — a wall with none is invisible and cannot be hit), and how many
+    // cells are water or touch it.
+    public readonly record struct BombWallSurvey(int Cells, int Solid, int OpenFaced, int Wet);
+
+    private static readonly Vector3I[] FaceNeighbours =
+    {
+        Vector3I.Right, Vector3I.Left, Vector3I.Up, Vector3I.Down, Vector3I.Back, Vector3I.Forward,
+    };
+
+    public BombWallSurvey SurveyBombWall(EntityPlacement placement)
+    {
+        Vector3I[] cells = BombWallCells(placement);
+        int solid = 0;
+        int open = 0;
+        int wet = 0;
+        foreach (Vector3I c in cells)
+        {
+            int px = c.X - Data.WorldMinX;
+            int pz = c.Z - Data.WorldMinZ;
+            EDocVoxel self = DocVoxelAt(px, pz, c.Y);
+            bool isOpen = false;
+            bool isWet = self == EDocVoxel.Water;
+            foreach (Vector3I d in FaceNeighbours)
+            {
+                EDocVoxel n = DocVoxelAt(px + d.X, pz + d.Z, c.Y + d.Y);
+                isOpen |= n != EDocVoxel.Solid;
+                isWet |= n == EDocVoxel.Water;
+            }
+            if (self == EDocVoxel.Solid)
+            {
+                solid++;
+                open += isOpen ? 1 : 0;
+            }
+            wet += isWet ? 1 : 0;
+        }
+        return new BombWallSurvey(cells.Length, solid, open, wet);
+    }
+
     public void AddPlacement(SubscenePlacement placement)
     {
         var list = new System.Collections.Generic.List<SubscenePlacement>(Placements.placements) { placement };
@@ -1677,16 +2022,18 @@ public class WorldMapState
         Placements.placements = list.ToArray();
     }
 
-    // "Lie on whatever surface is under me" — the paving twin of
-    // EntityPlacement.OnTheGround, and the level every road laid on open ground
-    // keeps. A layer written before levels existed reads as this everywhere,
-    // since its G/B are zero.
-    public const int PavedOnSurface = int.MinValue;
+    // Paving comes in two kinds, split the way EntityPlacement.floorY splits: a
+    // road on a column's SURFACE (the paving layer) follows the ground as it is
+    // reshaped, landing on whatever the first visible voxel is; paving on a floor
+    // with something over it (a passage, the ground under an arch) is a repaved
+    // VOXEL at that height, since re-seating it would put it on the roof. A
+    // column can carry one surface road and any number of repaved floors.
 
-    // Painted paving index, or -1 where the column keeps its terrain's own block.
+    // The surface road's block index, or -1.
     public int PavingIndexAt(int px, int pz)
     {
-        return PavingIndexOf(Paving.GetPixel(ClampX(px), ClampZ(pz)));
+        int idx = Mathf.RoundToInt(Paving.GetPixel(ClampX(px), ClampZ(pz)).R * 255f) - 1;
+        return idx >= 0 && idx < BuildingBlocks.Length ? idx : -1;
     }
 
     public BlockData PavingAt(int px, int pz)
@@ -1695,141 +2042,120 @@ public class WorldMapState
         return idx >= 0 ? BuildingBlocks[idx] : null;
     }
 
-    // Which FLOOR a column's paving lies on: an absolute world Y, or
-    // PavedOnSurface where it rides the top of the column.
-    public int PavingLevelAt(int px, int pz)
+    // The block a voxel was repaved with, or -1.
+    public int RepaveIndexAt(int px, int pz, int wy)
     {
-        return PavingLevelOf(Paving.GetPixel(ClampX(px), ClampZ(pz)));
+        int cell = VoxelCell(px, pz, wy);
+        if ((cell & EDIT_MASK) != EditRepave)
+        {
+            return -1;
+        }
+        int idx = ((cell >> BLOCK_SHIFT) & BLOCK_MASK) - 1;
+        return idx >= 0 && idx < BuildingBlocks.Length ? idx : -1;
     }
 
-    // The paving at a given floor, or null. There is ONE paving per column — the
-    // layer is per column, as water and climb routes are — so this only ever
-    // asks whether the column's paving was laid HERE. That is also the whole
-    // limit of the model: a road through a passage and a road on the hill above
-    // it cannot share a column, exactly as the erase that drains a passage
-    // drains the lake over it.
-    public BlockData PavingAtFloor(int px, int pz, int floorY)
-    {
-        return floorY >= Data.WorldMinY && PavedYAt(px, pz) == floorY ? PavingAt(px, pz) : null;
-    }
-
-    // The world Y a column's paving lies at, or WorldMinY - 1 where it lies
-    // nowhere. A surface-seated road resolves against the top SOLID voxel, so it
-    // drops into a hole carved under it.
+    // The world Y the surface road lies at, or WorldMinY - 1 for none: the top
+    // SOLID voxel, so it drops into a hole carved under it.
     //
     // **Paving never lands on a voxel the block tool added** — a wall or a deck
-    // is already the material it was built of. A road a wall is later built
-    // over is hidden under it, not repaved onto its top, and comes back where
-    // the wall is erased, because the layer still holds it.
-    public int PavedYAt(int px, int pz)
+    // is already the material it was built of. A road a wall is later built over
+    // is hidden under it, and comes back where the wall is erased, because the
+    // layer still holds it.
+    public int SurfacePavedY(int px, int pz)
     {
-        Color cell = Paving.GetPixel(ClampX(px), ClampZ(pz));
-        if (PavingIndexOf(cell) < 0)
+        if (PavingIndexAt(px, pz) < 0)
         {
             return Data.WorldMinY - 1;
         }
-        int level = PavingLevelOf(cell);
-        int y = level == PavedOnSurface ? SurfaceBelow(px, pz, int.MaxValue) : level;
+        int y = SurfaceBelow(px, pz, int.MaxValue);
         return IsAdded(px, pz, y) ? Data.WorldMinY - 1 : y;
     }
 
-    // Paving lying on the column's OWN surface, or null. What every map drawn
-    // from above shows, and what keeps the scatter and the detail sprites off a
-    // road: paving on a floor under the surface — a passage, the ground beneath
-    // an arch — belongs to that floor and says nothing about the hillside over
-    // it.
-    public BlockData SurfacePavingAt(int px, int pz)
+    // The paving on a given floor, or null: a repaved voxel there, else the
+    // surface road where this floor is the column's surface.
+    public BlockData PavingAtFloor(int px, int pz, int floorY)
     {
-        return PavingAt(px, pz) != null
-            ? PavingAtFloor(px, pz, SurfaceBelow(px, pz, int.MaxValue))
-            : null;
+        if (floorY < Data.WorldMinY)
+        {
+            return null;
+        }
+        int repave = RepaveIndexAt(px, pz, floorY);
+        if (repave >= 0 && SolidAt(px, pz, floorY))
+        {
+            return BuildingBlocks[repave];
+        }
+        return floorY == SurfacePavedY(px, pz) ? PavingAt(px, pz) : null;
     }
 
-    // The floor a paving stroke at a column should be laid on: the one the map
-    // is SHOWING there. False where the cut exposes no floor at all — solid rock
-    // has nothing to pave, and the map draws it as such.
-    //
-    // Where that floor is the TOP of the column the level is PavedOnSurface and
-    // the bake re-seats it on every bake, so a road follows ground that later
-    // moves — including ground carved or built after it was laid, which is why
-    // the test is against the top solid voxel and not against the height field.
-    // Only a floor with something above it needs the absolute Y, because nothing
-    // about the column describes where that is and re-seating would put the road
-    // on the roof. The same split EntityPlacement.floorY makes, for the same
-    // reason.
-    public bool TryPavingLevel(int px, int pz, int clipY, out int level)
+    // Paving on the column's own surface, or null. What every map drawn from
+    // above shows, and what keeps the scatter and the detail sprites off a road.
+    public BlockData SurfacePavingAt(int px, int pz)
     {
-        int floor = CutawayFloor(px, pz, clipY, out _);
-        level = PavedOnSurface;
-        // A built floor is not pavable (see PavedYAt), so a stroke dragged across
-        // a wall leaves whatever the column holds under it alone.
+        return PavingAtFloor(px, pz, SurfaceBelow(px, pz, int.MaxValue));
+    }
+
+    // The floor a stroke at a column paints: the first floor the map shows under
+    // the cut. `onSurface` says which kind it is — the column's top (written to
+    // the column layer, and so follows the ground) or a floor with something over
+    // it (written to that voxel). False where there is no floor, or the floor is
+    // built: neither paving nor a kit lands on what the block tool added.
+    public bool TryPaintFloor(int px, int pz, int clipY, out int floor, out bool onSurface)
+    {
+        floor = CutawayFloor(px, pz, clipY, out _);
+        onSurface = false;
         if (floor < Data.WorldMinY || IsAdded(px, pz, floor))
         {
             return false;
         }
-        if (floor != SurfaceBelow(px, pz, int.MaxValue))
-        {
-            level = floor;
-        }
+        onSurface = floor == SurfaceBelow(px, pz, int.MaxValue);
         return true;
     }
 
-    public void SetPavingAt(int px, int pz, int index, int level = PavedOnSurface)
+    // The surface road. -1 clears.
+    public void SetSurfacePaving(int px, int pz, int index)
     {
-        // An erase clears the level with the block: a column holding a level and
-        // no paving is a value nothing can see and nothing can clear.
-        int ly = index < 0 || level == PavedOnSurface
-            ? 0
-            : Mathf.Clamp(level - Data.WorldMinY + 1, 0, 0xFFFF);
-        Paving.SetPixel(px, pz, new Color(
-            Mathf.Clamp(index + 1, 0, 255) / 255f,
-            (ly & 0xFF) / 255f,
-            (ly >> 8) / 255f,
-            1f));
+        Paving.SetPixel(px, pz, new Color(Mathf.Clamp(index + 1, 0, 255) / 255f, 0f, 0f, 1f));
     }
 
-    private int PavingIndexOf(Color cell)
+    // Repaves one natural solid voxel, or (-1) puts back the terrain's own block.
+    // Never touches a carve or an add.
+    public void SetFloorPaving(int px, int pz, int floorY, int index)
     {
-        int idx = Mathf.RoundToInt(cell.R * 255f) - 1;
-        return idx >= 0 && idx < BuildingBlocks.Length ? idx : -1;
-    }
-
-    // Two channels, because a document may span more than 255 voxels of height
-    // and one that does would otherwise wrap a road onto a floor nobody paved.
-    private int PavingLevelOf(Color cell)
-    {
-        int ly = Mathf.RoundToInt(cell.G * 255f) | (Mathf.RoundToInt(cell.B * 255f) << 8);
-        return ly <= 0 ? PavedOnSurface : Data.WorldMinY + ly - 1;
-    }
-
-    // Painted ground index, or -1 where the column inherits its zone's terrains.
-    // Which authored water type this column was painted with, or -1 for none —
-    // in which case the column keeps whatever its ZONE authors, which is what
-    // every document did before the layer existed.
-    public int WaterTypeIndexAt(int px, int pz)
-    {
-        return Mathf.RoundToInt(WaterType.GetPixel(ClampX(px), ClampZ(pz)).R * 255f) - 1;
-    }
-
-    // The painted water block for a column, or -1. Resolved against the
-    // document's palette; an entry that is not a water block is refused rather
-    // than stamped, since it would turn a lake into rock.
-    public int PaintedWaterBlockAt(int px, int pz)
-    {
-        int idx = WaterTypeIndexAt(px, pz);
-        BlockData[] types = WaterTypes;
-        if (idx < 0 || idx >= types.Length)
+        byte edit = VoxelEdit(px, pz, floorY);
+        if (edit != EditNone && edit != EditRepave)
         {
-            return -1;
+            return;
         }
-        BlockData b = types[idx];
-        return b != null && b.render == EBlockRender.Water ? b.blockId : -1;
+        SetVoxelEdit(px, pz, floorY, index >= 0 ? EditRepave : EditNone, index);
     }
 
+    // Painted ground index, or -1 where the column takes the document's default.
     public int GroundIndexAt(int px, int pz)
     {
         int idx = Mathf.RoundToInt(Ground.GetPixel(ClampX(px), ClampZ(pz)).R * 255f) - 1;
         return idx >= 0 && idx < Terrains.Length ? idx : -1;
+    }
+
+    // The kit a floor is made of: one painted on that voxel, else the column's.
+    public int FloorKitAt(int px, int pz, int floorY)
+    {
+        int kit = KitOverrideAt(px, pz, floorY);
+        return kit >= 0 ? kit : GroundIndexAt(px, pz);
+    }
+
+    // Paints a kit on the first floor under the cut: the column layer where that
+    // floor is the column's surface (so it follows the ground), else the voxel.
+    // -1 clears.
+    public void SetFloorKit(int px, int pz, int floorY, bool onSurface, int kitIndex)
+    {
+        if (onSurface)
+        {
+            Ground.SetPixel(px, pz, new Color(Mathf.Clamp(kitIndex + 1, 0, 255) / 255f, 0f, 0f, 1f));
+            // A surface paint wins over a voxel override left on the same floor.
+            SetKitOverride(px, pz, floorY, -1);
+            return;
+        }
+        SetKitOverride(px, pz, floorY, kitIndex);
     }
 
     // The painted mob set at a column, or null. The raster stores index+1 so 0
@@ -3036,7 +3362,7 @@ public class WorldMapState
     // spawn — the passage's half of CanSpawnAt, and like it the ONE gate the
     // preview and the bake share:
     //
-    //   dry         — the bake floods a carve up to the column's water surface.
+    //   dry         — no water stands on the floor.
     //   headroom    — two metres of air, so nothing is spawned into a crawlway.
     //   not paved   — a road deletes the scatter in its tread, as on the surface.
     //   no stamp    — a stamp whose volume reaches the passage overwrites it.
@@ -3044,7 +3370,7 @@ public class WorldMapState
     {
         SpawnScatterData set = PassageScatterAt(px, pz, floorY + 1, out density);
         if (set == null
-            || WaterSurface(px, pz) > floorY
+            || WaterTopOver(px, pz, floorY) > floorY
             || SolidAt(px, pz, floorY + 2)
             || PavingAtFloor(px, pz, floorY) != null)
         {
@@ -3265,23 +3591,22 @@ public class WorldMapState
     // save your work.
     public void Save()
     {
-        Data.SaveElevation(Elevation);
-        Data.SaveWater(Water);
-        Data.SaveRegion(Region);
-        Data.SaveZone(Zone);
-        Data.SaveHabitat(Habitat);
-        Data.SaveWind(Wind);
-        Data.SaveBlockingProps(BlockingProps);
-        Data.SaveGround(Ground);
-        Data.SaveWaterType(WaterType);
-        Data.SavePaving(Paving);
+        var layers = new WorldMapData.LayerSet { Voxels = Tunnels };
+        layers.Images[WorldMapData.ElevationLayer] = Elevation;
+        layers.Images[WorldMapData.RegionLayer] = Region;
+        layers.Images[WorldMapData.ZoneLayer] = Zone;
+        layers.Images[WorldMapData.HabitatLayer] = Habitat;
+        layers.Images[WorldMapData.WindLayer] = Wind;
+        layers.Images[WorldMapData.BlockingPropsLayer] = BlockingProps;
+        layers.Images[WorldMapData.GroundLayer] = Ground;
+        layers.Images[WorldMapData.PavingLayer] = Paving;
+        layers.Images[WorldMapData.MobsLayer] = Mobs;
+        layers.Images[WorldMapData.ScalarsLayer] = Scalars;
+        Data.SaveLayers(layers);
         SavePlacements();
         // The ledger has already grown by whatever this session discovered;
         // saving is what makes those slots permanent.
         SavePalettes();
-        Data.SaveMobs(Mobs);
-        Data.SaveScalars(Scalars);
-        Data.SaveTunnels(Tunnels);
         GD.Print("WorldMapState: saved layers");
     }
 

@@ -83,9 +83,7 @@ public static class WorldMapRotate
         int newMinZ = data.WorldMinZ;
 
         state.Elevation = Turn(state.Elevation);
-        state.Water = Turn(state.Water);
         state.Ground = Turn(state.Ground);
-        state.WaterType = Turn(state.WaterType);
         state.Paving = Turn(state.Paving);
         state.BlockingProps = Turn(state.BlockingProps);
         state.Mobs = Turn(state.Mobs);
@@ -127,6 +125,13 @@ public static class WorldMapRotate
             entity.anchorXZ = TurnCell(entity.anchorXZ);
             // Facing is yaw about +Y in eighths with +Z at Deg0 and +X at Deg90;
             // a clockwise map turn takes +X to +Z, i.e. two eighths back.
+            //
+            // That is also exactly right for a bomb wall: its cells are offsets
+            // from the anchor turned by the facing's quarter turns, and three
+            // quarter turns take (dx, dz) to (-dz, dx) — what TurnCell does to a
+            // cell. Its anchor cell is the one being turned, so the whole wall
+            // lands on the turned voxels. (Walls only ever hold quarter-turn
+            // facings; the painter writes Deg0 and never aims one.)
             entity.facing = (EEntityFacing)(((int)entity.facing + 6) & 7);
         }
 
@@ -223,7 +228,7 @@ public static class WorldMapRotate
         wind.SetData(wind.GetWidth(), wind.GetHeight(), false, wind.GetFormat(), d);
     }
 
-    private static ushort[,,] TurnTunnels(ushort[,,] src)
+    private static uint[,,] TurnTunnels(uint[,,] src)
     {
         if (src == null)
         {
@@ -232,7 +237,7 @@ public static class WorldMapRotate
         int w = src.GetLength(0);
         int vh = src.GetLength(1);
         int h = src.GetLength(2);
-        var dst = new ushort[h, vh, w];
+        var dst = new uint[h, vh, w];
         for (int x = 0; x < w; x++)
         {
             for (int z = 0; z < h; z++)

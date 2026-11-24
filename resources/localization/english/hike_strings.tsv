@@ -114,3 +114,5 @@ need_remark_fatigue_2	I'm so tired.
 need_remark_fatigue_3	I'm exhausted.
 rune_bone_etched	A strange rune is etched on the bone
 runes_recorded	Runes Recorded
+name_prompt_title	What is your name?
+name_prompt_confirm	Confirm

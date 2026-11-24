@@ -14,11 +14,11 @@ using Godot;
 // paving lands on ctx.CutawayFloor, so with the plane parked over the world it
 // is the surface, and lowering it into a passage or under an arch paves the
 // floor down there instead. That is why the tool needs no level of its own —
-// T/G (and alt+RMB) already aim the cutaway, and a level you cannot see is a
-// level you cannot aim. A road on open ground records the surface SENTINEL
-// rather than that Y, so it keeps following ground repainted under it; only a
-// floor with something above it stores an absolute Y, which is the same split
-// EntityPlacement.floorY makes.
+// Q/E (and alt+RMB) already aim the cutaway, and a level you cannot see is a
+// level you cannot aim. A road on a column's surface goes in the column layer,
+// so it keeps following ground repainted under it; a floor with something above
+// it is a repaved voxel at that height — the same split EntityPlacement.floorY
+// makes. A column carries one surface road and any number of repaved floors.
 //
 // The rock under a road is still the hillside's, and the terrain channel keeps its
 // own value: it says what the column is made of, which a road laid over it does
@@ -82,8 +82,8 @@ public class PaveTool : IWorldMapTool
     }
 
     public string HintText(WorldMapState ctx) =>
-        "LMB pave the floor the map is showing  |  RMB lift the column's paving  |  "
-        + "T/G cutaway, alt+RMB aim it";
+        "LMB pave the floor the map is showing  |  RMB lift the paving there  |  "
+        + "Q/E cutaway, alt+RMB aim it";
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
@@ -107,22 +107,31 @@ public class PaveTool : IWorldMapTool
         // index layer only means the rim of every stroke is a random scattering
         // of paved and unpaved columns.
         //
-        // Erase clears the column outright rather than only the paving at the
-        // floor on screen. There is one paving per column, so "lift what is
-        // here" cannot be ambiguous — and a seat orphaned by terrain repainted
-        // under it would otherwise be unreachable from every plane.
+        // Paints the first floor under the cut: a column's surface writes the
+        // surface road (which follows the ground), a floor with something over
+        // it repaves that voxel. Erase lifts whichever is on the floor shown.
         int clip = view.CutawayY;
+        int block = erase ? -1 : BlockIndex;
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
-            if (erase)
-            {
-                ctx.SetPavingAt(px, pz, -1);
-            }
-            else if (ctx.TryPavingLevel(px, pz, clip, out int level))
-            {
-                ctx.SetPavingAt(px, pz, BlockIndex, level);
-            }
+            PaveFloor(ctx, px, pz, clip, block);
         });
+    }
+
+    private static void PaveFloor(WorldMapState ctx, int px, int pz, int clip, int block)
+    {
+        if (!ctx.TryPaintFloor(px, pz, clip, out int floor, out bool onSurface))
+        {
+            return;
+        }
+        if (onSurface)
+        {
+            ctx.SetSurfacePaving(px, pz, block);
+            // The surface road wins over a repave left on the same voxel.
+            ctx.SetFloorPaving(px, pz, floor, -1);
+            return;
+        }
+        ctx.SetFloorPaving(px, pz, floor, block);
     }
 
     // Floods the floor the map shows: same floor height, same paving there,
@@ -138,31 +147,16 @@ public class PaveTool : IWorldMapTool
             KeyAt = (px, pz) =>
             {
                 int floor = ctx.CutawayFloor(px, pz, clip, out _);
-                int paved = ctx.PavedYAt(px, pz) == floor ? ctx.PavingIndexAt(px, pz) : -1;
-                return ((long)floor << 32) | ((long)(paved + 1) << 16) | (long)(ctx.GroundIndexAt(px, pz) + 1);
+                BlockData paved = ctx.PavingAtFloor(px, pz, floor);
+                int pavedIdx = paved != null ? System.Array.IndexOf(ctx.BuildingBlocks, paved) : -1;
+                return ((long)floor << 32) | ((long)(pavedIdx + 1) << 16) | (long)(ctx.FloorKitAt(px, pz, floor) + 1);
             },
-            Write = (px, pz) =>
-            {
-                if (erase)
-                {
-                    ctx.SetPavingAt(px, pz, -1);
-                }
-                else if (ctx.TryPavingLevel(px, pz, clip, out int level))
-                {
-                    ctx.SetPavingAt(px, pz, BlockIndex, level);
-                }
-            },
+            Write = (px, pz) => PaveFloor(ctx, px, pz, clip, erase ? -1 : BlockIndex),
         };
     }
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-        int n = Mathf.Max(1, ctx.BuildingBlocks.Length);
-        BlockIndex = ((BlockIndex + dir) % n + n) % n;
-    }
-
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
     }

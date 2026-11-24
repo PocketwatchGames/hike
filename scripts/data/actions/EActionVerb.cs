@@ -44,8 +44,8 @@ public enum EActionVerb
 	// Interact with a camp — opens the camp screen. Authored on campfire
 	// interactives.
 	Camp,
-	// Dig up a buried spot a held treasure map points at, with a carried Digging
-	// tool (BuriedSpot).
+	// Retired: digging is the belted shovel's Use timeline (EItemEventType.Dig),
+	// not an interaction. Kept so the members after it keep their stored ints.
 	Dig,
 	// Search a body placed dead that still carries something (Mob.SearchBody):
 	// its carried loot spills out as ordinary pickups.

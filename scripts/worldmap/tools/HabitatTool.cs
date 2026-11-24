@@ -96,14 +96,6 @@ public class HabitatTool : IWorldMapTool
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
 
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-        if (ctx.HabitatCount > 0)
-        {
-            HabitatIndex = (HabitatIndex + dir + ctx.HabitatCount) % ctx.HabitatCount;
-        }
-    }
-
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
     }

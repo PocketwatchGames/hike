@@ -31,21 +31,37 @@ public static class VoxelWater
     // origin as often as below it, and a swimming sprite is inside the water
     // rather than over it — a search that only looked downward answered null
     // for both and had to be worked around at the call site.
+    //
+    // Neither direction searches THROUGH solid: a column can hold several
+    // bodies, and a dry cave under a lake must not find the lake through its
+    // ceiling (nor a pool under the floor it stands on).
     public static float? InColumn(WorldState ws, int wx, int startY, int wz, int searchDepth)
     {
         if (ws == null)
         {
             return null;
         }
-        for (int d = 0; d <= searchDepth; d++)
+        bool upOpen = true;
+        bool downOpen = true;
+        for (int d = 0; d <= searchDepth && (upOpen || downOpen); d++)
         {
-            if (Blocks.IsWater(ws.GetBlockWorld(wx, startY + d, wz)))
+            if (upOpen)
             {
-                return TopOfRun(ws, wx, startY + d, wz, searchDepth);
+                int up = ws.GetBlockWorld(wx, startY + d, wz);
+                if (Blocks.IsWater(up))
+                {
+                    return TopOfRun(ws, wx, startY + d, wz, searchDepth);
+                }
+                upOpen = d == 0 || !Blocks.IsSolid(up);
             }
-            if (d != 0 && Blocks.IsWater(ws.GetBlockWorld(wx, startY - d, wz)))
+            if (d != 0 && downOpen)
             {
-                return TopOfRun(ws, wx, startY - d, wz, searchDepth);
+                int down = ws.GetBlockWorld(wx, startY - d, wz);
+                if (Blocks.IsWater(down))
+                {
+                    return TopOfRun(ws, wx, startY - d, wz, searchDepth);
+                }
+                downOpen = !Blocks.IsSolid(down);
             }
         }
         return null;

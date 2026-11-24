@@ -626,11 +626,10 @@ public class WalkabilityGrid
 // strip-by-strip Array.Copy of ~33 cells per row × 33 rows — vastly
 // cheaper than re-running SampleColumn 1089 times.
 //
-// Ownership: entries live forever unless evicted by TTL. Eviction is
-// keyed on last-use time, swept opportunistically on insert. World is
-// hand-authored and static — no voxel-mutation invalidation hook needed
-// today; if mining lands, ChunkManager would need to call
-// InvalidateChunk(coord) on a mutation.
+// Ownership: entries live until evicted by TTL (keyed on last-use time,
+// swept opportunistically on insert) or dropped by InvalidateChunk, which
+// Sim.OnVoxelsChanged calls for every runtime voxel write — a door, a broken
+// bomb wall, an editor stroke.
 public static class SharedWalkabilityCache
 {
     // Voxels per axis per cache quantum. Larger = more sharing but each
@@ -772,11 +771,15 @@ public static class SharedWalkabilityCache
         }
     }
 
+    // Bumped by every invalidation, so a memo kept outside this cache
+    // (PlayerWalkField) can tell its samples may be stale.
+    public static int Epoch { get; private set; }
+
     // Drops every entry whose enlarged XZ window touches the chunk at
-    // chunkCoord (chunk coordinates, not voxel coordinates). Hooked up
-    // when voxel mutation actually lands. Today, no caller invokes this.
+    // chunkCoord (chunk coordinates, not voxel coordinates).
     public static void InvalidateChunk(Godot.Vector3I chunkCoord)
     {
+        Epoch++;
         const int ChunkSize = 16;
         int chunkMinX = chunkCoord.X * ChunkSize;
         int chunkMinZ = chunkCoord.Z * ChunkSize;

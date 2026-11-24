@@ -8,11 +8,13 @@ using System.IO;
 //   Voxel  — paint / erase terrain with the brush shapes.
 //   Entity — stamp and select placed entities.
 //   Roof   — drag a footprint and generate a sloped roof over it.
+//   BombWall — pick which rock cells a bomb wall placement breaks open.
 public enum EEditorTool
 {
     Voxel,
     Entity,
     Roof,
+    BombWall,
 }
 
 // What a click does while the Roofs tool is active.
@@ -278,6 +280,16 @@ public partial class WorldEditor : Node3D
     [Export(PropertyHint.Range, "0,1,0.01")] public float defaultRoofBroken = 0f;
     [Export] public Color roofPreviewColor = new Color(1f, 0.75f, 0.3f);
 
+    [ExportGroup("Bomb Walls")]
+    // How many cells a click takes, counting inward from the clicked face — the
+    // thickness of rock a blast punches through. The HUD spinner retunes it.
+    [Export(PropertyHint.Range, "1,16,1")] public int defaultBombWallDepth = 1;
+    // The wall being edited, and every other wall in the scene, outlined per cell.
+    [Export] public Color bombWallColor = new Color(1f, 0.85f, 0.2f);
+    [Export] public Color otherBombWallColor = new Color(0.75f, 0.45f, 0.3f, 0.5f);
+    // The cells a Ctrl+click would take back out of the wall.
+    [Export] public Color bombWallEraseColor = new Color(1f, 0.35f, 0.3f);
+
     [ExportGroup("Entity Picking")]
     // Floor on an entity's click box per axis, so a flat prop (tall grass) or a
     // mesh-less marker still presents something to hit.
@@ -499,6 +511,17 @@ public partial class WorldEditor : Node3D
     // keep acting on it without another click.
     private SceneEntityPlacement _editingRoof;
 
+    // The bomb-wall placement the Bomb Wall tool adds cells to. Null until a
+    // click on bare rock starts one (or picks an existing wall); New Wall (N)
+    // clears it so the next click starts another.
+    private SceneEntityPlacement _currentBombWall;
+    private int _bombWallDepth;
+    // A held stroke: add or erase fixed at the press, the last cell dabbed so a
+    // drag doesn't redo the same cell every motion event.
+    private bool _bombWallStroke;
+    private bool _bombWallErasing;
+    private Vector3I _lastBombWallHit;
+
     // The scene's entities: the placements that are the document, and the
     // states they have spawned as the preview. Every entity tool edits
     // placements and then calls SyncEntities.
@@ -599,6 +622,10 @@ public partial class WorldEditor : Node3D
             EndDrag();
             UpdateHud();
         };
+        editorHud.onBombWallDepthChanged += depth => _bombWallDepth = depth;
+        editorHud.onNewBombWall += StartNewBombWall;
+        _bombWallDepth = defaultBombWallDepth;
+        editorHud.SetBombWallDepth(_bombWallDepth);
         editorHud.onRoofSeamAxisChanged += axis => _roofSeamAxis = axis;
         editorHud.onRoofFormChanged += form => _roofForm = form;
         editorHud.onRoofSlopeChanged += degrees => _roofSlopeDegrees = degrees;
@@ -958,6 +985,7 @@ public partial class WorldEditor : Node3D
         // Ahead of the fly-cam bail below: the selection's boxes are immediate-
         // mode, so they'd blink out for the length of every flight.
         TickSelection(overUi);
+        TickBombWalls();
 
         // Nothing to pick against while flying: the pointer is captured, so its
         // position is frozen and every preview would just sit wherever it was
@@ -998,6 +1026,7 @@ public partial class WorldEditor : Node3D
         DrawRegionPreview();
         DrawRoofPreview();
         DrawEntityHoverBox();
+        DrawBombWallHover(mouse: ToScenePos(GetViewport().GetMousePosition()), ctrl);
     }
 
     // Selection upkeep and its immediate-mode visuals. Runs after the entity
@@ -1561,6 +1590,16 @@ public partial class WorldEditor : Node3D
             return;
         }
 
+        // N lets go of the bomb wall being edited, so the next click on bare rock
+        // starts another. Editor chrome, like Delete — not an input action.
+        if (e is InputEventKey newWallKey && newWallKey.Pressed && !newWallKey.Echo && !newWallKey.CtrlPressed
+            && newWallKey.Keycode == Key.N && _tool == EEditorTool.BombWall)
+        {
+            StartNewBombWall();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         // Suppressed mid-flight: a 90° orbit swings the cursor about a pivot,
         // which fights the free look driving the same two values.
         if (e.IsActionPressed("CameraLeft") && !_flying)
@@ -1649,6 +1688,10 @@ public partial class WorldEditor : Node3D
                         _roofCurrent = roofTarget;
                     }
                 }
+                else if (_tool == EEditorTool.BombWall)
+                {
+                    BeginBombWallStroke(scenePos, erase: operation == EEditorBrushOperation.Erase);
+                }
                 else if (ComputeVoxelTarget(scenePos, Overwrites(operation), out Vector3I hitBlock, out Vector3I baseTarget, out Vector3I airTarget))
                 {
                     // One edit spans the whole stroke — opened here, committed
@@ -1706,6 +1749,12 @@ public partial class WorldEditor : Node3D
         if (e is InputEventMouseMotion placeMotion && _placingEntity != null)
         {
             UpdatePlaceAim(ToScenePos(placeMotion.Position));
+            return;
+        }
+
+        if (e is InputEventMouseMotion wallMotion && _bombWallStroke)
+        {
+            ContinueBombWallStroke(ToScenePos(wallMotion.Position));
             return;
         }
 
@@ -1791,6 +1840,7 @@ public partial class WorldEditor : Node3D
         _regionAnchor = null;
         _roofAnchor = null;
         _placingEntity = null;
+        _bombWallStroke = false;
         _lastPaintedBlocks.Clear();
     }
 
@@ -2330,12 +2380,10 @@ public partial class WorldEditor : Node3D
         // Roofs are cover, so placing or breaking one changes enclosure —
         // re-derive rather than leaving the ambience on the pre-edit bake.
         EnvTagGen.ComputeEnvTagGrid(_worldState, InteriornessGen.ComputeRegion(_worldState, region));
-        // Re-mesh as well as relight. Terrain takes its sun from a PER-VERTEX
-        // bake frozen into the chunk mesh (ChunkMesherDC.BakeVertexSun), not
-        // from the light volume — relighting alone updates props and volumetrics
-        // while the floor under the roof stays exactly as bright as it was.
-        // RelightRegion leaves SunlightChunkDirty naming exactly what moved.
-        _world.RebuildChunkMeshes(EditorRefresh.GrowByOne(_worldState.SunlightChunkDirty));
+        // Re-mesh as well as relight: terrain multiplies the live sun by a
+        // per-vertex openness term baked into the mesh, and openness reads
+        // SunOpaque cover, which is what a roof is.
+        _world.RemeshRegion(region);
         _world.FlushLighting();
     }
 
@@ -2981,6 +3029,7 @@ public partial class WorldEditor : Node3D
                 node.QueueFree();
             }
         }
+        UndressRemovedBombWalls(edit, changes.Removed);
         foreach (EntitySimState state in changes.Added)
         {
             StampEntityVoxels(edit, state);
@@ -2999,6 +3048,325 @@ public partial class WorldEditor : Node3D
         }
         refresh.Apply(_world);
         RefreshRoofSunOcclusion(roofRegion);
+    }
+
+    // A despawned bomb wall leaves its crack on the rock — the stamp only ever
+    // ADDS dressing — and the scene saves voxels, so a wall deleted, moved,
+    // retuned or undone would otherwise ship a fake crack on rock that never
+    // breaks. Clears it from every old cell no current wall still covers (the
+    // respawned walls re-stamp theirs straight after), touching first so undo
+    // puts it back. Only where the crack is still what the cell wears; an
+    // overlay the stamp replaced when it dressed the cell is not restored.
+    private void UndressRemovedBombWalls(EditorEdit edit, List<EntitySimState> removed)
+    {
+        HashSet<Vector3I> covered = null;
+        var undressed = new List<Vector3I>();
+        foreach (EntitySimState state in removed)
+        {
+            if (state is not BombWallSimState wall || wall.CrackSurface == null)
+            {
+                continue;
+            }
+            int crack = wall.CrackSurface.atlasBaseIndex;
+            if (crack == ChunkState.OVERLAY_NONE)
+            {
+                continue;
+            }
+            if (covered == null)
+            {
+                covered = new HashSet<Vector3I>();
+                foreach (SceneEntityPlacement placement in _entities.Placements)
+                {
+                    covered.UnionWith(BombWallCellsOf(placement));
+                }
+            }
+            foreach (Vector3I cell in wall.Cells)
+            {
+                if (covered.Contains(cell) || !_worldState.IsInBounds(cell.X, cell.Y, cell.Z)
+                    || _worldState.GetOverlayIdWorld(cell.X, cell.Y, cell.Z) != crack)
+                {
+                    continue;
+                }
+                edit?.TouchVoxel(cell);
+                _worldState.SetOverlayIdWorld(cell.X, cell.Y, cell.Z, ChunkState.OVERLAY_NONE);
+                _worldState.SetOverlayFacesWorld(cell.X, cell.Y, cell.Z, (int)EVoxelFace.None);
+                undressed.Add(cell);
+            }
+        }
+        if (undressed.Count > 0)
+        {
+            var refresh = new EditorRefresh();
+            refresh.AddVoxels(undressed);
+            refresh.Apply(_world);
+        }
+    }
+
+    // ----- Bomb walls ------------------------------------------------------
+    //
+    // A bomb wall is a placement whose fork holds the cells that give way
+    // (BombWallSpawnEntry.cells, in the placement's frame). The tool edits that
+    // list and syncs, so the preview respawns and re-dresses its rock exactly as
+    // any retune does; nothing here writes a state.
+
+    // The palette's bomb-wall entry — what a new wall's placement sources: the
+    // entity palette's selected brush when it is one, else the first found.
+    private BombWallSpawnEntry BombWallPaletteEntry()
+    {
+        if (_entityTypeIndex >= 0 && _entityTypeIndex < _entityBrushes.Count
+            && _entityBrushes[_entityTypeIndex].Entry is BombWallSpawnEntry selected
+            && !_entityBrushes[_entityTypeIndex].HasVariant)
+        {
+            return selected;
+        }
+        foreach (EntityBrush brush in _entityBrushes)
+        {
+            if (brush.Entry is BombWallSpawnEntry entry && !brush.HasVariant)
+            {
+                return entry;
+            }
+        }
+        return null;
+    }
+
+    private static Vector3I[] BombWallCellsOf(SceneEntityPlacement placement)
+    {
+        return placement?.Entry is BombWallSpawnEntry entry
+            ? entry.WorldCells(placement.position, placement.rotationY)
+            : Array.Empty<Vector3I>();
+    }
+
+    // The wall whose cells include `cell`, or null.
+    private SceneEntityPlacement BombWallAt(Vector3I cell)
+    {
+        foreach (SceneEntityPlacement placement in _entities.Placements)
+        {
+            if (placement.Entry is BombWallSpawnEntry && Array.IndexOf(BombWallCellsOf(placement), cell) >= 0)
+            {
+                return placement;
+            }
+        }
+        return null;
+    }
+
+    private void StartNewBombWall()
+    {
+        _currentBombWall = null;
+        editorHud.ShowToast("Next click on rock starts a new bomb wall", success: true);
+    }
+
+    // The solid cell under the cursor and the direction into the rock from the
+    // face that was hit. False over air, water or the drafting plane.
+    private bool TryPickBombWallCell(Vector2 screenPos, out Vector3I cell, out Vector3I inward)
+    {
+        inward = Vector3I.Down;
+        if (!ComputeVoxelTarget(screenPos, overwriteHitBlock: true, out cell, out _, out Vector3I airTarget))
+        {
+            return false;
+        }
+        if (!Blocks.IsSolid(_worldState.GetBlockWorld(cell.X, cell.Y, cell.Z)))
+        {
+            return false;
+        }
+        Vector3I step = cell - airTarget;
+        if (Mathf.Abs(step.X) + Mathf.Abs(step.Y) + Mathf.Abs(step.Z) == 1)
+        {
+            inward = step;
+        }
+        return true;
+    }
+
+    // What one dab at `hit` covers: the cell and up to Depth-1 behind it. Adding
+    // stops at the first cell that isn't rock — a wall can't be made of air —
+    // and erasing takes the same run back out.
+    private List<Vector3I> BombWallDabCells(Vector3I hit, Vector3I inward, bool erase)
+    {
+        var cells = new List<Vector3I>();
+        int depth = Mathf.Max(1, _bombWallDepth);
+        for (int i = 0; i < depth; i++)
+        {
+            Vector3I cell = hit + inward * i;
+            if (!erase && !Blocks.IsSolid(_worldState.GetBlockWorld(cell.X, cell.Y, cell.Z)))
+            {
+                break;
+            }
+            cells.Add(cell);
+        }
+        return cells;
+    }
+
+    // A press: a cell of another wall makes that wall current (and edits
+    // nothing); anything else opens the stroke's one undo step and dabs.
+    private void BeginBombWallStroke(Vector2 screenPos, bool erase)
+    {
+        if (!TryPickBombWallCell(screenPos, out Vector3I hit, out Vector3I inward))
+        {
+            return;
+        }
+        SceneEntityPlacement owner = BombWallAt(hit);
+        if (owner != null && owner != _currentBombWall)
+        {
+            _currentBombWall = owner;
+            editorHud.ShowToast($"Editing bomb wall ({BombWallCellsOf(owner).Length} cells)", success: true);
+            return;
+        }
+        if (erase && _currentBombWall == null)
+        {
+            return;
+        }
+        _bombWallStroke = true;
+        _bombWallErasing = erase;
+        _lastBombWallHit = hit;
+        EditBombWall(_history.Begin(erase ? "Erase Bomb Wall Cells" : "Paint Bomb Wall"),
+            BombWallDabCells(hit, inward, erase), erase);
+    }
+
+    private void ContinueBombWallStroke(Vector2 screenPos)
+    {
+        if (!TryPickBombWallCell(screenPos, out Vector3I hit, out Vector3I inward) || hit == _lastBombWallHit)
+        {
+            return;
+        }
+        _lastBombWallHit = hit;
+        EditBombWall(_history.Current, BombWallDabCells(hit, inward, _bombWallErasing), _bombWallErasing);
+    }
+
+    // Adds `cells` to the current wall (starting one when there is none), or
+    // takes them out of it. Cells another wall already owns are left to it.
+    private void EditBombWall(EditorEdit edit, List<Vector3I> cells, bool erase)
+    {
+        SceneEntityPlacement wall = _currentBombWall;
+        var ordered = new List<Vector3I>(BombWallCellsOf(wall));
+        var members = new HashSet<Vector3I>(ordered);
+        bool changed = false;
+        foreach (Vector3I cell in cells)
+        {
+            if (erase)
+            {
+                if (members.Remove(cell))
+                {
+                    ordered.Remove(cell);
+                    changed = true;
+                }
+            }
+            else if (!members.Contains(cell))
+            {
+                SceneEntityPlacement owner = BombWallAt(cell);
+                if (owner == null || owner == wall)
+                {
+                    members.Add(cell);
+                    ordered.Add(cell);
+                    changed = true;
+                }
+            }
+        }
+        if (!changed)
+        {
+            return;
+        }
+
+        edit?.TouchScenePlacements(_entities);
+        if (wall == null)
+        {
+            BombWallSpawnEntry paletteEntry = BombWallPaletteEntry();
+            if (paletteEntry == null)
+            {
+                editorHud.ShowToast("No bomb wall entry in the entity palette", success: false);
+                return;
+            }
+            // Anchored on the first cell, so its offsets start at zero.
+            wall = new SceneEntityPlacement
+            {
+                source = paletteEntry,
+                position = (Vector3)ordered[0] + new Vector3(0.5f, 0.5f, 0.5f),
+                seed = (int)GD.Randi(),
+            };
+            _entities.Add(wall);
+            _currentBombWall = wall;
+        }
+
+        // Copy-on-write: the cells are this placement's, never the palette file's.
+        if (wall.EditableEntry() is not BombWallSpawnEntry fork || ReferenceEquals(fork, wall.source))
+        {
+            GD.PushError($"Scene editor: could not fork {wall.Label()} to edit its cells.");
+            return;
+        }
+        // A NEW array every edit: the undo snapshot and the preview's spawn record
+        // hold the old one by reference, and Fork is shallow, so mutating in place
+        // would rewrite both (and the palette file's) behind their backs.
+        var offsets = new Godot.Collections.Array<Vector3I>();
+        foreach (Vector3I cell in ordered)
+        {
+            offsets.Add(BombWallSpawnEntry.LocalOffset(wall.position, wall.rotationY, cell));
+        }
+        fork.cells = offsets;
+
+        // A wall with no cells places nothing — it would only be an invisible
+        // entry in the saved scene.
+        if (offsets.Count == 0)
+        {
+            _entities.Remove(wall);
+            _currentBombWall = null;
+        }
+        SyncEntities(edit);
+    }
+
+    // Drops a current wall an undo took away, outlines every wall's cells (the
+    // current one brighter) and keeps the panel's readout in step.
+    private void TickBombWalls()
+    {
+        if (_currentBombWall != null && (!_entities.Contains(_currentBombWall) || _currentBombWall.Entry is not BombWallSpawnEntry))
+        {
+            _currentBombWall = null;
+        }
+        if (_tool != EEditorTool.BombWall)
+        {
+            return;
+        }
+        editorHud.SetBombWallStatus(_currentBombWall != null ? BombWallCellsOf(_currentBombWall).Length : null);
+        foreach (SceneEntityPlacement placement in _entities.Placements)
+        {
+            if (placement.Entry is not BombWallSpawnEntry)
+            {
+                continue;
+            }
+            Color color = placement == _currentBombWall ? bombWallColor : otherBombWallColor;
+            foreach (Vector3I cell in BombWallCellsOf(placement))
+            {
+                DrawCellBox(cell, BOMB_WALL_OUTLINE_INSET, color);
+            }
+        }
+    }
+
+    // Boxes what a click would add (or, with Ctrl, take out).
+    private void DrawBombWallHover(Vector2 mouse, bool ctrl)
+    {
+        if (_tool != EEditorTool.BombWall || _bombWallStroke || !TryPickBombWallCell(mouse, out Vector3I hit, out Vector3I inward))
+        {
+            return;
+        }
+        SceneEntityPlacement owner = BombWallAt(hit);
+        if (owner != null && owner != _currentBombWall)
+        {
+            // A click here only picks that wall.
+            DrawCellBox(hit, BOMB_WALL_HOVER_INSET, bombWallColor);
+            return;
+        }
+        Color color = ctrl ? bombWallEraseColor : brushPreviewColor;
+        foreach (Vector3I cell in BombWallDabCells(hit, inward, ctrl))
+        {
+            DrawCellBox(cell, BOMB_WALL_HOVER_INSET, color);
+        }
+    }
+
+    // Negative grows the box: the wall outline sits just outside the rock so it
+    // isn't buried in the faces, the hover box just inside it so both read.
+    private const float BOMB_WALL_OUTLINE_INSET = -0.02f;
+    private const float BOMB_WALL_HOVER_INSET = 0.06f;
+
+    private static void DrawCellBox(Vector3I cell, float inset, Color color)
+    {
+        var pad = new Vector3(inset, inset, inset);
+        DebugDraw.Box((Vector3)cell + pad, (Vector3)(cell + Vector3I.One) - pad, color);
     }
 
     // What an editor placement resolves against: the world under the cursor and

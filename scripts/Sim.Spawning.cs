@@ -426,6 +426,55 @@ public partial class Sim
         }
     }
 
+    // Dig at `position`: excavate the nearest unexcavated buried spot within
+    // `radius`, else force the nearest burrowed mob up. False when the hole is
+    // empty. Scans only resident entities — the chunk being dug is loaded.
+    public bool TryDig(Vector3 position, float radius, Player digger)
+    {
+        float r2 = radius * radius;
+        BuriedSpot bestSpot = null;
+        float bestSpotDist = r2;
+        foreach (BuriedSpot spot in GetEntities<BuriedSpot>())
+        {
+            if (spot.Excavated)
+            {
+                continue;
+            }
+            float d = spot.GlobalPosition.DistanceSquaredTo(position);
+            if (d <= bestSpotDist)
+            {
+                bestSpotDist = d;
+                bestSpot = spot;
+            }
+        }
+        if (bestSpot != null && bestSpot.Dig(digger))
+        {
+            return true;
+        }
+
+        Mob bestMob = null;
+        float bestMobDist = r2;
+        foreach (Mob mob in GetEntities<Mob>())
+        {
+            if (!mob.alive || (!mob.burrowed && !mob.burrowing))
+            {
+                continue;
+            }
+            float d = mob.GlobalPosition.DistanceSquaredTo(position);
+            if (d <= bestMobDist)
+            {
+                bestMobDist = d;
+                bestMob = mob;
+            }
+        }
+        if (bestMob != null)
+        {
+            bestMob.DigUp(digger);
+            return true;
+        }
+        return false;
+    }
+
     // Lay down a transient ground mark (footprint, blood stain) at `position`.
     // Delegated to GroundMarkScatter, which batches every mark of the same
     // texture into one MultiMesh (no per-mark Node) and owns the hold-then-fade

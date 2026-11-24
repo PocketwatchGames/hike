@@ -64,7 +64,7 @@ public abstract class VoxelEditTool : IWorldMapTool
     }
 
     // Row 0 is "Ground" — the column's own terrain — and the blocks follow it.
-    // Q/E stays the brush height; a row is picked by clicking it or alt+click.
+    // T/G is the brush height; a row is picked by clicking it or alt+click.
     public string[] Options(WorldMapState ctx)
     {
         if (!PaintsSolid)
@@ -110,10 +110,15 @@ public abstract class VoxelEditTool : IWorldMapTool
         string lmb = !PaintsSolid ? "tunnel (carves ABOVE the level)"
             : WallMode ? "wall (stands on the ground)"
             : "block (fills DOWN to the level)";
+        // T/G keeps PaintY and moves the OTHER end of the box: a tunnel's
+        // ceiling, a fill's underside (a wall's top).
+        string qe = !PaintsSolid ? "ceiling (tunnel height)"
+            : WallMode ? "wall height"
+            : "thickness (moves the bottom)";
         return $"LMB {lmb}"
-            + $"  |  RMB erase the whole {(PaintsSolid ? "slab" : "passage")} under the cut  |  "
+            + $"  |  RMB erase {(PaintsSolid ? "blocks" : "tunnel")} inside the box  |  "
             + (PaintsSolid ? "X level / wall  |  " : "")
-            + "Q/E brush height  |  T/G cutaway  |  alt+LMB pick the level"
+            + $"R/F {(PaintsSolid ? "level" : "floor")}  |  T/G {qe}  |  Q/E cutaway  |  alt+LMB pick the level"
             + (PaintsSolid ? " and block" : "") + ", alt+RMB aim the cutaway";
     }
 
@@ -140,6 +145,18 @@ public abstract class VoxelEditTool : IWorldMapTool
     public string LevelText(WorldMapState ctx, WorldMapView view) => Walls
         ? $"Wall {Height}m above the ground"
         : $"Y={PaintY} [{BottomY}..{BottomY + Height - 1}]";
+
+    // The same box Paint writes: a carve opens PaintY+1..PaintY+Height, a fill
+    // runs down from PaintY, a wall stands Height on the column's ground.
+    public PaintSpan? PaintSpanAt(WorldMapState ctx, int px, int pz)
+    {
+        if (Walls)
+        {
+            int ground = ctx.TerrainHeight(px, pz);
+            return new PaintSpan(ground + Height, ground + 1, ground + Height);
+        }
+        return new PaintSpan(PaintY, BottomY, BottomY + Height - 1);
+    }
 
     private BlockData Block(WorldMapState ctx)
     {
@@ -193,19 +210,18 @@ public abstract class VoxelEditTool : IWorldMapTool
         // Hard-edged, ignoring the falloff, for the reason Flatten is: a corridor
         // has one floor, and easing it in by weight would step its rim.
         bool wantsSolid = PaintsSolid;
-        int clip = view.CutawayY;
         bool walls = Walls;
         int y0 = BottomY;
         int block = wantsSolid ? BlockIndex : -1;
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
-            if (erase)
-            {
-                EraseRun(ctx, px, pz, clip, wantsSolid);
-                return;
-            }
             int th = ctx.TerrainHeight(px, pz);
             int bottom = walls ? th + 1 : y0;
+            if (erase)
+            {
+                EraseBox(ctx, px, pz, bottom, wantsSolid);
+                return;
+            }
             for (int i = 0; i < Height; i++)
             {
                 int wy = bottom + i;
@@ -218,40 +234,28 @@ public abstract class VoxelEditTool : IWorldMapTool
         });
     }
 
-    // RMB removes the WHOLE thing you made at this column — the contiguous run of
-    // this tool's own edit touching the floor the cut exposes, however far it
-    // reaches ABOVE the cut. A box-shaped bite out of a passage leaves a metre of
-    // it behind and needs the brush aimed at a height you may not know; "undo
-    // what is here" needs neither, and it is the same gesture whatever the brush
-    // happens to be set to.
-    //
-    // Only where the cut is OPEN to that floor. A passage under rock draws dimmed
-    // precisely because you are seeing it through something, and erasing what you
-    // cannot see the top of is how a network loses a corridor silently. Lower the
-    // cutaway into it and it is erasable like anything else.
-    private static void EraseRun(WorldMapState ctx, int px, int pz, int clipY, bool wantsSolid)
+    // RMB reverts this tool's own edit inside the BOX the brush would paint, and
+    // nothing outside it: a tunnel stacked above or below in the same column
+    // survives. The column gauge draws the box, so what is erased is visible
+    // before the click. Only this tool's kind is reverted — a tunnel erase never
+    // removes a built block, nor the reverse.
+    private void EraseBox(WorldMapState ctx, int px, int pz, int bottom, bool wantsSolid)
     {
-        int floor = ctx.CutawayFloor(px, pz, clipY, out bool roofed);
-        if (roofed || floor < ctx.Data.WorldMinY)
-        {
-            return;
-        }
-        // A carve stands ABOVE the floor it left; an added slab IS the floor and
-        // stacks below it.
         byte mine = wantsSolid ? WorldMapState.EditAdd : WorldMapState.EditCarve;
-        int step = wantsSolid ? -1 : 1;
-        for (int wy = wantsSolid ? floor : floor + 1;
-            ctx.VoxelEdit(px, pz, wy) == mine;
-            wy += step)
+        for (int i = 0; i < Height; i++)
         {
-            ctx.SetVoxelEdit(px, pz, wy, WorldMapState.EditNone);
+            int wy = bottom + i;
+            if (ctx.VoxelEdit(px, pz, wy) == mine)
+            {
+                ctx.SetVoxelEdit(px, pz, wy, WorldMapState.EditNone);
+            }
         }
     }
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
 
-    public void Cycle(WorldMapState ctx, int dir)
+    public void AdjustBrushHeight(WorldMapState ctx, int dir)
     {
         Height = Mathf.Clamp(Height + dir, 1, 16);
     }

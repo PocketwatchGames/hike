@@ -20,10 +20,11 @@ public partial class Player : CharacterBody3D, IHudAnchored
 	[Export] public PlayerData data;
 	// The movement capsule, read for its crown height by the step-up headroom ray.
 	[Export] private CollisionShape3D _movementCollision;
-	// The character's display name (stats panel, etc.), set from the hosted
-	// PlayerState.characterName at Initialize. Defaults to a placeholder so the
-	// UI always has something to show even before / without spawn data.
-	public string PlayerName { get; private set; } = "Wyatt Anderson";
+	// The character's display name (stats panel, etc.): the hosted member's, which
+	// a conversation can rename mid-run (NamePlayerAction). Falls back to a
+	// placeholder so the UI always has something to show without spawn data.
+	const string FALLBACK_NAME = "Wyatt Anderson";
+	public string PlayerName => string.IsNullOrEmpty(Member?.characterName) ? FALLBACK_NAME : Member.characterName;
 
 	// The party member this Player node is hosting — its identity, appearance,
 	// stat sheet, loadout, and traits. Set at Initialize; the camp stats panel
@@ -1665,12 +1666,6 @@ public partial class Player : CharacterBody3D, IHudAnchored
 		_health = MaxHealth;
 		_oil = data.oilCapacity;
 		_needsSettledClock = sim.WorldClockDays;
-
-		// Adopt the hosted member's name (blank keeps the default).
-		if (!string.IsNullOrEmpty(member?.characterName))
-		{
-			PlayerName = member.characterName;
-		}
 
 		// Instance the base model package for the spawned gender, then activate
 		// the live visual. Must run before UpdateArmorVisual below, which drives

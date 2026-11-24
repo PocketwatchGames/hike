@@ -73,7 +73,7 @@ public class MobTool : IWorldMapTool
     }
 
     public string HintText(WorldMapState ctx)
-        => "T/G lower the cutaway to scatter into the PASSAGES under it (RMB clears)";
+        => "Q/E lower the cutaway to scatter into the PASSAGES under it (RMB clears)";
 
     public string StatusText(WorldMapState ctx, WorldMapView view)
     {
@@ -182,12 +182,6 @@ public class MobTool : IWorldMapTool
 
     public Rect2I? TouchRect(WorldMapState ctx, Vector2I texel, bool erase) => null;
     public Rect2I? LastPaintRect => null;
-    public void Cycle(WorldMapState ctx, int dir)
-    {
-        int n = Mathf.Max(1, ctx.ScatterSets.Length);
-        SetIndex = ((SetIndex + dir) % n + n) % n;
-    }
-
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
         Density = Mathf.Clamp(Density + dir * 0.1f, 0f, 1f);

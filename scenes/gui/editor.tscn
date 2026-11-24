@@ -309,7 +309,7 @@ mouse_filter = 2
 [node name="EditorGizmo" type="Node" parent="." unique_id=1408225650]
 script = ExtResource("15_gizmo")
 
-[node name="EditorHud" type="CanvasLayer" parent="." unique_id=1379480736 node_paths=PackedStringArray("clipLabel", "coordsLabel", "helpLabel", "documentLabel", "toastLabel", "voxelToolButton", "entityToolButton", "roofToolButton", "voxelPalette", "entityPalette", "roofPalette", "voxelInfoPanel", "voxelTab", "entityDetailsPanel", "placeModeButton", "selectModeButton", "selectionLabel", "entityInspector", "snapToGridButton", "snapRotationButton", "roofInfoPanel", "roofTab", "ridgeXButton", "ridgeZButton", "gableFormButton", "hipFormButton", "slopeSlider", "slopeLabel", "brokenSlider", "brokenLabel", "drawRoofModeButton", "editRoofModeButton", "brushImage", "brushNameLabel", "paintButton", "eraseButton", "replaceButton", "voxelShapeButton", "floorShapeButton", "wallShapeButton", "fillShapeButton", "roomShapeButton", "windowShapeButton", "doorShapeButton", "plateauSnapButton", "autoEdgesButton", "blockyEdgesButton", "steppedEdgesButton", "smoothEdgesButton", "lightingButton", "timeOfDaySlider", "weatherOption", "interiorClassOption")]
+[node name="EditorHud" type="CanvasLayer" parent="." unique_id=1379480736 node_paths=PackedStringArray("clipLabel", "coordsLabel", "helpLabel", "documentLabel", "toastLabel", "voxelToolButton", "entityToolButton", "roofToolButton", "voxelPalette", "entityPalette", "roofPalette", "voxelInfoPanel", "voxelTab", "entityDetailsPanel", "placeModeButton", "selectModeButton", "selectionLabel", "entityInspector", "snapToGridButton", "snapRotationButton", "roofInfoPanel", "roofTab", "ridgeXButton", "ridgeZButton", "gableFormButton", "hipFormButton", "slopeSlider", "slopeLabel", "brokenSlider", "brokenLabel", "drawRoofModeButton", "editRoofModeButton", "bombWallToolButton", "bombWallInfoPanel", "bombWallDepthSpin", "newBombWallButton", "bombWallStatusLabel", "brushImage", "brushNameLabel", "paintButton", "eraseButton", "replaceButton", "voxelShapeButton", "floorShapeButton", "wallShapeButton", "fillShapeButton", "roomShapeButton", "windowShapeButton", "doorShapeButton", "plateauSnapButton", "autoEdgesButton", "blockyEdgesButton", "steppedEdgesButton", "smoothEdgesButton", "lightingButton", "timeOfDaySlider", "weatherOption", "interiorClassOption")]
 script = ExtResource("3_hud")
 clipLabel = NodePath("UpperLeft/VBoxContainer/ClipLabel")
 coordsLabel = NodePath("UpperLeft/VBoxContainer/CoordsLabel")
@@ -344,6 +344,11 @@ brokenSlider = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxC
 brokenLabel = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/BrokenLabel")
 drawRoofModeButton = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow/Draw")
 editRoofModeButton = NodePath("MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer/ModeRow/Edit")
+bombWallToolButton = NodePath("MiddleLeft/VBoxContainer/Toolbox/MarginContainer/HBoxContainer/BombWall")
+bombWallInfoPanel = NodePath("MiddleLeft/VBoxContainer/BombWallInfo")
+bombWallDepthSpin = NodePath("MiddleLeft/VBoxContainer/BombWallInfo/MarginContainer/VBoxContainer/DepthRow/Depth")
+newBombWallButton = NodePath("MiddleLeft/VBoxContainer/BombWallInfo/MarginContainer/VBoxContainer/NewWall")
+bombWallStatusLabel = NodePath("MiddleLeft/VBoxContainer/BombWallInfo/MarginContainer/VBoxContainer/StatusLabel")
 brushImage = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/HBoxContainer2/Brush Image")
 brushNameLabel = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/HBoxContainer2/Brush Name")
 paintButton = NodePath("MiddleLeft/VBoxContainer/VoxelInfo/MarginContainer/VBoxContainer/Brush Operation/HBoxContainer/Paint")
@@ -473,6 +478,12 @@ layout_mode = 2
 toggle_mode = true
 button_group = SubResource("ButtonGroup_tool")
 text = "Roofs"
+
+[node name="BombWall" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/Toolbox/MarginContainer/HBoxContainer"]
+layout_mode = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_tool")
+text = "Bomb Wall"
 
 [node name="VoxelInfo" type="PanelContainer" parent="EditorHud/MiddleLeft/VBoxContainer" unique_id=116159314]
 layout_mode = 2
@@ -769,6 +780,50 @@ step = 0.01
 [node name="Help" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/RoofInfo/MarginContainer/VBoxContainer" unique_id=1245429023]
 layout_mode = 2
 text = "Draw: drag a footprint | Edit: click a roof | Ctrl: delete"
+
+[node name="BombWallInfo" type="PanelContainer" parent="EditorHud/MiddleLeft/VBoxContainer"]
+visible = false
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="EditorHud/MiddleLeft/VBoxContainer/BombWallInfo"]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="EditorHud/MiddleLeft/VBoxContainer/BombWallInfo/MarginContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/BombWallInfo/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Bomb Wall"
+
+[node name="DepthRow" type="HBoxContainer" parent="EditorHud/MiddleLeft/VBoxContainer/BombWallInfo/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="DepthLabel" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/BombWallInfo/MarginContainer/VBoxContainer/DepthRow"]
+layout_mode = 2
+text = "Depth"
+
+[node name="Depth" type="SpinBox" parent="EditorHud/MiddleLeft/VBoxContainer/BombWallInfo/MarginContainer/VBoxContainer/DepthRow"]
+layout_mode = 2
+min_value = 1.0
+max_value = 16.0
+value = 1.0
+rounded = true
+
+[node name="NewWall" type="Button" parent="EditorHud/MiddleLeft/VBoxContainer/BombWallInfo/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "New Wall (N)"
+
+[node name="StatusLabel" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/BombWallInfo/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "No wall: click rock to start one"
+
+[node name="Help" type="Label" parent="EditorHud/MiddleLeft/VBoxContainer/BombWallInfo/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "LMB: add cells | Ctrl+LMB: remove | Click another wall to edit it"
 
 [node name="UpperRight" type="MarginContainer" parent="EditorHud" unique_id=259976953]
 anchors_preset = 1

@@ -19,6 +19,7 @@
 [ext_resource type="Resource" uid="uid://fou5abjylf85" path="res://resources/data/voxels/surfaces/surface_climb_lichen.tres" id="surf_climb"]
 [ext_resource type="Resource" uid="uid://b67xqsirxsem6" path="res://resources/data/voxels/surfaces/surface_climb_ivy.tres" id="surf_climb_ivy"]
 [ext_resource type="Resource" uid="uid://c2kcyv7do7ixy" path="res://resources/data/voxels/surfaces/surface_climb_moss.tres" id="surf_climb_moss"]
+[ext_resource type="Resource" path="res://resources/data/voxels/surfaces/surface_cracked_rock.tres" id="surf_cracked_rock"]
 [ext_resource type="Resource" uid="uid://8h4it463afvd" path="res://resources/data/voxels/surfaces/surface_moss.tres" id="surf_moss"]
 [ext_resource type="Resource" uid="uid://dwyv7abgsj0pn" path="res://resources/data/voxels/surfaces/surface_snow.tres" id="surf_snow"]
 [ext_resource type="Resource" uid="uid://b7owdi1lgua86" path="res://resources/data/voxels/surfaces/surface_water_algae.tres" id="surf_walgae"]
@@ -178,6 +179,13 @@ color = "textures/terrain/Stylized_Snow/Stylized_Snow_basecolor.png"
 normal = "textures/terrain/Stylized_Snow/Stylized_Snow_normal.png"
 height = "textures/terrain/Stylized_Snow/Stylized_Snow_height.png"
 
+[sub_resource type="Resource" id="layer_cracked_rock"]
+script = ExtResource("s_layer")
+surface = ExtResource("surf_cracked_rock")
+color = "textures/terrain/Cracked_Rock/CrackedRock_basecolor.png"
+normal = "textures/terrain/Cracked_Rock/CrackedRock_normal.png"
+height = "textures/terrain/Cracked_Rock/CrackedRock_height.png"
+
 [resource]
 script = ExtResource("29_04t8j")
-layers = [SubResource("layer_0"), SubResource("layer_1"), SubResource("layer_3"), SubResource("Resource_04t8j"), SubResource("layer_4"), SubResource("layer_6"), SubResource("layer_7"), SubResource("layer_8"), SubResource("layer_9"), SubResource("layer_10"), SubResource("layer_11"), SubResource("Resource_f3wyc"), SubResource("Resource_auws8"), SubResource("Resource_njij0"), SubResource("Resource_a7rev"), SubResource("layer_moss"), SubResource("layer_climb"), SubResource("layer_climb_ivy"), SubResource("layer_climb_moss"), SubResource("layer_water_scum"), SubResource("layer_water_algae"), SubResource("layer_snow")]
+layers = [SubResource("layer_0"), SubResource("layer_1"), SubResource("layer_3"), SubResource("Resource_04t8j"), SubResource("layer_4"), SubResource("layer_6"), SubResource("layer_7"), SubResource("layer_8"), SubResource("layer_9"), SubResource("layer_10"), SubResource("layer_11"), SubResource("Resource_f3wyc"), SubResource("Resource_auws8"), SubResource("Resource_njij0"), SubResource("Resource_a7rev"), SubResource("layer_moss"), SubResource("layer_climb"), SubResource("layer_climb_ivy"), SubResource("layer_climb_moss"), SubResource("layer_water_scum"), SubResource("layer_water_algae"), SubResource("layer_snow"), SubResource("layer_cracked_rock")]

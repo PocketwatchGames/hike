@@ -1,9 +1,9 @@
 key	value
 intro_fairy_description	Glowing Figure
 intro_fairy_greeting_01	It moves! It has soggy eyes though. So soggy.
-intro_fairy_greeting_02	Your friends ran off. The bear ate one. His guts are up ahead.
+intro_fairy_greeting_02	Your friends ran off. The rats ate one. His guts are up ahead.
 intro_fairy_climb_01	Can you fly? No? How about climb? Come over here and press [input:interact].
-intro_fairy_guts_01	Oooh! The bear eated your friend’s guts. I tasted too. But only a little bit. He has some things you might want though. Come over here and press [input:interact]!
+intro_fairy_guts_01	Oooh! The rats eated your friend’s guts. I tasted too. But only a little bit. He has some things you might want though. Come over here and press [input:interact]!
 intro_fairy_melee_01	Look out for these fossils. Bonk them with [input:melee]
 intro_fairy_sneak_01	You could also do the sneaky sneaky! Hold [input:sneak] and sneak by him!
 intro_fairy_ranged_01	Did you pick up the pistol from your friend’s guts? You can aim it with [input:aim] and shoot it with [input:ranged].
@@ -40,3 +40,7 @@ festering_man_hiding_topics_end	Trade?
 festering_man_hiding_topics_hiding_cookpot	What did you say about the cookpot?
 festering_man_hiding_cookpot_01	Cook 3 cuts of goblin flesh you’ll feed us both! [narrate]He holds up 3 fingers[/narrate]
 festering_man_mist_01	It comes and goes. You can hear it. Like cicadas. Worse at night.
+northerner_greetings_01	Who goes there?
+northerner_greeeting_response_dangers	I… I’m a traveller? My ship ran afoul of the shoal and my mates fell to the dangers of that island.
+northerner_dangers_01	The island? Iluna’s Rock? Well if they couldn’t handle a few nibbling rats then  they wouldn’t have made it far out here.
+northerner_dangers_02	What was your name again?

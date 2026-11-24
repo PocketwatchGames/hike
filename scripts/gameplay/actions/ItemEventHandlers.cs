@@ -1605,6 +1605,37 @@ public static class ItemEventHandlers
 		return rounds > 0;
 	}
 
+	// Digs at the player's aim cursor, or ev.digReach in front of them. A find
+	// wears the driving tool by its Digging ToolUse; an empty hole costs nothing
+	// and plays ev.digNothingEffect.
+	public static void DoDig(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		Sim sim = Sim.Current;
+		if (actor is not Player player || sim == null)
+		{
+			return;
+		}
+		Vector3 center;
+		if (player.AimingReticle != null && player.AimingReticle.HasAimWorldPosition)
+		{
+			center = player.AimingReticle.AimWorldPosition;
+		}
+		else
+		{
+			Vector3 forward = player.ActorForward;
+			forward.Y = 0f;
+			center = player.ActorWorldPosition + forward.Normalized() * ev.digReach;
+		}
+		if (sim.TryDig(center, ev.digRadius, player))
+		{
+			player.WearTool(action.context.primaryItem, EToolKind.Digging);
+		}
+		else if (ev.digNothingEffect != null)
+		{
+			Fx.Create(ev.digNothingEffect, sim, center);
+		}
+	}
+
 	public static void DoUseDurability(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		if (actor is Player player && action.context.primaryItem is WeaponState weapon)

@@ -15,6 +15,10 @@ using Godot;
 // so an OpenShop action that closes the conversation will suppress the
 // unread branch or chooser entirely.
 //
+// An action that needs the player before the conversation goes on calls
+// ctx.controller.Hold() and Release() once answered (NamePlayerAction); what
+// follows the actions waits for it.
+//
 // The runtime calls Execute once per traversal; idempotency /
 // repeat-suppression is the subclass's responsibility.
 [GlobalClass]
